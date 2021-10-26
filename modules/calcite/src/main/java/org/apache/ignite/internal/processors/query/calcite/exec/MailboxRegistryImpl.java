@@ -52,6 +52,11 @@ public class MailboxRegistryImpl implements MailboxRegistry {
      */
     private final Map<MailboxKey, Inbox<?>> remotes;
 
+    /**
+     * Constructor.
+     *
+     * @param topSrvc Topology service.
+     */
     public MailboxRegistryImpl(TopologyService topSrvc) {
         locals = new ConcurrentHashMap<>();
         remotes = new ConcurrentHashMap<>();

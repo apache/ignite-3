@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Key-value serializer interface.
  */
-public interface KVSerializer<K, V> {
+public interface KvSerializer<K, V> {
     /**
      * @param key Key object to serialize.
      * @param val Value object to serialize.

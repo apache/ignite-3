@@ -39,7 +39,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * A part of exchange.
  */
-public class Outbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, SingleNode<Row>, Downstream<Row> {
+public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, SingleNode<RowT>, Downstream<RowT> {
     /**
      *
      */
@@ -63,12 +63,12 @@ public class Outbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Sing
     /**
      *
      */
-    private final Destination<Row> dest;
+    private final Destination<RowT> dest;
 
     /**
      *
      */
-    private final Deque<Row> inBuf = new ArrayDeque<>(inBufSize);
+    private final Deque<RowT> inBuf = new ArrayDeque<>(inBufSize);
 
     /**
      *
@@ -89,13 +89,13 @@ public class Outbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Sing
      * @param dest             Destination.
      */
     public Outbox(
-            ExecutionContext<Row> ctx,
+            ExecutionContext<RowT> ctx,
             RelDataType rowType,
             ExchangeService exchange,
             MailboxRegistry registry,
             long exchangeId,
             long targetFragmentId,
-            Destination<Row> dest
+            Destination<RowT> dest
     ) {
         super(ctx, rowType);
         this.exchange = exchange;
@@ -146,7 +146,7 @@ public class Outbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Sing
 
     /** {@inheritDoc} */
     @Override
-    public void push(Row row) throws Exception {
+    public void push(RowT row) throws Exception {
         assert waiting > 0;
 
         checkState();
@@ -199,7 +199,7 @@ public class Outbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Sing
 
     /** {@inheritDoc} */
     @Override
-    public void onRegister(Downstream<Row> downstream) {
+    public void onRegister(Downstream<RowT> downstream) {
         throw new UnsupportedOperationException();
     }
 
@@ -211,7 +211,7 @@ public class Outbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Sing
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         if (idx != 0) {
             throw new IndexOutOfBoundsException();
         }
@@ -222,7 +222,7 @@ public class Outbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Sing
     /**
      *
      */
-    private void sendBatch(String nodeId, int batchId, boolean last, List<Row> rows) throws IgniteInternalCheckedException {
+    private void sendBatch(String nodeId, int batchId, boolean last, List<RowT> rows) throws IgniteInternalCheckedException {
         exchange.sendBatch(nodeId, queryId(), targetFragmentId, exchangeId, batchId, last, rows);
     }
 
@@ -275,7 +275,7 @@ public class Outbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Sing
                 return;
             }
 
-            Row row = inBuf.remove();
+            RowT row = inBuf.remove();
 
             for (Buffer dest : buffers) {
                 dest.add(row);
@@ -324,7 +324,7 @@ public class Outbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Sing
         /**
          *
          */
-        private List<Row> curr;
+        private List<RowT> curr;
 
         /**
          *
@@ -353,7 +353,7 @@ public class Outbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Sing
          *
          * @param row Row.
          */
-        public void add(Row row) throws IgniteInternalCheckedException {
+        public void add(RowT row) throws IgniteInternalCheckedException {
             assert ready();
 
             if (curr.size() == IO_BATCH_SIZE) {
@@ -376,7 +376,7 @@ public class Outbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Sing
             int batchId = hwm + 1;
             hwm = Integer.MAX_VALUE;
 
-            List<Row> tmp = curr;
+            List<RowT> tmp = curr;
             curr = null;
 
             sendBatch(nodeId, batchId, true, tmp);

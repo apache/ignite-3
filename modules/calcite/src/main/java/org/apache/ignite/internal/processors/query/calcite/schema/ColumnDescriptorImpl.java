@@ -48,6 +48,9 @@ public class ColumnDescriptorImpl implements ColumnDescriptor {
      */
     private final NativeType storageType;
 
+    /**
+     *
+     */
     public ColumnDescriptorImpl(
             String name,
             boolean key,

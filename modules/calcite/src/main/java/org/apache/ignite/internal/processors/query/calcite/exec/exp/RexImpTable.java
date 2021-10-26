@@ -459,11 +459,11 @@ public class RexImpTable {
                         false);
         map.put(IS_EMPTY, isEmptyImplementor);
         map.put(IS_NOT_EMPTY, NotImplementor.of(isEmptyImplementor));
-        final MethodImplementor isASetImplementor =
+        final MethodImplementor isSetImplementor =
                 new MethodImplementor(BuiltInMethod.IS_A_SET.method, NullPolicy.NONE,
                         false);
-        map.put(IS_A_SET, isASetImplementor);
-        map.put(IS_NOT_A_SET, NotImplementor.of(isASetImplementor));
+        map.put(IS_A_SET, isSetImplementor);
+        map.put(IS_NOT_A_SET, NotImplementor.of(isSetImplementor));
         defineMethod(MULTISET_INTERSECT_DISTINCT,
                 BuiltInMethod.MULTISET_INTERSECT_DISTINCT.method, NullPolicy.NONE);
         defineMethod(MULTISET_INTERSECT,

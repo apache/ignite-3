@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 /**
  *
  */
-public final class Partitioned<Row> implements Destination<Row> {
+public final class Partitioned<RowT> implements Destination<RowT> {
     /**
      *
      */
@@ -34,19 +34,19 @@ public final class Partitioned<Row> implements Destination<Row> {
     /**
      *
      */
-    private final ToIntFunction<Row> partFun;
+    private final ToIntFunction<RowT> partFun;
 
     /**
      *
      */
-    public Partitioned(List<List<String>> assignments, ToIntFunction<Row> partFun) {
+    public Partitioned(List<List<String>> assignments, ToIntFunction<RowT> partFun) {
         this.assignments = assignments;
         this.partFun = partFun;
     }
 
     /** {@inheritDoc} */
     @Override
-    public List<String> targets(Row row) {
+    public List<String> targets(RowT row) {
         return assignments.get(partFun.applyAsInt(row) % assignments.size());
     }
 

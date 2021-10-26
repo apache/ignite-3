@@ -130,17 +130,17 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     /** {@inheritDoc} */
     @Override
-    public <Row> Row toRow(
-            ExecutionContext<Row> ectx,
+    public <RowT> RowT toRow(
+            ExecutionContext<RowT> ectx,
             Tuple row,
-            RowHandler.RowFactory<Row> factory,
+            RowHandler.RowFactory<RowT> factory,
             @Nullable ImmutableBitSet requiredColumns
     ) {
-        RowHandler<Row> handler = factory.handler();
+        RowHandler<RowT> handler = factory.handler();
 
         assert handler == ectx.rowHandler();
 
-        Row res = factory.create();
+        RowT res = factory.create();
 
         assert handler.columnCount(res) == (requiredColumns == null ? descriptors.length : requiredColumns.cardinality());
 
@@ -163,9 +163,9 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     /** {@inheritDoc} */
     @Override
-    public <Row> Tuple toTuple(
-            ExecutionContext<Row> ectx,
-            Row row,
+    public <RowT> Tuple toTuple(
+            ExecutionContext<RowT> ectx,
+            RowT row,
             TableModify.Operation op,
             Object arg
     ) {
@@ -258,10 +258,10 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     /**
      *
      */
-    private <Row> Tuple insertTuple(Row row, ExecutionContext<Row> ectx) {
+    private <RowT> Tuple insertTuple(RowT row, ExecutionContext<RowT> ectx) {
         Tuple tuple = Tuple.create(descriptors.length);
 
-        RowHandler<Row> hnd = ectx.rowHandler();
+        RowHandler<RowT> hnd = ectx.rowHandler();
 
         for (int i = 0; i < descriptors.length; i++) {
             tuple.set(descriptors[i].name(), hnd.get(i, row));
@@ -273,8 +273,8 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     /**
      *
      */
-    private <Row> Tuple updateTuple(Row row, List<String> updateColList, ExecutionContext<Row> ectx) {
-        RowHandler<Row> hnd = ectx.rowHandler();
+    private <RowT> Tuple updateTuple(RowT row, List<String> updateColList, ExecutionContext<RowT> ectx) {
+        RowHandler<RowT> hnd = ectx.rowHandler();
         int offset = descriptorsMap.size();
         Tuple tuple = Tuple.create(descriptors.length);
         Set<String> colsToSkip = new HashSet<>(updateColList);
@@ -303,8 +303,8 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     /**
      *
      */
-    private <Row> Tuple deleteTuple(Row row, ExecutionContext<Row> ectx) {
-        RowHandler<Row> hnd = ectx.rowHandler();
+    private <RowT> Tuple deleteTuple(RowT row, ExecutionContext<RowT> ectx) {
+        RowHandler<RowT> hnd = ectx.rowHandler();
         Tuple tuple = Tuple.create(keyFields.cardinality());
 
         int idx = 0;

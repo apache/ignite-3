@@ -21,6 +21,9 @@ import java.util.function.Consumer;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
 
+/**
+ *
+ */
 public class NodeLeaveHandler implements TopologyEventHandler {
     private final Consumer<ClusterNode> onDisappeared;
 

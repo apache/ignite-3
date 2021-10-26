@@ -25,7 +25,7 @@ import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext
 /**
  *
  */
-public class UnionAllNode<Row> extends AbstractNode<Row> implements Downstream<Row> {
+public class UnionAllNode<RowT> extends AbstractNode<RowT> implements Downstream<RowT> {
     /**
      *
      */
@@ -39,13 +39,13 @@ public class UnionAllNode<Row> extends AbstractNode<Row> implements Downstream<R
     /**
      * @param ctx Execution context.
      */
-    public UnionAllNode(ExecutionContext<Row> ctx, RelDataType rowType) {
+    public UnionAllNode(ExecutionContext<RowT> ctx, RelDataType rowType) {
         super(ctx, rowType);
     }
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         assert sources() != null;
         assert idx >= 0 && idx < sources().size();
 
@@ -65,7 +65,7 @@ public class UnionAllNode<Row> extends AbstractNode<Row> implements Downstream<R
 
     /** {@inheritDoc} */
     @Override
-    public void push(Row row) throws Exception {
+    public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
 
@@ -102,7 +102,7 @@ public class UnionAllNode<Row> extends AbstractNode<Row> implements Downstream<R
     /**
      *
      */
-    private Node<Row> source() {
+    private Node<RowT> source() {
         return sources().get(curSrc);
     }
 }

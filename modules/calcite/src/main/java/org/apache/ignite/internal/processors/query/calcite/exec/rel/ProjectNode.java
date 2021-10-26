@@ -26,17 +26,17 @@ import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext
 /**
  *
  */
-public class ProjectNode<Row> extends AbstractNode<Row> implements SingleNode<Row>, Downstream<Row> {
+public class ProjectNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     /**
      *
      */
-    private final Function<Row, Row> prj;
+    private final Function<RowT, RowT> prj;
 
     /**
      * @param ctx Execution context.
      * @param prj Projection.
      */
-    public ProjectNode(ExecutionContext<Row> ctx, RelDataType rowType, Function<Row, Row> prj) {
+    public ProjectNode(ExecutionContext<RowT> ctx, RelDataType rowType, Function<RowT, RowT> prj) {
         super(ctx, rowType);
 
         this.prj = prj;
@@ -61,7 +61,7 @@ public class ProjectNode<Row> extends AbstractNode<Row> implements SingleNode<Ro
 
     /** {@inheritDoc} */
     @Override
-    public void push(Row row) throws Exception {
+    public void push(RowT row) throws Exception {
         assert downstream() != null;
 
         checkState();
@@ -81,7 +81,7 @@ public class ProjectNode<Row> extends AbstractNode<Row> implements SingleNode<Ro
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         if (idx != 0) {
             throw new IndexOutOfBoundsException();
         }

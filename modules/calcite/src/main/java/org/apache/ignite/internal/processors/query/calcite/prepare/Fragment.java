@@ -124,7 +124,7 @@ public class Fragment {
      */
     private FragmentMapping mapping(PlanningContext ctx, RelMetadataQuery mq, Supplier<List<String>> nodesSource) {
         try {
-            FragmentMapping mapping = IgniteMdFragmentMapping._fragmentMapping(root, mq);
+            FragmentMapping mapping = IgniteMdFragmentMapping.fragmentMappingForMetadataQuery(root, mq);
 
             if (rootFragment()) {
                 mapping = FragmentMapping.create(ctx.localNodeId()).colocate(mapping);

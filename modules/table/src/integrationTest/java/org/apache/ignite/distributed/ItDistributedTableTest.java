@@ -89,9 +89,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Distributed internal table tests.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ITDistributedTableTest {
+public class ItDistributedTableTest {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ITDistributedTableTest.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ItDistributedTableTest.class);
 
     /** Base network port. */
     public static final int NODE_PORT_BASE = 20_000;

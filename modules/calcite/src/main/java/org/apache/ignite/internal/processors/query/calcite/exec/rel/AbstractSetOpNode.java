@@ -35,7 +35,7 @@ import org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.GroupKey
 /**
  * Abstract execution node for set operators (EXCEPT, INTERSECT).
  */
-public abstract class AbstractSetOpNode<Row> extends AbstractNode<Row> {
+public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
     /**
      *
      */
@@ -44,7 +44,7 @@ public abstract class AbstractSetOpNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private final Grouping<Row> grouping;
+    private final Grouping<RowT> grouping;
 
     /**
      *
@@ -67,8 +67,8 @@ public abstract class AbstractSetOpNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    protected AbstractSetOpNode(ExecutionContext<Row> ctx, RelDataType rowType, AggregateType type, boolean all,
-            RowFactory<Row> rowFactory, Grouping<Row> grouping) {
+    protected AbstractSetOpNode(ExecutionContext<RowT> ctx, RelDataType rowType, AggregateType type, boolean all,
+            RowFactory<RowT> rowFactory, Grouping<RowT> grouping) {
         super(ctx, rowType);
 
         this.type = type;
@@ -96,7 +96,7 @@ public abstract class AbstractSetOpNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    public void push(Row row, int idx) throws Exception {
+    public void push(RowT row, int idx) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
 
@@ -148,10 +148,10 @@ public abstract class AbstractSetOpNode<Row> extends AbstractNode<Row> {
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
-        return new Downstream<Row>() {
+    protected Downstream<RowT> requestDownstream(int idx) {
+        return new Downstream<RowT>() {
             @Override
-            public void push(Row row) throws Exception {
+            public void push(RowT row) throws Exception {
                 AbstractSetOpNode.this.push(row, idx);
             }
 
@@ -187,7 +187,7 @@ public abstract class AbstractSetOpNode<Row> extends AbstractNode<Row> {
             if (requested > 0 && !grouping.isEmpty()) {
                 int toSnd = Math.min(requested, inBufSize - processed);
 
-                for (Row row : grouping.getRows(toSnd)) {
+                for (RowT row : grouping.getRows(toSnd)) {
                     requested--;
 
                     downstream().push(row);
@@ -216,7 +216,7 @@ public abstract class AbstractSetOpNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    protected abstract static class Grouping<Row> {
+    protected abstract static class Grouping<RowT> {
         /**
          *
          */
@@ -225,7 +225,7 @@ public abstract class AbstractSetOpNode<Row> extends AbstractNode<Row> {
         /**
          *
          */
-        protected final RowHandler<Row> hnd;
+        protected final RowHandler<RowT> hnd;
 
         /**
          *
@@ -240,7 +240,7 @@ public abstract class AbstractSetOpNode<Row> extends AbstractNode<Row> {
         /**
          *
          */
-        protected final RowFactory<Row> rowFactory;
+        protected final RowFactory<RowT> rowFactory;
 
         /** Processed rows count in current set. */
         protected int rowsCnt = 0;
@@ -248,7 +248,7 @@ public abstract class AbstractSetOpNode<Row> extends AbstractNode<Row> {
         /**
          *
          */
-        protected Grouping(ExecutionContext<Row> ctx, RowFactory<Row> rowFactory, AggregateType type, boolean all) {
+        protected Grouping(ExecutionContext<RowT> ctx, RowFactory<RowT> rowFactory, AggregateType type, boolean all) {
             hnd = ctx.rowHandler();
             this.type = type;
             this.all = all;
@@ -258,7 +258,7 @@ public abstract class AbstractSetOpNode<Row> extends AbstractNode<Row> {
         /**
          *
          */
-        private void add(Row row, int setIdx) {
+        private void add(RowT row, int setIdx) {
             if (type == AggregateType.REDUCE) {
                 assert setIdx == 0 : "Unexpected set index: " + setIdx;
 
@@ -276,7 +276,7 @@ public abstract class AbstractSetOpNode<Row> extends AbstractNode<Row> {
          * @param cnt Number of rows.
          * @return Actually sent rows number.
          */
-        private List<Row> getRows(int cnt) {
+        private List<RowT> getRows(int cnt) {
             if (nullOrEmpty(groups)) {
                 return Collections.emptyList();
             } else if (type == AggregateType.MAP) {
@@ -289,7 +289,7 @@ public abstract class AbstractSetOpNode<Row> extends AbstractNode<Row> {
         /**
          *
          */
-        protected GroupKey key(Row row) {
+        protected GroupKey key(RowT row) {
             int size = hnd.columnCount(row);
 
             Object[] fields = new Object[size];
@@ -311,17 +311,17 @@ public abstract class AbstractSetOpNode<Row> extends AbstractNode<Row> {
         /**
          *
          */
-        protected abstract void addOnSingle(Row row, int setIdx);
+        protected abstract void addOnSingle(RowT row, int setIdx);
 
         /**
          *
          */
-        protected abstract void addOnMapper(Row row, int setIdx);
+        protected abstract void addOnMapper(RowT row, int setIdx);
 
         /**
          *
          */
-        protected void addOnReducer(Row row) {
+        protected void addOnReducer(RowT row) {
             GroupKey grpKey = (GroupKey) hnd.get(0, row);
             int[] cntrsMap = (int[]) hnd.get(1, row);
 
@@ -337,11 +337,11 @@ public abstract class AbstractSetOpNode<Row> extends AbstractNode<Row> {
         /**
          *
          */
-        protected List<Row> getOnMapper(int cnt) {
+        protected List<RowT> getOnMapper(int cnt) {
             Iterator<Map.Entry<GroupKey, int[]>> it = groups.entrySet().iterator();
 
             int amount = Math.min(cnt, groups.size());
-            List<Row> res = new ArrayList<>(amount);
+            List<RowT> res = new ArrayList<>(amount);
 
             while (amount > 0 && it.hasNext()) {
                 Map.Entry<GroupKey, int[]> entry = it.next();
@@ -362,10 +362,10 @@ public abstract class AbstractSetOpNode<Row> extends AbstractNode<Row> {
         /**
          *
          */
-        protected List<Row> getOnSingleOrReducer(int cnt) {
+        protected List<RowT> getOnSingleOrReducer(int cnt) {
             Iterator<Map.Entry<GroupKey, int[]>> it = groups.entrySet().iterator();
 
-            List<Row> res = new ArrayList<>(cnt);
+            List<RowT> res = new ArrayList<>(cnt);
 
             while (it.hasNext() && cnt > 0) {
                 Map.Entry<GroupKey, int[]> entry = it.next();
@@ -378,7 +378,7 @@ public abstract class AbstractSetOpNode<Row> extends AbstractNode<Row> {
                     fields[i] = key.field(i);
                 }
 
-                Row row = rowFactory.create(fields);
+                RowT row = rowFactory.create(fields);
 
                 int[] cntrs = entry.getValue();
 

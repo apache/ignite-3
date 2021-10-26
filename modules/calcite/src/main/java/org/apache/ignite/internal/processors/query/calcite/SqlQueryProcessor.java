@@ -38,6 +38,9 @@ import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * SQL QueryProcessor implementation.
+ */
 public class SqlQueryProcessor implements QueryProcessor {
     /** Default Ignite thread keep alive time. */
     public static final long DFLT_THREAD_KEEP_ALIVE_TIME = 60_000L;

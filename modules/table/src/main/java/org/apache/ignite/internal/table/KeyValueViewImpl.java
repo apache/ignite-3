@@ -25,7 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.KVSerializer;
+import org.apache.ignite.internal.schema.marshaller.KvSerializer;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
@@ -64,7 +64,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public @NotNull CompletableFuture<V> getAsync(@NotNull K key) {
         Objects.requireNonNull(key);
 
-        final KVSerializer<K, V> marsh = marshaller();
+        final KvSerializer<K, V> marsh = marshaller();
 
         Row keyRow = marsh.serialize(key, null); // Convert to portable format to pass TX/storage layer.
 
@@ -273,7 +273,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     /**
      * @return Marshaller.
      */
-    private KVSerializer<K, V> marshaller() {
+    private KvSerializer<K, V> marshaller() {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 

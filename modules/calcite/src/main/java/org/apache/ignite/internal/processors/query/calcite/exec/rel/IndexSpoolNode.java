@@ -33,12 +33,12 @@ import org.apache.ignite.internal.processors.query.calcite.exec.RuntimeTreeIndex
 /**
  * Index spool node.
  */
-public class IndexSpoolNode<Row> extends AbstractNode<Row> implements SingleNode<Row>, Downstream<Row> {
+public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     /** Scan. */
-    private final ScanNode<Row> scan;
+    private final ScanNode<RowT> scan;
 
     /** Runtime index */
-    private final RuntimeIndex<Row> idx;
+    private final RuntimeIndex<RowT> idx;
 
     /**
      *
@@ -54,10 +54,10 @@ public class IndexSpoolNode<Row> extends AbstractNode<Row> implements SingleNode
      * @param ctx Execution context.
      */
     private IndexSpoolNode(
-            ExecutionContext<Row> ctx,
+            ExecutionContext<RowT> ctx,
             RelDataType rowType,
-            RuntimeIndex<Row> idx,
-            ScanNode<Row> scan
+            RuntimeIndex<RowT> idx,
+            ScanNode<RowT> scan
     ) {
         super(ctx, rowType);
 
@@ -69,7 +69,7 @@ public class IndexSpoolNode<Row> extends AbstractNode<Row> implements SingleNode
      *
      */
     @Override
-    public void onRegister(Downstream<Row> downstream) {
+    public void onRegister(Downstream<RowT> downstream) {
         scan.onRegister(downstream);
     }
 
@@ -77,7 +77,7 @@ public class IndexSpoolNode<Row> extends AbstractNode<Row> implements SingleNode
      *
      */
     @Override
-    public Downstream<Row> downstream() {
+    public Downstream<RowT> downstream() {
         return scan.downstream();
     }
 
@@ -95,7 +95,7 @@ public class IndexSpoolNode<Row> extends AbstractNode<Row> implements SingleNode
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         if (idx != 0) {
             throw new IndexOutOfBoundsException();
         }
@@ -131,7 +131,7 @@ public class IndexSpoolNode<Row> extends AbstractNode<Row> implements SingleNode
 
     /** {@inheritDoc} */
     @Override
-    public void push(Row row) throws Exception {
+    public void push(RowT row) throws Exception {
         checkState();
 
         idx.push(row);
@@ -181,18 +181,18 @@ public class IndexSpoolNode<Row> extends AbstractNode<Row> implements SingleNode
     /**
      *
      */
-    public static <Row> IndexSpoolNode<Row> createTreeSpool(
-            ExecutionContext<Row> ctx,
+    public static <RowT> IndexSpoolNode<RowT> createTreeSpool(
+            ExecutionContext<RowT> ctx,
             RelDataType rowType,
             RelCollation collation,
-            Comparator<Row> comp,
-            Predicate<Row> filter,
-            Supplier<Row> lowerIdxBound,
-            Supplier<Row> upperIdxBound
+            Comparator<RowT> comp,
+            Predicate<RowT> filter,
+            Supplier<RowT> lowerIdxBound,
+            Supplier<RowT> upperIdxBound
     ) {
-        RuntimeTreeIndex<Row> idx = new RuntimeTreeIndex<>(ctx, collation, comp);
+        RuntimeTreeIndex<RowT> idx = new RuntimeTreeIndex<>(ctx, collation, comp);
 
-        ScanNode<Row> scan = new ScanNode<>(
+        ScanNode<RowT> scan = new ScanNode<>(
                 ctx,
                 rowType,
                 idx.scan(
@@ -210,15 +210,15 @@ public class IndexSpoolNode<Row> extends AbstractNode<Row> implements SingleNode
     /**
      *
      */
-    public static <Row> IndexSpoolNode<Row> createHashSpool(
-            ExecutionContext<Row> ctx,
+    public static <RowT> IndexSpoolNode<RowT> createHashSpool(
+            ExecutionContext<RowT> ctx,
             RelDataType rowType,
             ImmutableBitSet keys,
-            Supplier<Row> searchRow
+            Supplier<RowT> searchRow
     ) {
-        RuntimeHashIndex<Row> idx = new RuntimeHashIndex<>(ctx, keys);
+        RuntimeHashIndex<RowT> idx = new RuntimeHashIndex<>(ctx, keys);
 
-        ScanNode<Row> scan = new ScanNode<>(
+        ScanNode<RowT> scan = new ScanNode<>(
                 ctx,
                 rowType,
                 idx.scan(searchRow)

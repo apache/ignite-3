@@ -43,7 +43,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Runtime context allowing access to the tables in a database.
  */
-public class ExecutionContext<Row> implements DataContext {
+public class ExecutionContext<RowT> implements DataContext {
     /**
      *
      */
@@ -77,12 +77,12 @@ public class ExecutionContext<Row> implements DataContext {
     /**
      *
      */
-    private final RowHandler<Row> handler;
+    private final RowHandler<RowT> handler;
 
     /**
      *
      */
-    private final ExpressionFactory<Row> expressionFactory;
+    private final ExpressionFactory<RowT> expressionFactory;
 
     /**
      *
@@ -114,7 +114,7 @@ public class ExecutionContext<Row> implements DataContext {
             PlanningContext ctx,
             UUID qryId,
             FragmentDescription fragmentDesc,
-            RowHandler<Row> handler,
+            RowHandler<RowT> handler,
             Map<String, Object> params
     ) {
         this.executor = executor;
@@ -184,14 +184,14 @@ public class ExecutionContext<Row> implements DataContext {
     /**
      * @return Handler to access row fields.
      */
-    public RowHandler<Row> rowHandler() {
+    public RowHandler<RowT> rowHandler() {
         return handler;
     }
 
     /**
      * @return Expression factory.
      */
-    public ExpressionFactory<Row> expressionFactory() {
+    public ExpressionFactory<RowT> expressionFactory() {
         return expressionFactory;
     }
 

@@ -44,19 +44,19 @@ import org.apache.ignite.lang.IgniteInternalException;
 /**
  *
  */
-public class HashAggregateNode<Row> extends AbstractNode<Row> implements SingleNode<Row>, Downstream<Row> {
+public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     /**
      *
      */
     private final AggregateType type;
 
     /** May be {@code null} when there are not accumulators (DISTINCT aggregate node). */
-    private final Supplier<List<AccumulatorWrapper<Row>>> accFactory;
+    private final Supplier<List<AccumulatorWrapper<RowT>>> accFactory;
 
     /**
      *
      */
-    private final RowFactory<Row> rowFactory;
+    private final RowFactory<RowT> rowFactory;
 
     /**
      *
@@ -87,8 +87,8 @@ public class HashAggregateNode<Row> extends AbstractNode<Row> implements SingleN
      * @param ctx Execution context.
      */
     public HashAggregateNode(
-            ExecutionContext<Row> ctx, RelDataType rowType, AggregateType type, List<ImmutableBitSet> grpSets,
-            Supplier<List<AccumulatorWrapper<Row>>> accFactory, RowFactory<Row> rowFactory) {
+            ExecutionContext<RowT> ctx, RelDataType rowType, AggregateType type, List<ImmutableBitSet> grpSets,
+            Supplier<List<AccumulatorWrapper<RowT>>> accFactory, RowFactory<RowT> rowFactory) {
         super(ctx, rowType);
 
         this.type = type;
@@ -133,7 +133,7 @@ public class HashAggregateNode<Row> extends AbstractNode<Row> implements SingleN
 
     /** {@inheritDoc} */
     @Override
-    public void push(Row row) throws Exception {
+    public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
 
@@ -173,7 +173,7 @@ public class HashAggregateNode<Row> extends AbstractNode<Row> implements SingleN
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         if (idx != 0) {
             throw new IndexOutOfBoundsException();
         }
@@ -210,7 +210,7 @@ public class HashAggregateNode<Row> extends AbstractNode<Row> implements SingleN
 
                 int toSnd = Math.min(requested, inBufSize - processed);
 
-                for (Row row : grouping.getRows(toSnd)) {
+                for (RowT row : grouping.getRows(toSnd)) {
                     checkState();
 
                     requested--;
@@ -266,12 +266,12 @@ public class HashAggregateNode<Row> extends AbstractNode<Row> implements SingleN
         /**
          *
          */
-        private final Map<GroupKey, List<AccumulatorWrapper<Row>>> groups = new HashMap<>();
+        private final Map<GroupKey, List<AccumulatorWrapper<RowT>>> groups = new HashMap<>();
 
         /**
          *
          */
-        private final RowHandler<Row> handler;
+        private final RowHandler<RowT> handler;
 
         /**
          *
@@ -292,7 +292,7 @@ public class HashAggregateNode<Row> extends AbstractNode<Row> implements SingleN
         /**
          *
          */
-        private void add(Row row) {
+        private void add(RowT row) {
             if (type == AggregateType.REDUCE) {
                 addOnReducer(row);
             } else {
@@ -304,7 +304,7 @@ public class HashAggregateNode<Row> extends AbstractNode<Row> implements SingleN
          * @param cnt Number of rows.
          * @return Actually sent rows number.
          */
-        private List<Row> getRows(int cnt) {
+        private List<RowT> getRows(int cnt) {
             if (nullOrEmpty(groups)) {
                 return Collections.emptyList();
             } else if (type == AggregateType.MAP) {
@@ -317,7 +317,7 @@ public class HashAggregateNode<Row> extends AbstractNode<Row> implements SingleN
         /**
          *
          */
-        private void addOnMapper(Row row) {
+        private void addOnMapper(RowT row) {
             GroupKey.Builder b = GroupKey.builder(grpFields.cardinality());
 
             for (Integer field : grpFields) {
@@ -326,9 +326,9 @@ public class HashAggregateNode<Row> extends AbstractNode<Row> implements SingleN
 
             GroupKey grpKey = b.build();
 
-            List<AccumulatorWrapper<Row>> wrappers = groups.computeIfAbsent(grpKey, this::create);
+            List<AccumulatorWrapper<RowT>> wrappers = groups.computeIfAbsent(grpKey, this::create);
 
-            for (AccumulatorWrapper<Row> wrapper : wrappers) {
+            for (AccumulatorWrapper<RowT> wrapper : wrappers) {
                 wrapper.add(row);
             }
         }
@@ -336,7 +336,7 @@ public class HashAggregateNode<Row> extends AbstractNode<Row> implements SingleN
         /**
          *
          */
-        private void addOnReducer(Row row) {
+        private void addOnReducer(RowT row) {
             byte targetGrpId = (byte) handler.get(0, row);
 
             if (targetGrpId != grpId) {
@@ -345,11 +345,11 @@ public class HashAggregateNode<Row> extends AbstractNode<Row> implements SingleN
 
             GroupKey grpKey = (GroupKey) handler.get(1, row);
 
-            List<AccumulatorWrapper<Row>> wrappers = groups.computeIfAbsent(grpKey, this::create);
+            List<AccumulatorWrapper<RowT>> wrappers = groups.computeIfAbsent(grpKey, this::create);
             List<Accumulator> accums = hasAccumulators() ? (List<Accumulator>) handler.get(2, row) : Collections.emptyList();
 
             for (int i = 0; i < wrappers.size(); i++) {
-                AccumulatorWrapper<Row> wrapper = wrappers.get(i);
+                AccumulatorWrapper<RowT> wrapper = wrappers.get(i);
                 Accumulator accum = accums.get(i);
 
                 wrapper.apply(accum);
@@ -359,19 +359,19 @@ public class HashAggregateNode<Row> extends AbstractNode<Row> implements SingleN
         /**
          *
          */
-        private List<Row> getOnMapper(int cnt) {
-            Iterator<Map.Entry<GroupKey, List<AccumulatorWrapper<Row>>>> it = groups.entrySet().iterator();
+        private List<RowT> getOnMapper(int cnt) {
+            Iterator<Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>>> it = groups.entrySet().iterator();
 
             int amount = Math.min(cnt, groups.size());
-            List<Row> res = new ArrayList<>(amount);
+            List<RowT> res = new ArrayList<>(amount);
 
             for (int i = 0; i < amount; i++) {
-                Map.Entry<GroupKey, List<AccumulatorWrapper<Row>>> entry = it.next();
+                Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>> entry = it.next();
 
                 GroupKey grpKey = entry.getKey();
                 List<Accumulator> accums = Commons.transform(entry.getValue(), AccumulatorWrapper::accumulator);
 
-                Row row = hasAccumulators() ? rowFactory.create(grpId, grpKey, accums) : rowFactory.create(grpId, grpKey);
+                RowT row = hasAccumulators() ? rowFactory.create(grpId, grpKey, accums) : rowFactory.create(grpId, grpKey);
 
                 res.add(row);
 
@@ -384,17 +384,17 @@ public class HashAggregateNode<Row> extends AbstractNode<Row> implements SingleN
         /**
          *
          */
-        private List<Row> getOnReducer(int cnt) {
-            Iterator<Map.Entry<GroupKey, List<AccumulatorWrapper<Row>>>> it = groups.entrySet().iterator();
+        private List<RowT> getOnReducer(int cnt) {
+            Iterator<Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>>> it = groups.entrySet().iterator();
 
             int amount = Math.min(cnt, groups.size());
-            List<Row> res = new ArrayList<>(amount);
+            List<RowT> res = new ArrayList<>(amount);
 
             for (int i = 0; i < amount; i++) {
-                Map.Entry<GroupKey, List<AccumulatorWrapper<Row>>> entry = it.next();
+                Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>> entry = it.next();
 
                 GroupKey grpKey = entry.getKey();
-                List<AccumulatorWrapper<Row>> wrappers = entry.getValue();
+                List<AccumulatorWrapper<RowT>> wrappers = entry.getValue();
 
                 Object[] fields = new Object[grpSet.cardinality() + wrappers.size()];
 
@@ -405,7 +405,7 @@ public class HashAggregateNode<Row> extends AbstractNode<Row> implements SingleN
                     fields[j++] = grpFields.get(field) ? grpKey.field(k++) : null;
                 }
 
-                for (AccumulatorWrapper<Row> wrapper : wrappers) {
+                for (AccumulatorWrapper<RowT> wrapper : wrappers) {
                     fields[j++] = wrapper.end();
                 }
 
@@ -419,7 +419,7 @@ public class HashAggregateNode<Row> extends AbstractNode<Row> implements SingleN
         /**
          *
          */
-        private List<AccumulatorWrapper<Row>> create(GroupKey key) {
+        private List<AccumulatorWrapper<RowT>> create(GroupKey key) {
             if (accFactory == null) {
                 return Collections.emptyList();
             }

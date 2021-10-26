@@ -26,16 +26,16 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 /**
  * Scan node.
  */
-public class ScanNode<Row> extends AbstractNode<Row> implements SingleNode<Row> {
+public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT> {
     /**
      *
      */
-    private final Iterable<Row> src;
+    private final Iterable<RowT> src;
 
     /**
      *
      */
-    private Iterator<Row> it;
+    private Iterator<RowT> it;
 
     /**
      *
@@ -51,7 +51,7 @@ public class ScanNode<Row> extends AbstractNode<Row> implements SingleNode<Row> 
      * @param ctx Execution context.
      * @param src Source.
      */
-    public ScanNode(ExecutionContext<Row> ctx, RelDataType rowType, Iterable<Row> src) {
+    public ScanNode(ExecutionContext<RowT> ctx, RelDataType rowType, Iterable<RowT> src) {
         super(ctx, rowType);
 
         this.src = src;
@@ -90,13 +90,13 @@ public class ScanNode<Row> extends AbstractNode<Row> implements SingleNode<Row> 
 
     /** {@inheritDoc} */
     @Override
-    public void register(List<Node<Row>> sources) {
+    public void register(List<Node<RowT>> sources) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         throw new UnsupportedOperationException();
     }
 

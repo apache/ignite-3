@@ -22,7 +22,7 @@ import java.util.List;
 /**
  *
  */
-public final class AllNodes<Row> implements Destination<Row> {
+public final class AllNodes<RowT> implements Destination<RowT> {
     /**
      *
      */
@@ -37,7 +37,7 @@ public final class AllNodes<Row> implements Destination<Row> {
 
     /** {@inheritDoc} */
     @Override
-    public List<String> targets(Row row) {
+    public List<String> targets(RowT row) {
         return nodes;
     }
 

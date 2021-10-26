@@ -46,7 +46,7 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 /**
  * Persistent partitions raft group snapshots tests.
  */
-public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<PartitionListener> {
+public class ItTablePersistenceTest extends ITAbstractListenerSnapshotTest<PartitionListener> {
     /**
      *
      */

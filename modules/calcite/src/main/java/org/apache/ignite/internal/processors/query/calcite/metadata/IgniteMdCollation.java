@@ -124,8 +124,10 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
         return ImmutableList.of();
     }
 
-    public ImmutableList<RelCollation> collations(IgniteRel rel,
-            RelMetadataQuery mq) {
+    /**
+     * 
+     */
+    public ImmutableList<RelCollation> collations(IgniteRel rel, RelMetadataQuery mq) {
         RelCollation collation = rel.collation();
         if (collation == null || nullOrEmpty(collation.getFieldCollations())) {
             return ImmutableList.of();
@@ -139,6 +141,9 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
         return ImmutableList.copyOf(window(mq, rel.getInput(), rel.groups));
     }
 
+    /**
+     *
+     */
     public ImmutableList<RelCollation> collations(Match rel,
             RelMetadataQuery mq) {
         return ImmutableList.copyOf(
@@ -149,21 +154,33 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
                         rel.getOrderKeys(), rel.getInterval()));
     }
 
+    /**
+     *
+     */
     public ImmutableList<RelCollation> collations(Filter rel,
             RelMetadataQuery mq) {
         return mq.collations(rel.getInput());
     }
 
+    /**
+     *
+     */
     public ImmutableList<RelCollation> collations(TableModify rel,
             RelMetadataQuery mq) {
         return mq.collations(rel.getInput());
     }
 
+    /**
+     *
+     */
     public ImmutableList<RelCollation> collations(TableScan scan,
             RelMetadataQuery mq) {
         return ImmutableList.copyOf(table(scan.getTable()));
     }
 
+    /**
+     *
+     */
     public ImmutableList<RelCollation> collations(EnumerableMergeJoin join,
             RelMetadataQuery mq) {
         // In general a join is not sorted. But a merge join preserves the sort
@@ -174,12 +191,18 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
                         join.getJoinType()));
     }
 
+    /**
+     *
+     */
     public ImmutableList<RelCollation> collations(EnumerableHashJoin join,
             RelMetadataQuery mq) {
         return ImmutableList.copyOf(
                 RelMdCollation.enumerableHashJoin(mq, join.getLeft(), join.getRight(), join.getJoinType()));
     }
 
+    /**
+     *
+     */
     public ImmutableList<RelCollation> collations(EnumerableNestedLoopJoin join,
             RelMetadataQuery mq) {
         return ImmutableList.copyOf(
@@ -187,6 +210,9 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
                         join.getJoinType()));
     }
 
+    /**
+     *
+     */
     public ImmutableList<RelCollation> collations(EnumerableCorrelate join,
             RelMetadataQuery mq) {
         return ImmutableList.copyOf(
@@ -194,50 +220,42 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
                         join.getJoinType()));
     }
 
-    public ImmutableList<RelCollation> collations(Sort sort,
-            RelMetadataQuery mq) {
-        return ImmutableList.copyOf(
-                RelMdCollation.sort(sort.getCollation()));
+    /**
+     *
+     */
+    public ImmutableList<RelCollation> collations(Sort sort, RelMetadataQuery mq) {
+        return ImmutableList.copyOf(RelMdCollation.sort(sort.getCollation()));
     }
 
-    public ImmutableList<RelCollation> collations(SortExchange sort,
-            RelMetadataQuery mq) {
-        return ImmutableList.copyOf(
-                RelMdCollation.sort(sort.getCollation()));
+    /**
+     *
+     */
+    public ImmutableList<RelCollation> collations(SortExchange sort, RelMetadataQuery mq) {
+        return ImmutableList.copyOf(RelMdCollation.sort(sort.getCollation()));
     }
 
-    public ImmutableList<RelCollation> collations(Project project,
-            RelMetadataQuery mq) {
-        return ImmutableList.copyOf(
-                project(mq, project.getInput(), project.getProjects()));
+    public ImmutableList<RelCollation> collations(Project project, RelMetadataQuery mq) {
+        return ImmutableList.copyOf(project(mq, project.getInput(), project.getProjects()));
     }
 
-    public ImmutableList<RelCollation> collations(Calc calc,
-            RelMetadataQuery mq) {
+    public ImmutableList<RelCollation> collations(Calc calc, RelMetadataQuery mq) {
         return ImmutableList.copyOf(calc(mq, calc.getInput(), calc.getProgram()));
     }
 
-    public ImmutableList<RelCollation> collations(Values values,
-            RelMetadataQuery mq) {
-        return ImmutableList.copyOf(
-                values(mq, values.getRowType(), values.getTuples()));
+    public ImmutableList<RelCollation> collations(Values values, RelMetadataQuery mq) {
+        return ImmutableList.copyOf(values(mq, values.getRowType(), values.getTuples()));
     }
 
-    public ImmutableList<RelCollation> collations(JdbcToEnumerableConverter rel,
-            RelMetadataQuery mq) {
+    public ImmutableList<RelCollation> collations(JdbcToEnumerableConverter rel, RelMetadataQuery mq) {
         return mq.collations(rel.getInput());
     }
 
-    public ImmutableList<RelCollation> collations(HepRelVertex rel,
-            RelMetadataQuery mq) {
+    public ImmutableList<RelCollation> collations(HepRelVertex rel, RelMetadataQuery mq) {
         return mq.collations(rel.getCurrentRel());
     }
 
-    public ImmutableList<RelCollation> collations(RelSubset rel,
-            RelMetadataQuery mq) {
-        return ImmutableList.copyOf(
-                Objects.requireNonNull(
-                        rel.getTraitSet().getTraits(RelCollationTraitDef.INSTANCE)));
+    public ImmutableList<RelCollation> collations(RelSubset rel, RelMetadataQuery mq) {
+        return ImmutableList.copyOf(Objects.requireNonNull(rel.getTraitSet().getTraits(RelCollationTraitDef.INSTANCE)));
     }
 
     // Helper methods

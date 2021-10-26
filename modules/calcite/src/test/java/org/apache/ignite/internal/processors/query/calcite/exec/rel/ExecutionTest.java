@@ -454,7 +454,7 @@ public class ExecutionTest extends AbstractExecutionTest {
      *
      */
     @ParameterizedTest
-    @MethodSource("provideArgumentsForCNLJTest")
+    @MethodSource("provideArgumentsForCnljTest")
     public void testCorrelatedNestedLoopJoin(int leftSize, int rightSize, int rightBufSize, JoinRelType joinType) {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
@@ -669,7 +669,7 @@ public class ExecutionTest extends AbstractExecutionTest {
     /**
      *
      */
-    private static Stream<Arguments> provideArgumentsForCNLJTest() {
+    private static Stream<Arguments> provideArgumentsForCnljTest() {
         List<Arguments> args = new ArrayList<>();
 
         int[] leftSizes = {1, 99, 100, 101, 512, 513, 2000};

@@ -35,11 +35,11 @@ import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 /**
  *
  */
-public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
+public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     /**
      *
      */
-    private final Predicate<Row> cond;
+    private final Predicate<RowT> cond;
 
     /**
      *
@@ -54,7 +54,7 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private final RowHandler<Row> handler;
+    private final RowHandler<RowT> handler;
 
     /**
      *
@@ -89,12 +89,12 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private List<Row> leftInBuf;
+    private List<RowT> leftInBuf;
 
     /**
      *
      */
-    private List<Row> rightInBuf;
+    private List<RowT> rightInBuf;
 
     /**
      *
@@ -109,7 +109,7 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private Row rightEmptyRow;
+    private RowT rightEmptyRow;
 
     /**
      *
@@ -127,7 +127,7 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
      * @param ctx  Execution context.
      * @param cond Join expression.
      */
-    public CorrelatedNestedLoopJoinNode(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond,
+    public CorrelatedNestedLoopJoinNode(ExecutionContext<RowT> ctx, RelDataType rowType, Predicate<RowT> cond,
             Set<CorrelationId> correlationIds, JoinRelType joinType) {
         super(ctx, rowType);
 
@@ -174,12 +174,12 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         if (idx == 0) {
-            return new Downstream<Row>() {
+            return new Downstream<RowT>() {
                 /** {@inheritDoc} */
                 @Override
-                public void push(Row row) throws Exception {
+                public void push(RowT row) throws Exception {
                     pushLeft(row);
                 }
 
@@ -196,10 +196,10 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
                 }
             };
         } else if (idx == 1) {
-            return new Downstream<Row>() {
+            return new Downstream<RowT>() {
                 /** {@inheritDoc} */
                 @Override
-                public void push(Row row) throws Exception {
+                public void push(RowT row) throws Exception {
                     pushRight(row);
                 }
 
@@ -223,7 +223,7 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private void pushLeft(Row row) throws Exception {
+    private void pushLeft(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingLeft > 0;
 
@@ -243,7 +243,7 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private void pushRight(Row row) throws Exception {
+    private void pushRight(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
 
@@ -442,7 +442,7 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
                 while (requested > 0 && leftIdx < leftInBuf.size()) {
                     checkState();
 
-                    Row row = handler.concat(leftInBuf.get(leftIdx), rightInBuf.get(rightIdx));
+                    RowT row = handler.concat(leftInBuf.get(leftIdx), rightInBuf.get(rightIdx));
 
                     if (cond.test(row)) {
                         leftMatched.set(leftIdx);
@@ -535,14 +535,14 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private Node<Row> leftSource() {
+    private Node<RowT> leftSource() {
         return sources().get(0);
     }
 
     /**
      *
      */
-    private Node<Row> rightSource() {
+    private Node<RowT> rightSource() {
         return sources().get(1);
     }
 
@@ -551,7 +551,7 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
      */
     private void prepareCorrelations() {
         for (int i = 0; i < correlationIds.size(); i++) {
-            Row row = i < leftInBuf.size() ? leftInBuf.get(i) : first(leftInBuf);
+            RowT row = i < leftInBuf.size() ? leftInBuf.get(i) : first(leftInBuf);
             context().setCorrelated(row, correlationIds.get(i).getId());
         }
     }

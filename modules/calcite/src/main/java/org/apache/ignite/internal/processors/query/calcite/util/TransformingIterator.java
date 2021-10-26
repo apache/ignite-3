@@ -20,12 +20,15 @@ package org.apache.ignite.internal.processors.query.calcite.util;
 import java.util.Iterator;
 import java.util.function.Function;
 
-public class TransformingIterator<Tin, Tout> implements Iterator<Tout> {
-    private final Iterator<Tin> delegate;
+/**
+ *
+ */
+public class TransformingIterator<InT, OutT> implements Iterator<OutT> {
+    private final Iterator<InT> delegate;
 
-    private final Function<Tin, Tout> transformation;
+    private final Function<InT, OutT> transformation;
 
-    public TransformingIterator(Iterator<Tin> delegate, Function<Tin, Tout> transformation) {
+    public TransformingIterator(Iterator<InT> delegate, Function<InT, OutT> transformation) {
         this.delegate = delegate;
         this.transformation = transformation;
     }
@@ -38,7 +41,7 @@ public class TransformingIterator<Tin, Tout> implements Iterator<Tout> {
 
     /** {@inheritDoc} */
     @Override
-    public Tout next() {
+    public OutT next() {
         return transformation.apply(delegate.next());
     }
 

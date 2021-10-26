@@ -90,7 +90,7 @@ public final class DistributionTrait implements IgniteDistribution {
 
     /** {@inheritDoc} */
     @Override
-    public <Row> Destination<Row> destination(ExecutionContext<Row> ectx, AffinityService affSrvc, ColocationGroup target) {
+    public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ectx, AffinityService affSrvc, ColocationGroup target) {
         return function.destination(ectx, affSrvc, target, keys);
     }
 

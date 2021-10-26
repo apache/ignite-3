@@ -42,6 +42,9 @@ public class SchemaHolderImpl implements SchemaHolder {
      */
     private volatile SchemaPlus calciteSchema;
 
+    /**
+     *
+     */
     public SchemaHolderImpl() {
         SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
         newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
@@ -64,6 +67,12 @@ public class SchemaHolderImpl implements SchemaHolder {
         rebuild();
     }
 
+    /**
+     * Rebuild calcite schema on sql type created.
+     *
+     * @param schemaName New type schema.
+     * @param table New type name.
+     */
     public synchronized void onSqlTypeCreated(
             String schemaName,
             TableImpl table
@@ -98,6 +107,12 @@ public class SchemaHolderImpl implements SchemaHolder {
         onSqlTypeCreated(schemaName, table);
     }
 
+    /**
+     * Rebuild calcite schema on sql type dropped.
+     *
+     * @param schemaName Dropped type schema.
+     * @param tableName Dropped type name.
+     */
     public synchronized void onSqlTypeDropped(
             String schemaName,
             String tableName

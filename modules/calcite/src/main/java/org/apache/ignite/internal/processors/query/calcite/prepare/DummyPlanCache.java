@@ -19,6 +19,9 @@ package org.apache.ignite.internal.processors.query.calcite.prepare;
 
 import java.util.List;
 
+/**
+ * Dummy QueryPlanCache.
+ */
 public class DummyPlanCache implements QueryPlanCache {
     /** {@inheritDoc} */
     @Override

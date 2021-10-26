@@ -27,7 +27,7 @@ import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext
 /**
  * Table spool node.
  */
-public class TableSpoolNode<Row> extends AbstractNode<Row> implements SingleNode<Row>, Downstream<Row> {
+public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     /** How many rows are requested by downstream. */
     private int requested;
 
@@ -38,7 +38,7 @@ public class TableSpoolNode<Row> extends AbstractNode<Row> implements SingleNode
     private int rowIdx;
 
     /** Rows buffer. */
-    private final List<Row> rows;
+    private final List<RowT> rows;
 
     /**
      * If {@code true} this spool should emit rows as soon as it stored. If {@code false} the spool have to collect all rows from underlying
@@ -54,7 +54,7 @@ public class TableSpoolNode<Row> extends AbstractNode<Row> implements SingleNode
     /**
      * @param ctx Execution context.
      */
-    public TableSpoolNode(ExecutionContext<Row> ctx, RelDataType rowType, boolean lazyRead) {
+    public TableSpoolNode(ExecutionContext<RowT> ctx, RelDataType rowType, boolean lazyRead) {
         super(ctx, rowType);
 
         this.lazyRead = lazyRead;
@@ -77,7 +77,7 @@ public class TableSpoolNode<Row> extends AbstractNode<Row> implements SingleNode
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         if (idx != 0) {
             throw new IndexOutOfBoundsException();
         }
@@ -137,7 +137,7 @@ public class TableSpoolNode<Row> extends AbstractNode<Row> implements SingleNode
 
     /** {@inheritDoc} */
     @Override
-    public void push(Row row) throws Exception {
+    public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
 

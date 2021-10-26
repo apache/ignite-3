@@ -144,10 +144,16 @@ public final class Commons {
     private Commons() {
     }
 
+    /**
+     *
+     */
     public static <T> SqlCursor<T> createCursor(Iterable<T> iterable, QueryPlan plan) {
         return createCursor(iterable.iterator(), plan);
     }
 
+    /**
+     *
+     */
     public static <T> SqlCursor<T> createCursor(Iterator<T> iter, QueryPlan plan) {
         return new SqlCursor<>() {
             @Override
@@ -558,6 +564,9 @@ public final class Commons {
         }
     }
 
+    /**
+     * Get Java class by native type.
+     */
     public static Class<?> nativeTypeToClass(NativeType type) {
         assert type != null;
 

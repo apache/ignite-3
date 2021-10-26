@@ -22,6 +22,9 @@ import java.util.NoSuchElementException;
 import java.util.function.Predicate;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ *
+ */
 public class FilteringIterator<T> implements Iterator<T> {
     private final Iterator<T> delegate;
 

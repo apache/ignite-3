@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  *
  */
-public class TableFunctionScan<Row> implements Iterable<Row> {
+public class TableFunctionScan<RowT> implements Iterable<RowT> {
     /**
      *
      */
@@ -35,14 +35,14 @@ public class TableFunctionScan<Row> implements Iterable<Row> {
     /**
      *
      */
-    private final RowFactory<Row> rowFactory;
+    private final RowFactory<RowT> rowFactory;
 
     /**
      *
      */
     public TableFunctionScan(
             Supplier<Iterable<Object[]>> dataSupplier,
-            RowFactory<Row> rowFactory
+            RowFactory<RowT> rowFactory
     ) {
         this.dataSupplier = dataSupplier;
         this.rowFactory = rowFactory;
@@ -51,7 +51,7 @@ public class TableFunctionScan<Row> implements Iterable<Row> {
     /** {@inheritDoc} */
     @NotNull
     @Override
-    public Iterator<Row> iterator() {
+    public Iterator<RowT> iterator() {
         return new TransformingIterator<>(dataSupplier.get().iterator(), rowFactory::create);
     }
 }

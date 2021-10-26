@@ -41,7 +41,7 @@ public interface IgniteDistribution extends RelDistribution {
      * @param targetGroup     Target mapping.
      * @return Destination function.
      */
-    <Row> Destination<Row> destination(ExecutionContext<Row> ectx, AffinityService affinityService,
+    <RowT> Destination<RowT> destination(ExecutionContext<RowT> ectx, AffinityService affinityService,
             ColocationGroup targetGroup);
 
     /** {@inheritDoc} */

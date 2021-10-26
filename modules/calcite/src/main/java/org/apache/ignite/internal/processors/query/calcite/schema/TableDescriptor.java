@@ -114,10 +114,10 @@ public interface TableDescriptor extends RelProtoDataType, InitializerExpression
      * @param requiredColumns Participating columns.
      * @return Relational node row.
      */
-    <Row> Row toRow(
-            ExecutionContext<Row> ectx,
+    <RowT> RowT toRow(
+            ExecutionContext<RowT> ectx,
             Tuple row,
-            RowHandler.RowFactory<Row> factory,
+            RowHandler.RowFactory<RowT> factory,
             @Nullable ImmutableBitSet requiredColumns
     );
 
@@ -130,9 +130,9 @@ public interface TableDescriptor extends RelProtoDataType, InitializerExpression
      * @param arg  Operation specific argument.
      * @return Cache key-value tuple;
      */
-    <Row> Tuple toTuple(
-            ExecutionContext<Row> ectx,
-            Row row,
+    <RowT> Tuple toTuple(
+            ExecutionContext<RowT> ectx,
+            RowT row,
             TableModify.Operation op,
             @Nullable Object arg
     );

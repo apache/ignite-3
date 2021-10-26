@@ -33,19 +33,19 @@ import org.jetbrains.annotations.NotNull;
 /**
  *
  */
-public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
+public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
     /** Special value to highlights that all row were received and we are not waiting any more. */
     protected static final int NOT_WAITING = -1;
 
     /**
      *
      */
-    protected final Comparator<Row> comp;
+    protected final Comparator<RowT> comp;
 
     /**
      *
      */
-    protected final RowHandler<Row> handler;
+    protected final RowHandler<RowT> handler;
 
     /**
      *
@@ -65,12 +65,12 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    protected final Deque<Row> rightInBuf = new ArrayDeque<>(inBufSize);
+    protected final Deque<RowT> rightInBuf = new ArrayDeque<>(inBufSize);
 
     /**
      *
      */
-    protected final Deque<Row> leftInBuf = new ArrayDeque<>(inBufSize);
+    protected final Deque<RowT> leftInBuf = new ArrayDeque<>(inBufSize);
 
     /**
      *
@@ -81,7 +81,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
      * @param ctx  Execution context.
      * @param comp Join expression.
      */
-    private MergeJoinNode(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp) {
+    private MergeJoinNode(ExecutionContext<RowT> ctx, RelDataType rowType, Comparator<RowT> comp) {
         super(ctx, rowType);
 
         this.comp = comp;
@@ -125,12 +125,12 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         if (idx == 0) {
-            return new Downstream<Row>() {
+            return new Downstream<RowT>() {
                 /** {@inheritDoc} */
                 @Override
-                public void push(Row row) throws Exception {
+                public void push(RowT row) throws Exception {
                     pushLeft(row);
                 }
 
@@ -147,10 +147,10 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
                 }
             };
         } else if (idx == 1) {
-            return new Downstream<Row>() {
+            return new Downstream<RowT>() {
                 /** {@inheritDoc} */
                 @Override
-                public void push(Row row) throws Exception {
+                public void push(RowT row) throws Exception {
                     pushRight(row);
                 }
 
@@ -174,7 +174,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private void pushLeft(Row row) throws Exception {
+    private void pushLeft(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingLeft > 0;
 
@@ -190,7 +190,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private void pushRight(Row row) throws Exception {
+    private void pushRight(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
 
@@ -234,14 +234,14 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    protected Node<Row> leftSource() {
+    protected Node<RowT> leftSource() {
         return sources().get(0);
     }
 
     /**
      *
      */
-    protected Node<Row> rightSource() {
+    protected Node<RowT> rightSource() {
         return sources().get(1);
     }
 
@@ -254,27 +254,27 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
      *
      */
     @NotNull
-    public static <Row> MergeJoinNode<Row> create(ExecutionContext<Row> ctx, RelDataType outputRowType, RelDataType leftRowType,
-            RelDataType rightRowType, JoinRelType joinType, Comparator<Row> comp) {
+    public static <RowT> MergeJoinNode<RowT> create(ExecutionContext<RowT> ctx, RelDataType outputRowType, RelDataType leftRowType,
+            RelDataType rightRowType, JoinRelType joinType, Comparator<RowT> comp) {
         switch (joinType) {
             case INNER:
                 return new InnerJoin<>(ctx, outputRowType, comp);
 
             case LEFT: {
-                RowHandler.RowFactory<Row> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightRowType);
+                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightRowType);
 
                 return new LeftJoin<>(ctx, outputRowType, comp, rightRowFactory);
             }
 
             case RIGHT: {
-                RowHandler.RowFactory<Row> leftRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), leftRowType);
+                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), leftRowType);
 
                 return new RightJoin<>(ctx, outputRowType, comp, leftRowFactory);
             }
 
             case FULL: {
-                RowHandler.RowFactory<Row> leftRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), leftRowType);
-                RowHandler.RowFactory<Row> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightRowType);
+                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), leftRowType);
+                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightRowType);
 
                 return new FullOuterJoin<>(ctx, outputRowType, comp, leftRowFactory, rightRowFactory);
             }
@@ -293,19 +293,19 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private static class InnerJoin<Row> extends MergeJoinNode<Row> {
+    private static class InnerJoin<RowT> extends MergeJoinNode<RowT> {
         /**
          *
          */
-        private Row left;
+        private RowT left;
 
         /**
          *
          */
-        private Row right;
+        private RowT right;
 
         /** Used to store similar rows of rights stream in many-to-many join mode. */
-        private List<Row> rightMaterialization;
+        private List<RowT> rightMaterialization;
 
         /**
          *
@@ -322,7 +322,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
          * @param rowType Row type.
          * @param comp    Join expression comparator.
          */
-        private InnerJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp) {
+        private InnerJoin(ExecutionContext<RowT> ctx, RelDataType rowType, Comparator<RowT> comp) {
             super(ctx, rowType, comp);
         }
 
@@ -368,7 +368,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
                         continue;
                     }
 
-                    Row row;
+                    RowT row;
                     if (!drainMaterialization) {
                         int cmp = comp.compare(left, right);
 
@@ -416,7 +416,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
                             continue;
                         }
 
-                        Row right = rightMaterialization.get(rightIdx++);
+                        RowT right = rightMaterialization.get(rightIdx++);
 
                         int cmp = comp.compare(left, right);
 
@@ -458,22 +458,22 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private static class LeftJoin<Row> extends MergeJoinNode<Row> {
+    private static class LeftJoin<RowT> extends MergeJoinNode<RowT> {
         /** Right row factory. */
-        private final RowHandler.RowFactory<Row> rightRowFactory;
+        private final RowHandler.RowFactory<RowT> rightRowFactory;
 
         /**
          *
          */
-        private Row left;
+        private RowT left;
 
         /**
          *
          */
-        private Row right;
+        private RowT right;
 
         /** Used to store similar rows of rights stream in many-to-many join mode. */
-        private List<Row> rightMaterialization;
+        private List<RowT> rightMaterialization;
 
         /**
          *
@@ -494,7 +494,8 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
          * @param comp            Join expression comparator.
          * @param rightRowFactory Right row factory.
          */
-        private LeftJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp, RowHandler.RowFactory<Row> rightRowFactory) {
+        private LeftJoin(ExecutionContext<RowT> ctx, RelDataType rowType, Comparator<RowT> comp,
+                RowHandler.RowFactory<RowT> rightRowFactory) {
             super(ctx, rowType, comp);
 
             this.rightRowFactory = rightRowFactory;
@@ -538,7 +539,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
                         continue;
                     }
 
-                    Row row;
+                    RowT row;
                     if (!drainMaterialization) {
                         if (right == null) {
                             row = handler.concat(left, rightRowFactory.create());
@@ -606,7 +607,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
                             continue;
                         }
 
-                        Row right = rightMaterialization.get(rightIdx++);
+                        RowT right = rightMaterialization.get(rightIdx++);
 
                         int cmp = comp.compare(left, right);
 
@@ -646,22 +647,22 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private static class RightJoin<Row> extends MergeJoinNode<Row> {
+    private static class RightJoin<RowT> extends MergeJoinNode<RowT> {
         /** Right row factory. */
-        private final RowHandler.RowFactory<Row> leftRowFactory;
+        private final RowHandler.RowFactory<RowT> leftRowFactory;
 
         /**
          *
          */
-        private Row left;
+        private RowT left;
 
         /**
          *
          */
-        private Row right;
+        private RowT right;
 
         /** Used to store similar rows of rights stream in many-to-many join mode. */
-        private List<Row> rightMaterialization;
+        private List<RowT> rightMaterialization;
 
         /**
          *
@@ -682,7 +683,8 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
          * @param comp           Join expression comparator.
          * @param leftRowFactory Left row factory.
          */
-        private RightJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp, RowHandler.RowFactory<Row> leftRowFactory) {
+        private RightJoin(ExecutionContext<RowT> ctx, RelDataType rowType, Comparator<RowT> comp,
+                RowHandler.RowFactory<RowT> leftRowFactory) {
             super(ctx, rowType, comp);
 
             this.leftRowFactory = leftRowFactory;
@@ -732,7 +734,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
                         continue;
                     }
 
-                    Row row;
+                    RowT row;
                     if (!drainMaterialization) {
                         if (left == null) {
                             if (!matched) {
@@ -810,7 +812,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
                             continue;
                         }
 
-                        Row right = rightMaterialization.get(rightIdx++);
+                        RowT right = rightMaterialization.get(rightIdx++);
 
                         int cmp = comp.compare(left, right);
 
@@ -850,25 +852,25 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private static class FullOuterJoin<Row> extends MergeJoinNode<Row> {
+    private static class FullOuterJoin<RowT> extends MergeJoinNode<RowT> {
         /** Left row factory. */
-        private final RowHandler.RowFactory<Row> leftRowFactory;
+        private final RowHandler.RowFactory<RowT> leftRowFactory;
 
         /** Right row factory. */
-        private final RowHandler.RowFactory<Row> rightRowFactory;
+        private final RowHandler.RowFactory<RowT> rightRowFactory;
 
         /**
          *
          */
-        private Row left;
+        private RowT left;
 
         /**
          *
          */
-        private Row right;
+        private RowT right;
 
         /** Used to store similar rows of rights stream in many-to-many join mode. */
-        private List<Row> rightMaterialization;
+        private List<RowT> rightMaterialization;
 
         /**
          *
@@ -893,8 +895,8 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
          * @param leftRowFactory  Left row factory.
          * @param rightRowFactory Right row factory.
          */
-        private FullOuterJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp,
-                RowHandler.RowFactory<Row> leftRowFactory, RowHandler.RowFactory<Row> rightRowFactory) {
+        private FullOuterJoin(ExecutionContext<RowT> ctx, RelDataType rowType, Comparator<RowT> comp,
+                RowHandler.RowFactory<RowT> leftRowFactory, RowHandler.RowFactory<RowT> rightRowFactory) {
             super(ctx, rowType, comp);
 
             this.leftRowFactory = leftRowFactory;
@@ -947,7 +949,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
                         continue;
                     }
 
-                    Row row;
+                    RowT row;
                     if (!drainMaterialization) {
                         if (left == null || right == null) {
                             if (left == null && right != null) {
@@ -1050,7 +1052,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
                             continue;
                         }
 
-                        Row right = rightMaterialization.get(rightIdx++);
+                        RowT right = rightMaterialization.get(rightIdx++);
 
                         int cmp = comp.compare(left, right);
 
@@ -1094,23 +1096,23 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private static class SemiJoin<Row> extends MergeJoinNode<Row> {
+    private static class SemiJoin<RowT> extends MergeJoinNode<RowT> {
         /**
          *
          */
-        private Row left;
+        private RowT left;
 
         /**
          *
          */
-        private Row right;
+        private RowT right;
 
         /**
          * @param ctx     Execution context.
          * @param rowType Row type.
          * @param comp    Join expression comparator.
          */
-        private SemiJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp) {
+        private SemiJoin(ExecutionContext<RowT> ctx, RelDataType rowType, Comparator<RowT> comp) {
             super(ctx, rowType, comp);
         }
 
@@ -1180,23 +1182,23 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private static class AntiJoin<Row> extends MergeJoinNode<Row> {
+    private static class AntiJoin<RowT> extends MergeJoinNode<RowT> {
         /**
          *
          */
-        private Row left;
+        private RowT left;
 
         /**
          *
          */
-        private Row right;
+        private RowT right;
 
         /**
          * @param ctx     Execution context.
          * @param rowType Row type.
          * @param comp    Join expression comparator.
          */
-        private AntiJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp) {
+        private AntiJoin(ExecutionContext<RowT> ctx, RelDataType rowType, Comparator<RowT> comp) {
             super(ctx, rowType, comp);
         }
 

@@ -33,7 +33,7 @@ import org.apache.ignite.lang.IgniteLogger;
 /**
  * Abstract node of execution tree.
  */
-public abstract class AbstractNode<Row> implements Node<Row> {
+public abstract class AbstractNode<RowT> implements Node<RowT> {
     /**
      *
      */
@@ -66,7 +66,7 @@ public abstract class AbstractNode<Row> implements Node<Row> {
      * {@link Inbox} node may not have proper context at creation time in case it creates on first message received from a remote source.
      * This case the context sets in scope of {@link Inbox#init(ExecutionContext, RelDataType, Collection, Comparator)} method call.
      */
-    private ExecutionContext<Row> ctx;
+    private ExecutionContext<RowT> ctx;
 
     /**
      *
@@ -76,7 +76,7 @@ public abstract class AbstractNode<Row> implements Node<Row> {
     /**
      *
      */
-    private Downstream<Row> downstream;
+    private Downstream<RowT> downstream;
 
     /**
      *
@@ -86,26 +86,26 @@ public abstract class AbstractNode<Row> implements Node<Row> {
     /**
      *
      */
-    private List<Node<Row>> sources;
+    private List<Node<RowT>> sources;
 
     /**
      * @param ctx Execution context.
      */
-    protected AbstractNode(ExecutionContext<Row> ctx, RelDataType rowType) {
+    protected AbstractNode(ExecutionContext<RowT> ctx, RelDataType rowType) {
         this.ctx = ctx;
         this.rowType = rowType;
     }
 
     /** {@inheritDoc} */
     @Override
-    public ExecutionContext<Row> context() {
+    public ExecutionContext<RowT> context() {
         return ctx;
     }
 
     /**
      *
      */
-    protected void context(ExecutionContext<Row> ctx) {
+    protected void context(ExecutionContext<RowT> ctx) {
         this.ctx = ctx;
     }
 
@@ -124,7 +124,7 @@ public abstract class AbstractNode<Row> implements Node<Row> {
 
     /** {@inheritDoc} */
     @Override
-    public void register(List<Node<Row>> sources) {
+    public void register(List<Node<RowT>> sources) {
         this.sources = sources;
 
         for (int i = 0; i < sources.size(); i++) {
@@ -134,7 +134,7 @@ public abstract class AbstractNode<Row> implements Node<Row> {
 
     /** {@inheritDoc} */
     @Override
-    public List<Node<Row>> sources() {
+    public List<Node<RowT>> sources() {
         return sources;
     }
 
@@ -164,7 +164,7 @@ public abstract class AbstractNode<Row> implements Node<Row> {
 
     /** {@inheritDoc} */
     @Override
-    public void onRegister(Downstream<Row> downstream) {
+    public void onRegister(Downstream<RowT> downstream) {
         this.downstream = downstream;
     }
 
@@ -197,7 +197,7 @@ public abstract class AbstractNode<Row> implements Node<Row> {
      *
      */
     protected void onErrorInternal(Throwable e) {
-        Downstream<Row> downstream = downstream();
+        Downstream<RowT> downstream = downstream();
 
         assert downstream != null;
 
@@ -238,13 +238,13 @@ public abstract class AbstractNode<Row> implements Node<Row> {
     /**
      *
      */
-    protected abstract Downstream<Row> requestDownstream(int idx);
+    protected abstract Downstream<RowT> requestDownstream(int idx);
 
     /**
      *
      */
     @Override
-    public Downstream<Row> downstream() {
+    public Downstream<RowT> downstream() {
         return downstream;
     }
 }

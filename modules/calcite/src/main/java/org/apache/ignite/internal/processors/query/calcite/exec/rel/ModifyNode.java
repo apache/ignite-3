@@ -36,7 +36,7 @@ import org.apache.ignite.table.Tuple;
 /**
  *
  */
-public class ModifyNode<Row> extends AbstractNode<Row> implements SingleNode<Row>, Downstream<Row> {
+public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     /**
      *
      */
@@ -93,7 +93,7 @@ public class ModifyNode<Row> extends AbstractNode<Row> implements SingleNode<Row
      * @param cols Update column list.
      */
     public ModifyNode(
-            ExecutionContext<Row> ctx,
+            ExecutionContext<RowT> ctx,
             RelDataType rowType,
             TableDescriptor desc,
             TableModify.Operation op,
@@ -125,7 +125,7 @@ public class ModifyNode<Row> extends AbstractNode<Row> implements SingleNode<Row
 
     /** {@inheritDoc} */
     @Override
-    public void push(Row row) throws Exception {
+    public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
         assert state == State.UPDATING;
@@ -174,7 +174,7 @@ public class ModifyNode<Row> extends AbstractNode<Row> implements SingleNode<Row
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         if (idx != 0) {
             throw new IndexOutOfBoundsException();
         }
@@ -229,7 +229,7 @@ public class ModifyNode<Row> extends AbstractNode<Row> implements SingleNode<Row
 
                 if (!duplicates.isEmpty()) {
                     IgniteTypeFactory typeFactory = context().getTypeFactory();
-                    RowHandler.RowFactory<Row> rowFactory = context().rowHandler().factory(
+                    RowHandler.RowFactory<RowT> rowFactory = context().rowHandler().factory(
                             context().getTypeFactory(),
                             desc.insertRowType(typeFactory)
                     );

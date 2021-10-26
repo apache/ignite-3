@@ -60,7 +60,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  *
  */
-public class AccumulatorsFactory<Row> implements Supplier<List<AccumulatorWrapper<Row>>> {
+public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapper<RowT>>> {
     /**
      *
      */
@@ -153,7 +153,7 @@ public class AccumulatorsFactory<Row> implements Supplier<List<AccumulatorWrappe
     /**
      *
      */
-    private final ExecutionContext<Row> ctx;
+    private final ExecutionContext<RowT> ctx;
 
     /**
      *
@@ -174,7 +174,7 @@ public class AccumulatorsFactory<Row> implements Supplier<List<AccumulatorWrappe
      *
      */
     public AccumulatorsFactory(
-            ExecutionContext<Row> ctx,
+            ExecutionContext<RowT> ctx,
             AggregateType type,
             List<AggregateCall> aggCalls,
             RelDataType inputRowType
@@ -188,14 +188,14 @@ public class AccumulatorsFactory<Row> implements Supplier<List<AccumulatorWrappe
 
     /** {@inheritDoc} */
     @Override
-    public List<AccumulatorWrapper<Row>> get() {
+    public List<AccumulatorWrapper<RowT>> get() {
         return Commons.transform(prototypes, WrapperPrototype::get);
     }
 
     /**
      *
      */
-    private final class WrapperPrototype implements Supplier<AccumulatorWrapper<Row>> {
+    private final class WrapperPrototype implements Supplier<AccumulatorWrapper<RowT>> {
         /**
          *
          */
@@ -225,7 +225,7 @@ public class AccumulatorsFactory<Row> implements Supplier<List<AccumulatorWrappe
 
         /** {@inheritDoc} */
         @Override
-        public AccumulatorWrapper<Row> get() {
+        public AccumulatorWrapper<RowT> get() {
             Accumulator accumulator = accumulator();
 
             return new AccumulatorWrapperImpl(accumulator, call, inAdapter, outAdapter);
@@ -306,7 +306,7 @@ public class AccumulatorsFactory<Row> implements Supplier<List<AccumulatorWrappe
     /**
      *
      */
-    private final class AccumulatorWrapperImpl implements AccumulatorWrapper<Row> {
+    private final class AccumulatorWrapperImpl implements AccumulatorWrapper<RowT> {
         /**
          *
          */
@@ -340,7 +340,7 @@ public class AccumulatorsFactory<Row> implements Supplier<List<AccumulatorWrappe
         /**
          *
          */
-        private final RowHandler<Row> handler;
+        private final RowHandler<RowT> handler;
 
         /**
          *
@@ -364,7 +364,7 @@ public class AccumulatorsFactory<Row> implements Supplier<List<AccumulatorWrappe
 
         /** {@inheritDoc} */
         @Override
-        public void add(Row row) {
+        public void add(RowT row) {
             assert type != AggregateType.REDUCE;
 
             if (filterArg >= 0 && Boolean.TRUE != handler.get(filterArg, row)) {

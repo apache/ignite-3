@@ -90,6 +90,9 @@ public class PlannerTest extends AbstractPlannerTest {
      */
     private static List<String> NODES;
 
+    /**
+     *
+     */
     @BeforeAll
     public static void init() {
         NODES = new ArrayList<>(4);

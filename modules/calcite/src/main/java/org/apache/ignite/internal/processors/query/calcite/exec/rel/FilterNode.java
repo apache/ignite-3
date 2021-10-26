@@ -28,16 +28,16 @@ import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext
 /**
  *
  */
-public class FilterNode<Row> extends AbstractNode<Row> implements SingleNode<Row>, Downstream<Row> {
+public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     /**
      *
      */
-    private final Predicate<Row> pred;
+    private final Predicate<RowT> pred;
 
     /**
      *
      */
-    private final Deque<Row> inBuf = new ArrayDeque<>(inBufSize);
+    private final Deque<RowT> inBuf = new ArrayDeque<>(inBufSize);
 
     /**
      *
@@ -58,7 +58,7 @@ public class FilterNode<Row> extends AbstractNode<Row> implements SingleNode<Row
      * @param ctx  Execution context.
      * @param pred Predicate.
      */
-    public FilterNode(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> pred) {
+    public FilterNode(ExecutionContext<RowT> ctx, RelDataType rowType, Predicate<RowT> pred) {
         super(ctx, rowType);
 
         this.pred = pred;
@@ -81,7 +81,7 @@ public class FilterNode<Row> extends AbstractNode<Row> implements SingleNode<Row
 
     /** {@inheritDoc} */
     @Override
-    public void push(Row row) throws Exception {
+    public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
 
@@ -111,7 +111,7 @@ public class FilterNode<Row> extends AbstractNode<Row> implements SingleNode<Row
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         if (idx != 0) {
             throw new IndexOutOfBoundsException();
         }
