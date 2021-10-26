@@ -28,6 +28,8 @@ import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionService
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.processors.query.calcite.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.processors.query.calcite.exec.QueryTaskExecutorImpl;
+import org.apache.ignite.internal.processors.query.calcite.extension.SqlExtension;
+import org.apache.ignite.internal.processors.query.calcite.extension.SqlExtensionImpl;
 import org.apache.ignite.internal.processors.query.calcite.message.MessageService;
 import org.apache.ignite.internal.processors.query.calcite.message.MessageServiceImpl;
 import org.apache.ignite.internal.processors.query.calcite.prepare.QueryPlanCache;
@@ -90,7 +92,11 @@ public class SqlQueryProcessor implements QueryProcessor {
                 taskExecutor
         );
 
+        SqlExtension plugin = new SqlExtensionImpl();
+
         SchemaHolderImpl schemaHolder = new SchemaHolderImpl(planCache::clear);
+
+        plugin.init(null, catalog -> schemaHolder.registerExternalCatalog(plugin.name(), catalog));
 
         executionSrvc = new ExecutionServiceImpl<>(
                 clusterSrvc.topologyService(),
@@ -98,7 +104,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 planCache,
                 schemaHolder,
                 taskExecutor,
-                ArrayRowHandler.INSTANCE
+                ArrayRowHandler.INSTANCE,
+                List.of(plugin)
         );
 
         registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaHolder));

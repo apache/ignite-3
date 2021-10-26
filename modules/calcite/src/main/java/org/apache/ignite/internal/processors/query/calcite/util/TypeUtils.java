@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.processors.query.calcite.util;
 
+import static org.apache.calcite.util.Util.last;
 import static org.apache.ignite.internal.processors.query.calcite.util.Commons.nativeTypeToClass;
 import static org.apache.ignite.internal.processors.query.calcite.util.Commons.transform;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -55,6 +56,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+/** */
 /**
  * TypeUtils.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -227,11 +229,11 @@ public class TypeUtils {
             return typeFactory.getResultClass(type);
         }
 
-        RelOptTable table = schema.getTableForMember(origin.subList(0, 2));
+        RelOptTable table = schema.getTableForMember(origin.subList(0, origin.size() - 1));
 
         assert table != null;
 
-        ColumnDescriptor fldDesc = table.unwrap(TableDescriptor.class).columnDescriptor(origin.get(2));
+        ColumnDescriptor fldDesc = table.unwrap(TableDescriptor.class).columnDescriptor(last(origin));
 
         assert fldDesc != null;
 

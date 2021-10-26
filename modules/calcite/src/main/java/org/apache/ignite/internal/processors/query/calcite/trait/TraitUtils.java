@@ -36,6 +36,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.calcite.linq4j.Ord;
+import org.apache.calcite.plan.Convention;
+import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
@@ -63,6 +65,7 @@ import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteConvention;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteExchange;
+import org.apache.ignite.internal.processors.query.calcite.rel.IgniteGateway;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteRel;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteSort;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableSpool;
@@ -70,13 +73,11 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTrimExchang
 import org.jetbrains.annotations.Nullable;
 
 /**
- * TraitUtils.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * TraitUtils. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TraitUtils {
     /**
-     * Enforce.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Enforce. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Nullable
     public static RelNode enforce(RelNode rel, RelTraitSet toTraits) {
@@ -119,7 +120,9 @@ public class TraitUtils {
 
         RelTraitDef converter = fromTrait.getTraitDef();
 
-        if (converter == RelCollationTraitDef.INSTANCE) {
+        if (converter == ConventionTraitDef.INSTANCE) {
+            return convertConvention(planner, (Convention) toTrait, rel);
+        } else if (converter == RelCollationTraitDef.INSTANCE) {
             return convertCollation(planner, (RelCollation) toTrait, rel);
         } else if (converter == DistributionTraitDef.INSTANCE) {
             return convertDistribution(planner, (IgniteDistribution) toTrait, rel);
@@ -130,9 +133,20 @@ public class TraitUtils {
         }
     }
 
+    private static RelNode convertConvention(RelOptPlanner planner, Convention toTrait, RelNode rel) {
+        Convention fromTrait = rel.getConvention();
+
+        if (fromTrait.satisfies(toTrait)) {
+            return rel;
+        }
+
+        RelTraitSet traits = rel.getTraitSet().replace(toTrait);
+
+        return new IgniteGateway(rel.getCluster(), traits, rel);
+    }
+
     /**
-     * Convert collation.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Convert collation. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Nullable
     public static RelNode convertCollation(RelOptPlanner planner,
@@ -149,8 +163,7 @@ public class TraitUtils {
     }
 
     /**
-     * Convert distribution.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Convert distribution. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Nullable
     public static RelNode convertDistribution(RelOptPlanner planner,
@@ -186,8 +199,7 @@ public class TraitUtils {
     }
 
     /**
-     * Convert rewindability.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Convert rewindability. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Nullable
     public static RelNode convertRewindability(RelOptPlanner planner,
@@ -231,8 +243,7 @@ public class TraitUtils {
     }
 
     /**
-     * Distribution.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Distribution. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static IgniteDistribution distribution(RelNode rel) {
         return rel instanceof IgniteRel
@@ -241,16 +252,14 @@ public class TraitUtils {
     }
 
     /**
-     * Distribution.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Distribution. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static IgniteDistribution distribution(RelTraitSet traits) {
         return traits.getTrait(DistributionTraitDef.INSTANCE);
     }
 
     /**
-     * Collation.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Collation. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static RelCollation collation(RelNode rel) {
         return rel instanceof IgniteRel
@@ -259,16 +268,14 @@ public class TraitUtils {
     }
 
     /**
-     * Collation.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Collation. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static RelCollation collation(RelTraitSet traits) {
         return traits.getTrait(RelCollationTraitDef.INSTANCE);
     }
 
     /**
-     * Rewindability.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Rewindability. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static RewindabilityTrait rewindability(RelNode rel) {
         return rel instanceof IgniteRel
@@ -277,16 +284,14 @@ public class TraitUtils {
     }
 
     /**
-     * Rewindability.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Rewindability. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static RewindabilityTrait rewindability(RelTraitSet traits) {
         return traits.getTrait(RewindabilityTraitDef.INSTANCE);
     }
 
     /**
-     * Correlation.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Correlation. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static CorrelationTrait correlation(RelNode rel) {
         return rel instanceof IgniteRel
@@ -295,16 +300,14 @@ public class TraitUtils {
     }
 
     /**
-     * Correlation.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Correlation. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static CorrelationTrait correlation(RelTraitSet traits) {
         return traits.getTrait(CorrelationTraitDef.INSTANCE);
     }
 
     /**
-     * ChangeTraits.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * ChangeTraits. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static RelInput changeTraits(RelInput input, RelTrait... traits) {
         RelTraitSet traitSet = input.getTraitSet();
@@ -435,8 +438,7 @@ public class TraitUtils {
     }
 
     /**
-     * ProjectCollation.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * ProjectCollation. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static RelCollation projectCollation(RelCollation collation, List<RexNode> projects, RelDataType inputRowType) {
         if (collation.getFieldCollations().isEmpty()) {
@@ -449,8 +451,7 @@ public class TraitUtils {
     }
 
     /**
-     * ProjectDistribution.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * ProjectDistribution. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static IgniteDistribution projectDistribution(IgniteDistribution distribution, List<RexNode> projects,
             RelDataType inputRowType) {
@@ -464,16 +465,23 @@ public class TraitUtils {
     }
 
     /**
-     * PassThrough.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * PassThrough. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static Pair<RelTraitSet, List<RelTraitSet>> passThrough(TraitsAwareIgniteRel rel, RelTraitSet requiredTraits) {
-        if (requiredTraits.getConvention() != IgniteConvention.INSTANCE || rel.getInputs().isEmpty()) {
+        return passThrough(IgniteConvention.INSTANCE, rel, requiredTraits);
+    }
+
+    /**
+     *
+     */
+    public static Pair<RelTraitSet, List<RelTraitSet>> passThrough(Convention convention, TraitsAwareIgniteRel rel,
+            RelTraitSet requiredTraits) {
+        if (requiredTraits.getConvention() != convention || rel.getInputs().isEmpty()) {
             return null;
         }
 
         List<RelTraitSet> inTraits = Collections.nCopies(rel.getInputs().size(),
-                rel.getCluster().traitSetOf(IgniteConvention.INSTANCE));
+                rel.getCluster().traitSetOf(convention));
 
         List<Pair<RelTraitSet, List<RelTraitSet>>> traits = new PropagationContext(Set.of(Pair.of(requiredTraits, inTraits)))
                 .propagate((in, outs) -> singletonListFromNullable(rel.passThroughCollation(in, outs)))
@@ -484,17 +492,25 @@ public class TraitUtils {
 
         assert traits.size() <= 1;
 
-        return first(traits);
+        return
+
+                first(traits);
     }
 
     /**
-     * Derive.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Derive. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static List<RelNode> derive(TraitsAwareIgniteRel rel, List<List<RelTraitSet>> inTraits) {
+        return derive(IgniteConvention.INSTANCE, rel, inTraits);
+    }
+
+    /**
+     *
+     */
+    public static List<RelNode> derive(Convention convention, TraitsAwareIgniteRel rel, List<List<RelTraitSet>> inTraits) {
         assert !nullOrEmpty(inTraits);
 
-        RelTraitSet outTraits = rel.getCluster().traitSetOf(IgniteConvention.INSTANCE);
+        RelTraitSet outTraits = rel.getCluster().traitSetOf(convention);
         Set<Pair<RelTraitSet, List<RelTraitSet>>> combinations = combinations(outTraits, inTraits);
 
         if (combinations.isEmpty()) {
@@ -510,8 +526,7 @@ public class TraitUtils {
     }
 
     /**
-     * SingletonListFromNullable.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * SingletonListFromNullable. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param elem Elem.
      */

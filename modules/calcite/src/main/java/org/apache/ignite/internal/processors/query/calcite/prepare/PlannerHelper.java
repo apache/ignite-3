@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.query.calcite.prepare;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
@@ -82,6 +83,9 @@ public class PlannerHelper {
             // Transformation chain
             rel = planner.transform(PlannerPhase.HEURISTIC_OPTIMIZATION, rel.getTraitSet(), rel);
 
+            System.out.println(">>>DEBUG");
+            System.out.println(RelOptUtil.toString(rel));
+
             RelTraitSet desired = rel.getCluster().traitSet()
                     .replace(IgniteConvention.INSTANCE)
                     .replace(IgniteDistributions.single())
@@ -104,6 +108,9 @@ public class PlannerHelper {
             if (sqlNode.isA(Set.of(SqlKind.INSERT, SqlKind.UPDATE, SqlKind.MERGE))) {
                 igniteRel = new FixDependentModifyNodeShuttle().visit(igniteRel);
             }
+
+            System.out.println(">>>DEBUG");
+            System.out.println(RelOptUtil.toString(igniteRel));
 
             return igniteRel;
         } catch (Throwable ex) {

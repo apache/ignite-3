@@ -22,53 +22,68 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.processors.query.calcite.extension.SqlExtensionImpl;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test SQL data types.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15107")
+//@Disabled("https://issues.apache.org/jira/browse/IGNITE-15107")
 public class ItDataTypesTest extends AbstractBasicIntegrationTest {
+    @Test
+    public void test() {
+        createAndPopulateTable();
+
+        SqlExtensionImpl.allNodes = CLUSTER_NODES.stream()
+                .map(i -> (IgniteImpl)i)
+                .map(IgniteImpl::id)
+                .collect(Collectors.toList());
+
+        for (List<?> row : sql("select p.id, p.name, t.c2 from person p join MY_PLUGIN.CUSTOM_SCHEMA.TEST_TBL t on p.id = t.c1"))
+            System.out.println(row);
+    }
+
     /**
      * Before all.
      */
     @Test
     public void testUnicodeStrings() {
         sql("CREATE TABLE string_table(key int primary key, val varchar)");
-        
+
         String[] values = new String[]{"Кирилл", "Müller", "我是谁", "ASCII"};
-        
+
         int key = 0;
-        
+
         // Insert as inlined values.
         for (String val : values) {
             sql("INSERT INTO string_table (key, val) VALUES (?, ?)", key++, val);
         }
-        
+
         List<List<?>> rows = sql("SELECT val FROM string_table");
-        
+
         assertEquals(Set.of(values), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
-        
+
         sql("DELETE FROM string_table");
-        
+
         // Insert as parameters.
         for (String val : values) {
             sql("INSERT INTO string_table (key, val) VALUES (?, ?)", key++, val);
         }
-        
+
         rows = sql("SELECT val FROM string_table");
-        
+
         assertEquals(Set.of(values), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
-        
+
         rows = sql("SELECT substring(val, 1, 2) FROM string_table");
-        
+
         assertEquals(Set.of("Ки", "Mü", "我是", "AS"),
                 rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
-        
+
         for (String val : values) {
             rows = sql("SELECT char_length(val) FROM string_table WHERE val = ?", val);
-            
+
             assertEquals(1, rows.size());
             assertEquals(val.length(), rows.get(0).get(0));
         }

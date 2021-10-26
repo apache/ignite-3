@@ -25,6 +25,7 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteExchange;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteFilter;
+import org.apache.ignite.internal.processors.query.calcite.rel.IgniteGateway;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteHashIndexSpool;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteLimit;
@@ -265,6 +266,11 @@ public class Cloner implements IgniteRelVisitor<IgniteRel> {
     @Override
     public IgniteRel visit(IgniteTableFunctionScan rel) {
         return rel.clone(cluster, asList());
+    }
+
+    /** {@inheritDoc} */
+    @Override public IgniteRel visit(IgniteGateway rel) {
+        return rel.clone(cluster, asList(visit((IgniteRel) rel.getInput())));
     }
 
     /** {@inheritDoc} */

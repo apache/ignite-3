@@ -56,6 +56,7 @@ import org.apache.ignite.internal.processors.query.calcite.exec.rel.Inbox;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Node;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Outbox;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.RootNode;
+import org.apache.ignite.internal.processors.query.calcite.extension.SqlExtension;
 import org.apache.ignite.internal.processors.query.calcite.message.ErrorMessage;
 import org.apache.ignite.internal.processors.query.calcite.message.MessageService;
 import org.apache.ignite.internal.processors.query.calcite.message.QueryStartRequest;
@@ -144,6 +145,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
 
     private final DdlSqlToCommandConverter ddlConverter;
 
+    private final List<SqlExtension> plugins;
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -154,13 +157,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
             QueryPlanCache planCache,
             SchemaHolder schemaHolder,
             QueryTaskExecutor taskExecutor,
-            RowHandler<RowT> handler
+            RowHandler<RowT> handler,
+            List<SqlExtension> plugins
     ) {
         this.topSrvc = topSrvc;
         this.handler = handler;
         this.msgSrvc = msgSrvc;
         this.schemaHolder = schemaHolder;
         this.taskExecutor = taskExecutor;
+        this.plugins = plugins;
 
         locNodeId = topSrvc.localMember().id();
         qryPlanCache = planCache;
@@ -195,7 +200,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
             String qry,
             Object[] params
     ) {
-        PlanningContext pctx = createContext(topologyVersion(), locNodeId, schema, qry, params);
+        PlanningContext pctx = createContext(topologyVersion(), plugins, locNodeId, schema, qry, params);
 
         List<QueryPlan> qryPlans = qryPlanCache.queryPlan(pctx, new CacheKey(pctx.schemaName(), pctx.query()), this::prepareQuery);
 
@@ -329,8 +334,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         return 1L;
     }
 
-    private PlanningContext createContext(long topVer, String originator,
-            @Nullable String schema, String qry, Object[] params) {
+    private PlanningContext createContext(long topVer, List<SqlExtension> plugins, String originator,
+        @Nullable String schema, String qry, Object[] params) {
         RelTraitDef<?>[] traitDefs = {
                 ConventionTraitDef.INSTANCE,
                 RelCollationTraitDef.INSTANCE,
@@ -351,6 +356,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
                         .build())
                 .query(qry)
                 .parameters(params)
+                .plugins(plugins)
                 .topologyVersion(topVer)
                 .build();
     }
@@ -392,9 +398,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         ValidationResult validated = planner.validateAndGetTypeMetadata(sqlNode);
 
         sqlNode = validated.sqlNode();
-        
+
         IgniteRel igniteRel = optimize(sqlNode, planner);
-        
+
         // Split query plan to query fragments.
         List<Fragment> fragments = new Splitter().go(igniteRel);
 
@@ -449,7 +455,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
 
         // Convert to Relational operators graph
         IgniteRel igniteRel = optimize(sqlNode, planner);
-        
+
         // Split query plan to query fragments.
         List<Fragment> fragments = new Splitter().go(igniteRel);
 
@@ -476,7 +482,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
 
         // Convert to Relational operators graph
         IgniteRel igniteRel = optimize(sql, planner);
-        
+
         String plan = RelOptUtil.toString(igniteRel, SqlExplainLevel.ALL_ATTRIBUTES);
 
         return new ExplainPlan(plan, explainFieldsMetadata(ctx));
@@ -573,7 +579,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         assert nodeId != null && msg != null;
 
         try {
-            PlanningContext pctx = createContext(msg.topologyVersion(), nodeId, msg.schema(),
+            PlanningContext pctx = createContext(msg.topologyVersion(), plugins, nodeId, msg.schema(),
                     msg.root(), msg.parameters());
 
             List<QueryPlan> qryPlans = qryPlanCache.queryPlan(

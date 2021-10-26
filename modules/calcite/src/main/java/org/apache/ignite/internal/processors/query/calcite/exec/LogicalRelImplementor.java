@@ -68,6 +68,7 @@ import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGr
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteExchange;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteFilter;
+import org.apache.ignite.internal.processors.query.calcite.rel.IgniteGateway;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteHashIndexSpool;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteLimit;
@@ -334,6 +335,11 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 prj,
                 requiredColumns
         );
+    }
+
+    /** {@inheritDoc} */
+    @Override public Node<RowT> visit(IgniteGateway rel) {
+        return ctx.planningContext().plugins().get(0).<RowT>implementor().implement(ctx, (IgniteRel) rel.getInput());
     }
 
     /** {@inheritDoc} */

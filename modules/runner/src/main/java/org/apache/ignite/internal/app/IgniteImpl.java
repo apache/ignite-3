@@ -221,6 +221,10 @@ public class IgniteImpl implements Ignite {
         clientHandlerModule = new ClientHandlerModule(qryEngine, distributedTblMgr, nodeCfgMgr.configurationRegistry());
     }
 
+    public String id() {
+        return clusterSvc.topologyService().localMember().id();
+    }
+
     /**
      * Starts ignite node.
      *
