@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration.asm;
 
-import java.io.File;
 import java.io.Serializable;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
@@ -323,9 +322,7 @@ public class ConfigurationAsmGenerator {
     private final Map<Class<?>, SchemaClassesInfo> schemasInfo = new HashMap<>();
 
     /** Class generator instance. */
-    private final ClassGenerator generator = ClassGenerator.classGenerator(getClass().getClassLoader())
-        .dumpClassFilesTo(new File("C:\\test").toPath());
-    // TODO: IGNITE-14645 ^^^
+    private final ClassGenerator generator = ClassGenerator.classGenerator(getClass().getClassLoader());
 
     /**
      * Creates new instance of {@code *Node} class corresponding to the given Configuration Schema.

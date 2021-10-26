@@ -20,7 +20,6 @@ import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -60,6 +59,7 @@ import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.compressDeletedEntries;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.dropNulls;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.fillFromPrefixMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.toPrefixMap;
@@ -451,40 +451,5 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                 else
                     oldStorageRoots.changeFuture.completeExceptionally(t);
             });
-    }
-
-    /**
-     * Prepares a map for further work with it:
-     * 1)If a deleted element of the named list is encountered, then this subtree becomes {@code null};
-     * 2)If a {@code null} leaf is encountered due to a change in the polymorphic configuration, then remove it.
-     *
-     * @param prefixMap Prefix map, constructed from the storage notification data or its subtree.
-     */
-    private void compressDeletedEntries(Map<String, ?> prefixMap) {
-        for (Iterator<? extends Map.Entry<String, ?>> it = prefixMap.entrySet().iterator(); it.hasNext(); ) {
-            Map.Entry<String, ?> entry = it.next();
-
-            Object value = entry.getValue();
-
-            if (value instanceof Map) {
-                Map<?, ?> map = (Map<?, ?>)value;
-
-                // If an element of the named list is removed then {@link NamedListNode#NAME}
-                // will be {@code null} and the entire subtree can be replaced with {@code null}.
-                if (map.containsKey(NamedListNode.NAME) && map.get(NamedListNode.NAME) == null)
-                    entry.setValue(null);
-            }
-            else if (value == null) {
-                // If there was a change in the type of polymorphic configuration,
-                // then the fields of the old configuration will be {@code null}, so we can get rid of them.
-                it.remove();
-            }
-        }
-
-        // Continue recursively.
-        for (Object value : prefixMap.values()) {
-            if (value instanceof Map)
-                compressDeletedEntries((Map<String, ?>)value);
-        }
     }
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.util;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
+import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
@@ -57,6 +59,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.EM
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.compressDeletedEntries;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.extensionsFields;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.find;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
@@ -86,6 +89,15 @@ public class ConfigurationUtilTest {
         cgen = new ConfigurationAsmGenerator();
 
         cgen.compileRootSchema(ParentConfigurationSchema.class, Map.of(), Map.of());
+
+        cgen.compileRootSchema(
+            PolymorphicRootConfigurationSchema.class,
+            Map.of(),
+            Map.of(
+                PolymorphicConfigurationSchema.class,
+                Set.of(FirstPolymorphicInstanceConfigurationSchema.class, SecondPolymorphicInstanceConfigurationSchema.class)
+            )
+        );
     }
 
     @AfterAll
@@ -93,8 +105,15 @@ public class ConfigurationUtilTest {
         cgen = null;
     }
 
-    public static <P extends InnerNode & ParentChange> P newParentInstance() {
-        return (P)cgen.instantiateNode(ParentConfigurationSchema.class);
+    /**
+     * Creates new instance of {@code *Node} class corresponding to the given configuration Schema.
+     *
+     * @param schemaClass Configuration schema class.
+     * @param <P> Type of {@link InnerNode}.
+     * @return New instance of {@link InnerNode}.
+     */
+    public static <P extends InnerNode> P newNodeInstance(Class<?> schemaClass) {
+        return (P)cgen.instantiateNode(schemaClass);
     }
 
     /** */
@@ -163,9 +182,11 @@ public class ConfigurationUtilTest {
      */
     @Test
     public void findSuccessfully() {
-        var parent = newParentInstance();
+        InnerNode parentNode = newNodeInstance(ParentConfigurationSchema.class);
 
-        parent.changeElements(elements ->
+        ParentChange parentChange = (ParentChange)parentNode;
+
+        parentChange.changeElements(elements ->
             elements.createOrUpdate("name", element ->
                 element.changeChild(child ->
                     child.changeStr("value")
@@ -174,28 +195,28 @@ public class ConfigurationUtilTest {
         );
 
         assertSame(
-            parent,
-            ConfigurationUtil.find(List.of(), parent, true)
+            parentNode,
+            ConfigurationUtil.find(List.of(), parentNode, true)
         );
 
         assertSame(
-            parent.elements(),
-            ConfigurationUtil.find(List.of("elements"), parent, true)
+            parentChange.elements(),
+            ConfigurationUtil.find(List.of("elements"), parentNode, true)
         );
 
         assertSame(
-            parent.elements().get("name"),
-            ConfigurationUtil.find(List.of("elements", "name"), parent, true)
+            parentChange.elements().get("name"),
+            ConfigurationUtil.find(List.of("elements", "name"), parentNode, true)
         );
 
         assertSame(
-            parent.elements().get("name").child(),
-            ConfigurationUtil.find(List.of("elements", "name", "child"), parent, true)
+            parentChange.elements().get("name").child(),
+            ConfigurationUtil.find(List.of("elements", "name", "child"), parentNode, true)
         );
 
         assertSame(
-            parent.elements().get("name").child().str(),
-            ConfigurationUtil.find(List.of("elements", "name", "child", "str"), parent, true)
+            parentChange.elements().get("name").child().str(),
+            ConfigurationUtil.find(List.of("elements", "name", "child", "str"), parentNode, true)
         );
     }
 
@@ -205,13 +226,15 @@ public class ConfigurationUtilTest {
      */
     @Test
     public void findNulls() {
-        var parent = newParentInstance();
+        InnerNode parentNode = newNodeInstance(ParentConfigurationSchema.class);
 
-        assertNull(ConfigurationUtil.find(List.of("elements", "name"), parent, true));
+        ParentChange parentChange = (ParentChange)parentNode;
 
-        parent.changeElements(elements -> elements.createOrUpdate("name", element -> {}));
+        assertNull(ConfigurationUtil.find(List.of("elements", "name"), parentNode, true));
 
-        assertNull(ConfigurationUtil.find(List.of("elements", "name", "child", "str"), parent, true));
+        parentChange.changeElements(elements -> elements.createOrUpdate("name", element -> {}));
+
+        assertNull(ConfigurationUtil.find(List.of("elements", "name", "child", "str"), parentNode, true));
     }
 
     /**
@@ -220,25 +243,27 @@ public class ConfigurationUtilTest {
      */
     @Test
     public void findUnsuccessfully() {
-        var parent = newParentInstance();
+        InnerNode parentNode = newNodeInstance(ParentConfigurationSchema.class);
+
+        ParentChange parentChange = (ParentChange)parentNode;
 
         assertThrows(
             KeyNotFoundException.class,
-            () -> ConfigurationUtil.find(List.of("elements", "name", "child"), parent, true)
+            () -> ConfigurationUtil.find(List.of("elements", "name", "child"), parentNode, true)
         );
 
-        parent.changeElements(elements -> elements.createOrUpdate("name", element -> {}));
+        parentChange.changeElements(elements -> elements.createOrUpdate("name", element -> {}));
 
         assertThrows(
             KeyNotFoundException.class,
-            () -> ConfigurationUtil.find(List.of("elements", "name", "child", "str0"), parent, true)
+            () -> ConfigurationUtil.find(List.of("elements", "name", "child", "str0"), parentNode, true)
         );
 
-        ((NamedElementChange)parent.elements().get("name")).changeChild(child -> child.changeStr("value"));
+        ((NamedElementChange)parentChange.elements().get("name")).changeChild(child -> child.changeStr("value"));
 
         assertThrows(
             KeyNotFoundException.class,
-            () -> ConfigurationUtil.find(List.of("elements", "name", "child", "str", "foo"), parent, true)
+            () -> ConfigurationUtil.find(List.of("elements", "name", "child", "str", "foo"), parentNode, true)
         );
     }
 
@@ -273,7 +298,9 @@ public class ConfigurationUtilTest {
      */
     @Test
     public void fillFromPrefixMapSuccessfully() {
-        var parentNode = newParentInstance();
+        InnerNode parentNode = newNodeInstance(ParentConfigurationSchema.class);
+
+        ParentChange parentChange = (ParentChange)parentNode;
 
         ConfigurationUtil.fillFromPrefixMap(parentNode, Map.of(
             "elements", Map.of(
@@ -290,8 +317,8 @@ public class ConfigurationUtilTest {
             )
         ));
 
-        assertEquals("value1", parentNode.elements().get("name1").child().str());
-        assertEquals("value2", parentNode.elements().get("name2").child().str());
+        assertEquals("value1", parentChange.elements().get("name1").child().str());
+        assertEquals("value2", parentChange.elements().get("name2").child().str());
     }
 
     /**
@@ -299,9 +326,11 @@ public class ConfigurationUtilTest {
      */
     @Test
     public void fillFromPrefixMapSuccessfullyWithRemove() {
-        var parentNode = newParentInstance();
+        InnerNode parentNode = newNodeInstance(ParentConfigurationSchema.class);
 
-        parentNode.changeElements(elements ->
+        ParentChange parentChange = (ParentChange)parentNode;
+
+        parentChange.changeElements(elements ->
             elements.createOrUpdate("name", element ->
                 element.changeChild(child -> {})
             )
@@ -311,7 +340,7 @@ public class ConfigurationUtilTest {
             "elements", singletonMap("name", null)
         ));
 
-        assertNull(parentNode.elements().get("node"));
+        assertNull(parentChange.elements().get("node"));
     }
 
     /**
@@ -319,12 +348,15 @@ public class ConfigurationUtilTest {
      */
     @Test
     public void flattenedUpdatesMap() {
-        var superRoot = new SuperRoot(key -> null, Map.of(ParentConfiguration.KEY, newParentInstance()));
+        var superRoot = new SuperRoot(
+            key -> null,
+            Map.of(ParentConfiguration.KEY, newNodeInstance(ParentConfigurationSchema.class))
+        );
 
-        assertThat(flattenedMap(superRoot, parent -> {}), is(anEmptyMap()));
+        assertThat(flattenedMap(superRoot, ParentConfiguration.KEY, node -> {}), is(anEmptyMap()));
 
         assertThat(
-            flattenedMap(superRoot, parent -> parent
+            flattenedMap(superRoot, ParentConfiguration.KEY, node -> ((ParentChange)node)
                 .changeElements(elements -> elements
                     .create("name", element -> element
                         .changeChild(child -> child.changeStr("foo"))
@@ -340,14 +372,14 @@ public class ConfigurationUtilTest {
         );
 
         assertThat(
-            flattenedMap(superRoot, parent -> parent
+            flattenedMap(superRoot, ParentConfiguration.KEY, node -> ((ParentChange)node)
                 .changeElements(elements1 -> elements1.delete("void"))
             ),
             is(anEmptyMap())
         );
 
         assertThat(
-            flattenedMap(superRoot, parent -> parent
+            flattenedMap(superRoot, ParentConfiguration.KEY, node -> ((ParentChange)node)
                 .changeElements(elements -> elements.delete("name"))
             ),
             is(allOf(
@@ -418,37 +450,37 @@ public class ConfigurationUtilTest {
 
         assertThrows(
             IllegalArgumentException.class,
-            () -> internalSchemaExtensions(List.of(SimpleRootConfigurationSchema.class))
+            () -> internalSchemaExtensions(List.of(InternalRootConfigurationSchema.class))
         );
 
         assertThrows(
             IllegalArgumentException.class,
-            () -> internalSchemaExtensions(List.of(SimpleConfigurationSchema.class))
+            () -> internalSchemaExtensions(List.of(InternalConfigurationSchema.class))
         );
 
         Map<Class<?>, Set<Class<?>>> extensions = internalSchemaExtensions(List.of(
-            InternalFirstSimpleRootConfigurationSchema.class,
-            InternalSecondSimpleRootConfigurationSchema.class,
-            InternalFirstSimpleConfigurationSchema.class,
-            InternalSecondSimpleConfigurationSchema.class
+            InternalFirstRootConfigurationSchema.class,
+            InternalSecondRootConfigurationSchema.class,
+            InternalFirstConfigurationSchema.class,
+            InternalSecondConfigurationSchema.class
         ));
 
         assertEquals(2, extensions.size());
 
         assertEquals(
             Set.of(
-                InternalFirstSimpleRootConfigurationSchema.class,
-                InternalSecondSimpleRootConfigurationSchema.class
+                InternalFirstRootConfigurationSchema.class,
+                InternalSecondRootConfigurationSchema.class
             ),
-            extensions.get(SimpleRootConfigurationSchema.class)
+            extensions.get(InternalRootConfigurationSchema.class)
         );
 
         assertEquals(
             Set.of(
-                InternalFirstSimpleConfigurationSchema.class,
-                InternalSecondSimpleConfigurationSchema.class
+                InternalFirstConfigurationSchema.class,
+                InternalSecondConfigurationSchema.class
             ),
-            extensions.get(SimpleConfigurationSchema.class)
+            extensions.get(InternalConfigurationSchema.class)
         );
     }
 
@@ -459,8 +491,8 @@ public class ConfigurationUtilTest {
         assertTrue(extensionsFields(List.of(), false).isEmpty());
 
         List<Class<?>> extensions0 = List.of(
-            InternalExtendedSimpleRootConfigurationSchema.class,
-            ErrorInternalExtendedSimpleRootConfigurationSchema.class
+            InternalExtendedRootConfigurationSchema.class,
+            ErrorInternalExtendedRootConfigurationSchema.class
         );
 
         assertThrows(IllegalArgumentException.class, () -> extensionsFields(extensions0, true));
@@ -471,8 +503,8 @@ public class ConfigurationUtilTest {
         );
 
         List<Class<?>> extensions1 = List.of(
-            InternalFirstSimpleRootConfigurationSchema.class,
-            InternalSecondSimpleRootConfigurationSchema.class
+            InternalFirstRootConfigurationSchema.class,
+            InternalSecondRootConfigurationSchema.class
         );
 
         assertEquals(
@@ -490,21 +522,16 @@ public class ConfigurationUtilTest {
     @Test
     void testFindInternalConfigs() {
         Map<Class<?>, Set<Class<?>>> internalExtensions = internalSchemaExtensions(List.of(
-            InternalFirstSimpleRootConfigurationSchema.class,
-            InternalSecondSimpleRootConfigurationSchema.class,
-            InternalFirstSimpleConfigurationSchema.class,
-            InternalSecondSimpleConfigurationSchema.class
-        ));
-
-        Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicSchemaExtensions(List.of(
-            FirstPolymorphicInstanceConfigurationSchema.class,
-            SecondPolymorphicInstanceConfigurationSchema.class
+            InternalFirstRootConfigurationSchema.class,
+            InternalSecondRootConfigurationSchema.class,
+            InternalFirstConfigurationSchema.class,
+            InternalSecondConfigurationSchema.class
         ));
 
         ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
-        generator.compileRootSchema(SimpleRootConfigurationSchema.class, internalExtensions, polymorphicExtensions);
+        generator.compileRootSchema(InternalRootConfigurationSchema.class, internalExtensions, Map.of());
 
-        InnerNode innerNode = generator.instantiateNode(SimpleRootConfigurationSchema.class);
+        InnerNode innerNode = generator.instantiateNode(InternalRootConfigurationSchema.class);
 
         addDefaults(innerNode);
 
@@ -531,21 +558,16 @@ public class ConfigurationUtilTest {
     @Test
     void testGetInternalConfigs() {
         Map<Class<?>, Set<Class<?>>> internalExtensions = internalSchemaExtensions(List.of(
-            InternalFirstSimpleRootConfigurationSchema.class,
-            InternalSecondSimpleRootConfigurationSchema.class,
-            InternalFirstSimpleConfigurationSchema.class,
-            InternalSecondSimpleConfigurationSchema.class
-        ));
-
-        Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicSchemaExtensions(List.of(
-            FirstPolymorphicInstanceConfigurationSchema.class,
-            SecondPolymorphicInstanceConfigurationSchema.class
+            InternalFirstRootConfigurationSchema.class,
+            InternalSecondRootConfigurationSchema.class,
+            InternalFirstConfigurationSchema.class,
+            InternalSecondConfigurationSchema.class
         ));
 
         ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
-        generator.compileRootSchema(SimpleRootConfigurationSchema.class, internalExtensions, polymorphicExtensions);
+        generator.compileRootSchema(InternalRootConfigurationSchema.class, internalExtensions, Map.of());
 
-        InnerNode innerNode = generator.instantiateNode(SimpleRootConfigurationSchema.class);
+        InnerNode innerNode = generator.instantiateNode(InternalRootConfigurationSchema.class);
 
         addDefaults(innerNode);
 
@@ -553,7 +575,7 @@ public class ConfigurationUtilTest {
 
         // Check that no internal configuration will be received.
 
-        assertEquals(5, config.size());
+        assertEquals(4, config.size());
         assertNull(config.get("str0"));
         assertEquals("foo", config.get("str1"));
         assertNotNull(config.get("subCfg"));
@@ -568,7 +590,7 @@ public class ConfigurationUtilTest {
 
         config = (Map<String, Object>)innerNode.accept(null, new ConverterToMapVisitor(true));
 
-        assertEquals(8, config.size());
+        assertEquals(7, config.size());
         assertNull(config.get("str0"));
         assertNull(config.get("str2"));
         assertEquals("foo", config.get("str1"));
@@ -634,21 +656,22 @@ public class ConfigurationUtilTest {
 
         assertThrows(IllegalArgumentException.class, () -> collectSchemas(List.of(Object.class)));
 
-        List<Class<?>> schemas = List.of(
+        Set<Class<?>> schemas = Set.of(
             LocalFirstConfigurationSchema.class,
-            SimpleConfigurationSchema.class,
-            SimplePolymorphicConfigurationSchema.class
+            InternalConfigurationSchema.class,
+            PolymorphicConfigurationSchema.class
         );
 
-        assertEquals(Set.copyOf(schemas), collectSchemas(schemas));
+        assertEquals(schemas, collectSchemas(schemas));
 
         assertEquals(
             Set.of(
-                SimpleRootConfigurationSchema.class,
-                SimpleConfigurationSchema.class,
-                SimplePolymorphicConfigurationSchema.class
+                InternalRootConfigurationSchema.class,
+                PolymorphicRootConfigurationSchema.class,
+                InternalConfigurationSchema.class,
+                PolymorphicConfigurationSchema.class
             ),
-            collectSchemas(List.of(SimpleRootConfigurationSchema.class))
+            collectSchemas(List.of(InternalRootConfigurationSchema.class, PolymorphicRootConfigurationSchema.class))
         );
     }
 
@@ -670,9 +693,116 @@ public class ConfigurationUtilTest {
         );
 
         assertEquals(
-            Map.of(SimplePolymorphicConfigurationSchema.class, extensions),
+            Map.of(PolymorphicConfigurationSchema.class, extensions),
             polymorphicSchemaExtensions(extensions)
         );
+    }
+
+    /** */
+    @Test
+    void testCompressDeletedEntries() {
+        Map<String, String> containsNullLeaf = new HashMap<>();
+
+        containsNullLeaf.put("first", "1");
+        containsNullLeaf.put("second", null);
+
+        Map<String, String> deletedNamedListElement = new HashMap<>();
+
+        deletedNamedListElement.put("third", null);
+        deletedNamedListElement.put(NAME, null);
+
+        Map<String, Object> regular = new HashMap<>();
+
+        regular.put("strVal", "foo");
+        regular.put("intVal", 10);
+
+        Map<String, Object> prefixMap = new HashMap<>();
+
+        prefixMap.put("0", containsNullLeaf);
+        prefixMap.put("1", deletedNamedListElement);
+        prefixMap.put("2", regular);
+
+        Map<String, Object> exp = new HashMap<>();
+
+        exp.put("0", Map.of("first", "1"));
+        exp.put("1", null);
+        exp.put("2", Map.of("strVal", "foo", "intVal", 10));
+
+        compressDeletedEntries(prefixMap);
+
+        assertEquals(exp, prefixMap);
+    }
+
+    /** */
+    @Test
+    void testFlattenedMapPolymorphicConfig() {
+        InnerNode polymorphicRootInnerNode = newNodeInstance(PolymorphicRootConfigurationSchema.class);
+
+        addDefaults(polymorphicRootInnerNode);
+
+        RootKey<?, ?> rootKey = PolymorphicRootConfiguration.KEY;
+
+        SuperRoot superRoot = new SuperRoot(key -> null, Map.of(rootKey, polymorphicRootInnerNode));
+
+        Map<String, Serializable> act = flattenedMap(
+            superRoot,
+            rootKey,
+            node -> {
+                ((PolymorphicRootChange)node).changePolymorphicSubCfg(c -> c.convert(SecondPolymorphicInstanceChange.class));
+
+                addDefaults(node);
+            }
+        );
+
+        Map<String, Serializable> exp = new HashMap<>();
+
+        exp.put("rootPolymorphic.polymorphicSubCfg.typeId", "second");
+        exp.put("rootPolymorphic.polymorphicSubCfg.longVal", 0L);
+
+        exp.put("rootPolymorphic.polymorphicSubCfg.strVal", null);
+        exp.put("rootPolymorphic.polymorphicSubCfg.intVal", 0);
+
+        assertEquals(exp, act);
+    }
+
+    /** */
+    @Test
+    void testFlattenedMapPolymorphicNamedConfig() {
+        InnerNode polymorphicRootInnerNode = newNodeInstance(PolymorphicRootConfigurationSchema.class);
+
+        PolymorphicRootChange polymorphicRootChange = ((PolymorphicRootChange)polymorphicRootInnerNode);
+
+        polymorphicRootChange.changePolymorphicNamedCfg(c -> c.create("0", c1 -> {}));
+
+        addDefaults(polymorphicRootInnerNode);
+
+        RootKey<?, ?> rootKey = PolymorphicRootConfiguration.KEY;
+
+        SuperRoot superRoot = new SuperRoot(key -> null, Map.of(rootKey, polymorphicRootInnerNode));
+
+        Map<String, Serializable> act = flattenedMap(
+            superRoot,
+            rootKey,
+            node -> {
+                ((PolymorphicRootChange)node).changePolymorphicNamedCfg(c ->
+                    c.createOrUpdate("0", c1 -> c1.convert(SecondPolymorphicInstanceChange.class)));
+
+                addDefaults(node);
+            }
+        );
+
+        NamedListNode<?> polymorphicNamedCfgListNode = (NamedListNode<?>)polymorphicRootChange.polymorphicNamedCfg();
+        String internalId = polymorphicNamedCfgListNode.internalId("0");
+
+        Map<String, Serializable> exp = new HashMap<>();
+
+        exp.put("rootPolymorphic.polymorphicNamedCfg." + internalId + ".typeId", "second");
+        exp.put("rootPolymorphic.polymorphicNamedCfg." + internalId + ".longVal", 0L);
+
+        exp.put("rootPolymorphic.polymorphicNamedCfg." + internalId + ".strVal", null);
+        exp.put("rootPolymorphic.polymorphicNamedCfg." + internalId + ".intVal", 0);
+
+        assertEquals(exp, act);
     }
 
     /**
@@ -680,18 +810,22 @@ public class ConfigurationUtilTest {
      * patched tree when method execution is completed.
      *
      * @param superRoot Super root to patch.
-     * @param patch Closure to cnahge parent node.
+     * @param patch Closure to change inner node.
      * @return Flat map with all changes from the patch.
      */
-    @NotNull private Map<String, Serializable> flattenedMap(SuperRoot superRoot, Consumer<ParentChange> patch) {
+    @NotNull private Map<String, Serializable> flattenedMap(
+        SuperRoot superRoot,
+        RootKey<?, ?> rootKey,
+        Consumer<InnerNode> patch
+    ) {
         // Preserve a copy of the super root to use it as a golden source of data.
         SuperRoot originalSuperRoot = superRoot.copy();
 
-        // Make a copy of the root insode of the superRoot. This copy will be used for further patching.
-        superRoot.construct(ParentConfiguration.KEY.key(), EMPTY_CFG_SRC, true);
+        // Make a copy of the root inside the superRoot. This copy will be used for further patching.
+        superRoot.construct(rootKey.key(), EMPTY_CFG_SRC, true);
 
         // Patch root node.
-        patch.accept((ParentChange)superRoot.getRoot(ParentConfiguration.KEY));
+        patch.accept(superRoot.getRoot(rootKey));
 
         // Create flat diff between two super trees.
         return createFlattenedUpdatesMap(originalSuperRoot, superRoot);
@@ -740,8 +874,8 @@ public class ConfigurationUtilTest {
     /**
      * Simple root configuration schema.
      */
-    @ConfigurationRoot(rootName = "testRootSimple")
-    public static class SimpleRootConfigurationSchema {
+    @ConfigurationRoot(rootName = "rootInternal")
+    public static class InternalRootConfigurationSchema {
         /** String value without default. */
         @Value
         public String str0;
@@ -752,22 +886,18 @@ public class ConfigurationUtilTest {
 
         /** Sub configuration schema. */
         @ConfigValue
-        public SimpleConfigurationSchema subCfg;
+        public InternalConfigurationSchema subCfg;
 
         /** Named configuration schema. */
         @NamedConfigValue
-        public SimpleConfigurationSchema namedCfg;
-
-        /** Polymorphic sub configuration schema. */
-        @ConfigValue
-        public SimplePolymorphicConfigurationSchema polymorphicSubCfg;
+        public InternalConfigurationSchema namedCfg;
     }
 
     /**
      * Simple configuration schema.
      */
     @Config
-    public static class SimpleConfigurationSchema {
+    public static class InternalConfigurationSchema {
         /** String value with default. */
         @Value(hasDefault = true)
         public String str00 = "foo";
@@ -785,7 +915,7 @@ public class ConfigurationUtilTest {
      * First simple internal schema extension.
      */
     @InternalConfiguration
-    public static class InternalFirstSimpleConfigurationSchema extends SimpleConfigurationSchema {
+    public static class InternalFirstConfigurationSchema extends InternalConfigurationSchema {
         /** String value with default. */
         @Value(hasDefault = true)
         public String str01 = "foo";
@@ -795,7 +925,7 @@ public class ConfigurationUtilTest {
      * Second simple internal schema extension.
      */
     @InternalConfiguration
-    public static class InternalSecondSimpleConfigurationSchema extends SimpleConfigurationSchema {
+    public static class InternalSecondConfigurationSchema extends InternalConfigurationSchema {
         /** String value with default. */
         @Value(hasDefault = true)
         public String str02 = "foo";
@@ -805,7 +935,7 @@ public class ConfigurationUtilTest {
      * First root simple internal schema extension.
      */
     @InternalConfiguration
-    public static class InternalFirstSimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
+    public static class InternalFirstRootConfigurationSchema extends InternalRootConfigurationSchema {
         /** Second string value without default. */
         @Value
         public String str2;
@@ -819,17 +949,17 @@ public class ConfigurationUtilTest {
      * Second root simple internal schema extension.
      */
     @InternalConfiguration
-    public static class InternalSecondSimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
+    public static class InternalSecondRootConfigurationSchema extends InternalRootConfigurationSchema {
         /** Second sub configuration schema. */
         @ConfigValue
-        public SimpleConfigurationSchema subCfg1;
+        public InternalConfigurationSchema subCfg1;
     }
 
     /**
      * Internal extended simple root configuration schema.
      */
     @InternalConfiguration
-    public static class InternalExtendedSimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
+    public static class InternalExtendedRootConfigurationSchema extends InternalRootConfigurationSchema {
         /** String value without default. */
         @Value
         public String str00;
@@ -840,44 +970,68 @@ public class ConfigurationUtilTest {
 
         /** Sub configuration schema. */
         @ConfigValue
-        public SimpleConfigurationSchema subCfg0;
+        public InternalConfigurationSchema subCfg0;
 
         /** Named configuration schema. */
         @NamedConfigValue
-        public SimpleConfigurationSchema namedCfg0;
+        public InternalConfigurationSchema namedCfg0;
     }
 
     /**
      * Error: Duplicate field.
      */
     @InternalConfiguration
-    public static class ErrorInternalExtendedSimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
+    public static class ErrorInternalExtendedRootConfigurationSchema extends InternalRootConfigurationSchema {
         /** String value without default. */
         @Value
         public String str00;
     }
 
     /**
+     * Simple root polymorphic configuration.
+     */
+    @ConfigurationRoot(rootName = "rootPolymorphic")
+    public static class PolymorphicRootConfigurationSchema {
+        /** Polymorphic sub configuration schema. */
+        @ConfigValue
+        public PolymorphicConfigurationSchema polymorphicSubCfg;
+
+        /** Polymorphic named configuration schema. */
+        @NamedConfigValue
+        public PolymorphicConfigurationSchema polymorphicNamedCfg;
+    }
+
+    /**
      * Simple polymorphic configuration.
      */
     @PolymorphicConfig
-    public static class SimplePolymorphicConfigurationSchema {
+    public static class PolymorphicConfigurationSchema {
         /** Polymorphic type id field. */
         @PolymorphicId(hasDefault = true)
         public String typeId = "first";
+
+        /** Long value. */
+        @Value(hasDefault = true)
+        public long longVal = 0;
     }
 
     /**
-     * First {@link SimplePolymorphicConfigurationSchema} extension.
+     * First {@link PolymorphicConfigurationSchema} extension.
      */
     @PolymorphicConfigInstance(id = "first")
-    public static class FirstPolymorphicInstanceConfigurationSchema extends SimplePolymorphicConfigurationSchema {
+    public static class FirstPolymorphicInstanceConfigurationSchema extends PolymorphicConfigurationSchema {
+        /** String value. */
+        @Value(hasDefault = true)
+        public String strVal = "strVal";
     }
 
     /**
-     * Second {@link SimplePolymorphicConfigurationSchema} extension.
+     * Second {@link PolymorphicConfigurationSchema} extension.
      */
     @PolymorphicConfigInstance(id = "second")
-    public static class SecondPolymorphicInstanceConfigurationSchema extends SimplePolymorphicConfigurationSchema {
+    public static class SecondPolymorphicInstanceConfigurationSchema extends PolymorphicConfigurationSchema {
+        /** Integer value. */
+        @Value(hasDefault = true)
+        public int intVal = 0;
     }
 }
