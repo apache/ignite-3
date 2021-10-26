@@ -29,9 +29,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Test SQL data types.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-15107")
 public class ITDataTypesTest extends AbstractBasicIntegrationTest {
     /** */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15107")
     @Test
     public void testUnicodeStrings() {
         sql("CREATE TABLE string_table(key int primary key, val varchar)");
