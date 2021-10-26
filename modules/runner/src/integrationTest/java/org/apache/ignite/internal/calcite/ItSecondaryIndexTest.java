@@ -38,7 +38,7 @@ import org.junit.jupiter.api.Test;
  * Basic index tests.
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-14925")
-public class ITSecondaryIndexTest extends AbstractBasicIntegrationTest {
+public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     /**
      *
      */

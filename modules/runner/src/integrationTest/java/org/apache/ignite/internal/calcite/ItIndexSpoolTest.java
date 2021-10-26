@@ -41,7 +41,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Index spool test.
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
-public class ITIndexSpoolTest extends AbstractBasicIntegrationTest {
+public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
     /**
      *
      */

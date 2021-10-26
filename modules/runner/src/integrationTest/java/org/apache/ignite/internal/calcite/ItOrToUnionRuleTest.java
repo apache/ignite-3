@@ -41,7 +41,7 @@ import org.junit.jupiter.api.Test;
  * category,'Photo');
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-14925")
-public class ITOrToUnionRuleTest extends AbstractBasicIntegrationTest {
+public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
     /**
      *
      */

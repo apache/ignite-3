@@ -39,7 +39,7 @@ import org.junit.jupiter.api.Test;
  * T1 t1 INNER JOIN T2 t2 on t1.f11 = t2.f22" need to eleminate all unused coluns and take into account only: f11, f21 and f22 cols.
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
-public class ITProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
+public class ItProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
     /**
      *
      */

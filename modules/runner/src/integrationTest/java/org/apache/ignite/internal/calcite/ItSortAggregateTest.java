@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
  * Sort aggregate integration test.
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
-public class ITSortAggregateTest extends AbstractBasicIntegrationTest {
+public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
     /**
      *
      */

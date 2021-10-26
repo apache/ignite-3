@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
  * Test SQL data types.
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
-public class ITDataTypesTest extends AbstractBasicIntegrationTest {
+public class ItDataTypesTest extends AbstractBasicIntegrationTest {
     /**
      *
      */

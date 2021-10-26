@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
  *
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
-public class ITMetadataTest extends AbstractBasicIntegrationTest {
+public class ItMetadataTest extends AbstractBasicIntegrationTest {
     /** {@inheritDoc} */
     @Override
     protected void initTestData() {
