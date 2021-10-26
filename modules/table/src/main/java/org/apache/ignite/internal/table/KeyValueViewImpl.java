@@ -29,8 +29,7 @@ import org.apache.ignite.internal.schema.marshaller.KVSerializer;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.mapper.KeyMapper;
-import org.apache.ignite.table.mapper.ValueMapper;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -47,8 +46,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param valueMapper Value class mapper.
      * @param tx The transaction.
      */
-    public KeyValueViewImpl(InternalTable tbl, SchemaRegistry schemaReg, KeyMapper<K> keyMapper,
-                            ValueMapper<V> valueMapper, @Nullable Transaction tx) {
+    public KeyValueViewImpl(InternalTable tbl, SchemaRegistry schemaReg, Mapper<K> keyMapper,
+                            Mapper<V> valueMapper, @Nullable Transaction tx) {
         super(tbl, schemaReg, tx);
     }
 

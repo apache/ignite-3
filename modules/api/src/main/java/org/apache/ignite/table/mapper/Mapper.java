@@ -21,25 +21,17 @@ import java.util.function.Function;
 import org.apache.ignite.table.Tuple;
 
 /**
- * Value mapper interface.
+ * Mapper interface.
  *
- * @param <V> Value type.
+ * @param <R> Record type.
  */
-public interface ValueMapper<V> {
+public interface Mapper<R> {
     /**
-     * Value mapper builder.
+     * Mapper builder.
      *
-     * @param <V> Value type.
+     * @param <T> Type.
      */
-    public interface Builder<V> {
-        /**
-         * Sets a target class to deserialize to.
-         *
-         * @param targetClass Target class.
-         * @return {@code this} for chaining.
-         */
-        public Builder<V> deserializeTo(Class<?> targetClass);
-
+    interface Builder<T> {
         /**
          * Map a field to a type of given class.
          *
@@ -47,23 +39,31 @@ public interface ValueMapper<V> {
          * @param targetClass Target class.
          * @return {@code this} for chaining.
          */
-        public Builder<V> map(String fieldName, Class<?> targetClass);
+        Builder<T> map(String fieldName, Class<?> targetClass);
 
         /**
          * Adds a functional mapping for a field,
          * the result depends on function call for every particular row.
          *
          * @param fieldName Field name.
-         * @param mapperFunction Mapper function.
+         * @param mappingFunction Mapper function.
          * @return {@code this} for chaining.
          */
-        public Builder<V> map(String fieldName, Function<Tuple, Object> mapperFunction);
+        Builder<T> map(String fieldName, Function<Tuple, Object> mappingFunction);
 
         /**
-         * Builds value mapper.
+         * Sets a target class to deserialize to.
+         *
+         * @param targetClass Target class.
+         * @return {@code this} for chaining.
+         */
+        Builder<T> deserializeTo(Class<?> targetClass);
+
+        /**
+         * Builds mapper.
          *
          * @return Mapper.
          */
-        public ValueMapper<V> build();
+        Mapper<T> build();
     }
 }
