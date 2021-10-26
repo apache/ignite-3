@@ -18,15 +18,22 @@
 package org.apache.ignite.internal.table;
 
 import java.io.Serializable;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.KVSerializer;
+import org.apache.ignite.internal.schema.marshaller.SerializationException;
+import org.apache.ignite.internal.schema.marshaller.Serializer;
+import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -38,8 +45,15 @@ import org.jetbrains.annotations.Nullable;
  * Key-value view implementation.
  */
 public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValueView<K, V> {
+    /** Key object mapper. */
+    private Mapper<K> keyMapper;
+
+    /** Value object mapper. */
+    private Mapper<V> valueMapper;
+
     /**
      * Constructor.
+     *
      * @param tbl Table storage.
      * @param schemaReg Schema registry.
      * @param keyMapper Key class mapper.
@@ -49,6 +63,9 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public KeyValueViewImpl(InternalTable tbl, SchemaRegistry schemaReg, Mapper<K> keyMapper,
                             Mapper<V> valueMapper, @Nullable Transaction tx) {
         super(tbl, schemaReg, tx);
+
+        this.keyMapper = keyMapper;
+        this.valueMapper = valueMapper;
     }
 
     /** {@inheritDoc} */
@@ -62,11 +79,10 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
         final KVSerializer<K, V> marsh = marshaller();
 
-        Row kRow = marsh.serialize(key, null); // Convert to portable format to pass TX/storage layer.
+        BinaryRow kRow = marsh.serialize(key, null); // Convert to portable format to pass TX/storage layer.
 
         return tbl.get(kRow, tx)
-            .thenApply(this::wrap) // Binary -> schema-aware row
-            .thenApply(marsh::deserializeValue); // row -> deserialized obj.
+            .thenApply(v -> v == null ? null : marsh.deserializeValue(v)); // row -> deserialized obj.
     }
 
     /** {@inheritDoc} */
@@ -91,12 +107,19 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override public void put(@NotNull K key, V val) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        sync(putAsync(key, val));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> putAsync(@NotNull K key, V val) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(key);
+
+        final KVSerializer<K, V> marsh = marshaller();
+
+        BinaryRow kRow = marsh.serialize(key, val); // Convert to portable format to pass TX/storage layer.
+
+        return tbl.upsert(kRow, tx).thenAccept(ignore -> {
+        });
     }
 
     /** {@inheritDoc} */
@@ -239,7 +262,35 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @return Marshaller.
      */
     private KVSerializer<K, V> marshaller() {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        SerializerFactory factory = SerializerFactory.createJavaSerializerFactory();
+
+        return new KVSerializer<K, V>() {
+            Serializer s = factory.create(schemaReg.schema(), keyMapper.getType(), valueMapper.getType());
+
+            @Override public BinaryRow serialize(@NotNull K key, V val) {
+                try {
+                    return new ByteBufferRow(ByteBuffer.wrap(s.serialize(key, val)).order(ByteOrder.LITTLE_ENDIAN));
+                } catch (SerializationException e) {
+                    throw new IgniteException(e);
+                }
+            }
+
+            @NotNull @Override public K deserializeKey(@NotNull BinaryRow row) {
+                try {
+                    return s.deserializeKey(row.bytes());
+                } catch (SerializationException e) {
+                    throw new IgniteException(e);
+                }
+            }
+
+            @Nullable @Override public V deserializeValue(@NotNull BinaryRow row) {
+                try {
+                    return s.deserializeValue(row.bytes());
+                } catch (SerializationException e) {
+                    throw new IgniteException(e);
+                }
+            }
+        };
     }
 
     /**

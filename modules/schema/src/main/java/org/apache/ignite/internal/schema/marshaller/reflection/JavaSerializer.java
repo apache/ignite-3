@@ -69,7 +69,9 @@ public class JavaSerializer extends AbstractSerializer {
         assert val == null || valClass.isInstance(val);
 
         keyMarsh.writeObject(key, asm);
-        valMarsh.writeObject(val, asm);
+
+        if (val != null)
+            valMarsh.writeObject(val, asm);
 
         return asm.toBytes();
     }
@@ -127,6 +129,9 @@ public class JavaSerializer extends AbstractSerializer {
 
     /** {@inheritDoc} */
     @Override protected Object deserializeValue0(Row row) throws SerializationException {
+        if (!row.hasValue())
+            return null;
+
         final Object o = valMarsh.readObject(row);
 
         assert o == null || valClass.isInstance(o);

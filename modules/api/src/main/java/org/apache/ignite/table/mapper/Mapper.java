@@ -27,6 +27,13 @@ import org.apache.ignite.table.Tuple;
  */
 public interface Mapper<R> {
     /**
+     * Return mapped type.
+     *
+     * @return Mapped type.
+     */
+    Class<R> getType();
+
+    /**
      * Mapper builder.
      *
      * @param <T> Type.

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
-import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,17 +30,17 @@ public interface KVSerializer<K, V> {
      * @param val Value object to serialize.
      * @return Table row with columns serialized from given key-value pair.
      */
-    Row serialize(@NotNull K key, V val);
+    BinaryRow serialize(@NotNull K key, V val);
 
     /**
      * @param row Table row.
      * @return Deserialized key object.
      */
-    @NotNull K deserializeKey(@NotNull Row row);
+    @NotNull K deserializeKey(@NotNull BinaryRow row);
 
     /**
      * @param row Table row.
      * @return Deserialized value object.
      */
-    @Nullable V deserializeValue(@NotNull Row row);
+    @Nullable V deserializeValue(@NotNull BinaryRow row);
 }
