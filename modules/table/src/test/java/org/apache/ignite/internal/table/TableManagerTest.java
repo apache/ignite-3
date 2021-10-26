@@ -21,21 +21,19 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Entry;
@@ -73,7 +71,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
-import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -95,7 +92,7 @@ import static org.mockito.Mockito.when;
 /**
  * Tests scenarios for table manager.
  */
-@ExtendWith({MockitoExtension.class})
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerTest extends IgniteAbstractTest {
     /** Public prefix for metastorage. */
@@ -119,9 +116,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Count of replicas. */
     public static final int REPLICAS = 1;
 
-    /** Cluster configuration manager. */
-    private ConfigurationManager clusterCfgMgr;
-
     /** MetaStorage manager. */
     @Mock(lenient = true)
     private MetaStorageManager mm;
@@ -138,6 +132,14 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Mock(lenient = true)
     private Loza rm;
 
+    /** Tables configuration. */
+    @InjectConfiguration(extensions = {ExtendedTableConfigurationSchema.class})
+    private TablesConfiguration tblsCfg;
+
+    /** Data storage configuration. */
+    @InjectConfiguration
+    private DataStorageConfiguration dataStorageCfg;
+
     /** Test node. */
     private final ClusterNode node = new ClusterNode(
         UUID.randomUUID().toString(),
@@ -151,32 +153,12 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Before all test scenarios. */
     @BeforeEach
     void before() {
-        try {
-            tblManagerFut = new CompletableFuture<>();
-
-            clusterCfgMgr = new ConfigurationManager(
-                List.of(ClusterConfiguration.KEY, TablesConfiguration.KEY, DataStorageConfiguration.KEY),
-                Map.of(),
-                new TestConfigurationStorage(DISTRIBUTED),
-                Collections.singletonList(ExtendedTableConfigurationSchema.class)
-            );
-
-            clusterCfgMgr.start();
-
-            clusterCfgMgr.configurationRegistry().initializeDefaults();
-        }
-        catch (Exception e) {
-            log.error("Failed to bootstrap the test configuration manager.", e);
-
-            fail("Failed to configure manager [err=" + e.getMessage() + ']');
-        }
+        tblManagerFut = new CompletableFuture<>();
     }
 
     /** Stop configuration manager. */
     @AfterEach
     void after() {
-        clusterCfgMgr.stop();
-
         assertTrue(tblManagerFut.isDone());
 
         tblManagerFut.join().beforeNodeStop();
@@ -190,8 +172,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Test
     public void testStaticTableConfigured() {
         TableManager tableManager = new TableManager(
-            clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
-            clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
+            tblsCfg,
+            dataStorageCfg,
             rm,
             bm,
             ts,
@@ -473,7 +455,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
             int tablesBeforeCreation = tableManager.tables().size();
 
-            clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
+            tblsCfg.tables().listen(ctx -> {
                 boolean createTbl = ctx.newValue().get(tableDefinition.canonicalName()) != null &&
                     ctx.oldValue().get(tableDefinition.canonicalName()) == null;
 
@@ -543,8 +525,8 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @NotNull private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut) {
         TableManager tableManager = new TableManager(
-            clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
-            clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
+            tblsCfg,
+            dataStorageCfg,
             rm,
             bm,
             ts,
