@@ -275,6 +275,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                                         BuiltInMethod.TIMESTAMP_WITH_LOCAL_TIME_ZONE_TO_DATE.method,
                                         operand,
                                         Expressions.call(BuiltInMethod.TIME_ZONE.method, root)));
+                        break;
+                    default:
+                        // No-Op.
                 }
                 break;
             case TIME:
@@ -307,6 +310,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                                         BuiltInMethod.TIMESTAMP_WITH_LOCAL_TIME_ZONE_TO_TIME.method,
                                         operand,
                                         Expressions.call(BuiltInMethod.TIME_ZONE.method, root)));
+                        break;
+                    default:
+                        // No-Op.
                 }
                 break;
             case TIME_WITH_LOCAL_TIME_ZONE:
@@ -342,6 +348,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                                 Expressions.call(
                                         BuiltInMethod.TIMESTAMP_WITH_LOCAL_TIME_ZONE_TO_TIME_WITH_LOCAL_TIME_ZONE.method,
                                         operand));
+                        break;
+                    default:
+                        // No-Op.
                 }
                 break;
             case TIMESTAMP:
@@ -384,6 +393,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                                         BuiltInMethod.TIMESTAMP_WITH_LOCAL_TIME_ZONE_TO_TIMESTAMP.method,
                                         operand,
                                         Expressions.call(BuiltInMethod.TIME_ZONE.method, root)));
+                        break;
+                    default:
+                        // No-Op.
                 }
                 break;
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
@@ -442,6 +454,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                                                 BuiltInMethod.UNIX_TIMESTAMP_TO_STRING.method,
                                                 operand)),
                                 Expressions.call(BuiltInMethod.TIME_ZONE.method, root));
+                        break;
+                    default:
+                        // No-Op.
                 }
                 break;
             case BOOLEAN:
@@ -451,6 +466,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                         convert = Expressions.call(
                                 BuiltInMethod.STRING_TO_BOOLEAN.method,
                                 operand);
+                        break;
+                    default:
+                        // No-Op.
                 }
                 break;
             case CHAR:
@@ -532,7 +550,12 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                                         BuiltInMethod.BOOLEAN_TO_STRING.method,
                                         operand));
                         break;
+                    default:
+                        // No-Op.
                 }
+                break;
+            default:
+                // No-Op.
         }
         if (convert == null) {
             convert = ConverterUtils.convert(operand, typeFactory.getJavaClass(targetType));
@@ -614,7 +637,13 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                         final BigDecimal multiplier = targetType.getSqlTypeName().getEndUnit().multiplier;
                         final BigDecimal divider = BigDecimal.ONE;
                         convert = RexImpTable.multiplyDivide(convert, multiplier, divider);
+                        break;
+                    default:
+                        // No-Op.
                 }
+                break;
+            default:
+                // No-Op.
         }
         return scaleIntervalToNumber(sourceType, targetType, convert);
     }
@@ -663,6 +692,8 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                     return RexImpTable.TRUE_EXPR;
                 case IS_NULL:
                     return RexImpTable.FALSE_EXPR;
+                default:
+                    // No-Op.
             }
         }
         Type javaClass = typeFactory.getJavaClass(type);
@@ -871,7 +902,12 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                         final BigDecimal divider =
                                 sourceType.getSqlTypeName().getEndUnit().multiplier;
                         return RexImpTable.multiplyDivide(operand, multiplier, divider);
+                    default:
+                        // No-Op.
                 }
+                break;
+            default:
+                // No-Op.
         }
         return operand;
     }
@@ -994,6 +1030,8 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
             case INTERVAL_SECOND:
                 javaClass = Long.class;
                 break;
+            default:
+                // No-Op.
         }
         return javaClass == null || javaClass == Void.class
                 ? RexImpTable.NULL_EXPR

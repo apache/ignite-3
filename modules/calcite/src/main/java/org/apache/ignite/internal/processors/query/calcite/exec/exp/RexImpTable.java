@@ -779,8 +779,13 @@ public class RexImpTable {
                         case NOT_POSSIBLE:
                             return ConverterUtils.convert(x,
                                     Primitive.ofBox(x.getType()).primitiveClass);
+                        default:
+                            // No-Op.
                     }
                     // fall through
+                    break;
+                default:
+                    // No-Op.
             }
             switch (this) {
                 case NULL:
@@ -1505,6 +1510,8 @@ public class RexImpTable {
                         case INTERVAL_SECOND:
                             // no convertlet conversion, pass it as extract
                             throw new AssertionError("unexpected " + sqlTypeName);
+                        default:
+                            // No-Op.
                     }
                     break;
                 case HOUR:
@@ -1513,8 +1520,12 @@ public class RexImpTable {
                     switch (sqlTypeName) {
                         case DATE:
                             return Expressions.multiply(operand, Expressions.constant(0L));
+                        default:
+                            // No-Op.
                     }
                     break;
+                default:
+                    // No-Op.
             }
 
             operand = mod(operand, getFactor(unit));
@@ -1944,12 +1955,17 @@ public class RexImpTable {
                                             Expressions.divide(trop1,
                                                     Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)),
                                             int.class);
+                                    break;
+                                default:
+                                    // No-Op.
                             }
                     }
                     break;
                 case TIME:
                     trop1 = Expressions.convert_(trop1, int.class);
                     break;
+                default:
+                    // No-Op.
             }
             switch (typeName1) {
                 case INTERVAL_YEAR:
@@ -1958,6 +1974,9 @@ public class RexImpTable {
                     switch (call.getKind()) {
                         case MINUS:
                             trop1 = Expressions.negate(trop1);
+                            break;
+                        default:
+                            // No-Op.
                     }
                     switch (typeName) {
                         case TIME:
@@ -1996,6 +2015,8 @@ public class RexImpTable {
                                 case INTERVAL_MONTH:
                                     return Expressions.call(BuiltInMethod.SUBTRACT_MONTHS.method,
                                             trop0, trop1);
+                                default:
+                                    // No-Op.
                             }
                             TimeUnit fromUnit =
                                     typeName1 == SqlTypeName.DATE ? TimeUnit.DAY : TimeUnit.MILLISECOND;

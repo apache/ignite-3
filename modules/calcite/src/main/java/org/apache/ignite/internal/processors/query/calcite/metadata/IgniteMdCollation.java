@@ -125,7 +125,7 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
     }
 
     /**
-     * 
+     *
      */
     public ImmutableList<RelCollation> collations(IgniteRel rel, RelMetadataQuery mq) {
         RelCollation collation = rel.collation();
