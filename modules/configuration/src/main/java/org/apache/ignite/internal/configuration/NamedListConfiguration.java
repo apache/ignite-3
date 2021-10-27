@@ -143,4 +143,9 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEW>, VIEW,
     @Override public Class<? extends ConfigurationProperty<NamedListView<VIEW>>> configType() {
         throw new UnsupportedOperationException("Not supported.");
     }
+
+    /** {@inheritDoc} */
+    @Override public NamedListView<VIEW> value() {
+        return refreshValue();
+    }
 }

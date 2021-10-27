@@ -99,12 +99,16 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
     /** {@inheritDoc} */
     @Override public N get(String key) {
-        return view(map.get(key));
+        ElementDescriptor element = map.get(key);
+
+        return element == null ? null : element.value.specificNode();
     }
 
     /** {@inheritDoc} */
     @Override public N get(int index) throws IndexOutOfBoundsException {
-        return view(map.get(index));
+        ElementDescriptor element = map.get(index);
+
+        return element == null ? null : element.value.specificNode();
     }
 
     /**
@@ -484,22 +488,6 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
          */
         public ElementDescriptor shallowCopy() {
             return new ElementDescriptor(internalId, value);
-        }
-    }
-
-    /**
-     * Returns named list element view.
-     *
-     * @param element Internal named list element.
-     * @return View.
-     */
-    @Nullable private N view(@Nullable ElementDescriptor element) {
-        if (element == null)
-            return null;
-        else {
-            InnerNode node = element.value;
-
-            return node instanceof PolymorphicInnerNode ? ((PolymorphicInnerNode)node).specificView() : (N)node;
         }
     }
 }

@@ -175,4 +175,14 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
             throw new IllegalStateException(e);
         }
     }
+
+    /**
+     * Returns specific {@code Node} of the value.
+     *
+     * @param <NODE> Type of the {@code Node}.
+     * @return Specific {@code Node} of the value.
+     */
+    public <NODE> NODE specificNode() {
+        return (NODE)this;
+    }
 }

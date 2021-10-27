@@ -24,22 +24,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public abstract class PolymorphicInnerNode extends InnerNode {
     /**
-     * Returns specific view of the value.
-     *
-     * @param <VIEW> Type of the value.
-     * @return Specific view of the value.
-     */
-    public abstract <VIEW> VIEW specificView();
-
-    /**
-     * Returns specific changer of the value.
-     *
-     * @param <CHANGE> Type of the object that changes this node's value.
-     * @return Specific changer of the value.
-     */
-    public abstract <CHANGE> CHANGE specificChange();
-
-    /**
      * Returns the name of the field that stores the type of the polymorphic configuration.
      *
      * @return Name of the field that stores the type of the polymorphic configuration.

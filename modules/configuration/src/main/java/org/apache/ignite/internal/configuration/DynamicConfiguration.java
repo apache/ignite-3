@@ -30,7 +30,7 @@ import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
-import org.apache.ignite.internal.configuration.tree.PolymorphicInnerNode;
+import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil;
 
 /**
@@ -87,10 +87,14 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
             /** {@inheritDoc} */
             @Override public void descend(ConstructableTreeNode node) {
                 if (level == keys.size()) {
-                    if (node instanceof PolymorphicInnerNode)
-                        change.accept(((PolymorphicInnerNode)node).specificChange());
-                    else
+                    if (node instanceof InnerNode) {
+                        // To support polymorphic configuration.
+                        change.accept(((InnerNode)node).specificNode());
+                    }
+                    else {
+                        // To support namedList configuration.
                         change.accept((CHANGE)node);
+                    }
                 }
                 else
                     node.construct(keys.get(level++), this, true);
@@ -112,14 +116,9 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
     }
 
     /** {@inheritDoc} */
-    @Override public final VIEW value() {
-        VIEW view = refreshValue();
-
-        // To work with polymorphic configuration.
-        if (view instanceof PolymorphicInnerNode)
-            return ((PolymorphicInnerNode)view).specificView();
-        else
-            return view;
+    @Override public VIEW value() {
+        // To support polymorphic configuration.
+        return ((InnerNode)refreshValue()).specificNode();
     }
 
     /**
