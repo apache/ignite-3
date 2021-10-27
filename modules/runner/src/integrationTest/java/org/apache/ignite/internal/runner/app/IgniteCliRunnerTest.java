@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.app.IgniteCliRunner;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -35,9 +33,7 @@ public class IgniteCliRunnerTest {
 
     /** TODO: Replace this test by full integration test on the cli side IGNITE-15097. */
     @Test
-    public void runnerArgsSmokeTest() throws IOException {
-        Files.createDirectory(workDir.resolve("node1"));
-
+    public void runnerArgsSmokeTest() {
         assertNotNull(IgniteCliRunner.start(
             new String[] {
                 "--config", workDir.resolve("node1").toAbsolutePath().toString(),
@@ -46,12 +42,10 @@ public class IgniteCliRunnerTest {
             }
         ));
 
-        Files.createDirectory(workDir.resolve("node2"));
-
         assertNotNull(IgniteCliRunner.start(
             new String[] {
                 "--work-dir", workDir.resolve("node2").toAbsolutePath().toString(),
-                "node1"
+                "node2"
             }
         ));
     }
