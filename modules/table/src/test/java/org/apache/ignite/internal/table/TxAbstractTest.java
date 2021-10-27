@@ -134,6 +134,43 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(BALANCE_1 + DELTA, accounts.recordView().get(makeKey(1)).doubleValue("balance"));
     }
 
+    @Test
+    public void testLockOrdering() throws InterruptedException {
+        accounts.recordView().upsert(makeValue(1, 50.));
+
+        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+        InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
+        InternalTransaction tx3 = (InternalTransaction) igniteTransactions.begin();
+        InternalTransaction tx4 = (InternalTransaction) igniteTransactions.begin();
+
+        assertTrue(tx2.timestamp().compareTo(tx.timestamp()) > 0);
+        assertTrue(tx3.timestamp().compareTo(tx2.timestamp()) > 0);
+        assertTrue(tx4.timestamp().compareTo(tx3.timestamp()) > 0);
+
+        RecordView<Tuple> acc0 = accounts.recordView().withTransaction(tx);
+        RecordView<Tuple> acc2 = accounts.recordView().withTransaction(tx2);
+        RecordView<Tuple> acc3 = accounts.recordView().withTransaction(tx3);
+        RecordView<Tuple> acc4 = accounts.recordView().withTransaction(tx4);
+
+        acc0.upsert(makeValue(1, 100.));
+
+        CompletableFuture<Void> fut = acc3.upsertAsync(makeValue(1, 300.));
+
+        Thread.sleep(100);
+
+        assertFalse(fut.isDone());
+
+        CompletableFuture<Void> fut2 = acc4.upsertAsync(makeValue(1, 400.));
+
+        Thread.sleep(100);
+
+        assertFalse(fut2.isDone());
+
+        CompletableFuture<Void> fut3 = acc2.upsertAsync(makeValue(1, 200.));
+
+        assertFalse(fut3.isDone());
+    }
+
     /**
      * Tests a transaction closure.
      */
