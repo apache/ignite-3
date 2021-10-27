@@ -17,26 +17,10 @@
 
 package org.apache.ignite.internal.configuration.tree;
 
-import org.jetbrains.annotations.Nullable;
-
 /**
  * Polymorphic configuration node implementation.
  */
 public abstract class PolymorphicInnerNode extends InnerNode {
-    /**
-     * Returns the name of the field that stores the type of the polymorphic configuration.
-     *
-     * @return Name of the field that stores the type of the polymorphic configuration.
-     */
-    public abstract String getPolymorphicTypeIdFieldName();
-
-    /**
-     * Returns current type of the polymorphic configuration.
-     *
-     * @return current type of the polymorphic configuration.
-     */
-    @Nullable public abstract String getPolymorphicTypeId();
-
     /**
      * Set the type of the polymorphic configuration with the reset of the fields of the previous type.
      *

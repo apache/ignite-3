@@ -28,10 +28,12 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.leafNodeVisitor;
 
 /**
  * Configuration node implementation for the collection of named {@link InnerNode}s. Unlike implementations of
@@ -58,16 +60,21 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     /** Mapping from internal ids to public keys. */
     private final Map<String, String> reverseIdMap;
 
+    /** Field name with {@link PolymorphicId}. */
+    @Nullable private final String typeIdFieldName;
+
     /**
      * Default constructor.
      *
      * @param syntheticKeyName Name of the synthetic configuration value that will represent keys in a specially ordered
      *      representation syntax.
      * @param valSupplier Closure to instantiate values.
+     * @param typeIdFieldName Field name with {@link PolymorphicId}.
      */
-    public NamedListNode(String syntheticKeyName, Supplier<InnerNode> valSupplier) {
+    public NamedListNode(String syntheticKeyName, Supplier<InnerNode> valSupplier, @Nullable String typeIdFieldName) {
         this.syntheticKeyName = syntheticKeyName;
         this.valSupplier = valSupplier;
+        this.typeIdFieldName = typeIdFieldName;
         map = new OrderedMap<>();
         reverseIdMap = new HashMap<>();
     }
@@ -80,6 +87,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     private NamedListNode(NamedListNode<N> node) {
         syntheticKeyName = node.syntheticKeyName;
         valSupplier = node.valSupplier;
+        typeIdFieldName = node.typeIdFieldName;
         map = new OrderedMap<>();
         reverseIdMap = new HashMap<>(node.reverseIdMap);
 
@@ -99,16 +107,12 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
     /** {@inheritDoc} */
     @Override public N get(String key) {
-        ElementDescriptor element = map.get(key);
-
-        return element == null ? null : element.value.specificNode();
+        return node(map.get(key));
     }
 
     /** {@inheritDoc} */
     @Override public N get(int index) throws IndexOutOfBoundsException {
-        ElementDescriptor element = map.get(index);
-
-        return element == null ? null : element.value.specificNode();
+        return node(map.get(index));
     }
 
     /**
@@ -404,11 +408,11 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
             if (src != null && element.value instanceof PolymorphicInnerNode) {
                 PolymorphicInnerNode polymorphicInnerNode = (PolymorphicInnerNode)element.value;
 
-                String polymorphicTypeId = src.polymorphicTypeId(polymorphicInnerNode.getPolymorphicTypeIdFieldName());
+                String polymorphicTypeId = src.polymorphicTypeId(typeIdFieldName);
 
                 if (polymorphicTypeId != null)
                     polymorphicInnerNode.setPolymorphicTypeId(polymorphicTypeId);
-                else if (polymorphicInnerNode.getPolymorphicTypeId() == null) {
+                else if (polymorphicInnerNode.traverseChild(typeIdFieldName, leafNodeVisitor(), true) == null) {
                     throw new IllegalStateException("Polymorphic configuration type is not defined: " +
                         polymorphicInnerNode.getClass().getName());
                 }
@@ -420,7 +424,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
             if (src != null && element.value instanceof PolymorphicInnerNode) {
                 PolymorphicInnerNode polymorphicInnerNode = (PolymorphicInnerNode)element.value;
 
-                String polymorphicTypeId = src.polymorphicTypeId(polymorphicInnerNode.getPolymorphicTypeIdFieldName());
+                String polymorphicTypeId = src.polymorphicTypeId(typeIdFieldName);
 
                 if (polymorphicTypeId != null)
                     polymorphicInnerNode.setPolymorphicTypeId(polymorphicTypeId);
@@ -446,7 +450,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         public String internalId;
 
         /** Element node value. */
-        public InnerNode value;
+        @Nullable public InnerNode value;
 
         /**
          * Constructor.
@@ -489,5 +493,20 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         public ElementDescriptor shallowCopy() {
             return new ElementDescriptor(internalId, value);
         }
+    }
+
+    /**
+     * Returns {@link InnerNode}.
+     *
+     * @param element Internal named list element representation.
+     * @return {@link InnerNode}.
+     */
+    @Nullable private N node(@Nullable ElementDescriptor element) {
+        if (element == null)
+            return null;
+
+        InnerNode value = element.value;
+
+        return value == null ? null : value.specificNode();
     }
 }

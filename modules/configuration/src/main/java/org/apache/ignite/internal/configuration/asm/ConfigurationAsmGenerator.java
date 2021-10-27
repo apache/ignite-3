@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.asm;
 
+import java.io.File;
 import java.io.Serializable;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
@@ -317,7 +318,8 @@ public class ConfigurationAsmGenerator {
     private final Map<Class<?>, SchemaClassesInfo> schemasInfo = new HashMap<>();
 
     /** Class generator instance. */
-    private final ClassGenerator generator = ClassGenerator.classGenerator(getClass().getClassLoader());
+    private final ClassGenerator generator = ClassGenerator.classGenerator(getClass().getClassLoader())
+        .dumpClassFilesTo(new File("C:\\test").toPath());
 
     /**
      * Creates new instance of {@code *Node} class corresponding to the given Configuration Schema.
@@ -580,10 +582,6 @@ public class ConfigurationAsmGenerator {
             assert polymorphicTypeIdFieldDef != null : schemaClass.getName();
 
             addNodeSpecificNodeMethod(classDef, polymorphicExtensions, polymorphicTypeIdFieldDef);
-
-            addNodeGetPolymorphicTypeIdFieldNameMethod(classDef, polymorphicTypeIdFieldDef);
-
-            addNodeGetPolymorphicTypeIdMethod(classDef, polymorphicTypeIdFieldDef);
 
             addNodeSetPolymorphicTypeIdMethod(
                 classDef,
@@ -2102,48 +2100,6 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Adds a {@link PolymorphicInnerNode#getPolymorphicTypeIdFieldName} override for the polymorphic configuration case.
-     *
-     * @param classDef Definition of a polymorphic configuration class (parent).
-     * @param polymorphicTypeIdFieldDef Identification field for the polymorphic configuration instance.
-     */
-    private void addNodeGetPolymorphicTypeIdFieldNameMethod(
-        ClassDefinition classDef,
-        FieldDefinition polymorphicTypeIdFieldDef
-    ) {
-        MethodDefinition getPolymorphicTypeIdFieldNameMtd = classDef.declareMethod(
-            of(PUBLIC),
-            "getPolymorphicTypeIdFieldName",
-            type(String.class)
-        );
-
-        getPolymorphicTypeIdFieldNameMtd.getBody()
-            .append(constantString(polymorphicTypeIdFieldDef.getName()))
-            .retObject();
-    }
-
-    /**
-     * Adds a {@link PolymorphicInnerNode#getPolymorphicTypeId} override for the polymorphic configuration case.
-     *
-     * @param classDef Definition of a polymorphic configuration class (parent).
-     * @param polymorphicTypeIdFieldDef Identification field for the polymorphic configuration instance.
-     */
-    private void addNodeGetPolymorphicTypeIdMethod(
-        ClassDefinition classDef,
-        FieldDefinition polymorphicTypeIdFieldDef
-    ) {
-        MethodDefinition getPolymorphicTypeIdMtd = classDef.declareMethod(
-            of(PUBLIC),
-            "getPolymorphicTypeId",
-            type(String.class)
-        );
-
-        getPolymorphicTypeIdMtd.getBody()
-            .append(getThisFieldCode(getPolymorphicTypeIdMtd, polymorphicTypeIdFieldDef))
-            .retObject();
-    }
-
-    /**
      * Adds a {@code *Node#convert} for the polymorphic configuration case.
      *
      * @param classDef              Definition of a polymorphic configuration class {@code schemaClass}.
@@ -2205,7 +2161,6 @@ public class ConfigurationAsmGenerator {
      * @param polymorphicExtensions     Polymorphic configuration instance schemas (children).
      * @param polymorphicFields         Fields of polymorphic extensions.
      * @param polymorphicTypeIdFieldDef Identification field for the polymorphic configuration instance.
-     * @return Method for changing the type of instance of a polymorphic configuration.
      */
     private void addNodeSetPolymorphicTypeIdMethod(
         ClassDefinition classDef,
@@ -2253,13 +2208,16 @@ public class ConfigurationAsmGenerator {
 
                     String fieldNodeClassName = schemasInfo.get(resetField.getType()).nodeClassName;
 
+                    Class<?> fieldType = resetField.getType();
+
                     // this.field = new NamedListNode<>(key, ValueNode::new);
                     codeBlock.append(setThisFieldCode(
                         setPolymorphicTypeIdMtd,
                         newInstance(
                             NamedListNode.class,
                             constantString(namedCfgAnnotation.syntheticKeyName()),
-                            newNamedListElementLambda(fieldNodeClassName)
+                            newNamedListElementLambda(fieldNodeClassName),
+                            isPolymorphicConfig(fieldType) ? constantString(polymorphicTypeIdFieldDef.getName()) : constantNull(String.class)
                         ),
                         fieldDef
                     ));
@@ -2493,13 +2451,16 @@ public class ConfigurationAsmGenerator {
 
         SchemaClassesInfo fieldClassNames = schemasInfo.get(schemaField.getType());
 
+        Class<?> fieldType = schemaField.getType();
+
         // this.values = new NamedListNode<>(key, ValueNode::new);
         ctor.getBody().append(ctor.getThis().setField(
             schemaFieldDef,
             newInstance(
                 NamedListNode.class,
                 constantString(namedCfgAnnotation.syntheticKeyName()),
-                newNamedListElementLambda(fieldClassNames.nodeClassName)
+                newNamedListElementLambda(fieldClassNames.nodeClassName),
+                isPolymorphicConfig(fieldType) ? constantString(polymorphicIdField(fieldType).getName()) : constantNull(String.class)
             )
         ));
     }
@@ -2612,6 +2573,8 @@ public class ConfigurationAsmGenerator {
 
             String fieldNodeClassName = schemasInfo.get(schemaField.getType()).nodeClassName;
 
+            Class<?> fieldType = schemaField.getType();
+
             codeBlock.append(new IfStatement()
                 .condition(isNull(srcVar))
                 .ifTrue(thisVar.setField(
@@ -2619,7 +2582,8 @@ public class ConfigurationAsmGenerator {
                     newInstance(
                         NamedListNode.class,
                         constantString(namedCfgAnnotation.syntheticKeyName()),
-                        newNamedListElementLambda(fieldNodeClassName)
+                        newNamedListElementLambda(fieldNodeClassName),
+                        isPolymorphicConfig(fieldType) ? constantString(polymorphicIdField(fieldType).getName()) : constantNull(String.class)
                     )
                 ))
                 .ifFalse(new BytecodeBlock()

@@ -279,7 +279,7 @@ public class NamedListNodeTest {
     /** Tests exceptions described in methods signatures. */
     @Test
     public void errors() throws Exception {
-        var b = new NamedListNode<>("name", () -> cgen.instantiateNode(BConfigurationSchema.class));
+        var b = new NamedListNode<>("name", () -> cgen.instantiateNode(BConfigurationSchema.class), null);
 
         b.create("X", x -> {}).create("Y", y -> {});
 
