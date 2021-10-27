@@ -347,7 +347,12 @@ public class IgniteImpl implements Ignite {
 
     /** {@inheritDoc} */
     @Override public void setBaseline(Set<String> baselineNodes) {
-        distributedTblMgr.setBaseline(baselineNodes);
+        try {
+            distributedTblMgr.setBaseline(baselineNodes);
+        }
+        catch (NodeStoppingException e) {
+            throw new IgniteException(e);
+        }
     }
 
     /**
