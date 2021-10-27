@@ -87,7 +87,6 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
-import org.apache.ignite.internal.configuration.tree.PolymorphicInnerNode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Handle;
@@ -517,7 +516,7 @@ public class ConfigurationAsmGenerator {
         ClassDefinition classDef = new ClassDefinition(
             of(PUBLIC, FINAL),
             internalName(schemaClassInfo.nodeClassName),
-            type(isPolymorphicConfig(schemaClass) ? PolymorphicInnerNode.class : InnerNode.class),
+            type(InnerNode.class),
             nodeClassInterfaces(schemaClass, internalExtensions)
         );
 
@@ -589,6 +588,8 @@ public class ConfigurationAsmGenerator {
             );
 
             addNodeConvertMethod(classDef, schemaClass, polymorphicExtensions, changePolymorphicTypeIdMtd);
+
+            addNodeIsPolymorphicNodeMethod(classDef);
 
             polymorphicFieldsByExtension = new LinkedHashMap<>();
 
@@ -757,7 +758,7 @@ public class ConfigurationAsmGenerator {
         // super();
         ctor.getBody()
             .append(ctor.getThis())
-            .invokeConstructor(isPolymorphicConfig(schemaClass) ? PolymorphicInnerNode.class : InnerNode.class);
+            .invokeConstructor(InnerNode.class);
 
         // this._spec# = new MyConfigurationSchema();
         for (Map.Entry<Class<?>, FieldDefinition> e : specFields.entrySet())
@@ -2153,6 +2154,23 @@ public class ConfigurationAsmGenerator {
             .append(convertMtd.getThis())
             .append(switchBuilder.build())
             .ret();
+    }
+
+    /**
+     * Adds a {@link InnerNode#isPolymorphicNode} override for the polymorphic configuration case.
+     *
+     * @param classDef Definition of a polymorphic configuration class (parent).
+     */
+    private void addNodeIsPolymorphicNodeMethod(ClassDefinition classDef) {
+        MethodDefinition isPolymorphicNodeMtd = classDef.declareMethod(
+            of(PUBLIC),
+            "isPolymorphicNode",
+            type(boolean.class)
+        );
+
+        isPolymorphicNodeMtd.getBody()
+            .append(constantBoolean(true))
+            .retBoolean();
     }
 
     /**

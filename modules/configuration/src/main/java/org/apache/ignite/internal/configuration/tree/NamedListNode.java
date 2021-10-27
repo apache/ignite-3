@@ -108,12 +108,12 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
     /** {@inheritDoc} */
     @Override public N get(String key) {
-        return node(map.get(key));
+        return specificNode(map.get(key));
     }
 
     /** {@inheritDoc} */
     @Override public N get(int index) throws IndexOutOfBoundsException {
-        return node(map.get(index));
+        return specificNode(map.get(index));
     }
 
     /**
@@ -148,7 +148,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
         valConsumer.accept((N)element.value);
 
-        if (element.value instanceof PolymorphicInnerNode)
+        if (element.value.isPolymorphicNode())
             addDefaults(element.value);
 
         return this;
@@ -172,7 +172,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
         valConsumer.accept((N)element.value);
 
-        if (element.value instanceof PolymorphicInnerNode)
+        if (element.value.isPolymorphicNode())
             addDefaults(element.value);
 
         return this;
@@ -197,7 +197,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
         valConsumer.accept((N)element.value);
 
-        if (element.value instanceof PolymorphicInnerNode)
+        if (element.value.isPolymorphicNode())
             addDefaults(element.value);
 
         return this;
@@ -208,7 +208,25 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
 
-        createOrUpdate(key, valConsumer, null);
+        if (map.containsKey(key) && map.get(key).value == null)
+            throw new IllegalArgumentException("You can't create entity that has just been deleted [key=" + key + ']');
+
+        ElementDescriptor element = map.get(key);
+
+        if (element == null) {
+            element = newElementDescriptor();
+
+            reverseIdMap.put(element.internalId, key);
+        }
+        else
+            element = element.copy();
+
+        map.put(key, element);
+
+        valConsumer.accept((N)element.value);
+
+        if (element.value.isPolymorphicNode())
+            addDefaults(element.value);
 
         return this;
     }
@@ -354,8 +372,53 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
         if (src == null)
             delete(key);
-        else
-            createOrUpdate(key, null, src);
+        else {
+            if (map.containsKey(key) && map.get(key).value == null)
+                throw new IllegalArgumentException("You can't create entity that has just been deleted [key=" + key + ']');
+
+            ElementDescriptor element = map.get(key);
+
+            if (element == null) {
+                element = newElementDescriptor();
+
+                reverseIdMap.put(element.internalId, key);
+
+                if (element.value.isPolymorphicNode()) {
+                    InnerNode polymorphicInnerNode = element.value;
+
+                    String polymorphicTypeId = src.polymorphicTypeId(typeIdFieldName);
+
+                    if (polymorphicTypeId != null) {
+                        polymorphicInnerNode.construct(typeIdFieldName, new LeafConfigurationSource(polymorphicTypeId), true);
+
+                        addDefaults(element.value);
+                    }
+                    else if (polymorphicInnerNode.traverseChild(typeIdFieldName, leafNodeVisitor(), true) == null) {
+                        throw new IllegalStateException("Polymorphic configuration type is not defined: " +
+                            polymorphicInnerNode.getClass().getName());
+                    }
+                }
+            }
+            else {
+                element = element.copy();
+
+                if (element.value.isPolymorphicNode()) {
+                    InnerNode polymorphicInnerNode = element.value;
+
+                    String polymorphicTypeId = src.polymorphicTypeId(typeIdFieldName);
+
+                    if (polymorphicTypeId != null) {
+                        polymorphicInnerNode.construct(typeIdFieldName, new LeafConfigurationSource(polymorphicTypeId), true);
+
+                        addDefaults(element.value);
+                    }
+                }
+            }
+
+            map.put(key, element);
+
+            src.descend(element.value);
+        }
     }
 
     /** {@inheritDoc} */
@@ -374,73 +437,6 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         addDefaults(newElement);
 
         return new ElementDescriptor(newElement);
-    }
-
-    /**
-     * Creates or updates a named configuration list element.
-     *
-     * @param key Key for the value to be updated.
-     * @param valConsumer Closure to modify the value associated with the key. Closure parameter must not be leaked
-     *      outside the scope of the closure.
-     * @param src Source that provides data for construction.
-     *
-     * @throws NullPointerException If one of parameters is null.
-     * @throws IllegalArgumentException If {@link #delete(String)} has been invoked with the same key previously.
-     * @throws IllegalStateException If no polymorphic configuration type is defined.
-     */
-    private void createOrUpdate(
-        String key,
-        @Nullable Consumer<N> valConsumer,
-        @Nullable ConfigurationSource src
-    ) {
-        assert key != null;
-        assert valConsumer != null ^ src != null : "Only one is allowed [valConsumer=" + valConsumer + ", src=" + src + ']';
-
-        if (map.containsKey(key) && map.get(key).value == null)
-            throw new IllegalArgumentException("You can't create entity that has just been deleted [key=" + key + ']');
-
-        ElementDescriptor element = map.get(key);
-
-        if (element == null) {
-            element = newElementDescriptor();
-
-            reverseIdMap.put(element.internalId, key);
-
-            if (src != null && element.value instanceof PolymorphicInnerNode) {
-                PolymorphicInnerNode polymorphicInnerNode = (PolymorphicInnerNode)element.value;
-
-                String polymorphicTypeId = src.polymorphicTypeId(typeIdFieldName);
-
-                if (polymorphicTypeId != null)
-                    polymorphicInnerNode.construct(typeIdFieldName, new LeafConfigurationSource(polymorphicTypeId), true);
-                else if (polymorphicInnerNode.traverseChild(typeIdFieldName, leafNodeVisitor(), true) == null) {
-                    throw new IllegalStateException("Polymorphic configuration type is not defined: " +
-                        polymorphicInnerNode.getClass().getName());
-                }
-            }
-        }
-        else {
-            element = element.copy();
-
-            if (src != null && element.value instanceof PolymorphicInnerNode) {
-                PolymorphicInnerNode polymorphicInnerNode = (PolymorphicInnerNode)element.value;
-
-                String polymorphicTypeId = src.polymorphicTypeId(typeIdFieldName);
-
-                if (polymorphicTypeId != null)
-                    polymorphicInnerNode.construct(typeIdFieldName, new LeafConfigurationSource(polymorphicTypeId), true);
-            }
-        }
-
-        map.put(key, element);
-
-        if (valConsumer != null)
-            valConsumer.accept((N)element.value);
-        else
-            src.descend(element.value);
-
-        if (element.value instanceof PolymorphicInnerNode)
-            addDefaults(element.value);
     }
 
     /**
@@ -497,12 +493,12 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     }
 
     /**
-     * Returns {@link InnerNode}.
+     * Returns specific {@code Node}.
      *
      * @param element Internal named list element representation.
-     * @return {@link InnerNode}.
+     * @return Specific {@code Node}.
      */
-    @Nullable private N node(@Nullable ElementDescriptor element) {
+    @Nullable private N specificNode(@Nullable ElementDescriptor element) {
         if (element == null)
             return null;
 
