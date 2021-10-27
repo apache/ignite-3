@@ -24,23 +24,23 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Key-value serializer interface.
  */
-public interface KVSerializer<K, V> {
+public interface KVMarshaller<K, V> {
     /**
      * @param key Key object to serialize.
      * @param val Value object to serialize.
      * @return Table row with columns serialized from given key-value pair.
      */
-    BinaryRow serialize(@NotNull K key, V val);
+    BinaryRow marshal(@NotNull K key, V val);
 
     /**
      * @param row Table row.
      * @return Deserialized key object.
      */
-    @NotNull K deserializeKey(@NotNull BinaryRow row);
+    @NotNull K unmarshalKey(@NotNull BinaryRow row);
 
     /**
      * @param row Table row.
      * @return Deserialized value object.
      */
-    @Nullable V deserializeValue(@NotNull BinaryRow row);
+    @Nullable V unmarshalValue(@NotNull BinaryRow row);
 }

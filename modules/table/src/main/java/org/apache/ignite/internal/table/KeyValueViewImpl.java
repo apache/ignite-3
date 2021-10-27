@@ -27,7 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.KVSerializer;
+import org.apache.ignite.internal.schema.marshaller.KVMarshaller;
 import org.apache.ignite.internal.schema.marshaller.SerializationException;
 import org.apache.ignite.internal.schema.marshaller.Serializer;
 import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
@@ -270,14 +270,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param schemaVersion Schema version.
      * @return Marshaller.
      */
-    private KVSerializer<K, V> marshaller(int schemaVersion) {
+    private KVMarshaller<K, V> marshaller(int schemaVersion) {
         SerializerFactory factory = SerializerFactory.createJavaSerializerFactory();
 
         // TODO: Cache marshaller for schema or upgrade row?
-        return new KVSerializer<K, V>() {
+        return new KVMarshaller<K, V>() {
             Serializer s = factory.create(schemaReg.schema(schemaVersion), keyMapper.getType(), valueMapper.getType());
 
-            @Override public BinaryRow serialize(@NotNull K key, V val) {
+            @Override public BinaryRow marshal(@NotNull K key, V val) {
                 try {
                     return new ByteBufferRow(ByteBuffer.wrap(s.serialize(key, val)).order(ByteOrder.LITTLE_ENDIAN));
                 } catch (SerializationException e) {
@@ -285,7 +285,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
                 }
             }
 
-            @NotNull @Override public K deserializeKey(@NotNull BinaryRow row) {
+            @NotNull @Override public K unmarshalKey(@NotNull BinaryRow row) {
                 try {
                     return s.deserializeKey(row.bytes());
                 } catch (SerializationException e) {
@@ -293,7 +293,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
                 }
             }
 
-            @Nullable @Override public V deserializeValue(@NotNull BinaryRow row) {
+            @Nullable @Override public V unmarshalValue(@NotNull BinaryRow row) {
                 try {
                     return s.deserializeValue(row.bytes());
                 } catch (SerializationException e) {
@@ -304,12 +304,12 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     private V unmarshalValue(BinaryRow v) {
-        return v == null ? null : marshaller(v.schemaVersion()).deserializeValue(v);
+        return v == null ? null : marshaller(v.schemaVersion()).unmarshalValue(v);
     }
 
     private BinaryRow marshal(@NotNull K key, V o) {
-        final KVSerializer<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+        final KVMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
 
-        return marsh.serialize(key, o);
+        return marsh.marshal(key, o);
     }
 }
