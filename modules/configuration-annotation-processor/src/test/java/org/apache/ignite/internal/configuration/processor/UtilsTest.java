@@ -1,4 +1,4 @@
-/*
+package org.apache.ignite.internal.configuration.processor;/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor;
-
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.internal.configuration.processor.Utils;
 import org.junit.jupiter.api.Test;
 
 import static org.apache.ignite.internal.configuration.processor.Utils.joinSimpleName;

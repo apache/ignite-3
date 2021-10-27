@@ -26,7 +26,7 @@ import org.apache.ignite.configuration.DirectConfigurationProperty;
  * @param <VIEW> Value type of the node.
  * @param <CHANGE> Type of the object that changes this node's value.
  */
-public abstract class DirectConfigurationTreeWrapper<VIEW, CHANGE> extends ConfigurationTreeWrapper<VIEW, CHANGE>
+public class DirectConfigurationTreeWrapper<VIEW, CHANGE> extends ConfigurationTreeWrapper<VIEW, CHANGE>
     implements DirectConfigurationProperty<VIEW> {
     /**
      * Constructor.

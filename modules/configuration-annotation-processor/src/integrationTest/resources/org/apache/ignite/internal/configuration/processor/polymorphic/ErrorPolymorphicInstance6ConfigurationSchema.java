@@ -23,7 +23,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
 /**
  * Class with {@link PolymorphicConfigInstance} should not contain field with {@link PolymorphicId}.
  */
-@PolymorphicConfigInstance(id = "error")
+@PolymorphicConfigInstance("error")
 public class ErrorPolymorphicInstance6ConfigurationSchema extends SimplePolymorphicConfigurationSchema {
     /** Polymorphic type id field. */
     @PolymorphicId

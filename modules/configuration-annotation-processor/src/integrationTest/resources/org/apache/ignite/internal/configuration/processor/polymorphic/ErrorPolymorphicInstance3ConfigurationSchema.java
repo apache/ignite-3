@@ -22,6 +22,6 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 /**
  * Class with {@link PolymorphicConfigInstance} must have a super class.
  */
-@PolymorphicConfigInstance(id = "error")
+@PolymorphicConfigInstance("error")
 public class ErrorPolymorphicInstance3ConfigurationSchema {
 }

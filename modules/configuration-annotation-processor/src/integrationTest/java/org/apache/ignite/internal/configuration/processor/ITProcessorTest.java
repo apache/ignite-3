@@ -26,7 +26,6 @@ import org.junit.jupiter.api.Test;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -47,7 +46,7 @@ public class ITProcessorTest extends AbstractProcessorTest {
 
         final Compilation status = batch.getCompilationStatus();
 
-        assertNotEquals(Compilation.Status.FAILURE, status.status());
+        assertEquals(Compilation.Status.SUCCESS, status.status());
 
         assertEquals(3, batch.generated().size());
 
@@ -68,7 +67,7 @@ public class ITProcessorTest extends AbstractProcessorTest {
 
         BatchCompilation batchCompile = batchCompile(cls0, cls1, cls2, cls3);
 
-        assertNotEquals(Compilation.Status.FAILURE, batchCompile.getCompilationStatus().status());
+        assertEquals(Compilation.Status.SUCCESS, batchCompile.getCompilationStatus().status());
 
         assertEquals(4 * 3, batchCompile.generated().size());
 
@@ -242,7 +241,7 @@ public class ITProcessorTest extends AbstractProcessorTest {
 
         BatchCompilation batchCompile = batchCompile(cls0, cls1, cls2, cls3);
 
-        assertNotEquals(Compilation.Status.FAILURE, batchCompile.getCompilationStatus().status());
+        assertEquals(Compilation.Status.SUCCESS, batchCompile.getCompilationStatus().status());
 
         assertEquals(4 * 3, batchCompile.generated().size());
 

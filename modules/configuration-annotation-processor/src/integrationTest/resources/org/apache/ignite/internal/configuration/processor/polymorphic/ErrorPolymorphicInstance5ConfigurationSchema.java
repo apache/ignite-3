@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.annotation.Value;
  * Class with {@link PolymorphicConfigInstance} should not contain duplicate fields
  * (by names) with {@link PolymorphicConfig}.
  */
-@PolymorphicConfigInstance(id = "error")
+@PolymorphicConfigInstance("error")
 public class ErrorPolymorphicInstance5ConfigurationSchema extends SimplePolymorphicConfigurationSchema {
     /** String value, duplicate {@link SimplePolymorphicConfigurationSchema#str}. */
     @Value

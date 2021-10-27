@@ -28,7 +28,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
  * @param <VIEW> Value type of the node.
  * @param <CHANGE> Type of the object that changes this node's value.
  */
-public abstract class ConfigurationTreeWrapper<VIEW, CHANGE> implements ConfigurationTree<VIEW, CHANGE> {
+public class ConfigurationTreeWrapper<VIEW, CHANGE> implements ConfigurationTree<VIEW, CHANGE> {
     /** Configuration tree. */
     protected final ConfigurationTree<VIEW, CHANGE> configTree;
 

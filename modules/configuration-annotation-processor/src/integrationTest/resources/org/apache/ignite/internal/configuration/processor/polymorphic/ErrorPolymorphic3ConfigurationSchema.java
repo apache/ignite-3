@@ -24,6 +24,6 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
  * Class cannot have {@link PolymorphicConfig} and {@link PolymorphicConfigInstance}.
  */
 @PolymorphicConfig
-@PolymorphicConfigInstance(id = "error")
+@PolymorphicConfigInstance("error")
 public class ErrorPolymorphic3ConfigurationSchema {
 }

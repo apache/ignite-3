@@ -17,12 +17,12 @@
 
 package org.apache.ignite.configuration;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 
 /**
- * Marker interface for methods {@code PolymorphicConfigurationChange#convert},
- * so that it is not possible to convert a {@link PolymorphicConfigInstance} to a {@link PolymorphicConfig} at compile time.
+ * Marker interface for {@code *Node} classes whose schemas are marked with annotation {@link PolymorphicConfigInstance},
+ * this will allow at the compilation stage to distinguish an instance of a polymorphic configuration from
+ * the polymorphic configuration itself.
  */
 public interface PolymorphicInstance {
 }

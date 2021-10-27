@@ -188,21 +188,21 @@ public class ConfigurationRegistryTest {
     /**
      * First {@link FirstPolymorphicConfigurationSchema} extension.
      */
-    @PolymorphicConfigInstance(id = "first0")
+    @PolymorphicConfigInstance("first0")
     public static class First0PolymorphicConfigurationSchema extends FirstPolymorphicConfigurationSchema {
     }
 
     /**
      * Second {@link FirstPolymorphicConfigurationSchema} extension.
      */
-    @PolymorphicConfigInstance(id = "first1")
+    @PolymorphicConfigInstance("first1")
     public static class First1PolymorphicConfigurationSchema extends FirstPolymorphicConfigurationSchema {
     }
 
     /**
      * First error {@link FirstPolymorphicConfigurationSchema} extension.
      */
-    @PolymorphicConfigInstance(id = "first0")
+    @PolymorphicConfigInstance("first0")
     public static class ErrorFirst0PolymorphicConfigurationSchema extends FirstPolymorphicConfigurationSchema {
     }
 
@@ -219,7 +219,7 @@ public class ConfigurationRegistryTest {
     /**
      * First {@link SecondPolymorphicConfigurationSchema} extension.
      */
-    @PolymorphicConfigInstance(id = "second0")
+    @PolymorphicConfigInstance("second0")
     public static class Second0PolymorphicConfigurationSchema extends SecondPolymorphicConfigurationSchema {
     }
 
@@ -236,14 +236,14 @@ public class ConfigurationRegistryTest {
     /**
      * First {@link ThirdPolymorphicConfigurationSchema} extension.
      */
-    @PolymorphicConfigInstance(id = "third0")
+    @PolymorphicConfigInstance("third0")
     public static class Third0PolymorphicConfigurationSchema extends ThirdPolymorphicConfigurationSchema {
     }
 
     /**
      * First {@link ThirdPolymorphicConfigurationSchema} extension.
      */
-    @PolymorphicConfigInstance(id = "third1")
+    @PolymorphicConfigInstance("third1")
     public static class Third1PolymorphicConfigurationSchema extends ThirdPolymorphicConfigurationSchema {
     }
 }

@@ -24,7 +24,7 @@ import org.apache.ignite.configuration.annotation.Value;
 /**
  * Simple instance of a polymorphic configuration.
  */
-@PolymorphicConfigInstance(id = "test")
+@PolymorphicConfigInstance("test")
 public class SimplePolymorphicInstanceConfigurationSchema extends SimplePolymorphicConfigurationSchema {
     /** Integer value. */
     @Value

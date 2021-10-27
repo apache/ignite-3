@@ -531,7 +531,7 @@ public class ConfigurationAsmGeneratorTest {
     /**
      * First instance of the polymorphic configuration schema.
      */
-    @PolymorphicConfigInstance(id = "first")
+    @PolymorphicConfigInstance("first")
     public static class FirstPolymorphicInstanceTestConfigurationSchema extends PolymorphicTestConfigurationSchema {
         /** Integer value. */
         @Value(hasDefault = true)
@@ -541,7 +541,7 @@ public class ConfigurationAsmGeneratorTest {
     /**
      * Second instance of the polymorphic configuration schema.
      */
-    @PolymorphicConfigInstance(id = "second")
+    @PolymorphicConfigInstance("second")
     public static class SecondPolymorphicInstanceTestConfigurationSchema extends PolymorphicTestConfigurationSchema {
         /** Integer value. */
         @Value(hasDefault = true)
@@ -569,7 +569,7 @@ public class ConfigurationAsmGeneratorTest {
     /**
      * First instance of the named polymorphic configuration schema.
      */
-    @PolymorphicConfigInstance(id = "first")
+    @PolymorphicConfigInstance("first")
     public static class FirstPolymorphicNamedInstanceTestConfigurationSchema extends PolymorphicNamedTestConfigurationSchema {
         /** Integer value. */
         @Value(hasDefault = true)
@@ -579,7 +579,7 @@ public class ConfigurationAsmGeneratorTest {
     /**
      * Second instance of the named polymorphic configuration schema.
      */
-    @PolymorphicConfigInstance(id = "second")
+    @PolymorphicConfigInstance("second")
     public static class SecondPolymorphicNamedInstanceTestConfigurationSchema extends PolymorphicNamedTestConfigurationSchema {
         /** Integer value. */
         @Value(hasDefault = true)

@@ -30,7 +30,8 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  *
  * <p>To change the type of polymorphic configuration, you must use the {@code PolymorphicConfigChange#convert}.
  *
- * <p>NOTE: Must contain a {@link PolymorphicId} and at least one {@link PolymorphicConfigInstance}.
+ * <p>NOTE: {@link PolymorphicId} field must go first, you should explicitly declare that, also at least one
+ * {@link PolymorphicConfigInstance} is required.
  */
 @Target(TYPE)
 @Retention(RUNTIME)

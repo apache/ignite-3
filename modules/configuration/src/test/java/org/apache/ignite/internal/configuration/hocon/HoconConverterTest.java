@@ -170,7 +170,7 @@ public class HoconConverterTest {
     /**
      * Configuration schema for testing the support of polymorphic configuration.
      */
-    @PolymorphicConfigInstance(id = "first")
+    @PolymorphicConfigInstance("first")
     public static class HoconFirstPolymorphicInstanceConfigurationSchema extends HoconPolymorphicConfigurationSchema {
         /** Long value. */
         @Value(hasDefault = true)
@@ -180,7 +180,7 @@ public class HoconConverterTest {
     /**
      * Configuration schema for testing the support of polymorphic configuration.
      */
-    @PolymorphicConfigInstance(id = "second")
+    @PolymorphicConfigInstance("second")
     public static class HoconSecondPolymorphicInstanceConfigurationSchema extends HoconPolymorphicConfigurationSchema {
         /** Integer value. */
         @Value(hasDefault = true)

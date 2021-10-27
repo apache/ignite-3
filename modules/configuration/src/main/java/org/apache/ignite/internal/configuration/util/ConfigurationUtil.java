@@ -683,12 +683,12 @@ public class ConfigurationUtil {
      *
      * @param schemaClass Configuration schema class.
      * @return Identifier of the polymorphic configuration.
-     * @see PolymorphicConfigInstance#id
+     * @see PolymorphicConfigInstance#value
      */
     public static String polymorphicInstanceId(Class<?> schemaClass) {
         assert isPolymorphicConfigInstance(schemaClass) : schemaClass.getName();
 
-        return schemaClass.getAnnotation(PolymorphicConfigInstance.class).id();
+        return schemaClass.getAnnotation(PolymorphicConfigInstance.class).value();
     }
 
     /**

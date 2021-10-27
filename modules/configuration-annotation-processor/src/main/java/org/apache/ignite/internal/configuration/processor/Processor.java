@@ -74,6 +74,7 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 import static org.apache.ignite.internal.configuration.processor.Utils.joinSimpleName;
 import static org.apache.ignite.internal.configuration.processor.Utils.simpleName;
+import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
 /**
@@ -92,25 +93,8 @@ public class Processor extends AbstractProcessor {
     /** Error format for the superclass missing annotation. */
     private static final String SUPERCLASS_MISSING_ANNOTATION_ERROR_FORMAT = "Superclass must have %s: %s";
 
-    /** Superclass existence error format. */
-    private static final String EXIST_SUPERCLASS_ERROR_FORMAT = "Class with %s should not have a superclass: %s";
-
-    /** Superclass missing error format. */
-    private static final String MISSING_SUPERCLASS_ERROR_FORMAT = "Class with %s should not have a superclass: %s";
-
-    /** Format of class annotation incompatibility error. */
-    private static final String INCOMPATIBLE_CLASS_ANNOTATION_ERROR_FORMAT = "Class with %s is not allowed with %s: %s";
-
-    /** Error format for the presence of duplicate class fields (by names). */
-    private static final String DUPLICATE_FIELD_NAMES_ERROR_FORMAT =
-        "Duplicate field names are not allowed [class=%s, superClass=%s, fields=%s]";
-
     /** Error format for an empty field. */
     private static final String EMPTY_FIELD_ERROR_FORMAT = "Field %s cannot be empty: %s";
-
-    /** Error format for the presence of a field with {@link PolymorphicId}. */
-    private static final String CONTAINS_POLYMORPHIC_ID_FIELD_ERROR_FORMAT =
-        "Class with %s cannot have a field with " + simpleName(PolymorphicId.class) + ": %s";
 
     /** {@inheritDoc} */
     @Override public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnvironment) {
@@ -163,7 +147,10 @@ public class Processor extends AbstractProcessor {
                 .addModifiers(PUBLIC);
 
             for (VariableElement field : fields) {
-                if (field.getModifiers().contains(STATIC) || field.getAnnotation(PolymorphicId.class) != null)
+                if (field.getModifiers().contains(STATIC))
+                    continue;
+
+                if (field.getAnnotation(PolymorphicId.class) != null)
                     continue;
 
                 if (!field.getModifiers().contains(PUBLIC))
@@ -547,41 +534,19 @@ public class Processor extends AbstractProcessor {
      */
     private void validate(TypeElement clazz, List<VariableElement> fields) {
         if (clazz.getAnnotation(InternalConfiguration.class) != null) {
-            Annotation incompatible =
-                findFirst(clazz, Config.class, PolymorphicConfig.class, PolymorphicConfigInstance.class);
+            checkIncompatibleClassAnnotations(
+                clazz,
+                InternalConfiguration.class,
+                Config.class, PolymorphicConfig.class, PolymorphicConfigInstance.class
+            );
 
-            if (incompatible != null) {
-                throw new ProcessorException(String.format(
-                    INCOMPATIBLE_CLASS_ANNOTATION_ERROR_FORMAT,
-                    simpleName(incompatible.getClass()),
-                    simpleName(InternalConfiguration.class),
-                    clazz.getQualifiedName()
-                ));
-            }
-            else if (clazz.getAnnotation(ConfigurationRoot.class) != null) {
-                if (!isObjectClass(clazz.getSuperclass())) {
-                    throw new ProcessorException(String.format(
-                        EXIST_SUPERCLASS_ERROR_FORMAT,
-                        joinSimpleName(" and ", ConfigurationRoot.class, InternalConfiguration.class),
-                        clazz.getQualifiedName()
-                    ));
-                }
-            }
-            else if (isObjectClass(clazz.getSuperclass())) {
-                throw new ProcessorException(String.format(
-                    MISSING_SUPERCLASS_ERROR_FORMAT,
-                    simpleName(InternalConfiguration.class),
-                    clazz.getQualifiedName()
-                ));
-            }
-            else if (!collectFields(fields, PolymorphicId.class).isEmpty()) {
-                throw new ProcessorException(String.format(
-                    CONTAINS_POLYMORPHIC_ID_FIELD_ERROR_FORMAT,
-                    simpleName(InternalConfiguration.class),
-                    clazz.getQualifiedName()
-                ));
-            }
+            checkNotContainsPolymorphicIdField(clazz, InternalConfiguration.class, fields);
+
+            if (clazz.getAnnotation(ConfigurationRoot.class) != null)
+                checkNotExistSuperClass(clazz, InternalConfiguration.class);
             else {
+                checkExistSuperClass(clazz, InternalConfiguration.class);
+
                 TypeElement superClazz = superClass(clazz);
 
                 if (superClazz.getAnnotation(InternalConfiguration.class) != null) {
@@ -591,154 +556,65 @@ public class Processor extends AbstractProcessor {
                         clazz.getQualifiedName()
                     ));
                 }
-                else if (superClazz.getAnnotation(ConfigurationRoot.class) == null &&
-                    superClazz.getAnnotation(Config.class) == null) {
-                    throw new ProcessorException(String.format(
-                        SUPERCLASS_MISSING_ANNOTATION_ERROR_FORMAT,
-                        joinSimpleName(" or ", ConfigurationRoot.class, Config.class),
-                        clazz.getQualifiedName()
-                    ));
-                }
-                else {
-                    Collection<Name> duplicateFieldNames = duplicates(fields(superClazz), fields);
 
-                    if (!duplicateFieldNames.isEmpty()) {
-                        throw new ProcessorException(String.format(
-                            DUPLICATE_FIELD_NAMES_ERROR_FORMAT,
-                            clazz.getQualifiedName(),
-                            superClazz.getQualifiedName(),
-                            duplicateFieldNames
-                        ));
-                    }
-                }
+                checkSuperclassContainAnyAnnotation(clazz, superClazz, ConfigurationRoot.class, Config.class);
+
+                checkNoConflictFieldNames(clazz, superClazz, fields, fields(superClazz));
             }
         }
         else if (clazz.getAnnotation(PolymorphicConfig.class) != null) {
-            Annotation incompatible =
-                findFirst(clazz, ConfigurationRoot.class, Config.class, PolymorphicConfigInstance.class);
+            checkIncompatibleClassAnnotations(
+                clazz,
+                PolymorphicConfig.class,
+                ConfigurationRoot.class, Config.class, PolymorphicConfigInstance.class
+            );
 
-            if (incompatible != null) {
+            checkNotExistSuperClass(clazz, PolymorphicConfig.class);
+
+            List<VariableElement> typeIdFields = collectAnnotatedFields(fields, PolymorphicId.class);
+
+            if (typeIdFields.size() != 1 ||
+                fields.indexOf(typeIdFields.get(0)) != 0 ||
+                !isStringClass(typeIdFields.get(0).asType())) {
                 throw new ProcessorException(String.format(
-                    INCOMPATIBLE_CLASS_ANNOTATION_ERROR_FORMAT,
-                    simpleName(incompatible.getClass()),
+                    "Class with %s must contain one string field with %s and it should be the first in the schema: %s",
                     simpleName(PolymorphicConfig.class),
+                    simpleName(PolymorphicId.class),
                     clazz.getQualifiedName()
                 ));
-            }
-            else if (!isObjectClass(clazz.getSuperclass())) {
-                throw new ProcessorException(String.format(
-                    EXIST_SUPERCLASS_ERROR_FORMAT,
-                    simpleName(PolymorphicConfig.class),
-                    clazz.getQualifiedName()
-                ));
-            }
-            else {
-                List<VariableElement> typeIdFields = collectFields(fields, PolymorphicId.class);
-
-                if (typeIdFields.size() != 1) {
-                    throw new ProcessorException(String.format(
-                        "Class with %s must have one field with %s: %s",
-                        simpleName(PolymorphicConfig.class),
-                        simpleName(PolymorphicId.class),
-                        clazz.getQualifiedName()
-                    ));
-                }
-
-                VariableElement typeIdField = typeIdFields.get(0);
-
-                if (fields.indexOf(typeIdField) != 0) {
-                    throw new ProcessorException(String.format(
-                        "%s %s field must be the first in the schema: %s",
-                        simpleName(PolymorphicId.class),
-                        typeIdField.getSimpleName(),
-                        clazz.getQualifiedName()
-                    ));
-                }
-                else if (!isStringClass(typeIdField.asType())) {
-                    throw new ProcessorException(String.format(
-                        "%s %s field must be String: %s",
-                        simpleName(PolymorphicId.class),
-                        typeIdField.getSimpleName(),
-                        clazz.getQualifiedName()
-                    ));
-                }
             }
         }
         else if (clazz.getAnnotation(PolymorphicConfigInstance.class) != null) {
-            Annotation incompatible = findFirst(clazz, ConfigurationRoot.class, Config.class);
+            checkIncompatibleClassAnnotations(
+                clazz,
+                PolymorphicConfigInstance.class,
+                ConfigurationRoot.class, Config.class
+            );
 
-            if (incompatible != null) {
+            checkNotContainsPolymorphicIdField(clazz, PolymorphicConfigInstance.class, fields);
+
+            String id = clazz.getAnnotation(PolymorphicConfigInstance.class).value();
+
+            if (id == null || id.isBlank()) {
                 throw new ProcessorException(String.format(
-                    INCOMPATIBLE_CLASS_ANNOTATION_ERROR_FORMAT,
-                    simpleName(incompatible.getClass()),
-                    simpleName(PolymorphicConfigInstance.class),
+                    EMPTY_FIELD_ERROR_FORMAT,
+                    simpleName(PolymorphicConfigInstance.class) + ".id()",
                     clazz.getQualifiedName()
                 ));
             }
-            else if (isObjectClass(clazz.getSuperclass())) {
-                throw new ProcessorException(String.format(
-                    MISSING_SUPERCLASS_ERROR_FORMAT,
-                    simpleName(PolymorphicConfigInstance.class),
-                    clazz.getQualifiedName()
-                ));
-            }
-            else if (superClass(clazz).getAnnotation(PolymorphicConfig.class) == null) {
-                throw new ProcessorException(String.format(
-                    SUPERCLASS_MISSING_ANNOTATION_ERROR_FORMAT,
-                    simpleName(PolymorphicConfig.class),
-                    clazz.getQualifiedName())
-                );
-            }
-            else if (!collectFields(fields, PolymorphicId.class).isEmpty()) {
-                throw new ProcessorException(String.format(
-                    CONTAINS_POLYMORPHIC_ID_FIELD_ERROR_FORMAT,
-                    simpleName(PolymorphicConfigInstance.class),
-                    clazz.getQualifiedName()
-                ));
-            }
-            else {
-                String id = clazz.getAnnotation(PolymorphicConfigInstance.class).id();
 
-                if (id == null || id.isBlank()) {
-                    throw new ProcessorException(String.format(
-                        EMPTY_FIELD_ERROR_FORMAT,
-                        simpleName(PolymorphicConfigInstance.class) + ".id()",
-                        clazz.getQualifiedName()
-                    ));
-                }
+            checkExistSuperClass(clazz, PolymorphicConfigInstance.class);
 
-                TypeElement superClazz = superClass(clazz);
+            TypeElement superClazz = superClass(clazz);
 
-                Collection<Name> duplicateFieldNames = duplicates(fields(superClazz), fields);
+            checkSuperclassContainAnyAnnotation(clazz, superClazz, PolymorphicConfig.class);
 
-                if (!duplicateFieldNames.isEmpty()) {
-                    throw new ProcessorException(String.format(
-                        DUPLICATE_FIELD_NAMES_ERROR_FORMAT,
-                        clazz.getQualifiedName(),
-                        superClazz.getQualifiedName(),
-                        duplicateFieldNames
-                    ));
-                }
-            }
+            checkNoConflictFieldNames(clazz, superClazz, fields, fields(superClazz));
         }
-        else if (clazz.getAnnotation(ConfigurationRoot.class) != null) {
-            if (!collectFields(fields, PolymorphicId.class).isEmpty()) {
-                throw new ProcessorException(String.format(
-                    CONTAINS_POLYMORPHIC_ID_FIELD_ERROR_FORMAT,
-                    simpleName(ConfigurationRoot.class),
-                    clazz.getQualifiedName()
-                ));
-            }
-        }
-        else if (clazz.getAnnotation(Config.class) != null) {
-            if (!collectFields(fields, PolymorphicId.class).isEmpty()) {
-                throw new ProcessorException(String.format(
-                    CONTAINS_POLYMORPHIC_ID_FIELD_ERROR_FORMAT,
-                    simpleName(Config.class),
-                    clazz.getQualifiedName()
-                ));
-            }
-        }
+        else if (clazz.getAnnotation(ConfigurationRoot.class) != null)
+            checkNotContainsPolymorphicIdField(clazz, ConfigurationRoot.class, fields);
+        else if (clazz.getAnnotation(Config.class) != null)
+            checkNotContainsPolymorphicIdField(clazz, Config.class, fields);
     }
 
     /** {@inheritDoc} */
@@ -786,7 +662,7 @@ public class Processor extends AbstractProcessor {
         TypeElement clazz,
         Class<? extends Annotation>... annotationClasses
     ) {
-        return Stream.of(annotationClasses).map(clazz::getAnnotation).filter(Objects::nonNull).findAny().orElse(null);
+        return Stream.of(annotationClasses).map(clazz::getAnnotation).filter(Objects::nonNull).findFirst().orElse(null);
     }
 
     /**
@@ -796,7 +672,7 @@ public class Processor extends AbstractProcessor {
      * @param fields2 Second class fields.
      * @return Field names.
      */
-    private static Collection<Name> duplicates(
+    private static Collection<Name> findDuplicates(
         Collection<VariableElement> fields1,
         Collection<VariableElement> fields2
     ) {
@@ -872,10 +748,150 @@ public class Processor extends AbstractProcessor {
      * @param annotationClass Annotation class.
      * @return Fields with annotation.
      */
-    private static List<VariableElement> collectFields(
+    private static List<VariableElement> collectAnnotatedFields(
         Collection<VariableElement> fields,
         Class<? extends Annotation> annotationClass
     ) {
         return fields.stream().filter(f -> f.getAnnotation(annotationClass) != null).collect(toList());
+    }
+
+    /**
+     * Checks for an incompatible class annotation with {@code clazzAnnotation}.
+     *
+     * @param clazz Class type.
+     * @param clazzAnnotation Class annotation.
+     * @param incompatibleAnnotations Incompatible class annotations with {@code clazzAnnotation}.
+     * @throws ProcessorException If there is an incompatible class annotation with {@code clazzAnnotation}.
+     */
+    private void checkIncompatibleClassAnnotations(
+        TypeElement clazz,
+        Class<? extends Annotation> clazzAnnotation,
+        Class<? extends Annotation>... incompatibleAnnotations
+    ) {
+        assert clazz.getAnnotation(clazzAnnotation) != null : clazz.getQualifiedName();
+        assert !nullOrEmpty(incompatibleAnnotations);
+
+        Annotation incompatible = findFirst(clazz, incompatibleAnnotations);
+
+        if (incompatible != null) {
+            throw new ProcessorException(String.format(
+                "Class with %s is not allowed with %s: %s",
+                simpleName(incompatible.getClass()),
+                simpleName(clazzAnnotation),
+                clazz.getQualifiedName()
+            ));
+        }
+    }
+
+    /**
+     * Checks that the class has a superclass.
+     *
+     * @param clazz Class type.
+     * @param clazzAnnotation Class annotation.
+     * @throws ProcessorException If the class doesn't have a superclass.
+     */
+    private void checkExistSuperClass(TypeElement clazz, Class<? extends Annotation> clazzAnnotation) {
+        assert clazz.getAnnotation(clazzAnnotation) != null : clazz.getQualifiedName();
+
+        if (isObjectClass(clazz.getSuperclass())) {
+            throw new ProcessorException(String.format(
+                "Class with %s should not have a superclass: %s",
+                simpleName(clazzAnnotation),
+                clazz.getQualifiedName()
+            ));
+        }
+    }
+
+    /**
+     * Checks that the class should not have a superclass.
+     *
+     * @param clazz Class type.
+     * @param clazzAnnotation Class annotation.
+     * @throws ProcessorException If the class have a superclass.
+     */
+    private void checkNotExistSuperClass(TypeElement clazz, Class<? extends Annotation> clazzAnnotation) {
+        assert clazz.getAnnotation(clazzAnnotation) != null : clazz.getQualifiedName();
+
+        if (!isObjectClass(clazz.getSuperclass())) {
+            throw new ProcessorException(String.format(
+                "Class with %s should not have a superclass: %s",
+                simpleName(clazzAnnotation),
+                clazz.getQualifiedName()
+            ));
+        }
+    }
+
+    /**
+     * Checks that the class does not have a field with {@link PolymorphicId}.
+     *
+     * @param clazz Class type.
+     * @param clazzAnnotation Class annotation.
+     * @param clazzfields Class fields.
+     * @throws ProcessorException If the class has a field with {@link PolymorphicId}.
+     */
+    private void checkNotContainsPolymorphicIdField(
+        TypeElement clazz,
+        Class<? extends Annotation> clazzAnnotation,
+        List<VariableElement> clazzfields
+    ) {
+        assert clazz.getAnnotation(clazzAnnotation) != null : clazz.getQualifiedName();
+
+        if (!collectAnnotatedFields(clazzfields, PolymorphicId.class).isEmpty()) {
+            throw new ProcessorException(String.format(
+                "Class with %s cannot have a field with %s: %s",
+                simpleName(clazzAnnotation),
+                simpleName(PolymorphicId.class),
+                clazz.getQualifiedName()
+            ));
+        }
+    }
+
+    /**
+     * Checks that there is no conflict of field names between classes.
+     *
+     * @param clazz0 First class type.
+     * @param clazz1 Second class type.
+     * @param clazzFields0 First class fields.
+     * @param clazzFields1 Second class fields.
+     * @throws ProcessorException If there is a conflict of field names between classes.
+     */
+    private void checkNoConflictFieldNames(
+        TypeElement clazz0,
+        TypeElement clazz1,
+        List<VariableElement> clazzFields0,
+        List<VariableElement> clazzFields1
+    ) {
+        Collection<Name> duplicateFieldNames = findDuplicates(clazzFields0, clazzFields1);
+
+        if (!duplicateFieldNames.isEmpty()) {
+            throw new ProcessorException(String.format(
+                "Duplicate field names are not allowed [class=%s, superClass=%s, fields=%s]",
+                clazz0.getQualifiedName(),
+                clazz1.getQualifiedName(),
+                duplicateFieldNames
+            ));
+        }
+    }
+
+    /**
+     * Checks if the superclass has at least one annotation from {@code superClazzAnnotations}.
+     *
+     * @param clazz Class type.
+     * @param superClazz Superclass type.
+     * @param superClazzAnnotations Superclass annotations.
+     * @throws ProcessorException If the superclass has none of the annotations from {@code superClazzAnnotations}.
+     */
+    private void checkSuperclassContainAnyAnnotation(
+        TypeElement clazz,
+        TypeElement superClazz,
+        Class<? extends Annotation>... superClazzAnnotations
+    ) {
+        if (Stream.of(superClazzAnnotations).allMatch(a -> superClazz.getAnnotation(a) == null)) {
+            throw new ProcessorException(String.format(
+                SUPERCLASS_MISSING_ANNOTATION_ERROR_FORMAT,
+                joinSimpleName(" or ", superClazzAnnotations),
+                clazz.getQualifiedName()
+            ));
+        }
     }
 }

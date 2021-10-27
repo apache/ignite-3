@@ -129,7 +129,7 @@ public class ClassGenerator
         Map<String, byte[]> bytecodes = new LinkedHashMap<>();
 
         for (ClassDefinition classDefinition : classDefinitions) {
-            // Code associated with a simple class writer was removed due to errors with offsets when re-generating the bytecode.
+            // Code associated with a simple class writer was removed due to labels reuse when re-generating the bytecode.
 
             ClassWriter writer = new SmartClassWriter(classInfoLoader);
 

@@ -28,8 +28,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * This annotation marks the class as an instance of polymorphic configuration schema.
  * Has basically the same properties as {@link Config}, but must inherit from the {@link PolymorphicConfig}.
  *
- * <p>NOTE: Conflict of field names is not allowed between the {@link PolymorphicConfig},
- * between other {@link PolymorphicConfigInstance} it can.
+ * <p>NOTE: Field name conflicts with the parent ({@link PolymorphicConfig}) are not allowed.
  */
 @Target(TYPE)
 @Retention(RUNTIME)
@@ -40,5 +39,5 @@ public @interface PolymorphicConfigInstance {
      *
      * @return Unique identifier for the extension of the polymorphic configuration instance.
      */
-    String id();
+    String value();
 }

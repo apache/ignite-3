@@ -23,7 +23,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 /**
  * Class cannot have {@link PolymorphicConfigInstance} and {@link InternalConfiguration}.
  */
-@PolymorphicConfigInstance(id = "error")
+@PolymorphicConfigInstance("error")
 @InternalConfiguration
 public class ErrorPolymorphicInstance2ConfigurationSchema {
 }

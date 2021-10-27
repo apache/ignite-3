@@ -100,7 +100,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration})
      *      of configuration schemas ({@link ConfigurationRoot} and {@link Config}).
      * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance})
-     *      of configuration schemes.
+     *      of configuration schemas.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type,
      *      or if the schema or its extensions are not valid.
      */
@@ -279,7 +279,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param allSchemas All configuration schemes.
      * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration})
      *      of configuration schemas ({@link ConfigurationRoot} and {@link Config}).
-     * @return Mapping: original of the scheme -> internal schema extensions.
+     * @return Mapping: original of the schema -> internal schema extensions.
      * @throws IllegalArgumentException If the schema extension is invalid.
      */
     private Map<Class<?>, Set<Class<?>>> internalExtensionsWithCheck(
@@ -295,7 +295,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         if (!notInAllSchemas.isEmpty()) {
             throw new IllegalArgumentException(
-                "Internal extensions for which no parent configuration schemes were found: " + notInAllSchemas
+                "Internal extensions for which no parent configuration schemas were found: " + notInAllSchemas
             );
         }
 
@@ -375,7 +375,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      *
      * @param polymorphicExtensions Mapping: polymorphic scheme -> extensions (instances) of polymorphic configuration.
      * @throws IllegalArgumentException If a polymorphic configuration id conflict is found.
-     * @see PolymorphicConfigInstance#id
+     * @see PolymorphicConfigInstance#value
      */
     private void checkPolymorphicConfigIds(Map<Class<?>, Set<Class<?>>> polymorphicExtensions) {
         // Mapping: id -> configuration schema.

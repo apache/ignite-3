@@ -2752,7 +2752,7 @@ public class ConfigurationAsmGenerator {
     /**
      * Returns the name of the configuration schema field.
      * If the schema contains {@link PolymorphicConfigInstance},
-     * it will return "{@link Field#getName()} + {@code "#"} + {@link PolymorphicConfigInstance#id()}"
+     * it will return "{@link Field#getName()} + {@code "#"} + {@link PolymorphicConfigInstance#value()}"
      * otherwise "{@link Field#getName}".
      *
      * @param f Configuration schema field.

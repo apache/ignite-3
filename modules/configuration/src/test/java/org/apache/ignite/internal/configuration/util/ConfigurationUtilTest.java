@@ -1018,7 +1018,7 @@ public class ConfigurationUtilTest {
     /**
      * First {@link PolymorphicConfigurationSchema} extension.
      */
-    @PolymorphicConfigInstance(id = "first")
+    @PolymorphicConfigInstance("first")
     public static class FirstPolymorphicInstanceConfigurationSchema extends PolymorphicConfigurationSchema {
         /** String value. */
         @Value(hasDefault = true)
@@ -1028,7 +1028,7 @@ public class ConfigurationUtilTest {
     /**
      * Second {@link PolymorphicConfigurationSchema} extension.
      */
-    @PolymorphicConfigInstance(id = "second")
+    @PolymorphicConfigInstance("second")
     public static class SecondPolymorphicInstanceConfigurationSchema extends PolymorphicConfigurationSchema {
         /** Integer value. */
         @Value(hasDefault = true)
