@@ -28,11 +28,9 @@ import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.internal.processors.query.calcite.ResultFieldMetadata;
 import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
-import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.hamcrest.CoreMatchers;

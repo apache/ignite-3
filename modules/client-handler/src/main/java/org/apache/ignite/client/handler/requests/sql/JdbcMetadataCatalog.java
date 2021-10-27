@@ -245,24 +245,14 @@ public class JdbcMetadataCatalog {
     private JdbcColumnMeta createColumnMeta(String tblName, Column col) {
         NativeType type = col.type();
 
-        int precision = -1;
-        int scale = -1;
-
-        if (type.spec() == NativeTypeSpec.NUMBER)
-            precision = ((NumberNativeType)type).precision();
-        else if (type.spec() == NativeTypeSpec.DECIMAL) {
-            precision = ((DecimalNativeType)type).precision();
-            scale = ((DecimalNativeType)type).scale();
-        }
-
         return new JdbcColumnMeta(
             col.name(),
             getTblSchema(tblName),
             getTblName(tblName),
             col.name(),
-            Commons.nativeTypeToClass(col.type()),
-            Commons.nativeTypePrecision(col.type()),
-            Commons.nativeTypeScale(col.type()),
+            Commons.nativeTypeToClass(type),
+            Commons.nativeTypePrecision(type),
+            Commons.nativeTypeScale(type),
             col.nullable()
         );
     }
