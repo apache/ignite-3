@@ -24,9 +24,7 @@ import java.nio.ByteBuffer;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.Arrays;
 import java.util.Enumeration;
-import java.util.Iterator;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.NotNull;
@@ -159,63 +157,24 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
      */
     private static long getLocalNodeId() {
         try {
-//            InetAddress localHost = InetAddress.getLocalHost();
+            byte[] hardwareAddress = null;
 
-            InetAddress localHost = null;
+            Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
 
-            Iterator<NetworkInterface> it = NetworkInterface.getNetworkInterfaces().asIterator();
-//            System.out.println("+++++");
-            while (it.hasNext()) {
-                Enumeration<InetAddress> inetAddresses = it.next().getInetAddresses();
-//                System.out.println("-----");
-                while (inetAddresses.hasMoreElements()) {
-//                    InetAddress inetAddress = inetAddresses.nextElement();
-                    InetAddress address = inetAddresses.nextElement();
-                    if (/*address.getHostAddress() != null &&*//*localHost == null &&*/
-                            NetworkInterface.getByInetAddress(address).getHardwareAddress() != null) {
-//                        System.out.println("element: " + address);
-//                        System.out.println("ddbsbereear getHardwareAddress: " + Arrays.toString(NetworkInterface.getByInetAddress(address).getHardwareAddress()));
-                        localHost = address;
-                    }
-//                    System.out.println(inetAddress);
+            while (networkInterfaces.hasMoreElements() && hardwareAddress == null) {
+                Enumeration<InetAddress> inetAddrs = networkInterfaces.nextElement().getInetAddresses();
+
+                while (inetAddrs.hasMoreElements() && hardwareAddress == null) {
+                    InetAddress addr = inetAddrs.nextElement();
+
+                    hardwareAddress = NetworkInterface.getByInetAddress(addr).getHardwareAddress();
                 }
             }
 
-
-//            System.out.println("dfvkamebm localHost: " + localHost);
-
-
-            NetworkInterface iface = NetworkInterface.getByInetAddress(localHost);
-
-//            System.out.println("rehajydthdg iface: " + iface);
-//InetAddress.getLocalHost();
-//InetAddress.getLocalHost().getHostAddress()
-
-//            Iterator<NetworkInterface> it = NetworkInterface.getNetworkInterfaces().asIterator();
-//
-//            while (it.hasNext()) {
-//                System.out.println(it.next().getInetAddresses());
-//            }
-
-
-//            Iterator<NetworkInterface> it = NetworkInterface.getNetworkInterfaces().asIterator();
-//            System.out.println("+++++");
-//            while (it.hasNext()) {
-//                Enumeration<InetAddress> inetAddresses = it.next().getInetAddresses();
-//                System.out.println("-----");
-//                while (inetAddresses.hasMoreElements()) {
-//                    InetAddress inetAddress = inetAddresses.nextElement();
-//                    System.out.println(inetAddress);
-//                }
-//            }
-
-
-            byte[] bytes = iface.getHardwareAddress();
-
             ByteBuffer buffer = ByteBuffer.allocate(Byte.SIZE);
-            buffer.put(bytes);
+            buffer.put(hardwareAddress);
 
-            for (int i = bytes.length; i < Byte.SIZE; i++)
+            for (int i = hardwareAddress.length; i < Byte.SIZE; i++)
                 buffer.put((byte) 0);
 
             buffer.flip();
