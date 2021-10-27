@@ -82,10 +82,7 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEW>, VIEW,
 
         ConfigurationProperty<?> configProperty = members.get(name);
 
-        if (configProperty instanceof PolymorphicDynamicConfiguration)
-            return (T)((PolymorphicDynamicConfiguration<?, ?>)configProperty).specificConfigTree();
-        else
-            return (T)configProperty;
+        return configProperty == null ? null : (T)((DynamicConfiguration<?, ?>)configProperty).specificConfigTree();
     }
 
     /** {@inheritDoc} */

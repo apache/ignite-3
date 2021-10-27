@@ -75,12 +75,10 @@ import org.apache.ignite.internal.configuration.DirectConfigurationTreeWrapper;
 import org.apache.ignite.internal.configuration.DirectDynamicConfiguration;
 import org.apache.ignite.internal.configuration.DirectDynamicProperty;
 import org.apache.ignite.internal.configuration.DirectNamedListConfiguration;
-import org.apache.ignite.internal.configuration.DirectPolymorphicDynamicConfiguration;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.DynamicConfigurationChanger;
 import org.apache.ignite.internal.configuration.DynamicProperty;
 import org.apache.ignite.internal.configuration.NamedListConfiguration;
-import org.apache.ignite.internal.configuration.PolymorphicDynamicConfiguration;
 import org.apache.ignite.internal.configuration.TypeUtils;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
@@ -151,12 +149,6 @@ public class ConfigurationAsmGenerator {
     /** {@link DirectDynamicConfiguration#DirectDynamicConfiguration} constructor. */
     private static final Constructor<?> DIRECT_DYNAMIC_CONFIGURATION_CTOR;
 
-    /** {@link PolymorphicDynamicConfiguration#PolymorphicDynamicConfiguration} constructor. */
-    private static final Constructor<?> POLYMORPHIC_DYNAMIC_CONFIGURATION_CTOR;
-
-    /** {@link DirectPolymorphicDynamicConfiguration#DirectPolymorphicDynamicConfiguration} constructor. */
-    private static final Constructor<?> DIRECT_POLYMORPHIC_DYNAMIC_CONFIGURATION_CTOR;
-
     /** {@link LambdaMetafactory#metafactory(Lookup, String, MethodType, MethodType, MethodHandle, MethodType)} */
     private static final Method LAMBDA_METAFACTORY;
 
@@ -202,16 +194,16 @@ public class ConfigurationAsmGenerator {
     /** {@code ConfigurationNode#refreshValue} method. */
     private static final Method REFRESH_VALUE_MTD;
 
-    /** {@code PolymorphicDynamicConfiguration#addMember} method. */
+    /** {@code DynamicConfiguration#addMember} method. */
     private static final Method ADD_MEMBER_MTD;
 
-    /** {@code PolymorphicDynamicConfiguration#removeMember} method. */
+    /** {@code DynamicConfiguration#removeMember} method. */
     private static final Method REMOVE_MEMBER_MTD;
 
     /** {@link InnerNode#specificNode} method. */
     private static final Method SPECIFIC_NODE_MTD;
 
-    /** {@link PolymorphicDynamicConfiguration#specificConfigTree} method. */
+    /** {@link DynamicConfiguration#specificConfigTree} method. */
     private static final Method SPECIFIC_CONFIG_TREE_MTD;
 
     /** {@code Node#convert} method name. */
@@ -262,22 +254,6 @@ public class ConfigurationAsmGenerator {
                 boolean.class
             );
 
-            POLYMORPHIC_DYNAMIC_CONFIGURATION_CTOR = PolymorphicDynamicConfiguration.class.getDeclaredConstructor(
-                List.class,
-                String.class,
-                RootKey.class,
-                DynamicConfigurationChanger.class,
-                boolean.class
-            );
-
-            DIRECT_POLYMORPHIC_DYNAMIC_CONFIGURATION_CTOR = DirectPolymorphicDynamicConfiguration.class.getDeclaredConstructor(
-                List.class,
-                String.class,
-                RootKey.class,
-                DynamicConfigurationChanger.class,
-                boolean.class
-            );
-
             DYNAMIC_CONFIGURATION_ADD_MTD = DynamicConfiguration.class.getDeclaredMethod(
                 "add",
                 ConfigurationProperty.class
@@ -295,13 +271,13 @@ public class ConfigurationAsmGenerator {
 
             REFRESH_VALUE_MTD = ConfigurationNode.class.getDeclaredMethod("refreshValue");
 
-            ADD_MEMBER_MTD = PolymorphicDynamicConfiguration.class.getDeclaredMethod("addMember", Map.class, ConfigurationProperty.class);
+            ADD_MEMBER_MTD = DynamicConfiguration.class.getDeclaredMethod("addMember", Map.class, ConfigurationProperty.class);
 
-            REMOVE_MEMBER_MTD = PolymorphicDynamicConfiguration.class.getDeclaredMethod("removeMember", Map.class, ConfigurationProperty.class);
+            REMOVE_MEMBER_MTD = DynamicConfiguration.class.getDeclaredMethod("removeMember", Map.class, ConfigurationProperty.class);
 
             SPECIFIC_NODE_MTD = InnerNode.class.getDeclaredMethod("specificNode");
 
-            SPECIFIC_CONFIG_TREE_MTD = PolymorphicDynamicConfiguration.class.getDeclaredMethod("specificConfigTree");
+            SPECIFIC_CONFIG_TREE_MTD = DynamicConfiguration.class.getDeclaredMethod("specificConfigTree");
         }
         catch (NoSuchMethodException nsme) {
             throw new ExceptionInInitializerError(nsme);
@@ -549,7 +525,7 @@ public class ConfigurationAsmGenerator {
         addNodeSchemaTypeMethod(classDef, schemaClass, polymorphicExtensions, specFields, polymorphicTypeIdFieldDef);
 
         // Constructor.
-        addNodeConstructor(classDef, schemaClass, specFields, fieldDefs, schemaFields, internalFields, polymorphicFields);
+        addNodeConstructor(classDef, specFields, fieldDefs, schemaFields, internalFields, polymorphicFields);
 
         // VIEW and CHANGE methods.
         for (Field schemaField : concat(schemaFields, internalFields)) {
@@ -736,7 +712,6 @@ public class ConfigurationAsmGenerator {
      * that represents named list configuration.
      *
      * @param classDef          Node class definition.
-     * @param schemaClass       Configuration schema class.
      * @param specFields        Definition of fields for the {@code _spec#} fields of the node class.
      *                          Mapping: configuration schema class -> {@code _spec#} field.
      * @param fieldDefs         Field definitions for all fields of node class excluding {@code _spec}.
@@ -746,7 +721,6 @@ public class ConfigurationAsmGenerator {
      */
     private void addNodeConstructor(
         ClassDefinition classDef,
-        Class<?> schemaClass,
         Map<Class<?>, FieldDefinition> specFields,
         Map<String, FieldDefinition> fieldDefs,
         Collection<Field> schemaFields,
@@ -1434,9 +1408,7 @@ public class ConfigurationAsmGenerator {
     ) {
         SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
 
-        Class<?> superClass = isPolymorphicConfig(schemaClass)
-            ? schemaClassInfo.direct ? DirectPolymorphicDynamicConfiguration.class : PolymorphicDynamicConfiguration.class
-            : schemaClassInfo.direct ? DirectDynamicConfiguration.class : DynamicConfiguration.class;
+        Class<?> superClass = schemaClassInfo.direct ? DirectDynamicConfiguration.class : DynamicConfiguration.class;
 
         // Configuration impl class definition.
         ClassDefinition classDef = new ClassDefinition(
@@ -1585,9 +1557,7 @@ public class ConfigurationAsmGenerator {
 
         SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
 
-        Constructor<?> superCtor = isPolymorphicConfig(schemaClass)
-            ? schemaClassInfo.direct ? DIRECT_POLYMORPHIC_DYNAMIC_CONFIGURATION_CTOR : POLYMORPHIC_DYNAMIC_CONFIGURATION_CTOR
-            : schemaClassInfo.direct ? DIRECT_DYNAMIC_CONFIGURATION_CTOR : DYNAMIC_CONFIGURATION_CTOR;
+        Constructor<?> superCtor = schemaClassInfo.direct ? DIRECT_DYNAMIC_CONFIGURATION_CTOR : DYNAMIC_CONFIGURATION_CTOR;
 
         BytecodeBlock ctorBody = ctor.getBody()
             .append(ctor.getThis())
@@ -2265,7 +2235,7 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Adds a {@link PolymorphicDynamicConfiguration#specificConfigTree} override for the polymorphic configuration case.
+     * Adds a {@link DynamicConfiguration#specificConfigTree} override for the polymorphic configuration case.
      *
      * @param classDef                  Definition of a polymorphic configuration class (parent).
      * @param schemaClass               Polymorphic configuration schema (parent).

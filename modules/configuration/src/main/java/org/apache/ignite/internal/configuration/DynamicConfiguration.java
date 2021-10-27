@@ -32,6 +32,7 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This class represents configuration root or node.
@@ -68,7 +69,7 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
      * @param <P> Type of member.
      */
     protected final <P extends ConfigurationProperty<?>> void add(P member) {
-        members.put(member.key(), member);
+        addMember(members, member);
     }
 
     /** {@inheritDoc} */
@@ -121,6 +122,20 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
         return ((InnerNode)refreshValue()).specificNode();
     }
 
+    /** {@inheritDoc} */
+    @Override protected void beforeRefreshValue(VIEW newValue, @Nullable VIEW oldValue) {
+        if (oldValue == null || ((InnerNode)oldValue).schemaType() != ((InnerNode)newValue).schemaType()) {
+            Map<String, ConfigurationProperty<?>> newMembers = new LinkedHashMap<>(members);
+
+            if (oldValue != null)
+                removeMembers(oldValue, newMembers);
+
+            addMembers(newValue, newMembers);
+
+            members = newMembers;
+        }
+    }
+
     /**
      * Returns all child nodes of the current configuration tree node.
      *
@@ -159,4 +174,62 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
      * @throws UnsupportedOperationException In the case of a named list.
      */
     public abstract Class<? extends ConfigurationProperty<VIEW>> configType();
+
+    /**
+     * Returns specific configuration tree.
+     *
+     * @return Specific configuration tree.
+     */
+    public ConfigurationTree<VIEW, CHANGE> specificConfigTree() {
+        // To work with polymorphic configuration.
+        return this;
+    }
+
+    /**
+     * Removes members of the previous instance of polymorphic configuration.
+     *
+     * @param oldValue Old configuration value.
+     * @param members Configuration members (leaves and nodes).
+     */
+    protected void removeMembers(VIEW oldValue, Map<String, ConfigurationProperty<?>> members) {
+        // No-op.
+    }
+
+    /**
+     * Adds members of the previous instance of polymorphic configuration.
+     *
+     * @param newValue New configuration value.
+     * @param members Configuration members (leaves and nodes).
+     */
+    protected void addMembers(VIEW newValue, Map<String, ConfigurationProperty<?>> members) {
+        // No-op.
+    }
+
+    /**
+     * Add configuration member.
+     *
+     * @param members Configuration members (leaves and nodes).
+     * @param member Configuration member (leaf or node).
+     * @param <P> Type of member.
+     */
+    protected <P extends ConfigurationProperty<?>> void addMember(
+        Map<String, ConfigurationProperty<?>> members,
+        P member
+    ) {
+        members.put(member.key(), member);
+    }
+
+    /**
+     * Remove configuration member.
+     *
+     * @param members Configuration members (leaves and nodes).
+     * @param member Configuration member (leaf or node).
+     * @param <P> Type of member.
+     */
+    protected <P extends ConfigurationProperty<?>> void removeMember(
+        Map<String, ConfigurationProperty<?>> members,
+        P member
+    ) {
+        members.remove(member.key());
+    }
 }
