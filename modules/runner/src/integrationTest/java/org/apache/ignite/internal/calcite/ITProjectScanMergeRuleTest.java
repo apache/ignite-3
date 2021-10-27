@@ -18,11 +18,12 @@
 package org.apache.ignite.internal.calcite;
 
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -45,8 +46,9 @@ public class ITProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
     /** */
     public static final String IDX_CAT_ID = "IDX_CAT_ID";
 
-    /** {@inheritDoc} */
-    @Override protected void initTestData() {
+    /** */
+    @BeforeAll
+    static void initTestData() {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "PRODUCTS").columns(
             SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
             SchemaBuilders.column("CATEGORY", ColumnType.string()).asNullable().build(),
@@ -140,17 +142,17 @@ public class ITProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
             .check();
 
         assertThrows(
-            IgniteInternalException.class,
+            IgniteException.class,
             () -> assertQuery("SELECT NAME FROM products WHERE CAT_ID = (SELECT CAT_ID FROM products WHERE SUBCAT_ID = 11)").check()
         );
 
         assertThrows(
-            IgniteInternalException.class,
+            IgniteException.class,
             () -> assertQuery("SELECT NAME FROM products WHERE CAT_ID = (SELECT 2 UNION ALL SELECT 1)").check()
         );
 
         assertThrows(
-            IgniteInternalException.class,
+            IgniteException.class,
             () -> assertQuery("SELECT NAME FROM products WHERE CAT_ID = (SELECT null UNION ALL SELECT 1)").check()
         );
     }
