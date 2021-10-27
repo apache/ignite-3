@@ -21,10 +21,4 @@ package org.apache.ignite.internal.configuration.tree;
  * Polymorphic configuration node implementation.
  */
 public abstract class PolymorphicInnerNode extends InnerNode {
-    /**
-     * Set the type of the polymorphic configuration with the reset of the fields of the previous type.
-     *
-     * @param typeId Type of the polymorphic configuration.
-     */
-    public abstract void setPolymorphicTypeId(String typeId);
 }

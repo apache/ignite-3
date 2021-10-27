@@ -729,7 +729,7 @@ public class ConfigurationUtil {
     /**
      * Leaf configuration source.
      */
-    private static class LeafConfigurationSource implements ConfigurationSource {
+    public static class LeafConfigurationSource implements ConfigurationSource {
         /** Value. */
         private final Serializable val;
 
@@ -738,7 +738,7 @@ public class ConfigurationUtil {
          *
          * @param val Value.
          */
-        private LeafConfigurationSource(Serializable val) {
+        public LeafConfigurationSource(Serializable val) {
             this.val = val;
         }
 

@@ -30,6 +30,7 @@ import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil.LeafConfigurationSource;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
@@ -399,7 +400,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
             throw new IllegalArgumentException("You can't create entity that has just been deleted [key=" + key + ']');
 
         ElementDescriptor element = map.get(key);
-        
+
         if (element == null) {
             element = newElementDescriptor();
 
@@ -411,7 +412,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
                 String polymorphicTypeId = src.polymorphicTypeId(typeIdFieldName);
 
                 if (polymorphicTypeId != null)
-                    polymorphicInnerNode.setPolymorphicTypeId(polymorphicTypeId);
+                    polymorphicInnerNode.construct(typeIdFieldName, new LeafConfigurationSource(polymorphicTypeId), true);
                 else if (polymorphicInnerNode.traverseChild(typeIdFieldName, leafNodeVisitor(), true) == null) {
                     throw new IllegalStateException("Polymorphic configuration type is not defined: " +
                         polymorphicInnerNode.getClass().getName());
@@ -427,7 +428,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
                 String polymorphicTypeId = src.polymorphicTypeId(typeIdFieldName);
 
                 if (polymorphicTypeId != null)
-                    polymorphicInnerNode.setPolymorphicTypeId(polymorphicTypeId);
+                    polymorphicInnerNode.construct(typeIdFieldName, new LeafConfigurationSource(polymorphicTypeId), true);
             }
         }
 
