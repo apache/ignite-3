@@ -43,11 +43,17 @@ import org.jetbrains.annotations.Nullable;
  * Key-value view implementation.
  */
 public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValueView<K, V> {
+    /** Marshaller factory. */
+    private final SerializerFactory marshallerFactory;
+
     /** Key object mapper. */
-    private Mapper<K> keyMapper;
+    private final Mapper<K> keyMapper;
 
     /** Value object mapper. */
-    private Mapper<V> valueMapper;
+    private final Mapper<V> valueMapper;
+
+    /** Marshaller. */
+    private KVMarshallerImpl<K, V> marsh;
 
     /**
      * Constructor.
@@ -64,6 +70,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
         this.keyMapper = keyMapper;
         this.valueMapper = valueMapper;
+        marshallerFactory = SerializerFactory.createJavaSerializerFactory();
     }
 
     /** {@inheritDoc} */
@@ -135,7 +142,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
-    @Override public boolean putIfAbsent(@NotNull K key, V val) {
+    @Override public boolean putIfAbsent(@NotNull K key, @NotNull V val) {
         return sync(putIfAbsentAsync(key, val));
     }
 
@@ -271,36 +278,20 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @return Marshaller.
      */
     private KVMarshaller<K, V> marshaller(int schemaVersion) {
-        SerializerFactory factory = SerializerFactory.createJavaSerializerFactory();
+        if (marsh.schemaVersion == schemaVersion)
+            return marsh;
 
         // TODO: Cache marshaller for schema or upgrade row?
-        return new KVMarshaller<K, V>() {
-            Serializer s = factory.create(schemaReg.schema(schemaVersion), keyMapper.getType(), valueMapper.getType());
+        marsh = new KVMarshallerImpl<>(
+            schemaVersion,
+            marshallerFactory.create(
+                schemaReg.schema(schemaVersion),
+                keyMapper.getType(),
+                valueMapper.getType()
+            )
+        );
 
-            @Override public BinaryRow marshal(@NotNull K key, V val) {
-                try {
-                    return new ByteBufferRow(ByteBuffer.wrap(s.serialize(key, val)).order(ByteOrder.LITTLE_ENDIAN));
-                } catch (SerializationException e) {
-                    throw new IgniteException(e);
-                }
-            }
-
-            @NotNull @Override public K unmarshalKey(@NotNull BinaryRow row) {
-                try {
-                    return s.deserializeKey(row.bytes());
-                } catch (SerializationException e) {
-                    throw new IgniteException(e);
-                }
-            }
-
-            @Nullable @Override public V unmarshalValue(@NotNull BinaryRow row) {
-                try {
-                    return s.deserializeValue(row.bytes());
-                } catch (SerializationException e) {
-                    throw new IgniteException(e);
-                }
-            }
-        };
+        return marsh;
     }
 
     private V unmarshalValue(BinaryRow v) {
@@ -311,5 +302,41 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         final KVMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
 
         return marsh.marshal(key, o);
+    }
+
+    private static class KVMarshallerImpl<K, V> implements KVMarshaller<K, V> {
+        private final int schemaVersion;
+
+        private Serializer delegate;
+
+        public KVMarshallerImpl(int schemaVersion, Serializer delegate) {
+            this.schemaVersion = schemaVersion;
+
+            this.delegate = delegate;
+        }
+
+        @Override public BinaryRow marshal(@NotNull K key, V val) {
+            try {
+                return new ByteBufferRow(ByteBuffer.wrap(delegate.serialize(key, val)).order(ByteOrder.LITTLE_ENDIAN));
+            } catch (SerializationException e) {
+                throw new IgniteException(e);
+            }
+        }
+
+        @NotNull @Override public K unmarshalKey(@NotNull BinaryRow row) {
+            try {
+                return delegate.deserializeKey(row.bytes());
+            } catch (SerializationException e) {
+                throw new IgniteException(e);
+            }
+        }
+
+        @Nullable @Override public V unmarshalValue(@NotNull BinaryRow row) {
+            try {
+                return delegate.deserializeValue(row.bytes());
+            } catch (SerializationException e) {
+                throw new IgniteException(e);
+            }
+        }
     }
 }
