@@ -23,7 +23,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 
@@ -40,25 +39,35 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * TODO: IGNITE-14487 Add async operations tests.
  */
 public class KeyValueOperationsTest {
+    /** Default mapper. */
+    private final Mapper<Long> mapper = new Mapper<>() {
+        @Override public Class<Long> getType() {
+            return Long.class;
+        }
+    };
+
+    /** Simple schema. */
+    private SchemaDescriptor schema = new SchemaDescriptor(
+        1,
+        new Column[]{new Column("id", NativeTypes.INT64, false)},
+        new Column[]{new Column("val", NativeTypes.INT64, false)}
+    );
+
+    /**
+     * Creates table view.
+     *
+     * @return Table KV-view.
+     */
+    private KeyValueView<Long, Long> tableView() {
+        return new KeyValueViewImpl<>(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), mapper, mapper, null);
+    }
+
     /**
      *
      */
     @Test
     public void put() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("val", NativeTypes.INT64, false)}
-        );
-
-        Mapper<Long> mapper = new Mapper<>() {
-            @Override public Class<Long> getType() {
-                return Long.class;
-            }
-        };
-
-        KeyValueView<Long, Long> tbl =
-            new KeyValueViewImpl<>(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), mapper, mapper, null);
+        KeyValueView<Long, Long> tbl = tableView();
 
         assertNull(tbl.get(1L));
 
@@ -72,7 +81,7 @@ public class KeyValueOperationsTest {
         tbl.put(1L, 22L);
 
         assertEquals(22L, tbl.get(1L));
-        assertEquals( 22L, tbl.get(1L));
+        assertEquals(22L, tbl.get(1L));
 
         // Remove KV pair.
         tbl.put(1L, null);
@@ -89,32 +98,19 @@ public class KeyValueOperationsTest {
      */
     @Test
     public void putIfAbsent() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("val", NativeTypes.INT64, false)}
-        );
+        KeyValueView<Long, Long> tbl = tableView();
 
-        KeyValueView<Tuple, Tuple> tbl =
-            new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
-
-        final Tuple key = Tuple.create().set("id", 1L);
-        final Tuple val = Tuple.create().set("val", 11L);
-        final Tuple val2 = Tuple.create().set("val", 22L);
-
-        assertNull(tbl.get(key));
+        assertNull(tbl.get(1L));
 
         // Insert new KV pair.
-        assertTrue(tbl.putIfAbsent(key, val));
+        assertTrue(tbl.putIfAbsent(1L, 11L));
 
-        assertEqualsValues(schema, val, tbl.get(key));
-        assertEqualsValues(schema, val, tbl.get(Tuple.create().set("id", 1L)));
+        assertEquals(11L, tbl.get(1L));
 
         // Update KV pair.
-        assertFalse(tbl.putIfAbsent(key, val2));
+        assertFalse(tbl.putIfAbsent(1L, 22L));
 
-        assertEqualsValues(schema, val, tbl.get(key));
-        assertEqualsValues(schema, val, tbl.get(Tuple.create().set("id", 1L)));
+        assertEquals(11L, tbl.get(1L));
     }
 
     /**
@@ -122,33 +118,46 @@ public class KeyValueOperationsTest {
      */
     @Test
     public void getAndPut() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("val", NativeTypes.INT64, false)}
-        );
+        KeyValueView<Long, Long> tbl = tableView();
 
-        KeyValueView<Tuple, Tuple> tbl =
-            new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
-
-        final Tuple key = Tuple.create().set("id", 1L);
-        final Tuple val = Tuple.create().set("val", 11L);
-        final Tuple val2 = Tuple.create().set("val", 22L);
-        final Tuple val3 = Tuple.create().set("val", 33L);
-
-        assertNull(tbl.get(key));
+        assertNull(tbl.get(1L));
 
         // Insert new tuple.
-        assertNull(tbl.getAndPut(key, val));
+        assertNull(tbl.getAndPut(1L, 11L));
 
-        assertEqualsValues(schema, val, tbl.get(key));
-        assertEqualsValues(schema, val, tbl.get(Tuple.create().set("id", 1L)));
+        assertEquals(11L, tbl.get(1L));
 
-        assertEqualsValues(schema, val, tbl.getAndPut(key, val2));
-        assertEqualsValues(schema, val2, tbl.getAndPut(key, Tuple.create().set("val", 33L)));
+        assertEquals(11L, tbl.getAndPut(1L, 22L));
+        assertEquals(22L, tbl.getAndPut(1L, 33L));
 
-        assertEqualsValues(schema, val3, tbl.get(key));
-        assertNull(tbl.get(Tuple.create().set("id", 2L)));
+        assertEquals(33L, tbl.get(1L));
+    }
+
+    /**
+     *
+     */
+    @Test
+    public void contains() {
+        KeyValueView<Long, Long> tbl = tableView();
+
+        // Not-existed value.
+        assertFalse(tbl.contains(1L));
+
+        // Put KV pair.
+        tbl.put(1L, 11L);
+        assertTrue(tbl.contains(1L));
+
+        // Delete key.
+        assertTrue(tbl.remove(1L));
+        assertFalse(tbl.contains(1L));
+
+        // Put KV pair.
+        tbl.put(1L, 22L);
+        assertTrue(tbl.contains(1L));
+
+        // Delete key.
+        tbl.remove(2L);
+        assertFalse(tbl.contains(2L));
     }
 
     /**
@@ -156,42 +165,30 @@ public class KeyValueOperationsTest {
      */
     @Test
     public void remove() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("val", NativeTypes.INT64, false)}
-        );
-
-        KeyValueView<Tuple, Tuple> tbl =
-            new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
-
-        final Tuple key = Tuple.create().set("id", 1L);
-        final Tuple key2 = Tuple.create().set("id", 2L);
-        final Tuple val = Tuple.create().set("val", 11L);
-        final Tuple val2 = Tuple.create().set("val", 22L);
+        KeyValueView<Long, Long> tbl = tableView();
 
         // Put KV pair.
-        tbl.put(key, val);
+        tbl.put(1L, 11L);
 
         // Delete existed key.
-        assertEqualsValues(schema, val, tbl.get(key));
-        assertTrue(tbl.remove(key));
-        assertNull(tbl.get(key));
+        assertEquals(11L, tbl.get(1L));
+        assertTrue(tbl.remove(1L));
+        assertNull(tbl.get(1L));
 
         // Delete already deleted key.
-        assertFalse(tbl.remove(key));
+        assertFalse(tbl.remove(1L));
 
         // Put KV pair.
-        tbl.put(key, val2);
-        assertEqualsValues(schema, val2, tbl.get(key));
+        tbl.put(1L, 22L);
+        assertEquals(22L, tbl.get(1L));
 
         // Delete existed key.
-        assertTrue(tbl.remove(Tuple.create().set("id", 1L)));
-        assertNull(tbl.get(key));
+        assertTrue(tbl.remove(1L));
+        assertNull(tbl.get(1L));
 
         // Delete not existed key.
-        assertNull(tbl.get(key2));
-        assertFalse(tbl.remove(key2));
+        assertNull(tbl.get(2L));
+        assertFalse(tbl.remove(2L));
     }
 
     /**
@@ -199,54 +196,42 @@ public class KeyValueOperationsTest {
      */
     @Test
     public void removeExact() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("val", NativeTypes.INT64, false)}
-        );
-
-        final KeyValueView<Tuple, Tuple> tbl =
-            new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
-
-        final Tuple key = Tuple.create().set("id", 1L);
-        final Tuple key2 = Tuple.create().set("id", 2L);
-        final Tuple val = Tuple.create().set("val", 11L);
-        final Tuple val2 = Tuple.create().set("val", 22L);
+        KeyValueView<Long, Long> tbl = tableView();
 
         // Put KV pair.
-        tbl.put(key, val);
-        assertEqualsValues(schema, val, tbl.get(key));
+        tbl.put(1L, 11L);
+        assertEquals(11L, tbl.get(1L));
 
         // Fails to delete KV pair with unexpected value.
-        assertFalse(tbl.remove(key, val2));
-        assertEqualsValues(schema, val, tbl.get(key));
+        assertFalse(tbl.remove(1L, 22L));
+        assertEquals(11L, tbl.get(1L));
 
         // Delete KV pair with expected value.
-        assertTrue(tbl.remove(key, val));
-        assertNull(tbl.get(key));
+        assertTrue(tbl.remove(1L, 11L));
+        assertNull(tbl.get(1L));
 
         // Once again.
-        assertFalse(tbl.remove(key, val));
-        assertNull(tbl.get(key));
+        assertFalse(tbl.remove(1L, 11L));
+        assertNull(tbl.get(1L));
 
         // Try to remove non-existed key.
-        assertThrows(Exception.class, () -> tbl.remove(key, null));
-        assertNull(tbl.get(key));
+        assertThrows(Exception.class, () -> tbl.remove(1L, null));
+        assertNull(tbl.get(1L));
 
         // Put KV pair.
-        tbl.put(key, val2);
-        assertEqualsValues(schema, val2, tbl.get(key));
+        tbl.put(1L, 22L);
+        assertEquals(22L, tbl.get(1L));
 
         // Check null value ignored.
-        assertThrows(Exception.class, () -> tbl.remove(key, null));
-        assertEqualsValues(schema, val2, tbl.get(key));
+        assertThrows(Exception.class, () -> tbl.remove(1L, null));
+        assertEquals(22L, tbl.get(1L));
 
         // Delete KV pair with expected value.
-        assertTrue(tbl.remove(key, val2));
-        assertNull(tbl.get(key));
+        assertTrue(tbl.remove(1L, 22L));
+        assertNull(tbl.get(1L));
 
-        assertFalse(tbl.remove(key2, val2));
-        assertNull(tbl.get(key2));
+        assertFalse(tbl.remove(2L, 22L));
+        assertNull(tbl.get(2L));
     }
 
     /**
@@ -254,45 +239,32 @@ public class KeyValueOperationsTest {
      */
     @Test
     public void replace() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("val", NativeTypes.INT64, false)}
-        );
-
-        KeyValueView<Tuple, Tuple> tbl =
-            new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
-
-        final Tuple key = Tuple.create().set("id", 1L);
-        final Tuple key2 = Tuple.create().set("id", 2L);
-        final Tuple val = Tuple.create().set("val", 11L);
-        final Tuple val2 = Tuple.create().set("val", 22L);
-        final Tuple val3 = Tuple.create().set("val", 33L);
+        KeyValueView<Long, Long> tbl = tableView();
 
         // Ignore replace operation for non-existed KV pair.
-        assertFalse(tbl.replace(key, val));
-        assertNull(tbl.get(key));
+        assertFalse(tbl.replace(1L, 11L));
+        assertNull(tbl.get(1L));
 
-        tbl.put(key, val);
+        tbl.put(1L, 11L);
 
         // Replace existed KV pair.
-        assertTrue(tbl.replace(key, val2));
-        assertEqualsValues(schema, val2, tbl.get(key));
+        assertTrue(tbl.replace(1L, 22L));
+        assertEquals(22L, tbl.get(1L));
 
         // Remove existed KV pair.
-        assertTrue(tbl.replace(key, null));
-        assertNull(tbl.get(key));
+        assertTrue(tbl.replace(1L, null));
+        assertNull(tbl.get(1L));
 
         // Ignore replace operation for non-existed KV pair.
-        assertFalse(tbl.replace(key, val3));
-        assertNull(tbl.get(key));
+        assertFalse(tbl.replace(1L, 33L));
+        assertNull(tbl.get(1L));
 
-        tbl.put(key, val3);
-        assertEqualsValues(schema, val3, tbl.get(key));
+        tbl.put(1L, 33L);
+        assertEquals(33L, tbl.get(1L));
 
         // Remove non-existed KV pair.
-        assertFalse(tbl.replace(key2, null));
-        assertNull(tbl.get(key2));
+        assertFalse(tbl.replace(2L, null));
+        assertNull(tbl.get(2L));
     }
 
     /**
@@ -300,86 +272,30 @@ public class KeyValueOperationsTest {
      */
     @Test
     public void replaceExact() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("val", NativeTypes.INT64, false)}
-        );
-
-        KeyValueView<Tuple, Tuple> tbl =
-            new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
-
-        final Tuple key = Tuple.create().set("id", 1L);
-        final Tuple key2 = Tuple.create().set("id", 2L);
-        final Tuple val = Tuple.create().set("val", 11L);
-        final Tuple val2 = Tuple.create().set("val", 22L);
-        final Tuple val3 = Tuple.create().set("val", 33L);
+        KeyValueView<Long, Long> tbl = tableView();
 
         // Insert KV pair.
-        assertTrue(tbl.replace(key, null, val));
-        assertEqualsValues(schema, val, tbl.get(key));
-        assertNull(tbl.get(key2));
+        assertTrue(tbl.replace(1L, null, 11L));
+        assertEquals(11L, tbl.get(1L));
+        assertNull(tbl.get(2L));
 
         // Ignore replace operation for non-existed KV pair.
-        assertFalse(tbl.replace(key2, val, val2));
-        assertNull(tbl.get(key2));
+        assertFalse(tbl.replace(2L, 11L, 22L));
+        assertNull(tbl.get(2L));
 
         // Replace existed KV pair.
-        assertTrue(tbl.replace(key, val, val2));
-        assertEqualsValues(schema, val2, tbl.get(key));
+        assertTrue(tbl.replace(1L, 11L, 22L));
+        assertEquals(22L, tbl.get(1L));
 
         // Remove existed KV pair.
-        assertTrue(tbl.replace(key, val2, null));
-        assertNull(tbl.get(key));
+        assertTrue(tbl.replace(1L, 22L, null));
+        assertNull(tbl.get(1L));
 
         // Insert KV pair.
-        assertTrue(tbl.replace(key, null, val3));
-        assertEqualsValues(schema, val3, tbl.get(key));
+        assertTrue(tbl.replace(1L, null, 33L));
+        assertEquals(33L, tbl.get(1L));
 
         // Remove non-existed KV pair.
-        assertTrue(tbl.replace(key2, null, null));
-    }
-
-    /**
-     * Check key columns equality.
-     *
-     * @param schema Schema.
-     * @param expected Expected tuple.
-     * @param actual Actual tuple.
-     */
-    void assertEqualsKeys(SchemaDescriptor schema, Tuple expected, Tuple actual) {
-        int nonNullKey = 0;
-
-        for (int i = 0; i < schema.keyColumns().length(); i++) {
-            final Column col = schema.keyColumns().column(i);
-
-            final Object val1 = expected.value(col.name());
-            final Object val2 = actual.value(col.name());
-
-            assertEquals(val1, val2, "Value columns equality check failed: colIdx=" + col.schemaIndex());
-
-            if (schema.isKeyColumn(i) && val1 != null)
-                nonNullKey++;
-        }
-
-        assertTrue(nonNullKey > 0, "At least one non-null key column must exist.");
-    }
-
-    /**
-     * Check value columns equality.
-     *
-     * @param schema Schema.
-     * @param expected Expected tuple.
-     * @param actual Actual tuple.
-     */
-    void assertEqualsValues(SchemaDescriptor schema, Tuple expected, Tuple actual) {
-        for (int i = 0; i < schema.valueColumns().length(); i++) {
-            final Column col = schema.valueColumns().column(i);
-
-            final Object val1 = expected.value(col.name());
-            final Object val2 = actual.value(col.name());
-
-            assertEquals(val1, val2, "Key columns equality check failed: colIdx=" + col.schemaIndex());
-        }
+        assertTrue(tbl.replace(2L, null, null));
     }
 }
