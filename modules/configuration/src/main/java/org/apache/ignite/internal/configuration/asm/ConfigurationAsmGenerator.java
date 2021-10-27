@@ -2289,7 +2289,7 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Adds a {@code PolymorphicDynamicConfiguration#removeMembers} override for the polymorphic configuration case.
+     * Adds a {@code DynamicConfiguration#removeMembers} override for the polymorphic configuration case.
      *
      * @param classDef                  Definition of a polymorphic configuration class (parent).
      * @param schemaClass               Polymorphic configuration schema (parent).
@@ -2310,7 +2310,7 @@ public class ConfigurationAsmGenerator {
             of(PUBLIC),
             "removeMembers",
             type(void.class),
-            arg("oldValue", type(InnerNode.class)),
+            arg("oldValue", type(Object.class)),
             arg("members", type(Map.class))
         );
 
@@ -2358,7 +2358,7 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Adds a {@code PolymorphicDynamicConfiguration#addMembers} override for the polymorphic configuration case.
+     * Adds a {@code DynamicConfiguration#addMembers} override for the polymorphic configuration case.
      *
      * @param classDef                  Definition of a polymorphic configuration class (parent).
      * @param schemaClass               Polymorphic configuration schema (parent).
@@ -2379,7 +2379,7 @@ public class ConfigurationAsmGenerator {
             of(PUBLIC),
             "addMembers",
             type(void.class),
-            arg("newValue", type(InnerNode.class)),
+            arg("newValue", type(Object.class)),
             arg("members", type(Map.class))
         );
 
