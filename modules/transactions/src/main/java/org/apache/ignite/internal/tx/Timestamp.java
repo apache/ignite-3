@@ -24,6 +24,9 @@ import java.nio.ByteBuffer;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
+import java.util.Enumeration;
+import java.util.Iterator;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.NotNull;
@@ -156,9 +159,56 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
      */
     private static long getLocalNodeId() {
         try {
-            InetAddress localHost = InetAddress.getLocalHost();
+//            InetAddress localHost = InetAddress.getLocalHost();
+
+            InetAddress localHost = null;
+
+            Iterator<NetworkInterface> it = NetworkInterface.getNetworkInterfaces().asIterator();
+//            System.out.println("+++++");
+            while (it.hasNext()) {
+                Enumeration<InetAddress> inetAddresses = it.next().getInetAddresses();
+//                System.out.println("-----");
+                while (inetAddresses.hasMoreElements()) {
+//                    InetAddress inetAddress = inetAddresses.nextElement();
+                    InetAddress address = inetAddresses.nextElement();
+                    if (/*address.getHostAddress() != null &&*//*localHost == null &&*/
+                            NetworkInterface.getByInetAddress(address).getHardwareAddress() != null) {
+//                        System.out.println("element: " + address);
+//                        System.out.println("ddbsbereear getHardwareAddress: " + Arrays.toString(NetworkInterface.getByInetAddress(address).getHardwareAddress()));
+                        localHost = address;
+                    }
+//                    System.out.println(inetAddress);
+                }
+            }
+
+
+//            System.out.println("dfvkamebm localHost: " + localHost);
+
 
             NetworkInterface iface = NetworkInterface.getByInetAddress(localHost);
+
+//            System.out.println("rehajydthdg iface: " + iface);
+//InetAddress.getLocalHost();
+//InetAddress.getLocalHost().getHostAddress()
+
+//            Iterator<NetworkInterface> it = NetworkInterface.getNetworkInterfaces().asIterator();
+//
+//            while (it.hasNext()) {
+//                System.out.println(it.next().getInetAddresses());
+//            }
+
+
+//            Iterator<NetworkInterface> it = NetworkInterface.getNetworkInterfaces().asIterator();
+//            System.out.println("+++++");
+//            while (it.hasNext()) {
+//                Enumeration<InetAddress> inetAddresses = it.next().getInetAddresses();
+//                System.out.println("-----");
+//                while (inetAddresses.hasMoreElements()) {
+//                    InetAddress inetAddress = inetAddresses.nextElement();
+//                    System.out.println(inetAddress);
+//                }
+//            }
+
 
             byte[] bytes = iface.getHardwareAddress();
 

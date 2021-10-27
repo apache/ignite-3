@@ -103,7 +103,7 @@
                                 <id>fail-if-error</id>
                                 <phase>validate</phase>
                                 <configuration>
-                                    <failsOnError>true</failsOnError>
+                                    <failsOnError>false</failsOnError>
                                     <consoleOutput>true</consoleOutput>
                                     <logViolationsToConsole>true</logViolationsToConsole>
                                 </configuration>
