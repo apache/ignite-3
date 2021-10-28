@@ -148,9 +148,6 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
         valConsumer.accept((N)element.value);
 
-        if (element.value.isPolymorphicNode())
-            addDefaults(element.value);
-
         return this;
     }
 
@@ -171,9 +168,6 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         reverseIdMap.put(element.internalId, key);
 
         valConsumer.accept((N)element.value);
-
-        if (element.value.isPolymorphicNode())
-            addDefaults(element.value);
 
         return this;
     }
@@ -196,9 +190,6 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         reverseIdMap.put(element.internalId, key);
 
         valConsumer.accept((N)element.value);
-
-        if (element.value.isPolymorphicNode())
-            addDefaults(element.value);
 
         return this;
     }
@@ -224,9 +215,6 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         map.put(key, element);
 
         valConsumer.accept((N)element.value);
-
-        if (element.value.isPolymorphicNode())
-            addDefaults(element.value);
 
         return this;
     }
@@ -388,11 +376,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
                     String polymorphicTypeId = src.polymorphicTypeId(typeIdFieldName);
 
-                    if (polymorphicTypeId != null) {
+                    if (polymorphicTypeId != null)
                         polymorphicInnerNode.construct(typeIdFieldName, new LeafConfigurationSource(polymorphicTypeId), true);
-
-                        addDefaults(element.value);
-                    }
                     else if (polymorphicInnerNode.traverseChild(typeIdFieldName, leafNodeVisitor(), true) == null) {
                         throw new IllegalStateException("Polymorphic configuration type is not defined: " +
                             polymorphicInnerNode.getClass().getName());
@@ -407,11 +392,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
                     String polymorphicTypeId = src.polymorphicTypeId(typeIdFieldName);
 
-                    if (polymorphicTypeId != null) {
+                    if (polymorphicTypeId != null)
                         polymorphicInnerNode.construct(typeIdFieldName, new LeafConfigurationSource(polymorphicTypeId), true);
-
-                        addDefaults(element.value);
-                    }
                 }
             }
 

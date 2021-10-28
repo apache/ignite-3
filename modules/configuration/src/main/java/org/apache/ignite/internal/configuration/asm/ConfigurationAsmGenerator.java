@@ -556,6 +556,7 @@ public class ConfigurationAsmGenerator {
             changePolymorphicTypeIdMtd = addNodeChangePolymorphicTypeIdMethod(
                 classDef,
                 fieldDefs,
+                specFields,
                 polymorphicExtensions,
                 polymorphicFields,
                 polymorphicTypeIdFieldDef
@@ -2142,6 +2143,7 @@ public class ConfigurationAsmGenerator {
      *
      * @param classDef                  Definition of a polymorphic configuration class (parent).
      * @param fieldDefs                 Definitions for all fields in {@code classDef}.
+     * @param specFields                Field definitions for the schema and its extensions: {@code _spec#}.
      * @param polymorphicExtensions     Polymorphic configuration instance schemas (children).
      * @param polymorphicFields         Fields of polymorphic extensions.
      * @param polymorphicTypeIdFieldDef Identification field for the polymorphic configuration instance.
@@ -2150,6 +2152,7 @@ public class ConfigurationAsmGenerator {
     private MethodDefinition addNodeChangePolymorphicTypeIdMethod(
         ClassDefinition classDef,
         Map<String, FieldDefinition> fieldDefs,
+        Map<Class<?>, FieldDefinition> specFields,
         Set<Class<?>> polymorphicExtensions,
         Collection<Field> polymorphicFields,
         FieldDefinition polymorphicTypeIdFieldDef
@@ -2173,10 +2176,17 @@ public class ConfigurationAsmGenerator {
                 .filter(f -> !polymorphicExtension.equals(f.getDeclaringClass()))
                 .collect(toList());
 
+            // Fields for which a default value is required.
+            Collection<Field> setDefaultFields = polymorphicFields.stream()
+                .filter(f -> polymorphicExtension.equals(f.getDeclaringClass()))
+                .filter(f -> isValue(f) && hasDefault(f))
+                .collect(toList());
+
             // this.typeId = typeId;
             BytecodeBlock codeBlock = new BytecodeBlock()
                 .append(setThisFieldCode(changePolymorphicTypeIdMtd, typeIdVar, polymorphicTypeIdFieldDef));
 
+            // Reset fields.
             for (Field resetField : resetFields) {
                 FieldDefinition fieldDef = fieldDefs.get(fieldName(resetField));
 
@@ -2192,6 +2202,18 @@ public class ConfigurationAsmGenerator {
                     // this.field = new NamedListNode<>(key, ValueNode::new, "polymorphicIdFieldName");
                     codeBlock.append(setThisFieldCode(changePolymorphicTypeIdMtd, newNamedListNode(resetField), fieldDef));
                 }
+            }
+
+            // Set default value for fields.
+            for (Field setDefaultField : setDefaultFields) {
+                FieldDefinition fieldDef = fieldDefs.get(fieldName(setDefaultField));
+
+                codeBlock.append(addNodeConstructDefault(
+                    changePolymorphicTypeIdMtd,
+                    setDefaultField,
+                    fieldDef,
+                    specFields.get(setDefaultField.getDeclaringClass())
+                ));
             }
 
             switchBuilder.addCase(polymorphicInstanceId(polymorphicExtension), codeBlock);
@@ -2508,7 +2530,8 @@ public class ConfigurationAsmGenerator {
             );
         }
         else {
-            // this.field = src == null ? new NamedListNode<>(key, ValueNode::new, "polymorphicIdFieldName") : src.descend(field = field.copy()));
+            // this.field = src == null ? new NamedListNode<>(key, ValueNode::new, "polymorphicIdFieldName")
+            // : src.descend(field = field.copy()));
             codeBlock.append(new IfStatement()
                 .condition(isNull(srcVar))
                 .ifTrue(setThisFieldCode(constructMtd, newNamedListNode(schemaField), schemaFieldDef))
