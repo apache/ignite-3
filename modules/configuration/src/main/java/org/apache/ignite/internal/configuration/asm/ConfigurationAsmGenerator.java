@@ -55,6 +55,7 @@ import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
 import org.apache.ignite.configuration.DirectConfigurationProperty;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
@@ -84,6 +85,7 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Handle;
@@ -206,6 +208,9 @@ public class ConfigurationAsmGenerator {
     /** {@link DynamicConfiguration#specificConfigTree} method. */
     private static final Method SPECIFIC_CONFIG_TREE_MTD;
 
+    /** {@link ConfigurationUtil#addDefaults}. */
+    private static final Method ADD_DEFAULTS_MTD;
+
     /** {@code Node#convert} method name. */
     private static final String CONVERT_MTD_NAME = "convert";
 
@@ -278,6 +283,8 @@ public class ConfigurationAsmGenerator {
             SPECIFIC_NODE_MTD = InnerNode.class.getDeclaredMethod("specificNode");
 
             SPECIFIC_CONFIG_TREE_MTD = DynamicConfiguration.class.getDeclaredMethod("specificConfigTree");
+
+            ADD_DEFAULTS_MTD = ConfigurationUtil.class.getDeclaredMethod("addDefaults", InnerNode.class);
         }
         catch (NoSuchMethodException nsme) {
             throw new ExceptionInInitializerError(nsme);
@@ -2136,7 +2143,7 @@ public class ConfigurationAsmGenerator {
 
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(convertMtd.getScope())
             .expression(changeClassName)
-            .defaultCase(throwException(NoSuchElementException.class, changeClassName));
+            .defaultCase(throwException(ConfigurationWrongPolymorphicTypeIdException.class, changeClassName));
 
         for (Class<?> polymorphicExtension : polymorphicExtensions) {
             SchemaClassesInfo polymorphicExtensionClassInfo = schemasInfo.get(polymorphicExtension);
@@ -2192,18 +2199,12 @@ public class ConfigurationAsmGenerator {
 
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(changePolymorphicTypeIdMtd.getScope())
             .expression(typeIdVar)
-            .defaultCase(throwException(NoSuchElementException.class, typeIdVar));
+            .defaultCase(throwException(ConfigurationWrongPolymorphicTypeIdException.class, typeIdVar));
 
         for (Class<?> polymorphicExtension : polymorphicExtensions) {
             // Fields that need to be cleared when changing the type of the polymorphic configuration instance.
             Collection<Field> resetFields = polymorphicFields.stream()
                 .filter(f -> !polymorphicExtension.equals(f.getDeclaringClass()))
-                .collect(toList());
-
-            // Fields for which a default value is required.
-            Collection<Field> setDefaultFields = polymorphicFields.stream()
-                .filter(f -> polymorphicExtension.equals(f.getDeclaringClass()))
-                .filter(f -> isValue(f) && hasDefault(f))
                 .collect(toList());
 
             // this.typeId = typeId;
@@ -2228,17 +2229,10 @@ public class ConfigurationAsmGenerator {
                 }
             }
 
-            // Set default value for fields.
-            for (Field setDefaultField : setDefaultFields) {
-                FieldDefinition fieldDef = fieldDefs.get(fieldName(setDefaultField));
-
-                codeBlock.append(addNodeConstructDefault(
-                    changePolymorphicTypeIdMtd,
-                    setDefaultField,
-                    fieldDef,
-                    specFields.get(setDefaultField.getDeclaringClass())
-                ));
-            }
+            // ConfigurationUtil.addDefaults(this);
+            codeBlock
+                .append(changePolymorphicTypeIdMtd.getThis())
+                .invokeStatic(ADD_DEFAULTS_MTD);
 
             switchBuilder.addCase(polymorphicInstanceId(polymorphicExtension), codeBlock);
         }
@@ -2284,7 +2278,7 @@ public class ConfigurationAsmGenerator {
 
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(specificConfigMtd.getScope())
             .expression(tmpStrVar)
-            .defaultCase(throwException(NoSuchElementException.class, tmpStrVar));
+            .defaultCase(throwException(ConfigurationWrongPolymorphicTypeIdException.class, tmpStrVar));
 
         for (Class<?> polymorphicExtension : polymorphicExtensions) {
             // return new SpecialCfgImpl(this);
@@ -2350,7 +2344,7 @@ public class ConfigurationAsmGenerator {
 
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(removeMembersMtd.getScope())
             .expression(tmpStrVar)
-            .defaultCase(throwException(NoSuchElementException.class, tmpStrVar));
+            .defaultCase(throwException(ConfigurationWrongPolymorphicTypeIdException.class, tmpStrVar));
 
         for (Class<?> polymorphicExtension : polymorphicExtensions) {
             Collection<Field> removeFields = polymorphicFields.stream()
@@ -2419,7 +2413,7 @@ public class ConfigurationAsmGenerator {
 
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(removeMembersMtd.getScope())
             .expression(tmpStrVar)
-            .defaultCase(throwException(NoSuchElementException.class, tmpStrVar));
+            .defaultCase(throwException(ConfigurationWrongPolymorphicTypeIdException.class, tmpStrVar));
 
         for (Class<?> polymorphicExtension : polymorphicExtensions) {
             Collection<Field> addFields = polymorphicFields.stream()
@@ -2657,7 +2651,7 @@ public class ConfigurationAsmGenerator {
 
         return new StringSwitchBuilder(mtdDef.getScope())
             .expression(typeIdVar)
-            .defaultCase(throwException(NoSuchElementException.class, typeIdVar));
+            .defaultCase(throwException(ConfigurationWrongPolymorphicTypeIdException.class, typeIdVar));
     }
 
     /**

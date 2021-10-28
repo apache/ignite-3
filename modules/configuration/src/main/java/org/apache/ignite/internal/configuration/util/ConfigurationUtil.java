@@ -37,6 +37,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationProperty;
+import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
 import org.apache.ignite.configuration.DirectConfigurationProperty;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
@@ -125,12 +126,13 @@ public class ConfigurationUtil {
      * @param includeInternal Include internal configuration nodes (private configuration extensions).
      * @return Either {@link TraversableTreeNode} or {@link Serializable} depending on the keys and schema.
      * @throws KeyNotFoundException If node is not found.
+     * @throws WrongPolymorphicTypeIdException If the type of the polymorphic configuration instance is not correct (unknown).
      */
     public static <T> T find(
         List<String> keys,
         TraversableTreeNode node,
         boolean includeInternal
-    ) throws KeyNotFoundException {
+    ) throws KeyNotFoundException, WrongPolymorphicTypeIdException {
         assert keys instanceof RandomAccess : keys.getClass();
 
         var visitor = new ConfigurationVisitor<T>() {
@@ -158,6 +160,10 @@ public class ConfigurationUtil {
                     catch (NoSuchElementException e) {
                         throw new KeyNotFoundException(
                             "Configuration value '" + join(keys.subList(0, i)) + "' has not been found"
+                        );
+                    } catch (ConfigurationWrongPolymorphicTypeIdException e) {
+                        throw new WrongPolymorphicTypeIdException(
+                            "Polymorphic configuration type is not correct: " + e.getMessage()
                         );
                     }
                 }

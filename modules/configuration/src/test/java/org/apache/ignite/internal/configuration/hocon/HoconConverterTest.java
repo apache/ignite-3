@@ -20,7 +20,6 @@ package org.apache.ignite.internal.configuration.hocon;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -610,10 +609,16 @@ public class HoconConverterTest {
         assertEquals("root{arraysList=[],polymorphicCfg{intVal=10,typeId=second},primitivesList=[]}", asHoconStr(List.of()));
 
         // Check error: unknown typeId.
-        assertThrows(IllegalArgumentException.class, () -> change("root.polymorphicCfg.typeId = " + UUID.randomUUID()));
+        assertThrowsIllegalArgException(
+            () -> change("root.polymorphicCfg.typeId = ERROR"),
+            "Polymorphic configuration type is not correct: ERROR"
+        );
 
         // Check error: try update field from typeId = first.
-        assertThrows(IllegalArgumentException.class, () -> change("root.polymorphicCfg.longVal = 10"));
+        assertThrowsIllegalArgException(
+            () -> change("root.polymorphicCfg.longVal = 10"),
+            "'root.polymorphicCfg' configuration doesn't have the 'longVal' sub-configuration"
+        );
     }
 
     /**
