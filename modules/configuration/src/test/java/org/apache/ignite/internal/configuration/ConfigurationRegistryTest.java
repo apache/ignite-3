@@ -87,18 +87,6 @@ public class ConfigurationRegistryTest {
             )
         );
 
-        // There is no default polymorphic extension.
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> new ConfigurationRegistry(
-                List.of(FifthRootConfiguration.KEY),
-                Map.of(),
-                new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of(Third1PolymorphicConfigurationSchema.class)
-            )
-        );
-
         // Check that everything is fine.
         new ConfigurationRegistry(
             List.of(ThirdRootConfiguration.KEY, FourthRootConfiguration.KEY, FifthRootConfiguration.KEY),

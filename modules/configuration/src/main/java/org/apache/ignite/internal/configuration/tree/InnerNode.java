@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.configuration.tree;
 
 import java.util.NoSuchElementException;
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 
 /**
  * Configuration node implementation.
@@ -185,15 +184,5 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      */
     public <NODE> NODE specificNode() {
         return (NODE)this;
-    }
-
-    /**
-     * Checks if a node is polymorphic.
-     *
-     * @return {@code true} if the node is polymorphic.
-     * @see PolymorphicConfig
-     */
-    public boolean isPolymorphicNode() {
-        return false;
     }
 }

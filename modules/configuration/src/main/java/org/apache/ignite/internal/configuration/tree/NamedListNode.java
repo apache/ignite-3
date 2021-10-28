@@ -371,7 +371,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
                 reverseIdMap.put(element.internalId, key);
 
-                if (element.value.isPolymorphicNode()) {
+                if (typeIdFieldName != null) {
                     InnerNode polymorphicInnerNode = element.value;
 
                     String polymorphicTypeId = src.polymorphicTypeId(typeIdFieldName);
@@ -387,7 +387,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
             else {
                 element = element.copy();
 
-                if (element.value.isPolymorphicNode()) {
+                if (typeIdFieldName != null) {
                     InnerNode polymorphicInnerNode = element.value;
 
                     String polymorphicTypeId = src.polymorphicTypeId(typeIdFieldName);

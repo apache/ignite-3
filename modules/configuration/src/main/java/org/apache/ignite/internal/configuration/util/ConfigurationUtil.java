@@ -447,30 +447,6 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Returns the default value for the configuration schema field
-     * by instantiating the schema and retrieving the field value.
-     *
-     * @param schemaField Configuration schema field for which we want to get the default value.
-     * @param <T> Default value type.
-     * @return Default value.
-     * @throws IllegalStateException If there were problems creating schema instances.
-     * @see Value#hasDefault
-     * @see PolymorphicId#hasDefault
-     */
-    public static <T> T defaultValue(Field schemaField) {
-        try {
-            Object o = schemaField.getDeclaringClass().getDeclaredConstructor().newInstance();
-
-            schemaField.setAccessible(true);
-
-            return (T)schemaField.get(o);
-        }
-        catch (ReflectiveOperationException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    /**
      * Collect all configuration schemes with {@link ConfigurationRoot}, {@link Config} or {@link PolymorphicConfig}
      * including all sub configuration schemes for fields with {@link ConfigValue} or {@link NamedConfigValue}.
      *

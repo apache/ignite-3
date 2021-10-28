@@ -64,7 +64,6 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.defaultValue;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicId;
@@ -352,18 +351,6 @@ public class ConfigurationRegistry implements IgniteComponent {
                     PolymorphicId.class,
                     schemaClass.getName()
                 ));
-            }
-
-            if (typeIdField.getAnnotation(PolymorphicId.class).hasDefault()) {
-                String defId = defaultValue(typeIdField);
-
-                if (!viewReadOnly(e.getValue(), ConfigurationUtil::polymorphicInstanceId).contains(defId)) {
-                    throw new IllegalArgumentException(String.format(
-                        "No default value for %s was found among polymorphic config extensions: %s",
-                        typeIdField.getDeclaringClass().getName() + "." + typeIdField.getName(),
-                        e.getValue()
-                    ));
-                }
             }
         }
 
