@@ -235,7 +235,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
-    @Override public <R extends Serializable> R invoke(@NotNull K key, InvokeProcessor<K, V, R> proc, Serializable... args) {
+    @Override
+    public <R extends Serializable> R invoke(@NotNull K key, InvokeProcessor<K, V, R> proc, Serializable... args) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -275,18 +276,17 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @return Marshaller.
      */
     private KVMarshaller<K, V> marshaller(int schemaVersion) {
-        if (marsh.schemaVersion == schemaVersion)
-            return marsh;
-
-        // TODO: Cache marshaller for schema version or upgrade row?
-        marsh = new KVMarshallerImpl<>(
-            schemaVersion,
-            marshallerFactory.create(
-                schemaReg.schema(schemaVersion),
-                keyMapper.getType(),
-                valueMapper.getType()
-            )
-        );
+        if (marsh == null || marsh.schemaVersion == schemaVersion) {
+            // TODO: Cache marshaller for schema version or upgrade row?
+            marsh = new KVMarshallerImpl<>(
+                schemaVersion,
+                marshallerFactory.create(
+                    schemaReg.schema(schemaVersion),
+                    keyMapper.getType(),
+                    valueMapper.getType()
+                )
+            );
+        }
 
         return marsh;
     }
