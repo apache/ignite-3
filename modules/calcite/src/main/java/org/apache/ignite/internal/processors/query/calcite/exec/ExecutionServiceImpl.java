@@ -108,7 +108,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation if ExecutionService/
+ * Implementation of ExecutionService/
  */
 public class ExecutionServiceImpl<RowT> implements ExecutionService {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ExecutionServiceImpl.class);

@@ -154,25 +154,16 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
                         rel.getOrderKeys(), rel.getInterval()));
     }
 
-    /**
-     *
-     */
     public ImmutableList<RelCollation> collations(Filter rel,
             RelMetadataQuery mq) {
         return mq.collations(rel.getInput());
     }
 
-    /**
-     *
-     */
     public ImmutableList<RelCollation> collations(TableModify rel,
             RelMetadataQuery mq) {
         return mq.collations(rel.getInput());
     }
 
-    /**
-     *
-     */
     public ImmutableList<RelCollation> collations(TableScan scan,
             RelMetadataQuery mq) {
         return ImmutableList.copyOf(table(scan.getTable()));
@@ -191,9 +182,6 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
                         join.getJoinType()));
     }
 
-    /**
-     *
-     */
     public ImmutableList<RelCollation> collations(EnumerableHashJoin join,
             RelMetadataQuery mq) {
         return ImmutableList.copyOf(
@@ -220,16 +208,10 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
                         join.getJoinType()));
     }
 
-    /**
-     *
-     */
     public ImmutableList<RelCollation> collations(Sort sort, RelMetadataQuery mq) {
         return ImmutableList.copyOf(RelMdCollation.sort(sort.getCollation()));
     }
 
-    /**
-     *
-     */
     public ImmutableList<RelCollation> collations(SortExchange sort, RelMetadataQuery mq) {
         return ImmutableList.copyOf(RelMdCollation.sort(sort.getCollation()));
     }
