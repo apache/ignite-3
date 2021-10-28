@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import org.apache.ignite.configuration.ConfigurationReadOnlyException;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -261,14 +262,17 @@ public class ConfigurationAsmGeneratorTest {
         // Check defaults.
 
         FirstPolymorphicInstanceTestConfiguration firstCfg = (FirstPolymorphicInstanceTestConfiguration)rootConfig.polymorphicSubCfg();
+        assertEquals("first", firstCfg.typeId().value());
         assertEquals("strVal", firstCfg.strVal().value());
         assertEquals(0, firstCfg.intVal().value());
 
         FirstPolymorphicInstanceTestView firstVal = (FirstPolymorphicInstanceTestView)firstCfg.value();
+        assertEquals("first", firstVal.typeId());
         assertEquals("strVal", firstVal.strVal());
         assertEquals(0, firstVal.intVal());
 
         firstVal = (FirstPolymorphicInstanceTestView)rootConfig.value().polymorphicSubCfg();
+        assertEquals("first", firstVal.typeId());
         assertEquals("strVal", firstVal.strVal());
         assertEquals(0, firstVal.intVal());
 
@@ -277,11 +281,13 @@ public class ConfigurationAsmGeneratorTest {
         firstCfg.strVal().update("strVal1").get(1, SECONDS);
         firstCfg.intVal().update(1).get(1, SECONDS);
 
+        assertEquals("first", firstCfg.typeId().value());
         assertEquals("strVal1", firstCfg.strVal().value());
         assertEquals(1, firstCfg.intVal().value());
 
         firstCfg.change(c -> ((FirstPolymorphicInstanceTestChange)c).changeIntVal(2).changeStrVal("strVal2")).get(1, SECONDS);
 
+        assertEquals("first", firstCfg.typeId().value());
         assertEquals("strVal2", firstCfg.strVal().value());
         assertEquals(2, firstCfg.intVal().value());
 
@@ -289,6 +295,7 @@ public class ConfigurationAsmGeneratorTest {
             c1 -> ((FirstPolymorphicInstanceTestChange)c1).changeIntVal(3).changeStrVal("strVal3")
         )).get(1, SECONDS);
 
+        assertEquals("first", firstCfg.typeId().value());
         assertEquals("strVal3", firstCfg.strVal().value());
         assertEquals(3, firstCfg.intVal().value());
 
@@ -297,11 +304,13 @@ public class ConfigurationAsmGeneratorTest {
         rootConfig.polymorphicSubCfg().change(c -> c.convert(SecondPolymorphicInstanceTestChange.class)).get(1, SECONDS);
 
         SecondPolymorphicInstanceTestConfiguration secondCfg = (SecondPolymorphicInstanceTestConfiguration)rootConfig.polymorphicSubCfg();
+        assertEquals("second", secondCfg.typeId().value());
         assertEquals("strVal3", secondCfg.strVal().value());
         assertEquals(0, secondCfg.intVal().value());
         assertEquals(0L, secondCfg.longVal().value());
 
         SecondPolymorphicInstanceTestView secondView = (SecondPolymorphicInstanceTestView)secondCfg.value();
+        assertEquals("second", secondView.typeId());
         assertEquals("strVal3", secondView.strVal());
         assertEquals(0, secondView.intVal());
         assertEquals(0L, secondView.longVal());
@@ -309,8 +318,20 @@ public class ConfigurationAsmGeneratorTest {
         rootConfig.polymorphicSubCfg().change(c -> c.convert(FirstPolymorphicInstanceTestChange.class)).get(1, SECONDS);
 
         firstCfg = (FirstPolymorphicInstanceTestConfiguration)rootConfig.polymorphicSubCfg();
+        assertEquals("first", firstCfg.typeId().value());
         assertEquals("strVal3", firstCfg.strVal().value());
         assertEquals(0, firstCfg.intVal().value());
+    }
+
+    /** */
+    @Test
+    void testPolymorphicErrorOnUpdateTypeId() throws Exception {
+        TestRootConfiguration rootConfig = (TestRootConfiguration)generator.instantiateCfg(TestRootConfiguration.KEY, changer);
+
+        assertThrows(
+            ConfigurationReadOnlyException.class,
+            () -> rootConfig.polymorphicSubCfg().typeId().update("second").get(1, SECONDS)
+        );
     }
 
     /** */

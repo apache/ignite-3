@@ -527,15 +527,15 @@ public class ConfigurationAsmGenerator {
 
         // VIEW and CHANGE methods.
         for (Field schemaField : concat(schemaFields, internalFields)) {
-            // Must be skipped, this is an internal special field.
-            if (isPolymorphicId(schemaField))
-                continue;
-
             String fieldName = schemaField.getName();
 
             FieldDefinition fieldDef = fieldDefs.get(fieldName);
 
             addNodeViewMethod(classDef, schemaField, fieldDef);
+
+            // Read only.
+            if (isPolymorphicId(schemaField))
+                continue;
 
             // Add change methods.
             MethodDefinition changeMtd =
@@ -1445,13 +1445,8 @@ public class ConfigurationAsmGenerator {
             polymorphicFields
         );
 
-        for (Field schemaField : concat(schemaFields, internalFields)) {
-            // Must be skipped, this is an internal special field.
-            if (isPolymorphicId(schemaField))
-                continue;
-
+        for (Field schemaField : concat(schemaFields, internalFields))
             addConfigurationImplGetMethod(classDef, schemaField, fieldDefs.get(fieldName(schemaField)));
-        }
 
         // org.apache.ignite.internal.configuration.DynamicConfiguration#configType
         addCfgImplConfigTypeMethod(classDef, typeFromJavaClassName(schemaClassInfo.cfgClassName));
@@ -1587,7 +1582,8 @@ public class ConfigurationAsmGenerator {
                     constantString(fieldName),
                     rootKeyVar,
                     changerVar,
-                    listenOnlyVar
+                    listenOnlyVar,
+                    constantBoolean(isPolymorphicId(schemaField))
                 );
             }
             else {
@@ -1721,7 +1717,7 @@ public class ConfigurationAsmGenerator {
         else if (isNamedConfigValue(schemaField))
             returnType = type(NamedConfigurationTree.class);
         else {
-            assert isValue(schemaField) : schemaField.getDeclaringClass();
+            assert isValue(schemaField) || isPolymorphicId(schemaField) : schemaField;
 
             returnType = type(ConfigurationValue.class);
         }
@@ -1894,13 +1890,13 @@ public class ConfigurationAsmGenerator {
 
         // Creates view and change methods for parent schema.
         for (Field schemaField : schemaFields) {
-            // Must be skipped, this is an internal special field.
-            if (isPolymorphicId(schemaField))
-                continue;
-
             FieldDefinition schemaFieldDef = fieldDefs.get(fieldName(schemaField));
 
             addNodeViewMethod(classDef, schemaField, parentInnerNodeFieldDef, schemaFieldDef);
+
+            // Read only.
+            if (isPolymorphicId(schemaField))
+                continue;
 
             MethodDefinition changeMtd = addNodeChangeMethod(
                 classDef,
@@ -2020,10 +2016,6 @@ public class ConfigurationAsmGenerator {
             .collect(toMap(FieldDefinition::getName, identity()));
 
         for (Field schemaField : concat(schemaFields, polymorphicFields)) {
-            // Must be skipped, this is an internal special field.
-            if (isPolymorphicId(schemaField))
-                continue;
-
             addConfigurationImplGetMethod(
                 classDef,
                 schemaField,

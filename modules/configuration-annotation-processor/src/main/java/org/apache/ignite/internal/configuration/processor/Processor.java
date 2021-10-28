@@ -150,9 +150,6 @@ public class Processor extends AbstractProcessor {
                 if (field.getModifiers().contains(STATIC))
                     continue;
 
-                if (field.getAnnotation(PolymorphicId.class) != null)
-                    continue;
-
                 if (!field.getModifiers().contains(PUBLIC))
                     throw new ProcessorException("Field " + clazz.getQualifiedName() + "." + field + " must be public");
 
@@ -176,6 +173,18 @@ public class Processor extends AbstractProcessor {
                                 " have one of the following types: boolean, int, long, double, String or an array of " +
                                 "aforementioned type."
                         );
+                    }
+                }
+
+                PolymorphicId polymorphicId = field.getAnnotation(PolymorphicId.class);
+                if (polymorphicId != null) {
+                    if (!isStringClass(field.asType())) {
+                        throw new ProcessorException(String.format(
+                            "%s %s.%s field field must be String.",
+                            simpleName(PolymorphicId.class),
+                            clazz.getQualifiedName(),
+                            field.getSimpleName()
+                        ));
                     }
                 }
 
@@ -283,7 +292,8 @@ public class Processor extends AbstractProcessor {
         }
 
         Value valueAnnotation = field.getAnnotation(Value.class);
-        if (valueAnnotation != null) {
+        PolymorphicId polymorphicIdAnnotation = field.getAnnotation(PolymorphicId.class);
+        if (valueAnnotation != null || polymorphicIdAnnotation != null) {
             // It is necessary to use class names without loading classes so that we won't
             // accidentally get NoClassDefFoundError
             ClassName confValueClass = ClassName.get("org.apache.ignite.configuration", "ConfigurationValue");
@@ -367,10 +377,6 @@ public class Processor extends AbstractProcessor {
         ClassName consumerClsName = ClassName.get(Consumer.class);
 
         for (VariableElement field : fields) {
-            // Must be skipped, this is an internal special field.
-            if (field.getAnnotation(PolymorphicId.class) != null)
-                continue;
-
             Value valAnnotation = field.getAnnotation(Value.class);
 
             String fieldName = field.getSimpleName().toString();
@@ -401,34 +407,32 @@ public class Processor extends AbstractProcessor {
                 );
             }
 
-            {
-                MethodSpec.Builder getMtdBuilder = MethodSpec.methodBuilder(fieldName)
-                    .addModifiers(PUBLIC, ABSTRACT)
-                    .returns(viewFieldType);
+            MethodSpec.Builder getMtdBuilder = MethodSpec.methodBuilder(fieldName)
+                .addModifiers(PUBLIC, ABSTRACT)
+                .returns(viewFieldType);
 
-                viewClsBuilder.addMethod(getMtdBuilder.build());
+            viewClsBuilder.addMethod(getMtdBuilder.build());
+
+            // Read only.
+            if (field.getAnnotation(PolymorphicId.class) != null)
+                continue;
+
+            String changeMtdName = "change" + capitalize(fieldName);
+
+            MethodSpec.Builder changeMtdBuilder = MethodSpec.methodBuilder(changeMtdName)
+                .addModifiers(PUBLIC, ABSTRACT)
+                .returns(changeClsName);
+
+            if (valAnnotation != null) {
+                if (schemaFieldType.getKind() == TypeKind.ARRAY)
+                    changeMtdBuilder.varargs(true);
+
+                changeMtdBuilder.addParameter(changeFieldType, fieldName);
             }
+            else
+                changeMtdBuilder.addParameter(ParameterizedTypeName.get(consumerClsName, changeFieldType), fieldName);
 
-            {
-                String changeMtdName = "change" + capitalize(fieldName);
-
-                {
-                    MethodSpec.Builder changeMtdBuilder = MethodSpec.methodBuilder(changeMtdName)
-                        .addModifiers(PUBLIC, ABSTRACT)
-                        .returns(changeClsName);
-
-                    if (valAnnotation != null) {
-                        if (schemaFieldType.getKind() == TypeKind.ARRAY)
-                            changeMtdBuilder.varargs(true);
-
-                        changeMtdBuilder.addParameter(changeFieldType, fieldName);
-                    }
-                    else
-                        changeMtdBuilder.addParameter(ParameterizedTypeName.get(consumerClsName, changeFieldType), fieldName);
-
-                    changeClsBuilder.addMethod(changeMtdBuilder.build());
-                }
-            }
+            changeClsBuilder.addMethod(changeMtdBuilder.build());
         }
 
         if (isPolymorphicConfig) {
@@ -573,11 +577,9 @@ public class Processor extends AbstractProcessor {
 
             List<VariableElement> typeIdFields = collectAnnotatedFields(fields, PolymorphicId.class);
 
-            if (typeIdFields.size() != 1 ||
-                fields.indexOf(typeIdFields.get(0)) != 0 ||
-                !isStringClass(typeIdFields.get(0).asType())) {
+            if (typeIdFields.size() != 1 || fields.indexOf(typeIdFields.get(0)) != 0) {
                 throw new ProcessorException(String.format(
-                    "Class with %s must contain one string field with %s and it should be the first in the schema: %s",
+                    "Class with %s must contain one field with %s and it should be the first in the schema: %s",
                     simpleName(PolymorphicConfig.class),
                     simpleName(PolymorphicId.class),
                     clazz.getQualifiedName()

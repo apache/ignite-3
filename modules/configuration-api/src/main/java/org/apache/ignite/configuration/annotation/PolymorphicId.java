@@ -26,7 +26,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
  * This annotation marks the {@link PolymorphicConfig polymorphic configuration schema} field as a special
- * (hidden from the user) leaf that will store the current {@link PolymorphicConfigInstance#value polymorphic configuration type}.
+ * (read only) leaf that will store the current {@link PolymorphicConfigInstance#value polymorphic configuration type}.
  *
  * <p>NOTE: Field must be the first in the schema, and the type must be {@link String}.
  */
