@@ -150,7 +150,7 @@ class IgniteSpinReadWriteLockTest {
     }
 
     /***/
-    private <T> T getWithTimeout(Future<? extends T> future) throws ExecutionException,
+    private static <T> T getWithTimeout(Future<? extends T> future) throws ExecutionException,
             InterruptedException, TimeoutException {
         return future.get(10, TimeUnit.SECONDS);
     }
