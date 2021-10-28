@@ -328,7 +328,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
          * @param schemaVersion Schema version.
          * @param serializer Serializer.
          */
-        public KVMarshallerImpl(int schemaVersion, Serializer serializer) {
+        KVMarshallerImpl(int schemaVersion, Serializer serializer) {
             this.schemaVersion = schemaVersion;
 
             this.serializer = serializer;
