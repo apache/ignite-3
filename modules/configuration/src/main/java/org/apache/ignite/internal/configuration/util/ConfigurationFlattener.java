@@ -180,6 +180,9 @@ public class ConfigurationFlattener {
                         else if (oldNamedElement == null)
                             visitAsymmetricInnerNode(newNamedElement, false);
                         else if (newNamedElement.schemaType() != oldNamedElement.schemaType()) {
+                            // At the moment, we do not separate the general fields from the fields of
+                            // specific instances of the polymorphic configuration, so we will assume
+                            // that all the fields have changed, perhaps we will fix this later.
                             visitAsymmetricInnerNode(oldNamedElement, true);
 
                             visitAsymmetricInnerNode(newNamedElement, false);

@@ -37,10 +37,11 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.ad
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.leafNodeVisitor;
 
 /**
- * Configuration node implementation for the collection of named {@link InnerNode}s. Unlike implementations of
- * {@link InnerNode}, this class is used for every named list in configuration.
+ * Configuration node implementation for the collection of named {@link InnerNode}s.
+ * Unlike implementations of {@link InnerNode}, this class is used for every named list in configuration.
  *
- * @param <N> Type of the that is stored in named list node object.
+ * @param <N> Type of the {@code Node} ({@link InnerNode} or instances of polymorphic configuration)
+ *      that is stored in named list node object.
  */
 public final class NamedListNode<N> implements NamedListChange<N, N>, TraversableTreeNode, ConstructableTreeNode {
     /** Name of a synthetic configuration property that describes the order of elements in a named list. */

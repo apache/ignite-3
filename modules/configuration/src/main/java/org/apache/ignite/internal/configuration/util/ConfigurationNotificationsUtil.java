@@ -116,6 +116,8 @@ public class ConfigurationNotificationsUtil {
         );
 
         // Polymorphic configuration type has changed.
+        // At the moment, we do not separate common fields from fields of a specific polymorphic configuration,
+        // so this may cause errors in the logic below, perhaps we will fix it later.
         if (oldInnerNode.schemaType() != newInnerNode.schemaType())
             return;
 

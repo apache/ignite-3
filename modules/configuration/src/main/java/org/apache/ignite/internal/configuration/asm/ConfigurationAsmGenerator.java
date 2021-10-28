@@ -950,6 +950,7 @@ public class ConfigurationAsmGenerator {
 
         BytecodeBlock mtdBody = traverseChildrenMtd.getBody();
 
+        // invokeVisit for public (common in case polymorphic config) fields.
         for (Field schemaField : schemaFields) {
             mtdBody.append(
                 invokeVisit(traverseChildrenMtd, schemaField, fieldDefs.get(schemaField.getName())).pop()
@@ -965,6 +966,7 @@ public class ConfigurationAsmGenerator {
                 );
             }
 
+            // if (includeInternal) invokeVisit for internal fields.
             mtdBody.append(
                 new IfStatement()
                     .condition(traverseChildrenMtd.getScope().getVariable("includeInternal"))
@@ -975,6 +977,7 @@ public class ConfigurationAsmGenerator {
             assert polymorphicTypeIdFieldDef != null : schemaClass.getName();
             assert isPolymorphicId(schemaFields.get(0)) : schemaClass.getName();
 
+            // Create switch by polymorphicTypeIdField.
             StringSwitchBuilder switchBuilderTypeId = typeIdSwitchBuilder(traverseChildrenMtd, polymorphicTypeIdFieldDef);
 
             for (Map.Entry<Class<?>, List<Field>> e : polymorphicFieldsByExtension.entrySet()) {
@@ -983,6 +986,7 @@ public class ConfigurationAsmGenerator {
                 for (Field polymorphicField : e.getValue()) {
                     String fieldName = fieldName(polymorphicField);
 
+                    // invokeVisit for specific polymorphic config fields.
                     codeBlock.append(
                         invokeVisit(traverseChildrenMtd, polymorphicField, fieldDefs.get(fieldName)).pop()
                     );
@@ -991,6 +995,7 @@ public class ConfigurationAsmGenerator {
                 switchBuilderTypeId.addCase(polymorphicInstanceId(e.getKey()), codeBlock);
             }
 
+            // if (polymorphicTypeIdField != null) switch_by_polymorphicTypeIdField
             mtdBody.append(
                 new IfStatement()
                     .condition(isNotNull(getThisFieldCode(traverseChildrenMtd, polymorphicTypeIdFieldDef)))
@@ -1030,6 +1035,7 @@ public class ConfigurationAsmGenerator {
 
         Variable keyVar = traverseChildMtd.getScope().getVariable("key");
 
+        // Create switch for public (common in case polymorphic config) fields only.
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(traverseChildMtd.getScope()).expression(keyVar);
 
         for (Field schemaField : schemaFields) {
@@ -1042,6 +1048,7 @@ public class ConfigurationAsmGenerator {
         }
 
         if (!internalFields.isEmpty()) {
+            // Create switch for public + internal fields.
             StringSwitchBuilder switchBuilderAllFields = new StringSwitchBuilder(traverseChildMtd.getScope())
                 .expression(keyVar)
                 .defaultCase(throwException(NoSuchElementException.class, keyVar));
@@ -1055,6 +1062,8 @@ public class ConfigurationAsmGenerator {
                 );
             }
 
+            // if (includeInternal) switch_by_all_fields
+            // else switch_only_public_fields
             traverseChildMtd.getBody().append(
                 new IfStatement()
                     .condition(traverseChildMtd.getScope().getVariable("includeInternal"))
@@ -1065,9 +1074,11 @@ public class ConfigurationAsmGenerator {
         else if (!polymorphicFieldsByExtension.isEmpty()) {
             assert polymorphicTypeIdFieldDef != null : classDef.getName();
 
+            // Create switch by polymorphicTypeIdField.
             StringSwitchBuilder switchBuilderTypeId = typeIdSwitchBuilder(traverseChildMtd, polymorphicTypeIdFieldDef);
 
             for (Map.Entry<Class<?>, List<Field>> e : polymorphicFieldsByExtension.entrySet()) {
+                // Create switch for specific polymorphic instance.
                 StringSwitchBuilder switchBuilderPolymorphicExtension = new StringSwitchBuilder(traverseChildMtd.getScope())
                     .expression(keyVar)
                     .defaultCase(throwException(NoSuchElementException.class, keyVar));
@@ -1084,6 +1095,11 @@ public class ConfigurationAsmGenerator {
                 switchBuilderTypeId.addCase(polymorphicInstanceId(e.getKey()), switchBuilderPolymorphicExtension.build());
             }
 
+            // switch_by_common_fields
+            // switch_by_polymorphicTypeIdField
+            //      switch_by_polymorphic_0_fields
+            //      switch_by_polymorphic_1_fields
+            //      ...
             traverseChildMtd.getBody()
                 .append(switchBuilder.defaultCase(new BytecodeBlock()).build())
                 .append(switchBuilderTypeId.build());
@@ -1152,6 +1168,7 @@ public class ConfigurationAsmGenerator {
         Variable keyVar = constructMtd.getScope().getVariable("key");
         Variable srcVar = constructMtd.getScope().getVariable("src");
 
+        // Create switch for public (common in case polymorphic config) fields only.
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(constructMtd.getScope()).expression(keyVar);
 
         for (Field schemaField : schemaFields) {
@@ -1185,6 +1202,7 @@ public class ConfigurationAsmGenerator {
         }
 
         if (!internalFields.isEmpty()) {
+            // Create switch for public + internal fields.
             StringSwitchBuilder switchBuilderAllFields = new StringSwitchBuilder(constructMtd.getScope())
                 .expression(keyVar)
                 .defaultCase(throwException(NoSuchElementException.class, keyVar));
@@ -1198,6 +1216,8 @@ public class ConfigurationAsmGenerator {
                 );
             }
 
+            // if (includeInternal) switch_by_all_fields
+            // else switch_only_public_fields
             constructMtd.getBody().append(
                 new IfStatement().condition(constructMtd.getScope().getVariable("includeInternal"))
                     .ifTrue(switchBuilderAllFields.build())
@@ -1207,9 +1227,11 @@ public class ConfigurationAsmGenerator {
         else if (!polymorphicFieldsByExtension.isEmpty()) {
             assert polymorphicTypeIdFieldDef != null : classDef.getName();
 
+            // Create switch by polymorphicTypeIdField.
             StringSwitchBuilder switchBuilderTypeId = typeIdSwitchBuilder(constructMtd, polymorphicTypeIdFieldDef);
 
             for (Map.Entry<Class<?>, List<Field>> e : polymorphicFieldsByExtension.entrySet()) {
+                // Create switch for specific polymorphic instance.
                 StringSwitchBuilder switchBuilderPolymorphicExtension = new StringSwitchBuilder(constructMtd.getScope())
                     .expression(keyVar)
                     .defaultCase(throwException(NoSuchElementException.class, keyVar));
@@ -1227,6 +1249,11 @@ public class ConfigurationAsmGenerator {
                 switchBuilderTypeId.addCase(polymorphicInstanceId(e.getKey()), switchBuilderPolymorphicExtension.build());
             }
 
+            // switch_by_common_fields
+            // switch_by_polymorphicTypeIdField
+            //      switch_by_polymorphic_0_fields
+            //      switch_by_polymorphic_1_fields
+            //      ...
             constructMtd.getBody()
                 .append(switchBuilder.defaultCase(new BytecodeBlock()).build())
                 .append(switchBuilderTypeId.build())
@@ -1268,6 +1295,7 @@ public class ConfigurationAsmGenerator {
 
         Variable keyVar = constructDfltMtd.getScope().getVariable("key");
 
+        // Create switch for public (common in case polymorphic config) + internal fields.
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(constructDfltMtd.getScope()).expression(keyVar);
 
         for (Field schemaField : concat(schemaFields, internalFields)) {
@@ -1292,9 +1320,11 @@ public class ConfigurationAsmGenerator {
         }
 
         if (!polymorphicFieldsByExtension.isEmpty()) {
+            // Create switch by polymorphicTypeIdField.
             StringSwitchBuilder switchBuilderTypeId = typeIdSwitchBuilder(constructDfltMtd, polymorphicTypeIdFieldDef);
 
             for (Map.Entry<Class<?>, List<Field>> e : polymorphicFieldsByExtension.entrySet()) {
+                // Create switch for specific polymorphic instance.
                 StringSwitchBuilder switchBuilderPolymorphicExtension = new StringSwitchBuilder(constructDfltMtd.getScope())
                     .expression(keyVar)
                     .defaultCase(throwException(NoSuchElementException.class, keyVar));
@@ -1326,6 +1356,11 @@ public class ConfigurationAsmGenerator {
                 );
             }
 
+            // switch_by_common_fields
+            // switch_by_polymorphicTypeIdField
+            //      switch_by_polymorphic_0_fields
+            //      switch_by_polymorphic_1_fields
+            //      ...
             constructDfltMtd.getBody()
                 .append(switchBuilder.defaultCase(new BytecodeBlock()).build())
                 .append(switchBuilderTypeId.build())
