@@ -329,10 +329,7 @@ public class IgniteSpinReadWriteLock {
 
         incrementPendingWriteLocks();
         try {
-            while (true) {
-                if (trySwitchStateToWriteLocked())
-                    break;
-            }
+            while (!trySwitchStateToWriteLocked());
         }
         finally {
             decrementPendingWriteLocks();
