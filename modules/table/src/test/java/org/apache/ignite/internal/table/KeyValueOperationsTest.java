@@ -215,7 +215,7 @@ public class KeyValueOperationsTest {
         assertNull(tbl.get(1L));
 
         // Try to remove non-existed key.
-        assertThrows(Exception.class, () -> tbl.remove(1L, null));
+        assertFalse(tbl.remove(1L, 11L));
         assertNull(tbl.get(1L));
 
         // Put KV pair.
@@ -223,7 +223,7 @@ public class KeyValueOperationsTest {
         assertEquals(22L, tbl.get(1L));
 
         // Check null value ignored.
-        assertThrows(Exception.class, () -> tbl.remove(1L, null));
+        assertThrows(Throwable.class, () -> tbl.remove(1L, null));
         assertEquals(22L, tbl.get(1L));
 
         // Delete KV pair with expected value.
