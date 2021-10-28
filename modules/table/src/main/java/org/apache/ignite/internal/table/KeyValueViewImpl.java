@@ -18,19 +18,17 @@
 package org.apache.ignite.internal.table;
 
 import java.io.Serializable;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.KVMarshaller;
 import org.apache.ignite.internal.schema.marshaller.SerializationException;
 import org.apache.ignite.internal.schema.marshaller.Serializer;
 import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
@@ -294,7 +292,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     private V unmarshalValue(BinaryRow v) {
-        return v == null ? null : marshaller(v.schemaVersion()).unmarshalValue(v);
+        if (v == null || !v.hasValue())
+            return null;
+
+        Row row = schemaReg.resolve(v);
+
+        KVMarshaller<K, V> marshaller = marshaller(row.schemaVersion());
+
+        return marshaller.unmarshalValue(row);
     }
 
     private BinaryRow marshal(@NotNull K key, V o) {
@@ -332,25 +337,25 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         /** {@inheritDoc} */
         @Override public BinaryRow marshal(@NotNull K key, V val) {
             try {
-                return new ByteBufferRow(ByteBuffer.wrap(serializer.serialize(key, val)).order(ByteOrder.LITTLE_ENDIAN));
+                return serializer.serialize(key, val);
             } catch (SerializationException e) {
                 throw new IgniteException(e);
             }
         }
 
         /** {@inheritDoc} */
-        @NotNull @Override public K unmarshalKey(@NotNull BinaryRow row) {
+        @NotNull @Override public K unmarshalKey(@NotNull Row row) {
             try {
-                return serializer.deserializeKey(row.bytes());
+                return serializer.deserializeKey(row);
             } catch (SerializationException e) {
                 throw new IgniteException(e);
             }
         }
 
         /** {@inheritDoc} */
-        @Nullable @Override public V unmarshalValue(@NotNull BinaryRow row) {
+        @Nullable @Override public V unmarshalValue(@NotNull Row row) {
             try {
-                return serializer.deserializeValue(row.bytes());
+                return serializer.deserializeValue(row);
             } catch (SerializationException e) {
                 throw new IgniteException(e);
             }

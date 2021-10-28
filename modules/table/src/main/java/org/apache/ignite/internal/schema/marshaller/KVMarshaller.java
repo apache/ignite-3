@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.row.Row;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,11 +37,11 @@ public interface KVMarshaller<K, V> {
      * @param row Table row.
      * @return Deserialized key object.
      */
-    @NotNull K unmarshalKey(@NotNull BinaryRow row);
+    @NotNull K unmarshalKey(@NotNull Row row);
 
     /**
      * @param row Table row.
      * @return Deserialized value object.
      */
-    @Nullable V unmarshalValue(@NotNull BinaryRow row);
+    @Nullable V unmarshalValue(@NotNull Row row);
 }
