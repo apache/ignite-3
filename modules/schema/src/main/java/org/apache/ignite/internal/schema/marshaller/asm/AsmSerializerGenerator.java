@@ -231,13 +231,12 @@ public class AsmSerializerGenerator implements SerializerFactory {
         MarshallerCodeGenerator valMarsh
     ) {
         final MethodDefinition methodDef = classDef.declareMethod(
-            EnumSet.of(Access.PROTECTED),
+            EnumSet.of(Access.PRIVATE),
             "createAssembler",
             ParameterizedType.type(RowAssembler.class),
             Parameter.arg("key", Object.class),
             Parameter.arg("val", Object.class)
         );
-        methodDef.declareAnnotation(Override.class);
 
         final Scope scope = methodDef.getScope();
         final BytecodeBlock body = methodDef.getBody();

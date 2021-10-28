@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Base serializer class.
@@ -41,13 +39,4 @@ public abstract class AbstractSerializer implements Serializer {
     @Override public SchemaDescriptor schema() {
         return schema;
     }
-
-    /**
-     * Row assembler factory method.
-     *
-     * @param key Key object.
-     * @param val Value object.
-     * @return Row assembler.
-     */
-    protected abstract RowAssembler createAssembler(Object key, @Nullable Object val);
 }

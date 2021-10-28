@@ -111,7 +111,7 @@ public class JavaSerializer extends AbstractSerializer {
      * @param val Value object.
      * @return Row assembler.
      */
-    protected RowAssembler createAssembler(Object key, Object val) {
+    private RowAssembler createAssembler(Object key, Object val) {
         ObjectStatistic keyStat = collectObjectStats(schema.keyColumns(), keyMarsh, key);
         ObjectStatistic valStat = collectObjectStats(schema.valueColumns(), valMarsh, val);
 
