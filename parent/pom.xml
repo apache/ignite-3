@@ -1006,7 +1006,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
+                    <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties -Dfile.encoding=UTF-8</argLine>
                     <excludes>
                         <exclude>**/IT*.java</exclude>
                         <!-- Exclude inner classes (preserve default behaviour) -->
@@ -1022,7 +1022,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
-                    <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
+                    <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties -Dfile.encoding=UTF-8</argLine>
                     <useModulePath>false</useModulePath>
                 </configuration>
                 <executions>
