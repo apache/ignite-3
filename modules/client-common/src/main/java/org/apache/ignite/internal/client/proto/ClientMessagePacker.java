@@ -499,22 +499,16 @@ public class ClientMessagePacker extends MessagePacker {
     @Override public MessagePacker addPayload(byte[] src) {
         assert !closed : "Packer is closed";
 
-        try {
-            return super.addPayload(src);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        // TODO: Remove this method.
+        return writePayload(src);
     }
 
     /** {@inheritDoc} */
     @Override public MessagePacker addPayload(byte[] src, int off, int len) {
         assert !closed : "Packer is closed";
 
-        try {
-            return super.addPayload(src, off, len);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        // TODO: Remove this method.
+        return writePayload(src, off, len);
     }
 
     /**
