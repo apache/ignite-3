@@ -153,6 +153,8 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     }
 
     /**
+     * Sends raft error response with raft error code and message.
+     *
      * @param ctx Context.
      * @param error RaftError code.
      * @param msg Message.
@@ -167,7 +169,12 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     }
 
     /**
+     * Sends client's state machine error response with passed throwable.
+     *
      * @param ctx Context.
+     * @param th Throwable that must be passes to response.
+     * @param compacted {@code true} if throwable must be changed to compacted version of throwable.
+     * See {@link SMCompactedThrowable}
      */
     private void sendSMError(RpcContext ctx, Throwable th, boolean compacted) {
         RpcRequests.SMErrorResponse resp = factory.sMErrorResponse()

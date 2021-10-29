@@ -68,8 +68,7 @@ public final class RpcRequests {
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.SM_ERROR_RESPONSE, autoSerializable = false)
     public interface SMErrorResponse extends Message {
         /**
-         *
-         * @return error code.
+         * @return Throwable from client's state machine logic.
          */
         SMThrowable error();
     }

@@ -17,7 +17,7 @@
 package org.apache.ignite.raft.jraft.rpc.impl;
 
 /**
- *
+ * Marker interface for throwable that is thrown from client's state machine logic.
  */
 public interface SMThrowable {
 }

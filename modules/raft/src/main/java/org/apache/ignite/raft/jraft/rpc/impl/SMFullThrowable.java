@@ -17,23 +17,23 @@
 package org.apache.ignite.raft.jraft.rpc.impl;
 
 /**
- *
+ * Full version of throwable from client's state machine logic.
  */
-public class SMFullThrowable extends Throwable implements SMThrowable {
-    /** Th. */
-    private Throwable th;
+public class SMFullThrowable implements SMThrowable {
+    /** Throwable. */
+    private final Throwable th;
 
     /**
-     * @param th Th.
+     * @param th Throwable.
      */
     public SMFullThrowable(Throwable th) {
         this.th = th;
     }
 
     /**
-     *
+     * Returns the original throwable.
      */
-    public Throwable getThrowable() {
+    public Throwable throwable() {
         return th;
     }
 }

@@ -17,17 +17,17 @@
 package org.apache.ignite.raft.jraft.rpc.impl;
 
 /**
- *
+ * Compacted version of throwable from client's state machine logic.
  */
-public class SMCompactedThrowable extends Throwable implements SMThrowable {
-    /** Class name. */
-    private String clsName;
+public class SMCompactedThrowable implements SMThrowable {
+    /** Throwable class name. */
+    private final String clsName;
 
-    /** Message. */
-    private String msg;
+    /** Throwable message. */
+    private final String msg;
 
     /**
-     * @param th Th.
+     * @param th Throwable.
      */
     public SMCompactedThrowable(Throwable th) {
         this.clsName = th.getClass().getName();
@@ -35,16 +35,16 @@ public class SMCompactedThrowable extends Throwable implements SMThrowable {
     }
 
     /**
-     *
+     * Returns class name of the original throwable.
      */
-    public String getClsName() {
+    public String throwableClassName() {
         return clsName;
     }
 
     /**
-     *
+     * Returns message from the original throwable.
      */
-    public String getMsg() {
+    public String throwableMessage() {
         return msg;
     }
 }

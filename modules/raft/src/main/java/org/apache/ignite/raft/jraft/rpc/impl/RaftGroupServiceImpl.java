@@ -551,18 +551,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     SMThrowable th = ((RpcRequests.SMErrorResponse)resp).error();
                     if (th instanceof SMCompactedThrowable) {
                         try {
-                            Throwable restoredTh = (Throwable)Class.forName(((SMCompactedThrowable)th).getClsName())
+                            Throwable restoredTh = (Throwable)Class.forName(((SMCompactedThrowable)th).throwableClassName())
                                 .getConstructor(String.class)
-                                .newInstance(((SMCompactedThrowable)th).getMsg());
+                                .newInstance(((SMCompactedThrowable)th).throwableMessage());
 
                             fut.completeExceptionally(restoredTh);
                         }
                         catch (Exception e) {
-                            fut.completeExceptionally(new IgniteException(((SMCompactedThrowable)th).getMsg()));
+                            fut.completeExceptionally(new IgniteException(((SMCompactedThrowable)th).throwableMessage()));
                         }
                     }
                     else if (th instanceof SMFullThrowable)
-                        fut.completeExceptionally(((SMFullThrowable)th).getThrowable());
+                        fut.completeExceptionally(((SMFullThrowable)th).throwable());
                 }
                 else {
                     leader = peer; // The OK response was received from a leader.

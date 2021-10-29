@@ -116,10 +116,8 @@ public class CursorImpl<T> implements Cursor<T> {
         /** {@inheritDoc} */
         @Override public T next() {
             try {
-                CompletableFuture<Object> future = initOp.thenCompose(
-                    cursorId -> metaStorageRaftGrpSvc.run(new CursorNextCommand(cursorId)));
-
-                Object res = future.get();
+                Object res = initOp.thenCompose(
+                    cursorId -> metaStorageRaftGrpSvc.run(new CursorNextCommand(cursorId))).get();
 
                 return fn.apply(res);
             }
