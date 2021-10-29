@@ -153,11 +153,39 @@ public class ClientMessagePacker extends MessagePacker {
     @Override public MessagePacker packInt(int r) {
         assert !closed : "Packer is closed";
 
-        try {
-            return super.packInt(r);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+        if (r < -(1 << 5)) {
+            if (r < -(1 << 15)) {
+                buf.writeByte(Code.INT32);
+                buf.writeInt(r);
+            }
+            else if (r < -(1 << 7)) {
+                buf.writeByte(Code.INT16);
+                buf.writeShort(r);
+            }
+            else {
+                buf.writeByte(Code.INT8);
+                buf.writeByte(r);
+            }
         }
+        else if (r < (1 << 7)) {
+            buf.writeByte(r);
+        }
+        else {
+            if (r < (1 << 8)) {
+                buf.writeByte(Code.UINT8);
+                buf.writeByte(r);
+            }
+            else if (r < (1 << 16)) {
+                buf.writeByte(Code.UINT16);
+                buf.writeShort(r);
+            }
+            else {
+                buf.writeByte(Code.UINT32);
+                buf.writeInt(r);
+            }
+        }
+
+        return this;
     }
 
     /** {@inheritDoc} */
