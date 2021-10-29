@@ -84,6 +84,21 @@ public class ClientMessagePackerTest {
         assertThrows(IllegalArgumentException.class, () -> packIgnite(p -> p.packBigInteger(bi)));
     }
 
+    @ParameterizedTest
+    @ValueSource(floats = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
+            Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE, Float.MIN_VALUE, Float.MAX_VALUE})
+    public void testPackFloat(float f) {
+        testPacker(p -> p.packFloat(f), p -> p.packFloat(f));
+    }
+
+    @ParameterizedTest
+    @ValueSource(doubles = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
+            Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE, Float.MIN_VALUE, Float.MAX_VALUE,
+            Double.MIN_VALUE, Double.MAX_VALUE})
+    public void testPackDouble(double d) {
+        testPacker(p -> p.packDouble(d), p -> p.packDouble(d));
+    }
+
     private static void testPacker(Consumer<ClientMessagePacker> pack1, MessagePackerConsumer pack2) {
         var bytesIgnite = packIgnite(pack1);
         var bytesLibrary = packLibrary(pack2);
