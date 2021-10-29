@@ -42,6 +42,14 @@ import org.msgpack.value.Value;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER_SIZE;
 import static org.msgpack.core.MessagePack.Code;
+import static org.msgpack.core.MessagePack.Code.EXT16;
+import static org.msgpack.core.MessagePack.Code.EXT32;
+import static org.msgpack.core.MessagePack.Code.EXT8;
+import static org.msgpack.core.MessagePack.Code.FIXEXT1;
+import static org.msgpack.core.MessagePack.Code.FIXEXT16;
+import static org.msgpack.core.MessagePack.Code.FIXEXT2;
+import static org.msgpack.core.MessagePack.Code.FIXEXT4;
+import static org.msgpack.core.MessagePack.Code.FIXEXT8;
 
 /**
  * Ignite-specific MsgPack extension based on Netty ByteBuf.
@@ -374,11 +382,52 @@ public class ClientMessagePacker extends MessagePacker {
     @Override public MessagePacker packExtensionTypeHeader(byte extType, int payloadLen) {
         assert !closed : "Packer is closed";
 
-        try {
-            return super.packExtensionTypeHeader(extType, payloadLen);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+        if (payloadLen < (1 << 8)) {
+            if (payloadLen > 0 && (payloadLen & (payloadLen - 1)) == 0) { // check whether dataLen == 2^x
+                if (payloadLen == 1) {
+                    buf.writeByte(Code.FIXEXT1);
+                    buf.writeByte(extType);
+                }
+                else if (payloadLen == 2) {
+                    buf.writeByte(Code.FIXEXT2);
+                    buf.writeByte(extType);
+                }
+                else if (payloadLen == 4) {
+                    buf.writeByte(Code.FIXEXT4);
+                    buf.writeByte(extType);
+                }
+                else if (payloadLen == 8) {
+                    buf.writeByte(Code.FIXEXT8);
+                    buf.writeByte(extType);
+                }
+                else if (payloadLen == 16) {
+                    buf.writeByte(Code.FIXEXT16);
+                    buf.writeByte(extType);
+                }
+                else {
+                    buf.writeByte(Code.EXT8);
+                    buf.writeByte(payloadLen);
+                    buf.writeByte(extType);
+                }
+            }
+            else {
+                buf.writeByte(Code.EXT8);
+                buf.writeByte(payloadLen);
+                buf.writeByte(extType);
+            }
         }
+        else if (payloadLen < (1 << 16)) {
+            buf.writeByte(Code.EXT16);
+            buf.writeShort(payloadLen);
+            buf.writeByte(extType);
+        }
+        else {
+            buf.writeByte(Code.EXT32);
+            buf.writeInt(payloadLen);
+            buf.writeByte(extType);
+        }
+
+        return this;
     }
 
     /** {@inheritDoc} */
