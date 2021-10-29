@@ -33,6 +33,7 @@ import java.util.BitSet;
 import java.util.UUID;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufOutputStream;
+import io.netty.buffer.ByteBufUtil;
 import org.apache.ignite.lang.IgniteUuid;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessagePacker;
@@ -290,8 +291,8 @@ public class ClientMessagePacker extends MessagePacker {
     @Override public MessagePacker packString(String s) {
         assert !closed : "Packer is closed";
 
-        packRawStringHeader(s.length());
-        buf.writeCharSequence(s, MessagePack.UTF8);
+        packRawStringHeader(ByteBufUtil.utf8Bytes(s));
+        ByteBufUtil.writeUtf8(buf, s);
 
         return this;
     }
