@@ -672,19 +672,15 @@ public class ClientMessagePacker extends MessagePacker {
     public ClientMessagePacker packDateTime(LocalDateTime val) {
         assert !closed : "Packer is closed";
 
-        byte[] data = new byte[13];
+        packExtensionTypeHeader(ClientMsgPackType.DATETIME, 13);
 
-        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
-        ByteBuffer.wrap(data)
-            .putInt(val.getYear())
-            .put((byte)val.getMonthValue())
-            .put((byte)val.getDayOfMonth())
-            .put((byte)val.getHour())
-            .put((byte)val.getMinute())
-            .put((byte)val.getSecond())
-            .putInt(val.getNano());
-
-        packExtensionTypeHeader(ClientMsgPackType.DATETIME, data.length);
+        buf.writeInt(val.getYear());
+        buf.writeByte(val.getMonthValue());
+        buf.writeByte(val.getDayOfMonth());
+        buf.writeByte(val.getHour());
+        buf.writeByte(val.getMinute());
+        buf.writeByte(val.getSecond());
+        buf.writeInt(val.getNano());
 
         addPayload(data);
 
