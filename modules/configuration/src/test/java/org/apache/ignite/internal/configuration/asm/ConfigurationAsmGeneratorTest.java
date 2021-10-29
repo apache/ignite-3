@@ -22,7 +22,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.ConfigurationReadOnlyException;
+import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -325,12 +327,26 @@ public class ConfigurationAsmGeneratorTest {
 
     /** */
     @Test
-    void testPolymorphicErrorOnUpdateTypeId() throws Exception {
+    void testPolymorphicErrors() throws Exception {
         TestRootConfiguration rootConfig = (TestRootConfiguration)generator.instantiateCfg(TestRootConfiguration.KEY, changer);
 
+        PolymorphicTestConfiguration polymorphicCfg = rootConfig.polymorphicSubCfg();
+
+        // Checks for an error on an attempt to update polymorphicTypeId field.
         assertThrows(
             ConfigurationReadOnlyException.class,
-            () -> rootConfig.polymorphicSubCfg().typeId().update("second").get(1, SECONDS)
+            () -> polymorphicCfg.typeId().update("second").get(1, SECONDS)
+        );
+
+        // Checks for an error on an attempt to read a field of a different type of polymorphic configuration.
+        assertThrows(ExecutionException.class, () -> polymorphicCfg.change(c -> {
+                    FirstPolymorphicInstanceTestView firstView = (FirstPolymorphicInstanceTestView)c;
+
+                    c.convert(SecondPolymorphicInstanceTestChange.class);
+
+                    firstView.intVal();
+                }
+            ).get(1, SECONDS)
         );
     }
 

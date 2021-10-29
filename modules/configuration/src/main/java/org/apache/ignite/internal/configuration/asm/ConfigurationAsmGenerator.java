@@ -40,6 +40,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import com.facebook.presto.bytecode.BytecodeBlock;
@@ -539,7 +540,12 @@ public class ConfigurationAsmGenerator {
 
             FieldDefinition fieldDef = fieldDefs.get(fieldName);
 
-            addNodeViewMethod(classDef, schemaField, fieldDef);
+            addNodeViewMethod(
+                classDef,
+                schemaField,
+                viewMtd -> getThisFieldCode(viewMtd, fieldDef),
+                null
+            );
 
             // Read only.
             if (isPolymorphicId(schemaField))
@@ -756,20 +762,23 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Implements getter method from {@code VIEW} interface. It returns field value, possibly unboxed or cloned,
-     * depending on type.
+     * Implements getter method from {@code VIEW} interface.
+     * It returns field value, possibly unboxed or cloned, depending on type.
      *
-     * @param classDef    Node class definition.
-     * @param schemaField Configuration Schema class field.
-     * @param fieldDefs   Field definitions.
+     * @param classDef                     Node class definition.
+     * @param schemaField                  Configuration Schema class field.
+     * @param getFieldCodeFun              Function for creating bytecode to get a field,
+     *                                     for example: {@code this.field} or {@code this.field.field}.
+     * @param getPolymorphicTypeIdFieldFun Function for creating bytecode to get the field that stores the identifier
+     *                                     of the polymorphic configuration instance is needed to add a polymorphicTypeId check,
+     *                                     for example: {@code this.typeId} or {@code this.field.typeId}.
      */
     private void addNodeViewMethod(
         ClassDefinition classDef,
         Field schemaField,
-        FieldDefinition... fieldDefs
+        Function<MethodDefinition, BytecodeExpression> getFieldCodeFun,
+        @Nullable Function<MethodDefinition, BytecodeExpression> getPolymorphicTypeIdFieldFun
     ) {
-        assert !nullOrEmpty(fieldDefs);
-
         Class<?> schemaFieldType = schemaField.getType();
 
         ParameterizedType returnType;
@@ -792,12 +801,14 @@ public class ConfigurationAsmGenerator {
             returnType
         );
 
-        // result = this.field;
-        viewMtd.getBody().append(getThisFieldCode(viewMtd, fieldDefs));
+        BytecodeBlock bytecodeBlock = new BytecodeBlock();
+
+        // result = this.field; OR this.field.field.
+        bytecodeBlock.append(getFieldCodeFun.apply(viewMtd));
 
         if (schemaFieldType.isPrimitive()) {
             // result = Box.boxValue(result); // Unboxing.
-            viewMtd.getBody().invokeVirtual(
+            bytecodeBlock.invokeVirtual(
                 box(schemaFieldType),
                 schemaFieldType.getSimpleName() + "Value",
                 schemaFieldType
@@ -805,15 +816,34 @@ public class ConfigurationAsmGenerator {
         }
         else if (schemaFieldType.isArray()) {
             // result = result.clone();
-            viewMtd.getBody().invokeVirtual(schemaFieldType, "clone", Object.class).checkCast(schemaFieldType);
+            bytecodeBlock.invokeVirtual(schemaFieldType, "clone", Object.class).checkCast(schemaFieldType);
         }
         else if (isPolymorphicConfig(schemaFieldType) && isConfigValue(schemaField)) {
             // result = result.specificNode();
-            viewMtd.getBody().invokeVirtual(SPECIFIC_NODE_MTD);
+            bytecodeBlock.invokeVirtual(SPECIFIC_NODE_MTD);
         }
 
         // return result;
-        viewMtd.getBody().ret(schemaFieldType);
+        bytecodeBlock.ret(schemaFieldType);
+
+        if (getPolymorphicTypeIdFieldFun != null) {
+            assert isPolymorphicConfigInstance(schemaField.getDeclaringClass()) : schemaField;
+
+            // tmpVar = this.typeId; OR this.field.typeId.
+            BytecodeExpression getPolymorphicTypeIdField = getPolymorphicTypeIdFieldFun.apply(viewMtd);
+            String polymorphicInstanceId = polymorphicInstanceId(schemaField.getDeclaringClass());
+
+            // if ("first".equals(tmpVar)) return result;
+            // else throw Ex;
+            viewMtd.getBody().append(
+                new IfStatement()
+                    .condition(constantString(polymorphicInstanceId).invoke(STRING_EQUALS_MTD, getPolymorphicTypeIdField))
+                    .ifTrue(bytecodeBlock)
+                    .ifFalse(throwException(ConfigurationWrongPolymorphicTypeIdException.class, getPolymorphicTypeIdField))
+            );
+        }
+        else
+            viewMtd.getBody().append(bytecodeBlock);
     }
 
     /**
@@ -1950,7 +1980,12 @@ public class ConfigurationAsmGenerator {
         for (Field schemaField : schemaFields) {
             FieldDefinition schemaFieldDef = fieldDefs.get(fieldName(schemaField));
 
-            addNodeViewMethod(classDef, schemaField, parentInnerNodeFieldDef, schemaFieldDef);
+            addNodeViewMethod(
+                classDef,
+                schemaField,
+                viewMtd -> getThisFieldCode(viewMtd, parentInnerNodeFieldDef, schemaFieldDef),
+                null
+            );
 
             // Read only.
             if (isPolymorphicId(schemaField))
@@ -1967,11 +2002,18 @@ public class ConfigurationAsmGenerator {
             addNodeChangeBridgeMethod(classDef, schemaClassInfo.changeClassName, changeMtd);
         }
 
+        FieldDefinition polymorphicTypeIdFieldDef = fieldDefs.get(polymorphicIdField(schemaClass).getName());
+
         // Creates view and change methods for specific polymorphic instance schema.
         for (Field polymorphicField : polymorphicFields) {
             FieldDefinition polymorphicFieldDef = fieldDefs.get(fieldName(polymorphicField));
 
-            addNodeViewMethod(classDef, polymorphicField, parentInnerNodeFieldDef, polymorphicFieldDef);
+            addNodeViewMethod(
+                classDef,
+                polymorphicField,
+                viewMtd -> getThisFieldCode(viewMtd, parentInnerNodeFieldDef, polymorphicFieldDef),
+                viewMtd -> getThisFieldCode(viewMtd, parentInnerNodeFieldDef, polymorphicTypeIdFieldDef)
+            );
 
             MethodDefinition changeMtd = addNodeChangeMethod(
                 classDef,
