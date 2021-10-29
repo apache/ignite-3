@@ -42,10 +42,6 @@ import org.msgpack.value.Value;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER_SIZE;
 import static org.msgpack.core.MessagePack.Code;
-import static org.msgpack.core.MessagePack.Code.FIXSTR_PREFIX;
-import static org.msgpack.core.MessagePack.Code.STR16;
-import static org.msgpack.core.MessagePack.Code.STR32;
-import static org.msgpack.core.MessagePack.Code.STR8;
 
 /**
  * Ignite-specific MsgPack extension based on Netty ByteBuf.
@@ -305,16 +301,16 @@ public class ClientMessagePacker extends MessagePacker {
         buf.writerIndex(headerPos);
 
         if (headerSize == 1)
-            buf.writeByte((byte) (FIXSTR_PREFIX | bytesWritten));
+            buf.writeByte((byte) (Code.FIXSTR_PREFIX | bytesWritten));
         else if (headerSize == 2) {
-            buf.writeByte(STR8);
+            buf.writeByte(Code.STR8);
             buf.writeByte(bytesWritten);
         } else if (headerSize == 3) {
-            buf.writeByte(STR16);
+            buf.writeByte(Code.STR16);
             buf.writeShort(bytesWritten);
         } else {
             assert headerSize == 5 : "headerSize == 5";
-            buf.writeByte(STR32);
+            buf.writeByte(Code.STR32);
             buf.writeInt(bytesWritten);
         }
 
@@ -327,11 +323,23 @@ public class ClientMessagePacker extends MessagePacker {
     @Override public MessagePacker packArrayHeader(int arraySize) {
         assert !closed : "Packer is closed";
 
-        try {
-            return super.packArrayHeader(arraySize);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+        if (arraySize < 0) {
+            throw new IllegalArgumentException("array size must be >= 0");
         }
+
+        if (arraySize < (1 << 4)) {
+            buf.writeByte((byte) (Code.FIXARRAY_PREFIX | arraySize));
+        }
+        else if (arraySize < (1 << 16)) {
+            buf.writeByte(Code.ARRAY16);
+            buf.writeShort(arraySize);
+        }
+        else {
+            buf.writeByte(Code.ARRAY32);
+            buf.writeInt(arraySize);
+        }
+
+        return this;
     }
 
     /** {@inheritDoc} */
@@ -383,15 +391,15 @@ public class ClientMessagePacker extends MessagePacker {
         assert !closed : "Packer is closed";
 
         if (len < (1 << 5)) {
-            buf.writeByte((byte) (FIXSTR_PREFIX | len));
+            buf.writeByte((byte) (Code.FIXSTR_PREFIX | len));
         } else if (len < (1 << 8)) {
-            buf.writeByte(STR8);
+            buf.writeByte(Code.STR8);
             buf.writeByte(len);
         } else if (len < (1 << 16)) {
-            buf.writeByte(STR16);
+            buf.writeByte(Code.STR16);
             buf.writeShort(len);
         } else {
-            buf.writeByte(STR32);
+            buf.writeByte(Code.STR32);
             buf.writeInt(len);
         }
 
