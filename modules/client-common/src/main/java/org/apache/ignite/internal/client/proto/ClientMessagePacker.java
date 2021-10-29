@@ -41,6 +41,10 @@ import org.msgpack.value.Value;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER_SIZE;
 import static org.msgpack.core.MessagePack.Code;
+import static org.msgpack.core.MessagePack.Code.FIXSTR_PREFIX;
+import static org.msgpack.core.MessagePack.Code.STR16;
+import static org.msgpack.core.MessagePack.Code.STR32;
+import static org.msgpack.core.MessagePack.Code.STR8;
 
 /**
  * Ignite-specific MsgPack extension based on Netty ByteBuf.
@@ -352,11 +356,20 @@ public class ClientMessagePacker extends MessagePacker {
     @Override public MessagePacker packRawStringHeader(int len) {
         assert !closed : "Packer is closed";
 
-        try {
-            return super.packRawStringHeader(len);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+        if (len < (1 << 5)) {
+            buf.writeByte((byte) (FIXSTR_PREFIX | len));
+        } else if (len < (1 << 8)) {
+            buf.writeByte(STR8);
+            buf.writeByte(len);
+        } else if (len < (1 << 16)) {
+            buf.writeByte(STR16);
+            buf.writeShort(len);
+        } else {
+            buf.writeByte(STR32);
+            buf.writeInt(len);
         }
+
+        return this;
     }
 
     /** {@inheritDoc} */
