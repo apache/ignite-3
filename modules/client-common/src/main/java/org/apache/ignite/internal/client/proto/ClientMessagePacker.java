@@ -41,6 +41,7 @@ import org.msgpack.value.Value;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER_SIZE;
 import static org.msgpack.core.MessagePack.Code;
+import static org.msgpack.core.MessagePack.Code.UINT64;
 
 /**
  * Ignite-specific MsgPack extension based on Netty ByteBuf.
@@ -62,6 +63,7 @@ public class ClientMessagePacker extends MessagePacker {
     public ClientMessagePacker(ByteBuf buf) {
         // TODO: Remove intermediate classes and buffers IGNITE-15234.
         // TODO: Make all methods void?
+        // TODO: Replace inheritdoc.
         // Reserve 4 bytes for the message length.
         super(new OutputStreamBufferOutput(new ByteBufOutputStream(buf.writerIndex(HEADER_SIZE))),
                 MessagePack.DEFAULT_PACKER_CONFIG);
@@ -247,11 +249,18 @@ public class ClientMessagePacker extends MessagePacker {
     @Override public MessagePacker packBigInteger(BigInteger bi) {
         assert !closed : "Packer is closed";
 
-        try {
-            return super.packBigInteger(bi);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+        if (bi.bitLength() <= 63) {
+            packLong(bi.longValue());
         }
+        else if (bi.bitLength() == 64 && bi.signum() == 1) {
+            buf.writeByte(Code.UINT64);
+            buf.writeLong(bi.longValue());
+        }
+        else {
+            throw new IllegalArgumentException("MessagePack cannot serialize BigInteger larger than 2^64-1");
+        }
+
+        return this;
     }
 
     /** {@inheritDoc} */
