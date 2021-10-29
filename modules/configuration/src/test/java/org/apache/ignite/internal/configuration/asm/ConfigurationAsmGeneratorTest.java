@@ -24,7 +24,6 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.ConfigurationReadOnlyException;
-import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -345,6 +344,17 @@ public class ConfigurationAsmGeneratorTest {
                     c.convert(SecondPolymorphicInstanceTestChange.class);
 
                     firstView.intVal();
+                }
+            ).get(1, SECONDS)
+        );
+
+        // Checks for an error on an attempt to change a field of a different type of polymorphic configuration.
+        assertThrows(ExecutionException.class, () -> polymorphicCfg.change(c -> {
+                    FirstPolymorphicInstanceTestChange firstChange = (FirstPolymorphicInstanceTestChange)c;
+
+                    c.convert(SecondPolymorphicInstanceTestChange.class);
+
+                    firstChange.changeIntVal(10);
                 }
             ).get(1, SECONDS)
         );

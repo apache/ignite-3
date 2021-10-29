@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.asm;
 
+import java.io.File;
 import java.io.Serializable;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
@@ -552,10 +553,15 @@ public class ConfigurationAsmGenerator {
                 continue;
 
             // Add change methods.
-            MethodDefinition changeMtd =
-                addNodeChangeMethod(classDef, schemaField, schemaClassInfo.nodeClassName, fieldDef);
+            MethodDefinition changeMtd0 = addNodeChangeMethod(
+                classDef,
+                schemaField,
+                changeMtd -> getThisFieldCode(changeMtd, fieldDef),
+                (changeMtd, newValue) -> setThisFieldCode(changeMtd, newValue, fieldDef),
+                null
+            );
 
-            addNodeChangeBridgeMethod(classDef, changeClassName(schemaField.getDeclaringClass()), changeMtd);
+            addNodeChangeBridgeMethod(classDef, changeClassName(schemaField.getDeclaringClass()), changeMtd0);
         }
 
         Map<Class<?>, List<Field>> polymorphicFieldsByExtension = Map.of();
@@ -833,13 +839,13 @@ public class ConfigurationAsmGenerator {
             BytecodeExpression getPolymorphicTypeIdField = getPolymorphicTypeIdFieldFun.apply(viewMtd);
             String polymorphicInstanceId = polymorphicInstanceId(schemaField.getDeclaringClass());
 
-            // if ("first".equals(tmpVar)) return result;
-            // else throw Ex;
+            // if (!"first".equals(tmpVar)) throw Ex;
+            // else return value;
             viewMtd.getBody().append(
                 new IfStatement()
-                    .condition(constantString(polymorphicInstanceId).invoke(STRING_EQUALS_MTD, getPolymorphicTypeIdField))
-                    .ifTrue(bytecodeBlock)
-                    .ifFalse(throwException(ConfigurationWrongPolymorphicTypeIdException.class, getPolymorphicTypeIdField))
+                    .condition(not(constantString(polymorphicInstanceId).invoke(STRING_EQUALS_MTD, getPolymorphicTypeIdField)))
+                    .ifTrue(throwException(ConfigurationWrongPolymorphicTypeIdException.class, getPolymorphicTypeIdField))
+                    .ifFalse(bytecodeBlock)
             );
         }
         else
@@ -850,68 +856,72 @@ public class ConfigurationAsmGenerator {
      * Implements changer method from {@code CHANGE} interface.
      *
      * @param classDef Node class definition.
-     * @param schemaField Configuration Schema class field.
-     * @param nodeClassName Class name for the Node class.
-     * @param fieldDefs Field definitions.
+     * @param schemaField Configuration schema class field.
      * @return Definition of change method.
      */
-    private static MethodDefinition addNodeChangeMethod(
+    private MethodDefinition addNodeChangeMethod(
         ClassDefinition classDef,
         Field schemaField,
-        String nodeClassName,
-        FieldDefinition... fieldDefs
+        Function<MethodDefinition, BytecodeExpression> getFieldCodeFun,
+        BiFunction<MethodDefinition, BytecodeExpression, BytecodeExpression> setFieldCodeFun,
+        @Nullable Function<MethodDefinition, BytecodeExpression> getPolymorphicTypeIdFieldFun
     ) {
-        assert !nullOrEmpty(fieldDefs);
-
         Class<?> schemaFieldType = schemaField.getType();
 
         MethodDefinition changeMtd = classDef.declareMethod(
             of(PUBLIC),
             changeMethodName(schemaField.getName()),
-            typeFromJavaClassName(nodeClassName),
+            classDef.getType(),
             // Change argument type is a Consumer for all inner or named fields.
             arg("change", isValue(schemaField) ? type(schemaFieldType) : type(Consumer.class))
         );
 
-        BytecodeBlock changeBody = changeMtd.getBody();
+        // var change;
+        BytecodeExpression changeVar = changeMtd.getScope().getVariable("change");
 
-        // newValue = change;
-        BytecodeExpression newValue = changeMtd.getScope().getVariable("change");
+        BytecodeBlock bytecodeBlock = new BytecodeBlock();
 
         if (!schemaFieldType.isPrimitive()) {
             // Objects.requireNonNull(newValue, "change");
-            changeBody.append(invokeStatic(REQUIRE_NON_NULL, newValue, constantString("change")));
+            bytecodeBlock.append(invokeStatic(REQUIRE_NON_NULL, changeVar, constantString("change")));
         }
 
         if (isValue(schemaField)) {
-            // newValue = Box.valueOf(newValue); // Boxing.
+            BytecodeExpression newValue;
+
             if (schemaFieldType.isPrimitive()) {
                 ParameterizedType type = type(box(schemaFieldType));
 
-                newValue = invokeStatic(type, "valueOf", type, singleton(newValue));
-            }
-
-            // newValue = newValue.clone();
-            if (schemaFieldType.isArray())
-                newValue = newValue.invoke("clone", Object.class).cast(schemaFieldType);
+                // newValue = Box.valueOf(newValue); // Boxing.
+                newValue = invokeStatic(type, "valueOf", type, singleton(changeVar));
+            } else if (schemaFieldType.isArray()) {
+                // newValue = newValue.clone();
+                newValue = changeVar.invoke("clone", Object.class).cast(schemaFieldType);
+            } else
+                newValue = changeVar;
 
             // this.field = newValue;
-            changeBody.append(setThisFieldCode(changeMtd, newValue, fieldDefs));
+            bytecodeBlock.append(setFieldCodeFun.apply(changeMtd, newValue));
         }
         else {
+            BytecodeExpression newValue;
+
             if (isConfigValue(schemaField)) {
-                // this.field = (this.field == null) ? new ValueNode() : (ValueNode)this.field.copy();
-                changeBody.append(newOrCopyNodeField(changeMtd, fieldDefs));
+                // newValue = (this.field == null) ? new ValueNode() : (ValueNode)this.field.copy();
+                newValue = newOrCopyNodeField(schemaField, getFieldCodeFun.apply(changeMtd));
             }
             else {
                 assert isNamedConfigValue(schemaField) : schemaField;
 
-                // this.field = (ValueNode)this.field.copy();
-                changeBody.append(copyNodeField(changeMtd, fieldDefs));
+                // newValue = (ValueNode)this.field.copy();
+                newValue = copyNodeField(schemaField, getFieldCodeFun.apply(changeMtd));
             }
 
+            // this.field = newValue;
+            bytecodeBlock.append(setFieldCodeFun.apply(changeMtd, newValue));
+
             // this.field;
-            BytecodeExpression getFieldCode = getThisFieldCode(changeMtd, fieldDefs);
+            BytecodeExpression getFieldCode = getFieldCodeFun.apply(changeMtd);
 
             if (isPolymorphicConfig(schemaFieldType) && isConfigValue(schemaField)) {
                 // this.field.specificNode();
@@ -919,11 +929,30 @@ public class ConfigurationAsmGenerator {
             }
 
             // change.accept(this.field); OR change.accept(this.field.specificNode());
-            changeBody.append(changeMtd.getScope().getVariable("change").invoke(ACCEPT, getFieldCode));
+            bytecodeBlock.append(changeVar.invoke(ACCEPT, getFieldCode));
         }
 
         // return this;
-        changeBody.append(changeMtd.getThis()).retObject();
+        bytecodeBlock.append(changeMtd.getThis()).retObject();
+
+        if (getPolymorphicTypeIdFieldFun != null) {
+            assert isPolymorphicConfigInstance(schemaField.getDeclaringClass()) : schemaField;
+
+            // tmpVar = this.typeId; OR this.field.typeId.
+            BytecodeExpression getPolymorphicTypeIdField = getPolymorphicTypeIdFieldFun.apply(changeMtd);
+            String polymorphicInstanceId = polymorphicInstanceId(schemaField.getDeclaringClass());
+
+            // if (!"first".equals(tmpVar)) throw Ex;
+            // else change_value;
+            changeMtd.getBody().append(
+                new IfStatement()
+                    .condition(not(constantString(polymorphicInstanceId).invoke(STRING_EQUALS_MTD, getPolymorphicTypeIdField)))
+                    .ifTrue(throwException(ConfigurationWrongPolymorphicTypeIdException.class, getPolymorphicTypeIdField))
+                    .ifFalse(bytecodeBlock)
+            );
+        }
+        else
+            changeMtd.getBody().append(bytecodeBlock);
 
         return changeMtd;
     }
@@ -1411,47 +1440,37 @@ public class ConfigurationAsmGenerator {
 
     /**
      * Copies field into itself or instantiates it if the field is null.
+     * Code like: {@code this.field == null ? new ValueNode() : (ValueNode)this.field.copy();}.
      *
-     * @param mtd       Method definition.
-     * @param fieldDefs Field definitions.
+     * @param schemaField Configuration schema class field.
+     * @param getFieldCode Bytecode of getting the field, for example: {@code this.field} or {@code this.field.field};
      * @return Bytecode expression.
      */
-    private static BytecodeExpression newOrCopyNodeField(MethodDefinition mtd, FieldDefinition... fieldDefs) {
-        assert !nullOrEmpty(fieldDefs);
+    private BytecodeExpression newOrCopyNodeField(Field schemaField, BytecodeExpression getFieldCode) {
+        ParameterizedType nodeType = typeFromJavaClassName(schemasInfo.get(schemaField.getType()).nodeClassName);
 
-        // this.field;
-        BytecodeExpression getFieldCode = getThisFieldCode(mtd, fieldDefs);
-
-        ParameterizedType fieldType = fieldDefs[fieldDefs.length - 1].getType();
-
-        // tmpValue = (this.field == null) ? new ValueNode() : (ValueNode)this.field.copy();
-        BytecodeExpression value = inlineIf(
+        // this.field == null ? new ValueNode() : (ValueNode)this.field.copy();
+        return inlineIf(
             isNull(getFieldCode),
-            newInstance(fieldType),
-            getFieldCode.invoke(COPY).cast(fieldType)
+            newInstance(nodeType),
+            copyNodeField(schemaField, getFieldCode)
         );
-
-        // this.field = tmpValue;
-        return setThisFieldCode(mtd, value, fieldDefs);
     }
 
     /**
      * Copies field into itself.
+     * Code like: {@code (ValueNode)this.field.copy();}.
      *
-     * @param mtd       Method definition.
-     * @param fieldDefs Field definitions.
+     * @param schemaField Configuration schema class field.
+     * @param getFieldCode Bytecode of getting the field, for example: {@code this.field} or {@code this.field.field};
      * @return Bytecode expression.
      */
-    private static BytecodeExpression copyNodeField(MethodDefinition mtd, FieldDefinition... fieldDefs) {
-        assert !nullOrEmpty(fieldDefs);
+    private BytecodeExpression copyNodeField(Field schemaField, BytecodeExpression getFieldCode) {
+        ParameterizedType nodeType = isNamedConfigValue(schemaField)
+            ? type(NamedListNode.class) : typeFromJavaClassName(schemasInfo.get(schemaField.getType()).nodeClassName);
 
-        // this.field;
-        BytecodeExpression getFieldCode = getThisFieldCode(mtd, fieldDefs);
-
-        ParameterizedType fieldType = fieldDefs[fieldDefs.length - 1].getType();
-
-        // this.field = (ValueNode)this.field.copy();
-        return setThisFieldCode(mtd, getFieldCode.invoke(COPY).cast(fieldType), fieldDefs);
+        // (ValueNode)this.field.copy();
+        return getFieldCode.invoke(COPY).cast(nodeType);
     }
 
     /**
@@ -1991,15 +2010,15 @@ public class ConfigurationAsmGenerator {
             if (isPolymorphicId(schemaField))
                 continue;
 
-            MethodDefinition changeMtd = addNodeChangeMethod(
+            MethodDefinition changeMtd0 = addNodeChangeMethod(
                 classDef,
                 schemaField,
-                polymorphicExtensionClassInfo.nodeClassName,
-                parentInnerNodeFieldDef,
-                schemaFieldDef
+                changeMtd -> getThisFieldCode(changeMtd, parentInnerNodeFieldDef, schemaFieldDef),
+                (changeMtd, newValue) -> setThisFieldCode(changeMtd, newValue, parentInnerNodeFieldDef, schemaFieldDef),
+                null
             );
 
-            addNodeChangeBridgeMethod(classDef, schemaClassInfo.changeClassName, changeMtd);
+            addNodeChangeBridgeMethod(classDef, schemaClassInfo.changeClassName, changeMtd0);
         }
 
         FieldDefinition polymorphicTypeIdFieldDef = fieldDefs.get(polymorphicIdField(schemaClass).getName());
@@ -2015,15 +2034,15 @@ public class ConfigurationAsmGenerator {
                 viewMtd -> getThisFieldCode(viewMtd, parentInnerNodeFieldDef, polymorphicTypeIdFieldDef)
             );
 
-            MethodDefinition changeMtd = addNodeChangeMethod(
+            MethodDefinition changeMtd0 = addNodeChangeMethod(
                 classDef,
                 polymorphicField,
-                polymorphicExtensionClassInfo.nodeClassName,
-                parentInnerNodeFieldDef,
-                polymorphicFieldDef
+                changeMtd -> getThisFieldCode(changeMtd, parentInnerNodeFieldDef, polymorphicFieldDef),
+                (changeMtd, newValue) -> setThisFieldCode(changeMtd, newValue, parentInnerNodeFieldDef, polymorphicFieldDef),
+                changeMtd -> getThisFieldCode(changeMtd, parentInnerNodeFieldDef, polymorphicTypeIdFieldDef)
             );
 
-            addNodeChangeBridgeMethod(classDef, polymorphicExtensionClassInfo.changeClassName, changeMtd);
+            addNodeChangeBridgeMethod(classDef, polymorphicExtensionClassInfo.changeClassName, changeMtd0);
         }
 
         ParameterizedType returnType = typeFromJavaClassName(schemaClassInfo.changeClassName);
@@ -2572,8 +2591,11 @@ public class ConfigurationAsmGenerator {
                     );
             }
             else {
-                // this.field = this.field == null ? new FieldType() : field.copy());
-                setField = newOrCopyNodeField(constructMtd, schemaFieldDef);
+                // newValue = this.field == null ? new ValueNode() : field.copy());
+                BytecodeExpression newValue = newOrCopyNodeField(schemaField, getThisFieldCode(constructMtd, schemaFieldDef));
+
+                // this.field = newValue;
+                setField = setThisFieldCode(constructMtd, newValue, schemaFieldDef);
             }
 
             codeBlock.append(
