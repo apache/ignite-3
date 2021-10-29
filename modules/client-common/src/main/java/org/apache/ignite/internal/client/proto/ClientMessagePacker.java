@@ -522,14 +522,8 @@ public class ClientMessagePacker extends MessagePacker {
 
         packExtensionTypeHeader(ClientMsgPackType.UUID, 16);
 
-        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
-        var bytes = new byte[16];
-        ByteBuffer bb = ByteBuffer.wrap(bytes);
-
-        bb.putLong(val.getMostSignificantBits());
-        bb.putLong(val.getLeastSignificantBits());
-
-        addPayload(bytes);
+        buf.writeLong(val.getMostSignificantBits());
+        buf.writeLong(val.getLeastSignificantBits());
 
         return this;
     }
@@ -545,18 +539,11 @@ public class ClientMessagePacker extends MessagePacker {
 
         packExtensionTypeHeader(ClientMsgPackType.IGNITE_UUID, 24);
 
-        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
-        var bytes = new byte[24];
-        ByteBuffer bb = ByteBuffer.wrap(bytes);
-
         UUID globalId = val.globalId();
 
-        bb.putLong(globalId.getMostSignificantBits());
-        bb.putLong(globalId.getLeastSignificantBits());
-
-        bb.putLong(val.localId());
-
-        writePayload(bytes);
+        buf.writeLong(globalId.getMostSignificantBits());
+        buf.writeLong(globalId.getLeastSignificantBits());
+        buf.writeLong(val.localId());
 
         return this;
     }
