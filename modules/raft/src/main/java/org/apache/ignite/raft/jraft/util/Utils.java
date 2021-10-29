@@ -334,7 +334,6 @@ public final class Utils {
         return Requires.requireNonNull(obj, "obj");
     }
 
-    @SuppressWarnings("ConstantConditions")
     public static boolean atomicMoveFile(final File source, final File target, final boolean sync) throws IOException {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(target, "target");
