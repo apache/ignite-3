@@ -557,13 +557,12 @@ public class ClientMessagePacker extends MessagePacker {
     public ClientMessagePacker packDecimal(BigDecimal val) {
         assert !closed : "Packer is closed";
 
-        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
         byte[] unscaledValue = val.unscaledValue().toByteArray();
 
         packExtensionTypeHeader(ClientMsgPackType.DECIMAL, 4 + unscaledValue.length); // Scale length + data length
 
-        addPayload(ByteBuffer.wrap(new byte[4]).putInt(val.scale()).array());
-        addPayload(unscaledValue);
+        buf.writeInt(val.scale());
+        buf.writeBytes(unscaledValue);
 
         return this;
     }
@@ -581,7 +580,7 @@ public class ClientMessagePacker extends MessagePacker {
 
         packExtensionTypeHeader(ClientMsgPackType.NUMBER, data.length);
 
-        addPayload(data);
+        buf.writeBytes(data);
 
         return this;
     }
