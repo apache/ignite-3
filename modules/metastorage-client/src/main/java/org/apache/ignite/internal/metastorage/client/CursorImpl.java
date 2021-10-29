@@ -124,11 +124,11 @@ public class CursorImpl<T> implements Cursor<T> {
             catch (InterruptedException | ExecutionException e) {
                 Throwable cause = e.getCause();
 
-                if (cause != null && cause.getClass().equals(NodeStoppingException.class))
-                    throw new NoSuchElementException();
-
-                if (cause != null && cause.getClass().equals(NoSuchElementException.class))
-                    throw (NoSuchElementException)cause;
+                if (cause != null)
+                    if (cause.getClass().equals(NodeStoppingException.class))
+                        throw new NoSuchElementException();
+                    else if (cause.getClass().equals(NoSuchElementException.class))
+                        throw (NoSuchElementException)cause;
 
                 LOG.debug("Unable to evaluate cursor hasNext command", e);
 
