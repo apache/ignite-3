@@ -135,6 +135,13 @@ public class ClientMessagePackerTest {
         testPacker(p -> p.packRawStringHeader(i), p -> p.packRawStringHeader(i));
     }
 
+    @Test
+    public void testWritePayload() {
+        var b = new byte[] {1, 5, 120};
+
+        testPacker(p -> p.writePayload(b), p -> p.writePayload(b));
+    }
+
     private static void testPacker(Consumer<ClientMessagePacker> pack1, MessagePackerConsumer pack2) {
         var bytesIgnite = packIgnite(pack1);
         var bytesLibrary = packLibrary(pack2);

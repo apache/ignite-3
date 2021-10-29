@@ -481,11 +481,9 @@ public class ClientMessagePacker extends MessagePacker {
     @Override public MessagePacker writePayload(byte[] src) {
         assert !closed : "Packer is closed";
 
-        try {
-            return super.writePayload(src);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        buf.writeBytes(src);
+
+        return this;
     }
 
     /** {@inheritDoc} */
