@@ -17,31 +17,57 @@
 
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.ignite.internal.processors.query.calcite.ResultFieldMetadata;
+import org.apache.ignite.internal.processors.query.calcite.util.TypeUtils;
 
 /**
  * Results set metadata holder.
  */
 public class ResultSetMetadataImpl implements ResultSetMetadataInternal {
-    /** Fields metadata. */
-    private final List<ResultFieldMetadata> fields;
+    /** Columns origins. */
+    private final List<List<String>> origins;
 
     /** Internal row type. */
     private final RelDataType rowType;
 
+    /** Fields metadata. */
+    private volatile List<ResultFieldMetadata> fields;
+
     public ResultSetMetadataImpl(
         RelDataType rowType,
-        List<ResultFieldMetadata> fields
+        List<List<String>> origins
     ) {
         this.rowType = rowType;
-        this.fields = fields;
+        this.origins = origins;
     }
 
     /** {@inheritDoc} */
     @Override public List<ResultFieldMetadata> fields() {
+        if (fields == null) {
+            List<ResultFieldMetadata> flds = new ArrayList<>(rowType.getFieldCount());
+
+            for (int i = 0; i < rowType.getFieldCount(); ++i) {
+                RelDataTypeField fld = rowType.getFieldList().get(i);
+
+                flds.add(
+                    new ResultFieldMetadataImpl(
+                        fld.getName(),
+                        TypeUtils.nativeType(fld.getType()),
+                        fld.getIndex(),
+                        fld.getType().isNullable(),
+                        origins.get(i)
+                    )
+                );
+
+                fields = flds;
+            }
+        }
+
         return fields;
     }
 

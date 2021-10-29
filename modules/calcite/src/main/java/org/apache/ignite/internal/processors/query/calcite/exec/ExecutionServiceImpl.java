@@ -34,7 +34,6 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlExplainLevel;
@@ -44,7 +43,6 @@ import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.ValidationException;
-import org.apache.ignite.internal.processors.query.calcite.ResultFieldMetadata;
 import org.apache.ignite.internal.processors.query.calcite.ResultSetMetadata;
 import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Inbox;
@@ -76,7 +74,6 @@ import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningConte
 import org.apache.ignite.internal.processors.query.calcite.prepare.QueryPlan;
 import org.apache.ignite.internal.processors.query.calcite.prepare.QueryPlanCache;
 import org.apache.ignite.internal.processors.query.calcite.prepare.QueryTemplate;
-import org.apache.ignite.internal.processors.query.calcite.prepare.ResultFieldMetadataImpl;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ResultSetMetadataImpl;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ResultSetMetadataInternal;
 import org.apache.ignite.internal.processors.query.calcite.prepare.Splitter;
@@ -585,26 +582,10 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
     /** */
     private ResultSetMetadataInternal resultSetMetadata(PlanningContext ctx, RelDataType sqlType,
         @Nullable List<List<String>> origins) {
-        RelDataType resultType = TypeUtils.getResultType(
-            ctx.typeFactory(), ctx.catalogReader(), sqlType, origins);
-
-        List<ResultFieldMetadata> fields = new ArrayList<>(resultType.getFieldCount());
-
-        for (int i = 0; i < resultType.getFieldCount(); ++i) {
-            RelDataTypeField fld = resultType.getFieldList().get(i);
-
-            fields.add(
-                new ResultFieldMetadataImpl(
-                    fld.getName(),
-                    TypeUtils.nativeType(fld.getType()),
-                    fld.getIndex(),
-                    fld.getType().isNullable(),
-                    origins.get(i)
-                )
-            );
-        }
-
-        return new ResultSetMetadataImpl(resultType, fields);
+        return new ResultSetMetadataImpl(
+            TypeUtils.getResultType(ctx.typeFactory(), ctx.catalogReader(), sqlType, origins),
+            origins
+        );
     }
 
     /** */
