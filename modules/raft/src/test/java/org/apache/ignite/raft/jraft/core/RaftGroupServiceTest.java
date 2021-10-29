@@ -299,25 +299,6 @@ public class RaftGroupServiceTest {
      * @throws Exception
      */
     @Test
-    public void testUserRequestError() throws Exception {
-        String groupId = "test";
-
-        mockLeaderRequest(false);
-        mockErrorResult();
-
-        RaftGroupService service =
-            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
-
-        CompletableFuture<TestResponse> fut = service.<TestResponse>run(new TestCommand());
-
-        TestResponse res = fut.get();
-    }
-
-
-    /**
-     * @throws Exception
-     */
-    @Test
     public void testUserRequestLeaderNotElected() throws Exception {
         String groupId = "test";
 
@@ -811,43 +792,6 @@ public class RaftGroupServiceTest {
 
             return completedFuture(resp);
         });
-    }
-
-    /**
-     */
-    private void mockErrorResult() {
-        when(messagingService.invoke(
-            any(NetworkAddress.class),
-            argThat(new ArgumentMatcher<ActionRequest>() {
-                @Override public boolean matches(ActionRequest arg) {
-                    return arg.command() instanceof TestCommand;
-                }
-            }),
-            anyLong()
-        )).then(invocation -> CompletableFuture.supplyAsync(() -> {
-
-            return FACTORY.actionResponse().result(new RpcRequests.ErrorResponse() {
-                @Override public int errorCode() {
-                    return 0;
-                }
-
-                @Override public String errorMsg() {
-                    return null;
-                }
-
-                @Override public @Nullable String leaderId() {
-                    return null;
-                }
-
-                @Override public short messageType() {
-                    return 0;
-                }
-
-                @Override public short groupType() {
-                    return 0;
-                }
-            }).build();
-        }));
     }
 
     /**
