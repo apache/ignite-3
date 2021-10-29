@@ -47,6 +47,12 @@ public class ClientMessagePackerTest {
         testPacker(p -> p.packByte(b), p -> p.packByte(b));
     }
 
+    @ParameterizedTest
+    @ValueSource(shorts = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE})
+    public void testPackShort(short s) {
+        testPacker(p -> p.packShort(s), p -> p.packShort(s));
+    }
+
     private static void testPacker(Consumer<ClientMessagePacker> pack1, MessagePackerConsumer pack2) {
         var bytesIgnite = packIgnite(pack1);
         var bytesLibrary = packLibrary(pack2);
