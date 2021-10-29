@@ -653,18 +653,12 @@ public class ClientMessagePacker extends MessagePacker {
     public ClientMessagePacker packTime(LocalTime val) {
         assert !closed : "Packer is closed";
 
-        byte[] data = new byte[7];
+        packExtensionTypeHeader(ClientMsgPackType.TIME, 7);
 
-        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
-        ByteBuffer.wrap(data)
-            .put((byte)val.getHour())
-            .put((byte)val.getMinute())
-            .put((byte)val.getSecond())
-            .putInt(val.getNano());
-
-        packExtensionTypeHeader(ClientMsgPackType.TIME, data.length);
-
-        addPayload(data);
+        buf.writeByte(val.getHour());
+        buf.writeByte(val.getMinute());
+        buf.writeByte(val.getSecond());
+        buf.writeInt(val.getNano());
 
         return this;
     }
