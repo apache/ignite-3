@@ -111,6 +111,12 @@ public class ClientMessagePackerTest {
         testPacker(p -> p.packArrayHeader(i), p -> p.packArrayHeader(i));
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
+    public void testPackMapHeader(int i) {
+        testPacker(p -> p.packMapHeader(i), p -> p.packMapHeader(i));
+    }
+
     private static void testPacker(Consumer<ClientMessagePacker> pack1, MessagePackerConsumer pack2) {
         var bytesIgnite = packIgnite(pack1);
         var bytesLibrary = packLibrary(pack2);

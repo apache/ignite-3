@@ -42,6 +42,9 @@ import org.msgpack.value.Value;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER_SIZE;
 import static org.msgpack.core.MessagePack.Code;
+import static org.msgpack.core.MessagePack.Code.FIXMAP_PREFIX;
+import static org.msgpack.core.MessagePack.Code.MAP16;
+import static org.msgpack.core.MessagePack.Code.MAP32;
 
 /**
  * Ignite-specific MsgPack extension based on Netty ByteBuf.
@@ -346,11 +349,23 @@ public class ClientMessagePacker extends MessagePacker {
     @Override public MessagePacker packMapHeader(int mapSize) {
         assert !closed : "Packer is closed";
 
-        try {
-            return super.packMapHeader(mapSize);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+        if (mapSize < 0) {
+            throw new IllegalArgumentException("map size must be >= 0");
         }
+
+        if (mapSize < (1 << 4)) {
+            buf.writeByte((byte) (Code.FIXMAP_PREFIX | mapSize));
+        }
+        else if (mapSize < (1 << 16)) {
+            buf.writeByte(Code.MAP16);
+            buf.writeShort(mapSize);
+        }
+        else {
+            buf.writeByte(Code.MAP32);
+            buf.writeInt(mapSize);
+        }
+
+        return this;
     }
 
     /** {@inheritDoc} */
