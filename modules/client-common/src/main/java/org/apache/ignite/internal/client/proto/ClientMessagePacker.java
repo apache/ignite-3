@@ -73,13 +73,14 @@ public class ClientMessagePacker implements AutoCloseable {
         return buf;
     }
 
-    /** {@inheritDoc} */
-    public ClientMessagePacker packNil() {
+
+    /**
+     * Writes a Nil value.
+     */
+    public void packNil() {
         assert !closed : "Packer is closed";
 
         buf.writeByte(Code.NIL);
-
-        return this;
     }
 
     /** {@inheritDoc} */
@@ -690,65 +691,112 @@ public class ClientMessagePacker implements AutoCloseable {
      * Packs an object.
      *
      * @param val Object value.
-     * @return This instance.
      * @throws UnsupportedOperationException When type is not supported.
      */
-    public ClientMessagePacker packObject(Object val) {
-        if (val == null)
-            return packNil();
+    public void packObject(Object val) {
+        if (val == null) {
+            packNil();
 
-        if (val instanceof Byte)
-            return packByte((byte)val);
+            return;
+        }
 
-        if (val instanceof Short)
-            return packShort((short)val);
+        if (val instanceof Byte) {
+            packByte((byte) val);
 
-        if (val instanceof Integer)
-            return packInt((int)val);
+            return;
+        }
 
-        if (val instanceof Long)
-            return packLong((long)val);
+        if (val instanceof Short) {
+            packShort((short) val);
 
-        if (val instanceof Float)
-            return packFloat((float)val);
+            return;
+        }
 
-        if (val instanceof Double)
-            return packDouble((double)val);
+        if (val instanceof Integer) {
+            packInt((int) val);
 
-        if (val instanceof UUID)
-            return packUuid((UUID)val);
+            return;
+        }
 
-        if (val instanceof String)
-            return packString((String)val);
+        if (val instanceof Long) {
+            packLong((long) val);
+
+            return;
+        }
+
+        if (val instanceof Float) {
+            packFloat((float) val);
+
+            return;
+        }
+
+        if (val instanceof Double) {
+            packDouble((double) val);
+
+            return;
+        }
+
+        if (val instanceof UUID) {
+            packUuid((UUID) val);
+
+            return;
+        }
+
+        if (val instanceof String) {
+            packString((String) val);
+
+            return;
+        }
 
         if (val instanceof byte[]) {
             byte[] bytes = (byte[])val;
             packBinaryHeader(bytes.length);
             writePayload(bytes);
 
-            return this;
+            return;
         }
 
-        if (val instanceof BigDecimal)
-            return packDecimal((BigDecimal)val);
+        if (val instanceof BigDecimal) {
+            packDecimal((BigDecimal) val);
 
-        if (val instanceof BigInteger)
-            return packNumber((BigInteger)val);
+            return;
+        }
 
-        if (val instanceof BitSet)
-            return packBitSet((BitSet)val);
+        if (val instanceof BigInteger) {
+            packNumber((BigInteger) val);
 
-        if (val instanceof LocalDate)
-            return packDate((LocalDate)val);
+            return;
+        }
 
-        if (val instanceof LocalTime)
-            return packTime((LocalTime)val);
+        if (val instanceof BitSet) {
+            packBitSet((BitSet) val);
 
-        if (val instanceof LocalDateTime)
-            return packDateTime((LocalDateTime)val);
+            return;
+        }
 
-        if (val instanceof Instant)
-            return packTimestamp((Instant)val);
+        if (val instanceof LocalDate) {
+            packDate((LocalDate) val);
+
+            return;
+        }
+
+        if (val instanceof LocalTime) {
+            packTime((LocalTime) val);
+
+            return;
+        }
+
+        if (val instanceof LocalDateTime) {
+            packDateTime((LocalDateTime) val);
+
+            return;
+        }
+
+        if (val instanceof Instant) {
+            packTimestamp((Instant) val);
+
+            return;
+        }
 
         throw new UnsupportedOperationException("Unsupported type, can't serialize: " + val.getClass());
     }
