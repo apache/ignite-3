@@ -290,11 +290,10 @@ public class ClientMessagePacker extends MessagePacker {
     @Override public MessagePacker packString(String s) {
         assert !closed : "Packer is closed";
 
-        try {
-            return super.packString(s);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        packRawStringHeader(s.length());
+        buf.writeCharSequence(s, MessagePack.UTF8);
+
+        return this;
     }
 
     /** {@inheritDoc} */
