@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -30,13 +29,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
+
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufOutputStream;
 import io.netty.buffer.ByteBufUtil;
 import org.apache.ignite.lang.IgniteUuid;
-import org.msgpack.core.MessagePack;
-import org.msgpack.core.MessagePacker;
-import org.msgpack.core.buffer.OutputStreamBufferOutput;
 import org.msgpack.value.Value;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER_SIZE;
@@ -47,7 +43,7 @@ import static org.msgpack.core.MessagePack.Code;
  * <p>
  * Releases wrapped buffer on {@link #close()} .
  */
-public class ClientMessagePacker extends MessagePacker {
+public class ClientMessagePacker implements AutoCloseable {
     /** Underlying buffer. */
     private final ByteBuf buf;
 
@@ -60,14 +56,9 @@ public class ClientMessagePacker extends MessagePacker {
      * @param buf Buffer.
      */
     public ClientMessagePacker(ByteBuf buf) {
-        // TODO: Remove intermediate classes and buffers IGNITE-15234.
         // TODO: Make all methods void?
         // TODO: Replace inheritdoc.
-        // Reserve 4 bytes for the message length.
-        super(new OutputStreamBufferOutput(new ByteBufOutputStream(buf.writerIndex(HEADER_SIZE))),
-                MessagePack.DEFAULT_PACKER_CONFIG);
-
-        this.buf = buf;
+        this.buf = buf.writerIndex(HEADER_SIZE);
     }
 
     /**
@@ -77,20 +68,13 @@ public class ClientMessagePacker extends MessagePacker {
      * @throws UncheckedIOException When flush fails.
      */
     public ByteBuf getBuffer() {
-        try {
-            flush();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-
         buf.setInt(0, buf.writerIndex() - HEADER_SIZE);
 
         return buf;
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker packNil() {
+    public ClientMessagePacker packNil() {
         assert !closed : "Packer is closed";
 
         buf.writeByte(Code.NIL);
@@ -99,7 +83,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker packBoolean(boolean b) {
+    public ClientMessagePacker packBoolean(boolean b) {
         assert !closed : "Packer is closed";
 
         buf.writeByte(b ? Code.TRUE : Code.FALSE);
@@ -108,7 +92,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker packByte(byte b) {
+    public ClientMessagePacker packByte(byte b) {
         assert !closed : "Packer is closed";
 
         if (b < -(1 << 5))
@@ -120,7 +104,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker packShort(short v) {
+    public ClientMessagePacker packShort(short v) {
         assert !closed : "Packer is closed";
 
         if (v < -(1 << 5)) {
@@ -151,7 +135,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker packInt(int r) {
+    public ClientMessagePacker packInt(int r) {
         assert !closed : "Packer is closed";
 
         if (r < -(1 << 5)) {
@@ -190,7 +174,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker packLong(long v) {
+    public ClientMessagePacker packLong(long v) {
         assert !closed : "Packer is closed";
 
         if (v < -(1L << 5)) {
@@ -245,7 +229,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker packBigInteger(BigInteger bi) {
+    public ClientMessagePacker packBigInteger(BigInteger bi) {
         assert !closed : "Packer is closed";
 
         if (bi.bitLength() <= 63) {
@@ -263,7 +247,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker packFloat(float v) {
+    public ClientMessagePacker packFloat(float v) {
         assert !closed : "Packer is closed";
 
         buf.writeByte(Code.FLOAT32);
@@ -273,7 +257,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker packDouble(double v) {
+    public ClientMessagePacker packDouble(double v) {
         assert !closed : "Packer is closed";
 
         buf.writeByte(Code.FLOAT64);
@@ -283,7 +267,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker packString(String s) {
+    public ClientMessagePacker packString(String s) {
         assert !closed : "Packer is closed";
 
         // Header is a varint.
@@ -319,7 +303,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker packArrayHeader(int arraySize) {
+    public ClientMessagePacker packArrayHeader(int arraySize) {
         assert !closed : "Packer is closed";
 
         if (arraySize < 0) {
@@ -342,7 +326,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker packMapHeader(int mapSize) {
+    public ClientMessagePacker packMapHeader(int mapSize) {
         assert !closed : "Packer is closed";
 
         if (mapSize < 0) {
@@ -365,12 +349,12 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker packValue(Value v) {
+    public ClientMessagePacker packValue(Value v) {
         throw new UnsupportedOperationException("TODO: Remove");
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker packExtensionTypeHeader(byte extType, int payloadLen) {
+    public ClientMessagePacker packExtensionTypeHeader(byte extType, int payloadLen) {
         assert !closed : "Packer is closed";
 
         if (payloadLen < (1 << 8)) {
@@ -422,7 +406,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker packBinaryHeader(int len) {
+    public ClientMessagePacker packBinaryHeader(int len) {
         assert !closed : "Packer is closed";
 
         if (len < (1 << 8)) {
@@ -442,7 +426,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker packRawStringHeader(int len) {
+    public ClientMessagePacker packRawStringHeader(int len) {
         assert !closed : "Packer is closed";
 
         if (len < (1 << 5)) {
@@ -477,7 +461,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker writePayload(byte[] src) {
+    public ClientMessagePacker writePayload(byte[] src) {
         assert !closed : "Packer is closed";
 
         buf.writeBytes(src);
@@ -486,7 +470,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker writePayload(byte[] src, int off, int len) {
+    public ClientMessagePacker writePayload(byte[] src, int off, int len) {
         assert !closed : "Packer is closed";
 
         buf.writeBytes(src, off, len);
@@ -495,7 +479,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker addPayload(byte[] src) {
+    public ClientMessagePacker addPayload(byte[] src) {
         assert !closed : "Packer is closed";
 
         // TODO: Remove this method.
@@ -503,7 +487,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessagePacker addPayload(byte[] src, int off, int len) {
+    public ClientMessagePacker addPayload(byte[] src, int off, int len) {
         assert !closed : "Packer is closed";
 
         // TODO: Remove this method.
@@ -511,7 +495,7 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /**
-     * Writes an UUID.
+     * Writes a UUID.
      *
      * @param val UUID value.
      * @return This instance.
@@ -711,31 +695,31 @@ public class ClientMessagePacker extends MessagePacker {
      */
     public ClientMessagePacker packObject(Object val) {
         if (val == null)
-            return (ClientMessagePacker)packNil();
+            return packNil();
 
         if (val instanceof Byte)
-            return (ClientMessagePacker)packByte((byte)val);
+            return packByte((byte)val);
 
         if (val instanceof Short)
-            return (ClientMessagePacker)packShort((short)val);
+            return packShort((short)val);
 
         if (val instanceof Integer)
-            return (ClientMessagePacker)packInt((int)val);
+            return packInt((int)val);
 
         if (val instanceof Long)
-            return (ClientMessagePacker)packLong((long)val);
+            return packLong((long)val);
 
         if (val instanceof Float)
-            return (ClientMessagePacker)packFloat((float)val);
+            return packFloat((float)val);
 
         if (val instanceof Double)
-            return (ClientMessagePacker)packDouble((double)val);
+            return packDouble((double)val);
 
         if (val instanceof UUID)
             return packUuid((UUID)val);
 
         if (val instanceof String)
-            return (ClientMessagePacker)packString((String)val);
+            return packString((String)val);
 
         if (val instanceof byte[]) {
             byte[] bytes = (byte[])val;
