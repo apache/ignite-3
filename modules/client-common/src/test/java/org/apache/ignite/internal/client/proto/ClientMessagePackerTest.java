@@ -19,8 +19,10 @@ package org.apache.ignite.internal.client.proto;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Arrays;
 import java.util.function.Consumer;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import org.junit.jupiter.api.Test;
 import org.msgpack.core.MessagePack;
@@ -48,7 +50,13 @@ public class ClientMessagePackerTest {
         try (var packer = new ClientMessagePacker(Unpooled.buffer())) {
             pack.accept(packer);
 
-            return packer.getBuffer().array();
+            ByteBuf buf = packer.getBuffer();
+
+            byte[] arr = buf.array();
+            var offset = buf.arrayOffset() + ClientMessageCommon.HEADER_SIZE;
+            var size = buf.writerIndex() - ClientMessageCommon.HEADER_SIZE;
+
+            return Arrays.copyOfRange(arr, offset, offset + size);
         }
     }
 
