@@ -129,6 +129,12 @@ public class ClientMessagePackerTest {
         testPacker(p -> p.packBinaryHeader(i), p -> p.packBinaryHeader(i));
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
+    public void testPackRawStringHeader(int i) {
+        testPacker(p -> p.packRawStringHeader(i), p -> p.packRawStringHeader(i));
+    }
+
     private static void testPacker(Consumer<ClientMessagePacker> pack1, MessagePackerConsumer pack2) {
         var bytesIgnite = packIgnite(pack1);
         var bytesLibrary = packLibrary(pack2);
