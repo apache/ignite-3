@@ -360,7 +360,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
             else
                 return marsh.marshal(tuple);
         } catch (TupleMarshallerException ex) {
-            throw new IgniteException(ex);
+            throw convertException(ex);
         }
     }
 

@@ -316,7 +316,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
             return marsh.marshal(key, val);
         }
         catch (TupleMarshallerException ex) {
-            throw new IgniteException(ex);
+            throw convertException(ex);
         }
     }
 
