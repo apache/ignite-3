@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import org.apache.ignite.app.IgniteCliRunner;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -36,6 +37,7 @@ public class IgniteCliRunnerTest {
 
     /** TODO: Replace this test by full integration test on the cli side IGNITE-15097. */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15729")
     public void runnerArgsSmokeTest() {
         assertNotNull(IgniteCliRunner.start(
             new String[] {
