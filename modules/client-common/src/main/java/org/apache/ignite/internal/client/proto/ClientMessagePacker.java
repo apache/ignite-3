@@ -635,17 +635,11 @@ public class ClientMessagePacker extends MessagePacker {
     public ClientMessagePacker packDate(LocalDate val) {
         assert !closed : "Packer is closed";
 
-        byte[] data = new byte[6];
+        packExtensionTypeHeader(ClientMsgPackType.DATE, 6);
 
-        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
-        ByteBuffer.wrap(data)
-            .putInt(val.getYear())
-            .put((byte)val.getMonthValue())
-            .put((byte)val.getDayOfMonth());
-
-        packExtensionTypeHeader(ClientMsgPackType.DATE, data.length);
-
-        addPayload(data);
+        buf.writeInt(val.getYear());
+        buf.writeByte(val.getMonthValue());
+        buf.writeByte(val.getDayOfMonth());
 
         return this;
     }
