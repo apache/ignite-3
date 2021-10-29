@@ -291,8 +291,34 @@ public class ClientMessagePacker extends MessagePacker {
     @Override public MessagePacker packString(String s) {
         assert !closed : "Packer is closed";
 
-        packRawStringHeader(ByteBufUtil.utf8Bytes(s));
-        ByteBufUtil.writeUtf8(buf, s);
+        // Header is a varint.
+        // Use pessimistic utf8MaxBytes to reserve bytes for the header.
+        int maxBytes = ByteBufUtil.utf8MaxBytes(s);
+        int headerSize = getStringHeaderSize(maxBytes);
+        int headerPos = buf.writerIndex();
+
+        buf.writerIndex(headerPos + headerSize);
+
+        int bytesWritten = ByteBufUtil.writeUtf8(buf, s);
+        int endPos = buf.writerIndex();
+
+        buf.writerIndex(headerPos);
+
+        if (headerSize == 1)
+            buf.writeByte((byte) (FIXSTR_PREFIX | bytesWritten));
+        else if (headerSize == 2) {
+            buf.writeByte(STR8);
+            buf.writeByte(bytesWritten);
+        } else if (headerSize == 3) {
+            buf.writeByte(STR16);
+            buf.writeShort(bytesWritten);
+        } else {
+            assert headerSize == 5 : "headerSize == 5";
+            buf.writeByte(STR32);
+            buf.writeInt(bytesWritten);
+        }
+
+        buf.writerIndex(endPos);
 
         return this;
     }
@@ -370,6 +396,21 @@ public class ClientMessagePacker extends MessagePacker {
         }
 
         return this;
+    }
+
+    private int getStringHeaderSize(int len) {
+        assert !closed : "Packer is closed";
+
+        if (len < (1 << 5))
+            return 1;
+
+        if (len < (1 << 8))
+            return 2;
+
+        if (len < (1 << 16))
+            return 3;
+
+        return 5;
     }
 
     /** {@inheritDoc} */
