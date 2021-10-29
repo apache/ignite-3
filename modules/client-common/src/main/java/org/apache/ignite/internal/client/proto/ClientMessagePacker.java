@@ -42,6 +42,9 @@ import org.msgpack.value.Value;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER_SIZE;
 import static org.msgpack.core.MessagePack.Code;
+import static org.msgpack.core.MessagePack.Code.BIN16;
+import static org.msgpack.core.MessagePack.Code.BIN32;
+import static org.msgpack.core.MessagePack.Code.BIN8;
 import static org.msgpack.core.MessagePack.Code.EXT16;
 import static org.msgpack.core.MessagePack.Code.EXT32;
 import static org.msgpack.core.MessagePack.Code.EXT8;
@@ -434,11 +437,20 @@ public class ClientMessagePacker extends MessagePacker {
     @Override public MessagePacker packBinaryHeader(int len) {
         assert !closed : "Packer is closed";
 
-        try {
-            return super.packBinaryHeader(len);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+        if (len < (1 << 8)) {
+            buf.writeByte(Code.BIN8);
+            buf.writeByte(len);
         }
+        else if (len < (1 << 16)) {
+            buf.writeByte(Code.BIN16);
+            buf.writeShort(len);
+        }
+        else {
+            buf.writeByte(Code.BIN32);
+            buf.writeInt(len);
+        }
+
+        return this;
     }
 
     /** {@inheritDoc} */
