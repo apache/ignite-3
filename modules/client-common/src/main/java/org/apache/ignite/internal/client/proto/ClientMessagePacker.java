@@ -682,8 +682,6 @@ public class ClientMessagePacker extends MessagePacker {
         buf.writeByte(val.getSecond());
         buf.writeInt(val.getNano());
 
-        addPayload(data);
-
         return this;
     }
 
@@ -697,16 +695,10 @@ public class ClientMessagePacker extends MessagePacker {
     public ClientMessagePacker packTimestamp(Instant val) {
         assert !closed : "Packer is closed";
 
-        byte[] data = new byte[12];
+        packExtensionTypeHeader(ClientMsgPackType.TIMESTAMP, 12);
 
-        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
-        ByteBuffer.wrap(data)
-            .putLong(val.getEpochSecond())
-            .putInt(val.getNano());
-
-        packExtensionTypeHeader(ClientMsgPackType.TIMESTAMP, data.length);
-
-        addPayload(data);
+        buf.writeLong(val.getEpochSecond());
+        buf.writeInt(val.getNano());
 
         return this;
     }
