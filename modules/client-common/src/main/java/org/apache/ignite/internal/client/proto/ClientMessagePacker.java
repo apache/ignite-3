@@ -42,17 +42,6 @@ import org.msgpack.value.Value;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER_SIZE;
 import static org.msgpack.core.MessagePack.Code;
-import static org.msgpack.core.MessagePack.Code.BIN16;
-import static org.msgpack.core.MessagePack.Code.BIN32;
-import static org.msgpack.core.MessagePack.Code.BIN8;
-import static org.msgpack.core.MessagePack.Code.EXT16;
-import static org.msgpack.core.MessagePack.Code.EXT32;
-import static org.msgpack.core.MessagePack.Code.EXT8;
-import static org.msgpack.core.MessagePack.Code.FIXEXT1;
-import static org.msgpack.core.MessagePack.Code.FIXEXT16;
-import static org.msgpack.core.MessagePack.Code.FIXEXT2;
-import static org.msgpack.core.MessagePack.Code.FIXEXT4;
-import static org.msgpack.core.MessagePack.Code.FIXEXT8;
 
 /**
  * Ignite-specific MsgPack extension based on Netty ByteBuf.
@@ -64,7 +53,7 @@ public class ClientMessagePacker extends MessagePacker {
     private final ByteBuf buf;
 
     /** Closed flag. */
-    private boolean closed = false;
+    private boolean closed;
 
     /**
      * Constructor.
