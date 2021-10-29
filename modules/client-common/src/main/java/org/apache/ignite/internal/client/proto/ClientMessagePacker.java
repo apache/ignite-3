@@ -594,12 +594,11 @@ public class ClientMessagePacker extends MessagePacker {
     public ClientMessagePacker packBitSet(BitSet val) {
         assert !closed : "Packer is closed";
 
-        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
         byte[] data = val.toByteArray();
 
         packExtensionTypeHeader(ClientMsgPackType.BITMASK, data.length);
 
-        addPayload(data);
+        buf.writeBytes(data);
 
         return this;
     }
