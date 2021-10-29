@@ -32,6 +32,7 @@ import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessagePacker;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests Ignite ByteBuf-based packer against third-party library implementation to ensure identical results.
@@ -74,6 +75,13 @@ public class ClientMessagePackerTest {
     public void testPackBigInteger(long l) {
         var bi = BigInteger.valueOf(l);
         testPacker(p -> p.packBigInteger(bi), p -> p.packBigInteger(bi));
+    }
+
+    @Test
+    public void testPackBigIntegerThrowsOnTooLargeValues() {
+        var bi = BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.TEN);
+
+        assertThrows(IllegalArgumentException.class, () -> packIgnite(p -> p.packBigInteger(bi)));
     }
 
     private static void testPacker(Consumer<ClientMessagePacker> pack1, MessagePackerConsumer pack2) {
