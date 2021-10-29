@@ -41,8 +41,6 @@ import org.msgpack.value.Value;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER_SIZE;
 import static org.msgpack.core.MessagePack.Code;
-import static org.msgpack.core.MessagePack.Code.INT8;
-import static org.msgpack.core.MessagePack.Code.NIL;
 
 /**
  * Ignite-specific MsgPack extension based on Netty ByteBuf.
@@ -113,7 +111,7 @@ public class ClientMessagePacker extends MessagePacker {
         assert !closed : "Packer is closed";
 
         if (b < -(1 << 5))
-            buf.writeByte(INT8);
+            buf.writeByte(Code.INT8);
 
         buf.writeByte(b);
 
@@ -124,11 +122,31 @@ public class ClientMessagePacker extends MessagePacker {
     @Override public MessagePacker packShort(short v) {
         assert !closed : "Packer is closed";
 
-        try {
-            return super.packShort(v);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+        if (v < -(1 << 5)) {
+            if (v < -(1 << 7)) {
+                buf.writeByte(Code.INT16);
+                buf.writeShort(v);
+            }
+            else {
+                buf.writeByte(Code.INT8);
+                buf.writeByte(v);
+            }
         }
+        else if (v < (1 << 7)) {
+            buf.writeByte(v);
+        }
+        else {
+            if (v < (1 << 8)) {
+                buf.writeByte(Code.UINT8);
+                buf.writeByte(v);
+            }
+            else {
+                buf.writeByte(Code.UINT16);
+                buf.writeShort(v);
+            }
+        }
+
+        return this;
     }
 
     /** {@inheritDoc} */
