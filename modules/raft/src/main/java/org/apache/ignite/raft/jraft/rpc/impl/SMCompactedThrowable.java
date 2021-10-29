@@ -16,10 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import java.io.Serializable;
+
 /**
  * Compacted version of throwable from client's state machine logic.
  */
-public class SMCompactedThrowable implements SMThrowable {
+public class SMCompactedThrowable implements SMThrowable, Serializable {
     /** Throwable class name. */
     private final String clsName;
 

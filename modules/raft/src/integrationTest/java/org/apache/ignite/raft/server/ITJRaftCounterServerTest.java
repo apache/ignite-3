@@ -45,6 +45,7 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -532,9 +533,9 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         }
     }
 
-    /** Tests if a raft group become unavailable in case of a critical error */
+    /** Tests that users related exceptions from SM are propagated to the client. */
     @Test
-    public void testApply() throws Exception {
+    public void testClientCatchExceptionFromSM() throws Exception {
         listenerFactory = () -> new CounterListener() {
             @Override public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
                 Iterator<CommandClosure<WriteCommand>> wrapper = new Iterator<>() {
@@ -553,6 +554,24 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
                 super.onWrite(wrapper);
             }
+
+            @Override public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
+                Iterator<CommandClosure<ReadCommand>> wrapper = new Iterator<>() {
+                    @Override public boolean hasNext() {
+                        return iterator.hasNext();
+                    }
+
+                    @Override public CommandClosure<ReadCommand> next() {
+                        CommandClosure<ReadCommand> cmd = iterator.next();
+
+                        cmd.failure(new RuntimeException("Another expected message"), true);
+
+                        return cmd;
+                    }
+                };
+
+                super.onRead(wrapper);
+            }
         };
 
         startCluster();
@@ -569,7 +588,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         assertNotNull(leader);
 
         try {
-            client1.<Long>run(new IncrementAndGetCommand(10)).get();
+            client1.<Long>run(new IncrementAndGetCommand(0)).get();
 
             fail();
         }
@@ -580,6 +599,20 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
             assertTrue(cause instanceof RuntimeException);
 
             assertEquals(cause.getMessage(), "Expected message");
+        }
+
+        try {
+            client1.<Long>run(new GetValueCommand()).get();
+
+            fail();
+        }
+        catch (Exception e) {
+            // Expected.
+            Throwable cause = e.getCause();
+
+            assertTrue(cause instanceof RuntimeException);
+
+            assertEquals(cause.getMessage(), "Another expected message");
         }
     }
 
