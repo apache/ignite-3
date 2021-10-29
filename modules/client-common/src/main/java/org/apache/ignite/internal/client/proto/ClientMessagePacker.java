@@ -42,9 +42,6 @@ import org.msgpack.value.Value;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER_SIZE;
 import static org.msgpack.core.MessagePack.Code;
-import static org.msgpack.core.MessagePack.Code.FIXMAP_PREFIX;
-import static org.msgpack.core.MessagePack.Code.MAP16;
-import static org.msgpack.core.MessagePack.Code.MAP32;
 
 /**
  * Ignite-specific MsgPack extension based on Netty ByteBuf.
@@ -370,13 +367,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packValue(Value v) {
-        assert !closed : "Packer is closed";
-
-        try {
-            return super.packValue(v);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        throw new UnsupportedOperationException("TODO: Remove");
     }
 
     /** {@inheritDoc} */
