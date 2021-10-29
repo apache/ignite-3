@@ -60,6 +60,13 @@ public class ClientMessagePackerTest {
         testPacker(p -> p.packInt(i), p -> p.packInt(i));
     }
 
+    @ParameterizedTest
+    @ValueSource(longs = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
+            Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE})
+    public void testPackLong(long l) {
+        testPacker(p -> p.packLong(l), p -> p.packLong(l));
+    }
+
     private static void testPacker(Consumer<ClientMessagePacker> pack1, MessagePackerConsumer pack2) {
         var bytesIgnite = packIgnite(pack1);
         var bytesLibrary = packLibrary(pack2);
