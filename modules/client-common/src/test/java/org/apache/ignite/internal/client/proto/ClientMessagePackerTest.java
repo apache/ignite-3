@@ -17,8 +17,52 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.function.Consumer;
+
+import io.netty.buffer.Unpooled;
+import org.junit.jupiter.api.Test;
+import org.msgpack.core.MessagePack;
+import org.msgpack.core.MessagePacker;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+
 /**
  * Tests Ignite ByteBuf-based packer against third-party library implementation to ensure identical results.
  */
 public class ClientMessagePackerTest {
+    @Test
+    public void testPackNil() {
+        testPacker(p -> p.packNil(), p -> p.packNil());
+    }
+
+    private static void testPacker(Consumer<ClientMessagePacker> pack1, MessagePackerConsumer pack2) {
+        var bytesIgnite = packIgnite(pack1);
+        var bytesLibrary = packLibrary(pack2);
+
+        assertArrayEquals(bytesLibrary, bytesIgnite);
+    }
+
+    private static byte[] packIgnite(Consumer<ClientMessagePacker> pack) {
+        try (var packer = new ClientMessagePacker(Unpooled.buffer())) {
+            pack.accept(packer);
+
+            return packer.getBuffer().array();
+        }
+    }
+
+    private static byte[] packLibrary(MessagePackerConsumer pack) {
+        try (var packer = MessagePack.newDefaultBufferPacker()) {
+            pack.accept(packer);
+
+            return packer.toByteArray();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private interface MessagePackerConsumer {
+        void accept(MessagePacker p) throws IOException;
+    }
 }
