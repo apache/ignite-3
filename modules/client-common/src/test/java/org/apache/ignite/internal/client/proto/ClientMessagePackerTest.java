@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.proto;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.function.Consumer;
 
@@ -65,6 +66,14 @@ public class ClientMessagePackerTest {
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE})
     public void testPackLong(long l) {
         testPacker(p -> p.packLong(l), p -> p.packLong(l));
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
+            Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE})
+    public void testPackBigInteger(long l) {
+        var bi = BigInteger.valueOf(l);
+        testPacker(p -> p.packBigInteger(bi), p -> p.packBigInteger(bi));
     }
 
     private static void testPacker(Consumer<ClientMessagePacker> pack1, MessagePackerConsumer pack2) {
