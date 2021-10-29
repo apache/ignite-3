@@ -564,7 +564,6 @@ public class ConfigurationAsmGenerator {
             changePolymorphicTypeIdMtd = addNodeChangePolymorphicTypeIdMethod(
                 classDef,
                 fieldDefs,
-                specFields,
                 polymorphicExtensions,
                 polymorphicFields,
                 polymorphicTypeIdFieldDef
@@ -2035,10 +2034,10 @@ public class ConfigurationAsmGenerator {
             configClassInterfaces(polymorphicExtension, Set.of())
         );
 
-        // private final ParentCfgImpl parent#cfgImpl;
+        // private final ParentCfgImpl this$0;
         FieldDefinition parentCfgImplFieldDef = classDef.declareField(
             of(PRIVATE, FINAL),
-            "parent#cfgImpl",
+            "this$0",
             typeFromJavaClassName(schemaClassInfo.cfgImplClassName)
         );
 
@@ -2052,7 +2051,7 @@ public class ConfigurationAsmGenerator {
 
         // Constructor body.
         // super(parent);
-        // this.parent#cfgImpl = parent;
+        // this.this$0 = parent;
         constructorMtd.getBody()
             .append(constructorMtd.getThis())
             .append(delegateVar)
@@ -2174,7 +2173,6 @@ public class ConfigurationAsmGenerator {
      *
      * @param classDef                  Definition of a polymorphic configuration class (parent).
      * @param fieldDefs                 Definitions for all fields in {@code classDef}.
-     * @param specFields                Field definitions for the schema and its extensions: {@code _spec#}.
      * @param polymorphicExtensions     Polymorphic configuration instance schemas (children).
      * @param polymorphicFields         Fields of polymorphic extensions.
      * @param polymorphicTypeIdFieldDef Identification field for the polymorphic configuration instance.
@@ -2183,7 +2181,6 @@ public class ConfigurationAsmGenerator {
     private MethodDefinition addNodeChangePolymorphicTypeIdMethod(
         ClassDefinition classDef,
         Map<String, FieldDefinition> fieldDefs,
-        Map<Class<?>, FieldDefinition> specFields,
         Set<Class<?>> polymorphicExtensions,
         Collection<Field> polymorphicFields,
         FieldDefinition polymorphicTypeIdFieldDef
