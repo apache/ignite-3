@@ -25,6 +25,8 @@ import java.util.function.Consumer;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessagePacker;
 
@@ -36,7 +38,13 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 public class ClientMessagePackerTest {
     @Test
     public void testPackNil() {
-        testPacker(p -> p.packNil(), p -> p.packNil());
+        testPacker(ClientMessagePacker::packNil, MessagePacker::packNil);
+    }
+
+    @ParameterizedTest
+    @ValueSource(bytes = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE})
+    public void testPackByte(byte b) {
+        testPacker(p -> p.packByte(b), p -> p.packByte(b));
     }
 
     private static void testPacker(Consumer<ClientMessagePacker> pack1, MessagePackerConsumer pack2) {
