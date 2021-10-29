@@ -41,6 +41,14 @@ import org.msgpack.value.Value;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER_SIZE;
 import static org.msgpack.core.MessagePack.Code;
+import static org.msgpack.core.MessagePack.Code.INT16;
+import static org.msgpack.core.MessagePack.Code.INT32;
+import static org.msgpack.core.MessagePack.Code.INT64;
+import static org.msgpack.core.MessagePack.Code.INT8;
+import static org.msgpack.core.MessagePack.Code.UINT16;
+import static org.msgpack.core.MessagePack.Code.UINT32;
+import static org.msgpack.core.MessagePack.Code.UINT64;
+import static org.msgpack.core.MessagePack.Code.UINT8;
 
 /**
  * Ignite-specific MsgPack extension based on Netty ByteBuf.
@@ -192,11 +200,55 @@ public class ClientMessagePacker extends MessagePacker {
     @Override public MessagePacker packLong(long v) {
         assert !closed : "Packer is closed";
 
-        try {
-            return super.packLong(v);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+        if (v < -(1L << 5)) {
+            if (v < -(1L << 15)) {
+                if (v < -(1L << 31)) {
+                    buf.writeByte(Code.INT64);
+                    buf.writeLong(v);
+                }
+                else {
+                    buf.writeByte(Code.INT32);
+                    buf.writeInt((int) v);
+                }
+            }
+            else {
+                if (v < -(1 << 7)) {
+                    buf.writeByte(Code.INT16);
+                    buf.writeShort((short) v);
+                } else {
+                    buf.writeByte(Code.INT8);
+                    buf.writeByte((byte) v);
+                }
+            }
         }
+        else if (v < (1 << 7)) {
+            // fixnum
+            buf.writeByte((byte)v);
+        }
+        else {
+            if (v < (1L << 16)) {
+                if (v < (1 << 8)) {
+                    buf.writeByte(Code.UINT8);
+                    buf.writeByte((byte) v);
+                }
+                else {
+                    buf.writeByte(Code.UINT16);
+                    buf.writeShort((short) v);
+                }
+            }
+            else {
+                if (v < (1L << 32)) {
+                    buf.writeByte(Code.UINT32);
+                    buf.writeInt((int) v);
+                }
+                else {
+                    buf.writeByte(Code.UINT64);
+                    buf.writeLong(v);
+                }
+            }
+        }
+
+        return this;
     }
 
     /** {@inheritDoc} */
