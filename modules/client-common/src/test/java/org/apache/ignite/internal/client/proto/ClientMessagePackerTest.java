@@ -140,6 +140,7 @@ public class ClientMessagePackerTest {
         var b = new byte[] {1, 5, 120};
 
         testPacker(p -> p.writePayload(b), p -> p.writePayload(b));
+        testPacker(p -> p.writePayload(b, 1, 1), p -> p.writePayload(b, 1, 1));
     }
 
     private static void testPacker(Consumer<ClientMessagePacker> pack1, MessagePackerConsumer pack2) {
