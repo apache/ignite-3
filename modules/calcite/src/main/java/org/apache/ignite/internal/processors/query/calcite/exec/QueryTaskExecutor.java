@@ -23,7 +23,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  *
  */
-public interface QueryTaskExecutor {
+public interface QueryTaskExecutor extends LifecycleAware {
     /**
      * Executes a query task in a thread, responsible for particular query fragment.
      *

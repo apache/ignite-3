@@ -32,9 +32,10 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.DataRow;
-import org.apache.ignite.internal.storage.Storage;
-import org.apache.ignite.internal.storage.basic.ConcurrentHashMapStorage;
+import org.apache.ignite.internal.storage.PartitionStorage;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
+import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.lang.IgniteUuid;
@@ -43,65 +44,57 @@ import org.apache.ignite.raft.client.service.ITAbstractListenerSnapshotTest;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 
+import static org.mockito.Mockito.mock;
+
 /**
  * Persistent partitions raft group snapshots tests.
  */
 public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<PartitionListener> {
-    /**
-     *
-     */
+    /** */
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
-            1,
-            new Column[]{new Column("key", NativeTypes.INT64, false)},
-            new Column[]{new Column("value", NativeTypes.INT64, false)}
+        1,
+        new Column[] {new Column("key", NativeTypes.INT64, false)},
+        new Column[] {new Column("value", NativeTypes.INT64, false)}
     );
 
-    /**
-     *
-     */
+    /** */
     private static final Row FIRST_KEY = createKeyRow(0);
 
-    /**
-     *
-     */
+    /** */
     private static final Row FIRST_VALUE = createKeyValueRow(0, 0);
 
-    /**
-     *
-     */
+    /** */
     private static final Row SECOND_KEY = createKeyRow(1);
 
-    /**
-     *
-     */
+    /** */
     private static final Row SECOND_VALUE = createKeyValueRow(1, 1);
 
     /** Paths for created partition listeners. */
     private final Map<PartitionListener, Path> paths = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
-    @Override
-    public void beforeFollowerStop(RaftGroupService service) throws Exception {
+    @Override public void beforeFollowerStop(RaftGroupService service) throws Exception {
         var table = new InternalTableImpl(
-                "table",
-                new IgniteUuid(UUID.randomUUID(), 0),
-                Map.of(0, service),
-                1,
-                NetworkAddress::toString
+            "table",
+            new IgniteUuid(UUID.randomUUID(), 0),
+            Map.of(0, service),
+            1,
+            NetworkAddress::toString,
+            mock(TableStorage.class)
         );
 
         table.upsert(FIRST_VALUE, null).get();
     }
 
     /** {@inheritDoc} */
-    @Override
-    public void afterFollowerStop(RaftGroupService service) throws Exception {
+    @Override public void afterFollowerStop(RaftGroupService service) throws Exception {
         var table = new InternalTableImpl(
-                "table",
-                new IgniteUuid(UUID.randomUUID(), 0),
-                Map.of(0, service),
-                1,
-                NetworkAddress::toString
+            "table",
+            new IgniteUuid(UUID.randomUUID(), 0),
+            Map.of(0, service),
+            1,
+            NetworkAddress::toString,
+            mock(TableStorage.class)
         );
 
         // Remove the first key
@@ -112,23 +105,22 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
     }
 
     /** {@inheritDoc} */
-    @Override
-    public void afterSnapshot(RaftGroupService service) throws Exception {
+    @Override public void afterSnapshot(RaftGroupService service) throws Exception {
         var table = new InternalTableImpl(
-                "table",
-                new IgniteUuid(UUID.randomUUID(), 0),
-                Map.of(0, service),
-                1,
-                NetworkAddress::toString
+            "table",
+            new IgniteUuid(UUID.randomUUID(), 0),
+            Map.of(0, service),
+            1,
+            NetworkAddress::toString,
+            mock(TableStorage.class)
         );
 
         table.upsert(SECOND_VALUE, null).get();
     }
 
     /** {@inheritDoc} */
-    @Override
-    public BooleanSupplier snapshotCheckClosure(JRaftServerImpl restarted, boolean interactedAfterSnapshot) {
-        Storage storage = getListener(restarted, raftGroupId()).getStorage();
+    @Override public BooleanSupplier snapshotCheckClosure(JRaftServerImpl restarted, boolean interactedAfterSnapshot) {
+        PartitionStorage storage = getListener(restarted, raftGroupId()).getStorage();
 
         Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;
         Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
@@ -147,30 +139,27 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
     }
 
     /** {@inheritDoc} */
-    @Override
-    public Path getListenerPersistencePath(PartitionListener listener) {
+    @Override public Path getListenerPersistencePath(PartitionListener listener) {
         return paths.get(listener);
     }
 
     /** {@inheritDoc} */
-    @Override
-    public RaftGroupListener createListener(Path workDir) {
+    @Override public RaftGroupListener createListener(Path workDir) {
         return paths.entrySet().stream()
-                .filter(entry -> entry.getValue().equals(workDir))
-                .map(Map.Entry::getKey)
-                .findAny()
-                .orElseGet(() -> {
-                    PartitionListener listener = new PartitionListener(new ConcurrentHashMapStorage());
+            .filter(entry -> entry.getValue().equals(workDir))
+            .map(Map.Entry::getKey)
+            .findAny()
+            .orElseGet(() -> {
+                PartitionListener listener = new PartitionListener(new ConcurrentHashMapPartitionStorage());
 
-                    paths.put(listener, workDir);
+                paths.put(listener, workDir);
 
-                    return listener;
-                });
+                return listener;
+            });
     }
 
     /** {@inheritDoc} */
-    @Override
-    public String raftGroupId() {
+    @Override public String raftGroupId() {
         return "partitions";
     }
 
@@ -191,7 +180,7 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
     /**
      * Creates a {@link Row} with the supplied key and value.
      *
-     * @param id    Key.
+     * @param id Key.
      * @param value Value.
      * @return Row.
      */

@@ -30,7 +30,14 @@ import org.jetbrains.annotations.Nullable;
  * Interface providing methods to read, remove and update keys in storage. Any locking is unnecessary as this storage is used within RAFT
  * groups where all write operations are serialized.
  */
-public interface Storage extends AutoCloseable {
+public interface PartitionStorage extends AutoCloseable {
+    /**
+     * Returns the partition id.
+     *
+     * @return Partition id.
+     */
+    public int partitionId();
+
     /**
      * Reads a DataRow for a given key.
      *

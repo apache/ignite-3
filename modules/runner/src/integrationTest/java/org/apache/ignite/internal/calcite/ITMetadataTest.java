@@ -18,52 +18,51 @@
 
 package org.apache.ignite.internal.calcite;
 
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.Stream.generate;
-
+import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.TableDefinition;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-/**
- *
- */
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Stream.generate;
+
+/** */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ITMetadataTest extends AbstractBasicIntegrationTest {
-    /** {@inheritDoc} */
-    @Override
-    protected void initTestData() {
+    /** */
+    @BeforeAll
+    static void initTestData() {
         createAndPopulateTable();
     }
 
-    /**
-     *
-     */
+    /** */
     @Test
     public void trimColumnNames() {
-        String x300 = generate(() -> "X").limit(300).collect(joining());
-        String x256 = "'" + x300.substring(0, 255);
+        String X300 = generate(() -> "X").limit(300).collect(joining());
+        String X256 = "'" + X300.substring(0, 255);
 
-        assertQuery("select '" + x300 + "' from person").columnNames(x256).check();
+        assertQuery("select '" + X300 + "' from person").columnNames(X256).check();
     }
 
-    /**
-     *
-     */
+    /** */
     @Test
     public void columnNames() {
         assertQuery("select (select count(*) from person), (select avg(salary) from person) from person")
-                .columnNames("EXPR$0", "EXPR$1").check();
+            .columnNames("EXPR$0", "EXPR$1").check();
         assertQuery("select (select count(*) from person) as subquery from person")
-                .columnNames("SUBQUERY").check();
+            .columnNames("SUBQUERY").check();
 
         assertQuery("select salary*2, salary/2, salary+2, salary-2, mod(salary, 2)  from person")
-                .columnNames("SALARY * 2", "SALARY / 2", "SALARY + 2", "SALARY - 2", "MOD(SALARY, 2)").check();
+            .columnNames("SALARY * 2", "SALARY / 2", "SALARY + 2", "SALARY - 2", "MOD(SALARY, 2)").check();
         assertQuery("select salary*2 as first, salary/2 as secOND from person").columnNames("FIRST", "SECOND").check();
 
         assertQuery("select trim(name) tr_name from person").columnNames("TR_NAME").check();
         assertQuery("select trim(name) from person").columnNames("TRIM(BOTH ' ' FROM NAME)").check();
         assertQuery("select row(1), ceil(salary), floor(salary), position('text' IN salary) from person")
-                .columnNames("ROW(1)", "CEIL(SALARY)", "FLOOR(SALARY)", "POSITION('text' IN SALARY)").check();
+            .columnNames("ROW(1)", "CEIL(SALARY)", "FLOOR(SALARY)", "POSITION('text' IN SALARY)").check();
 
         assertQuery("select count(*) from person").columnNames("COUNT(*)").check();
         assertQuery("select count(name) from person").columnNames("COUNT(NAME)").check();
@@ -77,14 +76,33 @@ public class ITMetadataTest extends AbstractBasicIntegrationTest {
         assertQuery("select 1, -1, 'some string' from person").columnNames("1", "-1", "'some string'").check();
     }
 
-    /**
-     *
-     */
+    /** */
     @Test
     public void infixTypeCast() {
         assertQuery("select id, id::tinyint as tid, id::smallint as sid, id::varchar as vid from person")
-                .columnNames("ID", "TID", "SID", "VID")
-                .columnTypes(Integer.class, Byte.class, Short.class, String.class)
-                .check();
+            .columnNames("ID", "TID", "SID", "VID")
+            .columnTypes(Integer.class, Byte.class, Short.class, String.class)
+            .check();
+    }
+
+    /** */
+    @Test
+    public void columnOrder() {
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "COLUMN_ORDER").columns(
+            SchemaBuilders.column("DOUBLE_C", ColumnType.DOUBLE).asNullable().build(),
+            SchemaBuilders.column("LONG_C", ColumnType.INT64).asNonNull().build(),
+            SchemaBuilders.column("STRING_C", ColumnType.string()).asNullable().build(),
+            SchemaBuilders.column("INT_C", ColumnType.INT32).asNullable().build()
+        ).withPrimaryKey("LONG_C").build();
+
+        CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
+            SchemaConfigurationConverter.convert(schTbl1, tblCh)
+                .changeReplicas(1)
+                .changePartitions(10)
+        );
+
+        assertQuery("select * from column_order")
+            .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C")
+            .check();
     }
 }

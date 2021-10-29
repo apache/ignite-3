@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel.set;
 
-import com.google.common.collect.ImmutableList;
 import java.util.List;
+
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitSet;
@@ -40,21 +40,19 @@ public interface IgniteSetOp extends TraitsAwareIgniteRel {
     public boolean all();
 
     /** {@inheritDoc} */
-    @Override
-    public default Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(RelTraitSet nodeTraits,
-            List<RelTraitSet> inputTraits) {
+    @Override public default Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(RelTraitSet nodeTraits,
+        List<RelTraitSet> inputTraits) {
         // Operation erases collation.
         return Pair.of(nodeTraits.replace(RelCollations.EMPTY),
-                Commons.transform(inputTraits, t -> t.replace(RelCollations.EMPTY)));
+            Commons.transform(inputTraits, t -> t.replace(RelCollations.EMPTY)));
     }
 
     /** {@inheritDoc} */
-    @Override
-    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCollation(RelTraitSet nodeTraits,
-            List<RelTraitSet> inputTraits) {
+    @Override public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCollation(RelTraitSet nodeTraits,
+        List<RelTraitSet> inputTraits) {
         // Operation erases collation.
-        return ImmutableList.of(Pair.of(nodeTraits.replace(RelCollations.EMPTY),
-                Commons.transform(inputTraits, t -> t.replace(RelCollations.EMPTY))));
+        return List.of(Pair.of(nodeTraits.replace(RelCollations.EMPTY),
+            Commons.transform(inputTraits, t -> t.replace(RelCollations.EMPTY))));
     }
 
     /** Gets count of fields for aggregation for this node. Required for memory consumption calculation. */
@@ -62,13 +60,12 @@ public interface IgniteSetOp extends TraitsAwareIgniteRel {
 
     /** Compute cost for set op. */
     public default RelOptCost computeSetOpCost(RelOptPlanner planner, RelMetadataQuery mq) {
-        IgniteCostFactory costFactory = (IgniteCostFactory) planner.getCostFactory();
+        IgniteCostFactory costFactory = (IgniteCostFactory)planner.getCostFactory();
 
         double inputRows = 0;
 
-        for (RelNode input : getInputs()) {
+        for (RelNode input : getInputs())
             inputRows += mq.getRowCount(input);
-        }
 
         double mem = 0.5 * inputRows * aggregateFieldsCount() * IgniteCost.AVERAGE_FIELD_SIZE;
 

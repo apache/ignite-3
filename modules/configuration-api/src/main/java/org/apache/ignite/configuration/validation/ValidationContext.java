@@ -54,10 +54,9 @@ public interface ValidationContext<VIEW> {
      * Returns previous value of the configuration root.
      *
      * @param rootKey Root key.
-     * @param <ROOT>  Root view type derived from the root key.
-     * @return Configuration root view before updates. Guaranteed to return valid value only if root belongs to the same storage as
-     *      currently validated value. Otherwise result of the method may very between invocations or even be {@code null} if corresponding
-     *      storage is not initialized.
+     * @return Configuration root view before updates.
+     *
+     * @param <ROOT> Root view type derived from the root key.
      */
     @Nullable <ROOT> ROOT getOldRoot(RootKey<?, ROOT> rootKey);
 
@@ -65,10 +64,9 @@ public interface ValidationContext<VIEW> {
      * Returns updated value of the configuration root.
      *
      * @param rootKey Root key.
-     * @param <ROOT>  Root view type derived from the root key.
-     * @return Configuration root view after updates. Guaranteed to return valid value only if root belongs to the same storage as
-     *      currently validated value. Otherwise, result of the method may very between invocations or even be {@code null} if
-     *      corresponding storage is not initialized.
+     * @return Configuration root view after updates.
+     *
+     * @param <ROOT> Root view type derived from the root key.
      */
     @Nullable <ROOT> ROOT getNewRoot(RootKey<?, ROOT> rootKey);
 

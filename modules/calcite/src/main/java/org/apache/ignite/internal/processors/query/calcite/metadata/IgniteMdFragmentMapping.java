@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.processors.query.calcite.metadata;
 
-import com.google.common.collect.ImmutableList;
+import java.util.List;
+
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.volcano.RelSubset;
 import org.apache.calcite.rel.BiRel;
@@ -52,12 +53,11 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
      * Metadata provider, responsible for nodes mapping request. It uses this implementation class under the hood.
      */
     public static final RelMetadataProvider SOURCE =
-            ReflectiveRelMetadataProvider.reflectiveSource(
-                    IgniteMethod.FRAGMENT_MAPPING.method(), new IgniteMdFragmentMapping());
+        ReflectiveRelMetadataProvider.reflectiveSource(
+            IgniteMethod.FRAGMENT_MAPPING.method(), new IgniteMdFragmentMapping());
 
     /** {@inheritDoc} */
-    @Override
-    public MetadataDef<FragmentMappingMetadata> getDef() {
+    @Override public MetadataDef<FragmentMappingMetadata> getDef() {
         return FragmentMappingMetadata.DEF;
     }
 
@@ -65,7 +65,7 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
      * Requests meta information about nodes capable to execute a query over particular partitions.
      *
      * @param rel Relational node.
-     * @param mq  Metadata query instance. Used to request appropriate metadata from node children.
+     * @param mq Metadata query instance. Used to request appropriate metadata from node children.
      * @return Nodes mapping, representing a list of nodes capable to execute a query over particular partitions.
      */
     public FragmentMapping fragmentMapping(RelNode rel, RelMetadataQuery mq) {
@@ -89,58 +89,61 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
     /**
      * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}
      *
-     * <p>{@link ColocationMappingException} may be thrown on two children nodes locations merge. This means that the fragment (which part
-     * the parent node is) cannot be executed on any node and additional exchange is needed. This case we throw
-     * {@link NodeMappingException} with an edge, where we need the additional exchange. After the exchange is put into the fragment and
-     * the fragment is split into two ones, fragment meta information will be recalculated for all fragments.
+     * {@link ColocationMappingException} may be thrown on two children nodes locations merge. This means
+     * that the fragment (which part the parent node is) cannot be executed on any node and additional exchange
+     * is needed. This case we throw {@link NodeMappingException} with an edge, where we need the additional
+     * exchange. After the exchange is put into the fragment and the fragment is split into two ones, fragment meta
+     * information will be recalculated for all fragments.
      */
     public FragmentMapping fragmentMapping(BiRel rel, RelMetadataQuery mq) {
         RelNode left = rel.getLeft();
         RelNode right = rel.getRight();
 
-        FragmentMapping fragLeft = _fragmentMapping(left, mq);
-        FragmentMapping fragRight = _fragmentMapping(right, mq);
+        FragmentMapping fLeft = _fragmentMapping(left, mq);
+        FragmentMapping fRight = _fragmentMapping(right, mq);
 
         try {
-            return fragLeft.colocate(fragRight);
-        } catch (ColocationMappingException e) {
-            IgniteExchange leftExch = new IgniteExchange(rel.getCluster(), left.getTraitSet(), left, TraitUtils.distribution(left));
-            IgniteExchange rightExch = new IgniteExchange(rel.getCluster(), right.getTraitSet(), right, TraitUtils.distribution(right));
+            return fLeft.colocate(fRight);
+        }
+        catch (ColocationMappingException e) {
+            IgniteExchange lExch = new IgniteExchange(rel.getCluster(), left.getTraitSet(), left, TraitUtils.distribution(left));
+            IgniteExchange rExch = new IgniteExchange(rel.getCluster(), right.getTraitSet(), right, TraitUtils.distribution(right));
 
-            RelNode leftVar = rel.copy(rel.getTraitSet(), ImmutableList.of(leftExch, right));
-            RelNode rightVar = rel.copy(rel.getTraitSet(), ImmutableList.of(left, rightExch));
+            RelNode lVar = rel.copy(rel.getTraitSet(), List.of(lExch, right));
+            RelNode rVar = rel.copy(rel.getTraitSet(), List.of(left, rExch));
 
-            RelOptCost leftVarCost = mq.getCumulativeCost(leftVar);
-            RelOptCost rightVarCost = mq.getCumulativeCost(rightVar);
+            RelOptCost lVarCost = mq.getCumulativeCost(lVar);
+            RelOptCost rVarCost = mq.getCumulativeCost(rVar);
 
-            if (leftVarCost.isLt(rightVarCost)) {
+            if (lVarCost.isLt(rVarCost))
                 throw new NodeMappingException("Failed to calculate physical distribution", left, e);
-            } else {
+            else
                 throw new NodeMappingException("Failed to calculate physical distribution", right, e);
-            }
         }
     }
 
     /**
      * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}
      *
-     * <p>{@link ColocationMappingException} may be thrown on two children nodes locations merge. This means that the fragment (which part
-     * the parent node is) cannot be executed on any node and additional exchange is needed. This case we throw
-     * {@link NodeMappingException} with an edge, where we need the additional exchange. After the exchange is put into the fragment and
-     * the fragment is split into two ones, fragment meta information will be recalculated for all fragments.
+     * {@link ColocationMappingException} may be thrown on two children nodes locations merge. This means
+     * that the fragment (which part the parent node is) cannot be executed on any node and additional exchange
+     * is needed. This case we throw {@link NodeMappingException} with an edge, where we need the additional
+     * exchange. After the exchange is put into the fragment and the fragment is split into two ones, fragment meta
+     * information will be recalculated for all fragments.
      */
     public FragmentMapping fragmentMapping(SetOp rel, RelMetadataQuery mq) {
         FragmentMapping res = null;
 
         if (TraitUtils.distribution(rel) == IgniteDistributions.random()) {
-            for (RelNode input : rel.getInputs()) {
+            for (RelNode input : rel.getInputs())
                 res = res == null ? _fragmentMapping(input, mq) : res.combine(_fragmentMapping(input, mq));
-            }
-        } else {
+        }
+        else {
             for (RelNode input : rel.getInputs()) {
                 try {
                     res = res == null ? _fragmentMapping(input, mq) : res.colocate(_fragmentMapping(input, mq));
-                } catch (ColocationMappingException e) {
+                }
+                catch (ColocationMappingException e) {
                     throw new NodeMappingException("Failed to calculate physical distribution", input, e);
                 }
             }
@@ -152,7 +155,7 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
     /**
      * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}
      *
-     * <p>Prunes involved partitions (hence nodes, involved in query execution) if possible.
+     * Prunes involved partitions (hence nodes, involved in query execution) if possible.
      */
     public FragmentMapping fragmentMapping(IgniteFilter rel, RelMetadataQuery mq) {
         return _fragmentMapping(rel.getInput(), mq).prune(rel);
@@ -161,13 +164,14 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
     /**
      * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}
      *
-     * <p>Prunes involved partitions (hence nodes, involved in query execution) if possible.
+     * Prunes involved partitions (hence nodes, involved in query execution) if possible.
      */
     public FragmentMapping fragmentMapping(IgniteTrimExchange rel, RelMetadataQuery mq) {
         try {
             return FragmentMapping.create(rel.sourceId())
-                    .colocate(_fragmentMapping(rel.getInput(), mq));
-        } catch (ColocationMappingException e) {
+                .colocate(_fragmentMapping(rel.getInput(), mq));
+        }
+        catch (ColocationMappingException e) {
             throw new AssertionError(e);
         }
     }
@@ -184,7 +188,7 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
      */
     public FragmentMapping fragmentMapping(IgniteIndexScan rel, RelMetadataQuery mq) {
         return FragmentMapping.create(rel.sourceId(),
-                rel.getTable().unwrap(IgniteTable.class).colocationGroup(Commons.context(rel)));
+            rel.getTable().unwrap(IgniteTable.class).colocationGroup(Commons.context(rel)));
     }
 
     /**
@@ -192,7 +196,7 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
      */
     public FragmentMapping fragmentMapping(IgniteTableScan rel, RelMetadataQuery mq) {
         return FragmentMapping.create(rel.sourceId(),
-                rel.getTable().unwrap(IgniteTable.class).colocationGroup(Commons.context(rel)));
+            rel.getTable().unwrap(IgniteTable.class).colocationGroup(Commons.context(rel)));
     }
 
     /**
@@ -211,9 +215,8 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
 
     /**
      * Fragment info calculation entry point.
-     *
      * @param rel Root node of a calculated fragment.
-     * @param mq  Metadata query instance.
+     * @param mq Metadata query instance.
      * @return Fragment meta information.
      */
     public static FragmentMapping _fragmentMapping(RelNode rel, RelMetadataQuery mq) {

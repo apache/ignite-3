@@ -17,29 +17,27 @@
 
 package org.apache.ignite.internal.calcite;
 
+import java.util.List;
+
+import org.apache.ignite.lang.IgniteException;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
-
-/**
- *
- */
+/** */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ITAggregatesTest extends AbstractBasicIntegrationTest {
-    /** {@inheritDoc} */
-    @Override
-    protected void initTestData() {
+    /** */
+    @BeforeAll
+    static void initTestData() {
         createAndPopulateTable();
     }
 
-    /**
-     *
-     */
+    /** */
     @Test
     public void countOfNonNumericField() {
         assertQuery("select count(name) from person").returns(4L).check();
@@ -63,83 +61,79 @@ public class ITAggregatesTest extends AbstractBasicIntegrationTest {
         assertQuery("select count(1) filter (where salary > 10) from person").returns(2L).check();
 
         assertQuery("select salary, count(name) from person group by salary order by salary")
-                .returns(10d, 3L)
-                .returns(15d, 1L)
-                .check();
+            .returns(10d, 3L)
+            .returns(15d, 1L)
+            .check();
 
         assertQuery("select salary, count(*) from person group by salary order by salary")
-                .returns(10d, 3L)
-                .returns(15d, 2L)
-                .check();
+            .returns(10d, 3L)
+            .returns(15d, 2L)
+            .check();
 
         assertQuery("select salary, count(1) from person group by salary order by salary")
-                .returns(10d, 3L)
-                .returns(15d, 2L)
-                .check();
+            .returns(10d, 3L)
+            .returns(15d, 2L)
+            .check();
 
         assertQuery("select salary, count(1), sum(1) from person group by salary order by salary")
-                .returns(10d, 3L, 3)
-                .returns(15d, 2L, 2)
-                .check();
+            .returns(10d, 3L, 3)
+            .returns(15d, 2L, 2)
+            .check();
 
         assertQuery("select salary, name, count(1), sum(salary) from person group by salary, name order by salary")
-                .returns(10d, "Igor", 1L, 10d)
-                .returns(10d, "Roma", 2L, 20d)
-                .returns(15d, "Ilya", 1L, 15d)
-                .returns(15d, null, 1L, 15d)
-                .check();
+            .returns(10d, "Igor", 1L, 10d)
+            .returns(10d, "Roma", 2L, 20d)
+            .returns(15d, "Ilya", 1L, 15d)
+            .returns(15d, null, 1L, 15d)
+            .check();
 
         assertQuery("select salary, count(name) from person group by salary having salary < 10 order by salary")
-                .check();
+            .check();
 
         assertQuery("select count(name), name from person group by name")
-                .returns(1L, "Igor")
-                .returns(1L, "Ilya")
-                .returns(2L, "Roma")
-                .returns(0L, null)
-                .check();
+            .returns(1L, "Igor")
+            .returns(1L, "Ilya")
+            .returns(2L, "Roma")
+            .returns(0L, null)
+            .check();
 
         assertQuery("select avg(salary) from person")
-                .returns(12.0)
-                .check();
+            .returns(12.0)
+            .check();
 
         assertQuery("select name, salary from person where person.salary > (select avg(person.salary) from person)")
-                .returns(null, 15d)
-                .returns("Ilya", 15d)
-                .check();
+            .returns(null, 15d)
+            .returns("Ilya", 15d)
+            .check();
 
         assertQuery("select avg(salary) from (select avg(salary) as salary from person union all select salary from person)")
-                .returns(12d)
-                .check();
+            .returns(12d)
+            .check();
     }
 
-    /**
-     *
-     */
+    /** */
     @Test
     public void testMultipleRowsFromSingleAggr() {
         assertThrows(
-                IgniteInternalException.class,
-                () -> assertQuery("SELECT (SELECT name FROM person)").check()
+            IgniteException.class,
+            () -> assertQuery("SELECT (SELECT name FROM person)").check()
         );
 
         assertThrows(
-                IgniteInternalException.class,
-                () -> assertQuery("SELECT t.id, (SELECT x FROM TABLE(system_range(1, 5))) FROM person t").check()
+            IgniteException.class,
+            () -> assertQuery("SELECT t.id, (SELECT x FROM TABLE(system_range(1, 5))) FROM person t").check()
         );
 
         assertThrows(
-                IgniteInternalException.class,
-                () -> assertQuery("SELECT t.id, (SELECT x FROM "
-                        + "TABLE(system_range(t.id, t.id + 1))) FROM person t").check()
+            IgniteException.class,
+            () -> assertQuery("SELECT t.id, (SELECT x FROM " +
+                "TABLE(system_range(t.id, t.id + 1))) FROM person t").check()
         );
 
         assertQuery("SELECT t.id, (SELECT x FROM TABLE(system_range(t.id, t.id))) FROM person t").check();
     }
 
-    /**
-     *
-     */
+    /** */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-14597")
     @Test
     public void testAnyValAggr() {

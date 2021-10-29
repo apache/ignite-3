@@ -17,41 +17,30 @@
 
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
-import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 /**
  *
  */
 class ExecutionPlan {
-    /**
-     *
-     */
+    /** */
     private final long ver;
 
-    /**
-     *
-     */
-    private final ImmutableList<Fragment> fragments;
+    /** */
+    private final List<Fragment> fragments;
 
-    /**
-     *
-     */
+    /** */
     ExecutionPlan(long ver, List<Fragment> fragments) {
         this.ver = ver;
-        this.fragments = ImmutableList.copyOf(fragments);
+        this.fragments = List.copyOf(fragments);
     }
 
-    /**
-     *
-     */
+    /** */
     public long topologyVersion() {
         return ver;
     }
 
-    /**
-     *
-     */
+    /** */
     public List<Fragment> fragments() {
         return fragments;
     }

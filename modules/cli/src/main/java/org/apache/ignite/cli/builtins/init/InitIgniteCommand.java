@@ -113,6 +113,8 @@ public class InitIgniteCommand {
 
         initDefaultServerConfigs(cfg.serverDefaultConfigFile());
 
+        initJavaUtilLoggingPros(cfg.serverJavaUtilLoggingPros());
+
         out.println();
         out.println("Apache Ignite is successfully initialized. Use the "
                 + cs.commandText("ignite node start") + " command to start a new local node.");
@@ -131,6 +133,23 @@ public class InitIgniteCommand {
                                 .getResourceAsStream("/default-config.xml"), srvCfgFile);
             }
         } catch (IOException e) {
+            throw new IgniteCLIException("Can't create default config file for server", e);
+        }
+    }
+
+    /**
+     * Init java util logging properties file.
+     *
+     * @param javaUtilLogProps Path to java util logging properties file.
+     */
+    private void initJavaUtilLoggingPros(Path javaUtilLogProps) {
+        try {
+            if (!javaUtilLogProps.toFile().exists())
+                Files.copy(
+                    InitIgniteCommand.class
+                        .getResourceAsStream("/ignite.java.util.logging.properties"), javaUtilLogProps);
+        }
+        catch (IOException e) {
             throw new IgniteCLIException("Can't create default config file for server", e);
         }
     }

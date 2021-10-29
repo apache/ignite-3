@@ -24,7 +24,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  *
  */
-public interface ExchangeService {
+public interface ExchangeService extends LifecycleAware {
     /**
      * Sends a batch of data to remote node.
      *

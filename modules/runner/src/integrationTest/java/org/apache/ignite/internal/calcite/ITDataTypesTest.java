@@ -17,55 +17,50 @@
 
 package org.apache.ignite.internal.calcite;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import com.google.common.collect.ImmutableSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 /**
  * Test SQL data types.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-15107")
 public class ITDataTypesTest extends AbstractBasicIntegrationTest {
-    /**
-     *
-     */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15107")
+    /** */
     @Test
     public void testUnicodeStrings() {
         sql("CREATE TABLE string_table(key int primary key, val varchar)");
 
-        String[] values = new String[]{"Кирилл", "Müller", "我是谁", "ASCII"};
+        String[] values = new String[] {"Кирилл", "Müller", "我是谁", "ASCII"};
 
         int key = 0;
 
         // Insert as inlined values.
-        for (String val : values) {
+        for (String val : values)
             sql("INSERT INTO string_table (key, val) VALUES (?, ?)", key++, val);
-        }
 
         List<List<?>> rows = sql("SELECT val FROM string_table");
 
-        assertEquals(ImmutableSet.copyOf(values), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
+        assertEquals(Set.of(values), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 
         sql("DELETE FROM string_table");
 
         // Insert as parameters.
-        for (String val : values) {
+        for (String val : values)
             sql("INSERT INTO string_table (key, val) VALUES (?, ?)", key++, val);
-        }
 
         rows = sql("SELECT val FROM string_table");
 
-        assertEquals(ImmutableSet.copyOf(values), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
+        assertEquals(Set.of(values), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 
         rows = sql("SELECT substring(val, 1, 2) FROM string_table");
 
-        assertEquals(ImmutableSet.of("Ки", "Mü", "我是", "AS"),
-                rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
+        assertEquals(Set.of("Ки", "Mü", "我是", "AS"),
+            rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 
         for (String val : values) {
             rows = sql("SELECT char_length(val) FROM string_table WHERE val = ?", val);

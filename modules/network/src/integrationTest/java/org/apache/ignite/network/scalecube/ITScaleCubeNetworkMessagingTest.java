@@ -14,20 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.network.scalecube;
 
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import io.scalecube.cluster.ClusterImpl;
-import io.scalecube.cluster.transport.api.Transport;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -41,15 +29,17 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import io.scalecube.cluster.ClusterImpl;
+import io.scalecube.cluster.transport.api.Transport;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
-import org.apache.ignite.network.LocalPortRangeNodeFinder;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NodeFinder;
+import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.TestMessage;
 import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.TestMessageTypes;
@@ -63,14 +53,24 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import reactor.core.publisher.Mono;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 /**
  * Integration tests for messaging based on ScaleCube.
  */
 class ITScaleCubeNetworkMessagingTest {
     /**
      * Test cluster.
-     *
-     * <p>Each test should create its own cluster with the required number of nodes.
+     * <p>
+     * Each test should create its own cluster with the required number of nodes.
      */
     private Cluster testCluster;
 
@@ -98,11 +98,11 @@ class ITScaleCubeNetworkMessagingTest {
 
         for (ClusterService member : testCluster.members) {
             member.messagingService().addMessageHandler(
-                    TestMessageTypes.class,
-                    (message, senderAddr, correlationId) -> {
-                        messageStorage.put(member.localConfiguration().getName(), (TestMessage) message);
-                        messageReceivedLatch.countDown();
-                    }
+                TestMessageTypes.class,
+                (message, senderAddr, correlationId) -> {
+                    messageStorage.put(member.localConfiguration().getName(), (TestMessage)message);
+                    messageReceivedLatch.countDown();
+                }
             );
         }
 
@@ -112,17 +112,16 @@ class ITScaleCubeNetworkMessagingTest {
 
         ClusterService alice = testCluster.members.get(0);
 
-        for (ClusterNode member : alice.topologyService().allMembers()) {
+        for (ClusterNode member : alice.topologyService().allMembers())
             alice.messagingService().weakSend(member, testMessage);
-        }
 
         boolean messagesReceived = messageReceivedLatch.await(3, TimeUnit.SECONDS);
         assertTrue(messagesReceived);
 
         testCluster.members.stream()
-                .map(member -> member.localConfiguration().getName())
-                .map(messageStorage::get)
-                .forEach(msg -> assertThat(msg.msg(), is(testMessage.msg())));
+            .map(member -> member.localConfiguration().getName())
+            .map(messageStorage::get)
+            .forEach(msg -> assertThat(msg.msg(), is(testMessage.msg())));
     }
 
     /**
@@ -176,9 +175,9 @@ class ITScaleCubeNetworkMessagingTest {
         var dataFuture = new CompletableFuture<Data>();
 
         member.messagingService().addMessageHandler(
-                TestMessageTypes.class,
-                (message, senderAddr, correlationId) ->
-                        dataFuture.complete(new Data((TestMessage) message, senderAddr, correlationId))
+            TestMessageTypes.class,
+            (message, senderAddr, correlationId) ->
+                dataFuture.complete(new Data((TestMessage)message, senderAddr, correlationId))
         );
 
         var requestMessage = messageFactory.testMessage().msg("request").build();
@@ -211,25 +210,24 @@ class ITScaleCubeNetworkMessagingTest {
         var responseMessage = messageFactory.testMessage().msg("response").build();
 
         member.messagingService().addMessageHandler(
-                TestMessageTypes.class,
-                (message, senderAddr, correlationId) -> {
-                    if (message.equals(requestMessage)) {
-                        member.messagingService().send(self, responseMessage, correlationId);
-                    }
-                }
+            TestMessageTypes.class,
+            (message, senderAddr, correlationId) -> {
+                if (message.equals(requestMessage))
+                    member.messagingService().send(self, responseMessage, correlationId);
+            }
         );
 
         TestMessage actualResponseMessage = member.messagingService()
-                .invoke(self, requestMessage, 1000)
-                .thenApply(TestMessage.class::cast)
-                .get(3, TimeUnit.SECONDS);
+            .invoke(self, requestMessage, 1000)
+            .thenApply(TestMessage.class::cast)
+            .get(3, TimeUnit.SECONDS);
 
         assertThat(actualResponseMessage.msg(), is(responseMessage.msg()));
     }
 
     /**
-     * Tests that if the network component is stopped while waiting for a response to an "invoke" call, the corresponding future completes
-     * exceptionally.
+     * Tests that if the network component is stopped while waiting for a response to an "invoke" call,
+     * the corresponding future completes exceptionally.
      */
     @Test
     public void testInvokeDuringStop(TestInfo testInfo) throws InterruptedException {
@@ -243,15 +241,15 @@ class ITScaleCubeNetworkMessagingTest {
 
         // perform two invokes to test that multiple requests can get cancelled
         CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
-                member1.topologyService().localMember(),
-                messageFactory.testMessage().build(),
-                1000
+            member1.topologyService().localMember(),
+            messageFactory.testMessage().build(),
+            1000
         );
 
         CompletableFuture<NetworkMessage> invoke1 = member0.messagingService().invoke(
-                member1.topologyService().localMember(),
-                messageFactory.testMessage().build(),
-                1000
+            member1.topologyService().localMember(),
+            messageFactory.testMessage().build(),
+            1000
         );
 
         member0.stop();
@@ -270,20 +268,17 @@ class ITScaleCubeNetworkMessagingTest {
      */
     private static class MockNetworkMessage implements NetworkMessage, Serializable {
         /** {@inheritDoc} */
-        @Override
-        public short messageType() {
+        @Override public short messageType() {
             return 666;
         }
 
         /** {@inheritDoc} */
-        @Override
-        public short groupType() {
+        @Override public short groupType() {
             return NetworkMessageTypes.class.getAnnotation(MessageGroup.class).groupType();
         }
 
         /** {@inheritDoc} */
-        @Override
-        public boolean equals(Object obj) {
+        @Override public boolean equals(Object obj) {
             return getClass() == obj.getClass();
         }
     }
@@ -307,19 +302,19 @@ class ITScaleCubeNetworkMessagingTest {
 
         // register multiple handlers for the same group
         node1.messagingService().addMessageHandler(
-                TestMessageTypes.class,
-                (message, senderAddr, correlationId) -> assertTrue(testMessageFuture1.complete(message))
+            TestMessageTypes.class,
+            (message, senderAddr, correlationId) -> assertTrue(testMessageFuture1.complete(message))
         );
 
         node1.messagingService().addMessageHandler(
-                TestMessageTypes.class,
-                (message, senderAddr, correlationId) -> assertTrue(testMessageFuture2.complete(message))
+            TestMessageTypes.class,
+            (message, senderAddr, correlationId) -> assertTrue(testMessageFuture2.complete(message))
         );
 
         // register a different handle for the second group
         node1.messagingService().addMessageHandler(
-                NetworkMessageTypes.class,
-                (message, senderAddr, correlationId) -> assertTrue(networkMessageFuture.complete(message))
+            NetworkMessageTypes.class,
+            (message, senderAddr, correlationId) -> assertTrue(networkMessageFuture.complete(message))
         );
 
         var testMessage = messageFactory.testMessage().msg("foo").build();
@@ -328,13 +323,13 @@ class ITScaleCubeNetworkMessagingTest {
 
         // test that a message gets delivered to both handlers
         node2.messagingService()
-                .send(node1.topologyService().localMember(), testMessage)
-                .get(1, TimeUnit.SECONDS);
+            .send(node1.topologyService().localMember(), testMessage)
+            .get(1, TimeUnit.SECONDS);
 
         // test that a message from the other group is only delivered to a single handler
         node2.messagingService()
-                .send(node1.topologyService().localMember(), networkMessage)
-                .get(1, TimeUnit.SECONDS);
+            .send(node1.topologyService().localMember(), networkMessage)
+            .get(1, TimeUnit.SECONDS);
 
         assertThat(testMessageFuture1, willBe(equalTo(testMessage)));
         assertThat(testMessageFuture2, willBe(equalTo(testMessage)));
@@ -360,25 +355,21 @@ class ITScaleCubeNetworkMessagingTest {
 
         bob.topologyService().addEventHandler(new TopologyEventHandler() {
             /** {@inheritDoc} */
-            @Override
-            public void onAppeared(ClusterNode member) {
+            @Override public void onAppeared(ClusterNode member) {
                 // No-op.
             }
 
             /** {@inheritDoc} */
-            @Override
-            public void onDisappeared(ClusterNode member) {
-                if (aliceName.equals(member.name())) {
+            @Override public void onDisappeared(ClusterNode member) {
+                if (aliceName.equals(member.name()))
                     aliceShutdownLatch.countDown();
-                }
             }
         });
 
-        if (forceful) {
+        if (forceful)
             stopForcefully(alice);
-        } else {
+        else
             alice.stop();
-        }
 
         boolean aliceShutdownReceived = aliceShutdownLatch.await(forceful ? 10 : 3, TimeUnit.SECONDS);
         assertTrue(aliceShutdownReceived);
@@ -431,60 +422,61 @@ class ITScaleCubeNetworkMessagingTest {
         /** Latch that is locked until all members are visible in the topology. */
         private final CountDownLatch startupLatch;
 
+        /** Node finder. */
+        private final NodeFinder nodeFinder;
+
         /**
          * Creates a test cluster with the given amount of members.
          *
          * @param numOfNodes Amount of cluster members.
-         * @param testInfo   Test info.
+         * @param testInfo Test info.
          */
         Cluster(int numOfNodes, TestInfo testInfo) {
             startupLatch = new CountDownLatch(numOfNodes - 1);
 
             int initialPort = 3344;
 
-            var nodeFinder = new LocalPortRangeNodeFinder(initialPort, initialPort + numOfNodes);
+            List<NetworkAddress> addresses = findLocalAddresses(initialPort, initialPort + numOfNodes);
+
+            this.nodeFinder = new StaticNodeFinder(addresses);
 
             var isInitial = new AtomicBoolean(true);
 
-            members = nodeFinder.findNodes().stream()
-                    .map(addr -> startNode(testInfo, addr, nodeFinder, isInitial.getAndSet(false)))
-                    .collect(Collectors.toUnmodifiableList());
+            members = addresses.stream()
+                .map(addr -> startNode(testInfo, addr, isInitial.getAndSet(false)))
+                .collect(Collectors.toUnmodifiableList());
         }
 
         /**
          * Start cluster node.
          *
-         * @param testInfo   Test info.
-         * @param addr       Node address.
-         * @param nodeFinder Node finder.
-         * @param initial    Whether this node is the first one.
+         * @param testInfo Test info.
+         * @param addr Node address.
+         * @param initial Whether this node is the first one.
          * @return Started cluster node.
          */
         private ClusterService startNode(
-                TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder, boolean initial
+            TestInfo testInfo, NetworkAddress addr, boolean initial
         ) {
             ClusterService clusterSvc = ClusterServiceTestUtils.clusterService(
-                    testInfo,
-                    addr.port(),
-                    nodeFinder,
-                    serializationRegistry,
-                    networkFactory
+                testInfo,
+                addr.port(),
+                nodeFinder,
+                serializationRegistry,
+                networkFactory
             );
 
-            if (initial) {
+            if (initial)
                 clusterSvc.topologyService().addEventHandler(new TopologyEventHandler() {
                     /** {@inheritDoc} */
-                    @Override
-                    public void onAppeared(ClusterNode member) {
+                    @Override public void onAppeared(ClusterNode member) {
                         startupLatch.countDown();
                     }
 
                     /** {@inheritDoc} */
-                    @Override
-                    public void onDisappeared(ClusterNode member) {
+                    @Override public void onDisappeared(ClusterNode member) {
                     }
                 });
-            }
 
             return clusterSvc;
         }
@@ -493,14 +485,13 @@ class ITScaleCubeNetworkMessagingTest {
          * Starts and waits for the cluster to come up.
          *
          * @throws InterruptedException If failed.
-         * @throws AssertionError       If the cluster was unable to start in 3 seconds.
+         * @throws AssertionError If the cluster was unable to start in 3 seconds.
          */
         void startAwait() throws InterruptedException {
             members.forEach(ClusterService::start);
 
-            if (!startupLatch.await(3, TimeUnit.SECONDS)) {
+            if (!startupLatch.await(3, TimeUnit.SECONDS))
                 throw new AssertionError();
-            }
         }
 
         /**

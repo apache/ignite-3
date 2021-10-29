@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  *
  */
-public interface MailboxRegistry {
+public interface MailboxRegistry extends LifecycleAware {
     /**
      * Tries to register and inbox node and returns it if success or returns previously registered inbox otherwise.
      *

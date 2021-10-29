@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
-import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
+
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
@@ -37,31 +37,21 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
  *
  */
 public class FragmentSplitter extends IgniteRelShuttle {
-    /**
-     *
-     */
+    /** */
     private final Deque<FragmentProto> stack = new LinkedList<>();
 
-    /**
-     *
-     */
+    /** */
     private RelNode cutPoint;
 
-    /**
-     *
-     */
+    /** */
     private FragmentProto curr;
 
-    /**
-     *
-     */
+    /** */
     public FragmentSplitter(RelNode cutPoint) {
         this.cutPoint = cutPoint;
     }
 
-    /**
-     *
-     */
+    /** */
     public List<Fragment> go(Fragment fragment) {
         ArrayList<Fragment> res = new ArrayList<>();
 
@@ -78,24 +68,21 @@ public class FragmentSplitter extends IgniteRelShuttle {
     }
 
     /** {@inheritDoc} */
-    @Override
-    public IgniteRel visit(IgniteReceiver rel) {
+    @Override public IgniteRel visit(IgniteReceiver rel) {
         curr.remotes.add(rel);
 
         return rel;
     }
 
     /** {@inheritDoc} */
-    @Override
-    public IgniteRel visit(IgniteExchange rel) {
+    @Override public IgniteRel visit(IgniteExchange rel) {
         throw new AssertionError();
     }
 
     /**
      * Visits all children of a parent.
      */
-    @Override
-    protected IgniteRel processNode(IgniteRel rel) {
+    @Override protected IgniteRel processNode(IgniteRel rel) {
         if (rel == cutPoint) {
             cutPoint = null;
 
@@ -104,16 +91,13 @@ public class FragmentSplitter extends IgniteRelShuttle {
 
         List<IgniteRel> inputs = Commons.cast(rel.getInputs());
 
-        for (int i = 0; i < inputs.size(); i++) {
+        for (int i = 0; i < inputs.size(); i++)
             visitChild(rel, i, inputs.get(i));
-        }
 
         return rel;
     }
 
-    /**
-     *
-     */
+    /** */
     private IgniteRel split(IgniteRel rel) {
         RelOptCluster cluster = rel.getCluster();
         RelTraitSet traits = rel.getTraitSet();
@@ -134,38 +118,26 @@ public class FragmentSplitter extends IgniteRelShuttle {
         return receiver;
     }
 
-    /**
-     *
-     */
+    /** */
     private static class FragmentProto {
-        /**
-         *
-         */
+        /** */
         private final long id;
 
-        /**
-         *
-         */
+        /** */
         private IgniteRel root;
 
-        /**
-         *
-         */
-        private final ImmutableList.Builder<IgniteReceiver> remotes = ImmutableList.builder();
+        /** */
+        private final List<IgniteReceiver> remotes = new ArrayList<>();
 
-        /**
-         *
-         */
+        /** */
         private FragmentProto(long id, IgniteRel root) {
             this.id = id;
             this.root = root;
         }
 
-        /**
-         *
-         */
+        /** */
         Fragment build() {
-            return new Fragment(id, root, remotes.build());
+            return new Fragment(id, root, List.copyOf(remotes));
         }
     }
 }

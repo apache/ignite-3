@@ -17,19 +17,16 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import com.google.common.collect.Lists;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.ITUtils;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -47,66 +44,64 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 /**
  * Tests thin client connecting to a real server node.
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ITThinClientConnectionTest extends IgniteAbstractTest {
-    /**
-     *
-     */
+    /** */
     private static final String SCHEMA_NAME = "PUB";
 
-    /**
-     *
-     */
+    /** */
     private static final String TABLE_NAME = "tbl1";
 
     /** Nodes bootstrap configuration. */
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
 
-    /**
-     *
-     */
+    /** */
     private final List<Ignite> startedNodes = new ArrayList<>();
 
-    /**
-     *
-     */
+    /** */
     @BeforeEach
     void setup(TestInfo testInfo) {
         String node0Name = testNodeName(testInfo, 3344);
         String node1Name = testNodeName(testInfo, 3345);
 
         nodesBootstrapCfg.put(
-                node0Name,
-                "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
-                        + "  network: {\n"
-                        + "    port: " + 3344 + "\n"
-                        + "    netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
-                        + "  }\n"
-                        + "}"
+            node0Name,
+            "{\n" +
+            "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n" +
+            "  network: {\n" +
+            "    port: " + 3344 + ",\n" +
+            "    nodeFinder: {\n" +
+            "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n" +
+            "    }\n" +
+            "  }\n" +
+            "}"
         );
 
         nodesBootstrapCfg.put(
-                node1Name,
-                "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
-                        + "  network: {\n"
-                        + "    port: " + 3345 + "\n"
-                        + "    netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
-                        + "  }\n"
-                        + "}"
+            node1Name,
+            "{\n" +
+            "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n" +
+            "  network: {\n" +
+            "    port: " + 3345 + ",\n" +
+            "    nodeFinder: {\n" +
+            "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n" +
+            "    }\n" +
+            "  }\n" +
+            "}"
         );
     }
 
-    /**
-     *
-     */
+    /** */
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(Lists.reverse(startedNodes));
+        IgniteUtils.closeAll(ITUtils.reverse(startedNodes));
     }
 
     /**
@@ -132,8 +127,8 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
                         .changePartitions(10)
         );
 
-        var addrs = new String[]{"127.0.0.1:"
-                + ((InetSocketAddress) ((IgniteImpl) startedNodes.get(0)).clientHandlerModule().localAddress()).getPort()};
+        var addrs = new String[]{"127.0.0.1:" +
+            ((InetSocketAddress) ((IgniteImpl)startedNodes.get(0)).clientHandlerModule().localAddress()).getPort()};
 
         for (var addr : addrs) {
             try (var client = IgniteClient.builder().addresses(addr).build()) {

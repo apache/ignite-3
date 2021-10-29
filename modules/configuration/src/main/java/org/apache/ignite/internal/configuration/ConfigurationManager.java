@@ -34,6 +34,7 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.intellij.lang.annotations.Language;
 
 /**
  * Configuration manager is responsible for handling configuration lifecycle and provides configuration API.
@@ -84,7 +85,7 @@ public class ConfigurationManager implements IgniteComponent {
      * @throws InterruptedException If thread is interrupted during bootstrap.
      * @throws ExecutionException   If configuration update failed for some reason.
      */
-    public void bootstrap(String hoconStr) throws InterruptedException, ExecutionException {
+    public void bootstrap(@Language("HOCON") String hoconStr) throws InterruptedException, ExecutionException {
         ConfigObject hoconCfg = ConfigFactory.parseString(hoconStr).root();
 
         registry.change(HoconConverter.hoconSource(hoconCfg)).get();

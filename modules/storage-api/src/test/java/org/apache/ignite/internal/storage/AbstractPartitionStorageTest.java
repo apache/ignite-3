@@ -17,16 +17,6 @@
 
 package org.apache.ignite.internal.storage;
 
-import static java.util.Collections.emptyList;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -57,11 +47,21 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import static java.util.Collections.emptyList;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 /**
  * Abstract test that covers basic scenarios of the storage API.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public abstract class AbstractStorageTest {
+public abstract class AbstractPartitionStorageTest {
     /** Test key. */
     private static final String KEY = "key";
 
@@ -69,7 +69,7 @@ public abstract class AbstractStorageTest {
     private static final String VALUE = "value";
 
     /** Storage instance. */
-    protected Storage storage;
+    protected PartitionStorage storage;
 
     /**
      * Tests that read / write / remove work consistently on the same key.
@@ -92,7 +92,8 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that invoke method works consistently with default read / write / remove closures implementations on the same key.
+     * Tests that invoke method works consistently with default read / write / remove closures implementations on the
+     *      same key.
      */
     @Test
     public void invoke() {
@@ -224,7 +225,8 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link DeleteExactInvokeClosure} deletes a data row if a key and a value matches the ones passed in the closure.
+     * Tests that {@link DeleteExactInvokeClosure} deletes a data row if a key and a value matches the ones passed
+     * in the closure.
      */
     @Test
     public void testDeleteExactClosure() {
@@ -244,8 +246,8 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link DeleteExactInvokeClosure} doesn't delete a data row if a key and a value don't match the ones passed in the
-     * closure.
+     * Tests that {@link DeleteExactInvokeClosure} doesn't delete a data row if a key and a value don't match
+     * the ones passed in the closure.
      */
     @Test
     public void testDeleteExactClosure_failureBranch() {
@@ -309,8 +311,8 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link GetAndReplaceInvokeClosure} with the {@code GetAndReplaceInvokeClosure#onlyIfExists} set to {@code false} retrieves
-     * and replaces the existing entry in the storage.
+     * Tests that {@link GetAndReplaceInvokeClosure} with the {@code GetAndReplaceInvokeClosure#onlyIfExists} set to
+     * {@code false} retrieves and replaces the existing entry in the storage.
      */
     @Test
     public void testGetAndReplaceClosureIfExistsFalse_entryExists() {
@@ -341,8 +343,9 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link GetAndReplaceInvokeClosure} with the {@code GetAndReplaceInvokeClosure#onlyIfExists} set to {@code false}
-     * successfully inserts a new data row and returns an empty row if a previous row with the same key doesn't exist .
+     * Tests that {@link GetAndReplaceInvokeClosure} with the {@code GetAndReplaceInvokeClosure#onlyIfExists} set to
+     * {@code false} successfully inserts a new data row and returns an empty row if a previous row with the same key
+     * doesn't exist .
      */
     @Test
     public void testGetAndReplaceClosureIfExistsFalse_entryNotExists() {
@@ -362,8 +365,8 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link GetAndReplaceInvokeClosure} with the {@code GetAndReplaceInvokeClosure#onlyIfExists} set to {@code true} retrieves
-     * and replaces the existing entry in the storage.
+     * Tests that {@link GetAndReplaceInvokeClosure} with the {@code GetAndReplaceInvokeClosure#onlyIfExists} set to
+     * {@code true} retrieves and replaces the existing entry in the storage.
      */
     @Test
     public void testGetAndReplaceClosureIfExistsTrue_entryExists() {
@@ -390,8 +393,8 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link GetAndReplaceInvokeClosure} with the {@code GetAndReplaceInvokeClosure#onlyIfExists} set to {@code true} doesn't
-     * insert a new entry if a previous one doesn't exist.
+     * Tests that {@link GetAndReplaceInvokeClosure} with the {@code GetAndReplaceInvokeClosure#onlyIfExists} set to
+     * {@code true} doesn't insert a new entry if a previous one doesn't exist.
      */
     @Test
     public void testGetAndReplaceClosureIfExistsTrue_entryNotExists() {
@@ -411,7 +414,8 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link ReplaceExactInvokeClosure} replaces the data row with a given key and a given value in the storage.
+     * Tests that {@link ReplaceExactInvokeClosure} replaces the data row with a given key and a given value
+     * in the storage.
      */
     @Test
     public void testReplaceExactClosure() {
@@ -436,8 +440,8 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link ReplaceExactInvokeClosure} doesn't replace the data row with a given key and a given value if the value in the
-     * storage doesn't match the value passed via the closure.
+     * Tests that {@link ReplaceExactInvokeClosure} doesn't replace the data row with a given key and a given value
+     * if the value in the storage doesn't match the value passed via the closure.
      */
     @Test
     public void testReplaceExactClosure_failureBranch() {
@@ -461,7 +465,7 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests the {@link Storage#readAll(List)} operation successfully reads data rows from the storage.
+     * Tests the {@link PartitionStorage#readAll(List)} operation successfully reads data rows from the storage.
      */
     @Test
     public void testReadAll() {
@@ -470,7 +474,7 @@ public abstract class AbstractStorageTest {
         List<DataRow> rowsFromStorage = new ArrayList<>(storage.readAll(rows));
 
         Comparator<DataRow> comparator = Comparator.comparing(DataRow::keyBytes, Arrays::compare)
-                .thenComparing(DataRow::valueBytes, Arrays::compare);
+            .thenComparing(DataRow::valueBytes, Arrays::compare);
 
         rows.sort(comparator);
         rowsFromStorage.sort(comparator);
@@ -479,21 +483,22 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link Storage#writeAll(List)} operation successfully writes a collection of data rows into the storage.
+     * Tests that {@link PartitionStorage#writeAll(List)} operation successfully writes a collection of data rows into the
+     * storage.
      */
     @Test
     public void testWriteAll() {
         List<DataRow> rows = IntStream.range(0, 100)
-                .mapToObj(i -> dataRow(KEY + i, VALUE + i))
-                .collect(Collectors.toList());
+            .mapToObj(i -> dataRow(KEY + i, VALUE + i))
+            .collect(Collectors.toList());
 
         storage.writeAll(rows);
         rows.forEach(this::checkHasSameEntry);
     }
 
     /**
-     * Tests that {@link Storage#insertAll(List)} operation doesn't insert data rows which keys are already present in the storage. This
-     * operation must also return the list of such data rows.
+     * Tests that {@link PartitionStorage#insertAll(List)} operation doesn't insert data rows which keys
+     * are already present in the storage. This operation must also return the list of such data rows.
      */
     @Test
     public void testInsertAll() {
@@ -502,8 +507,8 @@ public abstract class AbstractStorageTest {
         List<DataRow> oldRows = rows.subList(0, 50);
 
         List<DataRow> newInsertion = Stream.concat(
-                oldRows.stream(),
-                IntStream.range(100, 150).mapToObj(i -> dataRow(KEY + "_" + i, VALUE + "_" + i))
+            oldRows.stream(),
+            IntStream.range(100, 150).mapToObj(i -> dataRow(KEY + "_" + i, VALUE + "_" + i))
         ).collect(Collectors.toList());
 
         Collection<DataRow> cantInsert = storage.insertAll(newInsertion);
@@ -512,7 +517,8 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link Storage#removeAll(List)} operation successfully retrieves and removes a collection of {@link SearchRow}s.
+     * Tests that {@link PartitionStorage#removeAll(List)} operation successfully retrieves and removes a collection of
+     * {@link SearchRow}s.
      */
     @Test
     public void testRemoveAll() throws Exception {
@@ -541,8 +547,8 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link Storage#removeAllExact(List)} operation successfully removes and retrieves a collection of data rows with the given
-     * exact keys and values from the storage.
+     * Tests that {@link PartitionStorage#removeAllExact(List)} operation successfully removes and retrieves a collection
+     * of data rows with the given exact keys and values from the storage.
      */
     @Test
     public void testRemoveAllExact() throws Exception {
@@ -560,16 +566,17 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link Storage#removeAllExact(List)} operation doesn't remove and retrieve a collection of data rows with the given exact
-     * keys and values from the storage if the value in the storage doesn't match the given value.
+     * Tests that {@link PartitionStorage#removeAllExact(List)} operation doesn't remove and retrieve a collection
+     * of data rows with the given exact keys and values from the storage if the value in the storage doesn't match
+     * the given value.
      */
     @Test
     public void testRemoveAllExact_failureBranch() {
         List<DataRow> rows = insertBulk(100);
 
         List<DataRow> notExactRows = IntStream.range(0, 100)
-                .mapToObj(i -> dataRow(KEY + i, VALUE + (i + 1)))
-                .collect(Collectors.toList());
+            .mapToObj(i -> dataRow(KEY + i, VALUE + (i + 1)))
+            .collect(Collectors.toList());
 
         Collection<DataRow> skipped = storage.removeAllExact(notExactRows);
 
@@ -579,8 +586,8 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link Storage#snapshot(Path)} and {@link Storage#restoreSnapshot(Path)} operations work properly in basic scenario of
-     * creating snapshot and restoring it on the clear db.
+     * Tests that {@link Storage#snapshot(Path)} and {@link Storage#restoreSnapshot(Path)} operations work properly in
+     * basic scenario of creating snapshot and restoring it on the clear db.
      *
      * @param snapshotDir Directory to store snapshot file.
      * @throws Exception If failed to take snapshot.
@@ -599,16 +606,16 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Inserts and returns a given amount of data rows with {@link #KEY}_i as a key and {@link #VALUE}_i as a value where i is an index of
-     * the data row.
-     *
+     * Inserts and returns a given amount of data rows with {@link #KEY}_i as a key and {@link #VALUE}_i as a value
+     * where i is an index of the data row.
+     * 
      * @param numberOfEntries Amount of entries to insert.
      * @return List of inserted rows.
      */
     private List<DataRow> insertBulk(int numberOfEntries) {
         List<DataRow> rows = IntStream.range(0, numberOfEntries)
-                .mapToObj(i -> dataRow(KEY + "_" + i, VALUE + "_" + i))
-                .collect(Collectors.toList());
+            .mapToObj(i -> dataRow(KEY + "_" + i, VALUE + "_" + i))
+            .collect(Collectors.toList());
 
         storage.insertAll(rows);
         rows.forEach(this::checkHasSameEntry);
@@ -652,7 +659,7 @@ public abstract class AbstractStorageTest {
      * Checks that two rows are equal.
      *
      * @param expected Expected data row.
-     * @param actual   Actual data row.
+     * @param actual Actual data row.
      */
     private static void checkRowsEqual(DataRow expected, DataRow actual) {
         assertArrayEquals(expected.keyBytes(), actual.keyBytes());
@@ -667,13 +674,11 @@ public abstract class AbstractStorageTest {
      */
     private static SearchRow searchRow(String key) {
         return new SearchRow() {
-            @Override
-            public byte @NotNull [] keyBytes() {
+            @Override public byte @NotNull [] keyBytes() {
                 return key.getBytes(StandardCharsets.UTF_8);
             }
 
-            @Override
-            public @NotNull ByteBuffer key() {
+            @Override public @NotNull ByteBuffer key() {
                 return ByteBuffer.wrap(keyBytes());
             }
         };
@@ -682,14 +687,14 @@ public abstract class AbstractStorageTest {
     /**
      * Wraps string key/value pair into a data row.
      *
-     * @param key   String key.
+     * @param key String key.
      * @param value String value.
      * @return Data row.
      */
     private static DataRow dataRow(String key, String value) {
         return new SimpleDataRow(
-                key.getBytes(StandardCharsets.UTF_8),
-                value.getBytes(StandardCharsets.UTF_8)
+            key.getBytes(StandardCharsets.UTF_8),
+            value.getBytes(StandardCharsets.UTF_8)
         );
     }
 
@@ -697,7 +702,7 @@ public abstract class AbstractStorageTest {
      * Converts cursor to list.
      *
      * @param cursor Cursor.
-     * @param <T>    Type of cursor content.
+     * @param <T> Type of cursor content.
      * @return List.
      * @throws Exception If error occurred during iteration or while closing the cursor.
      */

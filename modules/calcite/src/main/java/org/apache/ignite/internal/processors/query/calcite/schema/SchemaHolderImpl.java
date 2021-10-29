@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.schema.Column;
@@ -32,25 +33,25 @@ import org.apache.ignite.internal.table.TableImpl;
  * Holds actual schema and mutates it on schema change, requested by Ignite.
  */
 public class SchemaHolderImpl implements SchemaHolder {
-    /**
-     *
-     */
+    /** */
     private final Map<String, IgniteSchema> igniteSchemas = new HashMap<>();
 
-    /**
-     *
-     */
+    /** */
+    private final Runnable onSchemaUpdatedCallback;
+
+    /** */
     private volatile SchemaPlus calciteSchema;
 
-    public SchemaHolderImpl() {
+    public SchemaHolderImpl(Runnable onSchemaUpdatedCallback) {
+        this.onSchemaUpdatedCallback = onSchemaUpdatedCallback;
+
         SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
         newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
         calciteSchema = newCalciteSchema;
     }
 
     /** {@inheritDoc} */
-    @Override
-    public SchemaPlus schema() {
+    @Override public SchemaPlus schema() {
         return calciteSchema;
     }
 
@@ -65,24 +66,24 @@ public class SchemaHolderImpl implements SchemaHolder {
     }
 
     public synchronized void onSqlTypeCreated(
-            String schemaName,
-            TableImpl table
+        String schemaName,
+        TableImpl table
     ) {
         IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
 
         SchemaDescriptor descriptor = table.schemaView().schema();
 
         List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()
-                .map(descriptor::column)
-                .sorted(Comparator.comparingInt(Column::schemaIndex))
-                .map(col -> new ColumnDescriptorImpl(
-                        col.name(),
-                        descriptor.isKeyColumn(col.schemaIndex()),
-                        col.schemaIndex(),
-                        col.type(),
-                        col::defaultValue
-                ))
-                .collect(Collectors.toList());
+            .map(descriptor::column)
+            .sorted(Comparator.comparingInt(Column::columnOrder))
+            .map(col -> new ColumnDescriptorImpl(
+                col.name(),
+                descriptor.isKeyColumn(col.schemaIndex()),
+                col.schemaIndex(),
+                col.type(),
+                col::defaultValue
+            ))
+            .collect(Collectors.toList());
 
         TableDescriptorImpl desc = new TableDescriptorImpl(table, colDescriptors);
 
@@ -91,16 +92,16 @@ public class SchemaHolderImpl implements SchemaHolder {
         rebuild();
     }
 
-    public void onSqlTypeUpdated(
-            String schemaName,
-            TableImpl table
+     public void onSqlTypeUpdated(
+         String schemaName,
+         TableImpl table
     ) {
         onSqlTypeCreated(schemaName, table);
     }
 
     public synchronized void onSqlTypeDropped(
-            String schemaName,
-            String tableName
+        String schemaName,
+        String tableName
     ) {
         IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
 
@@ -114,6 +115,8 @@ public class SchemaHolderImpl implements SchemaHolder {
         newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
         igniteSchemas.forEach(newCalciteSchema::add);
         calciteSchema = newCalciteSchema;
+
+        onSchemaUpdatedCallback.run();
     }
 
     private static String removeSchema(String schemaName, String canonicalName) {

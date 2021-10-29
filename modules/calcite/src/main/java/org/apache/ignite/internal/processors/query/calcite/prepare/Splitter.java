@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
-import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
+
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteExchange;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteIndexScan;
@@ -36,19 +36,13 @@ import org.apache.ignite.internal.processors.query.calcite.rel.SourceAwareIgnite
  * Splits a query into a list of query fragments.
  */
 public class Splitter extends IgniteRelShuttle {
-    /**
-     *
-     */
+    /** */
     private final Deque<FragmentProto> stack = new LinkedList<>();
 
-    /**
-     *
-     */
+    /** */
     private FragmentProto curr;
 
-    /**
-     *
-     */
+    /** */
     public List<Fragment> go(IgniteRel root) {
         ArrayList<Fragment> res = new ArrayList<>();
 
@@ -68,14 +62,12 @@ public class Splitter extends IgniteRelShuttle {
     }
 
     /** {@inheritDoc} */
-    @Override
-    public IgniteRel visit(IgniteReceiver rel) {
+    @Override public IgniteRel visit(IgniteReceiver rel) {
         throw new AssertionError();
     }
 
     /** {@inheritDoc} */
-    @Override
-    public IgniteRel visit(IgniteExchange rel) {
+    @Override public IgniteRel visit(IgniteExchange rel) {
         RelOptCluster cluster = rel.getCluster();
 
         long targetFragmentId = curr.id;
@@ -84,7 +76,7 @@ public class Splitter extends IgniteRelShuttle {
 
         IgniteReceiver receiver = new IgniteReceiver(cluster, rel.getTraitSet(), rel.getRowType(), exchangeId, sourceFragmentId);
         IgniteSender sender = new IgniteSender(cluster, rel.getTraitSet(), rel.getInput(), exchangeId, targetFragmentId,
-                rel.distribution());
+            rel.distribution());
 
         curr.remotes.add(receiver);
         stack.push(new FragmentProto(sourceFragmentId, sender));
@@ -93,55 +85,40 @@ public class Splitter extends IgniteRelShuttle {
     }
 
     /** {@inheritDoc} */
-    @Override
-    public IgniteRel visit(IgniteTrimExchange rel) {
-        return ((SourceAwareIgniteRel) processNode(rel)).clone(IdGenerator.nextId());
+    @Override public IgniteRel visit(IgniteTrimExchange rel) {
+        return ((SourceAwareIgniteRel)processNode(rel)).clone(IdGenerator.nextId());
     }
 
     /** {@inheritDoc} */
-    @Override
-    public IgniteRel visit(IgniteIndexScan rel) {
+    @Override public IgniteRel visit(IgniteIndexScan rel) {
         return rel.clone(IdGenerator.nextId());
     }
 
     /** {@inheritDoc} */
-    @Override
-    public IgniteRel visit(IgniteTableScan rel) {
+    @Override public IgniteRel visit(IgniteTableScan rel) {
         return rel.clone(IdGenerator.nextId());
     }
 
-    /**
-     *
-     */
+    /** */
     private static class FragmentProto {
-        /**
-         *
-         */
+        /** */
         private final long id;
 
-        /**
-         *
-         */
+        /** */
         private IgniteRel root;
 
-        /**
-         *
-         */
-        private final ImmutableList.Builder<IgniteReceiver> remotes = ImmutableList.builder();
+        /** */
+        private final List<IgniteReceiver> remotes = new ArrayList<>();
 
-        /**
-         *
-         */
+        /** */
         private FragmentProto(long id, IgniteRel root) {
             this.id = id;
             this.root = root;
         }
 
-        /**
-         *
-         */
+        /** */
         Fragment build() {
-            return new Fragment(id, root, remotes.build());
+            return new Fragment(id, root, List.copyOf(remotes));
         }
     }
 }

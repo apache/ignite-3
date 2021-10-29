@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.configuration.util;
 
-import static java.util.stream.Collectors.toList;
-
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayDeque;
@@ -54,13 +52,12 @@ import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 
-/**
- *
- */
+import static java.util.stream.Collectors.toList;
+
+/** */
 public class ConfigurationUtil {
     /** Configuration source that copies values without modifying tham. */
-    static final ConfigurationSource EMPTY_CFG_SRC = new ConfigurationSource() {
-    };
+    public static final ConfigurationSource EMPTY_CFG_SRC = new ConfigurationSource() {};
 
     /**
      * Replaces all {@code .} and {@code \} characters with {@code \.} and {@code \\} respectively.
@@ -93,9 +90,8 @@ public class ConfigurationUtil {
     public static List<String> split(String keys) {
         String[] split = keys.split("(?<!\\\\)[.]", -1);
 
-        for (int i = 0; i < split.length; i++) {
+        for (int i = 0; i < split.length; i++)
             split[i] = unescape(split[i]);
-        }
 
         return Arrays.asList(split);
     }
@@ -115,58 +111,55 @@ public class ConfigurationUtil {
     /**
      * Search for the configuration node by the list of keys.
      *
-     * @param keys            Random access list with keys.
-     * @param node            Node where method will search for subnode.
+     * @param keys Random access list with keys.
+     * @param node Node where method will search for subnode.
      * @param includeInternal Include internal configuration nodes (private configuration extensions).
      * @return Either {@link TraversableTreeNode} or {@link Serializable} depending on the keys and schema.
      * @throws KeyNotFoundException If node is not found.
      */
     public static <T> T find(
-            List<String> keys,
-            TraversableTreeNode node,
-            boolean includeInternal
+        List<String> keys,
+        TraversableTreeNode node,
+        boolean includeInternal
     ) throws KeyNotFoundException {
         assert keys instanceof RandomAccess : keys.getClass();
 
         var visitor = new ConfigurationVisitor<T>() {
             /** Current index of the key in the {@code keys}. */
-            private int idx;
+            private int i;
 
             /** {@inheritDoc} */
-            @Override
-            public T visitLeafNode(String key, Serializable val) {
-                if (idx != keys.size()) {
-                    throw new KeyNotFoundException("Configuration value '" + join(keys.subList(0, idx)) + "' is a leaf");
-                } else {
-                    return (T) val;
-                }
+            @Override public T visitLeafNode(String key, Serializable val) {
+                if (i != keys.size())
+                    throw new KeyNotFoundException("Configuration value '" + join(keys.subList(0, i)) + "' is a leaf");
+                else
+                    return (T)val;
             }
 
             /** {@inheritDoc} */
-            @Override
-            public T visitInnerNode(String key, InnerNode node) {
-                if (idx == keys.size()) {
-                    return (T) node;
-                } else if (node == null) {
-                    throw new KeyNotFoundException("Configuration node '" + join(keys.subList(0, idx)) + "' is null");
-                } else {
+            @Override public T visitInnerNode(String key, InnerNode node) {
+                if (i == keys.size())
+                    return (T)node;
+                else if (node == null)
+                    throw new KeyNotFoundException("Configuration node '" + join(keys.subList(0, i)) + "' is null");
+                else {
                     try {
-                        return node.traverseChild(keys.get(idx++), this, includeInternal);
-                    } catch (NoSuchElementException e) {
+                        return node.traverseChild(keys.get(i++), this, includeInternal);
+                    }
+                    catch (NoSuchElementException e) {
                         throw new KeyNotFoundException(
-                                "Configuration value '" + join(keys.subList(0, idx)) + "' has not been found"
+                            "Configuration value '" + join(keys.subList(0, i)) + "' has not been found"
                         );
                     }
                 }
             }
 
             /** {@inheritDoc} */
-            @Override
-            public T visitNamedListNode(String key, NamedListNode<?> node) {
-                if (idx == keys.size()) {
-                    return (T) node;
-                } else {
-                    String name = keys.get(idx++);
+            @Override public T visitNamedListNode(String key, NamedListNode<?> node) {
+                if (i == keys.size())
+                    return (T)node;
+                else {
+                    String name = keys.get(i++);
 
                     return visitInnerNode(name, node.get(name));
                 }
@@ -200,10 +193,10 @@ public class ConfigurationUtil {
     /**
      * Inserts value into the prefix by a given "path".
      *
-     * @param map  Output map.
+     * @param map Output map.
      * @param keys List of keys.
-     * @param idx  Starting position in the {@code keys} list.
-     * @param val  Value to be inserted.
+     * @param idx Starting position in the {@code keys} list.
+     * @param val Value to be inserted.
      */
     private static void insert(Map<String, Object> map, List<String> keys, int idx, Serializable val) {
         String key = keys.get(idx);
@@ -212,7 +205,8 @@ public class ConfigurationUtil {
             assert !map.containsKey(key) : map.get(key);
 
             map.put(key, val);
-        } else {
+        }
+        else {
             Object node = map.get(key);
 
             Map<String, Object> submap;
@@ -221,10 +215,11 @@ public class ConfigurationUtil {
                 submap = new HashMap<>();
 
                 map.put(key, submap);
-            } else {
+            }
+            else {
                 assert node instanceof Map : node;
 
-                submap = (Map<String, Object>) node;
+                submap = (Map<String, Object>)node;
             }
 
             insert(submap, keys, idx + 1, val);
@@ -234,10 +229,11 @@ public class ConfigurationUtil {
     /**
      * Convert Map tree to configuration tree. No error handling here.
      *
-     * @param node      Node to fill. Not necessarily empty.
-     * @param prefixMap Map of {@link Serializable} values or other prefix maps (recursive structure). Every key is unescaped.
-     * @throws UnsupportedOperationException if prefix map structure doesn't correspond to actual tree structure. This will be fixed when
-     *                                       method is actually used in configuration storage intergration.
+     * @param node Node to fill. Not necessarily empty.
+     * @param prefixMap Map of {@link Serializable} values or other prefix maps (recursive structure).
+     *      Every key is unescaped.
+     * @throws UnsupportedOperationException if prefix map structure doesn't correspond to actual tree structure.
+     *      This will be fixed when method is actually used in configuration storage intergration.
      */
     public static void fillFromPrefixMap(ConstructableTreeNode node, Map<String, ?> prefixMap) {
         assert node instanceof InnerNode;
@@ -255,16 +251,14 @@ public class ConfigurationUtil {
             }
 
             /** {@inheritDoc} */
-            @Override
-            public <T> T unwrap(Class<T> clazz) {
+            @Override public <T> T unwrap(Class<T> clazz) {
                 assert val == null || clazz.isInstance(val);
 
                 return clazz.cast(val);
             }
 
             /** {@inheritDoc} */
-            @Override
-            public void descend(ConstructableTreeNode node) {
+            @Override public void descend(ConstructableTreeNode node) {
                 throw new UnsupportedOperationException("descend");
             }
         }
@@ -282,16 +276,14 @@ public class ConfigurationUtil {
             }
 
             /** {@inheritDoc} */
-            @Override
-            public <T> T unwrap(Class<T> clazz) {
+            @Override public <T> T unwrap(Class<T> clazz) {
                 throw new UnsupportedOperationException("unwrap");
             }
 
             /** {@inheritDoc} */
-            @Override
-            public void descend(ConstructableTreeNode node) {
+            @Override public void descend(ConstructableTreeNode node) {
                 if (node instanceof NamedListNode) {
-                    descendToNamedListNode((NamedListNode<?>) node);
+                    descendToNamedListNode((NamedListNode<?>)node);
 
                     return;
                 }
@@ -303,18 +295,17 @@ public class ConfigurationUtil {
                     assert val == null || val instanceof Map || val instanceof Serializable;
 
                     // Ordering of indexes must be skipped here because they make no sense in this context.
-                    if (key.equals(NamedListNode.ORDER_IDX) || key.equals(NamedListNode.NAME)) {
+                    if (key.equals(NamedListNode.ORDER_IDX) || key.equals(NamedListNode.NAME))
                         continue;
-                    }
 
-                    if (val == null) {
+                    if (val == null)
                         node.construct(key, null, true);
-                    } else if (val instanceof Map) {
-                        node.construct(key, new InnerConfigurationSource((Map<String, ?>) val), true);
-                    } else {
+                    else if (val instanceof Map)
+                        node.construct(key, new InnerConfigurationSource((Map<String, ?>)val), true);
+                    else {
                         assert val instanceof Serializable;
 
-                        node.construct(key, new LeafConfigurationSource((Serializable) val), true);
+                        node.construct(key, new LeafConfigurationSource((Serializable)val), true);
                     }
                 }
             }
@@ -327,7 +318,7 @@ public class ConfigurationUtil {
              */
             private void descendToNamedListNode(NamedListNode<?> node) {
                 // This list must be mutable and RandomAccess.
-                var orderedKeys = new ArrayList<>(((NamedListView<?>) node).namedListKeys());
+                var orderedKeys = new ArrayList<>(((NamedListView<?>)node).namedListKeys());
 
                 for (Map.Entry<String, ?> entry : map.entrySet()) {
                     String internalId = entry.getKey();
@@ -342,23 +333,22 @@ public class ConfigurationUtil {
                         // creating new trees, a "hack" is required in this place. "construct" is designed to create
                         // "change" objects, thus it would just nullify named list element instead of deleting it.
                         node.forceDelete(oldKey);
-                    } else if (val instanceof Map) {
-                        Map<String, ?> map = (Map<String, ?>) val;
+                    }
+                    else if (val instanceof Map) {
+                        Map<String, ?> map = (Map<String, ?>)val;
                         int sizeDiff = 0;
 
                         // For every named list entry modification we must take its index into account.
                         // We do this by modifying "orderedKeys" when index is explicitly passed.
                         Object idxObj = map.get(NamedListNode.ORDER_IDX);
 
-                        if (idxObj != null) {
+                        if (idxObj != null)
                             sizeDiff++;
-                        }
 
-                        String newKey = (String) map.get(NamedListNode.NAME);
+                        String newKey = (String)map.get(NamedListNode.NAME);
 
-                        if (newKey != null) {
+                        if (newKey != null)
                             sizeDiff++;
-                        }
 
                         boolean construct = map.size() != sizeDiff;
 
@@ -366,25 +356,24 @@ public class ConfigurationUtil {
                             node.construct(newKey, new InnerConfigurationSource(map), true);
 
                             node.setInternalId(newKey, internalId);
-                        } else if (newKey != null) {
+                        }
+                        else if (newKey != null) {
                             node.rename(oldKey, newKey);
 
-                            if (construct) {
+                            if (construct)
                                 node.construct(newKey, new InnerConfigurationSource(map), true);
-                            }
-                        } else if (construct) {
-                            node.construct(oldKey, new InnerConfigurationSource(map), true);
                         }
+                        else if (construct)
+                            node.construct(oldKey, new InnerConfigurationSource(map), true);
                         // Else it's just index adjustment after new elements insertion.
 
-                        if (newKey == null) {
+                        if (newKey == null)
                             newKey = oldKey;
-                        }
 
                         if (idxObj != null) {
                             assert idxObj instanceof Integer : val;
 
-                            int idx = (Integer) idxObj;
+                            int idx = (Integer)idxObj;
 
                             if (idx >= orderedKeys.size()) {
                                 // Updates can come in arbitrary order. This means that array may be too small
@@ -392,25 +381,25 @@ public class ConfigurationUtil {
                                 // invoking "add" method for actual key.
                                 orderedKeys.ensureCapacity(idx + 1);
 
-                                while (idx != orderedKeys.size()) {
+                                while (idx != orderedKeys.size())
                                     orderedKeys.add(null);
-                                }
 
                                 orderedKeys.add(newKey);
-                            } else {
-                                orderedKeys.set(idx, newKey);
                             }
+                            else
+                                orderedKeys.set(idx, newKey);
                         }
-                    } else {
+                    }
+                    else {
                         assert val instanceof Serializable;
 
-                        node.construct(oldKey, new LeafConfigurationSource((Serializable) val), true);
+                        node.construct(oldKey, new LeafConfigurationSource((Serializable)val), true);
                     }
                 }
 
                 node.reorderKeys(orderedKeys.size() > node.size()
-                        ? orderedKeys.subList(0, node.size())
-                        : orderedKeys
+                    ? orderedKeys.subList(0, node.size())
+                    : orderedKeys
                 );
             }
         }
@@ -424,13 +413,12 @@ public class ConfigurationUtil {
      * Creates new list that is a conjunction of given list and element.
      *
      * @param prefix Head of the new list.
-     * @param key    Tail element of the new list.
+     * @param key Tail element of the new list.
      * @return New list.
      */
     public static List<String> appendKey(List<String> prefix, String key) {
-        if (prefix.isEmpty()) {
+        if (prefix.isEmpty())
             return List.of(key);
-        }
 
         List<String> res = new ArrayList<>(prefix.size() + 1);
         res.addAll(prefix);
@@ -447,33 +435,32 @@ public class ConfigurationUtil {
     public static void addDefaults(InnerNode node) {
         node.traverseChildren(new ConfigurationVisitor<>() {
             /** {@inheritDoc} */
-            @Override
-            public Object visitLeafNode(String key, Serializable val) {
+            @Override public Object visitLeafNode(String key, Serializable val) {
                 // If source value is null then inititalise the same value on the destination node.
-                if (val == null) {
+                if (val == null)
                     node.constructDefault(key);
+
+                return null;
+            }
+
+            /** {@inheritDoc} */
+            @Override public Object visitInnerNode(String key, InnerNode innerNode) {
+                InnerNode childNode = node.traverseChild(key, innerNodeVisitor(), true);
+
+                // Instantiate field in destination node before doing something else.
+                if (childNode == null) {
+                    node.construct(key, EMPTY_CFG_SRC, true);
+
+                    childNode = node.traverseChild(key, innerNodeVisitor(), true);
                 }
 
-                return null;
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public Object visitInnerNode(String key, InnerNode innerNode) {
-                // Instantiate field in destination node before doing something else or copy it if it wasn't null.
-                node.construct(key, EMPTY_CFG_SRC, true);
-
-                addDefaults(node.traverseChild(key, innerNodeVisitor(), true));
+                addDefaults(childNode);
 
                 return null;
             }
 
             /** {@inheritDoc} */
-            @Override
-            public Object visitNamedListNode(String key, NamedListNode<?> namedList) {
-                // Copy internal map.
-                node.construct(key, EMPTY_CFG_SRC, true);
-
+            @Override public Object visitNamedListNode(String key, NamedListNode<?> namedList) {
                 namedList = node.traverseChild(key, namedListNodeVisitor(), true);
 
                 for (String namedListKey : namedList.namedListKeys()) {
@@ -497,23 +484,20 @@ public class ConfigurationUtil {
      */
     public static void dropNulls(InnerNode node) {
         node.traverseChildren(new ConfigurationVisitor<>() {
-            @Override
-            public Object visitInnerNode(String key, InnerNode innerNode) {
+            @Override public Object visitInnerNode(String key, InnerNode innerNode) {
                 dropNulls(innerNode);
 
                 return null;
             }
 
-            @Override
-            public Object visitNamedListNode(String key, NamedListNode<?> namedList) {
+            @Override public Object visitNamedListNode(String key, NamedListNode<?> namedList) {
                 for (String namedListKey : namedList.namedListKeys()) {
                     InnerNode element = namedList.get(namedListKey);
 
-                    if (element == null) {
+                    if (element == null)
                         namedList.forceDelete(namedListKey);
-                    } else {
+                    else
                         dropNulls(element);
-                    }
                 }
 
                 return null;
@@ -526,8 +510,7 @@ public class ConfigurationUtil {
      */
     public static ConfigurationVisitor<Serializable> leafNodeVisitor() {
         return new ConfigurationVisitor<>() {
-            @Override
-            public Serializable visitLeafNode(String key, Serializable val) {
+            @Override public Serializable visitLeafNode(String key, Serializable val) {
                 return val;
             }
         };
@@ -538,8 +521,7 @@ public class ConfigurationUtil {
      */
     public static ConfigurationVisitor<InnerNode> innerNodeVisitor() {
         return new ConfigurationVisitor<>() {
-            @Override
-            public InnerNode visitInnerNode(String key, InnerNode node) {
+            @Override public InnerNode visitInnerNode(String key, InnerNode node) {
                 return node;
             }
         };
@@ -551,8 +533,7 @@ public class ConfigurationUtil {
     public static ConfigurationVisitor<NamedListNode<?>> namedListNodeVisitor() {
         return new ConfigurationVisitor<>() {
             /** {@inheritDoc} */
-            @Override
-            public NamedListNode<?> visitNamedListNode(String key, NamedListNode<?> node) {
+            @Override public NamedListNode<?> visitNamedListNode(String key, NamedListNode<?> node) {
                 return node;
             }
         };
@@ -566,8 +547,8 @@ public class ConfigurationUtil {
     public static void checkConfigurationType(Collection<RootKey<?, ?>> rootKeys, ConfigurationStorage storage) {
         for (RootKey<?, ?> key : rootKeys) {
             if (key.type() != storage.type()) {
-                throw new IllegalArgumentException("Invalid root key configuration type [key=" + key
-                        + ", storage=" + storage.getClass().getName() + ", storageType=" + storage.type() + "]");
+                throw new IllegalArgumentException("Invalid root key configuration type [key=" + key +
+                    ", storage=" + storage.getClass().getName() + ", storageType=" + storage.type() + "]");
             }
         }
     }
@@ -580,21 +561,21 @@ public class ConfigurationUtil {
      * @throws IllegalArgumentException If the schema or its extensions are not valid.
      */
     public static Map<Class<?>, Set<Class<?>>> internalSchemaExtensions(Collection<Class<?>> extensions) {
-        if (extensions.isEmpty()) {
+        if (extensions.isEmpty())
             return Map.of();
-        } else {
+        else {
             Map<Class<?>, Set<Class<?>>> res = new HashMap<>();
 
             for (Class<?> extension : extensions) {
                 if (!extension.isAnnotationPresent(InternalConfiguration.class)) {
                     throw new IllegalArgumentException(String.format(
-                            "Extension should contain @%s: %s",
-                            InternalConfiguration.class.getSimpleName(),
-                            extension.getName()
+                        "Extension should contain @%s: %s",
+                        InternalConfiguration.class.getSimpleName(),
+                        extension.getName()
                     ));
-                } else {
-                    res.computeIfAbsent(extension.getSuperclass(), cls -> new HashSet<>()).add(extension);
                 }
+                else
+                    res.computeIfAbsent(extension.getSuperclass(), cls -> new HashSet<>()).add(extension);
             }
 
             return res;
@@ -670,7 +651,8 @@ public class ConfigurationUtil {
             field.setAccessible(true);
 
             return field.get(o);
-        } catch (ReflectiveOperationException e) {
+        }
+        catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
     }
@@ -683,9 +665,9 @@ public class ConfigurationUtil {
      * @throws IllegalArgumentException If there is a conflict in field names.
      */
     public static Set<Field> extensionsFields(Collection<Class<?>> extensions) {
-        if (extensions.isEmpty()) {
+        if (extensions.isEmpty())
             return Set.of();
-        } else {
+        else {
             Map<String, Field> res = new HashMap<>();
 
             for (Class<?> extension : extensions) {
@@ -696,13 +678,13 @@ public class ConfigurationUtil {
 
                     if (res.containsKey(fieldName)) {
                         throw new IllegalArgumentException(String.format(
-                                "Duplicate field names are not allowed [field=%s, classes=%s]",
-                                field,
-                                classNames(res.get(fieldName), field)
+                            "Duplicate field names are not allowed [field=%s, classes=%s]",
+                            field,
+                            classNames(res.get(fieldName), field)
                         ));
-                    } else {
-                        res.put(fieldName, field);
                     }
+                    else
+                        res.put(fieldName, field);
                 }
             }
 
@@ -711,17 +693,18 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Collect all configuration schemes with {@link ConfigurationRoot} or {@link Config} including all sub configuration schemes for fields
-     * with {@link ConfigValue} or {@link NamedConfigValue}.
+     * Collect all configuration schemes with {@link ConfigurationRoot} or {@link Config}
+     * including all sub configuration schemes for fields with {@link ConfigValue} or {@link NamedConfigValue}.
      *
      * @param schemaClasses Configuration schemas (starting points) with {@link ConfigurationRoot} or {@link Config}.
      * @return All configuration schemes with {@link ConfigurationRoot} or {@link Config}.
-     * @throws IllegalArgumentException If the configuration schemas does not contain {@link ConfigurationRoot} or {@link Config}.
+     * @throws IllegalArgumentException If the configuration schemas does not contain
+     *      {@link ConfigurationRoot} or {@link Config}.
      */
     public static Set<Class<?>> collectSchemas(Collection<Class<?>> schemaClasses) {
-        if (schemaClasses.isEmpty()) {
+        if (schemaClasses.isEmpty())
             return Set.of();
-        } else {
+        else {
             Set<Class<?>> res = new HashSet<>();
 
             Queue<Class<?>> queue = new ArrayDeque<>(Set.copyOf(schemaClasses));
@@ -731,19 +714,19 @@ public class ConfigurationUtil {
 
                 if (!cls.isAnnotationPresent(ConfigurationRoot.class) && !cls.isAnnotationPresent(Config.class)) {
                     throw new IllegalArgumentException(String.format(
-                            "Configuration schema must contain @%s or @%s: %s",
-                            ConfigurationRoot.class.getSimpleName(),
-                            Config.class.getSimpleName(),
-                            cls.getName()
+                        "Configuration schema must contain @%s or @%s: %s",
+                        ConfigurationRoot.class.getSimpleName(),
+                        Config.class.getSimpleName(),
+                        cls.getName()
                     ));
-                } else {
+                }
+                else {
                     res.add(cls);
 
                     for (Field f : cls.getDeclaredFields()) {
                         if ((f.isAnnotationPresent(ConfigValue.class) || f.isAnnotationPresent(NamedConfigValue.class))
-                                && !res.contains(f.getType())) {
+                            && !res.contains(f.getType()))
                             queue.add(f.getType());
-                        }
                     }
                 }
             }
@@ -768,10 +751,11 @@ public class ConfigurationUtil {
      * @param property Property to get the value from.
      * @return "direct" value of the property.
      * @throws ClassCastException if the property has not been annotated with {@link DirectAccess}.
+     *
      * @see DirectAccess
      * @see DirectConfigurationProperty
      */
     public static <T> T directValue(ConfigurationProperty<T> property) {
-        return ((DirectConfigurationProperty<T>) property).directValue();
+        return ((DirectConfigurationProperty<T>)property).directValue();
     }
 }

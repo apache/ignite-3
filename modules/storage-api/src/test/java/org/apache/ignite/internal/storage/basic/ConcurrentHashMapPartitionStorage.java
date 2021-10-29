@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.storage.basic;
 
-import static java.util.stream.Collectors.toList;
-
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -38,8 +36,8 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.InvokeClosure;
+import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.SearchRow;
-import org.apache.ignite.internal.storage.Storage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
@@ -47,10 +45,12 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static java.util.stream.Collectors.toList;
+
 /**
  * Storage implementation based on {@link ConcurrentHashMap}.
  */
-public class ConcurrentHashMapStorage implements Storage {
+public class ConcurrentHashMapPartitionStorage implements PartitionStorage {
     /** Name of the snapshot file. */
     private static final String SNAPSHOT_FILE = "snapshot_file";
 
@@ -58,9 +58,12 @@ public class ConcurrentHashMapStorage implements Storage {
     private final ConcurrentMap<ByteArray, byte[]> map = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
-    @Override
-    @Nullable
-    public DataRow read(SearchRow key) throws StorageException {
+    @Override public int partitionId() {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override @Nullable public DataRow read(SearchRow key) throws StorageException {
         byte[] keyBytes = key.keyBytes();
 
         byte[] valueBytes = map.get(new ByteArray(keyBytes));
@@ -69,44 +72,38 @@ public class ConcurrentHashMapStorage implements Storage {
     }
 
     /** {@inheritDoc} */
-    @Override
-    public Collection<DataRow> readAll(List<? extends SearchRow> keys) {
+    @Override public Collection<DataRow> readAll(List<? extends SearchRow> keys) {
         return keys.stream()
-                .map(this::read)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+            .map(this::read)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
     }
 
     /** {@inheritDoc} */
-    @Override
-    public void write(DataRow row) throws StorageException {
+    @Override public void write(DataRow row) throws StorageException {
         map.put(new ByteArray(row.keyBytes()), row.valueBytes());
     }
 
     /** {@inheritDoc} */
-    @Override
-    public void writeAll(List<? extends DataRow> rows) throws StorageException {
+    @Override public void writeAll(List<? extends DataRow> rows) throws StorageException {
         rows.forEach(this::write);
     }
 
     /** {@inheritDoc} */
-    @Override
-    public Collection<DataRow> insertAll(List<? extends DataRow> rows) throws StorageException {
+    @Override public Collection<DataRow> insertAll(List<? extends DataRow> rows) throws StorageException {
         return rows.stream()
-                .map(row -> map.putIfAbsent(new ByteArray(row.keyBytes()), row.valueBytes()) == null ? null : row)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+            .map(row -> map.putIfAbsent(new ByteArray(row.keyBytes()), row.valueBytes()) == null ? null : row)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
     }
 
     /** {@inheritDoc} */
-    @Override
-    public void remove(SearchRow key) throws StorageException {
+    @Override public void remove(SearchRow key) throws StorageException {
         map.remove(new ByteArray(key.keyBytes()));
     }
 
     /** {@inheritDoc} */
-    @Override
-    public Collection<SearchRow> removeAll(List<? extends SearchRow> keys) {
+    @Override public Collection<SearchRow> removeAll(List<? extends SearchRow> keys) {
         var skippedRows = new ArrayList<SearchRow>(keys.size());
 
         for (SearchRow key : keys) {
@@ -114,17 +111,15 @@ public class ConcurrentHashMapStorage implements Storage {
 
             byte[] removedValueBytes = map.remove(new ByteArray(keyBytes));
 
-            if (removedValueBytes == null) {
+            if (removedValueBytes == null)
                 skippedRows.add(key);
-            }
         }
 
         return skippedRows;
     }
 
     /** {@inheritDoc} */
-    @Override
-    public Collection<DataRow> removeAllExact(List<? extends DataRow> keyValues) {
+    @Override public Collection<DataRow> removeAllExact(List<? extends DataRow> keyValues) {
         var skippedRows = new ArrayList<DataRow>(keyValues.size());
 
         for (DataRow row : keyValues) {
@@ -132,11 +127,10 @@ public class ConcurrentHashMapStorage implements Storage {
 
             byte[] existingValueBytes = map.get(key);
 
-            if (Arrays.equals(existingValueBytes, row.valueBytes())) {
+            if (Arrays.equals(existingValueBytes, row.valueBytes()))
                 map.remove(key);
-            } else {
+            else
                 skippedRows.add(row);
-            }
         }
 
         return skippedRows;
@@ -144,8 +138,7 @@ public class ConcurrentHashMapStorage implements Storage {
 
     /** {@inheritDoc} */
     @Nullable
-    @Override
-    public <T> T invoke(SearchRow key, InvokeClosure<T> clo) throws StorageException {
+    @Override public <T> T invoke(SearchRow key, InvokeClosure<T> clo) throws StorageException {
         byte[] keyBytes = key.keyBytes();
 
         ByteArray mapKey = new ByteArray(keyBytes);
@@ -171,89 +164,78 @@ public class ConcurrentHashMapStorage implements Storage {
 
             case NOOP:
                 break;
-
-            default:
-                break;
         }
 
         return clo.result();
     }
 
     /** {@inheritDoc} */
-    @Override
-    public Cursor<DataRow> scan(Predicate<SearchRow> filter) throws StorageException {
+    @Override public Cursor<DataRow> scan(Predicate<SearchRow> filter) throws StorageException {
         Iterator<SimpleDataRow> iter = map.entrySet().stream()
-                .map(e -> new SimpleDataRow(e.getKey().bytes(), e.getValue()))
-                .filter(filter)
-                .iterator();
+            .map(e -> new SimpleDataRow(e.getKey().bytes(), e.getValue()))
+            .filter(filter)
+            .iterator();
 
         return new Cursor<>() {
             /** {@inheritDoc} */
-            @Override
-            public boolean hasNext() {
+            @Override public boolean hasNext() {
                 return iter.hasNext();
             }
 
             /** {@inheritDoc} */
-            @Override
-            public DataRow next() {
+            @Override public DataRow next() {
                 return iter.next();
             }
 
             /** {@inheritDoc} */
-            @NotNull
-            @Override
-            public Iterator<DataRow> iterator() {
+            @NotNull @Override public Iterator<DataRow> iterator() {
                 return this;
             }
 
             /** {@inheritDoc} */
-            @Override
-            public void close() {
+            @Override public void close() {
                 // No-op.
             }
         };
     }
 
     /** {@inheritDoc} */
-    @Override
-    public @NotNull CompletableFuture<Void> snapshot(Path snapshotPath) {
+    @Override public @NotNull CompletableFuture<Void> snapshot(Path snapshotPath) {
         return CompletableFuture.runAsync(() -> {
             try (
-                    OutputStream out = Files.newOutputStream(snapshotPath.resolve(SNAPSHOT_FILE));
-                    ObjectOutputStream objOut = new ObjectOutputStream(out)
+                OutputStream out = Files.newOutputStream(snapshotPath.resolve(SNAPSHOT_FILE));
+                ObjectOutputStream objOut = new ObjectOutputStream(out)
             ) {
                 objOut.writeObject(map.keySet().stream().map(ByteArray::bytes).collect(toList()));
                 objOut.writeObject(new ArrayList<>(map.values()));
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 throw new IgniteInternalException(e);
             }
         });
     }
 
     /** {@inheritDoc} */
-    @Override
-    public void restoreSnapshot(Path snapshotPath) {
+    @Override public void restoreSnapshot(Path snapshotPath) {
         try (
-                InputStream in = Files.newInputStream(snapshotPath.resolve(SNAPSHOT_FILE));
-                ObjectInputStream objIn = new ObjectInputStream(in)
+            InputStream in = Files.newInputStream(snapshotPath.resolve(SNAPSHOT_FILE));
+            ObjectInputStream objIn = new ObjectInputStream(in)
         ) {
-            var keys = (List<byte[]>) objIn.readObject();
-            var values = (List<byte[]>) objIn.readObject();
+            var keys = (List<byte[]>)objIn.readObject();
+            var values = (List<byte[]>)objIn.readObject();
 
             map.clear();
 
-            for (int i = 0; i < keys.size(); i++) {
+            for (int i = 0; i < keys.size(); i++)
                 map.put(new ByteArray(keys.get(i)), values.get(i));
-            }
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new IgniteInternalException(e);
         }
     }
 
     /** {@inheritDoc} */
-    @Override
-    public void close() throws Exception {
+    @Override public void close() throws Exception {
         // No-op.
     }
 }

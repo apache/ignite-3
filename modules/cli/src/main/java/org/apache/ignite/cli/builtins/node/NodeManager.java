@@ -58,7 +58,7 @@ public class NodeManager {
      * Creates node manager.
      *
      * @param moduleRegistry Module registry.
-     * @param terminal       System terminal instance.
+     * @param terminal System terminal instance.
      */
     @Inject
     public NodeManager(ModuleRegistry moduleRegistry, Terminal terminal) {
@@ -66,32 +66,36 @@ public class NodeManager {
     }
 
     /**
-     * Starts new Ignite node and check if it was successfully started. It has very naive implementation of successful run check - just
-     * waiting for appropriate message in the node logs.
+     * Starts new Ignite node and check if it was successfully started.
+     * It has very naive implementation of successful run check -
+     * just waiting for appropriate message in the node logs.
      *
      * @param nodeName Node name.
-     * @param logDir   Log dir for receiving node state.
-     * @param pidsDir  Dir where pid files of running nodes will be stored.
-     * @param srvCfg   Config for Ignite node
-     * @param out      PrintWriter for user messages.
+     * @param logDir Log dir for receiving node state.
+     * @param pidsDir Dir where pid files of running nodes will be stored.
+     * @param srvCfg Config for Ignite node
+     * @param out PrintWriter for user messages.
      * @return Information about successfully started node
      */
-    public RunningNode start(String nodeName, Path logDir, Path pidsDir, Path srvCfg, PrintWriter out) {
-        if (getRunningNodes(logDir, pidsDir).stream().anyMatch(n -> n.name.equals(nodeName))) {
+    public RunningNode start(String nodeName, Path logDir, Path pidsDir, Path srvCfg, Path javaLogProps, PrintWriter out) {
+        if (getRunningNodes(logDir, pidsDir).stream().anyMatch(n -> n.name.equals(nodeName)))
             throw new IgniteCLIException("Node with nodeName " + nodeName + " is already exist");
-        }
 
         try {
             Path logFile = logFile(logDir, nodeName);
-            if (Files.exists(logFile)) {
+
+            if (Files.exists(logFile))
                 Files.delete(logFile);
-            }
 
             Files.createFile(logFile);
 
             var cmdArgs = new ArrayList<String>();
 
             cmdArgs.add("java");
+
+            if (javaLogProps != null)
+                cmdArgs.add("-Djava.util.logging.config.file=" + javaLogProps.toAbsolutePath());
+
             cmdArgs.add("-cp");
             cmdArgs.add(classpath());
             cmdArgs.add(MAIN_CLASS);
@@ -104,29 +108,30 @@ public class NodeManager {
             cmdArgs.add(nodeName);
 
             ProcessBuilder pb = new ProcessBuilder(
-                    cmdArgs
+                cmdArgs
             )
-                    .redirectError(logFile.toFile())
-                    .redirectOutput(logFile.toFile());
+                .redirectError(logFile.toFile())
+                .redirectOutput(logFile.toFile());
 
             Process p = pb.start();
 
             try (var spinner = new Spinner(out, "Starting a new Ignite node")) {
-
-                if (!waitForStart("Apache Ignite started successfully!", logFile, NODE_START_TIMEOUT, spinner)) {
+                if (!waitForStart("Apache Ignite started successfully!", logFile, p, NODE_START_TIMEOUT, spinner)) {
                     p.destroyForcibly();
 
                     throw new IgniteCLIException("Node wasn't started during timeout period "
-                            + NODE_START_TIMEOUT.toMillis() + "ms");
+                        + NODE_START_TIMEOUT.toMillis() + "ms. Read logs for details: " + logFile);
                 }
-            } catch (InterruptedException | IOException e) {
+            }
+            catch (InterruptedException | IOException e) {
                 throw new IgniteCLIException("Waiting for node start was failed", e);
             }
 
             createPidFile(nodeName, p.pid(), pidsDir);
 
             return new RunningNode(p.pid(), nodeName, logFile);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new IgniteCLIException("Can't load classpath", e);
         }
     }
@@ -135,32 +140,34 @@ public class NodeManager {
      * Waits for node start by checking node logs in cycle.
      *
      * @param started Mark string that node was started.
-     * @param file    Node's log file
+     * @param file Node's log file
+     * @param p External Ignite process.
      * @param timeout Timeout for waiting
      * @return true if node was successfully started, false otherwise.
-     * @throws IOException          If can't read the log file
+     * @throws IOException If can't read the log file
      * @throws InterruptedException If waiting was interrupted.
      */
     private static boolean waitForStart(
-            String started,
-            Path file,
-            Duration timeout,
-            Spinner spinner
+        String started,
+        Path file,
+        Process p,
+        Duration timeout,
+        Spinner spinner
     ) throws IOException, InterruptedException {
         var start = System.currentTimeMillis();
 
-        while ((System.currentTimeMillis() - start) < timeout.toMillis()) {
+        while ((System.currentTimeMillis() - start) < timeout.toMillis() && p.isAlive()) {
             spinner.spin();
             LockSupport.parkNanos(LOG_FILE_POLL_INTERVAL.toNanos());
 
             var content = Files.readString(file);
 
-            if (content.contains(started)) {
+            if (content.contains(started))
                 return true;
-            } else if (content.contains("Exception")) {
-                throw new IgniteCLIException("Can't start the node. Read logs for details: " + file);
-            }
         }
+
+        if (!p.isAlive())
+            throw new IgniteCLIException("Can't start the node. Read logs for details: " + file);
 
         return false;
     }
@@ -171,9 +178,9 @@ public class NodeManager {
      */
     public String classpath() throws IOException {
         return moduleRegistry.listInstalled().modules.stream()
-                .flatMap(m -> m.artifacts.stream())
-                .map(m -> m.toAbsolutePath().toString())
-                .collect(Collectors.joining(System.getProperty("path.separator")));
+            .flatMap(m -> m.artifacts.stream())
+            .map(m -> m.toAbsolutePath().toString())
+            .collect(Collectors.joining(System.getProperty("path.separator")));
     }
 
     /**
@@ -182,36 +189,36 @@ public class NodeManager {
      */
     public List<String> classpathItems() throws IOException {
         return moduleRegistry.listInstalled().modules.stream()
-                .flatMap(m -> m.artifacts.stream())
-                .map(m -> m.getFileName().toString())
-                .collect(Collectors.toList());
+            .flatMap(m -> m.artifacts.stream())
+            .map(m -> m.getFileName().toString())
+            .collect(Collectors.toList());
     }
 
     /**
      * Creates pid file for Ignite node.
      *
      * @param nodeName Node name.
-     * @param pid      Pid
-     * @param pidsDir  Dir for storing pid files.
+     * @param pid Pid
+     * @param pidsDir Dir for storing pid files.
      */
     public void createPidFile(String nodeName, long pid, Path pidsDir) {
         if (!Files.exists(pidsDir)) {
-            if (!pidsDir.toFile().mkdirs()) {
+            if (!pidsDir.toFile().mkdirs())
                 throw new IgniteCLIException("Can't create directory for storing the process pids: " + pidsDir);
-            }
         }
 
         Path pidPath = pidsDir.resolve(nodeName + "_" + System.currentTimeMillis() + ".pid");
 
         try (FileWriter fileWriter = new FileWriter(pidPath.toFile())) {
             fileWriter.write(String.valueOf(pid));
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new IgniteCLIException("Can't write pid file " + pidPath);
         }
     }
 
     /**
-     * @param logDir  Ignite installation work dir.
+     * @param logDir Ignite installation work dir.
      * @param pidsDir Dir with nodes pids.
      * @return List of running nodes.
      */
@@ -219,53 +226,54 @@ public class NodeManager {
         if (Files.exists(pidsDir)) {
             try (Stream<Path> files = Files.find(pidsDir, 1, (f, attrs) -> f.getFileName().toString().endsWith(".pid"))) {
                 return files
-                        .map(f -> {
-                            long pid;
+                    .map(f -> {
+                        long pid;
 
-                            try {
-                                pid = Long.parseLong(Files.readAllLines(f).get(0));
+                        try {
+                            pid = Long.parseLong(Files.readAllLines(f).get(0));
 
-                                if (!ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false)) {
-                                    return Optional.<RunningNode>empty();
-                                }
-                            } catch (IOException e) {
-                                throw new IgniteCLIException("Can't parse pid file " + f);
-                            }
-
-                            String filename = f.getFileName().toString();
-
-                            if (filename.lastIndexOf('_') == -1) {
+                            if (!ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false))
                                 return Optional.<RunningNode>empty();
-                            } else {
-                                String nodeName = filename.substring(0, filename.lastIndexOf('_'));
+                        }
+                        catch (IOException e) {
+                            throw new IgniteCLIException("Can't parse pid file " + f);
+                        }
 
-                                return Optional.of(new RunningNode(pid, nodeName, logFile(logDir, nodeName)));
-                            }
+                        String filename = f.getFileName().toString();
 
-                        })
-                        .filter(Optional::isPresent)
-                        .map(Optional::get).collect(Collectors.toList());
-            } catch (IOException e) {
+                        if (filename.lastIndexOf('_') == -1)
+                            return Optional.<RunningNode>empty();
+                        else {
+                            String nodeName = filename.substring(0, filename.lastIndexOf('_'));
+
+                            return Optional.of(new RunningNode(pid, nodeName, logFile(logDir, nodeName)));
+                        }
+
+                    })
+                    .filter(Optional::isPresent)
+                    .map(Optional::get).collect(Collectors.toList());
+            }
+            catch (IOException e) {
                 throw new IgniteCLIException("Can't find directory with pid files for running nodes " + pidsDir);
             }
-        } else {
-            return Collections.emptyList();
         }
+        else
+            return Collections.emptyList();
     }
 
     /**
      * Stops the node by name and waits for success.
      *
      * @param nodeName Node name.
-     * @param pidsDir  Dir with running nodes pids.
+     * @param pidsDir Dir with running nodes pids.
      * @return true if stopped, false otherwise.
      */
     public boolean stopWait(String nodeName, Path pidsDir) {
         if (Files.exists(pidsDir)) {
             try {
                 List<Path> files = Files.find(pidsDir, 1,
-                        (f, attrs) ->
-                                f.getFileName().toString().startsWith(nodeName + "_")).collect(Collectors.toList());
+                    (f, attrs) ->
+                        f.getFileName().toString().startsWith(nodeName + "_")).collect(Collectors.toList());
 
                 if (!files.isEmpty()) {
                     return files.stream().map(f -> {
@@ -277,19 +285,21 @@ public class NodeManager {
                             Files.delete(f);
 
                             return res;
-                        } catch (IOException e) {
+                        }
+                        catch (IOException e) {
                             throw new IgniteCLIException("Can't read pid file " + f);
                         }
                     }).reduce((a, b) -> a && b).orElse(false);
-                } else {
-                    throw new IgniteCLIException("Can't find node with name" + nodeName);
                 }
-            } catch (IOException e) {
+                else
+                    throw new IgniteCLIException("Can't find node with name" + nodeName);
+            }
+            catch (IOException e) {
                 throw new IgniteCLIException("Can't open directory with pid files " + pidsDir);
             }
-        } else {
-            return false;
         }
+        else
+            return false;
     }
 
     /**
@@ -300,18 +310,18 @@ public class NodeManager {
      */
     private boolean stopWait(long pid) {
         return ProcessHandle
-                .of(pid)
-                .map(ProcessHandle::destroy)
-                .orElse(false);
+            .of(pid)
+            .map(ProcessHandle::destroy)
+            .orElse(false);
     }
 
     /**
-     * @param logDir   Ignite log dir.
+     * @param logDir Ignite log dir.
      * @param nodeName Node name.
      * @return Path of node log file.
      */
     private static Path logFile(Path logDir, String nodeName) {
-        return logDir.resolve(nodeName + ".log");
+          return logDir.resolve(nodeName + ".log");
     }
 
     /**
@@ -331,8 +341,8 @@ public class NodeManager {
         /**
          * Creates info about running node.
          *
-         * @param pid     Pid.
-         * @param name    Consistent id.
+         * @param pid Pid.
+         * @param name Consistent id.
          * @param logFile Log file.
          */
         public RunningNode(long pid, String name, Path logFile) {

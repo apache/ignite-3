@@ -17,21 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
-import static java.util.stream.Collectors.toList;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -64,8 +49,9 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
-import org.apache.ignite.network.LocalPortRangeNodeFinder;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
+import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.Peer;
@@ -84,6 +70,22 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 /**
  * Meta storage client tests.
  */
@@ -99,9 +101,7 @@ public class ITMetaStorageServiceTest {
     /** Nodes. */
     private static final int NODES = 2;
 
-    /**
-     *
-     */
+    /** */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "METASTORAGE_RAFT_GROUP";
 
     /** Factory. */
@@ -110,30 +110,28 @@ public class ITMetaStorageServiceTest {
     /** Network factory. */
     private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
-    /**
-     *
-     */
+    /** */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
-    /** Expected server result entry. */
+    /**  Expected server result entry. */
     private static final org.apache.ignite.internal.metastorage.server.Entry EXPECTED_SRV_RESULT_ENTRY =
-            new org.apache.ignite.internal.metastorage.server.Entry(
-                    new byte[]{1},
-                    new byte[]{2},
-                    10,
-                    2
-            );
+        new org.apache.ignite.internal.metastorage.server.Entry(
+            new byte[] {1},
+            new byte[] {2},
+            10,
+            2
+        );
 
     /**
      * Expected server result entry.
      */
     private static final EntryImpl EXPECTED_RESULT_ENTRY =
-            new EntryImpl(
-                    new ByteArray(new byte[]{1}),
-                    new byte[]{2},
-                    10,
-                    2
-            );
+        new EntryImpl(
+            new ByteArray(new byte[] {1}),
+            new byte[] {2},
+            10,
+            2
+        );
 
     /**
      * Expected result map.
@@ -165,9 +163,7 @@ public class ITMetaStorageServiceTest {
     /** Metastorage service. */
     private MetaStorageService metaStorageSvc;
 
-    /**
-     *
-     */
+    /** */
     @WorkDirectory
     private Path dataPath;
 
@@ -178,30 +174,30 @@ public class ITMetaStorageServiceTest {
         EXPECTED_RESULT_MAP = new TreeMap<>();
 
         EntryImpl entry1 = new EntryImpl(
-                new ByteArray(new byte[]{1}),
-                new byte[]{2},
-                10,
-                2
+            new ByteArray(new byte[] {1}),
+            new byte[] {2},
+            10,
+            2
         );
 
         EXPECTED_RESULT_MAP.put(entry1.key(), entry1);
 
         EntryImpl entry2 = new EntryImpl(
-                new ByteArray(new byte[]{3}),
-                new byte[]{4},
-                10,
-                3
+            new ByteArray(new byte[] {3}),
+            new byte[] {4},
+            10,
+            3
         );
 
         EXPECTED_RESULT_MAP.put(entry2.key(), entry2);
 
         EXPECTED_SRV_RESULT_COLL = List.of(
-                new org.apache.ignite.internal.metastorage.server.Entry(
-                        entry1.key().bytes(), entry1.value(), entry1.revision(), entry1.updateCounter()
-                ),
-                new org.apache.ignite.internal.metastorage.server.Entry(
-                        entry2.key().bytes(), entry2.value(), entry2.revision(), entry2.updateCounter()
-                )
+            new org.apache.ignite.internal.metastorage.server.Entry(
+                entry1.key().bytes(), entry1.value(), entry1.revision(), entry1.updateCounter()
+            ),
+            new org.apache.ignite.internal.metastorage.server.Entry(
+                entry2.key().bytes(), entry2.value(), entry2.revision(), entry2.updateCounter()
+            )
         );
     }
 
@@ -210,26 +206,27 @@ public class ITMetaStorageServiceTest {
      */
     @BeforeEach
     public void beforeTest(TestInfo testInfo) throws Exception {
-        var nodeFinder = new LocalPortRangeNodeFinder(NODE_PORT_BASE, NODE_PORT_BASE + NODES);
+        List<NetworkAddress> localAddresses = findLocalAddresses(NODE_PORT_BASE, NODE_PORT_BASE + NODES);
 
-        nodeFinder.findNodes().stream()
-                .map(
-                        addr -> ClusterServiceTestUtils.clusterService(
-                                testInfo,
-                                addr.port(),
-                                nodeFinder,
-                                SERIALIZATION_REGISTRY,
-                                NETWORK_FACTORY
-                        )
+        var nodeFinder = new StaticNodeFinder(localAddresses);
+
+        localAddresses.stream()
+            .map(
+                addr -> ClusterServiceTestUtils.clusterService(
+                    testInfo,
+                    addr.port(),
+                    nodeFinder,
+                    SERIALIZATION_REGISTRY,
+                    NETWORK_FACTORY
                 )
-                .forEach(clusterService -> {
-                    clusterService.start();
-                    cluster.add(clusterService);
-                });
+            )
+            .forEach(clusterService -> {
+                clusterService.start();
+                cluster.add(clusterService);
+            });
 
-        for (ClusterService node : cluster) {
+        for (ClusterService node : cluster)
             assertTrue(waitForTopology(node, NODES, 1000));
-        }
 
         LOG.info("Cluster started.");
 
@@ -245,14 +242,14 @@ public class ITMetaStorageServiceTest {
      */
     @AfterEach
     public void afterTest() throws Exception {
+        metaStorageRaftSrv.stopRaftGroup(METASTORAGE_RAFT_GROUP_NAME);
         metaStorageRaftSrv.stop();
         metaStorageRaftGrpSvc.shutdown();
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
-        for (ClusterService node : cluster) {
+        for (ClusterService node : cluster)
             node.stop();
-        }
     }
 
     /**
@@ -275,11 +272,11 @@ public class ITMetaStorageServiceTest {
     @Test
     public void testGetWithUpperBoundRevision() throws Exception {
         when(mockStorage.get(EXPECTED_RESULT_ENTRY.key().bytes(), EXPECTED_RESULT_ENTRY.revision()))
-                .thenReturn(EXPECTED_SRV_RESULT_ENTRY);
+            .thenReturn(EXPECTED_SRV_RESULT_ENTRY);
 
         assertEquals(
-                EXPECTED_RESULT_ENTRY,
-                metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key(), EXPECTED_RESULT_ENTRY.revision()).get()
+            EXPECTED_RESULT_ENTRY,
+            metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key(), EXPECTED_RESULT_ENTRY.revision()).get()
         );
     }
 
@@ -305,8 +302,8 @@ public class ITMetaStorageServiceTest {
         when(mockStorage.getAll(anyList(), eq(10L))).thenReturn(EXPECTED_SRV_RESULT_COLL);
 
         assertEquals(
-                EXPECTED_RESULT_MAP,
-                metaStorageSvc.getAll(EXPECTED_RESULT_MAP.keySet(), 10).get()
+            EXPECTED_RESULT_MAP,
+            metaStorageSvc.getAll(EXPECTED_RESULT_MAP.keySet(), 10).get()
         );
     }
 
@@ -317,7 +314,7 @@ public class ITMetaStorageServiceTest {
      */
     @Test
     public void testPut() throws Exception {
-        ByteArray expKey = new ByteArray(new byte[]{1});
+        ByteArray expKey = new ByteArray(new byte[] {1});
 
         byte[] expVal = {2};
 
@@ -338,8 +335,8 @@ public class ITMetaStorageServiceTest {
         when(mockStorage.getAndPut(EXPECTED_RESULT_ENTRY.key().bytes(), expVal)).thenReturn(EXPECTED_SRV_RESULT_ENTRY);
 
         assertEquals(
-                EXPECTED_RESULT_ENTRY,
-                metaStorageSvc.getAndPut(EXPECTED_RESULT_ENTRY.key(), expVal).get()
+            EXPECTED_RESULT_ENTRY,
+            metaStorageSvc.getAndPut(EXPECTED_RESULT_ENTRY.key(), expVal).get()
         );
     }
 
@@ -351,11 +348,11 @@ public class ITMetaStorageServiceTest {
     @Test
     public void testPutAll() throws Exception {
         metaStorageSvc.putAll(
-                EXPECTED_RESULT_MAP.entrySet().stream()
-                        .collect(Collectors.toMap(
-                                Map.Entry::getKey,
-                                e -> e.getValue().value())
-                        )
+            EXPECTED_RESULT_MAP.entrySet().stream()
+                .collect(Collectors.toMap(
+                    Map.Entry::getKey,
+                    e -> e.getValue().value())
+                )
         ).get();
 
         ArgumentCaptor<List<byte[]>> keysCaptor = ArgumentCaptor.forClass(List.class);
@@ -366,20 +363,20 @@ public class ITMetaStorageServiceTest {
         // Assert keys equality.
         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
 
-        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().map(ByteArray::bytes).collect(toList());
+        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().
+            map(ByteArray::bytes).collect(toList());
 
-        for (int i = 0; i < expKeys.size(); i++) {
+        for (int i = 0; i < expKeys.size(); i++)
             assertArrayEquals(expKeys.get(i), keysCaptor.getValue().get(i));
-        }
 
         // Assert values equality.
         assertEquals(EXPECTED_RESULT_MAP.values().size(), valuesCaptor.getValue().size());
 
-        List<byte[]> expVals = EXPECTED_RESULT_MAP.values().stream().map(Entry::value).collect(toList());
+        List<byte[]> expVals = EXPECTED_RESULT_MAP.values().stream().
+            map(Entry::value).collect(toList());
 
-        for (int i = 0; i < expKeys.size(); i++) {
+        for (int i = 0; i < expKeys.size(); i++)
             assertArrayEquals(expVals.get(i), valuesCaptor.getValue().get(i));
-        }
     }
 
     /**
@@ -392,11 +389,11 @@ public class ITMetaStorageServiceTest {
         when(mockStorage.getAndPutAll(anyList(), anyList())).thenReturn(EXPECTED_SRV_RESULT_COLL);
 
         Map<ByteArray, Entry> gotRes = metaStorageSvc.getAndPutAll(
-                EXPECTED_RESULT_MAP.entrySet().stream()
-                        .collect(Collectors.toMap(
-                                Map.Entry::getKey,
-                                e -> e.getValue().value())
-                        )
+            EXPECTED_RESULT_MAP.entrySet().stream()
+                .collect(Collectors.toMap(
+                    Map.Entry::getKey,
+                    e -> e.getValue().value())
+                )
         ).get();
 
         assertEquals(EXPECTED_RESULT_MAP, gotRes);
@@ -409,20 +406,20 @@ public class ITMetaStorageServiceTest {
         // Assert keys equality.
         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
 
-        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().map(ByteArray::bytes).collect(toList());
+        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().
+            map(ByteArray::bytes).collect(toList());
 
-        for (int i = 0; i < expKeys.size(); i++) {
+        for (int i = 0; i < expKeys.size(); i++)
             assertArrayEquals(expKeys.get(i), keysCaptor.getValue().get(i));
-        }
 
         // Assert values equality.
         assertEquals(EXPECTED_RESULT_MAP.values().size(), valuesCaptor.getValue().size());
 
-        List<byte[]> expVals = EXPECTED_RESULT_MAP.values().stream().map(Entry::value).collect(toList());
+        List<byte[]> expVals = EXPECTED_RESULT_MAP.values().stream().
+            map(Entry::value).collect(toList());
 
-        for (int i = 0; i < expKeys.size(); i++) {
+        for (int i = 0; i < expKeys.size(); i++)
             assertArrayEquals(expVals.get(i), valuesCaptor.getValue().get(i));
-        }
     }
 
     /**
@@ -432,7 +429,7 @@ public class ITMetaStorageServiceTest {
      */
     @Test
     public void testRemove() throws Exception {
-        ByteArray expKey = new ByteArray(new byte[]{1});
+        ByteArray expKey = new ByteArray(new byte[] {1});
 
         doNothing().when(mockStorage).remove(expKey.bytes());
 
@@ -447,19 +444,19 @@ public class ITMetaStorageServiceTest {
     @Test
     public void testGetAndRemove() throws Exception {
         EntryImpl expRes = new EntryImpl(
-                new ByteArray(new byte[]{1}),
-                new byte[]{3},
-                10,
-                2
+            new ByteArray(new byte[] {1}),
+            new byte[] {3},
+            10,
+            2
         );
 
         when(mockStorage.getAndRemove(expRes.key().bytes())).thenReturn(
-                new org.apache.ignite.internal.metastorage.server.Entry(
-                        expRes.key().bytes(),
-                        expRes.value(),
-                        expRes.revision(),
-                        expRes.updateCounter()
-                )
+            new org.apache.ignite.internal.metastorage.server.Entry(
+                expRes.key().bytes(),
+                expRes.value(),
+                expRes.revision(),
+                expRes.updateCounter()
+            )
         );
 
         assertEquals(expRes, metaStorageSvc.getAndRemove(expRes.key()).get());
@@ -476,7 +473,8 @@ public class ITMetaStorageServiceTest {
 
         metaStorageSvc.removeAll(EXPECTED_RESULT_MAP.keySet()).get();
 
-        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().map(ByteArray::bytes).collect(toList());
+        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().
+            map(ByteArray::bytes).collect(toList());
 
         ArgumentCaptor<List<byte[]>> keysCaptor = ArgumentCaptor.forClass(List.class);
 
@@ -484,9 +482,8 @@ public class ITMetaStorageServiceTest {
 
         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
 
-        for (int i = 0; i < expKeys.size(); i++) {
+        for (int i = 0; i < expKeys.size(); i++)
             assertArrayEquals(expKeys.get(i), keysCaptor.getValue().get(i));
-        }
     }
 
     /**
@@ -509,23 +506,24 @@ public class ITMetaStorageServiceTest {
         // Assert keys equality.
         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
 
-        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().map(ByteArray::bytes).collect(toList());
+        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().
+            map(ByteArray::bytes).collect(toList());
 
-        for (int i = 0; i < expKeys.size(); i++) {
+        for (int i = 0; i < expKeys.size(); i++)
             assertArrayEquals(expKeys.get(i), keysCaptor.getValue().get(i));
-        }
     }
 
     /**
-     * Tests {@link MetaStorageService#range(ByteArray, ByteArray, long)}} with not null keyTo and explicit revUpperBound.
+     * Tests {@link MetaStorageService#range(ByteArray, ByteArray, long)}} with not null keyTo and explicit
+     * revUpperBound.
      *
      * @throws Exception If failed.
      */
     @Test
     public void testRangeWitKeyToAndUpperBound() throws Exception {
-        ByteArray expKeyFrom = new ByteArray(new byte[]{1});
+        ByteArray expKeyFrom = new ByteArray(new byte[] {1});
 
-        ByteArray expKeyTo = new ByteArray(new byte[]{3});
+        ByteArray expKeyTo = new ByteArray(new byte[] {3});
 
         long expRevUpperBound = 10;
 
@@ -541,9 +539,9 @@ public class ITMetaStorageServiceTest {
      */
     @Test
     public void testRangeWitKeyTo() throws Exception {
-        ByteArray expKeyFrom = new ByteArray(new byte[]{1});
+        ByteArray expKeyFrom = new ByteArray(new byte[] {1});
 
-        ByteArray expKeyTo = new ByteArray(new byte[]{3});
+        ByteArray expKeyTo = new ByteArray(new byte[] {3});
 
         when(mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes())).thenReturn(mock(Cursor.class));
 
@@ -557,7 +555,7 @@ public class ITMetaStorageServiceTest {
      */
     @Test
     public void testRangeWitNullAsKeyTo() throws Exception {
-        ByteArray expKeyFrom = new ByteArray(new byte[]{1});
+        ByteArray expKeyFrom = new ByteArray(new byte[] {1});
 
         when(mockStorage.range(expKeyFrom.bytes(), null)).thenReturn(mock(Cursor.class));
 
@@ -569,7 +567,7 @@ public class ITMetaStorageServiceTest {
      */
     @Test
     public void testRangeHasNext() {
-        ByteArray expKeyFrom = new ByteArray(new byte[]{1});
+        ByteArray expKeyFrom = new ByteArray(new byte[] {1});
 
         when(mockStorage.range(expKeyFrom.bytes(), null)).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
@@ -586,6 +584,7 @@ public class ITMetaStorageServiceTest {
 
     /**
      * Tests {@link MetaStorageService#range(ByteArray, ByteArray, long)}} next.
+     *
      */
     @Test
     public void testRangeNext() {
@@ -610,7 +609,7 @@ public class ITMetaStorageServiceTest {
      */
     @Test
     public void testRangeClose() throws Exception {
-        ByteArray expKeyFrom = new ByteArray(new byte[]{1});
+        ByteArray expKeyFrom = new ByteArray(new byte[] {1});
 
         Cursor cursorMock = mock(Cursor.class);
 
@@ -626,54 +625,54 @@ public class ITMetaStorageServiceTest {
     @Test
     public void testWatchOnUpdate() throws Exception {
         org.apache.ignite.internal.metastorage.server.WatchEvent expectedEvent =
-                new org.apache.ignite.internal.metastorage.server.WatchEvent(List.of(
-                        new org.apache.ignite.internal.metastorage.server.EntryEvent(
-                                new org.apache.ignite.internal.metastorage.server.Entry(
-                                        new byte[]{2},
-                                        new byte[]{20},
-                                        1,
-                                        1
-                                ),
-                                new org.apache.ignite.internal.metastorage.server.Entry(
-                                        new byte[]{2},
-                                        new byte[]{21},
-                                        2,
-                                        4
-                                )
-                        ),
-                        new org.apache.ignite.internal.metastorage.server.EntryEvent(
-                                new org.apache.ignite.internal.metastorage.server.Entry(
-                                        new byte[]{3},
-                                        new byte[]{20},
-                                        1,
-                                        2
-                                ),
-                                new org.apache.ignite.internal.metastorage.server.Entry(
-                                        new byte[]{3},
-                                        new byte[]{},
-                                        2,
-                                        5
-                                )
-                        ),
-                        new org.apache.ignite.internal.metastorage.server.EntryEvent(
-                                new org.apache.ignite.internal.metastorage.server.Entry(
-                                        new byte[]{4},
-                                        new byte[]{20},
-                                        1,
-                                        3
-                                ),
-                                new org.apache.ignite.internal.metastorage.server.Entry(
-                                        new byte[]{4},
-                                        new byte[]{},
-                                        3,
-                                        6
-                                )
-                        )
-                ));
+            new org.apache.ignite.internal.metastorage.server.WatchEvent(List.of(
+                new org.apache.ignite.internal.metastorage.server.EntryEvent(
+                    new org.apache.ignite.internal.metastorage.server.Entry(
+                        new byte[] {2},
+                        new byte[] {20},
+                        1,
+                        1
+                    ),
+                    new org.apache.ignite.internal.metastorage.server.Entry(
+                        new byte[] {2},
+                        new byte[] {21},
+                        2,
+                        4
+                    )
+                ),
+                new org.apache.ignite.internal.metastorage.server.EntryEvent(
+                    new org.apache.ignite.internal.metastorage.server.Entry(
+                        new byte[] {3},
+                        new byte[] {20},
+                        1,
+                        2
+                    ),
+                    new org.apache.ignite.internal.metastorage.server.Entry(
+                        new byte[] {3},
+                        new byte[] {},
+                        2,
+                        5
+                    )
+                ),
+                new org.apache.ignite.internal.metastorage.server.EntryEvent(
+                    new org.apache.ignite.internal.metastorage.server.Entry(
+                        new byte[] {4},
+                        new byte[] {20},
+                        1,
+                        3
+                    ),
+                    new org.apache.ignite.internal.metastorage.server.Entry(
+                        new byte[] {4},
+                        new byte[] {},
+                        3,
+                        6
+                    )
+                )
+            ));
 
-        ByteArray keyFrom = new ByteArray(new byte[]{1});
+        ByteArray keyFrom = new ByteArray(new byte[] {1});
 
-        ByteArray keyTo = new ByteArray(new byte[]{10});
+        ByteArray keyTo = new ByteArray(new byte[] {10});
 
         long rev = 2;
 
@@ -689,8 +688,7 @@ public class ITMetaStorageServiceTest {
         CountDownLatch latch = new CountDownLatch(1);
 
         IgniteUuid watchId = metaStorageSvc.watch(keyFrom, keyTo, rev, new WatchListener() {
-            @Override
-            public boolean onUpdate(@NotNull WatchEvent event) {
+            @Override public boolean onUpdate(@NotNull WatchEvent event) {
                 Collection<EntryEvent> expectedEvents = expectedEvent.entryEvents();
                 Collection<org.apache.ignite.internal.metastorage.client.EntryEvent> actualEvents = event.entryEvents();
 
@@ -714,8 +712,7 @@ public class ITMetaStorageServiceTest {
                 return true;
             }
 
-            @Override
-            public void onError(@NotNull Throwable e) {
+            @Override public void onError(@NotNull Throwable e) {
                 // Within given test it's not expected to get here.
                 fail();
             }
@@ -728,7 +725,7 @@ public class ITMetaStorageServiceTest {
 
     @Test
     public void testInvoke() throws Exception {
-        ByteArray expKey = new ByteArray(new byte[]{1});
+        ByteArray expKey = new ByteArray(new byte[] {1});
 
         byte[] expVal = {2};
 
@@ -745,10 +742,10 @@ public class ITMetaStorageServiceTest {
         var conditionCaptor = ArgumentCaptor.forClass(org.apache.ignite.internal.metastorage.server.Condition.class);
 
         ArgumentCaptor<Collection<org.apache.ignite.internal.metastorage.server.Operation>> successCaptor =
-                ArgumentCaptor.forClass(Collection.class);
+            ArgumentCaptor.forClass(Collection.class);
 
         ArgumentCaptor<Collection<org.apache.ignite.internal.metastorage.server.Operation>> failureCaptor =
-                ArgumentCaptor.forClass(Collection.class);
+            ArgumentCaptor.forClass(Collection.class);
 
         verify(mockStorage).invoke(conditionCaptor.capture(), successCaptor.capture(), failureCaptor.capture());
 
@@ -770,7 +767,7 @@ public class ITMetaStorageServiceTest {
     @Test
     public void testGetThatThrowsCompactedException() {
         when(mockStorage.get(EXPECTED_RESULT_ENTRY.key().bytes()))
-                .thenThrow(new org.apache.ignite.internal.metastorage.server.CompactedException());
+            .thenThrow(new org.apache.ignite.internal.metastorage.server.CompactedException());
 
         assertThrows(CompactedException.class, () -> metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key()).get());
     }
@@ -805,14 +802,14 @@ public class ITMetaStorageServiceTest {
         List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
         RaftGroupService metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
-                METASTORAGE_RAFT_GROUP_NAME,
-                cluster.get(1),
-                FACTORY,
-                10_000,
-                peers,
-                true,
-                200,
-                executor
+            METASTORAGE_RAFT_GROUP_NAME,
+            cluster.get(1),
+            FACTORY,
+            10_000,
+            peers,
+            true,
+            200,
+            executor
         ).get(3, TimeUnit.SECONDS);
 
         try {
@@ -822,7 +819,7 @@ public class ITMetaStorageServiceTest {
 
             Cursor<Entry> cursor2Node0 = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
 
-            final Cursor<Entry> cursorNode1 = metaStorageSvc2.range(EXPECTED_RESULT_ENTRY.key(), null);
+            Cursor<Entry> cursorNode1 = metaStorageSvc2.range(EXPECTED_RESULT_ENTRY.key(), null);
 
             metaStorageSvc.closeCursors(NODE_ID_0).get();
 
@@ -831,7 +828,8 @@ public class ITMetaStorageServiceTest {
             assertThrows(NoSuchElementException.class, () -> cursor2Node0.iterator().next());
 
             assertEquals(EXPECTED_RESULT_ENTRY, (cursorNode1.iterator().next()));
-        } finally {
+        }
+        finally {
             metaStorageRaftGrpSvc.shutdown();
         }
     }
@@ -847,13 +845,13 @@ public class ITMetaStorageServiceTest {
         long stop = System.currentTimeMillis() + timeout;
 
         while (System.currentTimeMillis() < stop) {
-            if (cluster.topologyService().allMembers().size() >= exp) {
+            if (cluster.topologyService().allMembers().size() >= exp)
                 return true;
-            }
 
             try {
                 Thread.sleep(50);
-            } catch (InterruptedException e) {
+            }
+            catch (InterruptedException e) {
                 return false;
             }
         }
@@ -877,14 +875,14 @@ public class ITMetaStorageServiceTest {
         metaStorageRaftSrv.startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(mockStorage), peers);
 
         metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
-                METASTORAGE_RAFT_GROUP_NAME,
-                cluster.get(1),
-                FACTORY,
-                10_000,
-                peers,
-                true,
-                200,
-                executor
+            METASTORAGE_RAFT_GROUP_NAME,
+            cluster.get(1),
+            FACTORY,
+            10_000,
+            peers,
+            true,
+            200,
+            executor
         ).get(3, TimeUnit.SECONDS);
 
         return new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_0);

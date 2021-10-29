@@ -82,6 +82,7 @@
         <metrics.version>4.0.2</metrics.version>
         <jctools.version>3.3.0</jctools.version>
         <msgpack.version>0.8.21</msgpack.version>
+        <caffeine.version>3.0.4</caffeine.version>
 
         <!-- Plugins versions -->
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
@@ -441,6 +442,12 @@
                 <version>${msgpack.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>com.github.ben-manes.caffeine</groupId>
+                <artifactId>caffeine</artifactId>
+                <version>${caffeine.version}</version>
+            </dependency>
+
             <!-- Test dependencies -->
             <dependency>
                 <groupId>org.apache.ignite</groupId>
@@ -530,7 +537,7 @@
 
             <dependency>
                 <groupId>org.hamcrest</groupId>
-                <artifactId>hamcrest-library</artifactId>
+                <artifactId>hamcrest</artifactId>
                 <version>${hamcrest.version}</version>
             </dependency>
 
@@ -1140,6 +1147,9 @@
                         <exclude>modules/raft/src/main/java/org/apache/ignite/raft/jraft/util/timer/TimerTask.java</exclude> <!-- Netty license. -->
                         <exclude>modules/raft/src/main/java/org/apache/ignite/raft/jraft/util/timer/Timeout.java</exclude> <!-- Netty license. -->
                         <exclude>**/*.sln</exclude> <!-- Visual Studio solution. -->
+                        <!-- DEB package assembly files -->
+                        <exclude>deliveries/deb/rules</exclude>
+                        <exclude>deliveries/deb/control</exclude>
                     </excludes>
                 </configuration>
             </plugin>
