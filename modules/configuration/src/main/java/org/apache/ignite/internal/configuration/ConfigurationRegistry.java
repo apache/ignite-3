@@ -275,7 +275,7 @@ public class ConfigurationRegistry implements IgniteComponent {
     /**
      * Get configuration schemas and their validated internal extensions with checks.
      *
-     * @param allSchemas All configuration schemes.
+     * @param allSchemas All configuration schemas.
      * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration})
      *      of configuration schemas ({@link ConfigurationRoot} and {@link Config}).
      * @return Mapping: original of the schema -> internal schema extensions.
@@ -304,9 +304,9 @@ public class ConfigurationRegistry implements IgniteComponent {
     /**
      * Get polymorphic extensions of configuration schemas with checks.
      *
-     * @param allSchemas All configuration schemes.
+     * @param allSchemas All configuration schemas.
      * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance})
-     *      of configuration schemes.
+     *      of configuration schemas.
      * @return Mapping: polymorphic scheme -> extensions (instances) of polymorphic configuration.
      * @throws IllegalArgumentException If the schema extension is invalid.
      */
@@ -323,7 +323,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         if (!notInAllSchemas.isEmpty()) {
             throw new IllegalArgumentException(
-                "Polymorphic extensions for which no polymorphic configuration schemes were found: " + notInAllSchemas
+                "Polymorphic extensions for which no polymorphic configuration schemas were found: " + notInAllSchemas
             );
         }
 
@@ -334,7 +334,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         if (!noPolymorphicExtensionsSchemas.isEmpty()) {
             throw new IllegalArgumentException(
-                "Polymorphic configuration schemes for which no extensions were found: " + noPolymorphicExtensionsSchemas
+                "Polymorphic configuration schemas for which no extensions were found: " + noPolymorphicExtensionsSchemas
             );
         }
 

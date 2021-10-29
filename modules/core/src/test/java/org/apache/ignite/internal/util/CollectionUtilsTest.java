@@ -60,10 +60,10 @@ public class CollectionUtilsTest {
 
         assertEquals(Set.of(1), union(Set.of(1), null));
         assertEquals(Set.of(1), union(Set.of(1), new Integer[] {}));
-        assertEquals(Set.of(1), union(null, new Integer[] {1}));
-        assertEquals(Set.of(1), union(Set.of(), new Integer[] {1}));
+        assertEquals(Set.of(1), union(null, 1));
+        assertEquals(Set.of(1), union(Set.of(), 1));
 
-        assertEquals(Set.of(1, 2), union(Set.of(1), new Integer[] {2}));
+        assertEquals(Set.of(1, 2), union(Set.of(1), 2));
     }
 
     /** */

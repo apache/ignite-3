@@ -52,7 +52,7 @@ import com.squareup.javapoet.WildcardTypeName;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.PolymorphicInstance;
+import org.apache.ignite.configuration.PolymorphicChange;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -87,8 +87,8 @@ public class Processor extends AbstractProcessor {
     /** {@link RootKey} class name. */
     private static final ClassName ROOT_KEY_CLASSNAME = ClassName.get("org.apache.ignite.configuration", "RootKey");
 
-    /** {@link PolymorphicInstance} class name. */
-    private static final ClassName POLYMORPHIC_INSTANCE_CLASSNAME = ClassName.get(PolymorphicInstance.class);
+    /** {@link PolymorphicChange} class name. */
+    private static final ClassName POLYMORPHIC_CHANGE_CLASSNAME = ClassName.get(PolymorphicChange.class);
 
     /** Error format for the superclass missing annotation. */
     private static final String SUPERCLASS_MISSING_ANNOTATION_ERROR_FORMAT = "Superclass must have %s: %s";
@@ -288,7 +288,12 @@ public class Processor extends AbstractProcessor {
             TypeName viewClassType = Utils.getViewName((ClassName) baseType);
             TypeName changeClassType = Utils.getChangeName((ClassName) baseType);
 
-            interfaceGetMethodType = ParameterizedTypeName.get(ClassName.get(NamedConfigurationTree.class), interfaceGetType, viewClassType, changeClassType);
+            interfaceGetMethodType = ParameterizedTypeName.get(
+                ClassName.get(NamedConfigurationTree.class),
+                interfaceGetType,
+                viewClassType,
+                changeClassType
+            );
         }
 
         Value valueAnnotation = field.getAnnotation(Value.class);
@@ -372,7 +377,7 @@ public class Processor extends AbstractProcessor {
             changeClsBuilder.addSuperinterface(changeBaseSchemaInterfaceType);
 
         if (isPolymorphicInstanceConfig)
-            changeClsBuilder.addSuperinterface(POLYMORPHIC_INSTANCE_CLASSNAME);
+            changeClsBuilder.addSuperinterface(POLYMORPHIC_CHANGE_CLASSNAME);
 
         ClassName consumerClsName = ClassName.get(Consumer.class);
 
@@ -443,7 +448,7 @@ public class Processor extends AbstractProcessor {
             );
 
             // Variable type, for example: <T extends SimpleChange & PolymorphicInstance>.
-            TypeVariableName typeVariable = TypeVariableName.get("T", changeClsName, POLYMORPHIC_INSTANCE_CLASSNAME);
+            TypeVariableName typeVariable = TypeVariableName.get("T", changeClsName, POLYMORPHIC_CHANGE_CLASSNAME);
 
             // Method like: <T extends SimpleChange> T convert(Class<T> changeClass);
             MethodSpec.Builder convertMtdBuilder = MethodSpec.methodBuilder("convert")

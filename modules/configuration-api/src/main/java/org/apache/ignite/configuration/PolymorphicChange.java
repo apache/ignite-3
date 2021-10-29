@@ -24,5 +24,5 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
  * this will allow at the compilation stage to distinguish an instance of a polymorphic configuration from
  * the polymorphic configuration itself.
  */
-public interface PolymorphicInstance {
+public interface PolymorphicChange {
 }

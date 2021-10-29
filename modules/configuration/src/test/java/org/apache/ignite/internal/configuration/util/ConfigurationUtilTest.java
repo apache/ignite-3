@@ -747,11 +747,7 @@ public class ConfigurationUtilTest {
         Map<String, Serializable> act = flattenedMap(
             superRoot,
             rootKey,
-            node -> {
-                ((PolymorphicRootChange)node).changePolymorphicSubCfg(c -> c.convert(SecondPolymorphicInstanceChange.class));
-
-                addDefaults(node);
-            }
+            node -> ((PolymorphicRootChange)node).changePolymorphicSubCfg(c -> c.convert(SecondPolymorphicInstanceChange.class))
         );
 
         Map<String, Serializable> exp = new HashMap<>();
@@ -783,12 +779,8 @@ public class ConfigurationUtilTest {
         Map<String, Serializable> act = flattenedMap(
             superRoot,
             rootKey,
-            node -> {
-                ((PolymorphicRootChange)node).changePolymorphicNamedCfg(c ->
-                    c.createOrUpdate("0", c1 -> c1.convert(SecondPolymorphicInstanceChange.class)));
-
-                addDefaults(node);
-            }
+            node -> ((PolymorphicRootChange)node).changePolymorphicNamedCfg(c ->
+                c.createOrUpdate("0", c1 -> c1.convert(SecondPolymorphicInstanceChange.class)))
         );
 
         NamedListNode<?> polymorphicNamedCfgListNode = (NamedListNode<?>)polymorphicRootChange.polymorphicNamedCfg();

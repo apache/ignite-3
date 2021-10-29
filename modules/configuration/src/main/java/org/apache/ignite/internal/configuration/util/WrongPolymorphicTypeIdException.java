@@ -25,8 +25,9 @@ public class WrongPolymorphicTypeIdException extends RuntimeException {
      * Constructor.
      *
      * @param message Error message.
+     * @param cause Cause of the exception.
      */
-    public WrongPolymorphicTypeIdException(String message) {
-        super(message);
+    public WrongPolymorphicTypeIdException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

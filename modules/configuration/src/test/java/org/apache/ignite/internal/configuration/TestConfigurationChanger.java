@@ -50,7 +50,7 @@ public class TestConfigurationChanger extends ConfigurationChanger {
      * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration})
      *      of configuration schemas ({@link ConfigurationRoot} and {@link Config}).
      * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance})
-     *      of configuration schemes.
+     *      of configuration schemas.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
      */
     public TestConfigurationChanger(

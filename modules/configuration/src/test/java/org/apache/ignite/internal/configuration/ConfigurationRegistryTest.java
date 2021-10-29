@@ -51,13 +51,15 @@ public class ConfigurationRegistryTest {
         );
 
         // Check that everything is fine.
-        new ConfigurationRegistry(
+        ConfigurationRegistry configRegistry = new ConfigurationRegistry(
             List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
             Map.of(),
             new TestConfigurationStorage(LOCAL),
             List.of(ExtendedFirstRootConfigurationSchema.class),
             List.of()
         );
+
+        configRegistry.stop();
     }
 
     /** */
@@ -88,7 +90,7 @@ public class ConfigurationRegistryTest {
         );
 
         // Check that everything is fine.
-        new ConfigurationRegistry(
+        ConfigurationRegistry configRegistry = new ConfigurationRegistry(
             List.of(ThirdRootConfiguration.KEY, FourthRootConfiguration.KEY, FifthRootConfiguration.KEY),
             Map.of(),
             new TestConfigurationStorage(LOCAL),
@@ -101,6 +103,8 @@ public class ConfigurationRegistryTest {
                 Third1PolymorphicConfigurationSchema.class
             )
         );
+
+        configRegistry.stop();
     }
 
     /**

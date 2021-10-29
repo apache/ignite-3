@@ -161,9 +161,11 @@ public class ConfigurationUtil {
                         throw new KeyNotFoundException(
                             "Configuration value '" + join(keys.subList(0, i)) + "' has not been found"
                         );
-                    } catch (ConfigurationWrongPolymorphicTypeIdException e) {
+                    }
+                    catch (ConfigurationWrongPolymorphicTypeIdException e) {
                         throw new WrongPolymorphicTypeIdException(
-                            "Polymorphic configuration type is not correct: " + e.getMessage()
+                            "Polymorphic configuration type is not correct: " + e.getMessage(),
+                            e
                         );
                     }
                 }
@@ -453,12 +455,12 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Collect all configuration schemes with {@link ConfigurationRoot}, {@link Config} or {@link PolymorphicConfig}
-     * including all sub configuration schemes for fields with {@link ConfigValue} or {@link NamedConfigValue}.
+     * Collect all configuration schemas with {@link ConfigurationRoot}, {@link Config} or {@link PolymorphicConfig}
+     * including all sub configuration schemas for fields with {@link ConfigValue} or {@link NamedConfigValue}.
      *
      * @param schemaClasses Configuration schemas (starting points) with {@link ConfigurationRoot}, {@link Config}
      *      or {@link PolymorphicConfig}.
-     * @return All configuration schemes with {@link ConfigurationRoot}, {@link Config}, or {@link PolymorphicConfig}.
+     * @return All configuration schemas with {@link ConfigurationRoot}, {@link Config}, or {@link PolymorphicConfig}.
      * @throws IllegalArgumentException If the configuration schemas does not contain
      *      {@link ConfigurationRoot}, {@link Config} or {@link PolymorphicConfig}.
      */

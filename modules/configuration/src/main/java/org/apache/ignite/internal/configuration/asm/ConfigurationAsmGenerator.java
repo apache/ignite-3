@@ -60,7 +60,6 @@ import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdExcept
 import org.apache.ignite.configuration.DirectConfigurationProperty;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.PolymorphicInstance;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -836,15 +835,15 @@ public class ConfigurationAsmGenerator {
             assert isPolymorphicConfigInstance(schemaField.getDeclaringClass()) : schemaField;
 
             // tmpVar = this.typeId; OR this.field.typeId.
-            BytecodeExpression getPolymorphicTypeIdField = getPolymorphicTypeIdFieldFun.apply(viewMtd);
+            BytecodeExpression getPolymorphicTypeIdFieldValue = getPolymorphicTypeIdFieldFun.apply(viewMtd);
             String polymorphicInstanceId = polymorphicInstanceId(schemaField.getDeclaringClass());
 
             // if (!"first".equals(tmpVar)) throw Ex;
             // else return value;
             viewMtd.getBody().append(
                 new IfStatement()
-                    .condition(not(constantString(polymorphicInstanceId).invoke(STRING_EQUALS_MTD, getPolymorphicTypeIdField)))
-                    .ifTrue(throwException(ConfigurationWrongPolymorphicTypeIdException.class, getPolymorphicTypeIdField))
+                    .condition(not(constantString(polymorphicInstanceId).invoke(STRING_EQUALS_MTD, getPolymorphicTypeIdFieldValue)))
+                    .ifTrue(throwException(ConfigurationWrongPolymorphicTypeIdException.class, getPolymorphicTypeIdFieldValue))
                     .ifFalse(bytecodeBlock)
             );
         }
@@ -939,15 +938,15 @@ public class ConfigurationAsmGenerator {
             assert isPolymorphicConfigInstance(schemaField.getDeclaringClass()) : schemaField;
 
             // tmpVar = this.typeId; OR this.field.typeId.
-            BytecodeExpression getPolymorphicTypeIdField = getPolymorphicTypeIdFieldFun.apply(changeMtd);
+            BytecodeExpression getPolymorphicTypeIdFieldValue = getPolymorphicTypeIdFieldFun.apply(changeMtd);
             String polymorphicInstanceId = polymorphicInstanceId(schemaField.getDeclaringClass());
 
             // if (!"first".equals(tmpVar)) throw Ex;
             // else change_value;
             changeMtd.getBody().append(
                 new IfStatement()
-                    .condition(not(constantString(polymorphicInstanceId).invoke(STRING_EQUALS_MTD, getPolymorphicTypeIdField)))
-                    .ifTrue(throwException(ConfigurationWrongPolymorphicTypeIdException.class, getPolymorphicTypeIdField))
+                    .condition(not(constantString(polymorphicInstanceId).invoke(STRING_EQUALS_MTD, getPolymorphicTypeIdFieldValue)))
+                    .ifTrue(throwException(ConfigurationWrongPolymorphicTypeIdException.class, getPolymorphicTypeIdFieldValue))
                     .ifFalse(bytecodeBlock)
             );
         }
@@ -1899,9 +1898,6 @@ public class ConfigurationAsmGenerator {
             res.add(typeFromJavaClassName(changeClassName(cls)));
         }
 
-        if (isPolymorphicConfigInstance(schemaClass))
-            res.add(type(PolymorphicInstance.class));
-
         return res.toArray(ParameterizedType[]::new);
     }
 
@@ -2305,8 +2301,7 @@ public class ConfigurationAsmGenerator {
                     .condition(new BytecodeBlock().invokeVirtual(STRING_EQUALS_MTD))
                     .ifTrue(new BytecodeBlock().ret())
                     .ifFalse(switchBuilder.build().ret())
-            )
-            .ret();
+            );
 
         return changePolymorphicTypeIdMtd;
     }
