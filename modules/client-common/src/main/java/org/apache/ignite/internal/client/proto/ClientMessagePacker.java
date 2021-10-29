@@ -40,6 +40,9 @@ import org.msgpack.core.buffer.OutputStreamBufferOutput;
 import org.msgpack.value.Value;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER_SIZE;
+import static org.msgpack.core.MessagePack.Code;
+import static org.msgpack.core.MessagePack.Code.INT8;
+import static org.msgpack.core.MessagePack.Code.NIL;
 
 /**
  * Ignite-specific MsgPack extension based on Netty ByteBuf.
@@ -60,6 +63,7 @@ public class ClientMessagePacker extends MessagePacker {
      */
     public ClientMessagePacker(ByteBuf buf) {
         // TODO: Remove intermediate classes and buffers IGNITE-15234.
+        // TODO: Make all methods void?
         // Reserve 4 bytes for the message length.
         super(new OutputStreamBufferOutput(new ByteBufOutputStream(buf.writerIndex(HEADER_SIZE))),
                 MessagePack.DEFAULT_PACKER_CONFIG);
@@ -90,33 +94,30 @@ public class ClientMessagePacker extends MessagePacker {
     @Override public MessagePacker packNil() {
         assert !closed : "Packer is closed";
 
-        try {
-            return super.packNil();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        buf.writeByte(Code.NIL);
+
+        return this;
     }
 
     /** {@inheritDoc} */
     @Override public MessagePacker packBoolean(boolean b) {
         assert !closed : "Packer is closed";
 
-        try {
-            return super.packBoolean(b);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        buf.writeByte(b ? Code.TRUE : Code.FALSE);
+
+        return this;
     }
 
     /** {@inheritDoc} */
     @Override public MessagePacker packByte(byte b) {
         assert !closed : "Packer is closed";
 
-        try {
-            return super.packByte(b);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        if (b < -(1 << 5))
+            buf.writeByte(INT8);
+
+        buf.writeByte(b);
+
+        return this;
     }
 
     /** {@inheritDoc} */
