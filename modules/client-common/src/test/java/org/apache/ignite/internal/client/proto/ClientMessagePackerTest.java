@@ -99,6 +99,12 @@ public class ClientMessagePackerTest {
         testPacker(p -> p.packDouble(d), p -> p.packDouble(d));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"", "Abc", "Абв", "\uD83D\uDD25"})
+    public void testPackString(String s) {
+        testPacker(p -> p.packString(s), p -> p.packString(s));
+    }
+
     private static void testPacker(Consumer<ClientMessagePacker> pack1, MessagePackerConsumer pack2) {
         var bytesIgnite = packIgnite(pack1);
         var bytesLibrary = packLibrary(pack2);
