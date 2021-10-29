@@ -45,6 +45,8 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.impl.SMCompactedThrowable;
+import org.apache.ignite.raft.jraft.rpc.impl.SMFullThrowable;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -214,8 +216,15 @@ public class RaftServerImpl implements RaftServer {
                 return (T) req.command();
             }
 
-            @Override public void result(Serializable res) {
+            @Override public void success(Serializable res) {
                 var msg = clientMsgFactory.actionResponse().result(res).build();
+                service.messagingService().send(sender, msg, corellationId);
+            }
+
+            @Override public void failure(Throwable th, boolean compacted) {
+                var msg = clientMsgFactory.sMErrorResponse()
+                    .error(compacted ? new SMCompactedThrowable(th) : new SMFullThrowable(th))
+                    .build();
                 service.messagingService().send(sender, msg, corellationId);
             }
         })) {

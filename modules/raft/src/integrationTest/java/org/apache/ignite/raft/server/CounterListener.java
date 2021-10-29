@@ -59,7 +59,7 @@ public class CounterListener implements RaftGroupListener {
 
             assert clo.command() instanceof GetValueCommand;
 
-            clo.result(counter.get());
+            clo.success(counter.get());
         }
     }
 
@@ -70,7 +70,7 @@ public class CounterListener implements RaftGroupListener {
 
             IncrementAndGetCommand cmd0 = (IncrementAndGetCommand) clo.command();
 
-            clo.result(counter.addAndGet(cmd0.delta()));
+            clo.success(counter.addAndGet(cmd0.delta()));
         }
     }
 

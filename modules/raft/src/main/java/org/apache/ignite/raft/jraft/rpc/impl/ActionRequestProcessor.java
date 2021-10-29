@@ -26,7 +26,6 @@ import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
-import org.apache.ignite.raft.jraft.rpc.ErrorResponseBuilder;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
@@ -69,14 +68,18 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
         if (request.command() instanceof WriteCommand) {
             node.apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(request.command())),
                 new CommandClosureImpl<>(request.command()) {
-                    @Override public void result(Serializable res) {
+                    @Override public void success(Serializable res) {
                         rpcCtx.sendResponse(factory.actionResponse().result(res).build());
+                    }
+
+                    @Override public void failure(Throwable th, boolean compacted) {
+                        sendSMError(rpcCtx, th, compacted);
                     }
 
                     @Override public void run(Status status) {
                         assert !status.isOk() : status;
 
-                        sendError(rpcCtx, status, node);
+                        sendRaftError(rpcCtx, status, node);
                     }
                 }));
         }
@@ -94,17 +97,21 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                                         return (ReadCommand)request.command();
                                     }
 
-                                    @Override public void result(Serializable res) {
+                                    @Override public void success(Serializable res) {
                                         rpcCtx.sendResponse(factory.actionResponse().result(res).build());
+                                    }
+
+                                    @Override public void failure(Throwable th, boolean compacted) {
+                                        sendSMError(rpcCtx, th, compacted);
                                     }
                                 }).iterator());
                             }
                             catch (Exception e) {
-                                sendError(rpcCtx, RaftError.ESTATEMACHINE, e.getMessage());
+                                sendRaftError(rpcCtx, RaftError.ESTATEMACHINE, e.getMessage());
                             }
                         }
                         else
-                            sendError(rpcCtx, status, node);
+                            sendRaftError(rpcCtx, status, node);
                     }
                 });
             }
@@ -119,13 +126,17 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                             return (ReadCommand)request.command();
                         }
 
-                        @Override public void result(Serializable res) {
+                        @Override public void success(Serializable res) {
                             rpcCtx.sendResponse(factory.actionResponse().result(res).build());
+                        }
+
+                        @Override public void failure(Throwable th, boolean compacted) {
+                            sendSMError(rpcCtx, th, compacted);
                         }
                     }).iterator());
                 }
                 catch (Exception e) {
-                    sendError(rpcCtx, RaftError.ESTATEMACHINE, e.getMessage());
+                    sendRaftError(rpcCtx, RaftError.ESTATEMACHINE, e.getMessage());
                 }
             }
         }
@@ -146,10 +157,21 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      * @param error RaftError code.
      * @param msg Message.
      */
-    private void sendError(RpcContext ctx, RaftError error, String msg) {
+    private void sendRaftError(RpcContext ctx, RaftError error, String msg) {
         RpcRequests.ErrorResponse resp = factory.errorResponse()
             .errorCode(error.getNumber())
             .errorMsg(msg)
+            .build();
+
+        ctx.sendResponse(resp);
+    }
+
+    /**
+     * @param ctx Context.
+     */
+    private void sendSMError(RpcContext ctx, Throwable th, boolean compacted) {
+        RpcRequests.SMErrorResponse resp = factory.sMErrorResponse()
+            .error(compacted ? new SMCompactedThrowable(th) : new SMFullThrowable(th))
             .build();
 
         ctx.sendResponse(resp);
@@ -160,7 +182,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      * @param status The status.
      * @param node Raft node.
      */
-    private void sendError(RpcContext ctx, Status status, Node node) {
+    private void sendRaftError(RpcContext ctx, Status status, Node node) {
         RaftError raftError = status.getRaftError();
 
         Message response;

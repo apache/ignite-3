@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -545,6 +546,23 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     else
                         fut.completeExceptionally(
                             new RaftException(RaftError.forNumber(resp0.errorCode()), resp0.errorMsg()));
+                }
+                else if (resp instanceof RpcRequests.SMErrorResponse) {
+                    SMThrowable th = ((RpcRequests.SMErrorResponse)resp).error();
+                    if (th instanceof SMCompactedThrowable) {
+                        try {
+                            Throwable restoredTh = (Throwable)Class.forName(((SMCompactedThrowable)th).getClsName())
+                                .getConstructor(String.class)
+                                .newInstance(((SMCompactedThrowable)th).getMsg());
+
+                            fut.completeExceptionally(restoredTh);
+                        }
+                        catch (Exception e) {
+                            fut.completeExceptionally(new IgniteException(((SMCompactedThrowable)th).getMsg()));
+                        }
+                    }
+                    else if (th instanceof SMFullThrowable)
+                        fut.completeExceptionally(((SMFullThrowable)th).getThrowable());
                 }
                 else {
                     leader = peer; // The OK response was received from a leader.

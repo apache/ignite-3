@@ -455,7 +455,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         }
     }
 
-    /** Tests if a raft group become unavaiable in case of a critical error */
+    /** Tests if a raft group become unavailable in case of a critical error */
     @Test
     public void testApplyWithFailure() throws Exception {
         listenerFactory = () -> new CounterListener() {
@@ -529,6 +529,57 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
                 LOG.error("Got unexpected exception", e);
 
             assertTrue(isValid, "Expecting the timeout");
+        }
+    }
+
+    /** Tests if a raft group become unavailable in case of a critical error */
+    @Test
+    public void testApply() throws Exception {
+        listenerFactory = () -> new CounterListener() {
+            @Override public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
+                Iterator<CommandClosure<WriteCommand>> wrapper = new Iterator<>() {
+                    @Override public boolean hasNext() {
+                        return iterator.hasNext();
+                    }
+
+                    @Override public CommandClosure<WriteCommand> next() {
+                        CommandClosure<WriteCommand> cmd = iterator.next();
+
+                        cmd.failure(new RuntimeException("Expected message"), true);
+
+                        return cmd;
+                    }
+                };
+
+                super.onWrite(wrapper);
+            }
+        };
+
+        startCluster();
+
+        RaftGroupService client1 = clients.get(0);
+        RaftGroupService client2 = clients.get(1);
+
+        client1.refreshLeader().get();
+        client2.refreshLeader().get();
+
+        NodeImpl leader = servers.stream().map(s -> ((NodeImpl)s.raftGroupService(COUNTER_GROUP_0).getRaftNode())).
+            filter(n -> n.getState() == STATE_LEADER).findFirst().orElse(null);
+
+        assertNotNull(leader);
+
+        try {
+            client1.<Long>run(new IncrementAndGetCommand(10)).get();
+
+            fail();
+        }
+        catch (Exception e) {
+            // Expected.
+            Throwable cause = e.getCause();
+
+            assertTrue(cause instanceof RuntimeException);
+
+            assertEquals(cause.getMessage(), "Expected message");
         }
     }
 

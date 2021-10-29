@@ -153,6 +153,9 @@ public class RaftMessageGroup {
 
         /** */
         public static final short READ_INDEX_RESPONSE = 36;
+
+        /** TODO */
+        public static final short SM_ERROR_RESPONSE = 39;
     }
 
     /**

@@ -159,7 +159,7 @@ public class PartitionListener implements RaftGroupListener {
 
         BinaryRow responseRow = readValue == null ? null : new ByteBufferRow(readValue.valueBytes());
 
-        clo.result(new SingleRowResponse(responseRow));
+        clo.success(new SingleRowResponse(responseRow));
     }
 
     /**
@@ -180,7 +180,7 @@ public class PartitionListener implements RaftGroupListener {
             .map(read -> new ByteBufferRow(read.valueBytes()))
             .collect(Collectors.toList());
 
-        clo.result(new MultiRowsResponse(res));
+        clo.success(new MultiRowsResponse(res));
     }
 
     /**
@@ -199,7 +199,7 @@ public class PartitionListener implements RaftGroupListener {
 
         storage.invoke(newRow, writeIfAbsent);
 
-        clo.result(writeIfAbsent.result());
+        clo.success(writeIfAbsent.result());
     }
 
     /**
@@ -216,7 +216,7 @@ public class PartitionListener implements RaftGroupListener {
 
         storage.invoke(newRow, getAndRemoveClosure);
 
-        clo.result(getAndRemoveClosure.result());
+        clo.success(getAndRemoveClosure.result());
     }
 
     /**
@@ -232,7 +232,7 @@ public class PartitionListener implements RaftGroupListener {
 
         storage.invoke(expected, replaceClosure);
 
-        clo.result(replaceClosure.result());
+        clo.success(replaceClosure.result());
     }
 
     /**
@@ -247,7 +247,7 @@ public class PartitionListener implements RaftGroupListener {
 
         storage.write(extractAndWrapKeyValue(row));
 
-        clo.result(null);
+        clo.success(null);
     }
 
     /**
@@ -268,7 +268,7 @@ public class PartitionListener implements RaftGroupListener {
             .map(skipped -> new ByteBufferRow(skipped.valueBytes()))
             .collect(Collectors.toList());
 
-        clo.result(new MultiRowsResponse(res));
+        clo.success(new MultiRowsResponse(res));
     }
 
     /**
@@ -287,7 +287,7 @@ public class PartitionListener implements RaftGroupListener {
 
         storage.writeAll(keyValues);
 
-        clo.result(null);
+        clo.success(null);
     }
 
     /**
@@ -308,7 +308,7 @@ public class PartitionListener implements RaftGroupListener {
             .map(skipped -> ((BinarySearchRow)skipped).sourceRow)
             .collect(Collectors.toList());
 
-        clo.result(new MultiRowsResponse(res));
+        clo.success(new MultiRowsResponse(res));
     }
 
     /**
@@ -327,7 +327,7 @@ public class PartitionListener implements RaftGroupListener {
 
         storage.invoke(keyValue, deleteExact);
 
-        clo.result(deleteExact.result());
+        clo.success(deleteExact.result());
     }
 
     /**
@@ -348,7 +348,7 @@ public class PartitionListener implements RaftGroupListener {
             .map(skipped -> new ByteBufferRow(skipped.valueBytes()))
             .collect(Collectors.toList());
 
-        clo.result(new MultiRowsResponse(res));
+        clo.success(new MultiRowsResponse(res));
     }
 
     /**
@@ -367,7 +367,7 @@ public class PartitionListener implements RaftGroupListener {
 
         storage.invoke(keyValue, replaceIfExists);
 
-        clo.result(replaceIfExists.result());
+        clo.success(replaceIfExists.result());
     }
 
     /**
@@ -390,7 +390,7 @@ public class PartitionListener implements RaftGroupListener {
             new ByteBufferRow(getAndRemoveClosure.oldRow().valueBytes()) :
             null;
 
-        clo.result(new SingleRowResponse(removedRow));
+        clo.success(new SingleRowResponse(removedRow));
     }
 
     /**
@@ -413,7 +413,7 @@ public class PartitionListener implements RaftGroupListener {
 
         BinaryRow res = oldRow == null ? null : new ByteBufferRow(oldRow.valueBytes());
 
-        clo.result(new SingleRowResponse(res));
+        clo.success(new SingleRowResponse(res));
     }
 
     /**
@@ -436,7 +436,7 @@ public class PartitionListener implements RaftGroupListener {
 
         BinaryRow response = oldRow == null ? null : new ByteBufferRow(oldRow.valueBytes());
 
-        clo.result(new SingleRowResponse(response));
+        clo.success(new SingleRowResponse(response));
     }
 
     /**
@@ -461,10 +461,10 @@ public class PartitionListener implements RaftGroupListener {
             );
         }
         catch (StorageException e) {
-            clo.result(e);
+            clo.failure(e, true);
         }
 
-        clo.result(null);
+        clo.success(null);
     }
 
     /**
@@ -476,8 +476,10 @@ public class PartitionListener implements RaftGroupListener {
         CursorMeta cursorDesc = cursors.get(clo.command().scanId());
 
         if (cursorDesc == null) {
-            clo.result(new NoSuchElementException(LoggerMessageHelper.format(
-                "Cursor with id={} is not found on server side.", clo.command().scanId())));
+            clo.failure(new NoSuchElementException(LoggerMessageHelper.format(
+                "Cursor with id={} is not found on server side.", clo.command().scanId())), true);
+
+            return;
         }
 
         List<BinaryRow> res = new ArrayList<>();
@@ -486,11 +488,11 @@ public class PartitionListener implements RaftGroupListener {
             for (int i = 0; i < clo.command().itemsToRetrieveCount() && cursorDesc.cursor().hasNext(); i++)
                 res.add(new ByteBufferRow(cursorDesc.cursor().next().valueBytes()));
         }
-        catch (Exception e) {
-            clo.result(e);
+        catch (NoSuchElementException e) {
+            clo.failure(e, true);
         }
 
-        clo.result(new MultiRowsResponse(res));
+        clo.success(new MultiRowsResponse(res));
     }
 
     /**
@@ -502,7 +504,7 @@ public class PartitionListener implements RaftGroupListener {
         CursorMeta cursorDesc = cursors.remove(clo.command().scanId());
 
         if (cursorDesc == null) {
-            clo.result(null);
+            clo.success(null);
 
             return;
         }
@@ -514,7 +516,7 @@ public class PartitionListener implements RaftGroupListener {
             throw new IgniteInternalException(e);
         }
 
-        clo.result(null);
+        clo.success(null);
     }
 
     /** {@inheritDoc} */

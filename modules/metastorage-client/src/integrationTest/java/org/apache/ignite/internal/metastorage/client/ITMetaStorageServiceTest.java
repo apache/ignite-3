@@ -584,7 +584,6 @@ public class ITMetaStorageServiceTest {
 
     /**
      * Tests {@link MetaStorageService#range(ByteArray, ByteArray, long)}} next.
-     *
      */
     @Test
     public void testRangeNext() {
@@ -600,6 +599,25 @@ public class ITMetaStorageServiceTest {
         Cursor<Entry> cursor = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
 
         assertEquals(EXPECTED_RESULT_ENTRY, cursor.iterator().next());
+    }
+
+    /**
+     * Tests {@link MetaStorageService#range(ByteArray, ByteArray, long)}'s cursor exceptional case.
+     */
+    @Test
+    public void testRangeNextNoSuchElementException() {
+        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key().bytes(), null)).thenAnswer(invocation -> {
+            var cursor = mock(Cursor.class);
+
+            when(cursor.hasNext()).thenReturn(true);
+            when(cursor.next()).thenThrow(new NoSuchElementException());
+
+            return cursor;
+        });
+
+        Cursor<Entry> cursor = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
+
+        assertThrows(NoSuchElementException.class, () -> cursor.iterator().next());
     }
 
     /**

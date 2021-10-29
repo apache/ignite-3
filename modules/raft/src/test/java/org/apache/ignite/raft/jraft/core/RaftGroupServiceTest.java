@@ -48,6 +48,7 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.jetbrains.annotations.Nullable;
@@ -293,6 +294,25 @@ public class RaftGroupServiceTest {
             // Expected.
         }
     }
+
+    /**
+     * @throws Exception
+     */
+    @Test
+    public void testUserRequestError() throws Exception {
+        String groupId = "test";
+
+        mockLeaderRequest(false);
+        mockErrorResult();
+
+        RaftGroupService service =
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
+
+        CompletableFuture<TestResponse> fut = service.<TestResponse>run(new TestCommand());
+
+        TestResponse res = fut.get();
+    }
+
 
     /**
      * @throws Exception
@@ -746,6 +766,7 @@ public class RaftGroupServiceTest {
         assertEquals(NODES.subList(0, 1), service.peers());
         assertEquals(NODES.subList(1, 2), service.learners());
     }
+
     /**
      * @param delay {@code True} to create a delay before response.
      * @param peer Fail the request targeted to given peer.
@@ -790,6 +811,43 @@ public class RaftGroupServiceTest {
 
             return completedFuture(resp);
         });
+    }
+
+    /**
+     */
+    private void mockErrorResult() {
+        when(messagingService.invoke(
+            any(NetworkAddress.class),
+            argThat(new ArgumentMatcher<ActionRequest>() {
+                @Override public boolean matches(ActionRequest arg) {
+                    return arg.command() instanceof TestCommand;
+                }
+            }),
+            anyLong()
+        )).then(invocation -> CompletableFuture.supplyAsync(() -> {
+
+            return FACTORY.actionResponse().result(new RpcRequests.ErrorResponse() {
+                @Override public int errorCode() {
+                    return 0;
+                }
+
+                @Override public String errorMsg() {
+                    return null;
+                }
+
+                @Override public @Nullable String leaderId() {
+                    return null;
+                }
+
+                @Override public short messageType() {
+                    return 0;
+                }
+
+                @Override public short groupType() {
+                    return 0;
+                }
+            }).build();
+        }));
     }
 
     /**

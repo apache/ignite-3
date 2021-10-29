@@ -116,17 +116,21 @@ public class CursorImpl<T> implements Cursor<T> {
         /** {@inheritDoc} */
         @Override public T next() {
             try {
-                Object res = initOp.thenCompose(
-                    cursorId -> metaStorageRaftGrpSvc.run(new CursorNextCommand(cursorId))).get();
+                CompletableFuture<Object> future = initOp.thenCompose(
+                    cursorId -> metaStorageRaftGrpSvc.run(new CursorNextCommand(cursorId)));
 
-                if (res instanceof NoSuchElementException)
-                    throw (NoSuchElementException)res;
-                else
-                    return fn.apply(res);
+                Object res = future.get();
+
+                return fn.apply(res);
             }
             catch (InterruptedException | ExecutionException e) {
-                if (e.getCause() != null && e.getCause().getClass().equals(NodeStoppingException.class))
+                Throwable cause = e.getCause();
+
+                if (cause != null && cause.getClass().equals(NodeStoppingException.class))
                     throw new NoSuchElementException();
+
+                if (cause != null && cause.getClass().equals(NoSuchElementException.class))
+                    throw (NoSuchElementException)cause;
 
                 LOG.debug("Unable to evaluate cursor hasNext command", e);
 

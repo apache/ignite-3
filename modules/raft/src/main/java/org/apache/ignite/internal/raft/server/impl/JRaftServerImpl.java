@@ -338,9 +338,16 @@ public class JRaftServerImpl implements RaftServer {
                                 return JDKMarshaller.DEFAULT.unmarshall(data.array());
                             }
 
-                            @Override public void result(Serializable res) {
+                            @Override public void success(Serializable res) {
                                 if (done != null)
-                                    done.result(res);
+                                    done.success(res);
+
+                                iter.next();
+                            }
+
+                            @Override public void failure(Throwable th, boolean compacted) {
+                                if (done != null)
+                                    done.failure(th, compacted);
 
                                 iter.next();
                             }

@@ -14,35 +14,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.ignite.raft.client.service;
-
-import java.io.Serializable;
-import org.apache.ignite.raft.client.Command;
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.raft.jraft.rpc.impl;
 
 /**
- * A closure to notify about a command processing outcome.
  *
- * @see RaftGroupListener
- * @param <R> Command type.
  */
-public interface CommandClosure<R extends Command> {
-    /**
-     * @return The command.
-     */
-    R command();
+public class SMCompactedThrowable extends Throwable implements SMThrowable {
+    /** Class name. */
+    private String clsName;
+
+    /** Message. */
+    private String msg;
 
     /**
-     * Must be called after a command has been processed normally.
-     * @param res Execution result.
+     * @param th Th.
      */
-    void success(@Nullable Serializable res);
+    public SMCompactedThrowable(Throwable th) {
+        this.clsName = th.getClass().getName();
+        this.msg = th.getMessage();
+    }
 
     /**
-     * Must be called after a command has failed.
-     * @param th Throwable
-     * @param compacted True if {@code th} must be compacted before sending over network.
+     *
      */
-    void failure(Throwable th, boolean compacted);
+    public String getClsName() {
+        return clsName;
+    }
+
+    /**
+     *
+     */
+    public String getMsg() {
+        return msg;
+    }
 }
