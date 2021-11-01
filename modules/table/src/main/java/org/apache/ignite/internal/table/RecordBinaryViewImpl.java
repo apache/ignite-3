@@ -126,15 +126,15 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Void> upsertAllAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        HashSet<BinaryRow> keys = new HashSet<>(recs.size());
+        HashSet<BinaryRow> rows = new HashSet<>(recs.size());
 
         for (Tuple keyRec : recs) {
             final Row row = marshal(keyRec, false);
 
-            keys.add(row);
+            rows.add(row);
         }
 
-        return tbl.upsertAll(keys, tx);
+        return tbl.upsertAll(rows, tx);
     }
 
     /** {@inheritDoc} */
@@ -174,15 +174,15 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Collection<Tuple>> insertAllAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        HashSet<BinaryRow> keys = new HashSet<>(recs.size());
+        HashSet<BinaryRow> rows = new HashSet<>(recs.size());
 
         for (Tuple keyRec : recs) {
             final Row row = marshal(keyRec, false);
 
-            keys.add(row);
+            rows.add(row);
         }
 
-        return tbl.insertAll(keys, tx).thenApply(this::wrap);
+        return tbl.insertAll(rows, tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -302,15 +302,15 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     ) {
         Objects.requireNonNull(recs);
 
-        HashSet<BinaryRow> keys = new HashSet<>(recs.size());
+        HashSet<BinaryRow> rows = new HashSet<>(recs.size());
 
         for (Tuple keyRec : recs) {
             final Row row = marshal(keyRec, false);
 
-            keys.add(row);
+            rows.add(row);
         }
 
-        return tbl.deleteAllExact(keys, tx).thenApply(this::wrap);
+        return tbl.deleteAllExact(rows, tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
