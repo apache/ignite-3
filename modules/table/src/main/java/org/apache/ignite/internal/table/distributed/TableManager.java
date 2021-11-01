@@ -202,7 +202,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         engine = new RocksDbStorageEngine();
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public void start() {
@@ -213,23 +213,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (!busyLock.enterBusy()) {
                             String tblName = ctx.newValue().name();
                             IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableView) ctx.newValue()).id());
-
+                            
                             fireEvent(TableEvent.CREATE,
                                     new TableEventParameters(tblId, tblName),
                                     new NodeStoppingException());
-
+                            
                             return CompletableFuture.completedFuture(new NodeStoppingException());
                         }
-
+                        
                         try {
                             onTableCreateInternal(ctx);
                         } finally {
                             busyLock.leaveBusy();
                         }
-
+                        
                         return CompletableFuture.completedFuture(null);
                     }
-
+                    
                     /**
                      * Method for handle a table configuration event.
                      *
@@ -238,109 +238,109 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     private void onTableCreateInternal(@NotNull ConfigurationNotificationEvent<TableView> ctx) {
                         String tblName = ctx.newValue().name();
                         IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableView) ctx.newValue()).id());
-
+                        
                         // Empty assignments might be a valid case if tables are created from within cluster init HOCON
                         // configuration, which is not supported now.
                         assert ((ExtendedTableView) ctx.newValue()).assignments() != null :
                                 LoggerMessageHelper.format("Table [id={}, name={}] has empty assignments.", tblId, tblName);
-
+                        
                         // TODO: IGNITE-15409 Listener with any placeholder should be used instead.
                         ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName)).schemas()
-                                        .listenElements(new ConfigurationNamedListListener<>() {
+                                .listenElements(new ConfigurationNamedListListener<>() {
                                     @Override
                                     public @NotNull CompletableFuture<?> onCreate(
                                             @NotNull ConfigurationNotificationEvent<SchemaView> schemasCtx) {
                                         if (!busyLock.enterBusy()) {
                                             fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName),
                                                     new NodeStoppingException());
-
+                                            
                                             return CompletableFuture.completedFuture(new NodeStoppingException());
                                         }
-
+                                        
                                         try {
                                             ((SchemaRegistryImpl) tables.get(tblName).schemaView())
                                                     .onSchemaRegistered(
                                                             SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()))
                                                     );
-
+                                            
                                             fireEvent(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
                                         } catch (Exception e) {
                                             fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName), e);
                                         } finally {
                                             busyLock.leaveBusy();
                                         }
-
+                                        
                                         return CompletableFuture.completedFuture(null);
                                     }
-
+                                    
                                     @Override
                                     public @NotNull CompletableFuture<?> onRename(@NotNull String oldName,
                                             @NotNull String newName,
                                             @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
                                         return CompletableFuture.completedFuture(null);
                                     }
-
+                                    
                                     @Override
                                     public @NotNull CompletableFuture<?> onDelete(
                                             @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
                                         return CompletableFuture.completedFuture(null);
                                     }
-
+                                    
                                     @Override
                                     public @NotNull CompletableFuture<?> onUpdate(
                                             @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
                                         return CompletableFuture.completedFuture(null);
                                     }
                                 });
-
+                        
                         ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName)).assignments()
-                                        .listen(assignmentsCtx -> {
+                                .listen(assignmentsCtx -> {
                                     if (!busyLock.enterBusy()) {
                                         return CompletableFuture.completedFuture(new NodeStoppingException());
                                     }
-
+                                    
                                     try {
                                         return updateAssignmentInternal(tblId, assignmentsCtx);
                                     } finally {
                                         busyLock.leaveBusy();
                                     }
                                 });
-
+                        
                         createTableLocally(
                                 tblName,
                                 tblId,
                                 (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableView) ctx.newValue()).assignments()),
                                 SchemaSerializerImpl.INSTANCE.deserialize(((ExtendedTableView) ctx.newValue()).schemas()
-                                                .get(String.valueOf(INITIAL_SCHEMA_VERSION)).schema())
+                                        .get(String.valueOf(INITIAL_SCHEMA_VERSION)).schema())
                         );
                     }
-
+                    
                     @NotNull
                     private CompletableFuture<?> updateAssignmentInternal(IgniteUuid tblId,
                             @NotNull ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
                         List<List<ClusterNode>> oldAssignments =
                                 (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.oldValue());
-
+                        
                         List<List<ClusterNode>> newAssignments =
                                 (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.newValue());
-
+                        
                         CompletableFuture<?>[] futures = new CompletableFuture<?>[oldAssignments.size()];
-
+                        
                         // TODO: IGNITE-15554 Add logic for assignment recalculation in case of partitions or replicas changes
                         // TODO: Until IGNITE-15554 is implemented it's safe to iterate over partitions and replicas cause there will
                         // TODO: be exact same amount of partitions and replicas for both old and new assignments
                         for (int i = 0; i < oldAssignments.size(); i++) {
                             int partId = i;
-
+                            
                             List<ClusterNode> oldPartitionAssignment = oldAssignments.get(partId);
                             List<ClusterNode> newPartitionAssignment = newAssignments.get(partId);
-
+                            
                             var toAdd = new HashSet<>(newPartitionAssignment);
-
+                            
                             toAdd.removeAll(oldPartitionAssignment);
-
+                            
                             InternalTable internalTable = tablesById.get(tblId).internalTable();
-
+                            
                             // Create new raft nodes according to new assignments.
                             futures[i] = raftMgr.updateRaftGroup(
                                     raftGroupName(tblId, partId),
@@ -351,24 +351,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     updatedRaftGroupService -> ((InternalTableImpl) internalTable).updateInternalTableRaftGroupService(
                                             partId, updatedRaftGroupService)
                             ).exceptionally(th -> {
-                                        LOG.error("Failed to update raft groups one the node", th);
-
-                                        return null;
-                                    }
-                            );
+                                LOG.error("Failed to update raft groups one the node", th);
+    
+                                return null;
+                            });
                         }
-
+                        
                         return CompletableFuture.allOf(futures);
                     }
-
+                    
                     @Override
                     public @NotNull CompletableFuture<?> onRename(@NotNull String oldName, @NotNull String newName,
                             @NotNull ConfigurationNotificationEvent<TableView> ctx) {
                         // TODO: IGNITE-15485 Support table rename operation.
-
+                        
                         return CompletableFuture.completedFuture(null);
                     }
-
+                    
                     @Override
                     public @NotNull CompletableFuture<?> onDelete(
                             @NotNull ConfigurationNotificationEvent<TableView> ctx
@@ -376,13 +375,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (!busyLock.enterBusy()) {
                             String tblName = ctx.oldValue().name();
                             IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableView) ctx.oldValue()).id());
-
+                            
                             fireEvent(TableEvent.DROP, new TableEventParameters(tblId, tblName),
                                     new NodeStoppingException());
-
+                            
                             return CompletableFuture.completedFuture(new NodeStoppingException());
                         }
-
+                        
                         try {
                             dropTableLocally(
                                     ctx.oldValue().name(),
@@ -392,20 +391,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         } finally {
                             busyLock.leaveBusy();
                         }
-
+                        
                         return CompletableFuture.completedFuture(null);
                     }
-
+                    
                     @Override
                     public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<TableView> ctx) {
                         return CompletableFuture.completedFuture(null);
                     }
                 });
-
+        
         DataRegion defaultDataRegion = engine.createDataRegion(dataStorageCfg.defaultRegion());
-
+        
         dataRegions.put(DEFAULT_DATA_REGION_NAME, defaultDataRegion);
-
+        
         defaultDataRegion.start();
     }
 
@@ -616,6 +615,107 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             busyLock.leaveBusy();
         }
     }
+    
+    /**
+     * Creates a new table with the specified name or returns an existing table with the same name.
+     *
+     * @param name               Table name.
+     * @param tableInitChange    Table configuration.
+     * @param exceptionWhenExist If the value is {@code true}, an exception will be thrown when the table already exists, {@code false}
+     *                           means the existing table will be returned.
+     * @return A table instance.
+     */
+    private CompletableFuture<Table> createTableAsync(
+            String name,
+            Consumer<TableChange> tableInitChange,
+            boolean exceptionWhenExist
+    ) {
+        CompletableFuture<Table> tblFut = new CompletableFuture<>();
+        
+        tableAsync(name, true).thenAccept(tbl -> {
+            if (tbl != null) {
+                if (exceptionWhenExist) {
+                    tblFut.completeExceptionally(new TableAlreadyExistsException(
+                            LoggerMessageHelper.format("Table already exists [name={}]", name)));
+                } else {
+                    tblFut.complete(tbl);
+                }
+            } else {
+                IgniteUuid tblId = TABLE_ID_GENERATOR.randomUuid();
+                
+                EventListener<TableEventParameters> clo = new EventListener<>() {
+                    @Override
+                    public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
+                        IgniteUuid notificationTblId = parameters.tableId();
+                        
+                        if (!tblId.equals(notificationTblId)) {
+                            return false;
+                        }
+                        
+                        if (e == null) {
+                            tblFut.complete(parameters.table());
+                        } else {
+                            tblFut.completeExceptionally(e);
+                        }
+                        
+                        return true;
+                    }
+                    
+                    @Override
+                    public void remove(@NotNull Throwable e) {
+                        tblFut.completeExceptionally(e);
+                    }
+                };
+                
+                listen(TableEvent.CREATE, clo);
+                
+                tablesCfg.tables()
+                        .change(
+                                change -> change.create(
+                                        name,
+                                        (ch) -> {
+                                            tableInitChange.accept(ch);
+                                            ((ExtendedTableChange) ch)
+                                                    // Table id specification.
+                                                    .changeId(tblId.toString())
+                                                    // Affinity assignments calculation.
+                                                    .changeAssignments(
+                                                            ByteUtils.toBytes(
+                                                                    AffinityUtils.calculateAssignments(
+                                                                            baselineMgr.nodes(),
+                                                                            ch.partitions(),
+                                                                            ch.replicas()
+                                                                    )
+                                                            )
+                                                    )
+                                                    // Table schema preparation.
+                                                    .changeSchemas(schemasCh -> schemasCh.create(
+                                                                    String.valueOf(INITIAL_SCHEMA_VERSION),
+                                                                    schemaCh -> schemaCh.changeSchema(
+                                                                            SchemaSerializerImpl.INSTANCE.serialize(
+                                                                                    SchemaUtils.prepareSchemaDescriptor(
+                                                                                            ((ExtendedTableView) ch).schemas().size(),
+                                                                                            ch
+                                                                                    )
+                                                                            )
+                                                                    )
+                                                            )
+                                                    );
+                                        }
+                                )
+                        )
+                        .exceptionally(t -> {
+                            LOG.error(LoggerMessageHelper.format("Table wasn't created [name={}]", name), t);
+                            
+                            removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(t));
+                            
+                            return null;
+                        });
+            }
+        });
+        
+        return tblFut;
+    }
 
     /** {@inheritDoc} */
     @Override
@@ -641,108 +741,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    /**
-     * Creates a new table with the specified name or returns an existing table with the same name.
-     *
-     * @param name               Table name.
-     * @param tableInitChange    Table configuration.
-     * @param exceptionWhenExist If the value is {@code true}, an exception will be thrown when the table already exists, {@code false}
-     *                           means the existing table will be returned.
-     * @return A table instance.
-     */
-    private CompletableFuture<Table> createTableAsync(
-            String name,
-            Consumer<TableChange> tableInitChange,
-            boolean exceptionWhenExist
-    ) {
-        CompletableFuture<Table> tblFut = new CompletableFuture<>();
-
-        tableAsync(name, true).thenAccept(tbl -> {
-            if (tbl != null) {
-                if (exceptionWhenExist) {
-                    tblFut.completeExceptionally(new TableAlreadyExistsException(
-                            LoggerMessageHelper.format("Table already exists [name={}]", name)));
-                } else {
-                    tblFut.complete(tbl);
-                }
-            } else {
-                IgniteUuid tblId = TABLE_ID_GENERATOR.randomUuid();
-
-                EventListener<TableEventParameters> clo = new EventListener<>() {
-                    @Override
-                    public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                        IgniteUuid notificationTblId = parameters.tableId();
-
-                        if (!tblId.equals(notificationTblId)) {
-                            return false;
-                        }
-
-                        if (e == null) {
-                            tblFut.complete(parameters.table());
-                        } else {
-                            tblFut.completeExceptionally(e);
-                        }
-
-                        return true;
-                    }
-
-                    @Override
-                    public void remove(@NotNull Throwable e) {
-                        tblFut.completeExceptionally(e);
-                    }
-                };
-
-                listen(TableEvent.CREATE, clo);
-
-                tablesCfg.tables()
-                        .change(
-                                change -> change.create(
-                                        name,
-                                        (ch) -> {
-                                            tableInitChange.accept(ch);
-                                            ((ExtendedTableChange) ch).
-                                                    // Table id specification.
-                                                            changeId(tblId.toString()).
-                                                    // Affinity assignments calculation.
-                                                            changeAssignments(
-                                                            ByteUtils.toBytes(
-                                                                    AffinityUtils.calculateAssignments(
-                                                                            baselineMgr.nodes(),
-                                                                            ch.partitions(),
-                                                                            ch.replicas()
-                                                                    )
-                                                            )
-                                                    ).
-                                                    // Table schema preparation.
-                                                            changeSchemas(
-                                                            schemasCh -> schemasCh.create(
-                                                                    String.valueOf(INITIAL_SCHEMA_VERSION),
-                                                                    schemaCh -> schemaCh.changeSchema(
-                                                                            SchemaSerializerImpl.INSTANCE.serialize(
-                                                                                    SchemaUtils.prepareSchemaDescriptor(
-                                                                                            ((ExtendedTableView) ch).schemas().size(),
-                                                                                            ch
-                                                                                    )
-                                                                            )
-                                                                    )
-                                                            )
-                                                    );
-                                        }
-                                )
-                        )
-                        .exceptionally(t -> {
-                            LOG.error(LoggerMessageHelper.format("Table wasn't created [name={}]", name), t);
-
-                            removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(t));
-
-                            return null;
-                        });
-            }
-        });
-
-        return tblFut;
     }
 
     /** {@inheritDoc} */
@@ -1066,6 +1064,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             busyLock.leaveBusy();
         }
     }
+    
+    /** {@inheritDoc} */
+    @Override
+    public TableImpl table(IgniteUuid id) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+        try {
+            return tableAsync(id).join();
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
 
     /** {@inheritDoc} */
     @Override
@@ -1082,19 +1093,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override
-    public TableImpl table(IgniteUuid id) throws NodeStoppingException {
-        if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
-        }
-        try {
-            return tableAsync(id).join();
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public CompletableFuture<TableImpl> tableAsync(IgniteUuid id) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
@@ -1104,6 +1102,60 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         } finally {
             busyLock.leaveBusy();
         }
+    }
+    
+    /**
+     * Gets a table if it exists or {@code null} if it was not created or was removed before.
+     *
+     * @param checkConfiguration True when the method checks a configuration before tries to get a table, false otherwise.
+     * @return A table or {@code null} if table does not exist.
+     */
+    private CompletableFuture<Table> tableAsync(String name, boolean checkConfiguration) {
+        if (checkConfiguration && !isTableConfigured(name)) {
+            return CompletableFuture.completedFuture(null);
+        }
+        
+        Table tbl = tables.get(name);
+        
+        if (tbl != null) {
+            return CompletableFuture.completedFuture(tbl);
+        }
+        
+        CompletableFuture<Table> getTblFut = new CompletableFuture<>();
+        
+        EventListener<TableEventParameters> clo = new EventListener<>() {
+            @Override
+            public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
+                String tableName = parameters.tableName();
+                
+                if (!name.equals(tableName)) {
+                    return false;
+                }
+                
+                if (e == null) {
+                    getTblFut.complete(parameters.table());
+                } else {
+                    getTblFut.completeExceptionally(e);
+                }
+                
+                return true;
+            }
+            
+            @Override
+            public void remove(@NotNull Throwable e) {
+                getTblFut.completeExceptionally(e);
+            }
+        };
+        
+        listen(TableEvent.CREATE, clo);
+        
+        tbl = tables.get(name);
+        
+        if (tbl != null && getTblFut.complete(tbl) || !isTableConfigured(name) && getTblFut.complete(null)) {
+            removeListener(TableEvent.CREATE, clo, null);
+        }
+        
+        return getTblFut;
     }
 
     /**
@@ -1183,60 +1235,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Gets a table if it exists or {@code null} if it was not created or was removed before.
-     *
-     * @param checkConfiguration True when the method checks a configuration before tries to get a table, false otherwise.
-     * @return A table or {@code null} if table does not exist.
-     */
-    private CompletableFuture<Table> tableAsync(String name, boolean checkConfiguration) {
-        if (checkConfiguration && !isTableConfigured(name)) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        Table tbl = tables.get(name);
-
-        if (tbl != null) {
-            return CompletableFuture.completedFuture(tbl);
-        }
-
-        CompletableFuture<Table> getTblFut = new CompletableFuture<>();
-
-        EventListener<TableEventParameters> clo = new EventListener<>() {
-            @Override
-            public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                String tableName = parameters.tableName();
-
-                if (!name.equals(tableName)) {
-                    return false;
-                }
-
-                if (e == null) {
-                    getTblFut.complete(parameters.table());
-                } else {
-                    getTblFut.completeExceptionally(e);
-                }
-
-                return true;
-            }
-
-            @Override
-            public void remove(@NotNull Throwable e) {
-                getTblFut.completeExceptionally(e);
-            }
-        };
-
-        listen(TableEvent.CREATE, clo);
-
-        tbl = tables.get(name);
-
-        if (tbl != null && getTblFut.complete(tbl) || !isTableConfigured(name) && getTblFut.complete(null)) {
-            removeListener(TableEvent.CREATE, clo, null);
-        }
-
-        return getTblFut;
-    }
-
-    /**
      * Checks that the table is configured.
      *
      * @param name Table name.
@@ -1294,7 +1292,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             updateAssignments(newBaseline);
         }
     }
-
+    
     /**
      * Update assignments for all current tables according to input nodes list. These approach has known issues {@link
      * Ignite#setBaseline(Set)}.
@@ -1303,26 +1301,26 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private void updateAssignments(Set<ClusterNode> clusterNodes) {
         var setBaselineFut = new CompletableFuture<>();
-
+    
         var changePeersQueue = new ArrayList<Supplier<CompletableFuture<Void>>>();
-
-        tablesCfg.tables().change(
-                tbls -> {
+    
+        tablesCfg.tables()
+                .change(tbls -> {
                     changePeersQueue.clear();
-
+                
                     for (int i = 0; i < tbls.size(); i++) {
                         tbls.createOrUpdate(tbls.get(i).name(), changeX -> {
                             ExtendedTableChange change = (ExtendedTableChange) changeX;
                             byte[] currAssignments = change.assignments();
-
+                        
                             List<List<ClusterNode>> recalculatedAssignments = AffinityUtils.calculateAssignments(
                                     clusterNodes,
                                     change.partitions(),
                                     change.replicas());
-
+                        
                             if (!recalculatedAssignments.equals(ByteUtils.fromBytes(currAssignments))) {
                                 change.changeAssignments(ByteUtils.toBytes(recalculatedAssignments));
-
+                            
                                 changePeersQueue.add(() ->
                                         updateRaftTopology(
                                                 (List<List<ClusterNode>>) ByteUtils.fromBytes(currAssignments),
@@ -1331,24 +1329,26 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             }
                         });
                     }
-                }).thenCompose((v) -> {
-            CompletableFuture<?>[] changePeersFutures = new CompletableFuture<?>[changePeersQueue.size()];
-
-            int i = 0;
-
-            for (Supplier<CompletableFuture<Void>> task : changePeersQueue) {
-                changePeersFutures[i++] = task.get();
-            }
-
-            return CompletableFuture.allOf(changePeersFutures);
-        }).whenComplete((res, th) -> {
-            if (th != null) {
-                setBaselineFut.completeExceptionally(th);
-            } else {
-                setBaselineFut.complete(null);
-            }
-        });
-
+                })
+                .thenCompose((v) -> {
+                    CompletableFuture<?>[] changePeersFutures = new CompletableFuture<?>[changePeersQueue.size()];
+                
+                    int i = 0;
+                
+                    for (Supplier<CompletableFuture<Void>> task : changePeersQueue) {
+                        changePeersFutures[i++] = task.get();
+                    }
+                
+                    return CompletableFuture.allOf(changePeersFutures);
+                })
+                .whenComplete((res, th) -> {
+                    if (th != null) {
+                        setBaselineFut.completeExceptionally(th);
+                    } else {
+                        setBaselineFut.complete(null);
+                    }
+                });
+    
         setBaselineFut.join();
     }
 
@@ -1365,28 +1365,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             List<List<ClusterNode>> newAssignments,
             IgniteUuid tblId) {
         CompletableFuture<?>[] futures = new CompletableFuture<?>[oldAssignments.size()];
-
+    
         // TODO: IGNITE-15554 Add logic for assignment recalculation in case of partitions or replicas changes
         // TODO: Until IGNITE-15554 is implemented it's safe to iterate over partitions and replicas cause there will
         // TODO: be exact same amount of partitions and replicas for both old and new assignments
         for (int i = 0; i < oldAssignments.size(); i++) {
             final int p = i;
-
+        
             List<ClusterNode> oldPartitionAssignment = oldAssignments.get(p);
             List<ClusterNode> newPartitionAssignment = newAssignments.get(p);
-
+        
             futures[i] = raftMgr.chagePeers(
                     raftGroupName(tblId, p),
                     oldPartitionAssignment,
                     newPartitionAssignment
             ).exceptionally(th -> {
-                        LOG.error("Failed to update raft peers for group " + raftGroupName(tblId, p)
-                                + "from " + oldPartitionAssignment + " to " + newPartitionAssignment, th);
-                        return null;
-                    }
-            );
+                LOG.error("Failed to update raft peers for group " + raftGroupName(tblId, p)
+                        + "from " + oldPartitionAssignment + " to " + newPartitionAssignment, th);
+                return null;
+            });
         }
-
+    
         return CompletableFuture.allOf(futures);
     }
 }

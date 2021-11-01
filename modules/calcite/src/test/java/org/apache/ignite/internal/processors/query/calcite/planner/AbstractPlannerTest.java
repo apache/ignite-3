@@ -849,7 +849,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         
         /** {@inheritDoc} */
         @Override
-        public boolean isGeneratedAlways(RelOptTable table, int iColumn) {
+        public boolean isGeneratedAlways(RelOptTable table, int idxColumn) {
             throw new AssertionError();
         }
         
@@ -861,13 +861,13 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         
         /** {@inheritDoc} */
         @Override
-        public ColumnStrategy generationStrategy(RelOptTable table, int iColumn) {
+        public ColumnStrategy generationStrategy(RelOptTable table, int idxColumn) {
             throw new AssertionError();
         }
         
         /** {@inheritDoc} */
         @Override
-        public RexNode newColumnDefaultValue(RelOptTable table, int iColumn, InitializerContext context) {
+        public RexNode newColumnDefaultValue(RelOptTable table, int idxColumn, InitializerContext context) {
             throw new AssertionError();
         }
         
@@ -879,7 +879,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         
         /** {@inheritDoc} */
         @Override
-        public RexNode newAttributeInitializer(RelDataType type, SqlFunction constructor, int iAttribute,
+        public RexNode newAttributeInitializer(RelDataType type, SqlFunction constructor, int idxAttribute,
                 List<RexNode> constructorArgs, InitializerContext context) {
             throw new AssertionError();
         }

@@ -621,7 +621,9 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
                     }
                 }
                 return leftCollations;
+                
+            default:
+                return List.of();
         }
-        return List.of();
     }
 }

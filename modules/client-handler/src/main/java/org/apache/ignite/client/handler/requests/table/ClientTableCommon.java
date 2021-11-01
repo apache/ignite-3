@@ -420,9 +420,10 @@ class ClientTableCommon {
             
             case TIMESTAMP:
                 return ClientDataType.TIMESTAMP;
+            
+            default:
+                throw new IgniteException("Unsupported native type: " + spec);
         }
-        
-        throw new IgniteException("Unsupported native type: " + spec);
     }
     
     private static void writeColumnValue(ClientMessagePacker packer, Tuple tuple, Column col) {

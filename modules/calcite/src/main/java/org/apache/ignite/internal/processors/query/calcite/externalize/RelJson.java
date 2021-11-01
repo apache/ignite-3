@@ -588,6 +588,45 @@ class RelJson {
         }
         return list;
     }
+    
+    /**
+     *
+     */
+    private Object toJson(RexFieldCollation collation) {
+        Map<String, Object> map = map();
+        map.put("expr", toJson(collation.left));
+        map.put("direction", toJson(collation.getDirection()));
+        map.put("null-direction", toJson(collation.getNullDirection()));
+        return map;
+    }
+    
+    /**
+     *
+     */
+    private Object toJson(RexWindowBound windowBound) {
+        Map<String, Object> map = map();
+        if (windowBound.isCurrentRow()) {
+            map.put("type", "CURRENT_ROW");
+        } else if (windowBound.isUnbounded()) {
+            map.put("type", windowBound.isPreceding() ? "UNBOUNDED_PRECEDING" : "UNBOUNDED_FOLLOWING");
+        } else {
+            map.put("type", windowBound.isPreceding() ? "PRECEDING" : "FOLLOWING");
+            map.put("offset", toJson(windowBound.getOffset()));
+        }
+        return map;
+    }
+    
+    /**
+     *
+     */
+    private Object toJson(SqlOperator operator) {
+        // User-defined operators are not yet handled.
+        Map map = map();
+        map.put("name", operator.getName());
+        map.put("kind", toJson(operator.kind));
+        map.put("syntax", toJson(operator.getSyntax()));
+        return map;
+    }
 
     /**
      *
@@ -970,44 +1009,5 @@ class RelJson {
             list.add(toRex(relInput, operand));
         }
         return list;
-    }
-
-    /**
-     *
-     */
-    private Object toJson(RexFieldCollation collation) {
-        Map<String, Object> map = map();
-        map.put("expr", toJson(collation.left));
-        map.put("direction", toJson(collation.getDirection()));
-        map.put("null-direction", toJson(collation.getNullDirection()));
-        return map;
-    }
-
-    /**
-     *
-     */
-    private Object toJson(RexWindowBound windowBound) {
-        Map<String, Object> map = map();
-        if (windowBound.isCurrentRow()) {
-            map.put("type", "CURRENT_ROW");
-        } else if (windowBound.isUnbounded()) {
-            map.put("type", windowBound.isPreceding() ? "UNBOUNDED_PRECEDING" : "UNBOUNDED_FOLLOWING");
-        } else {
-            map.put("type", windowBound.isPreceding() ? "PRECEDING" : "FOLLOWING");
-            map.put("offset", toJson(windowBound.getOffset()));
-        }
-        return map;
-    }
-
-    /**
-     *
-     */
-    private Object toJson(SqlOperator operator) {
-        // User-defined operators are not yet handled.
-        Map map = map();
-        map.put("name", operator.getName());
-        map.put("kind", toJson(operator.kind));
-        map.put("syntax", toJson(operator.getSyntax()));
-        return map;
     }
 }
