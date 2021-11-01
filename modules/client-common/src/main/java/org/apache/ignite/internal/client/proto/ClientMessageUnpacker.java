@@ -98,7 +98,17 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         this.buf = buf;
     }
 
-    /** {@inheritDoc} */
+
+    /**
+     * Reads an int.
+     *
+     * This method throws {@link MessageIntegerOverflowException} if the value doesn't fit in the range of int.
+     * This may happen when {@link #getNextFormat()} returns UINT32, INT64, or larger integer formats.
+     *
+     * @return the int value.
+     * @throws MessageIntegerOverflowException when value doesn't fit in the range of int.
+     * @throws MessageTypeException when value is not MessagePack Integer type.
+     */
     @Override public int unpackInt() {
         byte code = readByte();
 
