@@ -35,7 +35,7 @@ public interface MultiStepPlan extends QueryPlan {
     /**
      * @return Fields metadata.
      */
-    FieldsMetadata fieldsMetadata();
+    ResultSetMetadataInternal metadata();
 
     /**
      * @param fragment Fragment.
