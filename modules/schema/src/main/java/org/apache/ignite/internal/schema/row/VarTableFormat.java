@@ -47,12 +47,12 @@ abstract class VarTableFormat {
 
     /** Writer factory for large-sized chunks. */
     static final VarTableFormat LARGE = new LargeFormat();
-
+    
     /**
      * Return vartable format helper for data of given size to write vartable in a compact way.
      *
      * @param payloadLen   Payload size in bytes.
-     * @param valVartblLen
+     * @param valVartblLen Number of items in the vartable.
      * @return Vartable format helper.
      */
     static VarTableFormat format(int payloadLen, int valVartblLen) {

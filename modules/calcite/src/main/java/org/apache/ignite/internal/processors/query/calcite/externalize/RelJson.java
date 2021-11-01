@@ -657,6 +657,8 @@ class RelJson {
                     return IgniteDistributions.broadcast();
                 case "random":
                     return IgniteDistributions.random();
+                default:
+                    // NO-OP
             }
         }
 
