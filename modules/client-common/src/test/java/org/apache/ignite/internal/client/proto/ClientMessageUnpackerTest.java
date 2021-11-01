@@ -153,7 +153,7 @@ public class ClientMessageUnpackerTest {
         var bytesLibrary = packLibrary(pack2);
 
         assertArrayEquals(bytesLibrary, bytesIgnite);
-        fail(); // TODO: Remove this method
+        fail("TODO: Remove this method");
     }
 
     private static void testUnpacker(
