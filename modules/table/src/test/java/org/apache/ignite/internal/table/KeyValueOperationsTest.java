@@ -58,7 +58,7 @@ public class KeyValueOperationsTest {
      *
      * @return Table KV-view.
      */
-    private KeyValueView<Long, Long> tableView() {
+    private KeyValueView<Long, Long> kvView() {
         return new KeyValueViewImpl<>(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), mapper, mapper, null);
     }
 
@@ -67,7 +67,7 @@ public class KeyValueOperationsTest {
      */
     @Test
     public void put() {
-        KeyValueView<Long, Long> tbl = tableView();
+        KeyValueView<Long, Long> tbl = kvView();
 
         assertNull(tbl.get(1L));
 
@@ -98,7 +98,7 @@ public class KeyValueOperationsTest {
      */
     @Test
     public void putIfAbsent() {
-        KeyValueView<Long, Long> tbl = tableView();
+        KeyValueView<Long, Long> tbl = kvView();
 
         assertNull(tbl.get(1L));
 
@@ -118,7 +118,7 @@ public class KeyValueOperationsTest {
      */
     @Test
     public void getAndPut() {
-        KeyValueView<Long, Long> tbl = tableView();
+        KeyValueView<Long, Long> tbl = kvView();
 
         assertNull(tbl.get(1L));
 
@@ -138,7 +138,7 @@ public class KeyValueOperationsTest {
      */
     @Test
     public void contains() {
-        KeyValueView<Long, Long> tbl = tableView();
+        KeyValueView<Long, Long> tbl = kvView();
 
         // Not-existed value.
         assertFalse(tbl.contains(1L));
@@ -165,7 +165,7 @@ public class KeyValueOperationsTest {
      */
     @Test
     public void remove() {
-        KeyValueView<Long, Long> tbl = tableView();
+        KeyValueView<Long, Long> tbl = kvView();
 
         // Put KV pair.
         tbl.put(1L, 11L);
@@ -196,7 +196,7 @@ public class KeyValueOperationsTest {
      */
     @Test
     public void removeExact() {
-        KeyValueView<Long, Long> tbl = tableView();
+        KeyValueView<Long, Long> tbl = kvView();
 
         // Put KV pair.
         tbl.put(1L, 11L);
@@ -239,7 +239,7 @@ public class KeyValueOperationsTest {
      */
     @Test
     public void replace() {
-        KeyValueView<Long, Long> tbl = tableView();
+        KeyValueView<Long, Long> tbl = kvView();
 
         // Ignore replace operation for non-existed KV pair.
         assertFalse(tbl.replace(1L, 11L));
@@ -272,7 +272,7 @@ public class KeyValueOperationsTest {
      */
     @Test
     public void replaceExact() {
-        KeyValueView<Long, Long> tbl = tableView();
+        KeyValueView<Long, Long> tbl = kvView();
 
         // Insert KV pair.
         assertTrue(tbl.replace(1L, null, 11L));
