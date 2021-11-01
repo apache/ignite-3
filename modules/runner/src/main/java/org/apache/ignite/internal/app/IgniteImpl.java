@@ -157,6 +157,7 @@ public class IgniteImpl implements Ignite {
             ),
             Map.of(),
             new LocalConfigurationStorage(vaultMgr),
+            List.of(),
             List.of()
         );
 
@@ -189,7 +190,8 @@ public class IgniteImpl implements Ignite {
                 ColumnTypeValidator.class, Set.of(ColumnTypeValidatorImpl.INSTANCE)
             ),
             new DistributedConfigurationStorage(metaStorageMgr, vaultMgr),
-            Collections.singletonList(ExtendedTableConfigurationSchema.class)
+            Collections.singletonList(ExtendedTableConfigurationSchema.class),
+            List.of()
         );
 
         baselineMgr = new BaselineManager(
@@ -348,7 +350,12 @@ public class IgniteImpl implements Ignite {
 
     /** {@inheritDoc} */
     @Override public void setBaseline(Set<String> baselineNodes) {
-        distributedTblMgr.setBaseline(baselineNodes);
+        try {
+            distributedTblMgr.setBaseline(baselineNodes);
+        }
+        catch (NodeStoppingException e) {
+            throw new IgniteException(e);
+        }
     }
 
     /**

@@ -36,7 +36,7 @@ import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.builder.HashIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.PartialIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
-import org.apache.ignite.schema.definition.builder.TableSchemaBuilder;
+import org.apache.ignite.schema.definition.builder.TableDefinitionBuilder;
 import org.apache.ignite.schema.definition.index.HashIndexDefinition;
 import org.apache.ignite.schema.definition.index.IndexColumnDefinition;
 import org.apache.ignite.schema.definition.index.IndexDefinition;
@@ -59,7 +59,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SuppressWarnings("InstanceVariableMayNotBeInitialized")
 public class SchemaConfigurationConverterTest {
     /** Table builder. */
-    private TableSchemaBuilder tblBuilder;
+    private TableDefinitionBuilder tblBuilder;
 
     /** Configuration registry with one table for each test. */
     private ConfigurationRegistry confRegistry;
@@ -76,6 +76,7 @@ public class SchemaConfigurationConverterTest {
             List.of(TablesConfiguration.KEY, DataStorageConfiguration.KEY),
             Map.of(TableValidator.class, Set.of(TableValidatorImpl.INSTANCE)),
             new TestConfigurationStorage(DISTRIBUTED),
+            List.of(),
             List.of()
         );
 
