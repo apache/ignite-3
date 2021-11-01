@@ -94,7 +94,7 @@ public class ConfigurationAnyListenerTest {
     public static class SecondSubConfigurationSchema {
         /** Integer value. */
         @Value(hasDefault = true)
-        public int i = 10;
+        public int intVal = 10;
     }
     
     /** Configuration registry. */
@@ -131,7 +131,7 @@ public class ConfigurationAnyListenerTest {
         rootConfig.child().listen(configListener(ctx -> events.add("root.child")));
         rootConfig.child().str().listen(configListener(ctx -> events.add("root.child.str")));
         rootConfig.child().child2().listen(configListener(ctx -> events.add("root.child.child2")));
-        rootConfig.child().child2().i().listen(configListener(ctx -> events.add("root.child.child2.i")));
+        rootConfig.child().child2().intVal().listen(configListener(ctx -> events.add("root.child.child2.i")));
         
         rootConfig.elements().listen(configListener(ctx -> events.add("root.elements")));
         rootConfig.elements().listenElements(configNamedListenerOnCreate(ctx -> events.add("root.elements.onCrt")));
@@ -146,7 +146,7 @@ public class ConfigurationAnyListenerTest {
         childCfg.listen(configListener(ctx -> events.add("root.elements.0")));
         childCfg.str().listen(configListener(ctx -> events.add("root.elements.0.str")));
         childCfg.child2().listen(configListener(ctx -> events.add("root.elements.0.child2")));
-        childCfg.child2().i().listen(configListener(ctx -> events.add("root.elements.0.child2.i")));
+        childCfg.child2().intVal().listen(configListener(ctx -> events.add("root.elements.0.child2.i")));
         
         NamedConfigurationTree<SecondSubConfiguration, SecondSubView, SecondSubChange> elements2 = childCfg.elements2();
         
@@ -161,7 +161,7 @@ public class ConfigurationAnyListenerTest {
         SecondSubConfiguration child2 = elements2.get("0");
         
         child2.listen(configListener(ctx -> events.add("root.elements.0.elements2.0")));
-        child2.i().listen(configListener(ctx -> events.add("root.elements.0.elements2.0.i")));
+        child2.intVal().listen(configListener(ctx -> events.add("root.elements.0.elements2.0.i")));
         
         // Adding "any" listeners.
         FirstSubConfiguration anyChild = rootConfig.elements().any();
@@ -169,7 +169,7 @@ public class ConfigurationAnyListenerTest {
         anyChild.listen(configListener(ctx -> events.add("root.elements.any")));
         anyChild.str().listen(configListener(ctx -> events.add("root.elements.any.str")));
         anyChild.child2().listen(configListener(ctx -> events.add("root.elements.any.child2")));
-        anyChild.child2().i().listen(configListener(ctx -> events.add("root.elements.any.child2.i")));
+        anyChild.child2().intVal().listen(configListener(ctx -> events.add("root.elements.any.child2.i")));
         
         NamedConfigurationTree<SecondSubConfiguration, SecondSubView, SecondSubChange> anyEl2 = anyChild.elements2();
         
@@ -182,10 +182,10 @@ public class ConfigurationAnyListenerTest {
         SecondSubConfiguration anyChild2 = anyEl2.any();
         
         anyChild2.listen(configListener(ctx -> events.add("root.elements.any.elements2.any")));
-        anyChild2.i().listen(configListener(ctx -> events.add("root.elements.any.elements2.any.i")));
+        anyChild2.intVal().listen(configListener(ctx -> events.add("root.elements.any.elements2.any.i")));
         
         childCfg.elements2().any().listen(configListener(ctx -> events.add("root.elements.0.elements2.any")));
-        childCfg.elements2().any().i().listen(configListener(ctx -> events.add("root.elements.0.elements2.any.i")));
+        childCfg.elements2().any().intVal().listen(configListener(ctx -> events.add("root.elements.0.elements2.any.i")));
     }
     
     /**
@@ -212,8 +212,8 @@ public class ConfigurationAnyListenerTest {
         assertThrows(ConfigurationListenOnlyException.class, () -> any0.child2().value());
         assertThrows(ConfigurationListenOnlyException.class, () -> any0.child2().change(doNothingConsumer()));
         
-        assertThrows(ConfigurationListenOnlyException.class, () -> any0.child2().i().value());
-        assertThrows(ConfigurationListenOnlyException.class, () -> any0.child2().i().update(100));
+        assertThrows(ConfigurationListenOnlyException.class, () -> any0.child2().intVal().value());
+        assertThrows(ConfigurationListenOnlyException.class, () -> any0.child2().intVal().update(100));
         
         assertThrows(ConfigurationListenOnlyException.class, () -> any0.elements2().value());
         assertThrows(ConfigurationListenOnlyException.class, () -> any0.elements2().change(doNothingConsumer()));
@@ -224,8 +224,8 @@ public class ConfigurationAnyListenerTest {
         assertThrows(ConfigurationListenOnlyException.class, () -> any1.value());
         assertThrows(ConfigurationListenOnlyException.class, () -> any1.change(doNothingConsumer()));
         
-        assertThrows(ConfigurationListenOnlyException.class, () -> any1.i().value());
-        assertThrows(ConfigurationListenOnlyException.class, () -> any1.i().update(200));
+        assertThrows(ConfigurationListenOnlyException.class, () -> any1.intVal().value());
+        assertThrows(ConfigurationListenOnlyException.class, () -> any1.intVal().update(200));
         
         rootConfig.elements().change(c0 -> c0.create("test", c1 -> c1.changeStr("foo"))).get(1, SECONDS);
         
@@ -234,8 +234,8 @@ public class ConfigurationAnyListenerTest {
         assertThrows(ConfigurationListenOnlyException.class, () -> any2.value());
         assertThrows(ConfigurationListenOnlyException.class, () -> any2.change(doNothingConsumer()));
         
-        assertThrows(ConfigurationListenOnlyException.class, () -> any2.i().value());
-        assertThrows(ConfigurationListenOnlyException.class, () -> any2.i().update(300));
+        assertThrows(ConfigurationListenOnlyException.class, () -> any2.intVal().value());
+        assertThrows(ConfigurationListenOnlyException.class, () -> any2.intVal().update(300));
     }
     
     /**
@@ -244,7 +244,7 @@ public class ConfigurationAnyListenerTest {
     @Test
     void testNoAnyListenerNotification() throws Exception {
         checkEqualsListeners(
-                () -> rootConfig.child().change(c -> c.changeStr("x").changeChild2(c0 -> c0.changeI(100))),
+                () -> rootConfig.child().change(c -> c.changeStr("x").changeChild2(c0 -> c0.changeIntVal(100))),
                 List.of(
                         "root",
                         "root.child",
@@ -436,7 +436,7 @@ public class ConfigurationAnyListenerTest {
         );
         
         checkEqualsListeners(
-                () -> rootConfig.elements().get("0").elements2().get("0").i().update(200),
+                () -> rootConfig.elements().get("0").elements2().get("0").intVal().update(200),
                 List.of(
                         "root",
                         "root.elements",
@@ -466,7 +466,7 @@ public class ConfigurationAnyListenerTest {
                 .get(1, SECONDS);
         
         checkEqualsListeners(
-                () -> rootConfig.elements().get("1").elements2().get("2").i().update(200),
+                () -> rootConfig.elements().get("1").elements2().get("2").intVal().update(200),
                 List.of(
                         "root",
                         "root.elements",
@@ -497,7 +497,7 @@ public class ConfigurationAnyListenerTest {
         rootConfig.elements().any().elements2().listenElements(listener1);
         
         checkContainsListeners(
-                () -> rootConfig.elements().get("0").elements2().get("0").i().update(Integer.MAX_VALUE),
+                () -> rootConfig.elements().get("0").elements2().get("0").intVal().update(Integer.MAX_VALUE),
                 events,
                 List.of(
                         "root.elements.any",
@@ -511,7 +511,7 @@ public class ConfigurationAnyListenerTest {
         rootConfig.elements().any().elements2().stopListenElements(listener1);
         
         checkContainsListeners(
-                () -> rootConfig.elements().get("0").elements2().get("0").i().update(Integer.MIN_VALUE),
+                () -> rootConfig.elements().get("0").elements2().get("0").intVal().update(Integer.MIN_VALUE),
                 events,
                 List.of("root.elements.any"),
                 List.of("root.elements.any2", "root.elements.any2.elements2.onUpd")
@@ -663,7 +663,7 @@ public class ConfigurationAnyListenerTest {
             assertNotNull(second);
             assertEquals(key1, ctx.name(SecondSubConfiguration.class));
             
-            assertEquals(newVal, second.i().value());
+            assertEquals(newVal, second.intVal().value());
         }));
         
         rootConfig.elements().any().elements2().any().listen(configListener(ctx -> {
@@ -675,7 +675,7 @@ public class ConfigurationAnyListenerTest {
             assertNotNull(second);
             assertEquals(key1, ctx.name(SecondSubConfiguration.class));
             
-            assertEquals(newVal, second.i().value());
+            assertEquals(newVal, second.intVal().value());
         }));
         
         rootConfig.elements().get(key0).elements2().any().listen(configListener(ctx -> {
@@ -687,9 +687,9 @@ public class ConfigurationAnyListenerTest {
             assertNotNull(second);
             assertEquals(key1, ctx.name(SecondSubConfiguration.class));
             
-            assertEquals(newVal, second.i().value());
+            assertEquals(newVal, second.intVal().value());
         }));
         
-        rootConfig.elements().get(key0).elements2().get(key1).i().update(newVal).get(1, SECONDS);
+        rootConfig.elements().get(key0).elements2().get(key1).intVal().update(newVal).get(1, SECONDS);
     }
 }

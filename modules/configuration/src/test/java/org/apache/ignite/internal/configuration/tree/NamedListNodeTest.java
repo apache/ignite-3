@@ -47,17 +47,17 @@ import org.junit.jupiter.api.Test;
 public class NamedListNodeTest {
     /** Root that has a single named list. */
     @ConfigurationRoot(rootName = "a")
-    public static class AConfigurationSchema {
+    public static class FirstConfigurationSchema {
         /**
          *
          */
         @NamedConfigValue
-        public BConfigurationSchema b;
+        public SecondConfigurationSchema second;
     }
     
     /** Named list element node that contains another named list. */
     @Config
-    public static class BConfigurationSchema {
+    public static class SecondConfigurationSchema {
         /** Every named list element node must have at least one configuration field that is not named list. */
         @Value(hasDefault = true)
         public String str = "foo";
@@ -66,15 +66,15 @@ public class NamedListNodeTest {
          *
          */
         @NamedConfigValue
-        public СConfigurationSchema c;
+        public ThirdConfigurationSchema third;
     }
     
     /** Simple configuration schema. */
     @Config
-    public static class СConfigurationSchema {
+    public static class ThirdConfigurationSchema {
         /** Integer value. */
         @Value(hasDefault = true)
-        public int i = 1;
+        public int intVal = 1;
     }
     
     /** Runtime implementations generator. */
@@ -107,7 +107,7 @@ public class NamedListNodeTest {
         
         changer = new TestConfigurationChanger(
                 cgen,
-                List.of(AConfiguration.KEY),
+                List.of(FirstConfiguration.KEY),
                 Map.of(),
                 storage,
                 List.of(),
@@ -133,14 +133,14 @@ public class NamedListNodeTest {
     @Test
     public void storageData() throws Exception {
         // Manually instantiate configuration instance.
-        var a = (AConfiguration) cgen.instantiateCfg(AConfiguration.KEY, changer);
+        var a = (FirstConfiguration) cgen.instantiateCfg(FirstConfiguration.KEY, changer);
         
         // Create values on several layers at the same time. They all should have <order> = 0.
-        a.b().change(b -> b.create("X", x -> x.changeC(xb -> xb.create("Z0", z0 -> {
+        a.second().change(b -> b.create("X", x -> x.changeThird(xb -> xb.create("Z0", z0 -> {
         })))).get();
         
-        String x0Id = ((NamedListNode<?>) a.b().value()).internalId("X");
-        String z0Id = ((NamedListNode<?>) a.b().get("X").c().value()).internalId("Z0");
+        String x0Id = ((NamedListNode<?>) a.second().value()).internalId("X");
+        String z0Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z0");
         
         Map<String, ? extends Serializable> storageValues = storage.readAll().values();
         
@@ -148,22 +148,22 @@ public class NamedListNodeTest {
                 storageValues,
                 is(Matchers.<Map<String, ? extends Serializable>>allOf(
                         aMapWithSize(6),
-                        hasEntry(format("a.b.%s.str", x0Id), "foo"),
-                        hasEntry(format("a.b.%s.<order>", x0Id), 0),
-                        hasEntry(format("a.b.%s.<name>", x0Id), "X"),
-                        hasEntry(format("a.b.%s.c.%s.i", x0Id, z0Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<order>", x0Id, z0Id), 0),
-                        hasEntry(format("a.b.%s.c.%s.<name>", x0Id, z0Id), "Z0")
+                        hasEntry(format("a.second.%s.str", x0Id), "foo"),
+                        hasEntry(format("a.second.%s.<order>", x0Id), 0),
+                        hasEntry(format("a.second.%s.<name>", x0Id), "X"),
+                        hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z0Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z0Id), 0),
+                        hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z0Id), "Z0")
                 ))
         );
         
-        BConfiguration x = a.b().get("X");
+        SecondConfiguration x = a.second().get("X");
         
         // Append new key. It should have <order> = 1.
-        x.c().change(xb -> xb.create("Z5", z5 -> {
+        x.third().change(xb -> xb.create("Z5", z5 -> {
         })).get();
         
-        String z5Id = ((NamedListNode<?>) a.b().get("X").c().value()).internalId("Z5");
+        String z5Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z5");
         
         storageValues = storage.readAll().values();
         
@@ -171,23 +171,23 @@ public class NamedListNodeTest {
                 storageValues,
                 is(Matchers.<Map<String, ? extends Serializable>>allOf(
                         aMapWithSize(9),
-                        hasEntry(format("a.b.%s.str", x0Id), "foo"),
-                        hasEntry(format("a.b.%s.<order>", x0Id), 0),
-                        hasEntry(format("a.b.%s.<name>", x0Id), "X"),
-                        hasEntry(format("a.b.%s.c.%s.i", x0Id, z0Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<order>", x0Id, z0Id), 0),
-                        hasEntry(format("a.b.%s.c.%s.<name>", x0Id, z0Id), "Z0"),
-                        hasEntry(format("a.b.%s.c.%s.i", x0Id, z5Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<order>", x0Id, z5Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<name>", x0Id, z5Id), "Z5")
+                        hasEntry(format("a.second.%s.str", x0Id), "foo"),
+                        hasEntry(format("a.second.%s.<order>", x0Id), 0),
+                        hasEntry(format("a.second.%s.<name>", x0Id), "X"),
+                        hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z0Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z0Id), 0),
+                        hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z0Id), "Z0"),
+                        hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z5Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z5Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z5Id), "Z5")
                 ))
         );
         
         // Insert new key somewhere in the middle. Index of Z5 should be updated to 2.
-        x.c().change(xb -> xb.create(1, "Z2", z2 -> {
+        x.third().change(xb -> xb.create(1, "Z2", z2 -> {
         })).get();
         
-        String z2Id = ((NamedListNode<?>) a.b().get("X").c().value()).internalId("Z2");
+        String z2Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z2");
         
         storageValues = storage.readAll().values();
         
@@ -195,26 +195,26 @@ public class NamedListNodeTest {
                 storageValues,
                 is(Matchers.<Map<String, ? extends Serializable>>allOf(
                         aMapWithSize(12),
-                        hasEntry(format("a.b.%s.str", x0Id), "foo"),
-                        hasEntry(format("a.b.%s.<order>", x0Id), 0),
-                        hasEntry(format("a.b.%s.<name>", x0Id), "X"),
-                        hasEntry(format("a.b.%s.c.%s.i", x0Id, z0Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<order>", x0Id, z0Id), 0),
-                        hasEntry(format("a.b.%s.c.%s.<name>", x0Id, z0Id), "Z0"),
-                        hasEntry(format("a.b.%s.c.%s.i", x0Id, z2Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<order>", x0Id, z2Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<name>", x0Id, z2Id), "Z2"),
-                        hasEntry(format("a.b.%s.c.%s.i", x0Id, z5Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<order>", x0Id, z5Id), 2),
-                        hasEntry(format("a.b.%s.c.%s.<name>", x0Id, z5Id), "Z5")
+                        hasEntry(format("a.second.%s.str", x0Id), "foo"),
+                        hasEntry(format("a.second.%s.<order>", x0Id), 0),
+                        hasEntry(format("a.second.%s.<name>", x0Id), "X"),
+                        hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z0Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z0Id), 0),
+                        hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z0Id), "Z0"),
+                        hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z2Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z2Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z2Id), "Z2"),
+                        hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z5Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z5Id), 2),
+                        hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z5Id), "Z5")
                 ))
         );
         
         // Insert new key somewhere in the middle. Indexes of Z3 and Z5 should be updated to 2 and 3.
-        x.c().change(xb -> xb.createAfter("Z2", "Z3", z3 -> {
+        x.third().change(xb -> xb.createAfter("Z2", "Z3", z3 -> {
         })).get();
         
-        String z3Id = ((NamedListNode<?>) a.b().get("X").c().value()).internalId("Z3");
+        String z3Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z3");
         
         storageValues = storage.readAll().values();
         
@@ -222,26 +222,26 @@ public class NamedListNodeTest {
                 storageValues,
                 is(Matchers.<Map<String, ? extends Serializable>>allOf(
                         aMapWithSize(15),
-                        hasEntry(format("a.b.%s.str", x0Id), "foo"),
-                        hasEntry(format("a.b.%s.<order>", x0Id), 0),
-                        hasEntry(format("a.b.%s.<name>", x0Id), "X"),
-                        hasEntry(format("a.b.%s.c.%s.i", x0Id, z0Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<order>", x0Id, z0Id), 0),
-                        hasEntry(format("a.b.%s.c.%s.<name>", x0Id, z0Id), "Z0"),
-                        hasEntry(format("a.b.%s.c.%s.i", x0Id, z2Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<order>", x0Id, z2Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<name>", x0Id, z2Id), "Z2"),
-                        hasEntry(format("a.b.%s.c.%s.i", x0Id, z3Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<order>", x0Id, z3Id), 2),
-                        hasEntry(format("a.b.%s.c.%s.<name>", x0Id, z3Id), "Z3"),
-                        hasEntry(format("a.b.%s.c.%s.i", x0Id, z5Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<order>", x0Id, z5Id), 3),
-                        hasEntry(format("a.b.%s.c.%s.<name>", x0Id, z5Id), "Z5")
+                        hasEntry(format("a.second.%s.str", x0Id), "foo"),
+                        hasEntry(format("a.second.%s.<order>", x0Id), 0),
+                        hasEntry(format("a.second.%s.<name>", x0Id), "X"),
+                        hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z0Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z0Id), 0),
+                        hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z0Id), "Z0"),
+                        hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z2Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z2Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z2Id), "Z2"),
+                        hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z3Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z3Id), 2),
+                        hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z3Id), "Z3"),
+                        hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z5Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z5Id), 3),
+                        hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z5Id), "Z5")
                 ))
         );
         
         // Delete keys from the middle. Indexes of Z3 should be updated to 1.
-        x.c().change(xb -> xb.delete("Z2").delete("Z5")).get();
+        x.third().change(xb -> xb.delete("Z2").delete("Z5")).get();
         
         storageValues = storage.readAll().values();
         
@@ -249,20 +249,20 @@ public class NamedListNodeTest {
                 storageValues,
                 is(Matchers.<Map<String, ? extends Serializable>>allOf(
                         aMapWithSize(9),
-                        hasEntry(format("a.b.%s.str", x0Id), "foo"),
-                        hasEntry(format("a.b.%s.<order>", x0Id), 0),
-                        hasEntry(format("a.b.%s.<name>", x0Id), "X"),
-                        hasEntry(format("a.b.%s.c.%s.i", x0Id, z0Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<order>", x0Id, z0Id), 0),
-                        hasEntry(format("a.b.%s.c.%s.<name>", x0Id, z0Id), "Z0"),
-                        hasEntry(format("a.b.%s.c.%s.i", x0Id, z3Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<order>", x0Id, z3Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<name>", x0Id, z3Id), "Z3")
+                        hasEntry(format("a.second.%s.str", x0Id), "foo"),
+                        hasEntry(format("a.second.%s.<order>", x0Id), 0),
+                        hasEntry(format("a.second.%s.<name>", x0Id), "X"),
+                        hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z0Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z0Id), 0),
+                        hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z0Id), "Z0"),
+                        hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z3Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z3Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z3Id), "Z3")
                 ))
         );
         
         // Delete keys from the middle. Indexes of Z3 should be updated to 1.
-        x.c().change(xb -> xb.rename("Z0", "Z1")).get();
+        x.third().change(xb -> xb.rename("Z0", "Z1")).get();
         
         storageValues = storage.readAll().values();
         
@@ -270,20 +270,20 @@ public class NamedListNodeTest {
                 storageValues,
                 is(Matchers.<Map<String, ? extends Serializable>>allOf(
                         aMapWithSize(9),
-                        hasEntry(format("a.b.%s.str", x0Id), "foo"),
-                        hasEntry(format("a.b.%s.<order>", x0Id), 0),
-                        hasEntry(format("a.b.%s.<name>", x0Id), "X"),
-                        hasEntry(format("a.b.%s.c.%s.i", x0Id, z0Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<order>", x0Id, z0Id), 0),
-                        hasEntry(format("a.b.%s.c.%s.<name>", x0Id, z0Id), "Z1"),
-                        hasEntry(format("a.b.%s.c.%s.i", x0Id, z3Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<order>", x0Id, z3Id), 1),
-                        hasEntry(format("a.b.%s.c.%s.<name>", x0Id, z3Id), "Z3")
+                        hasEntry(format("a.second.%s.str", x0Id), "foo"),
+                        hasEntry(format("a.second.%s.<order>", x0Id), 0),
+                        hasEntry(format("a.second.%s.<name>", x0Id), "X"),
+                        hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z0Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z0Id), 0),
+                        hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z0Id), "Z1"),
+                        hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z3Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z3Id), 1),
+                        hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z3Id), "Z3")
                 ))
         );
         
         // Delete values on several layers simultaneously. Storage must be empty after that.
-        a.b().change(b -> b.delete("X")).get();
+        a.second().change(b -> b.delete("X")).get();
         
         assertThat(storage.readAll().values(), is(anEmptyMap()));
     }
@@ -291,7 +291,7 @@ public class NamedListNodeTest {
     /** Tests exceptions described in methods signatures. */
     @Test
     public void errors() throws Exception {
-        var b = new NamedListNode<>("name", () -> cgen.instantiateNode(BConfigurationSchema.class), null);
+        var b = new NamedListNode<>("name", () -> cgen.instantiateNode(SecondConfigurationSchema.class), null);
         
         b.create("X", x -> {
         }).create("Y", y -> {
