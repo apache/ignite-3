@@ -229,7 +229,9 @@ public class ClientMessagePacker implements AutoCloseable {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Writes a big integer value.
+     */
     public void packBigInteger(BigInteger bi) {
         assert !closed : "Packer is closed";
 
@@ -245,7 +247,9 @@ public class ClientMessagePacker implements AutoCloseable {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Writes a float value.
+     */
     public void packFloat(float v) {
         assert !closed : "Packer is closed";
 
@@ -253,7 +257,9 @@ public class ClientMessagePacker implements AutoCloseable {
         buf.writeFloat(v);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Writes a double value.
+     */
     public void packDouble(double v) {
         assert !closed : "Packer is closed";
 
@@ -261,7 +267,9 @@ public class ClientMessagePacker implements AutoCloseable {
         buf.writeDouble(v);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Writes a string value.
+     */
     public void packString(String s) {
         assert !closed : "Packer is closed";
 
@@ -295,7 +303,9 @@ public class ClientMessagePacker implements AutoCloseable {
         buf.writerIndex(endPos);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Writes an array header value.
+     */
     public void packArrayHeader(int arraySize) {
         assert !closed : "Packer is closed";
 
@@ -316,7 +326,9 @@ public class ClientMessagePacker implements AutoCloseable {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Writes a map header value.
+     */
     public void packMapHeader(int mapSize) {
         assert !closed : "Packer is closed";
 
@@ -337,7 +349,9 @@ public class ClientMessagePacker implements AutoCloseable {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Writes an extension type header value.
+     */
     public void packExtensionTypeHeader(byte extType, int payloadLen) {
         assert !closed : "Packer is closed";
 
@@ -387,7 +401,9 @@ public class ClientMessagePacker implements AutoCloseable {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Writes a binary header value.
+     */
     public void packBinaryHeader(int len) {
         assert !closed : "Packer is closed";
 
@@ -405,7 +421,9 @@ public class ClientMessagePacker implements AutoCloseable {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Writes a raw string header value.
+     */
     public void packRawStringHeader(int len) {
         assert !closed : "Packer is closed";
 
@@ -423,6 +441,12 @@ public class ClientMessagePacker implements AutoCloseable {
         }
     }
 
+    /**
+     * Gets the varint string header size in bytes.
+     *
+     * @param len String length.
+     * @return String header size, in bytes.
+     */
     private int getStringHeaderSize(int len) {
         assert !closed : "Packer is closed";
 
@@ -438,14 +462,29 @@ public class ClientMessagePacker implements AutoCloseable {
         return 5;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Writes a byte array to the output.
+     * <p>
+     * This method is used with {@link #packRawStringHeader(int)} or {@link #packBinaryHeader(int)} methods.
+     *
+     * @param src the data to add.
+     */
     public void writePayload(byte[] src) {
         assert !closed : "Packer is closed";
 
         buf.writeBytes(src);
     }
 
-    /** {@inheritDoc} */
+
+    /**
+     * Writes a byte array to the output.
+     * <p>
+     * This method is used with {@link #packRawStringHeader(int)} or {@link #packBinaryHeader(int)} methods.
+     *
+     * @param src the data to add.
+     * @param off the start offset in the data.
+     * @param len the number of bytes to add.
+     */
     public void writePayload(byte[] src, int off, int len) {
         assert !closed : "Packer is closed";
 
