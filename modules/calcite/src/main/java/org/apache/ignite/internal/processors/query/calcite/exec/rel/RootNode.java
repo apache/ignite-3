@@ -38,7 +38,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 /**
  * Client iterator.
  */
-public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>, Downstream<Row>, Iterator<Row> {
+public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT>, Iterator<RowT> {
     /**
      *
      */
@@ -62,7 +62,7 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
     /**
      *
      */
-    private final Function<Row, Row> converter;
+    private final Function<RowT, RowT> converter;
 
     /**
      *
@@ -72,12 +72,12 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
     /**
      *
      */
-    private Deque<Row> inBuff = new ArrayDeque<>(inBufSize);
+    private Deque<RowT> inBuff = new ArrayDeque<>(inBufSize);
 
     /**
      *
      */
-    private Deque<Row> outBuff = new ArrayDeque<>(inBufSize);
+    private Deque<RowT> outBuff = new ArrayDeque<>(inBufSize);
 
     /**
      *
@@ -87,7 +87,7 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
     /**
      * @param ctx Execution context.
      */
-    public RootNode(ExecutionContext<Row> ctx, RelDataType rowType) {
+    public RootNode(ExecutionContext<RowT> ctx, RelDataType rowType) {
         super(ctx, rowType);
 
         onClose = this::closeInternal;
@@ -97,7 +97,7 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
     /**
      * @param ctx Execution context.
      */
-    public RootNode(ExecutionContext<Row> ctx, RelDataType rowType, Runnable onClose) {
+    public RootNode(ExecutionContext<RowT> ctx, RelDataType rowType, Runnable onClose) {
         super(ctx, rowType);
 
         this.onClose = onClose;
@@ -148,7 +148,7 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
 
     /** {@inheritDoc} */
     @Override
-    public void push(Row row) throws Exception {
+    public void push(RowT row) throws Exception {
         lock.lock();
         try {
             assert waiting > 0;
@@ -214,7 +214,7 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
 
     /** {@inheritDoc} */
     @Override
-    public Row next() {
+    public RowT next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
         }
@@ -224,7 +224,7 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         if (idx != 0) {
             throw new IndexOutOfBoundsException();
         }
@@ -234,7 +234,7 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
 
     /** {@inheritDoc} */
     @Override
-    public void onRegister(Downstream<Row> downstream) {
+    public void onRegister(Downstream<RowT> downstream) {
         throw new UnsupportedOperationException();
     }
 
@@ -262,7 +262,7 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
                 assert outBuff.isEmpty();
 
                 if (inBuff.size() == inBufSize || waiting == -1) {
-                    Deque<Row> tmp = inBuff;
+                    Deque<RowT> tmp = inBuff;
                     inBuff = outBuff;
                     outBuff = tmp;
                 }

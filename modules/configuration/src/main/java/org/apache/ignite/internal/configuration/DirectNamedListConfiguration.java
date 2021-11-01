@@ -30,9 +30,9 @@ import org.apache.ignite.configuration.annotation.DirectAccess;
  *
  * @see DirectAccess
  */
-public class DirectNamedListConfiguration<T extends ConfigurationProperty<VIEW>, VIEW, CHANGE extends VIEW>
-        extends NamedListConfiguration<T, VIEW, CHANGE>
-        implements DirectConfigurationProperty<NamedListView<VIEW>> {
+public class DirectNamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEWT, CHANGET extends VIEWT>
+        extends NamedListConfiguration<T, VIEWT, CHANGET>
+        implements DirectConfigurationProperty<NamedListView<VIEWT>> {
     /**
      * Constructor.
      *
@@ -58,7 +58,7 @@ public class DirectNamedListConfiguration<T extends ConfigurationProperty<VIEW>,
 
     /** {@inheritDoc} */
     @Override
-    public NamedListView<VIEW> directValue() {
+    public NamedListView<VIEWT> directValue() {
         if (listenOnly) {
             throw listenOnlyException();
         }

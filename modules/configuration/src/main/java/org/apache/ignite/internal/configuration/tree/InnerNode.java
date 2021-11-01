@@ -184,10 +184,10 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * Returns specific {@code Node} of the value. Overridden for polymorphic configuration to get a specific polymorphic configuration
      * instance.
      *
-     * @param <NODE> Type of the {@code Node}.
+     * @param <NODET> Type of the {@code Node}.
      * @return Specific {@code Node} of the value.
      */
-    public <NODE> NODE specificNode() {
-        return (NODE) this;
+    public <NODET> NODET specificNode() {
+        return (NODET) this;
     }
 }

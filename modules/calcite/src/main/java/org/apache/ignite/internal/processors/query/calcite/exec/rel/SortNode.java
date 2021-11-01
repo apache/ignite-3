@@ -27,7 +27,7 @@ import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext
 /**
  * Sort node.
  */
-public class SortNode<Row> extends AbstractNode<Row> implements SingleNode<Row>, Downstream<Row> {
+public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     /** How many rows are requested by downstream. */
     private int requested;
 
@@ -40,13 +40,13 @@ public class SortNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
     private boolean inLoop;
 
     /** Rows buffer. */
-    private final PriorityQueue<Row> rows;
+    private final PriorityQueue<RowT> rows;
 
     /**
      * @param ctx  Execution context.
      * @param comp Rows comparator.
      */
-    public SortNode(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp) {
+    public SortNode(ExecutionContext<RowT> ctx, RelDataType rowType, Comparator<RowT> comp) {
         super(ctx, rowType);
 
         rows = comp == null ? new PriorityQueue<>() : new PriorityQueue<>(comp);
@@ -62,7 +62,7 @@ public class SortNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         if (idx != 0) {
             throw new IndexOutOfBoundsException();
         }
@@ -90,7 +90,7 @@ public class SortNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
 
     /** {@inheritDoc} */
     @Override
-    public void push(Row row) throws Exception {
+    public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
 

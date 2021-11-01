@@ -20,11 +20,11 @@ package org.apache.ignite.internal.processors.query.calcite.exec.exp.agg;
 /**
  *
  */
-public interface AccumulatorWrapper<Row> {
+public interface AccumulatorWrapper<RowT> {
     /**
      *
      */
-    void add(Row row);
+    void add(RowT row);
 
     /**
      *

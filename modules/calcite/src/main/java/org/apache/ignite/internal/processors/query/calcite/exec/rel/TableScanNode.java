@@ -39,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Scan node.
  */
-public class TableScanNode<Row> extends AbstractNode<Row> {
+public class TableScanNode<RowT> extends AbstractNode<RowT> {
     /** Special value to highlights that all row were received and we are not waiting any more. */
     private static final int NOT_WAITING = -1;
 
@@ -56,7 +56,7 @@ public class TableScanNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private final RowHandler.RowFactory<Row> factory;
+    private final RowHandler.RowFactory<RowT> factory;
 
     /**
      *
@@ -66,17 +66,17 @@ public class TableScanNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private final Queue<Row> inBuff = new LinkedBlockingQueue<>(inBufSize);
+    private final Queue<RowT> inBuff = new LinkedBlockingQueue<>(inBufSize);
 
     /**
      *
      */
-    private final @Nullable Predicate<Row> filters;
+    private final @Nullable Predicate<RowT> filters;
 
     /**
      *
      */
-    private final @Nullable Function<Row, Row> rowTransformer;
+    private final @Nullable Function<RowT, RowT> rowTransformer;
 
     /** Participating columns. */
     private final @Nullable ImmutableBitSet requiredColumns;
@@ -116,12 +116,12 @@ public class TableScanNode<Row> extends AbstractNode<Row> {
      * @param requiredColumns Optional set of column of interest.
      */
     public TableScanNode(
-            ExecutionContext<Row> ctx,
+            ExecutionContext<RowT> ctx,
             RelDataType rowType,
             TableDescriptor desc,
             int[] parts,
-            @Nullable Predicate<Row> filters,
-            @Nullable Function<Row, Row> rowTransformer,
+            @Nullable Predicate<RowT> filters,
+            @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable ImmutableBitSet requiredColumns
     ) {
         super(ctx, rowType);
@@ -176,13 +176,13 @@ public class TableScanNode<Row> extends AbstractNode<Row> {
 
     /** {@inheritDoc} */
     @Override
-    public void register(List<Node<Row>> sources) {
+    public void register(List<Node<RowT>> sources) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         throw new UnsupportedOperationException();
     }
 
@@ -199,7 +199,7 @@ public class TableScanNode<Row> extends AbstractNode<Row> {
                 while (requested > 0 && !inBuff.isEmpty()) {
                     checkState();
 
-                    Row row = inBuff.poll();
+                    RowT row = inBuff.poll();
 
                     if (filters != null && !filters.test(row)) {
                         continue;
@@ -265,7 +265,7 @@ public class TableScanNode<Row> extends AbstractNode<Row> {
         /** {@inheritDoc} */
         @Override
         public void onNext(BinaryRow binRow) {
-            Row row = convert(binRow);
+            RowT row = convert(binRow);
 
             inBuff.add(row);
 
@@ -304,7 +304,7 @@ public class TableScanNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private Row convert(BinaryRow binRow) {
+    private RowT convert(BinaryRow binRow) {
         final org.apache.ignite.internal.schema.row.Row wrapped = table.schemaView().resolve(binRow);
 
         return desc.toRow(context(), TableRow.tuple(wrapped), factory, requiredColumns);

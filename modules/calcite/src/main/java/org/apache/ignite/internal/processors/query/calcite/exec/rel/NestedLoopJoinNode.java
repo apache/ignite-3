@@ -34,19 +34,19 @@ import org.jetbrains.annotations.NotNull;
 /**
  *
  */
-public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
+public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     /** Special value to highlights that all row were received and we are not waiting any more. */
     protected static final int NOT_WAITING = -1;
 
     /**
      *
      */
-    protected final Predicate<Row> cond;
+    protected final Predicate<RowT> cond;
 
     /**
      *
      */
-    protected final RowHandler<Row> handler;
+    protected final RowHandler<RowT> handler;
 
     /**
      *
@@ -66,12 +66,12 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    protected final List<Row> rightMaterialized = new ArrayList<>(inBufSize);
+    protected final List<RowT> rightMaterialized = new ArrayList<>(inBufSize);
 
     /**
      *
      */
-    protected final Deque<Row> leftInBuf = new ArrayDeque<>(inBufSize);
+    protected final Deque<RowT> leftInBuf = new ArrayDeque<>(inBufSize);
 
     /**
      *
@@ -82,7 +82,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
      * @param ctx  Execution context.
      * @param cond Join expression.
      */
-    private NestedLoopJoinNode(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond) {
+    private NestedLoopJoinNode(ExecutionContext<RowT> ctx, RelDataType rowType, Predicate<RowT> cond) {
         super(ctx, rowType);
 
         this.cond = cond;
@@ -126,12 +126,12 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         if (idx == 0) {
-            return new Downstream<Row>() {
+            return new Downstream<RowT>() {
                 /** {@inheritDoc} */
                 @Override
-                public void push(Row row) throws Exception {
+                public void push(RowT row) throws Exception {
                     pushLeft(row);
                 }
 
@@ -148,10 +148,10 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
                 }
             };
         } else if (idx == 1) {
-            return new Downstream<Row>() {
+            return new Downstream<RowT>() {
                 /** {@inheritDoc} */
                 @Override
-                public void push(Row row) throws Exception {
+                public void push(RowT row) throws Exception {
                     pushRight(row);
                 }
 
@@ -175,7 +175,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private void pushLeft(Row row) throws Exception {
+    private void pushLeft(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingLeft > 0;
 
@@ -191,7 +191,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private void pushRight(Row row) throws Exception {
+    private void pushRight(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
 
@@ -237,14 +237,14 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    protected Node<Row> leftSource() {
+    protected Node<RowT> leftSource() {
         return sources().get(0);
     }
 
     /**
      *
      */
-    protected Node<Row> rightSource() {
+    protected Node<RowT> rightSource() {
         return sources().get(1);
     }
 
@@ -257,27 +257,27 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
      *
      */
     @NotNull
-    public static <Row> NestedLoopJoinNode<Row> create(ExecutionContext<Row> ctx, RelDataType outputRowType,
-            RelDataType leftRowType, RelDataType rightRowType, JoinRelType joinType, Predicate<Row> cond) {
+    public static <RowT> NestedLoopJoinNode<RowT> create(ExecutionContext<RowT> ctx, RelDataType outputRowType,
+            RelDataType leftRowType, RelDataType rightRowType, JoinRelType joinType, Predicate<RowT> cond) {
         switch (joinType) {
             case INNER:
                 return new InnerJoin<>(ctx, outputRowType, cond);
 
             case LEFT: {
-                RowHandler.RowFactory<Row> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightRowType);
+                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightRowType);
 
                 return new LeftJoin<>(ctx, outputRowType, cond, rightRowFactory);
             }
 
             case RIGHT: {
-                RowHandler.RowFactory<Row> leftRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), leftRowType);
+                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), leftRowType);
 
                 return new RightJoin<>(ctx, outputRowType, cond, leftRowFactory);
             }
 
             case FULL: {
-                RowHandler.RowFactory<Row> leftRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), leftRowType);
-                RowHandler.RowFactory<Row> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightRowType);
+                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), leftRowType);
+                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightRowType);
 
                 return new FullOuterJoin<>(ctx, outputRowType, cond, leftRowFactory, rightRowFactory);
             }
@@ -296,11 +296,11 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private static class InnerJoin<Row> extends NestedLoopJoinNode<Row> {
+    private static class InnerJoin<RowT> extends NestedLoopJoinNode<RowT> {
         /**
          *
          */
-        private Row left;
+        private RowT left;
 
         /**
          *
@@ -311,7 +311,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
          * @param ctx  Execution context.
          * @param cond Join expression.
          */
-        private InnerJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond) {
+        private InnerJoin(ExecutionContext<RowT> ctx, RelDataType rowType, Predicate<RowT> cond) {
             super(ctx, rowType, cond);
         }
 
@@ -340,7 +340,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
                         while (requested > 0 && rightIdx < rightMaterialized.size()) {
                             checkState();
 
-                            Row row = handler.concat(left, rightMaterialized.get(rightIdx++));
+                            RowT row = handler.concat(left, rightMaterialized.get(rightIdx++));
 
                             if (!cond.test(row)) {
                                 continue;
@@ -378,9 +378,9 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private static class LeftJoin<Row> extends NestedLoopJoinNode<Row> {
+    private static class LeftJoin<RowT> extends NestedLoopJoinNode<RowT> {
         /** Right row factory. */
-        private final RowHandler.RowFactory<Row> rightRowFactory;
+        private final RowHandler.RowFactory<RowT> rightRowFactory;
 
         /** Whether current left row was matched or not. */
         private boolean matched;
@@ -388,7 +388,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
         /**
          *
          */
-        private Row left;
+        private RowT left;
 
         /**
          *
@@ -399,7 +399,12 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
          * @param ctx  Execution context.
          * @param cond Join expression.
          */
-        private LeftJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond, RowHandler.RowFactory<Row> rightRowFactory) {
+        private LeftJoin(
+                ExecutionContext<RowT> ctx,
+                RelDataType rowType,
+                Predicate<RowT> cond,
+                RowHandler.RowFactory<RowT> rightRowFactory
+        ) {
             super(ctx, rowType, cond);
 
             this.rightRowFactory = rightRowFactory;
@@ -433,7 +438,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
                         while (requested > 0 && rightIdx < rightMaterialized.size()) {
                             checkState();
 
-                            Row row = handler.concat(left, rightMaterialized.get(rightIdx++));
+                            RowT row = handler.concat(left, rightMaterialized.get(rightIdx++));
 
                             if (!cond.test(row)) {
                                 continue;
@@ -483,9 +488,9 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private static class RightJoin<Row> extends NestedLoopJoinNode<Row> {
+    private static class RightJoin<RowT> extends NestedLoopJoinNode<RowT> {
         /** Right row factory. */
-        private final RowHandler.RowFactory<Row> leftRowFactory;
+        private final RowHandler.RowFactory<RowT> leftRowFactory;
 
         /**
          *
@@ -500,7 +505,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
         /**
          *
          */
-        private Row left;
+        private RowT left;
 
         /**
          *
@@ -511,7 +516,12 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
          * @param ctx  Execution context.
          * @param cond Join expression.
          */
-        private RightJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond, RowHandler.RowFactory<Row> leftRowFactory) {
+        private RightJoin(
+                ExecutionContext<RowT> ctx,
+                RelDataType rowType,
+                Predicate<RowT> cond,
+                RowHandler.RowFactory<RowT> leftRowFactory
+        ) {
             super(ctx, rowType, cond);
 
             this.leftRowFactory = leftRowFactory;
@@ -548,8 +558,8 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
                         while (requested > 0 && rightIdx < rightMaterialized.size()) {
                             checkState();
 
-                            Row right = rightMaterialized.get(rightIdx++);
-                            Row joined = handler.concat(left, right);
+                            RowT right = rightMaterialized.get(rightIdx++);
+                            RowT joined = handler.concat(left, right);
 
                             if (!cond.test(joined)) {
                                 continue;
@@ -584,7 +594,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
                             break;
                         }
 
-                        Row row = handler.concat(leftRowFactory.create(), rightMaterialized.get(lastPushedInd));
+                        RowT row = handler.concat(leftRowFactory.create(), rightMaterialized.get(lastPushedInd));
 
                         rightNotMatchedIndexes.clear(lastPushedInd);
 
@@ -619,12 +629,12 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private static class FullOuterJoin<Row> extends NestedLoopJoinNode<Row> {
+    private static class FullOuterJoin<RowT> extends NestedLoopJoinNode<RowT> {
         /** Left row factory. */
-        private final RowHandler.RowFactory<Row> leftRowFactory;
+        private final RowHandler.RowFactory<RowT> leftRowFactory;
 
         /** Right row factory. */
-        private final RowHandler.RowFactory<Row> rightRowFactory;
+        private final RowHandler.RowFactory<RowT> rightRowFactory;
 
         /** Whether current left row was matched or not. */
         private boolean leftMatched;
@@ -642,7 +652,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
         /**
          *
          */
-        private Row left;
+        private RowT left;
 
         /**
          *
@@ -653,9 +663,9 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
          * @param ctx  Execution context.
          * @param cond Join expression.
          */
-        private FullOuterJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond,
-                RowHandler.RowFactory<Row> leftRowFactory,
-                RowHandler.RowFactory<Row> rightRowFactory) {
+        private FullOuterJoin(ExecutionContext<RowT> ctx, RelDataType rowType, Predicate<RowT> cond,
+                RowHandler.RowFactory<RowT> leftRowFactory,
+                RowHandler.RowFactory<RowT> rightRowFactory) {
             super(ctx, rowType, cond);
 
             this.leftRowFactory = leftRowFactory;
@@ -696,8 +706,8 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
                         while (requested > 0 && rightIdx < rightMaterialized.size()) {
                             checkState();
 
-                            Row right = rightMaterialized.get(rightIdx++);
-                            Row joined = handler.concat(left, right);
+                            RowT right = rightMaterialized.get(rightIdx++);
+                            RowT joined = handler.concat(left, right);
 
                             if (!cond.test(joined)) {
                                 continue;
@@ -744,7 +754,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
                             break;
                         }
 
-                        Row row = handler.concat(leftRowFactory.create(), rightMaterialized.get(lastPushedInd));
+                        RowT row = handler.concat(leftRowFactory.create(), rightMaterialized.get(lastPushedInd));
 
                         rightNotMatchedIndexes.clear(lastPushedInd);
 
@@ -779,11 +789,11 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private static class SemiJoin<Row> extends NestedLoopJoinNode<Row> {
+    private static class SemiJoin<RowT> extends NestedLoopJoinNode<RowT> {
         /**
          *
          */
-        private Row left;
+        private RowT left;
 
         /**
          *
@@ -794,7 +804,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
          * @param ctx  Execution context.
          * @param cond Join expression.
          */
-        private SemiJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond) {
+        private SemiJoin(ExecutionContext<RowT> ctx, RelDataType rowType, Predicate<RowT> cond) {
             super(ctx, rowType, cond);
         }
 
@@ -821,7 +831,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
                     while (!matched && requested > 0 && rightIdx < rightMaterialized.size()) {
                         checkState();
 
-                        Row row = handler.concat(left, rightMaterialized.get(rightIdx++));
+                        RowT row = handler.concat(left, rightMaterialized.get(rightIdx++));
 
                         if (!cond.test(row)) {
                             continue;
@@ -859,11 +869,11 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /**
      *
      */
-    private static class AntiJoin<Row> extends NestedLoopJoinNode<Row> {
+    private static class AntiJoin<RowT> extends NestedLoopJoinNode<RowT> {
         /**
          *
          */
-        private Row left;
+        private RowT left;
 
         /**
          *
@@ -874,7 +884,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
          * @param ctx  Execution context.
          * @param cond Join expression.
          */
-        private AntiJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond) {
+        private AntiJoin(ExecutionContext<RowT> ctx, RelDataType rowType, Predicate<RowT> cond) {
             super(ctx, rowType, cond);
         }
 
@@ -905,7 +915,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
                         while (!matched && rightIdx < rightMaterialized.size()) {
                             checkState();
 
-                            Row row = handler.concat(left, rightMaterialized.get(rightIdx++));
+                            RowT row = handler.concat(left, rightMaterialized.get(rightIdx++));
 
                             if (cond.test(row)) {
                                 matched = true;

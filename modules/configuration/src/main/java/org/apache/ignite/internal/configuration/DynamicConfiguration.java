@@ -37,8 +37,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * This class represents configuration root or node.
  */
-public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNode<VIEW>
-        implements ConfigurationTree<VIEW, CHANGE> {
+public abstract class DynamicConfiguration<VIEWT, CHANGET> extends ConfigurationNode<VIEWT>
+        implements ConfigurationTree<VIEWT, CHANGET> {
     /** Configuration members (leaves and nodes). */
     protected volatile Map<String, ConfigurationProperty<?>> members = new LinkedHashMap<>();
     
@@ -73,7 +73,7 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
     
     /** {@inheritDoc} */
     @Override
-    public final CompletableFuture<Void> change(Consumer<CHANGE> change) {
+    public final CompletableFuture<Void> change(Consumer<CHANGET> change) {
         Objects.requireNonNull(change, "Configuration consumer cannot be null.");
     
         if (listenOnly) {
@@ -95,7 +95,7 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
                         change.accept(((InnerNode) node).specificNode());
                     } else {
                         // To support namedList configuration.
-                        change.accept((CHANGE) node);
+                        change.accept((CHANGET) node);
                     }
                 } else {
                     node.construct(keys.get(level++), this, true);
@@ -121,14 +121,14 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
     
     /** {@inheritDoc} */
     @Override
-    public VIEW value() {
+    public VIEWT value() {
         // To support polymorphic configuration.
         return ((InnerNode) refreshValue()).specificNode();
     }
     
     /** {@inheritDoc} */
     @Override
-    protected void beforeRefreshValue(VIEW newValue, @Nullable VIEW oldValue) {
+    protected void beforeRefreshValue(VIEWT newValue, @Nullable VIEWT oldValue) {
         if (oldValue == null || ((InnerNode) oldValue).schemaType() != ((InnerNode) newValue).schemaType()) {
             Map<String, ConfigurationProperty<?>> newMembers = new LinkedHashMap<>(members);
     
@@ -179,14 +179,14 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
      * @return Configuration interface, for example {@code RootConfiguration}.
      * @throws UnsupportedOperationException In the case of a named list.
      */
-    public abstract Class<? extends ConfigurationProperty<VIEW>> configType();
+    public abstract Class<? extends ConfigurationProperty<VIEWT>> configType();
     
     /**
      * Returns specific configuration tree.
      *
      * @return Specific configuration tree.
      */
-    public ConfigurationTree<VIEW, CHANGE> specificConfigTree() {
+    public ConfigurationTree<VIEWT, CHANGET> specificConfigTree() {
         // To work with polymorphic configuration.
         return this;
     }
@@ -197,7 +197,7 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
      * @param oldValue Old configuration value.
      * @param members  Configuration members (leaves and nodes).
      */
-    protected void removeMembers(VIEW oldValue, Map<String, ConfigurationProperty<?>> members) {
+    protected void removeMembers(VIEWT oldValue, Map<String, ConfigurationProperty<?>> members) {
         // No-op.
     }
     
@@ -207,7 +207,7 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
      * @param newValue New configuration value.
      * @param members  Configuration members (leaves and nodes).
      */
-    protected void addMembers(VIEW newValue, Map<String, ConfigurationProperty<?>> members) {
+    protected void addMembers(VIEWT newValue, Map<String, ConfigurationProperty<?>> members) {
         // No-op.
     }
     

@@ -213,11 +213,11 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
     /**
      *
      */
-    public static class RootRewindable<Row> extends RootNode<Row> {
+    public static class RootRewindable<RowT> extends RootNode<RowT> {
         /**
          *
          */
-        public RootRewindable(ExecutionContext<Row> ctx, RelDataType rowType) {
+        public RootRewindable(ExecutionContext<RowT> ctx, RelDataType rowType) {
             super(ctx, rowType);
         }
         

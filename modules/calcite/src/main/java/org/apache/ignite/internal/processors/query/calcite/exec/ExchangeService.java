@@ -36,8 +36,8 @@ public interface ExchangeService extends LifecycleAware {
      * @param last       Last batch flag.
      * @param rows       Data rows.
      */
-    <Row> void sendBatch(String nodeId, UUID qryId, long fragmentId, long exchangeId, int batchId, boolean last,
-            List<Row> rows) throws IgniteInternalCheckedException;
+    <RowT> void sendBatch(String nodeId, UUID qryId, long fragmentId, long exchangeId, int batchId, boolean last,
+            List<RowT> rows) throws IgniteInternalCheckedException;
 
     /**
      * Acknowledges a batch with given ID is processed.

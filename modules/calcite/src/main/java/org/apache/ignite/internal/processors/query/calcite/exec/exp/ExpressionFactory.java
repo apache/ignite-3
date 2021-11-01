@@ -34,11 +34,11 @@ import org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.Aggregat
 /**
  * Expression factory.
  */
-public interface ExpressionFactory<Row> {
+public interface ExpressionFactory<RowT> {
     /**
      *
      */
-    Supplier<List<AccumulatorWrapper<Row>>> accumulatorsFactory(
+    Supplier<List<AccumulatorWrapper<RowT>>> accumulatorsFactory(
             AggregateType type,
             List<AggregateCall> calls,
             RelDataType rowType
@@ -50,7 +50,7 @@ public interface ExpressionFactory<Row> {
      * @param collations Collations.
      * @return Row comparator.
      */
-    Comparator<Row> comparator(RelCollation collations);
+    Comparator<RowT> comparator(RelCollation collations);
 
     /**
      * Creates a comparator for different rows by given field collations. Mainly used for merge join rows comparison. Note: Both list has to
@@ -61,7 +61,7 @@ public interface ExpressionFactory<Row> {
      * @param right Collations of right row.
      * @return Rows comparator.
      */
-    Comparator<Row> comparator(List<RelFieldCollation> left, List<RelFieldCollation> right);
+    Comparator<RowT> comparator(List<RelFieldCollation> left, List<RelFieldCollation> right);
 
     /**
      * Creates a Filter predicate.
@@ -70,7 +70,7 @@ public interface ExpressionFactory<Row> {
      * @param rowType Input row type.
      * @return Filter predicate.
      */
-    Predicate<Row> predicate(RexNode filter, RelDataType rowType);
+    Predicate<RowT> predicate(RexNode filter, RelDataType rowType);
 
     /**
      * Creates a Project function. Resulting function returns a row with different fields, fields order, fields types, etc.
@@ -79,7 +79,7 @@ public interface ExpressionFactory<Row> {
      * @param rowType  Input row type.
      * @return Project function.
      */
-    Function<Row, Row> project(List<RexNode> projects, RelDataType rowType);
+    Function<RowT, RowT> project(List<RexNode> projects, RelDataType rowType);
 
     /**
      * Creates a Values relational node rows source.
@@ -88,7 +88,7 @@ public interface ExpressionFactory<Row> {
      * @param rowType Output row type.
      * @return Values relational node rows source.
      */
-    Iterable<Row> values(List<RexLiteral> values, RelDataType rowType);
+    Iterable<RowT> values(List<RexLiteral> values, RelDataType rowType);
 
     /**
      * Creates row from RexNodes.
@@ -96,7 +96,7 @@ public interface ExpressionFactory<Row> {
      * @param values Values.
      * @return Row.
      */
-    Supplier<Row> rowSource(List<RexNode> values);
+    Supplier<RowT> rowSource(List<RexNode> values);
 
 
     /**

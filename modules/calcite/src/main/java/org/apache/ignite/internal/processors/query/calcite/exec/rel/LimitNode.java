@@ -25,7 +25,7 @@ import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext
 import org.jetbrains.annotations.Nullable;
 
 /** Offset, fetch|limit support node. */
-public class LimitNode<Row> extends AbstractNode<Row> implements SingleNode<Row>, Downstream<Row> {
+public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     /** Offset if its present, otherwise 0. */
     private final int offset;
 
@@ -48,7 +48,7 @@ public class LimitNode<Row> extends AbstractNode<Row> implements SingleNode<Row>
      * @param rowType Row type.
      */
     public LimitNode(
-            ExecutionContext<Row> ctx,
+            ExecutionContext<RowT> ctx,
             RelDataType rowType,
             Supplier<Integer> offsetNode,
             Supplier<Integer> fetchNode
@@ -83,7 +83,7 @@ public class LimitNode<Row> extends AbstractNode<Row> implements SingleNode<Row>
 
     /** {@inheritDoc} */
     @Override
-    public void push(Row row) throws Exception {
+    public void push(RowT row) throws Exception {
         if (waiting == -1) {
             return;
         }
@@ -127,7 +127,7 @@ public class LimitNode<Row> extends AbstractNode<Row> implements SingleNode<Row>
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         if (idx != 0) {
             throw new IndexOutOfBoundsException();
         }

@@ -32,11 +32,11 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Runtime hash index based on on-heap hash map.
  */
-public class RuntimeHashIndex<Row> implements RuntimeIndex<Row> {
+public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
     /**
      *
      */
-    protected final ExecutionContext<Row> ectx;
+    protected final ExecutionContext<RowT> ectx;
 
     /**
      *
@@ -44,13 +44,13 @@ public class RuntimeHashIndex<Row> implements RuntimeIndex<Row> {
     private final ImmutableBitSet keys;
 
     /** Rows. */
-    private HashMap<GroupKey, List<Row>> rows;
+    private HashMap<GroupKey, List<RowT>> rows;
 
     /**
      *
      */
     public RuntimeHashIndex(
-            ExecutionContext<Row> ectx,
+            ExecutionContext<RowT> ectx,
             ImmutableBitSet keys
     ) {
         this.ectx = ectx;
@@ -63,8 +63,8 @@ public class RuntimeHashIndex<Row> implements RuntimeIndex<Row> {
 
     /** {@inheritDoc} */
     @Override
-    public void push(Row r) {
-        List<Row> eqRows = rows.computeIfAbsent(key(r), k -> new ArrayList<>());
+    public void push(RowT r) {
+        List<RowT> eqRows = rows.computeIfAbsent(key(r), k -> new ArrayList<>());
 
         eqRows.add(r);
     }
@@ -80,14 +80,14 @@ public class RuntimeHashIndex<Row> implements RuntimeIndex<Row> {
     /**
      *
      */
-    public Iterable<Row> scan(Supplier<Row> searchRow) {
+    public Iterable<RowT> scan(Supplier<RowT> searchRow) {
         return new IndexScan(searchRow);
     }
 
     /**
      *
      */
-    private GroupKey key(Row r) {
+    private GroupKey key(RowT r) {
         GroupKey.Builder b = GroupKey.builder(keys.cardinality());
 
         for (Integer field : keys) {
@@ -100,14 +100,14 @@ public class RuntimeHashIndex<Row> implements RuntimeIndex<Row> {
     /**
      *
      */
-    private class IndexScan implements Iterable<Row>, AutoCloseable {
+    private class IndexScan implements Iterable<RowT>, AutoCloseable {
         /** Search row. */
-        private final Supplier<Row> searchRow;
+        private final Supplier<RowT> searchRow;
 
         /**
          * @param searchRow Search row.
          */
-        IndexScan(Supplier<Row> searchRow) {
+        IndexScan(Supplier<RowT> searchRow) {
             this.searchRow = searchRow;
         }
 
@@ -120,8 +120,8 @@ public class RuntimeHashIndex<Row> implements RuntimeIndex<Row> {
         /** {@inheritDoc} */
         @NotNull
         @Override
-        public Iterator<Row> iterator() {
-            List<Row> eqRows = rows.get(key(searchRow.get()));
+        public Iterator<RowT> iterator() {
+            List<RowT> eqRows = rows.get(key(searchRow.get()));
 
             return eqRows == null ? Collections.emptyIterator() : eqRows.iterator();
         }

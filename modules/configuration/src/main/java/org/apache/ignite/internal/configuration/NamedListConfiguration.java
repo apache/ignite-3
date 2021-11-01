@@ -34,11 +34,11 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Named configuration wrapper.
  */
-public class NamedListConfiguration<T extends ConfigurationProperty<VIEW>, VIEW, CHANGE extends VIEW>
-        extends DynamicConfiguration<NamedListView<VIEW>, NamedListChange<VIEW, CHANGE>>
-        implements NamedConfigurationTree<T, VIEW, CHANGE> {
+public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEWT, CHANGET extends VIEWT>
+        extends DynamicConfiguration<NamedListView<VIEWT>, NamedListChange<VIEWT, CHANGET>>
+        implements NamedConfigurationTree<T, VIEWT, CHANGET> {
     /** Listeners of property update. */
-    private final List<ConfigurationNamedListListener<VIEW>> extendedListeners = new CopyOnWriteArrayList<>();
+    private final List<ConfigurationNamedListListener<VIEWT>> extendedListeners = new CopyOnWriteArrayList<>();
     
     /** Creator of named configuration. */
     private final BiFunction<List<String>, String, T> creator;
@@ -90,8 +90,8 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEW>, VIEW,
     /** {@inheritDoc} */
     @Override
     protected synchronized void beforeRefreshValue(
-            NamedListView<VIEW> newValue,
-            @Nullable NamedListView<VIEW> oldValue
+            NamedListView<VIEWT> newValue,
+            @Nullable NamedListView<VIEWT> oldValue
     ) {
         Map<String, ConfigurationProperty<?>> oldValues = this.members;
         Map<String, ConfigurationProperty<?>> newValues = new LinkedHashMap<>();
@@ -124,19 +124,19 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEW>, VIEW,
     /**
      * @return List of listeners that are specific for named configurations.
      */
-    public List<ConfigurationNamedListListener<VIEW>> extendedListeners() {
+    public List<ConfigurationNamedListListener<VIEWT>> extendedListeners() {
         return Collections.unmodifiableList(extendedListeners);
     }
     
     /** {@inheritDoc} */
     @Override
-    public void listenElements(ConfigurationNamedListListener<VIEW> listener) {
+    public void listenElements(ConfigurationNamedListListener<VIEWT> listener) {
         extendedListeners.add(listener);
     }
     
     /** {@inheritDoc} */
     @Override
-    public void stopListenElements(ConfigurationNamedListListener<VIEW> listener) {
+    public void stopListenElements(ConfigurationNamedListListener<VIEWT> listener) {
         extendedListeners.remove(listener);
     }
     
@@ -148,13 +148,13 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEW>, VIEW,
     
     /** {@inheritDoc} */
     @Override
-    public Class<? extends ConfigurationProperty<NamedListView<VIEW>>> configType() {
+    public Class<? extends ConfigurationProperty<NamedListView<VIEWT>>> configType() {
         throw new UnsupportedOperationException("Not supported.");
     }
     
     /** {@inheritDoc} */
     @Override
-    public NamedListView<VIEW> value() {
+    public NamedListView<VIEWT> value() {
         return refreshValue();
     }
 }

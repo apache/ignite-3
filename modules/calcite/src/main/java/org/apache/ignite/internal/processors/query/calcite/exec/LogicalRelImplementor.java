@@ -106,7 +106,7 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
  * Implements a query plan.
  */
 @SuppressWarnings("TypeMayBeWeakened")
-public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
+public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>> {
     /**
      *
      */
@@ -115,7 +115,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
     /**
      *
      */
-    private final ExecutionContext<Row> ctx;
+    private final ExecutionContext<RowT> ctx;
 
     /**
      *
@@ -135,7 +135,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
     /**
      *
      */
-    private final ExpressionFactory<Row> expressionFactory;
+    private final ExpressionFactory<RowT> expressionFactory;
 
     /**
      * @param ctx             Root context.
@@ -144,7 +144,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
      * @param exchangeSvc     Exchange service.
      */
     public LogicalRelImplementor(
-            ExecutionContext<Row> ctx,
+            ExecutionContext<RowT> ctx,
             AffinityService affSrvc,
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSvc
@@ -159,16 +159,16 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteSender rel) {
+    public Node<RowT> visit(IgniteSender rel) {
         IgniteDistribution distribution = rel.distribution();
 
-        Destination<Row> dest = distribution.destination(ctx, affSrvc, ctx.target());
+        Destination<RowT> dest = distribution.destination(ctx, affSrvc, ctx.target());
 
         // Outbox fragment ID is used as exchange ID as well.
-        Outbox<Row> outbox =
+        Outbox<RowT> outbox =
                 new Outbox<>(ctx, rel.getRowType(), exchangeSvc, mailboxRegistry, rel.exchangeId(), rel.targetFragmentId(), dest);
 
-        Node<Row> input = visit(rel.getInput());
+        Node<RowT> input = visit(rel.getInput());
 
         outbox.register(input);
 
@@ -179,12 +179,12 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteFilter rel) {
-        Predicate<Row> pred = expressionFactory.predicate(rel.getCondition(), rel.getRowType());
+    public Node<RowT> visit(IgniteFilter rel) {
+        Predicate<RowT> pred = expressionFactory.predicate(rel.getCondition(), rel.getRowType());
 
-        FilterNode<Row> node = new FilterNode<>(ctx, rel.getRowType(), pred);
+        FilterNode<RowT> node = new FilterNode<>(ctx, rel.getRowType(), pred);
 
-        Node<Row> input = visit(rel.getInput());
+        Node<RowT> input = visit(rel.getInput());
 
         node.register(input);
 
@@ -193,30 +193,16 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteTrimExchange rel) {
+    public Node<RowT> visit(IgniteTrimExchange rel) {
         assert TraitUtils.distribution(rel).getType() == HASH_DISTRIBUTED;
 
         IgniteDistribution distr = rel.distribution();
-        Destination<Row> dest = distr.destination(ctx, affSrvc, ctx.group(rel.sourceId()));
+        Destination<RowT> dest = distr.destination(ctx, affSrvc, ctx.group(rel.sourceId()));
         String localNodeId = ctx.planningContext().localNodeId();
 
-        FilterNode<Row> node = new FilterNode<>(ctx, rel.getRowType(), r -> Objects.equals(localNodeId, first(dest.targets(r))));
+        FilterNode<RowT> node = new FilterNode<>(ctx, rel.getRowType(), r -> Objects.equals(localNodeId, first(dest.targets(r))));
 
-        Node<Row> input = visit(rel.getInput());
-
-        node.register(input);
-
-        return node;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Node<Row> visit(IgniteProject rel) {
-        Function<Row, Row> prj = expressionFactory.project(rel.getProjects(), rel.getInput().getRowType());
-
-        ProjectNode<Row> node = new ProjectNode<>(ctx, rel.getRowType(), prj);
-
-        Node<Row> input = visit(rel.getInput());
+        Node<RowT> input = visit(rel.getInput());
 
         node.register(input);
 
@@ -225,19 +211,33 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteNestedLoopJoin rel) {
+    public Node<RowT> visit(IgniteProject rel) {
+        Function<RowT, RowT> prj = expressionFactory.project(rel.getProjects(), rel.getInput().getRowType());
+
+        ProjectNode<RowT> node = new ProjectNode<>(ctx, rel.getRowType(), prj);
+
+        Node<RowT> input = visit(rel.getInput());
+
+        node.register(input);
+
+        return node;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Node<RowT> visit(IgniteNestedLoopJoin rel) {
         RelDataType outType = rel.getRowType();
         RelDataType leftType = rel.getLeft().getRowType();
         RelDataType rightType = rel.getRight().getRowType();
         JoinRelType joinType = rel.getJoinType();
 
         RelDataType rowType = combinedRowType(ctx.getTypeFactory(), leftType, rightType);
-        Predicate<Row> cond = expressionFactory.predicate(rel.getCondition(), rowType);
+        Predicate<RowT> cond = expressionFactory.predicate(rel.getCondition(), rowType);
 
-        Node<Row> node = NestedLoopJoinNode.create(ctx, outType, leftType, rightType, joinType, cond);
+        Node<RowT> node = NestedLoopJoinNode.create(ctx, outType, leftType, rightType, joinType, cond);
 
-        Node<Row> leftInput = visit(rel.getLeft());
-        Node<Row> rightInput = visit(rel.getRight());
+        Node<RowT> leftInput = visit(rel.getLeft());
+        Node<RowT> rightInput = visit(rel.getRight());
 
         node.register(asList(leftInput, rightInput));
 
@@ -246,22 +246,22 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteCorrelatedNestedLoopJoin rel) {
+    public Node<RowT> visit(IgniteCorrelatedNestedLoopJoin rel) {
         RelDataType outType = rel.getRowType();
         RelDataType leftType = rel.getLeft().getRowType();
         RelDataType rightType = rel.getRight().getRowType();
 
         RelDataType rowType = combinedRowType(ctx.getTypeFactory(), leftType, rightType);
-        Predicate<Row> cond = expressionFactory.predicate(rel.getCondition(), rowType);
+        Predicate<RowT> cond = expressionFactory.predicate(rel.getCondition(), rowType);
 
         assert rel.getJoinType() == JoinRelType.INNER || rel.getJoinType() == JoinRelType.LEFT
                 : CNLJ_NOT_SUPPORTED_JOIN_ASSERTION_MSG;
 
-        Node<Row> node = new CorrelatedNestedLoopJoinNode<>(ctx, outType, cond, rel.getVariablesSet(),
+        Node<RowT> node = new CorrelatedNestedLoopJoinNode<>(ctx, outType, cond, rel.getVariablesSet(),
                 rel.getJoinType());
 
-        Node<Row> leftInput = visit(rel.getLeft());
-        Node<Row> rightInput = visit(rel.getRight());
+        Node<RowT> leftInput = visit(rel.getLeft());
+        Node<RowT> rightInput = visit(rel.getRight());
 
         node.register(asList(leftInput, rightInput));
 
@@ -270,7 +270,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteMergeJoin rel) {
+    public Node<RowT> visit(IgniteMergeJoin rel) {
         RelDataType outType = rel.getRowType();
         RelDataType leftType = rel.getLeft().getRowType();
         RelDataType rightType = rel.getRight().getRowType();
@@ -278,15 +278,15 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
         int pairsCnt = rel.analyzeCondition().pairs().size();
 
-        Comparator<Row> comp = expressionFactory.comparator(
+        Comparator<RowT> comp = expressionFactory.comparator(
                 rel.leftCollation().getFieldCollations().subList(0, pairsCnt),
                 rel.rightCollation().getFieldCollations().subList(0, pairsCnt)
         );
 
-        Node<Row> node = MergeJoinNode.create(ctx, outType, leftType, rightType, joinType, comp);
+        Node<RowT> node = MergeJoinNode.create(ctx, outType, leftType, rightType, joinType, comp);
 
-        Node<Row> leftInput = visit(rel.getLeft());
-        Node<Row> rightInput = visit(rel.getRight());
+        Node<RowT> leftInput = visit(rel.getLeft());
+        Node<RowT> rightInput = visit(rel.getRight());
 
         node.register(asList(leftInput, rightInput));
 
@@ -295,7 +295,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteIndexScan rel) {
+    public Node<RowT> visit(IgniteIndexScan rel) {
         // TODO: fix this
         //        RexNode condition = rel.condition();
         //        List<RexNode> projects = rel.projects();
@@ -318,7 +318,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
         //
         //        ColocationGroup group = ctx.group(rel.sourceId());
 
-        Iterable<Row> rowsIter = (Iterable<Row>) List.of(new Object[]{0, 0},
+        Iterable<RowT> rowsIter = (Iterable<RowT>) List.of(new Object[]{0, 0},
                 new Object[]{1, 1}); //idx.scan(ctx, group, filters, lower, upper, prj, requiredColumns);
 
         return new ScanNode<>(ctx, rowType, rowsIter);
@@ -326,7 +326,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteTableScan rel) {
+    public Node<RowT> visit(IgniteTableScan rel) {
         RexNode condition = rel.condition();
         List<RexNode> projects = rel.projects();
         ImmutableBitSet requiredColumns = rel.requiredColumns();
@@ -336,8 +336,8 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
         RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
 
-        Predicate<Row> filters = condition == null ? null : expressionFactory.predicate(condition, rowType);
-        Function<Row, Row> prj = projects == null ? null : expressionFactory.project(projects, rowType);
+        Predicate<RowT> filters = condition == null ? null : expressionFactory.predicate(condition, rowType);
+        Function<RowT, RowT> prj = projects == null ? null : expressionFactory.project(projects, rowType);
 
         ColocationGroup group = ctx.group(rel.sourceId());
 
@@ -354,7 +354,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteValues rel) {
+    public Node<RowT> visit(IgniteValues rel) {
         List<RexLiteral> vals = Commons.flat(Commons.cast(rel.getTuples()));
 
         RelDataType rowType = rel.getRowType();
@@ -364,10 +364,10 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteUnionAll rel) {
-        UnionAllNode<Row> node = new UnionAllNode<>(ctx, rel.getRowType());
+    public Node<RowT> visit(IgniteUnionAll rel) {
+        UnionAllNode<RowT> node = new UnionAllNode<>(ctx, rel.getRowType());
 
-        List<Node<Row>> inputs = Commons.transform(rel.getInputs(), this::visit);
+        List<Node<RowT>> inputs = Commons.transform(rel.getInputs(), this::visit);
 
         node.register(inputs);
 
@@ -376,13 +376,13 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteLimit rel) {
+    public Node<RowT> visit(IgniteLimit rel) {
         Supplier<Integer> offset = (rel.offset() == null) ? null : expressionFactory.execute(rel.offset());
         Supplier<Integer> fetch = (rel.fetch() == null) ? null : expressionFactory.execute(rel.fetch());
 
-        LimitNode<Row> node = new LimitNode<>(ctx, rel.getRowType(), offset, fetch);
+        LimitNode<RowT> node = new LimitNode<>(ctx, rel.getRowType(), offset, fetch);
 
-        Node<Row> input = visit(rel.getInput());
+        Node<RowT> input = visit(rel.getInput());
 
         node.register(input);
 
@@ -391,24 +391,12 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteSort rel) {
+    public Node<RowT> visit(IgniteSort rel) {
         RelCollation collation = rel.getCollation();
 
-        SortNode<Row> node = new SortNode<>(ctx, rel.getRowType(), expressionFactory.comparator(collation));
+        SortNode<RowT> node = new SortNode<>(ctx, rel.getRowType(), expressionFactory.comparator(collation));
 
-        Node<Row> input = visit(rel.getInput());
-
-        node.register(input);
-
-        return node;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Node<Row> visit(IgniteTableSpool rel) {
-        TableSpoolNode<Row> node = new TableSpoolNode<>(ctx, rel.getRowType(), rel.readType == Spool.Type.LAZY);
-
-        Node<Row> input = visit(rel.getInput());
+        Node<RowT> input = visit(rel.getInput());
 
         node.register(input);
 
@@ -417,7 +405,19 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteSortedIndexSpool rel) {
+    public Node<RowT> visit(IgniteTableSpool rel) {
+        TableSpoolNode<RowT> node = new TableSpoolNode<>(ctx, rel.getRowType(), rel.readType == Spool.Type.LAZY);
+
+        Node<RowT> input = visit(rel.getInput());
+
+        node.register(input);
+
+        return node;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Node<RowT> visit(IgniteSortedIndexSpool rel) {
         RelCollation collation = rel.collation();
 
         assert rel.indexCondition() != null : rel;
@@ -425,11 +425,11 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
         List<RexNode> lowerBound = rel.indexCondition().lowerBound();
         List<RexNode> upperBound = rel.indexCondition().upperBound();
 
-        Predicate<Row> filter = expressionFactory.predicate(rel.condition(), rel.getRowType());
-        Supplier<Row> lower = lowerBound == null ? null : expressionFactory.rowSource(lowerBound);
-        Supplier<Row> upper = upperBound == null ? null : expressionFactory.rowSource(upperBound);
+        Predicate<RowT> filter = expressionFactory.predicate(rel.condition(), rel.getRowType());
+        Supplier<RowT> lower = lowerBound == null ? null : expressionFactory.rowSource(lowerBound);
+        Supplier<RowT> upper = upperBound == null ? null : expressionFactory.rowSource(upperBound);
 
-        IndexSpoolNode<Row> node = IndexSpoolNode.createTreeSpool(
+        IndexSpoolNode<RowT> node = IndexSpoolNode.createTreeSpool(
                 ctx,
                 rel.getRowType(),
                 collation,
@@ -439,7 +439,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
                 upper
         );
 
-        Node<Row> input = visit(rel.getInput());
+        Node<RowT> input = visit(rel.getInput());
 
         node.register(input);
 
@@ -448,17 +448,17 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteHashIndexSpool rel) {
-        Supplier<Row> searchRow = expressionFactory.rowSource(rel.searchRow());
+    public Node<RowT> visit(IgniteHashIndexSpool rel) {
+        Supplier<RowT> searchRow = expressionFactory.rowSource(rel.searchRow());
 
-        IndexSpoolNode<Row> node = IndexSpoolNode.createHashSpool(
+        IndexSpoolNode<RowT> node = IndexSpoolNode.createHashSpool(
                 ctx,
                 rel.getRowType(),
                 ImmutableBitSet.of(rel.keys()),
                 searchRow
         );
 
-        Node<Row> input = visit(rel.getInput());
+        Node<RowT> input = visit(rel.getInput());
 
         node.register(input);
 
@@ -467,14 +467,14 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteSetOp rel) {
+    public Node<RowT> visit(IgniteSetOp rel) {
         RelDataType rowType = rel.getRowType();
 
-        RowFactory<Row> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
+        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-        List<Node<Row>> inputs = Commons.transform(rel.getInputs(), this::visit);
+        List<Node<RowT>> inputs = Commons.transform(rel.getInputs(), this::visit);
 
-        AbstractSetOpNode<Row> node;
+        AbstractSetOpNode<RowT> node;
 
         if (rel instanceof Minus) {
             node = new MinusNode<>(ctx, rowType, rel.aggregateType(), rel.all(), rowFactory);
@@ -491,27 +491,27 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteTableFunctionScan rel) {
+    public Node<RowT> visit(IgniteTableFunctionScan rel) {
         Supplier<Iterable<Object[]>> dataSupplier = expressionFactory.execute(rel.getCall());
 
         RelDataType rowType = rel.getRowType();
 
-        RowFactory<Row> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
+        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
         return new ScanNode<>(ctx, rowType, new TableFunctionScan<>(dataSupplier, rowFactory));
     }
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteTableModify rel) {
+    public Node<RowT> visit(IgniteTableModify rel) {
         switch (rel.getOperation()) {
             case INSERT:
             case UPDATE:
             case DELETE:
-                ModifyNode<Row> node = new ModifyNode<>(ctx, rel.getRowType(), rel.getTable().unwrap(TableDescriptor.class),
+                ModifyNode<RowT> node = new ModifyNode<>(ctx, rel.getRowType(), rel.getTable().unwrap(TableDescriptor.class),
                         rel.getOperation(), rel.getUpdateColumnList());
 
-                Node<Row> input = visit(rel.getInput());
+                Node<RowT> input = visit(rel.getInput());
 
                 node.register(input);
 
@@ -525,8 +525,8 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteReceiver rel) {
-        Inbox<Row> inbox = mailboxRegistry.register(
+    public Node<RowT> visit(IgniteReceiver rel) {
+        Inbox<RowT> inbox = mailboxRegistry.register(
                 new Inbox<>(ctx, exchangeSvc, mailboxRegistry, rel.exchangeId(), rel.sourceFragmentId()));
 
         // here may be an already created (to consume rows from remote nodes) inbox
@@ -538,19 +538,19 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteSingleHashAggregate rel) {
+    public Node<RowT> visit(IgniteSingleHashAggregate rel) {
         AggregateType type = AggregateType.SINGLE;
 
         RelDataType rowType = rel.getRowType();
         RelDataType inputType = rel.getInput().getRowType();
 
-        Supplier<List<AccumulatorWrapper<Row>>> accFactory = expressionFactory.accumulatorsFactory(
+        Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
                 type, rel.getAggCallList(), inputType);
-        RowFactory<Row> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
+        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-        HashAggregateNode<Row> node = new HashAggregateNode<>(ctx, rowType, type, rel.getGroupSets(), accFactory, rowFactory);
+        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, rowType, type, rel.getGroupSets(), accFactory, rowFactory);
 
-        Node<Row> input = visit(rel.getInput());
+        Node<RowT> input = visit(rel.getInput());
 
         node.register(input);
 
@@ -559,19 +559,19 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteMapHashAggregate rel) {
+    public Node<RowT> visit(IgniteMapHashAggregate rel) {
         AggregateType type = AggregateType.MAP;
 
         RelDataType rowType = rel.getRowType();
         RelDataType inputType = rel.getInput().getRowType();
 
-        Supplier<List<AccumulatorWrapper<Row>>> accFactory = expressionFactory.accumulatorsFactory(
+        Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
                 type, rel.getAggCallList(), inputType);
-        RowFactory<Row> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
+        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-        HashAggregateNode<Row> node = new HashAggregateNode<>(ctx, rowType, type, rel.getGroupSets(), accFactory, rowFactory);
+        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, rowType, type, rel.getGroupSets(), accFactory, rowFactory);
 
-        Node<Row> input = visit(rel.getInput());
+        Node<RowT> input = visit(rel.getInput());
 
         node.register(input);
 
@@ -580,18 +580,18 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteReduceHashAggregate rel) {
+    public Node<RowT> visit(IgniteReduceHashAggregate rel) {
         AggregateType type = AggregateType.REDUCE;
 
         RelDataType rowType = rel.getRowType();
 
-        Supplier<List<AccumulatorWrapper<Row>>> accFactory = expressionFactory.accumulatorsFactory(
+        Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
                 type, rel.getAggregateCalls(), null);
-        RowFactory<Row> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
+        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-        HashAggregateNode<Row> node = new HashAggregateNode<>(ctx, rowType, type, rel.getGroupSets(), accFactory, rowFactory);
+        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, rowType, type, rel.getGroupSets(), accFactory, rowFactory);
 
-        Node<Row> input = visit(rel.getInput());
+        Node<RowT> input = visit(rel.getInput());
 
         node.register(input);
 
@@ -600,21 +600,21 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteSingleSortAggregate rel) {
+    public Node<RowT> visit(IgniteSingleSortAggregate rel) {
         AggregateType type = AggregateType.SINGLE;
 
         RelDataType rowType = rel.getRowType();
         RelDataType inputType = rel.getInput().getRowType();
 
-        Supplier<List<AccumulatorWrapper<Row>>> accFactory = expressionFactory.accumulatorsFactory(
+        Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
                 type,
                 rel.getAggCallList(),
                 inputType
         );
 
-        RowFactory<Row> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
+        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-        SortAggregateNode<Row> node = new SortAggregateNode<>(
+        SortAggregateNode<RowT> node = new SortAggregateNode<>(
                 ctx,
                 rowType,
                 type,
@@ -624,7 +624,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
                 expressionFactory.comparator(rel.collation())
         );
 
-        Node<Row> input = visit(rel.getInput());
+        Node<RowT> input = visit(rel.getInput());
 
         node.register(input);
 
@@ -633,21 +633,21 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteMapSortAggregate rel) {
+    public Node<RowT> visit(IgniteMapSortAggregate rel) {
         AggregateType type = AggregateType.MAP;
 
         RelDataType rowType = rel.getRowType();
         RelDataType inputType = rel.getInput().getRowType();
 
-        Supplier<List<AccumulatorWrapper<Row>>> accFactory = expressionFactory.accumulatorsFactory(
+        Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
                 type,
                 rel.getAggCallList(),
                 inputType
         );
 
-        RowFactory<Row> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
+        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-        SortAggregateNode<Row> node = new SortAggregateNode<>(
+        SortAggregateNode<RowT> node = new SortAggregateNode<>(
                 ctx,
                 rowType,
                 type,
@@ -657,7 +657,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
                 expressionFactory.comparator(rel.collation())
         );
 
-        Node<Row> input = visit(rel.getInput());
+        Node<RowT> input = visit(rel.getInput());
 
         node.register(input);
 
@@ -666,20 +666,20 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteReduceSortAggregate rel) {
+    public Node<RowT> visit(IgniteReduceSortAggregate rel) {
         AggregateType type = AggregateType.REDUCE;
 
         RelDataType rowType = rel.getRowType();
 
-        Supplier<List<AccumulatorWrapper<Row>>> accFactory = expressionFactory.accumulatorsFactory(
+        Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
                 type,
                 rel.getAggregateCalls(),
                 null
         );
 
-        RowFactory<Row> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
+        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-        SortAggregateNode<Row> node = new SortAggregateNode<>(
+        SortAggregateNode<RowT> node = new SortAggregateNode<>(
                 ctx,
                 rowType,
                 type,
@@ -689,7 +689,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
                 expressionFactory.comparator(rel.collation())
         );
 
-        Node<Row> input = visit(rel.getInput());
+        Node<RowT> input = visit(rel.getInput());
 
         node.register(input);
 
@@ -698,27 +698,27 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteRel rel) {
+    public Node<RowT> visit(IgniteRel rel) {
         return rel.accept(this);
     }
 
     /** {@inheritDoc} */
     @Override
-    public Node<Row> visit(IgniteExchange rel) {
+    public Node<RowT> visit(IgniteExchange rel) {
         throw new AssertionError();
     }
 
     /**
      *
      */
-    private Node<Row> visit(RelNode rel) {
+    private Node<RowT> visit(RelNode rel) {
         return visit((IgniteRel) rel);
     }
 
     /**
      *
      */
-    public <T extends Node<Row>> T go(IgniteRel rel) {
+    public <T extends Node<RowT>> T go(IgniteRel rel) {
         return (T) visit(rel);
     }
 }

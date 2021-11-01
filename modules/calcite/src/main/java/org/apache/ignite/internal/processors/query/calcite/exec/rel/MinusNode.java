@@ -26,29 +26,29 @@ import org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.GroupKey
 /**
  * Execution node for MINUS (EXCEPT) operator.
  */
-public class MinusNode<Row> extends AbstractSetOpNode<Row> {
+public class MinusNode<RowT> extends AbstractSetOpNode<RowT> {
     /**
      *
      */
-    public MinusNode(ExecutionContext<Row> ctx, RelDataType rowType, AggregateType type, boolean all,
-            RowFactory<Row> rowFactory) {
+    public MinusNode(ExecutionContext<RowT> ctx, RelDataType rowType, AggregateType type, boolean all,
+            RowFactory<RowT> rowFactory) {
         super(ctx, rowType, type, all, rowFactory, new MinusGrouping<>(ctx, rowFactory, type, all));
     }
 
     /**
      *
      */
-    private static class MinusGrouping<Row> extends Grouping<Row> {
+    private static class MinusGrouping<RowT> extends Grouping<RowT> {
         /**
          *
          */
-        private MinusGrouping(ExecutionContext<Row> ctx, RowFactory<Row> rowFactory, AggregateType type, boolean all) {
+        private MinusGrouping(ExecutionContext<RowT> ctx, RowFactory<RowT> rowFactory, AggregateType type, boolean all) {
             super(ctx, rowFactory, type, all);
         }
 
         /** {@inheritDoc} */
         @Override
-        protected void addOnSingle(Row row, int setIdx) {
+        protected void addOnSingle(RowT row, int setIdx) {
             int[] cntrs;
 
             GroupKey key = key(row);
@@ -76,7 +76,7 @@ public class MinusNode<Row> extends AbstractSetOpNode<Row> {
 
         /** {@inheritDoc} */
         @Override
-        protected void addOnMapper(Row row, int setIdx) {
+        protected void addOnMapper(RowT row, int setIdx) {
             // Value in the map will always have 2 elements, first - count of keys in the first set,
             // second - count of keys in all sets except first.
             int[] cntrs = groups.computeIfAbsent(key(row), k -> new int[2]);

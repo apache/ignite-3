@@ -506,14 +506,14 @@ public class ConfigurationChangerTest {
     /**
      *
      */
-    private static <Change> ConfigurationSource source(RootKey<?, ? super Change> rootKey, Consumer<Change> changer) {
+    private static <CHANGET> ConfigurationSource source(RootKey<?, ? super CHANGET> rootKey, Consumer<CHANGET> changer) {
         return new ConfigurationSource() {
             @Override
             public void descend(ConstructableTreeNode node) {
                 ConfigurationSource changerSrc = new ConfigurationSource() {
                     @Override
                     public void descend(ConstructableTreeNode node) {
-                        changer.accept((Change) node);
+                        changer.accept((CHANGET) node);
                     }
                 };
                 

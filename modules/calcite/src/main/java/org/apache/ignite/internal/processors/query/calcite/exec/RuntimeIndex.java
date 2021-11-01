@@ -20,9 +20,9 @@ package org.apache.ignite.internal.processors.query.calcite.exec;
 /**
  * Runtime index interface. The temporary index is built and available only on query execution. Not stored at the schema.
  */
-public interface RuntimeIndex<Row> extends AutoCloseable {
+public interface RuntimeIndex<RowT> extends AutoCloseable {
     /**
      * Add row to index.
      */
-    void push(Row r);
+    void push(RowT r);
 }

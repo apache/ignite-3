@@ -26,26 +26,26 @@ import org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.GroupKey
 /**
  * Execution node for INTERSECT operator.
  */
-public class IntersectNode<Row> extends AbstractSetOpNode<Row> {
+public class IntersectNode<RowT> extends AbstractSetOpNode<RowT> {
     /**
      *
      */
-    public IntersectNode(ExecutionContext<Row> ctx, RelDataType rowType, AggregateType type, boolean all,
-            RowFactory<Row> rowFactory, int inputsCnt) {
+    public IntersectNode(ExecutionContext<RowT> ctx, RelDataType rowType, AggregateType type, boolean all,
+            RowFactory<RowT> rowFactory, int inputsCnt) {
         super(ctx, rowType, type, all, rowFactory, new IntersectGrouping<>(ctx, rowFactory, type, all, inputsCnt));
     }
 
     /**
      *
      */
-    private static class IntersectGrouping<Row> extends Grouping<Row> {
+    private static class IntersectGrouping<RowT> extends Grouping<RowT> {
         /** Inputs count. */
         private final int inputsCnt;
 
         /**
          *
          */
-        private IntersectGrouping(ExecutionContext<Row> ctx, RowFactory<Row> rowFactory, AggregateType type,
+        private IntersectGrouping(ExecutionContext<RowT> ctx, RowFactory<RowT> rowFactory, AggregateType type,
                 boolean all, int inputsCnt) {
             super(ctx, rowFactory, type, all);
 
@@ -64,7 +64,7 @@ public class IntersectNode<Row> extends AbstractSetOpNode<Row> {
 
         /** {@inheritDoc} */
         @Override
-        protected void addOnSingle(Row row, int setIdx) {
+        protected void addOnSingle(RowT row, int setIdx) {
             int[] cntrs;
 
             GroupKey key = key(row);
@@ -88,7 +88,7 @@ public class IntersectNode<Row> extends AbstractSetOpNode<Row> {
 
         /** {@inheritDoc} */
         @Override
-        protected void addOnMapper(Row row, int setIdx) {
+        protected void addOnMapper(RowT row, int setIdx) {
             int[] cntrs = groups.computeIfAbsent(key(row), k -> new int[inputsCnt]);
 
             cntrs[setIdx]++;

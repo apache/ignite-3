@@ -828,14 +828,14 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         
         /** {@inheritDoc} */
         @Override
-        public <Row> Row toRow(ExecutionContext<Row> ectx, Tuple row, RowHandler.RowFactory<Row> factory,
+        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, Tuple row, RowHandler.RowFactory<RowT> factory,
                 @Nullable ImmutableBitSet requiredColumns) {
             throw new AssertionError();
         }
         
         /** {@inheritDoc} */
         @Override
-        public <Row> Tuple toTuple(ExecutionContext<Row> ectx, Row row, TableModify.Operation op,
+        public <RowT> Tuple toTuple(ExecutionContext<RowT> ectx, RowT row, TableModify.Operation op,
                 @Nullable Object arg) {
             throw new AssertionError();
         }

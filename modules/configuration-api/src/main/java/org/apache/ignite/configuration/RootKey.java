@@ -26,9 +26,9 @@ import org.apache.ignite.internal.tostring.S;
  * Configuration root selector.
  *
  * @param <T>    Type of the configuration tree described by the root key.
- * @param <VIEW> Type of the immutable snapshot view associated with the tree.
+ * @param <VIEWT> Type of the immutable snapshot view associated with the tree.
  */
-public class RootKey<T extends ConfigurationTree<VIEW, ?>, VIEW> {
+public class RootKey<T extends ConfigurationTree<VIEWT, ?>, VIEWT> {
     /** Name of the configuration root. */
     private final String rootName;
 

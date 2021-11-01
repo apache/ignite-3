@@ -86,8 +86,8 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public <Row> void sendBatch(String nodeId, UUID qryId, long fragmentId, long exchangeId, int batchId,
-            boolean last, List<Row> rows) throws IgniteInternalCheckedException {
+    public <RowT> void sendBatch(String nodeId, UUID qryId, long fragmentId, long exchangeId, int batchId,
+            boolean last, List<RowT> rows) throws IgniteInternalCheckedException {
         msgSrvc.send(
                 nodeId,
                 FACTORY.queryBatchMessage()

@@ -24,7 +24,7 @@ import java.util.Random;
 /**
  *
  */
-public final class RandomNode<Row> implements Destination<Row> {
+public final class RandomNode<RowT> implements Destination<RowT> {
     /**
      *
      */
@@ -46,7 +46,7 @@ public final class RandomNode<Row> implements Destination<Row> {
 
     /** {@inheritDoc} */
     @Override
-    public List<String> targets(Row row) {
+    public List<String> targets(RowT row) {
         return Collections.singletonList(nodes.get(random.nextInt(nodes.size())));
     }
 

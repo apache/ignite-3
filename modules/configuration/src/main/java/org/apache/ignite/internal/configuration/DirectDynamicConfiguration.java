@@ -27,9 +27,9 @@ import org.apache.ignite.configuration.annotation.DirectAccess;
  *
  * @see DirectAccess
  */
-public abstract class DirectDynamicConfiguration<VIEW, CHANGE>
-        extends DynamicConfiguration<VIEW, CHANGE>
-        implements DirectConfigurationProperty<VIEW> {
+public abstract class DirectDynamicConfiguration<VIEWT, CHANGET>
+        extends DynamicConfiguration<VIEWT, CHANGET>
+        implements DirectConfigurationProperty<VIEWT> {
     /**
      * Constructor.
      *
@@ -51,7 +51,7 @@ public abstract class DirectDynamicConfiguration<VIEW, CHANGE>
 
     /** {@inheritDoc} */
     @Override
-    public VIEW directValue() {
+    public VIEWT directValue() {
         if (listenOnly) {
             throw listenOnlyException();
         }

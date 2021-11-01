@@ -110,7 +110,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  *
  */
-public class ExecutionServiceImpl<Row> implements ExecutionService {
+public class ExecutionServiceImpl<RowT> implements ExecutionService {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ExecutionServiceImpl.class);
     
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
@@ -178,7 +178,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
     /**
      *
      */
-    private final RowHandler<Row> handler;
+    private final RowHandler<RowT> handler;
     
     /**
      *
@@ -191,7 +191,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
             QueryPlanCache planCache,
             SchemaHolder schemaHolder,
             QueryTaskExecutor taskExecutor,
-            RowHandler<Row> handler
+            RowHandler<RowT> handler
     ) {
         this.topSrvc = topSrvc;
         this.handler = handler;
@@ -268,7 +268,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
                 plan.target(fragment),
                 plan.remotes(fragment));
         
-        ExecutionContext<Row> ectx = new ExecutionContext<>(
+        ExecutionContext<RowT> ectx = new ExecutionContext<>(
                 taskExecutor,
                 pctx,
                 qryId,
@@ -276,7 +276,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
                 handler,
                 Commons.parametersMap(pctx.parameters()));
         
-        Node<Row> node = new LogicalRelImplementor<>(ectx, affSrvc, mailboxRegistry,
+        Node<RowT> node = new LogicalRelImplementor<>(ectx, affSrvc, mailboxRegistry,
                 exchangeSrvc).go(fragment.root());
         
         QueryInfo info = new QueryInfo(ectx, plan, node);
@@ -603,13 +603,13 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
      *
      */
     private void executeFragment(UUID qryId, FragmentPlan plan, PlanningContext pctx, FragmentDescription fragmentDesc) {
-        ExecutionContext<Row> ectx = new ExecutionContext<>(taskExecutor, pctx, qryId,
+        ExecutionContext<RowT> ectx = new ExecutionContext<>(taskExecutor, pctx, qryId,
                 fragmentDesc, handler, Commons.parametersMap(pctx.parameters()));
         
         long frId = fragmentDesc.fragmentId();
         String origNodeId = pctx.originatingNodeId();
         
-        Outbox<Row> node = new LogicalRelImplementor<>(
+        Outbox<RowT> node = new LogicalRelImplementor<>(
                 ectx,
                 affSrvc,
                 mailboxRegistry,
@@ -828,12 +828,12 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
         /**
          *
          */
-        private final ExecutionContext<Row> ctx;
+        private final ExecutionContext<RowT> ctx;
         
         /**
          *
          */
-        private final RootNode<Row> root;
+        private final RootNode<RowT> root;
         
         /** remote nodes */
         private final Set<String> remotes;
@@ -849,10 +849,10 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
         /**
          *
          */
-        private QueryInfo(ExecutionContext<Row> ctx, MultiStepPlan plan, Node<Row> root) {
+        private QueryInfo(ExecutionContext<RowT> ctx, MultiStepPlan plan, Node<RowT> root) {
             this.ctx = ctx;
             
-            RootNode<Row> rootNode = new RootNode<>(ctx, plan.metadata().rowType(), this::tryClose);
+            RootNode<RowT> rootNode = new RootNode<>(ctx, plan.metadata().rowType(), this::tryClose);
             rootNode.register(root);
             
             this.root = rootNode;
@@ -877,7 +877,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
         /**
          *
          */
-        public Iterator<Row> iterator() {
+        public Iterator<RowT> iterator() {
             return iteratorsHolder.iterator(root);
         }
         

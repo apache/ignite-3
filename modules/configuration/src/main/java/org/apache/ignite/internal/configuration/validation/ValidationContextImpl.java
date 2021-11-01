@@ -32,7 +32,7 @@ import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
 /**
  * Validation context implementation.
  */
-class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
+class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
     /** Cached storage roots with the current version of data. */
     private final SuperRoot oldRoots;
 
@@ -47,7 +47,7 @@ class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
      *
      * @see #getNewValue()
      */
-    private final VIEW val;
+    private final VIEWT val;
 
     /**
      *
@@ -79,7 +79,7 @@ class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
             SuperRoot oldRoots,
             SuperRoot newRoots,
             Function<RootKey<?, ?>, InnerNode> otherRoots,
-            VIEW val,
+            VIEWT val,
             String currentKey,
             List<String> currentPath,
             List<ValidationIssue> issues
@@ -103,7 +103,7 @@ class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
 
     /** {@inheritDoc} */
     @Override
-    public VIEW getOldValue() {
+    public VIEWT getOldValue() {
         try {
             return find(currentPath, oldRoots, true);
         } catch (KeyNotFoundException ignore) {
@@ -113,7 +113,7 @@ class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
 
     /** {@inheritDoc} */
     @Override
-    public VIEW getNewValue() {
+    public VIEWT getNewValue() {
         return val;
     }
 

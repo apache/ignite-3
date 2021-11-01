@@ -29,30 +29,30 @@ import org.apache.ignite.lang.IgniteInternalException;
 /**
  * Abstract index scan.
  */
-public abstract class AbstractIndexScan<Row, IdxRow> implements Iterable<Row>, AutoCloseable {
+public abstract class AbstractIndexScan<RowT, IdxRowT> implements Iterable<RowT>, AutoCloseable {
     /**
      *
      */
-    private final TreeIndex<IdxRow> idx;
+    private final TreeIndex<IdxRowT> idx;
 
     /** Additional filters. */
-    private final Predicate<Row> filters;
+    private final Predicate<RowT> filters;
 
     /** Lower index scan bound. */
-    private final Supplier<Row> lowerBound;
+    private final Supplier<RowT> lowerBound;
 
     /** Upper index scan bound. */
-    private final Supplier<Row> upperBound;
+    private final Supplier<RowT> upperBound;
 
     /**
      *
      */
-    private final Function<Row, Row> rowTransformer;
+    private final Function<RowT, RowT> rowTransformer;
 
     /**
      *
      */
-    protected final ExecutionContext<Row> ectx;
+    protected final ExecutionContext<RowT> ectx;
 
     /**
      *
@@ -67,13 +67,13 @@ public abstract class AbstractIndexScan<Row, IdxRow> implements Iterable<Row>, A
      * @param upperBound Upper index scan bound.
      */
     protected AbstractIndexScan(
-            ExecutionContext<Row> ectx,
+            ExecutionContext<RowT> ectx,
             RelDataType rowType,
-            TreeIndex<IdxRow> idx,
-            Predicate<Row> filters,
-            Supplier<Row> lowerBound,
-            Supplier<Row> upperBound,
-            Function<Row, Row> rowTransformer
+            TreeIndex<IdxRowT> idx,
+            Predicate<RowT> filters,
+            Supplier<RowT> lowerBound,
+            Supplier<RowT> upperBound,
+            Function<RowT, RowT> rowTransformer
     ) {
         this.ectx = ectx;
         this.rowType = rowType;
@@ -86,11 +86,11 @@ public abstract class AbstractIndexScan<Row, IdxRow> implements Iterable<Row>, A
 
     /** {@inheritDoc} */
     @Override
-    public synchronized Iterator<Row> iterator() {
-        IdxRow lower = lowerBound == null ? null : row2indexRow(lowerBound.get());
-        IdxRow upper = upperBound == null ? null : row2indexRow(upperBound.get());
+    public synchronized Iterator<RowT> iterator() {
+        IdxRowT lower = lowerBound == null ? null : row2indexRow(lowerBound.get());
+        IdxRowT upper = upperBound == null ? null : row2indexRow(upperBound.get());
 
-        Iterator<Row> it = new TransformingIterator<>(
+        Iterator<RowT> it = new TransformingIterator<>(
                 idx.find(lower, upper),
                 this::indexRow2Row
         );
@@ -107,12 +107,12 @@ public abstract class AbstractIndexScan<Row, IdxRow> implements Iterable<Row>, A
     /**
      *
      */
-    protected abstract IdxRow row2indexRow(Row bound);
+    protected abstract IdxRowT row2indexRow(RowT bound);
 
     /**
      *
      */
-    protected abstract Row indexRow2Row(IdxRow idxRow) throws IgniteInternalException;
+    protected abstract RowT indexRow2Row(IdxRowT idxRow) throws IgniteInternalException;
 
     /** {@inheritDoc} */
     @Override

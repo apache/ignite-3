@@ -87,7 +87,7 @@ public abstract class DistributionFunction {
      * @param keys            Distribution keys.
      * @return Destination function.
      */
-    abstract <Row> Destination<Row> destination(ExecutionContext<Row> ctx, AffinityService affinityService,
+    abstract <RowT> Destination<RowT> destination(ExecutionContext<RowT> ctx, AffinityService affinityService,
             ColocationGroup group, ImmutableIntList keys);
 
     /**
@@ -190,7 +190,7 @@ public abstract class DistributionFunction {
 
         /** {@inheritDoc} */
         @Override
-        public <Row> Destination<Row> destination(ExecutionContext<Row> ctx, AffinityService affinityService,
+        public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ctx, AffinityService affinityService,
                 ColocationGroup m, ImmutableIntList k) {
             throw new IllegalStateException();
         }
@@ -213,7 +213,7 @@ public abstract class DistributionFunction {
 
         /** {@inheritDoc} */
         @Override
-        public <Row> Destination<Row> destination(ExecutionContext<Row> ctx, AffinityService affinityService,
+        public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ctx, AffinityService affinityService,
                 ColocationGroup m, ImmutableIntList k) {
             assert m != null && !nullOrEmpty(m.nodeIds());
 
@@ -238,7 +238,7 @@ public abstract class DistributionFunction {
 
         /** {@inheritDoc} */
         @Override
-        public <Row> Destination<Row> destination(ExecutionContext<Row> ctx, AffinityService affinityService,
+        public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ctx, AffinityService affinityService,
                 ColocationGroup m, ImmutableIntList k) {
             assert m != null && !nullOrEmpty(m.nodeIds());
 
@@ -263,7 +263,7 @@ public abstract class DistributionFunction {
 
         /** {@inheritDoc} */
         @Override
-        public <Row> Destination<Row> destination(ExecutionContext<Row> ctx, AffinityService affinityService,
+        public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ctx, AffinityService affinityService,
                 ColocationGroup m, ImmutableIntList k) {
             if (m == null || m.nodeIds() == null || m.nodeIds().size() != 1) {
                 throw new IllegalStateException();
@@ -287,7 +287,7 @@ public abstract class DistributionFunction {
 
         /** {@inheritDoc} */
         @Override
-        public <Row> Destination<Row> destination(ExecutionContext<Row> ctx, AffinityService affSrvc,
+        public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ctx, AffinityService affSrvc,
                 ColocationGroup m, ImmutableIntList k) {
             assert m != null && !nullOrEmpty(m.assignments()) && !k.isEmpty();
 
@@ -299,7 +299,7 @@ public abstract class DistributionFunction {
                 }
             }
 
-            AffinityAdapter<Row> affinity = new AffinityAdapter<>(affSrvc.affinity(intFoo()/*CU.UNDEFINED_CACHE_ID*/), k.toIntArray(),
+            AffinityAdapter<RowT> affinity = new AffinityAdapter<>(affSrvc.affinity(intFoo()/*CU.UNDEFINED_CACHE_ID*/), k.toIntArray(),
                     ctx.rowHandler());
 
             return new Partitioned<>(assignments, affinity);
@@ -343,7 +343,7 @@ public abstract class DistributionFunction {
 
         /** {@inheritDoc} */
         @Override
-        public <Row> Destination<Row> destination(ExecutionContext<Row> ctx, AffinityService affSrvc,
+        public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ctx, AffinityService affSrvc,
                 ColocationGroup m, ImmutableIntList k) {
             assert m != null && !nullOrEmpty(m.assignments()) && k.size() == 1;
 
@@ -355,7 +355,7 @@ public abstract class DistributionFunction {
                 }
             }
 
-            AffinityAdapter<Row> affinity = new AffinityAdapter<>(affSrvc.affinity(cacheId), k.toIntArray(), ctx.rowHandler());
+            AffinityAdapter<RowT> affinity = new AffinityAdapter<>(affSrvc.affinity(cacheId), k.toIntArray(), ctx.rowHandler());
 
             return new Partitioned<>(assignments, affinity);
         }

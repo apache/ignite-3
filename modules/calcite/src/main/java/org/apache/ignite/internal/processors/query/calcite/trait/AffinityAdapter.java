@@ -24,7 +24,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 /**
  *
  */
-final class AffinityAdapter<Row> implements ToIntFunction<Row> {
+final class AffinityAdapter<RowT> implements ToIntFunction<RowT> {
     /**
      *
      */
@@ -38,12 +38,12 @@ final class AffinityAdapter<Row> implements ToIntFunction<Row> {
     /**
      *
      */
-    private final RowHandler<Row> hndlr;
+    private final RowHandler<RowT> hndlr;
 
     /**
      *
      */
-    AffinityAdapter(ToIntFunction<Object> affinity, int[] keys, RowHandler<Row> hndlr) {
+    AffinityAdapter(ToIntFunction<Object> affinity, int[] keys, RowHandler<RowT> hndlr) {
         this.affinity = affinity;
         this.keys = keys;
         this.hndlr = hndlr;
@@ -51,7 +51,7 @@ final class AffinityAdapter<Row> implements ToIntFunction<Row> {
 
     /** {@inheritDoc} */
     @Override
-    public int applyAsInt(Row r) {
+    public int applyAsInt(RowT r) {
         int hash = 0;
         for (int i = 0; i < keys.length; i++) {
             hash = 31 * hash + affinity.applyAsInt(hndlr.get(keys[i], r));

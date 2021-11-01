@@ -38,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * A part of exchange.
  */
-public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, SingleNode<Row> {
+public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, SingleNode<RowT> {
     /**
      *
      */
@@ -72,7 +72,7 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
     /**
      *
      */
-    private Comparator<Row> comp;
+    private Comparator<RowT> comp;
 
     /**
      *
@@ -97,7 +97,7 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
      * @param srcFragmentId Source fragment ID.
      */
     public Inbox(
-            ExecutionContext<Row> ctx,
+            ExecutionContext<RowT> ctx,
             ExchangeService exchange,
             MailboxRegistry registry,
             long exchangeId,
@@ -127,7 +127,7 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
      * @param comp       Optional comparator for merge exchange.
      */
     public void init(
-            ExecutionContext<Row> ctx, RelDataType rowType, Collection<String> srcNodeIds, @Nullable Comparator<Row> comp) {
+            ExecutionContext<RowT> ctx, RelDataType rowType, Collection<String> srcNodeIds, @Nullable Comparator<RowT> comp) {
         assert context().fragmentId() == ctx.fragmentId() : "different fragments unsupported: previous=" + context().fragmentId()
                 + " current=" + ctx.fragmentId();
 
@@ -168,13 +168,13 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    public void register(List<Node<Row>> sources) {
+    public void register(List<Node<RowT>> sources) {
         throw new UnsupportedOperationException();
     }
 
@@ -192,7 +192,7 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
      * @param last      Last batch flag.
      * @param rows      Rows.
      */
-    public void onBatchReceived(String srcNodeId, int batchId, boolean last, List<Row> rows) throws Exception {
+    public void onBatchReceived(String srcNodeId, int batchId, boolean last, List<RowT> rows) throws Exception {
         Buffer buf = getOrCreateBuffer(srcNodeId);
 
         boolean waitingBefore = buf.check() == State.WAITING;
@@ -240,7 +240,7 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
      *
      */
     private void pushOrdered() throws Exception {
-        PriorityQueue<Pair<Row, Buffer>> heap =
+        PriorityQueue<Pair<RowT, Buffer>> heap =
                 new PriorityQueue<>(Math.max(buffers.size(), 1), Map.Entry.comparingByKey(comp));
 
         Iterator<Buffer> it = buffers.iterator();
@@ -407,7 +407,7 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
     /**
      *
      */
-    private static final class Batch<Row> implements Comparable<Batch<Row>> {
+    private static final class Batch<RowT> implements Comparable<Batch<RowT>> {
         /**
          *
          */
@@ -421,7 +421,7 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
         /**
          *
          */
-        private final List<Row> rows;
+        private final List<RowT> rows;
 
         /**
          *
@@ -431,7 +431,7 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
         /**
          *
          */
-        private Batch(int batchId, boolean last, List<Row> rows) {
+        private Batch(int batchId, boolean last, List<RowT> rows) {
             this.batchId = batchId;
             this.last = last;
             this.rows = rows;
@@ -447,7 +447,7 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
                 return false;
             }
 
-            Batch<Row> batch = (Batch<Row>) o;
+            Batch<RowT> batch = (Batch<RowT>) o;
 
             return batchId == batch.batchId;
         }
@@ -460,7 +460,7 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
 
         /** {@inheritDoc} */
         @Override
-        public int compareTo(@NotNull Inbox.Batch<Row> o) {
+        public int compareTo(@NotNull Inbox.Batch<RowT> o) {
             return Integer.compare(batchId, o.batchId);
         }
     }
@@ -512,12 +512,12 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
         /**
          *
          */
-        private final PriorityQueue<Batch<Row>> batches = new PriorityQueue<>(IO_BATCH_CNT);
+        private final PriorityQueue<Batch<RowT>> batches = new PriorityQueue<>(IO_BATCH_CNT);
 
         /**
          *
          */
-        private Batch<Row> curr = waitingMark();
+        private Batch<RowT> curr = waitingMark();
 
         /**
          *
@@ -529,19 +529,19 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
         /**
          *
          */
-        private void offer(int id, boolean last, List<Row> rows) {
+        private void offer(int id, boolean last, List<RowT> rows) {
             batches.offer(new Batch<>(id, last, rows));
         }
 
         /**
          *
          */
-        private Batch<Row> pollBatch() {
+        private Batch<RowT> pollBatch() {
             if (batches.isEmpty() || batches.peek().batchId != lastEnqueued + 1) {
                 return waitingMark();
             }
 
-            Batch<Row> batch = batches.poll();
+            Batch<RowT> batch = batches.poll();
 
             assert batch != null && batch.batchId == lastEnqueued + 1;
 
@@ -574,7 +574,7 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
         /**
          *
          */
-        private Row peek() {
+        private RowT peek() {
             assert curr != null;
             assert curr != WAITING;
             assert curr != END;
@@ -586,13 +586,13 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
         /**
          *
          */
-        private Row remove() throws IgniteInternalCheckedException {
+        private RowT remove() throws IgniteInternalCheckedException {
             assert curr != null;
             assert curr != WAITING;
             assert curr != END;
             assert !isEnd();
 
-            Row row = curr.rows.set(curr.idx++, null);
+            RowT row = curr.rows.set(curr.idx++, null);
 
             if (curr.idx == curr.rows.size()) {
                 acknowledge(nodeId, curr.batchId);
@@ -629,15 +629,15 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
         /**
          *
          */
-        private Batch<Row> finishedMark() {
-            return (Batch<Row>) END;
+        private Batch<RowT> finishedMark() {
+            return (Batch<RowT>) END;
         }
 
         /**
          *
          */
-        private Batch<Row> waitingMark() {
-            return (Batch<Row>) WAITING;
+        private Batch<RowT> waitingMark() {
+            return (Batch<RowT>) WAITING;
         }
     }
 }

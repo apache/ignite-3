@@ -39,30 +39,30 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Runtime sorted index based on on-heap tree.
  */
-public class RuntimeTreeIndex<Row> implements RuntimeIndex<Row>, TreeIndex<Row> {
+public class RuntimeTreeIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<RowT> {
     /**
      *
      */
-    protected final ExecutionContext<Row> ectx;
+    protected final ExecutionContext<RowT> ectx;
 
     /**
      *
      */
-    protected final Comparator<Row> comp;
+    protected final Comparator<RowT> comp;
 
     /** Collation. */
     private final RelCollation collation;
 
     /** Rows. */
-    private TreeMap<Row, List<Row>> rows;
+    private TreeMap<RowT, List<RowT>> rows;
 
     /**
      *
      */
     public RuntimeTreeIndex(
-            ExecutionContext<Row> ectx,
+            ExecutionContext<RowT> ectx,
             RelCollation collation,
-            Comparator<Row> comp
+            Comparator<RowT> comp
     ) {
         this.ectx = ectx;
         this.comp = comp;
@@ -75,10 +75,10 @@ public class RuntimeTreeIndex<Row> implements RuntimeIndex<Row>, TreeIndex<Row> 
 
     /** {@inheritDoc} */
     @Override
-    public void push(Row r) {
-        List<Row> newEqRows = new ArrayList<>();
+    public void push(RowT r) {
+        List<RowT> newEqRows = new ArrayList<>();
 
-        List<Row> eqRows = rows.putIfAbsent(r, newEqRows);
+        List<RowT> eqRows = rows.putIfAbsent(r, newEqRows);
 
         if (eqRows != null) {
             eqRows.add(r);
@@ -95,7 +95,7 @@ public class RuntimeTreeIndex<Row> implements RuntimeIndex<Row>, TreeIndex<Row> 
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<Row> find(Row lower, Row upper) {
+    public Cursor<RowT> find(RowT lower, RowT upper) {
         int firstCol = first(collation.getKeys());
 
         if (ectx.rowHandler().get(firstCol, lower) != null && ectx.rowHandler().get(firstCol, upper) != null) {
@@ -112,12 +112,12 @@ public class RuntimeTreeIndex<Row> implements RuntimeIndex<Row>, TreeIndex<Row> 
     /**
      * Creates iterable on the index.
      */
-    public Iterable<Row> scan(
-            ExecutionContext<Row> ectx,
+    public Iterable<RowT> scan(
+            ExecutionContext<RowT> ectx,
             RelDataType rowType,
-            Predicate<Row> filter,
-            Supplier<Row> lowerBound,
-            Supplier<Row> upperBound
+            Predicate<RowT> filter,
+            Supplier<RowT> lowerBound,
+            Supplier<RowT> upperBound
     ) {
         return new IndexScan(rowType, this, filter, lowerBound, upperBound);
     }
@@ -125,29 +125,29 @@ public class RuntimeTreeIndex<Row> implements RuntimeIndex<Row>, TreeIndex<Row> 
     /**
      *
      */
-    private class CursorImpl implements Cursor<Row> {
+    private class CursorImpl implements Cursor<RowT> {
         /** Sub map iterator. */
-        private final Iterator<Map.Entry<Row, List<Row>>> mapIt;
+        private final Iterator<Map.Entry<RowT, List<RowT>>> mapIt;
 
         /** Iterator over rows with equal index keys. */
-        private Iterator<Row> listIt;
+        private Iterator<RowT> listIt;
 
         /**
          *
          */
-        private Row row;
+        private RowT row;
 
         /**
          *
          */
-        CursorImpl(SortedMap<Row, List<Row>> subMap) {
+        CursorImpl(SortedMap<RowT, List<RowT>> subMap) {
             mapIt = subMap.entrySet().iterator();
             listIt = null;
         }
 
         /** {@inheritDoc} */
         @Override
-        public Row next() throws IgniteInternalException {
+        public RowT next() throws IgniteInternalException {
             if (!hasNext()) {
                 throw new NoSuchElementException();
             }
@@ -180,7 +180,7 @@ public class RuntimeTreeIndex<Row> implements RuntimeIndex<Row>, TreeIndex<Row> 
         /** {@inheritDoc} */
         @NotNull
         @Override
-        public Iterator<Row> iterator() {
+        public Iterator<RowT> iterator() {
             return this;
         }
     }
@@ -188,7 +188,7 @@ public class RuntimeTreeIndex<Row> implements RuntimeIndex<Row>, TreeIndex<Row> 
     /**
      *
      */
-    private class IndexScan extends AbstractIndexScan<Row, Row> {
+    private class IndexScan extends AbstractIndexScan<RowT, RowT> {
         /**
          * @param rowType    Row type.
          * @param idx        Physical index.
@@ -198,22 +198,22 @@ public class RuntimeTreeIndex<Row> implements RuntimeIndex<Row>, TreeIndex<Row> 
          */
         IndexScan(
                 RelDataType rowType,
-                TreeIndex<Row> idx,
-                Predicate<Row> filter,
-                Supplier<Row> lowerBound,
-                Supplier<Row> upperBound) {
+                TreeIndex<RowT> idx,
+                Predicate<RowT> filter,
+                Supplier<RowT> lowerBound,
+                Supplier<RowT> upperBound) {
             super(RuntimeTreeIndex.this.ectx, rowType, idx, filter, lowerBound, upperBound, null);
         }
 
         /** {@inheritDoc} */
         @Override
-        protected Row row2indexRow(Row bound) {
+        protected RowT row2indexRow(RowT bound) {
             return bound;
         }
 
         /** {@inheritDoc} */
         @Override
-        protected Row indexRow2Row(Row row) {
+        protected RowT indexRow2Row(RowT row) {
             return row;
         }
     }

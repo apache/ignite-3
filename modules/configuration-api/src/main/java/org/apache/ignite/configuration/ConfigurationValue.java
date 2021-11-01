@@ -23,9 +23,9 @@ import org.apache.ignite.configuration.validation.ConfigurationValidationExcepti
 /**
  * Configuration value.
  *
- * @param <VIEW> Type of the value.
+ * @param <VIEWT> Type of the value.
  */
-public interface ConfigurationValue<VIEW> extends ConfigurationProperty<VIEW> {
+public interface ConfigurationValue<VIEWT> extends ConfigurationProperty<VIEWT> {
     /**
      * Update this configuration node value.
      *
@@ -33,5 +33,5 @@ public interface ConfigurationValue<VIEW> extends ConfigurationProperty<VIEW> {
      * @return Future that signifies end of the update operation. Can also be completed with {@link ConfigurationValidationException} and
      *      {@link ConfigurationChangeException}.
      */
-    CompletableFuture<Void> update(VIEW change);
+    CompletableFuture<Void> update(VIEWT change);
 }

@@ -39,19 +39,19 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 /**
  *
  */
-public class SortAggregateNode<Row> extends AbstractNode<Row> implements SingleNode<Row>, Downstream<Row> {
+public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     /**
      *
      */
     private final AggregateType type;
 
     /** May be {@code null} when there are not accumulators (DISTINCT aggregate node). */
-    private final Supplier<List<AccumulatorWrapper<Row>>> accFactory;
+    private final Supplier<List<AccumulatorWrapper<RowT>>> accFactory;
 
     /**
      *
      */
-    private final RowFactory<Row> rowFactory;
+    private final RowFactory<RowT> rowFactory;
 
     /**
      *
@@ -61,17 +61,17 @@ public class SortAggregateNode<Row> extends AbstractNode<Row> implements SingleN
     /**
      *
      */
-    private final Comparator<Row> comp;
+    private final Comparator<RowT> comp;
 
     /**
      *
      */
-    private final Deque<Row> outBuf = new ArrayDeque<>(inBufSize);
+    private final Deque<RowT> outBuf = new ArrayDeque<>(inBufSize);
 
     /**
      *
      */
-    private Row prevRow;
+    private RowT prevRow;
 
     /**
      *
@@ -97,13 +97,13 @@ public class SortAggregateNode<Row> extends AbstractNode<Row> implements SingleN
      * @param ctx Execution context.
      */
     public SortAggregateNode(
-            ExecutionContext<Row> ctx,
+            ExecutionContext<RowT> ctx,
             RelDataType rowType,
             AggregateType type,
             ImmutableBitSet grpSet,
-            Supplier<List<AccumulatorWrapper<Row>>> accFactory,
-            RowFactory<Row> rowFactory,
-            Comparator<Row> comp
+            Supplier<List<AccumulatorWrapper<RowT>>> accFactory,
+            RowFactory<RowT> rowFactory,
+            Comparator<RowT> comp
     ) {
         super(ctx, rowType);
         assert Objects.nonNull(comp);
@@ -140,7 +140,7 @@ public class SortAggregateNode<Row> extends AbstractNode<Row> implements SingleN
 
     /** {@inheritDoc} */
     @Override
-    public void push(Row row) throws Exception {
+    public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
 
@@ -214,7 +214,7 @@ public class SortAggregateNode<Row> extends AbstractNode<Row> implements SingleN
 
     /** {@inheritDoc} */
     @Override
-    protected Downstream<Row> requestDownstream(int idx) {
+    protected Downstream<RowT> requestDownstream(int idx) {
         if (idx != 0) {
             throw new IndexOutOfBoundsException();
         }
@@ -232,11 +232,11 @@ public class SortAggregateNode<Row> extends AbstractNode<Row> implements SingleN
     /**
      *
      */
-    private Group newGroup(Row r) {
+    private Group newGroup(RowT r) {
         final Object[] grpKeys = new Object[grpSet.cardinality()];
         List<Integer> fldIdxs = grpSet.asList();
 
-        final RowHandler<Row> rowHandler = rowFactory.handler();
+        final RowHandler<RowT> rowHandler = rowFactory.handler();
 
         for (int i = 0; i < grpKeys.length; ++i) {
             grpKeys[i] = rowHandler.get(fldIdxs.get(i), r);
@@ -267,12 +267,12 @@ public class SortAggregateNode<Row> extends AbstractNode<Row> implements SingleN
         /**
          *
          */
-        private final List<AccumulatorWrapper<Row>> accumWrps;
+        private final List<AccumulatorWrapper<RowT>> accumWrps;
 
         /**
          *
          */
-        private final RowHandler<Row> handler;
+        private final RowHandler<RowT> handler;
 
         /**
          *
@@ -293,7 +293,7 @@ public class SortAggregateNode<Row> extends AbstractNode<Row> implements SingleN
         /**
          *
          */
-        private void add(Row row) {
+        private void add(RowT row) {
             if (type == AggregateType.REDUCE) {
                 addOnReducer(row);
             } else {
@@ -304,7 +304,7 @@ public class SortAggregateNode<Row> extends AbstractNode<Row> implements SingleN
         /**
          *
          */
-        private Row row() {
+        private RowT row() {
             if (type == AggregateType.MAP) {
                 return rowOnMapper();
             } else {
@@ -315,8 +315,8 @@ public class SortAggregateNode<Row> extends AbstractNode<Row> implements SingleN
         /**
          *
          */
-        private void addOnMapper(Row row) {
-            for (AccumulatorWrapper<Row> wrapper : accumWrps) {
+        private void addOnMapper(RowT row) {
+            for (AccumulatorWrapper<RowT> wrapper : accumWrps) {
                 wrapper.add(row);
             }
         }
@@ -324,12 +324,12 @@ public class SortAggregateNode<Row> extends AbstractNode<Row> implements SingleN
         /**
          *
          */
-        private void addOnReducer(Row row) {
+        private void addOnReducer(RowT row) {
             List<Accumulator> accums = hasAccumulators()
                     ? (List<Accumulator>) handler.get(handler.columnCount(row) - 1, row) : Collections.emptyList();
 
             for (int i = 0; i < accums.size(); i++) {
-                AccumulatorWrapper<Row> wrapper = accumWrps.get(i);
+                AccumulatorWrapper<RowT> wrapper = accumWrps.get(i);
 
                 Accumulator accum = accums.get(i);
 
@@ -340,7 +340,7 @@ public class SortAggregateNode<Row> extends AbstractNode<Row> implements SingleN
         /**
          *
          */
-        private Row rowOnMapper() {
+        private RowT rowOnMapper() {
             Object[] fields = new Object[grpSet.cardinality() + (accFactory != null ? 1 : 0)];
 
             int i = 0;
@@ -360,7 +360,7 @@ public class SortAggregateNode<Row> extends AbstractNode<Row> implements SingleN
         /**
          *
          */
-        private Row rowOnReducer() {
+        private RowT rowOnReducer() {
             Object[] fields = new Object[grpSet.cardinality() + accumWrps.size()];
 
             int i = 0;
@@ -369,7 +369,7 @@ public class SortAggregateNode<Row> extends AbstractNode<Row> implements SingleN
                 fields[i++] = grpKey;
             }
 
-            for (AccumulatorWrapper<Row> accWrp : accumWrps) {
+            for (AccumulatorWrapper<RowT> accWrp : accumWrps) {
                 fields[i++] = accWrp.end();
             }
 
