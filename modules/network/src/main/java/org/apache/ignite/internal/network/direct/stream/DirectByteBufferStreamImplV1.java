@@ -596,12 +596,16 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 //noinspection fallthrough
             case 2:
                 writeLong(val.getLeastSignificantBits());
-
+    
                 if (!lastFinished) {
                     return;
                 }
-
+    
                 uuidState = 0;
+                break;
+    
+            default:
+                throw new IllegalArgumentException("Unknown uuidState: " + uuidState);
         }
     }
 
@@ -647,6 +651,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 }
 
                 uuidState = 0;
+                break;
+                
+            default:
+                throw new IllegalArgumentException("Unknown uuidState: " + uuidState);
         }
     }
 
@@ -1140,6 +1148,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 }
 
                 uuidState = 0;
+                break;
+                
+            default:
+                throw new IllegalArgumentException("Unknown uuidState: " + uuidState);
         }
 
         UUID val = new UUID(uuidMost, uuidLeast);
@@ -1192,6 +1204,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 }
 
                 uuidState = 0;
+                break;
+                
+            default:
+                throw new IllegalArgumentException("Unknown uuidState: " + uuidState);
         }
 
         final IgniteUuid val = new IgniteUuid(new UUID(uuidMost, uuidLeast), uuidLocId);

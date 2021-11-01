@@ -22,6 +22,11 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.io.StringReader;
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -63,13 +68,13 @@ import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
+import org.apache.ignite.internal.processors.query.calcite.ResultSetMetadata;
 import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryType;
 import org.apache.ignite.internal.processors.query.calcite.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.processors.query.calcite.prepare.AbstractMultiStepPlan;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ExplainPlan;
-import org.apache.ignite.internal.processors.query.calcite.prepare.FieldsMetadata;
 import org.apache.ignite.internal.processors.query.calcite.prepare.MultiStepPlan;
 import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
 import org.apache.ignite.internal.processors.query.calcite.prepare.QueryPlan;
@@ -77,7 +82,12 @@ import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlConforma
 import org.apache.ignite.internal.processors.query.calcite.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeSystem;
+import org.apache.ignite.internal.schema.BitmaskNativeType;
+import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NumberNativeType;
+import org.apache.ignite.internal.schema.TemporalNativeType;
+import org.apache.ignite.internal.schema.VarlenNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -95,7 +105,7 @@ public final class Commons {
      *
      */
     public static final int IN_BUFFER_SIZE = 512;
-
+    
     /**
      *
      */
@@ -138,51 +148,51 @@ public final class Commons {
             .costFactory(new IgniteCostFactory())
             .typeSystem(IgniteTypeSystem.INSTANCE)
             .build();
-
+    
     /**
      *
      */
     private Commons() {
     }
-
+    
     public static <T> SqlCursor<T> createCursor(Iterable<T> iterable, QueryPlan plan) {
         return createCursor(iterable.iterator(), plan);
     }
-
+    
     public static <T> SqlCursor<T> createCursor(Iterator<T> iter, QueryPlan plan) {
         return new SqlCursor<>() {
             @Override
-            public SqlQueryType getQueryType() {
+            public SqlQueryType queryType() {
                 return SqlQueryType.mapPlanTypeToSqlType(plan.type());
             }
-
+            
             @Override
-            public FieldsMetadata getColumnMetadata() {
-                return plan instanceof AbstractMultiStepPlan ? ((MultiStepPlan) plan).fieldsMetadata()
-                        : ((ExplainPlan) plan).fieldsMeta();
+            public ResultSetMetadata metadata() {
+                return plan instanceof AbstractMultiStepPlan ? ((MultiStepPlan) plan).metadata()
+                        : ((ExplainPlan) plan).metadata();
             }
-
+            
             @Override
             public void remove() {
                 iter.remove();
             }
-
+            
             @Override
             public boolean hasNext() {
                 return iter.hasNext();
             }
-
+            
             @Override
             public T next() {
                 return iter.next();
             }
-
+            
             @NotNull
             @Override
             public Iterator<T> iterator() {
                 return iter;
             }
-
+            
             @Override
             public void close() throws Exception {
                 if (iter instanceof AutoCloseable) {
@@ -191,19 +201,19 @@ public final class Commons {
             }
         };
     }
-
+    
     /**
      * Combines two lists.
      */
     public static <T> List<T> combine(List<T> left, List<T> right) {
         Set<T> set = new HashSet<>(left.size() + right.size());
-
+        
         set.addAll(left);
         set.addAll(right);
-
+        
         return new ArrayList<>(set);
     }
-
+    
     /**
      * Intersects two lists.
      */
@@ -211,12 +221,12 @@ public final class Commons {
         if (nullOrEmpty(left) || nullOrEmpty(right)) {
             return Collections.emptyList();
         }
-
+        
         return left.size() > right.size()
                 ? intersect(new HashSet<>(right), left)
                 : intersect(new HashSet<>(left), right);
     }
-
+    
     /**
      * Intersects a set and a list.
      *
@@ -226,12 +236,12 @@ public final class Commons {
         if (nullOrEmpty(set) || nullOrEmpty(list)) {
             return Collections.emptyList();
         }
-
+        
         return list.stream()
                 .filter(set::contains)
                 .collect(Collectors.toList());
     }
-
+    
     /**
      * Returns a given list as a typed list.
      */
@@ -239,7 +249,7 @@ public final class Commons {
     public static <T> List<T> cast(List<?> src) {
         return (List) src;
     }
-
+    
     /**
      * Transforms a given list using map function.
      */
@@ -247,61 +257,61 @@ public final class Commons {
         if (nullOrEmpty(src)) {
             return Collections.emptyList();
         }
-
+        
         List<R> list = new ArrayList<>(src.size());
-
+    
         for (T t : src) {
             list.add(mapFun.apply(t));
         }
-
+        
         return list;
     }
-
+    
     /**
      * Extracts type factory.
      */
     public static IgniteTypeFactory typeFactory(RelNode rel) {
         return typeFactory(rel.getCluster());
     }
-
+    
     /**
      * Extracts type factory.
      */
     public static IgniteTypeFactory typeFactory(RelOptCluster cluster) {
         return (IgniteTypeFactory) cluster.getTypeFactory();
     }
-
+    
     /**
      * Extracts planner context.
      */
     public static PlanningContext context(RelNode rel) {
         return context(rel.getCluster());
     }
-
+    
     /**
      * Extracts planner context.
      */
     public static PlanningContext context(RelOptCluster cluster) {
         return context(cluster.getPlanner().getContext());
     }
-
+    
     /**
      * Extracts planner context.
      */
     public static PlanningContext context(Context ctx) {
         return Objects.requireNonNull(ctx.unwrap(PlanningContext.class));
     }
-
+    
     /**
      * @param params Parameters.
      * @return Parameters map.
      */
     public static Map<String, Object> parametersMap(@Nullable Object[] params) {
         HashMap<String, Object> res = new HashMap<>();
-
+        
         return params != null ? populateParameters(res, params) : res;
     }
-
+    
     /**
      * Populates a provided map with given parameters.
      *
@@ -317,7 +327,7 @@ public final class Commons {
         }
         return dst;
     }
-
+    
     /**
      * @param o Object to close.
      */
@@ -326,7 +336,7 @@ public final class Commons {
             ((AutoCloseable) o).close();
         }
     }
-
+    
     /**
      * Closes given resource logging possible checked exception.
      *
@@ -342,7 +352,7 @@ public final class Commons {
             }
         }
     }
-
+    //
     //    /**
     //     * @param o Object to close.
     //     */
@@ -350,14 +360,14 @@ public final class Commons {
     //        if (o instanceof AutoCloseable)
     //            U.closeQuiet((AutoCloseable) o);
     //    }
-
+    
     /**
      *
      */
     public static <T> List<T> flat(List<List<? extends T>> src) {
         return src.stream().flatMap(List::stream).collect(Collectors.toList());
     }
-
+    
     /**
      *
      */
@@ -365,16 +375,16 @@ public final class Commons {
         if (list.isEmpty()) {
             throw new UnsupportedOperationException();
         }
-
+        
         int res = list.getInt(0);
-
+    
         for (int i = 1; i < list.size(); i++) {
             res = Math.max(res, list.getInt(i));
         }
-
+        
         return res;
     }
-
+    
     /**
      *
      */
@@ -382,51 +392,52 @@ public final class Commons {
         if (list.isEmpty()) {
             throw new UnsupportedOperationException();
         }
-
+        
         int res = list.getInt(0);
-
+    
         for (int i = 1; i < list.size(); i++) {
             res = Math.min(res, list.getInt(i));
         }
-
+        
         return res;
     }
-
+    
     /**
      *
      */
     public static <T> T compile(Class<T> interfaceType, String body) {
         final boolean debug = CalciteSystemProperty.DEBUG.value();
-
+    
         if (debug) {
             Util.debugCode(System.out, body);
         }
-
+        
         try {
             final ICompilerFactory compilerFactory;
-
+            
             try {
                 compilerFactory = CompilerFactoryFactory.getDefaultCompilerFactory();
             } catch (Exception e) {
                 throw new IllegalStateException(
                         "Unable to instantiate java compiler", e);
             }
-
+            
             IClassBodyEvaluator cbe = compilerFactory.newClassBodyEvaluator();
-
+            
             cbe.setImplementedInterfaces(new Class[]{interfaceType});
             cbe.setParentClassLoader(ExpressionFactoryImpl.class.getClassLoader());
-
-            if (debug) { // Add line numbers to the generated janino class
+    
+            if (debug) {
+                // Add line numbers to the generated janino class
                 cbe.setDebuggingInformation(true, true, true);
             }
-
+            
             return (T) cbe.createInstance(new StringReader(body));
         } catch (Exception e) {
             throw new IgniteException(e);
         }
     }
-
+    
     /**
      *
      */
@@ -435,7 +446,7 @@ public final class Commons {
             throw new ArrayIndexOutOfBoundsException(idx);
         }
     }
-
+    
     /**
      *
      */
@@ -443,10 +454,10 @@ public final class Commons {
         if (required < 0) {
             throw new IllegalArgumentException("Capacity must not be negative");
         }
-
+        
         return array.length <= required ? Arrays.copyOf(array, nextPowerOf2(required)) : array;
     }
-
+    
     /**
      * Round up the argument to the next highest power of 2;
      *
@@ -457,21 +468,21 @@ public final class Commons {
         if (v < 0) {
             throw new IllegalArgumentException("v must not be negative");
         }
-
+    
         if (v == 0) {
             return 1;
         }
-
+        
         return 1 << (32 - Integer.numberOfLeadingZeros(v - 1));
     }
-
+    
     /**
      *
      */
     public static <T> Predicate<T> negate(Predicate<T> p) {
         return p.negate();
     }
-
+    
     /**
      *
      */
@@ -482,7 +493,7 @@ public final class Commons {
         }
         return mapping;
     }
-
+    
     /**
      *
      */
@@ -493,7 +504,7 @@ public final class Commons {
         }
         return mapping;
     }
-
+    
     /**
      * Checks if there is a such permutation of all {@code elems} that is prefix of provided {@code seq}.
      *
@@ -503,24 +514,24 @@ public final class Commons {
      */
     public static <T> boolean isPrefix(List<T> seq, Collection<T> elems) {
         Set<T> elems0 = new HashSet<>(elems);
-
+    
         if (seq.size() < elems0.size()) {
             return false;
         }
-
+        
         for (T e : seq) {
             if (!elems0.remove(e)) {
                 return false;
             }
-
+    
             if (elems0.isEmpty()) {
                 break;
             }
         }
-
+        
         return true;
     }
-
+    
     /**
      * Returns the longest possible prefix of {@code seq} that could be form from provided {@code elems}.
      *
@@ -530,20 +541,20 @@ public final class Commons {
      */
     public static <T> List<T> maxPrefix(List<T> seq, Collection<T> elems) {
         List<T> res = new ArrayList<>();
-
+        
         Set<T> elems0 = new HashSet<>(elems);
-
+        
         for (T e : seq) {
             if (!elems0.remove(e)) {
                 break;
             }
-
+            
             res.add(e);
         }
-
+        
         return res;
     }
-
+    
     /**
      * Quietly closes given object ignoring possible checked exception.
      *
@@ -558,60 +569,153 @@ public final class Commons {
             }
         }
     }
-
+    
     public static Class<?> nativeTypeToClass(NativeType type) {
         assert type != null;
-
+        
         switch (type.spec()) {
             case INT8:
                 return Byte.class;
-
+            
             case INT16:
                 return Short.class;
-
+            
             case INT32:
                 return Integer.class;
-
+            
             case INT64:
                 return Long.class;
-
+            
             case FLOAT:
                 return Float.class;
-
+            
             case DOUBLE:
                 return Double.class;
-
+            
+            case NUMBER:
+                return BigInteger.class;
+            
             case DECIMAL:
                 return BigDecimal.class;
-
+            
             case UUID:
                 return UUID.class;
-
+            
             case STRING:
                 return String.class;
-
+            
             case BYTES:
                 return byte[].class;
-
+            
             case BITMASK:
                 return BitSet.class;
-
+            
+            case DATE:
+                return LocalDate.class;
+            
+            case TIME:
+                return LocalTime.class;
+            
+            case DATETIME:
+                return LocalDateTime.class;
+            
+            case TIMESTAMP:
+                return Instant.class;
+            
             default:
                 throw new IllegalArgumentException("Unsupported type " + type.spec());
         }
     }
-
-    /** */
+    
+    public static int nativeTypePrecision(NativeType type) {
+        assert type != null;
+        
+        switch (type.spec()) {
+            case INT8:
+                return 3;
+            
+            case INT16:
+                return 5;
+            
+            case INT32:
+                return 10;
+            
+            case INT64:
+                return 19;
+            
+            case FLOAT:
+            case DOUBLE:
+                return 15;
+            
+            case NUMBER:
+                return ((NumberNativeType) type).precision();
+            
+            case DECIMAL:
+                return ((DecimalNativeType) type).precision();
+            
+            case UUID:
+            case DATE:
+                return -1;
+            
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+                return ((TemporalNativeType) type).precision();
+            
+            case BYTES:
+            case STRING:
+                return ((VarlenNativeType) type).length();
+            
+            case BITMASK:
+                return ((BitmaskNativeType) type).bits();
+            
+            default:
+                throw new IllegalArgumentException("Unsupported type " + type.spec());
+        }
+    }
+    
+    public static int nativeTypeScale(NativeType type) {
+        switch (type.spec()) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case NUMBER:
+                return 0;
+            
+            case FLOAT:
+            case DOUBLE:
+            case UUID:
+            case DATE:
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+            case BYTES:
+            case STRING:
+            case BITMASK:
+                return Integer.MIN_VALUE;
+            
+            case DECIMAL:
+                return ((DecimalNativeType) type).scale();
+            
+            default:
+                throw new IllegalArgumentException("Unsupported type " + type.spec());
+        }
+    }
+    
+    /**
+     *
+     */
     public static <T> Comparator<T> compoundComparator(Iterable<Comparator<T>> cmps) {
         return (r1, r2) -> {
             for (Comparator<T> cmp : cmps) {
                 int result = cmp.compare(r1, r2);
-
+                
                 if (result != 0) {
                     return result;
                 }
             }
-
+            
             return 0;
         };
     }

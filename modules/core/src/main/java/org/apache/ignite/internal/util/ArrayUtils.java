@@ -30,31 +30,31 @@ import org.jetbrains.annotations.Nullable;
 public final class ArrayUtils {
     /** Empty array of byte. */
     public static final byte[] BYTE_EMPTY_ARRAY = new byte[0];
-
+    
     /** Empty array of short. */
     public static final short[] SHORT_EMPTY_ARRAY = new short[0];
-
+    
     /** Empty array of int. */
     public static final int[] INT_EMPTY_ARRAY = new int[0];
-
+    
     /** Empty array of long. */
     public static final long[] LONG_EMPTY_ARRAY = new long[0];
-
+    
     /** Empty array of float. */
     public static final float[] FLOAT_EMPTY_ARRAY = new float[0];
-
+    
     /** Empty array of double. */
     public static final double[] DOUBLE_EMPTY_ARRAY = new double[0];
-
+    
     /** Empty array of char. */
     public static final char[] CHAR_EMPTY_ARRAY = new char[0];
-
+    
     /** Empty array of boolean. */
     public static final boolean[] BOOLEAN_EMPTY_ARRAY = new boolean[0];
-
+    
     /** Empty object array. */
     public static final Object[] OBJECT_EMPTY_ARRAY = new Object[0];
-
+    
     /**
      *
      */
@@ -64,17 +64,17 @@ public final class ArrayUtils {
             if (len < 0) {
                 throw new IgniteInternalException("Read invalid byte array length: " + len);
             }
-
+            
             switch (len) {
                 case 0:
                     return BYTE_EMPTY_ARRAY;
-
+                
                 default:
                     return new byte[len];
             }
         }
     };
-
+    
     /**
      *
      */
@@ -84,17 +84,17 @@ public final class ArrayUtils {
             if (len < 0) {
                 throw new IgniteInternalException("Read invalid short array length: " + len);
             }
-
+            
             switch (len) {
                 case 0:
                     return SHORT_EMPTY_ARRAY;
-
+                
                 default:
                     return new short[len];
             }
         }
     };
-
+    
     /**
      *
      */
@@ -104,17 +104,17 @@ public final class ArrayUtils {
             if (len < 0) {
                 throw new IgniteInternalException("Read invalid int array length: " + len);
             }
-
+            
             switch (len) {
                 case 0:
                     return INT_EMPTY_ARRAY;
-
+                
                 default:
                     return new int[len];
             }
         }
     };
-
+    
     /**
      *
      */
@@ -124,17 +124,17 @@ public final class ArrayUtils {
             if (len < 0) {
                 throw new IgniteInternalException("Read invalid long array length: " + len);
             }
-
+            
             switch (len) {
                 case 0:
                     return LONG_EMPTY_ARRAY;
-
+                
                 default:
                     return new long[len];
             }
         }
     };
-
+    
     /**
      *
      */
@@ -144,17 +144,17 @@ public final class ArrayUtils {
             if (len < 0) {
                 throw new IgniteInternalException("Read invalid float array length: " + len);
             }
-
+            
             switch (len) {
                 case 0:
                     return FLOAT_EMPTY_ARRAY;
-
+                
                 default:
                     return new float[len];
             }
         }
     };
-
+    
     /**
      *
      */
@@ -164,17 +164,17 @@ public final class ArrayUtils {
             if (len < 0) {
                 throw new IgniteInternalException("Read invalid double array length: " + len);
             }
-
+            
             switch (len) {
                 case 0:
                     return DOUBLE_EMPTY_ARRAY;
-
+                
                 default:
                     return new double[len];
             }
         }
     };
-
+    
     /**
      *
      */
@@ -184,17 +184,17 @@ public final class ArrayUtils {
             if (len < 0) {
                 throw new IgniteInternalException("Read invalid char array length: " + len);
             }
-
+            
             switch (len) {
                 case 0:
                     return CHAR_EMPTY_ARRAY;
-
+                
                 default:
                     return new char[len];
             }
         }
     };
-
+    
     /**
      *
      */
@@ -204,17 +204,17 @@ public final class ArrayUtils {
             if (len < 0) {
                 throw new IgniteInternalException("Read invalid boolean array length: " + len);
             }
-
+            
             switch (len) {
                 case 0:
                     return BOOLEAN_EMPTY_ARRAY;
-
+                
                 default:
                     return new boolean[len];
             }
         }
     };
-
+    
     /**
      * @param arr Array to check.
      * @param <T> Array element type.
@@ -223,7 +223,7 @@ public final class ArrayUtils {
     public static <T> boolean nullOrEmpty(T[] arr) {
         return arr == null || arr.length == 0;
     }
-
+    
     /**
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
@@ -231,7 +231,7 @@ public final class ArrayUtils {
     public static boolean nullOrEmpty(byte[] arr) {
         return arr == null || arr.length == 0;
     }
-
+    
     /**
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
@@ -239,7 +239,7 @@ public final class ArrayUtils {
     public static boolean nullOrEmpty(short[] arr) {
         return arr == null || arr.length == 0;
     }
-
+    
     /**
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
@@ -247,7 +247,7 @@ public final class ArrayUtils {
     public static boolean nullOrEmpty(int[] arr) {
         return arr == null || arr.length == 0;
     }
-
+    
     /**
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
@@ -255,7 +255,7 @@ public final class ArrayUtils {
     public static boolean nullOrEmpty(long[] arr) {
         return arr == null || arr.length == 0;
     }
-
+    
     /**
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
@@ -263,7 +263,7 @@ public final class ArrayUtils {
     public static boolean nullOrEmpty(float[] arr) {
         return arr == null || arr.length == 0;
     }
-
+    
     /**
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
@@ -271,7 +271,7 @@ public final class ArrayUtils {
     public static boolean nullOrEmpty(double[] arr) {
         return arr == null || arr.length == 0;
     }
-
+    
     /**
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
@@ -279,7 +279,7 @@ public final class ArrayUtils {
     public static boolean nullOrEmpty(boolean[] arr) {
         return arr == null || arr.length == 0;
     }
-
+    
     /**
      * Converts array to {@link List}. Note that resulting list cannot be altered in size, as it it based on the passed in array - only
      * current elements can be changed.
@@ -295,7 +295,7 @@ public final class ArrayUtils {
     public static <T> List<T> asList(@Nullable T... vals) {
         return nullOrEmpty(vals) ? Collections.emptyList() : Arrays.asList(vals);
     }
-
+    
     /**
      * Concatenates an elements to an array.
      *
@@ -307,18 +307,18 @@ public final class ArrayUtils {
     @SafeVarargs
     public static <T> T[] concat(@Nullable T[] arr, T... obj) {
         T[] newArr;
-
+        
         if (arr == null || arr.length == 0) {
             newArr = obj;
         } else {
             newArr = Arrays.copyOf(arr, arr.length + obj.length);
-
+            
             System.arraycopy(obj, 0, newArr, arr.length, obj.length);
         }
-
+        
         return newArr;
     }
-
+    
     /**
      * Stub.
      */

@@ -36,44 +36,44 @@ public abstract class AbstractMultiStepPlan implements MultiStepPlan {
     /**
      *
      */
-    protected final FieldsMetadata fieldsMetadata;
-
+    protected final ResultSetMetadataInternal meta;
+    
     /**
      *
      */
     protected final QueryTemplate queryTemplate;
-
+    
     /**
      *
      */
     protected ExecutionPlan executionPlan;
-
+    
     /**
      *
      */
-    protected AbstractMultiStepPlan(QueryTemplate queryTemplate, FieldsMetadata fieldsMetadata) {
+    protected AbstractMultiStepPlan(QueryTemplate queryTemplate, ResultSetMetadataInternal meta) {
         this.queryTemplate = queryTemplate;
-        this.fieldsMetadata = fieldsMetadata;
+        this.meta = meta;
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public List<Fragment> fragments() {
         return Objects.requireNonNull(executionPlan).fragments();
     }
-
+    
     /** {@inheritDoc} */
     @Override
-    public FieldsMetadata fieldsMetadata() {
-        return fieldsMetadata;
+    public ResultSetMetadataInternal metadata() {
+        return meta;
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public FragmentMapping mapping(Fragment fragment) {
         return mapping(fragment.fragmentId());
     }
-
+    
     /**
      *
      */
@@ -81,39 +81,40 @@ public abstract class AbstractMultiStepPlan implements MultiStepPlan {
         return Objects.requireNonNull(executionPlan).fragments().stream()
                 .filter(f -> f.fragmentId() == fragmentId)
                 .findAny().orElseThrow(() -> new IllegalStateException("Cannot find fragment with given ID. ["
-                        + "fragmentId=" + fragmentId + ", " + "fragments=" + fragments() + "]"))
+                        + "fragmentId=" + fragmentId + ", "
+                        + "fragments=" + fragments() + "]"))
                 .mapping();
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public ColocationGroup target(Fragment fragment) {
         if (fragment.rootFragment()) {
             return null;
         }
-
+        
         IgniteSender sender = (IgniteSender) fragment.root();
         return mapping(sender.targetFragmentId()).findGroup(sender.exchangeId());
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public Map<Long, List<String>> remotes(Fragment fragment) {
         List<IgniteReceiver> remotes = fragment.remotes();
-
+    
         if (nullOrEmpty(remotes)) {
             return null;
         }
-
+        
         HashMap<Long, List<String>> res = newHashMap(remotes.size());
-
+    
         for (IgniteReceiver remote : remotes) {
             res.put(remote.exchangeId(), mapping(remote.sourceFragmentId()).nodeIds());
         }
-
+        
         return res;
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public void init(PlanningContext ctx) {

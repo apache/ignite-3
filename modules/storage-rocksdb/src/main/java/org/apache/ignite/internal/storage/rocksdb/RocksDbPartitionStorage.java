@@ -311,6 +311,9 @@ public class RocksDbPartitionStorage implements PartitionStorage {
 
                 case NOOP:
                     break;
+                    
+                default:
+                    throw new UnsupportedOperationException(String.valueOf(clo.operationType()));
             }
 
             return clo.result();

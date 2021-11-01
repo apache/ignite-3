@@ -174,9 +174,12 @@ public class ConcurrentHashMapPartitionStorage implements PartitionStorage {
                 map.remove(mapKey);
 
                 break;
-
+    
             case NOOP:
                 break;
+    
+            default:
+                throw new UnsupportedOperationException(String.valueOf(clo.operationType()));
         }
 
         return clo.result();
