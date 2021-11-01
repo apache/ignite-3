@@ -139,12 +139,12 @@ public class JavaSerializerTest {
     @MethodSource("serializerFactoryProvider")
     public void complexType(SerializerFactory factory) throws SerializationException {
         Column[] cols = new Column[]{
-                new Column("pByteCol", INT8, false),
-                new Column("pShortCol", INT16, false),
-                new Column("pIntCol", INT32, false),
-                new Column("pLongCol", INT64, false),
-                new Column("pFloatCol", FLOAT, false),
-                new Column("pDoubleCol", DOUBLE, false),
+                new Column("primByteCol", INT8, false),
+                new Column("primShortCol", INT16, false),
+                new Column("primIntCol", INT32, false),
+                new Column("primLongCol", INT64, false),
+                new Column("primFloatCol", FLOAT, false),
+                new Column("primDoubleCol", DOUBLE, false),
                 
                 new Column("byteCol", INT8, true),
                 new Column("shortCol", INT16, true),
@@ -215,7 +215,7 @@ public class JavaSerializerTest {
     @MethodSource("serializerFactoryProvider")
     public void classWithIncorrectBitmaskSize(SerializerFactory factory) {
         Column[] cols = new Column[]{
-                new Column("pLongCol", INT64, false),
+                new Column("primLongCol", INT64, false),
                 new Column("bitmaskCol", NativeTypes.bitmaskOf(9), true),
         };
         
@@ -240,7 +240,7 @@ public class JavaSerializerTest {
     @MethodSource("serializerFactoryProvider")
     public void classWithPrivateConstructor(SerializerFactory factory) throws SerializationException {
         Column[] cols = new Column[]{
-                new Column("pLongCol", INT64, false),
+                new Column("primLongCol", INT64, false),
         };
         
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
@@ -269,7 +269,7 @@ public class JavaSerializerTest {
     @MethodSource("serializerFactoryProvider")
     public void classWithNoDefaultConstructor(SerializerFactory factory) {
         Column[] cols = new Column[]{
-                new Column("pLongCol", INT64, false),
+                new Column("primLongCol", INT64, false),
         };
         
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
@@ -287,7 +287,7 @@ public class JavaSerializerTest {
     @MethodSource("serializerFactoryProvider")
     public void privateClass(SerializerFactory factory) throws SerializationException {
         Column[] cols = new Column[]{
-                new Column("pLongCol", INT64, false),
+                new Column("primLongCol", INT64, false),
         };
         
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
