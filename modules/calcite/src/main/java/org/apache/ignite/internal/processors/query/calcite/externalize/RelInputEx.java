@@ -20,9 +20,6 @@ package org.apache.ignite.internal.processors.query.calcite.externalize;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelInput;
 
-/**
- *
- */
 public interface RelInputEx extends RelInput {
     /**
      * @param tag Tag.

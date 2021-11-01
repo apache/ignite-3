@@ -329,7 +329,7 @@ public class RelJsonReader {
             }
             return builder.build();
         }
-        
+
         private AggregateCall toAggCall(Map<String, Object> jsonAggCall) {
             Map<String, Object> aggMap = (Map) jsonAggCall.get("agg");
             SqlAggFunction aggregation = (SqlAggFunction) relJson.toOp(aggMap);
