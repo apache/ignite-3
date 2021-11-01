@@ -17,6 +17,15 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doAnswer;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -51,15 +60,6 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.platform.commons.util.ReflectionUtils;
 import org.mockito.Mockito;
 
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.doAnswer;
-
 /**
  * Integration tests to check consistent of java API on different nodes.
  */
@@ -75,41 +75,41 @@ public class ITTablesApiTest extends IgniteAbstractTest {
 
     /** Nodes bootstrap configuration. */
     private final ArrayList<Function<String, String>> nodesBootstrapCfg = new ArrayList<>() {{
-        add((metastorageNodeName) -> "{\n" +
-            "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n" +
-            "  },\n" +
-            "  \"network\": {\n" +
-            "    \"port\":3344,\n" +
-            "    \"nodeFinder\": {\n" +
-            "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-            "    }\n" +
-            "  }\n" +
-            "}");
+        add((metastorageNodeName) -> "{\n"
+                + "  \"node\": {\n"
+                + "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n"
+                + "  },\n"
+                + "  \"network\": {\n"
+                + "    \"port\":3344,\n"
+                + "    \"nodeFinder\": {\n"
+                + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                + "    }\n"
+                + "  }\n"
+                + "}");
 
-        add((metastorageNodeName) -> "{\n" +
-            "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n" +
-            "  },\n" +
-            "  \"network\": {\n" +
-            "    \"port\":3345,\n" +
-            "    \"nodeFinder\": {\n" +
-            "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-            "    }\n" +
-            "  }\n" +
-            "}");
+        add((metastorageNodeName) -> "{\n"
+                + "  \"node\": {\n"
+                + "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n"
+                + "  },\n"
+                + "  \"network\": {\n"
+                + "    \"port\":3345,\n"
+                + "    \"nodeFinder\": {\n"
+                + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                + "    }\n"
+                + "  }\n"
+                + "}");
 
-        add((metastorageNodeName) -> "{\n" +
-            "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n" +
-            "  },\n" +
-            "  \"network\": {\n" +
-            "    \"port\":3346,\n" +
-            "    \"nodeFinder\": {\n" +
-            "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-            "    }\n" +
-            "  }\n" +
-            "}");
+        add((metastorageNodeName) -> "{\n"
+                + "  \"node\": {\n"
+                + "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n"
+                + "  },\n"
+                + "  \"network\": {\n"
+                + "    \"port\":3346,\n"
+                + "    \"nodeFinder\": {\n"
+                + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                + "    }\n"
+                + "  }\n"
+                + "}");
     }};
 
     /** Cluster nodes. */
@@ -123,13 +123,13 @@ public class ITTablesApiTest extends IgniteAbstractTest {
         String metastorageNodeName = IgniteTestUtils.testNodeName(testInfo, 0);
 
         clusterNodes = IntStream.range(0, nodesBootstrapCfg.size()).mapToObj(value -> {
-                String nodeName = IgniteTestUtils.testNodeName(testInfo, value);
+                    String nodeName = IgniteTestUtils.testNodeName(testInfo, value);
 
-                return IgnitionManager.start(
-                    nodeName,
-                    nodesBootstrapCfg.get(value).apply(metastorageNodeName),
-                    workDir.resolve(nodeName));
-            }
+                    return IgnitionManager.start(
+                            nodeName,
+                            nodesBootstrapCfg.get(value).apply(metastorageNodeName),
+                            workDir.resolve(nodeName));
+                }
         ).collect(Collectors.toList());
     }
 
@@ -158,7 +158,7 @@ public class ITTablesApiTest extends IgniteAbstractTest {
 
         Table table = createTable(clusterNodes.get(0), SCHEMA, SHORT_TABLE_NAME);
 
-        IgniteUuid tblId = ((TableImpl)table).tableId();
+        IgniteUuid tblId = ((TableImpl) table).tableId();
 
         CompletableFuture<Table> tableByNameFut = CompletableFuture.supplyAsync(() -> {
             return ignite1.tables().table(TABLE_NAME);
@@ -166,20 +166,19 @@ public class ITTablesApiTest extends IgniteAbstractTest {
 
         CompletableFuture<Table> tableByIdFut = CompletableFuture.supplyAsync(() -> {
             try {
-                return ((IgniteTablesInternal)ignite1.tables()).table(tblId);
-            }
-            catch (NodeStoppingException e) {
+                return ((IgniteTablesInternal) ignite1.tables()).table(tblId);
+            } catch (NodeStoppingException e) {
                 throw new AssertionError(e.getMessage());
             }
         });
 
         // Because the event inhibitor was started, last metastorage updates do not reach to one node.
         // Therefore the table still doesn't exists locally, but API prevents getting null and waits events.
-        for (Ignite ignite: clusterNodes) {
+        for (Ignite ignite : clusterNodes) {
             if (ignite != ignite1) {
                 assertNotNull(ignite.tables().table(TABLE_NAME));
 
-                assertNotNull(((IgniteTablesInternal)ignite.tables()).table(tblId));
+                assertNotNull(((IgniteTablesInternal) ignite.tables()).table(tblId));
             }
         }
 
@@ -200,7 +199,7 @@ public class ITTablesApiTest extends IgniteAbstractTest {
         for (Ignite ignite : clusterNodes) {
             assertNull(ignite.tables().table(TABLE_NAME));
 
-            assertNull(((IgniteTablesInternal)ignite.tables()).table(tblId));
+            assertNull(((IgniteTablesInternal) ignite.tables()).table(tblId));
         }
 
         ignite1Inhibitor.stopInhibit();
@@ -215,18 +214,18 @@ public class ITTablesApiTest extends IgniteAbstractTest {
      */
     private WatchListenerInhibitor metastorageEventsInhibitor(Ignite ignite) throws Exception {
         //TODO: IGNITE-15723 After a component factory will be implemented, need to got rid of reflection here.
-        MetaStorageManager metaMngr = (MetaStorageManager)ReflectionUtils.tryToReadFieldValue(
-            IgniteImpl.class,
-            "metaStorageMgr",
-            (IgniteImpl)ignite
+        MetaStorageManager metaMngr = (MetaStorageManager) ReflectionUtils.tryToReadFieldValue(
+                IgniteImpl.class,
+                "metaStorageMgr",
+                (IgniteImpl) ignite
         ).get();
 
         assertNotNull(metaMngr);
 
-        WatchAggregator aggregator = (WatchAggregator)ReflectionUtils.tryToReadFieldValue(
-            MetaStorageManager.class,
-            "watchAggregator",
-            metaMngr
+        WatchAggregator aggregator = (WatchAggregator) ReflectionUtils.tryToReadFieldValue(
+                MetaStorageManager.class,
+                "watchAggregator",
+                metaMngr
         ).get();
 
         assertNotNull(aggregator);
@@ -236,7 +235,7 @@ public class ITTablesApiTest extends IgniteAbstractTest {
         WatchListenerInhibitor inhibitor = new WatchListenerInhibitor();
 
         doAnswer(mock -> {
-            Optional<AggregatedWatch> op = (Optional<AggregatedWatch>)mock.callRealMethod();
+            Optional<AggregatedWatch> op = (Optional<AggregatedWatch>) mock.callRealMethod();
 
             assertTrue(op.isPresent());
 
@@ -276,15 +275,18 @@ public class ITTablesApiTest extends IgniteAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @Override public synchronized boolean onUpdate(WatchEvent evt) {
-            if (!inhibit)
+        @Override
+        public synchronized boolean onUpdate(WatchEvent evt) {
+            if (!inhibit) {
                 return realListener.onUpdate(evt);
+            }
 
             return inhibitEvents.add(evt);
         }
 
         /** {@inheritDoc} */
-        @Override public synchronized void onError(Throwable e) {
+        @Override
+        public synchronized void onError(Throwable e) {
             realListener.onError(e);
         }
 
@@ -301,8 +303,9 @@ public class ITTablesApiTest extends IgniteAbstractTest {
         synchronized void stopInhibit() {
             inhibit = false;
 
-            for (WatchEvent evt : inhibitEvents)
+            for (WatchEvent evt : inhibitEvents) {
                 realListener.onUpdate(evt);
+            }
 
             inhibitEvents.clear();
         }
@@ -315,12 +318,12 @@ public class ITTablesApiTest extends IgniteAbstractTest {
      */
     protected Table createTable(Ignite node, String schemaName, String shortTableName) {
         return node.tables().createTable(
-            schemaName + "." + shortTableName, tblCh -> convert(SchemaBuilders.tableBuilder(schemaName, shortTableName).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
-                SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
-                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValueExpression("default").build()
-                ).withPrimaryKey("key").build(),
-                tblCh).changeReplicas(2).changePartitions(10)
+                schemaName + "." + shortTableName, tblCh -> convert(SchemaBuilders.tableBuilder(schemaName, shortTableName).columns(
+                                SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
+                                SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
+                                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValueExpression("default").build()
+                        ).withPrimaryKey("key").build(),
+                        tblCh).changeReplicas(2).changePartitions(10)
         );
     }
 }

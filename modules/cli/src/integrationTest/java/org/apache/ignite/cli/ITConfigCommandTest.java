@@ -17,15 +17,20 @@
 
 package org.apache.ignite.cli;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.jayway.jsonpath.DocumentContext;
+import com.jayway.jsonpath.JsonPath;
+import io.micronaut.context.ApplicationContext;
+import io.micronaut.context.env.Environment;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.nio.file.Path;
-import com.jayway.jsonpath.DocumentContext;
-import com.jayway.jsonpath.JsonPath;
-import io.micronaut.context.ApplicationContext;
-import io.micronaut.context.env.Environment;
 import net.minidev.json.JSONObject;
 import net.minidev.json.JSONValue;
 import org.apache.ignite.Ignite;
@@ -37,11 +42,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
-
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Integration test for {@code ignite config} commands.
@@ -68,7 +68,9 @@ public class ITConfigCommandTest extends AbstractCliTest {
     /** Node. */
     private Ignite node;
 
-    /** */
+    /**
+     *
+     */
     @BeforeEach
     void setup(@TempDir Path workDir, TestInfo testInfo) throws IOException {
         // TODO: IGNITE-15131 Must be replaced by receiving the actual port configs from the started node.
@@ -78,11 +80,11 @@ public class ITConfigCommandTest extends AbstractCliTest {
         networkPort = getAvailablePort();
 
         String configStr = String.join("\n",
-            "network.port=" + networkPort,
-            "rest.port=" + restPort,
-            "rest.portRange=0",
-            "clientConnector.port=" + clientPort,
-            "clientConnector.portRange=0"
+                "network.port=" + networkPort,
+                "rest.port=" + restPort,
+                "rest.portRange=0",
+                "clientConnector.port=" + clientPort,
+                "clientConnector.portRange=0"
         );
 
         this.node = IgnitionManager.start(testNodeName(testInfo, networkPort), configStr, workDir);
@@ -93,7 +95,9 @@ public class ITConfigCommandTest extends AbstractCliTest {
         out = new ByteArrayOutputStream();
     }
 
-    /** */
+    /**
+     *
+     */
     @AfterEach
     void tearDown(TestInfo testInfo) {
         IgnitionManager.stop(testNodeName(testInfo, networkPort));
@@ -103,31 +107,31 @@ public class ITConfigCommandTest extends AbstractCliTest {
     @Test
     public void setAndGetWithManualHost() {
         int exitCode = cmd(ctx).execute(
-            "config",
-            "set",
-            "--node-endpoint",
-            "localhost:" + restPort,
-            "--type", "node", //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
-            "node.metastorageNodes=[\"localhost1\"]"
+                "config",
+                "set",
+                "--node-endpoint",
+                "localhost:" + restPort,
+                "--type", "node", //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
+                "node.metastorageNodes=[\"localhost1\"]"
         );
 
         String nl = System.lineSeparator();
 
         assertEquals(0, exitCode);
         assertEquals(
-            "Configuration was updated successfully." + nl + nl +
-                "Use the ignite config get command to view the updated configuration." + nl,
-            out.toString()
+                "Configuration was updated successfully." + nl + nl
+                        + "Use the ignite config get command to view the updated configuration." + nl,
+                out.toString()
         );
 
         resetStreams();
 
         exitCode = cmd(ctx).execute(
-            "config",
-            "get",
-            "--node-endpoint",
-            "localhost:" + restPort,
-            "--type", "node" //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
+                "config",
+                "get",
+                "--node-endpoint",
+                "localhost:" + restPort,
+                "--type", "node" //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
         );
 
         assertEquals(0, exitCode);
@@ -140,13 +144,13 @@ public class ITConfigCommandTest extends AbstractCliTest {
     @Test
     public void partialGet() {
         int exitCode = cmd(ctx).execute(
-            "config",
-            "get",
-            "--node-endpoint",
-            "localhost:" + restPort,
-            "--selector",
-            "network",
-            "--type", "node" //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
+                "config",
+                "get",
+                "--node-endpoint",
+                "localhost:" + restPort,
+                "--selector",
+                "network",
+                "--type", "node" //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
         );
 
         assertEquals(0, exitCode);
@@ -177,8 +181,8 @@ public class ITConfigCommandTest extends AbstractCliTest {
         CommandLine.IFactory factory = new CommandFactory(applicationCtx);
 
         return new CommandLine(IgniteCliSpec.class, factory)
-            .setErr(new PrintWriter(err, true))
-            .setOut(new PrintWriter(out, true));
+                .setErr(new PrintWriter(err, true))
+                .setOut(new PrintWriter(out, true));
     }
 
     /**

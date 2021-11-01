@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static java.util.Collections.nCopies;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.createSstFile;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -53,9 +56,6 @@ import org.rocksdb.Snapshot;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 
-import static java.util.Collections.nCopies;
-import static org.apache.ignite.internal.rocksdb.RocksUtils.createSstFile;
-
 /**
  * Storage implementation based on a single RocksDB instance.
  */
@@ -78,10 +78,9 @@ public class RocksDbPartitionStorage implements PartitionStorage {
     /**
      * Constructor.
      *
-     * @param partId Partition id.
-     * @param db Rocks DB instance.
+     * @param partId       Partition id.
+     * @param db           Rocks DB instance.
      * @param columnFamily Column family to be used for all storage operations.
-     * @param storage
      * @throws StorageException If failed to create RocksDB instance.
      */
     public RocksDbPartitionStorage(int partId, RocksDB db, ColumnFamily columnFamily) throws StorageException {
@@ -100,26 +99,29 @@ public class RocksDbPartitionStorage implements PartitionStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public int partitionId() {
+    @Override
+    public int partitionId() {
         return partId;
     }
 
     /** {@inheritDoc} */
-    @Override @Nullable public DataRow read(SearchRow key) throws StorageException {
+    @Override
+    @Nullable
+    public DataRow read(SearchRow key) throws StorageException {
         try {
             byte[] keyBytes = key.keyBytes();
 
             byte[] valueBytes = data.get(keyBytes);
 
             return valueBytes == null ? null : new SimpleDataRow(keyBytes, valueBytes);
-        }
-        catch (RocksDBException e) {
+        } catch (RocksDBException e) {
             throw new StorageException("Failed to read data from the storage", e);
         }
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<DataRow> readAll(List<? extends SearchRow> keys) throws StorageException {
+    @Override
+    public Collection<DataRow> readAll(List<? extends SearchRow> keys) throws StorageException {
         List<DataRow> res = new ArrayList<>(keys.size());
 
         try {
@@ -133,35 +135,36 @@ public class RocksDbPartitionStorage implements PartitionStorage {
 
                 byte[] value = valuesList.get(i);
 
-                if (value != null)
+                if (value != null) {
                     res.add(new SimpleDataRow(key, value));
+                }
             }
 
             return res;
-        }
-        catch (RocksDBException e) {
+        } catch (RocksDBException e) {
             throw new StorageException("Failed to read data from the storage", e);
         }
     }
 
     /** {@inheritDoc} */
-    @Override public void write(DataRow row) throws StorageException {
+    @Override
+    public void write(DataRow row) throws StorageException {
         try {
             byte[] value = row.valueBytes();
 
             assert value != null;
 
             data.put(row.keyBytes(), value);
-        }
-        catch (RocksDBException e) {
+        } catch (RocksDBException e) {
             throw new StorageException("Filed to write data to the storage", e);
         }
     }
 
     /** {@inheritDoc} */
-    @Override public void writeAll(List<? extends DataRow> rows) throws StorageException {
+    @Override
+    public void writeAll(List<? extends DataRow> rows) throws StorageException {
         try (WriteBatch batch = new WriteBatch();
-             WriteOptions opts = new WriteOptions()) {
+                WriteOptions opts = new WriteOptions()) {
             for (DataRow row : rows) {
                 byte[] value = row.valueBytes();
 
@@ -171,18 +174,18 @@ public class RocksDbPartitionStorage implements PartitionStorage {
             }
 
             db.write(opts, batch);
-        }
-        catch (RocksDBException e) {
+        } catch (RocksDBException e) {
             throw new StorageException("Filed to write data to the storage", e);
         }
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<DataRow> insertAll(List<? extends DataRow> rows) throws StorageException {
+    @Override
+    public Collection<DataRow> insertAll(List<? extends DataRow> rows) throws StorageException {
         List<DataRow> cantInsert = new ArrayList<>();
 
         try (WriteBatch batch = new WriteBatch();
-             WriteOptions opts = new WriteOptions()) {
+                WriteOptions opts = new WriteOptions()) {
 
             for (DataRow row : rows) {
                 if (data.get(row.keyBytes()) == null) {
@@ -191,13 +194,13 @@ public class RocksDbPartitionStorage implements PartitionStorage {
                     assert value != null;
 
                     data.put(batch, row.keyBytes(), value);
-                } else
+                } else {
                     cantInsert.add(row);
+                }
             }
 
             db.write(opts, batch);
-        }
-        catch (RocksDBException e) {
+        } catch (RocksDBException e) {
             throw new StorageException("Filed to write data to the storage", e);
         }
 
@@ -205,36 +208,37 @@ public class RocksDbPartitionStorage implements PartitionStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public void remove(SearchRow key) throws StorageException {
+    @Override
+    public void remove(SearchRow key) throws StorageException {
         try {
             data.delete(key.keyBytes());
-        }
-        catch (RocksDBException e) {
+        } catch (RocksDBException e) {
             throw new StorageException("Failed to remove data from the storage", e);
         }
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<SearchRow> removeAll(List<? extends SearchRow> keys) {
+    @Override
+    public Collection<SearchRow> removeAll(List<? extends SearchRow> keys) {
         List<SearchRow> skippedRows = new ArrayList<>();
 
         try (WriteBatch batch = new WriteBatch();
-             WriteOptions opts = new WriteOptions()) {
+                WriteOptions opts = new WriteOptions()) {
 
             for (SearchRow key : keys) {
                 byte[] keyBytes = key.keyBytes();
 
                 byte[] value = data.get(keyBytes);
 
-                if (value != null)
+                if (value != null) {
                     data.delete(batch, keyBytes);
-                else
+                } else {
                     skippedRows.add(key);
+                }
             }
 
             db.write(opts, batch);
-        }
-        catch (RocksDBException e) {
+        } catch (RocksDBException e) {
             throw new StorageException("Failed to remove data from the storage", e);
         }
 
@@ -242,11 +246,12 @@ public class RocksDbPartitionStorage implements PartitionStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<DataRow> removeAllExact(List<? extends DataRow> keyValues) {
+    @Override
+    public Collection<DataRow> removeAllExact(List<? extends DataRow> keyValues) {
         List<DataRow> skippedRows = new ArrayList<>();
 
         try (WriteBatch batch = new WriteBatch();
-             WriteOptions opts = new WriteOptions()) {
+                WriteOptions opts = new WriteOptions()) {
 
             List<byte[]> keys = getKeys(keyValues);
             List<byte[]> values = db.multiGetAsList(nCopies(keys.size(), data.handle()), keys);
@@ -258,15 +263,15 @@ public class RocksDbPartitionStorage implements PartitionStorage {
                 byte[] expectedValue = keyValues.get(i).valueBytes();
                 byte[] value = values.get(i);
 
-                if (Arrays.equals(value, expectedValue))
+                if (Arrays.equals(value, expectedValue)) {
                     data.delete(batch, key);
-                else
+                } else {
                     skippedRows.add(keyValues.get(i));
+                }
             }
 
             db.write(opts, batch);
-        }
-        catch (RocksDBException e) {
+        } catch (RocksDBException e) {
             throw new StorageException("Failed to remove data from the storage", e);
         }
 
@@ -276,7 +281,8 @@ public class RocksDbPartitionStorage implements PartitionStorage {
 
     /** {@inheritDoc} */
     @Nullable
-    @Override public <T> T invoke(SearchRow key, InvokeClosure<T> clo) throws StorageException {
+    @Override
+    public <T> T invoke(SearchRow key, InvokeClosure<T> clo) throws StorageException {
         try {
             byte[] keyBytes = key.keyBytes();
 
@@ -308,77 +314,79 @@ public class RocksDbPartitionStorage implements PartitionStorage {
             }
 
             return clo.result();
-        }
-        catch (RocksDBException e) {
+        } catch (RocksDBException e) {
             throw new StorageException("Failed to access data in the storage", e);
         }
     }
 
     /** {@inheritDoc} */
-    @Override public Cursor<DataRow> scan(Predicate<SearchRow> filter) throws StorageException {
+    @Override
+    public Cursor<DataRow> scan(Predicate<SearchRow> filter) throws StorageException {
         return new ScanCursor(data.newIterator(), filter);
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Void> snapshot(Path snapshotPath) {
+    @Override
+    public @NotNull CompletableFuture<Void> snapshot(Path snapshotPath) {
         Path tempPath = Paths.get(snapshotPath.toString() + TMP_SUFFIX);
-
+    
         // Create a RocksDB point-in-time snapshot
         Snapshot snapshot = db.getSnapshot();
-
+    
         return CompletableFuture.runAsync(() -> {
-            // (Re)create the temporary directory
-            IgniteUtils.deleteIfExists(tempPath);
-
-            try {
-                Files.createDirectories(tempPath);
-            }
-            catch (IOException e) {
-                throw new IgniteInternalException("Failed to create directory: " + tempPath, e);
-            }
-        }, snapshotExecutor)
-            .thenRunAsync(() -> createSstFile(data, snapshot, tempPath), snapshotExecutor)
-            .whenComplete((aVoid, throwable) -> {
-                // Release a snapshot
-                db.releaseSnapshot(snapshot);
-
-                // Snapshot is not actually closed here, because a Snapshot instance doesn't own a pointer, the
-                // database does. Calling close to maintain the AutoCloseable semantics
-                snapshot.close();
-
-                if (throwable != null)
-                    return;
-
-                // Delete snapshot directory if it already exists
-                IgniteUtils.deleteIfExists(snapshotPath);
-
-                try {
-                    // Rename the temporary directory
-                    Files.move(tempPath, snapshotPath);
-                }
-                catch (IOException e) {
-                    throw new IgniteInternalException("Failed to rename: " + tempPath + " to " + snapshotPath, e);
-                }
-            });
+                    // (Re)create the temporary directory
+                    IgniteUtils.deleteIfExists(tempPath);
+                
+                    try {
+                        Files.createDirectories(tempPath);
+                    } catch (IOException e) {
+                        throw new IgniteInternalException("Failed to create directory: " + tempPath, e);
+                    }
+                }, snapshotExecutor)
+                .thenRunAsync(() -> createSstFile(data, snapshot, tempPath), snapshotExecutor)
+                .whenComplete((avoid, throwable) -> {
+                    // Release a snapshot
+                    db.releaseSnapshot(snapshot);
+                
+                    // Snapshot is not actually closed here, because a Snapshot instance doesn't own a pointer, the
+                    // database does. Calling close to maintain the AutoCloseable semantics
+                    snapshot.close();
+                
+                    if (throwable != null) {
+                        return;
+                    }
+                
+                    // Delete snapshot directory if it already exists
+                    IgniteUtils.deleteIfExists(snapshotPath);
+                
+                    try {
+                        // Rename the temporary directory
+                        Files.move(tempPath, snapshotPath);
+                    } catch (IOException e) {
+                        throw new IgniteInternalException("Failed to rename: " + tempPath + " to " + snapshotPath, e);
+                    }
+                });
     }
 
     /** {@inheritDoc} */
-    @Override public void restoreSnapshot(Path path) {
+    @Override
+    public void restoreSnapshot(Path path) {
         try (IngestExternalFileOptions ingestOptions = new IngestExternalFileOptions()) {
             Path snapshotPath = path.resolve(data.name());
 
-            if (!Files.exists(snapshotPath))
+            if (!Files.exists(snapshotPath)) {
                 throw new IgniteInternalException("Snapshot not found: " + snapshotPath);
+            }
 
             data.ingestExternalFile(Collections.singletonList(snapshotPath.toString()), ingestOptions);
-        }
-        catch (RocksDBException e) {
+        } catch (RocksDBException e) {
             throw new IgniteInternalException("Fail to ingest sst file at path: " + path, e);
         }
     }
 
     /** {@inheritDoc} */
-    @Override public void close() throws Exception {
+    @Override
+    public void close() throws Exception {
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
     }
 
@@ -391,7 +399,7 @@ public class RocksDbPartitionStorage implements PartitionStorage {
         private final Predicate<SearchRow> filter;
 
         /**
-         * @param iter Iterator.
+         * @param iter   Iterator.
          * @param filter Filter.
          */
         private ScanCursor(RocksIterator iter, Predicate<SearchRow> filter) {
@@ -402,14 +410,18 @@ public class RocksDbPartitionStorage implements PartitionStorage {
         }
 
         /** {@inheritDoc} */
-        @NotNull @Override public Iterator<DataRow> iterator() {
+        @NotNull
+        @Override
+        public Iterator<DataRow> iterator() {
             return this;
         }
 
         /** {@inheritDoc} */
-        @Override public boolean hasNext() {
-            while (isValid() && !filter.test(new SimpleDataRow(iter.key(), iter.value())))
+        @Override
+        public boolean hasNext() {
+            while (isValid() && !filter.test(new SimpleDataRow(iter.key(), iter.value()))) {
                 iter.next();
+            }
 
             return isValid();
         }
@@ -417,27 +429,28 @@ public class RocksDbPartitionStorage implements PartitionStorage {
         /**
          * Checks iterator validity.
          *
-         * @throws IgniteInternalException If iterator is not valid and {@link RocksIterator#status()} has thrown an
-         *      exception.
+         * @throws IgniteInternalException If iterator is not valid and {@link RocksIterator#status()} has thrown an exception.
          */
         private boolean isValid() {
-            if (iter.isValid())
+            if (iter.isValid()) {
                 return true;
+            }
 
             try {
                 iter.status();
 
                 return false;
-            }
-            catch (RocksDBException e) {
+            } catch (RocksDBException e) {
                 throw new IgniteInternalException(e);
             }
         }
 
         /** {@inheritDoc} */
-        @Override public DataRow next() {
-            if (!hasNext())
+        @Override
+        public DataRow next() {
+            if (!hasNext()) {
                 throw new NoSuchElementException();
+            }
 
             var row = new SimpleDataRow(iter.key(), iter.value());
 
@@ -447,21 +460,24 @@ public class RocksDbPartitionStorage implements PartitionStorage {
         }
 
         /** {@inheritDoc} */
-        @Override public void close() throws Exception {
+        @Override
+        public void close() throws Exception {
             iter.close();
         }
     }
 
     /**
      * Gets a list of key byte arrays.
+     *
      * @param keyValues Key rows.
      * @return List of keys as byte arrays.
      */
     private List<byte[]> getKeys(List<? extends SearchRow> keyValues) {
         List<byte[]> keys = new ArrayList<>(keyValues.size());
 
-        for (SearchRow keyValue : keyValues)
+        for (SearchRow keyValue : keyValues) {
             keys.add(keyValue.keyBytes());
+        }
 
         return keys;
     }

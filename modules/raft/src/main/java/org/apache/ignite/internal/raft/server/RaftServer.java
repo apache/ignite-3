@@ -41,8 +41,7 @@ public interface RaftServer extends IgniteComponent {
      * @param groupId     Group id.
      * @param lsnr        The listener.
      * @param initialConf Inititial group configuration.
-     * @return {@code True} if a group was successfully started,
-     * {@code False} when the group with given name is already exists.
+     * @return {@code True} if a group was successfully started, {@code False} when the group with given name is already exists.
      */
     boolean startRaftGroup(String groupId, RaftGroupListener lsnr, List<Peer> initialConf);
 

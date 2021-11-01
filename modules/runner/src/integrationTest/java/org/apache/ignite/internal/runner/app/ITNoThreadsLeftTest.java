@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -30,11 +35,6 @@ import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The test checks that no threads left after one node stopped.
@@ -50,21 +50,20 @@ public class ITNoThreadsLeftTest extends IgniteAbstractTest {
     public static final String TABLE_NAME = SCHEMA + "." + SHORT_TABLE_NAME;
 
     /** One node cluster configuration. */
-    private static Function<String, String> NODE_CONFIGURATION = metastorageNodeName -> "{\n" +
-        "  \"node\": {\n" +
-        "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n" +
-        "  },\n" +
-        "  \"network\": {\n" +
-        "    \"port\":3344,\n" +
-        "    \"nodeFinder\": {\n" +
-        "      \"netClusterNodes\":[ \"localhost:3344\" ]\n" +
-        "    }\n" +
-        "  }\n" +
-        "}";
+    private static Function<String, String> NODE_CONFIGURATION = metastorageNodeName -> "{\n"
+            + "  \"node\": {\n"
+            + "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n"
+            + "  },\n"
+            + "  \"network\": {\n"
+            + "    \"port\":3344,\n"
+            + "    \"nodeFinder\": {\n"
+            + "      \"netClusterNodes\":[ \"localhost:3344\" ]\n"
+            + "    }\n"
+            + "  }\n"
+            + "}";
 
     /**
-     * Starts one node and stops it and
-     * checks that the amount of thread equivalent as before.
+     * Starts one node and stops it and checks that the amount of thread equivalent as before.
      *
      * @param testInfo JUnit meta info for the test.
      * @throws Exception If failed.
@@ -76,9 +75,9 @@ public class ITNoThreadsLeftTest extends IgniteAbstractTest {
         String nodeName = IgniteTestUtils.testNodeName(testInfo, 0);
 
         Ignite ignite = IgnitionManager.start(
-            nodeName,
-            NODE_CONFIGURATION.apply(nodeName),
-            workDir.resolve(nodeName));
+                nodeName,
+                NODE_CONFIGURATION.apply(nodeName),
+                workDir.resolve(nodeName));
 
         Table tbl = createTable(ignite, SCHEMA, SHORT_TABLE_NAME);
 
@@ -87,16 +86,16 @@ public class ITNoThreadsLeftTest extends IgniteAbstractTest {
         Set<Thread> threadsInTime = getCurrentThreads();
 
         assertTrue(threadsBefore.size() < threadsInTime.size(), threadsBefore.stream()
-            .filter(thread -> !threadsInTime.contains(thread)).map(Thread::getName)
-            .collect(Collectors.joining(",")));
+                .filter(thread -> !threadsInTime.contains(thread)).map(Thread::getName)
+                .collect(Collectors.joining(",")));
 
         ignite.close();
 
         Set<Thread> threadsAfter = getCurrentThreads();
-
-        assertEquals(threadsBefore.size(), threadsAfter.size(), threadsAfter.stream().
-            filter(thread -> !threadsBefore.contains(thread)).map(Thread::getName)
-            .collect(Collectors.joining(", ")));
+    
+        assertEquals(threadsBefore.size(), threadsAfter.size(), threadsAfter.stream()
+                .filter(thread -> !threadsBefore.contains(thread)).map(Thread::getName)
+                .collect(Collectors.joining(", ")));
     }
 
     /**
@@ -108,12 +107,12 @@ public class ITNoThreadsLeftTest extends IgniteAbstractTest {
      */
     protected Table createTable(Ignite node, String schemaName, String shortTableName) {
         return node.tables().createTable(
-            schemaName + "." + shortTableName, tblCh -> convert(SchemaBuilders.tableBuilder(schemaName, shortTableName).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
-                SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
-                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValueExpression("default").build()
-                ).withPrimaryKey("key").build(),
-                tblCh).changeReplicas(2).changePartitions(10)
+                schemaName + "." + shortTableName, tblCh -> convert(SchemaBuilders.tableBuilder(schemaName, shortTableName).columns(
+                                SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
+                                SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
+                                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValueExpression("default").build()
+                        ).withPrimaryKey("key").build(),
+                        tblCh).changeReplicas(2).changePartitions(10)
         );
     }
 
@@ -123,13 +122,14 @@ public class ITNoThreadsLeftTest extends IgniteAbstractTest {
      *
      * @return Set of threads.
      */
-    @NotNull private Set<Thread> getCurrentThreads() {
+    @NotNull
+    private Set<Thread> getCurrentThreads() {
         return Thread.getAllStackTraces().keySet().stream()
-            .filter(thread ->
-                !thread.getName().startsWith("nioEventLoopGroup") &&
-                !thread.getName().startsWith("globalEventExecutor") &&
-                !thread.getName().startsWith("ForkJoinPool") &&
-                !thread.getName().startsWith("parallel"))
-            .collect(Collectors.toSet());
+                .filter(thread ->
+                        !thread.getName().startsWith("nioEventLoopGroup")
+                                && !thread.getName().startsWith("globalEventExecutor")
+                                && !thread.getName().startsWith("ForkJoinPool")
+                                && !thread.getName().startsWith("parallel"))
+                .collect(Collectors.toSet());
     }
 }

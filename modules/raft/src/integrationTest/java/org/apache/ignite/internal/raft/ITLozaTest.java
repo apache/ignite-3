@@ -17,6 +17,17 @@
 
 package org.apache.ignite.internal.raft;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
@@ -41,17 +52,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 /**
  * Tests for {@link Loza} functionality.
  */
@@ -63,10 +63,14 @@ public class ITLozaTest {
     /** Server port offset. */
     private static final int PORT = 20010;
 
-    /** */
+    /**
+     *
+     */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
-    /** */
+    /**
+     *
+     */
     @WorkDirectory
     private Path dataPath;
 
@@ -77,23 +81,23 @@ public class ITLozaTest {
      */
     private RaftGroupService startClient(String groupId, ClusterNode node, Loza loza) throws Exception {
         return loza.prepareRaftGroup(groupId,
-            List.of(node), () -> mock(RaftGroupListener.class)
+                List.of(node), () -> mock(RaftGroupListener.class)
         ).get(10, TimeUnit.SECONDS);
     }
 
     /**
      * @param testInfo Test info.
-     * @param port Local port.
-     * @param srvs Server nodes of the cluster.
+     * @param port     Local port.
+     * @param srvs     Server nodes of the cluster.
      * @return The client cluster view.
      */
     private static ClusterService clusterService(TestInfo testInfo, int port, List<NetworkAddress> srvs) {
         var network = ClusterServiceTestUtils.clusterService(
-            testInfo,
-            port,
-            new StaticNodeFinder(srvs),
-            SERIALIZATION_REGISTRY,
-            NETWORK_FACTORY
+                testInfo,
+                port,
+                new StaticNodeFinder(srvs),
+                SERIALIZATION_REGISTRY,
+                NETWORK_FACTORY
         );
 
         network.start();
@@ -128,34 +132,35 @@ public class ITLozaTest {
             for (int i = 0; i < grpSrvcs.length; i++) {
                 // return an error on first invocation
                 doReturn(exception)
-                    // assert that a retry has been issued on the executor
-                    .doAnswer(invocation -> {
-                        assertThat(Thread.currentThread().getName(), containsString(Loza.CLIENT_POOL_NAME));
+                        // assert that a retry has been issued on the executor
+                        .doAnswer(invocation -> {
+                            assertThat(Thread.currentThread().getName(), containsString(Loza.CLIENT_POOL_NAME));
 
-                        return exception;
-                    })
-                    // finally call the real method
-                    .doCallRealMethod()
-                    .when(messagingServiceMock).invoke(any(NetworkAddress.class), any(), anyLong());
+                            return exception;
+                        })
+                        // finally call the real method
+                        .doCallRealMethod()
+                        .when(messagingServiceMock).invoke(any(NetworkAddress.class), any(), anyLong());
 
                 grpSrvcs[i] = startClient(Integer.toString(i), service.topologyService().localMember(), loza);
 
                 verify(messagingServiceMock, times(3 * (i + 1)))
-                    .invoke(any(NetworkAddress.class), any(), anyLong());
+                        .invoke(any(NetworkAddress.class), any(), anyLong());
             }
-        }
-        finally {
+        } finally {
             for (RaftGroupService srvc : grpSrvcs) {
                 srvc.shutdown();
 
                 loza.stopRaftGroup(srvc.groupId());
             }
 
-            if (loza != null)
+            if (loza != null) {
                 loza.stop();
+            }
 
-            if (service != null)
+            if (service != null) {
                 service.stop();
+            }
         }
     }
 }

@@ -146,15 +146,15 @@ public class ConfigurationRegistry implements IgniteComponent {
     /**
      * Registers default validator implementation to the validators map.
      *
-     * @param validators Validators map.
+     * @param validators     Validators map.
      * @param annotatopnType Annotation type instance for the validator.
-     * @param validator Validator instance.
-     * @param <A> Annotation type.
+     * @param validator      Validator instance.
+     * @param <A>            Annotation type.
      */
     private static <A extends Annotation> void addDefaultValidator(
-        Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators,
-        Class<A> annotatopnType,
-        Validator<A, ?> validator
+            Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators,
+            Class<A> annotatopnType,
+            Validator<A, ?> validator
     ) {
         validators.computeIfAbsent(annotatopnType, a -> new HashSet<>(1)).add(validator);
     }

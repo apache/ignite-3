@@ -14,7 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.raft.server.impl;
+
+import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
 
 import java.io.File;
 import java.io.IOException;
@@ -63,8 +66,6 @@ import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
-
 /**
  * Raft server implementation on top of forked JRaft library.
  */
@@ -91,7 +92,7 @@ public class JRaftServerImpl implements RaftServer {
     private ExecutorService requestExecutor;
 
     /**
-     * @param service Cluster service.
+     * @param service  Cluster service.
      * @param dataPath Data path.
      */
     public JRaftServerImpl(ClusterService service, Path dataPath) {
@@ -99,117 +100,133 @@ public class JRaftServerImpl implements RaftServer {
     }
 
     /**
-     * @param service Cluster service.
+     * @param service  Cluster service.
      * @param dataPath Data path.
-     * @param opts Default node options.
+     * @param opts     Default node options.
      */
     public JRaftServerImpl(
-        ClusterService service,
-        Path dataPath,
-        NodeOptions opts
+            ClusterService service,
+            Path dataPath,
+            NodeOptions opts
     ) {
         this.service = service;
         this.dataPath = dataPath;
         this.nodeManager = new NodeManager();
         this.opts = opts;
 
-        if (opts.getServerName() == null)
+        if (opts.getServerName() == null) {
             opts.setServerName(service.localConfiguration().getName());
+        }
     }
 
     /** {@inheritDoc} */
-    @Override public void start() {
-        if (opts.getCommonExecutor() == null)
+    @Override
+    public void start() {
+        if (opts.getCommonExecutor() == null) {
             opts.setCommonExecutor(JRaftUtils.createCommonExecutor(opts));
+        }
 
-        if (opts.getStripedExecutor() == null)
+        if (opts.getStripedExecutor() == null) {
             opts.setStripedExecutor(JRaftUtils.createAppendEntriesExecutor(opts));
+        }
 
-        if (opts.getScheduler() == null)
+        if (opts.getScheduler() == null) {
             opts.setScheduler(JRaftUtils.createScheduler(opts));
+        }
 
-        if (opts.getClientExecutor() == null)
+        if (opts.getClientExecutor() == null) {
             opts.setClientExecutor(JRaftUtils.createClientExecutor(opts, opts.getServerName()));
+        }
 
         requestExecutor = JRaftUtils.createRequestExecutor(opts);
 
         rpcServer = new IgniteRpcServer(
-            service,
-            nodeManager,
-            opts.getRaftMessagesFactory(),
-            requestExecutor
+                service,
+                nodeManager,
+                opts.getRaftMessagesFactory(),
+                requestExecutor
         );
 
         if (opts.getfSMCallerExecutorDisruptor() == null) {
             opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
-                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-FSMCaller-Disruptor"),
-                opts.getRaftOptions().getDisruptorBufferSize(),
-                () -> new FSMCallerImpl.ApplyTask(),
-                opts.getStripes()));
+                    NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-FSMCaller-Disruptor"),
+                    opts.getRaftOptions().getDisruptorBufferSize(),
+                    () -> new FSMCallerImpl.ApplyTask(),
+                    opts.getStripes()));
         }
 
         if (opts.getNodeApplyDisruptor() == null) {
             opts.setNodeApplyDisruptor(new StripedDisruptor<NodeImpl.LogEntryAndClosure>(
-                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-NodeImpl-Disruptor"),
-                opts.getRaftOptions().getDisruptorBufferSize(),
-                () -> new NodeImpl.LogEntryAndClosure(),
-                opts.getStripes()));
+                    NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-NodeImpl-Disruptor"),
+                    opts.getRaftOptions().getDisruptorBufferSize(),
+                    () -> new NodeImpl.LogEntryAndClosure(),
+                    opts.getStripes()));
         }
 
         if (opts.getReadOnlyServiceDisruptor() == null) {
             opts.setReadOnlyServiceDisruptor(new StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent>(
-                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-ReadOnlyService-Disruptor"),
-                opts.getRaftOptions().getDisruptorBufferSize(),
-                () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
-                opts.getStripes()));
+                    NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-ReadOnlyService-Disruptor"),
+                    opts.getRaftOptions().getDisruptorBufferSize(),
+                    () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
+                    opts.getStripes()));
         }
 
         if (opts.getLogManagerDisruptor() == null) {
             opts.setLogManagerDisruptor(new StripedDisruptor<LogManagerImpl.StableClosureEvent>(
-                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-LogManager-Disruptor"),
-                opts.getRaftOptions().getDisruptorBufferSize(),
-                () -> new LogManagerImpl.StableClosureEvent(),
-                opts.getStripes()));
+                    NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-LogManager-Disruptor"),
+                    opts.getRaftOptions().getDisruptorBufferSize(),
+                    () -> new LogManagerImpl.StableClosureEvent(),
+                    opts.getStripes()));
         }
 
         rpcServer.init(null);
     }
 
     /** {@inheritDoc} */
-    @Override public void stop() {
+    @Override
+    public void stop() {
         assert groups.isEmpty() : LoggerMessageHelper.format("Raft groups are still running {}", groups.keySet());
 
         rpcServer.shutdown();
 
-        if (opts.getfSMCallerExecutorDisruptor() != null)
+        if (opts.getfSMCallerExecutorDisruptor() != null) {
             opts.getfSMCallerExecutorDisruptor().shutdown();
+        }
 
-        if (opts.getNodeApplyDisruptor() != null)
+        if (opts.getNodeApplyDisruptor() != null) {
             opts.getNodeApplyDisruptor().shutdown();
+        }
 
-        if (opts.getReadOnlyServiceDisruptor() != null)
+        if (opts.getReadOnlyServiceDisruptor() != null) {
             opts.getReadOnlyServiceDisruptor().shutdown();
+        }
 
-        if (opts.getLogManagerDisruptor() != null)
+        if (opts.getLogManagerDisruptor() != null) {
             opts.getLogManagerDisruptor().shutdown();
+        }
 
-        if (opts.getCommonExecutor() != null)
+        if (opts.getCommonExecutor() != null) {
             ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getCommonExecutor());
+        }
 
-        if (opts.getStripedExecutor() != null)
+        if (opts.getStripedExecutor() != null) {
             opts.getStripedExecutor().shutdownGracefully();
+        }
 
-        if (opts.getScheduler() != null)
+        if (opts.getScheduler() != null) {
             opts.getScheduler().shutdown();
+        }
 
-        if (opts.getClientExecutor() != null)
+        if (opts.getClientExecutor() != null) {
             ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getClientExecutor());
+        }
 
         ExecutorServiceHelper.shutdownAndAwaitTermination(requestExecutor);
     }
 
     /** {@inheritDoc} */
-    @Override public ClusterService clusterService() {
+    @Override
+    public ClusterService clusterService() {
         return service;
     }
 
@@ -226,10 +243,12 @@ public class JRaftServerImpl implements RaftServer {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr,
-        @Nullable List<Peer> initialConf) {
-        if (groups.containsKey(groupId))
+    @Override
+    public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr,
+            @Nullable List<Peer> initialConf) {
+        if (groups.containsKey(groupId)) {
             return false;
+        }
 
         // Thread pools are shared by all raft groups.
         NodeOptions nodeOptions = opts.copy();
@@ -238,8 +257,7 @@ public class JRaftServerImpl implements RaftServer {
 
         try {
             Files.createDirectories(serverDataPath);
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new IgniteInternalException(e);
         }
 
@@ -273,23 +291,27 @@ public class JRaftServerImpl implements RaftServer {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean stopRaftGroup(String groupId) {
+    @Override
+    public boolean stopRaftGroup(String groupId) {
         RaftGroupService svc = groups.remove(groupId);
 
         boolean stopped = svc != null;
 
-        if (stopped)
+        if (stopped) {
             svc.shutdown();
+        }
 
         return stopped;
     }
 
     /** {@inheritDoc} */
-    @Override public Peer localPeer(String groupId) {
+    @Override
+    public Peer localPeer(String groupId) {
         RaftGroupService service = groups.get(groupId);
 
-        if (service == null)
+        if (service == null) {
             return null;
+        }
 
         PeerId peerId = service.getRaftNode().getNodeId().getPeerId();
 
@@ -322,74 +344,82 @@ public class JRaftServerImpl implements RaftServer {
         }
 
         /** {@inheritDoc} */
-        @Override public void onApply(Iterator iter) {
+        @Override
+        public void onApply(Iterator iter) {
             try {
                 listener.onWrite(new java.util.Iterator<>() {
-                    @Override public boolean hasNext() {
+                    @Override
+                    public boolean hasNext() {
                         return iter.hasNext();
                     }
 
-                    @Override public CommandClosure<WriteCommand> next() {
-                        @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>)iter.done();
+                    @Override
+                    public CommandClosure<WriteCommand> next() {
+                        @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) iter.done();
                         ByteBuffer data = iter.getData();
 
                         return new CommandClosure<>() {
-                            @Override public WriteCommand command() {
+                            @Override
+                            public WriteCommand command() {
                                 return JDKMarshaller.DEFAULT.unmarshall(data.array());
                             }
 
-                            @Override public void result(Serializable res) {
-                                if (done != null)
+                            @Override
+                            public void result(Serializable res) {
+                                if (done != null) {
                                     done.result(res);
+                                }
 
                                 iter.next();
                             }
                         };
                     }
                 });
-            }
-            catch (Exception err) {
+            } catch (Exception err) {
                 Status st = new Status(RaftError.ESTATEMACHINE, err.getMessage());
 
-                if (iter.done() != null)
+                if (iter.done() != null) {
                     iter.done().run(st);
+                }
 
                 iter.setErrorAndRollback(1, st);
             }
         }
 
         /** {@inheritDoc} */
-        @Override public void onSnapshotSave(SnapshotWriter writer, Closure done) {
+        @Override
+        public void onSnapshotSave(SnapshotWriter writer, Closure done) {
             try {
                 listener.onSnapshotSave(Path.of(writer.getPath()), res -> {
                     if (res == null) {
                         File file = new File(writer.getPath());
 
                         for (File file0 : file.listFiles()) {
-                            if (file0.isFile())
+                            if (file0.isFile()) {
                                 writer.addFile(file0.getName(), null);
+                            }
                         }
 
                         done.run(Status.OK());
-                    }
-                    else {
+                    } else {
                         done.run(new Status(RaftError.EIO, "Fail to save snapshot to %s, reason %s",
-                            writer.getPath(), res.getMessage()));
+                                writer.getPath(), res.getMessage()));
                     }
                 });
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 done.run(new Status(RaftError.EIO, "Fail to save snapshot %s", e.getMessage()));
             }
         }
 
         /** {@inheritDoc} */
-        @Override public boolean onSnapshotLoad(SnapshotReader reader) {
+        @Override
+        public boolean onSnapshotLoad(SnapshotReader reader) {
             return listener.onSnapshotLoad(Path.of(reader.getPath()));
         }
 
         /** {@inheritDoc} */
-        @Override public void onShutdown() {
+        @Override
+        public void onShutdown() {
             listener.onShutdown();
         }
     }

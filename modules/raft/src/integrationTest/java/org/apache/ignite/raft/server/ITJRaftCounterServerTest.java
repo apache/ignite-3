@@ -286,8 +286,9 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         servers.forEach(srv -> {
             srv.stopRaftGroup("test_raft_group");
 
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < 10; i++) {
                 srv.stopRaftGroup("test_raft_group_" + i);
+            }
         });
     }
 

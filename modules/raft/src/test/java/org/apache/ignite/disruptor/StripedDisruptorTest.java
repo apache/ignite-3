@@ -17,9 +17,12 @@
 
 package org.apache.ignite.disruptor;
 
-import java.util.ArrayList;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.RingBuffer;
+import java.util.ArrayList;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.LoggerMessageHelper;
@@ -27,25 +30,22 @@ import org.apache.ignite.raft.jraft.disruptor.GroupAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 /**
  * Tests for striped disruptor.
  */
 public class StripedDisruptorTest extends IgniteAbstractTest {
     /**
-     * Checks the correctness of disruptor batching in a handler.
-     * This test creates only one stripe in order to the real Disruptor is shared between two groups.
+     * Checks the correctness of disruptor batching in a handler. This test creates only one stripe in order to the real Disruptor is shared
+     * between two groups.
      *
      * @throws Exception If fialed.
      */
     @Test
     public void testDisruptorBatch() throws Exception {
         StripedDisruptor<GroupAwareTestObj> disruptor = new StripedDisruptor<>("test-disruptor",
-            16384,
-            GroupAwareTestObj::new,
-            1);
+                16384,
+                GroupAwareTestObj::new,
+                1);
 
         GroupAwareTestObjHandler handler1 = new GroupAwareTestObjHandler();
         GroupAwareTestObjHandler handler2 = new GroupAwareTestObjHandler();
@@ -70,11 +70,11 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
 
             if (i % 10 == 0) {
                 assertTrue(IgniteTestUtils.waitForCondition(() -> handler1.applied == finalInt + 1, 10_000),
-                    LoggerMessageHelper.format("Batch was not commited [applied={}, expected={}, buffered={}]",
-                        handler1.applied, finalInt + 1, handler1.batch));
+                        LoggerMessageHelper.format("Batch was not commited [applied={}, expected={}, buffered={}]",
+                                handler1.applied, finalInt + 1, handler1.batch));
                 assertTrue(IgniteTestUtils.waitForCondition(() -> handler2.applied == finalInt + 1, 10_000),
-                    LoggerMessageHelper.format("Batch was not commited [applied={}, expected={}, buffered={}]",
-                        handler2.applied, finalInt + 1, handler2.batch));
+                        LoggerMessageHelper.format("Batch was not commited [applied={}, expected={}, buffered={}]",
+                                handler2.applied, finalInt + 1, handler2.batch));
             }
         }
 
@@ -82,17 +82,16 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
     }
 
     /**
-     * The test checks that the Striped Disruptor work same as real one
-     * in the circumstances when we have only one consumer group.
+     * The test checks that the Striped Disruptor work same as real one in the circumstances when we have only one consumer group.
      *
      * @throws Exception If fialed.
      */
     @Test
     public void testDisruptorSimple() throws Exception {
         StripedDisruptor<GroupAwareTestObj> disruptor = new StripedDisruptor<>("test-disruptor",
-            16384,
-            () -> new GroupAwareTestObj(),
-            5);
+                16384,
+                () -> new GroupAwareTestObj(),
+                5);
 
         GroupAwareTestObjHandler handler = new GroupAwareTestObjHandler();
 
@@ -121,7 +120,8 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
         int applied = 0;
 
         /** {@inheritDoc} */
-        @Override public void onEvent(GroupAwareTestObj event, long sequence, boolean endOfBatch) {
+        @Override
+        public void onEvent(GroupAwareTestObj event, long sequence, boolean endOfBatch) {
             batch.add(event.num);
 
             if (endOfBatch) {
@@ -147,7 +147,8 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
          *
          * @return Group id.
          */
-        @Override public String groupId() {
+        @Override
+        public String groupId() {
             return groupId;
         }
     }

@@ -17,6 +17,12 @@
 
 package org.apache.ignite.internal.util;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -24,17 +30,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link IgniteSpinReadWriteLock}.
@@ -49,7 +48,6 @@ class IgniteSpinReadWriteLockTest {
 
     /**
      * Cleans up after a test.
-     *
      */
     @AfterEach
     void cleanup() {
@@ -64,8 +62,7 @@ class IgniteSpinReadWriteLockTest {
         while (true) {
             try {
                 lock.readUnlock();
-            }
-            catch (IllegalMonitorStateException e) {
+            } catch (IllegalMonitorStateException e) {
                 // released our read lock completely
                 break;
             }
@@ -74,8 +71,9 @@ class IgniteSpinReadWriteLockTest {
 
     /***/
     private void releaseWriteLockHeldByCurrentThread() {
-        while (lock.writeLockedByCurrentThread())
+        while (lock.writeLockedByCurrentThread()) {
             lock.writeUnlock();
+        }
     }
 
     /**
@@ -332,7 +330,7 @@ class IgniteSpinReadWriteLockTest {
     void testReadLockReentryWhenConcurrentAttemptToAcquireWriteLockHappens() throws Exception {
         lock.readLock();
 
-        Future<?> future = executor.submit(() -> {
+        final Future<?> future = executor.submit(() -> {
             assertFalse(lock.tryWriteLock());
 
             lock.writeLock();
@@ -448,6 +446,7 @@ class IgniteSpinReadWriteLockTest {
     }
 
     /**
+     *
      */
     @Test
     void tryReadLockShouldReturnTrueWhenReadLockWasAcquiredSuccessfully() {
@@ -455,6 +454,7 @@ class IgniteSpinReadWriteLockTest {
     }
 
     /**
+     *
      */
     @Test
     void tryReadLockShouldReturnFalseWhenReadLockCouldNotBeAcquired() throws Exception {
@@ -478,6 +478,7 @@ class IgniteSpinReadWriteLockTest {
     }
 
     /**
+     *
      */
     @Test
     void tryWriteLockShouldReturnTrueWhenWriteLockWasAcquiredSuccessfully() {
@@ -485,6 +486,7 @@ class IgniteSpinReadWriteLockTest {
     }
 
     /**
+     *
      */
     @Test
     void tryWriteLockShouldReturnFalseWhenWriteLockCouldNotBeAcquired() throws Exception {

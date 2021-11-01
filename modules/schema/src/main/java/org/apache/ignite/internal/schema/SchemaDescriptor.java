@@ -80,8 +80,8 @@ public class SchemaDescriptor implements Serializable {
         colMap = new LinkedHashMap<>(keyCols.length + valCols.length);
 
         Stream.concat(Arrays.stream(this.keyCols.columns()), Arrays.stream(this.valCols.columns()))
-            .sorted(Comparator.comparingInt(Column::columnOrder))
-            .forEach(c -> colMap.put(c.name(), c));
+                .sorted(Comparator.comparingInt(Column::columnOrder))
+                .forEach(c -> colMap.put(c.name(), c));
 
         // Preserving key chunk column order is not actually required.
         // It is sufficient to has same column order for all nodes.

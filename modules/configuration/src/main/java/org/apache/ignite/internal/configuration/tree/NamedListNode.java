@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.configuration.tree;
 
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,8 +31,6 @@ import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
 
 /**
  * Configuration node implementation for the collection of named {@link InnerNode}s. Unlike implementations of {@link InnerNode}, this class

@@ -144,12 +144,12 @@ public class InitIgniteCommand {
      */
     private void initJavaUtilLoggingPros(Path javaUtilLogProps) {
         try {
-            if (!javaUtilLogProps.toFile().exists())
+            if (!javaUtilLogProps.toFile().exists()) {
                 Files.copy(
-                    InitIgniteCommand.class
-                        .getResourceAsStream("/ignite.java.util.logging.properties"), javaUtilLogProps);
-        }
-        catch (IOException e) {
+                        InitIgniteCommand.class
+                                .getResourceAsStream("/ignite.java.util.logging.properties"), javaUtilLogProps);
+            }
+        } catch (IOException e) {
             throw new IgniteCLIException("Can't create default config file for server", e);
         }
     }

@@ -17,13 +17,28 @@
 
 package org.apache.ignite.internal.network.recovery;
 
+import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryClientHandshakeManager.ClientStageFail;
+import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryClientHandshakeManager.ClientStageFail.CLIENT_CONNECTION_OPENED;
+import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryClientHandshakeManager.ClientStageFail.CLIENT_DOESNT_FAIL;
+import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryClientHandshakeManager.ClientStageFail.CLIENT_INIT;
+import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryClientHandshakeManager.ClientStageFail.CLIENT_SERVER_RESPONDED;
+import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryServerHandshakeManager.ServerStageFail;
+import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryServerHandshakeManager.ServerStageFail.SERVER_CLIENT_RESPONDED;
+import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryServerHandshakeManager.ServerStageFail.SERVER_CONNECTION_OPENED;
+import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryServerHandshakeManager.ServerStageFail.SERVER_DOESNT_FAIL;
+import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryServerHandshakeManager.ServerStageFail.SERVER_INIT;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import io.netty.channel.Channel;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import io.netty.channel.Channel;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -42,21 +57,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryClientHandshakeManager.ClientStageFail;
-import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryClientHandshakeManager.ClientStageFail.CLIENT_CONNECTION_OPENED;
-import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryClientHandshakeManager.ClientStageFail.CLIENT_DOESNT_FAIL;
-import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryClientHandshakeManager.ClientStageFail.CLIENT_INIT;
-import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryClientHandshakeManager.ClientStageFail.CLIENT_SERVER_RESPONDED;
-import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryServerHandshakeManager.ServerStageFail;
-import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryServerHandshakeManager.ServerStageFail.SERVER_CLIENT_RESPONDED;
-import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryServerHandshakeManager.ServerStageFail.SERVER_CONNECTION_OPENED;
-import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryServerHandshakeManager.ServerStageFail.SERVER_DOESNT_FAIL;
-import static org.apache.ignite.internal.network.recovery.ITRecoveryHandshakeTest.FailingRecoveryServerHandshakeManager.ServerStageFail.SERVER_INIT;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 /**
  * Recovery protocol handshake tests.
  */
@@ -71,7 +71,9 @@ public class ITRecoveryHandshakeTest {
     @InjectConfiguration
     private NetworkConfiguration networkConfiguration;
 
-    /** */
+    /**
+     *
+     */
     @AfterEach
     final void tearDown() {
         startedManagers.forEach(ConnectionManager::stop);
@@ -87,32 +89,32 @@ public class ITRecoveryHandshakeTest {
     @MethodSource("handshakeScenarios")
     public void testHandshakeScenario(HandshakeScenario scenario) throws Exception {
         ConnectionManager manager1 = startManager(
-            4000,
-            scenario.serverFailAt,
-            CLIENT_DOESNT_FAIL
+                4000,
+                scenario.serverFailAt,
+                CLIENT_DOESNT_FAIL
         );
 
         ConnectionManager manager2 = startManager(
-            4001,
-            SERVER_DOESNT_FAIL,
-            scenario.clientFailAt
+                4001,
+                SERVER_DOESNT_FAIL,
+                scenario.clientFailAt
         );
 
         NettySender from2to1;
 
         try {
             from2to1 = manager2.channel(manager1.consistentId(), manager1.getLocalAddress()).get(3, TimeUnit.SECONDS);
-        }
-        catch (Exception e) {
-            if (scenario.clientFailAt == CLIENT_DOESNT_FAIL &&
-                scenario.serverFailAt == SERVER_DOESNT_FAIL)
+        } catch (Exception e) {
+            if (scenario.clientFailAt == CLIENT_DOESNT_FAIL && scenario.serverFailAt == SERVER_DOESNT_FAIL) {
                 Assertions.fail(e);
+            }
 
             return;
         }
 
-        if (scenario.clientFailAt != CLIENT_DOESNT_FAIL || scenario.serverFailAt != SERVER_DOESNT_FAIL)
+        if (scenario.clientFailAt != CLIENT_DOESNT_FAIL || scenario.serverFailAt != SERVER_DOESNT_FAIL) {
             Assertions.fail("Handshake should've failed");
+        }
 
         assertNotNull(from2to1);
 
@@ -127,24 +129,23 @@ public class ITRecoveryHandshakeTest {
     }
 
     /**
-     * Tests special handshake scenario: the client assumes a handshake has been finished, but the server fails
-     * on client's response. The server will then close a connection and the client should get the
-     * "connection closed event".
+     * Tests special handshake scenario: the client assumes a handshake has been finished, but the server fails on client's response. The
+     * server will then close a connection and the client should get the "connection closed event".
      *
      * @throws Exception If failed.
      */
     @Test
     public void testHandshakeFailsOnServerWhenClientResponded() throws Exception {
         ConnectionManager manager1 = startManager(
-            4000,
-            SERVER_CLIENT_RESPONDED,
-            CLIENT_DOESNT_FAIL
+                4000,
+                SERVER_CLIENT_RESPONDED,
+                CLIENT_DOESNT_FAIL
         );
 
         ConnectionManager manager2 = startManager(
-            4001,
-            SERVER_DOESNT_FAIL,
-            CLIENT_DOESNT_FAIL
+                4001,
+                SERVER_DOESNT_FAIL,
+                CLIENT_DOESNT_FAIL
         );
 
         NettySender from2to1 = manager2.channel(manager1.consistentId(), manager1.getLocalAddress()).get(3, TimeUnit.SECONDS);
@@ -165,16 +166,17 @@ public class ITRecoveryHandshakeTest {
 
         int clientCount = 10;
 
-        for (int i = 0; i < clientCount; i++)
+        for (int i = 0; i < clientCount; i++) {
             clients.add(startManager(4001 + i));
+        }
 
         // A key is the client's consistent id, a value is the channel between the client and the server
         var channelsToServer = new HashMap<String, NettySender>();
 
         for (ConnectionManager client : clients) {
             channelsToServer.put(
-                client.consistentId(),
-                client.channel(server.consistentId(), server.getLocalAddress()).get(3, TimeUnit.SECONDS)
+                    client.consistentId(),
+                    client.channel(server.consistentId(), server.getLocalAddress()).get(3, TimeUnit.SECONDS)
             );
         }
 
@@ -202,11 +204,14 @@ public class ITRecoveryHandshakeTest {
 
         List<HandshakeScenario> res = new ArrayList<>();
 
-        for (ServerStageFail serverOpt : serverOpts)
-            for (ClientStageFail clientOpt : clientOpts)
+        for (ServerStageFail serverOpt : serverOpts) {
+            for (ClientStageFail clientOpt : clientOpts) {
                 // The case in if statement is handled in separate test
-                if (serverOpt != SERVER_CLIENT_RESPONDED && clientOpt != CLIENT_DOESNT_FAIL)
+                if (serverOpt != SERVER_CLIENT_RESPONDED && clientOpt != CLIENT_DOESNT_FAIL) {
                     res.add(new HandshakeScenario(serverOpt, clientOpt));
+                }
+            }
+        }
 
         return res;
     }
@@ -226,7 +231,8 @@ public class ITRecoveryHandshakeTest {
         }
 
         /** {@inheritDoc} */
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return String.format("server=%s, client=%s", serverFailAt, clientFailAt);
         }
     }
@@ -242,17 +248,18 @@ public class ITRecoveryHandshakeTest {
 
         /** Constructor. */
         private FailingRecoveryServerHandshakeManager(
-            UUID launchId,
-            String consistentId,
-            ServerStageFail failAtStage,
-            NetworkMessagesFactory messageFactory
+                UUID launchId,
+                String consistentId,
+                ServerStageFail failAtStage,
+                NetworkMessagesFactory messageFactory
         ) {
             super(launchId, consistentId, messageFactory);
             this.failAtStage = failAtStage;
         }
 
         /** {@inheritDoc} */
-        @Override public HandshakeAction init(Channel channel) {
+        @Override
+        public HandshakeAction init(Channel channel) {
             if (failAtStage == SERVER_INIT) {
                 handshakeFuture().completeExceptionally(new RuntimeException());
                 return HandshakeAction.FAIL;
@@ -262,7 +269,8 @@ public class ITRecoveryHandshakeTest {
         }
 
         /** {@inheritDoc} */
-        @Override public HandshakeAction onConnectionOpen(Channel channel) {
+        @Override
+        public HandshakeAction onConnectionOpen(Channel channel) {
             if (failAtStage == SERVER_CONNECTION_OPENED) {
                 handshakeFuture().completeExceptionally(new RuntimeException());
                 return HandshakeAction.FAIL;
@@ -272,7 +280,8 @@ public class ITRecoveryHandshakeTest {
         }
 
         /** {@inheritDoc} */
-        @Override public HandshakeAction onMessage(Channel channel, NetworkMessage message) {
+        @Override
+        public HandshakeAction onMessage(Channel channel, NetworkMessage message) {
             if (failAtStage == SERVER_CLIENT_RESPONDED) {
                 handshakeFuture().completeExceptionally(new RuntimeException());
                 return HandshakeAction.FAIL;
@@ -308,17 +317,18 @@ public class ITRecoveryHandshakeTest {
 
         /** Constructor. */
         private FailingRecoveryClientHandshakeManager(
-            UUID launchId,
-            String consistentId,
-            ClientStageFail failAtStage,
-            NetworkMessagesFactory messageFactory
+                UUID launchId,
+                String consistentId,
+                ClientStageFail failAtStage,
+                NetworkMessagesFactory messageFactory
         ) {
             super(launchId, consistentId, messageFactory);
             this.failAtStage = failAtStage;
         }
 
         /** {@inheritDoc} */
-        @Override public HandshakeAction init(Channel channel) {
+        @Override
+        public HandshakeAction init(Channel channel) {
             if (failAtStage == CLIENT_INIT) {
                 handshakeFuture().completeExceptionally(new RuntimeException());
                 return HandshakeAction.FAIL;
@@ -328,7 +338,8 @@ public class ITRecoveryHandshakeTest {
         }
 
         /** {@inheritDoc} */
-        @Override public HandshakeAction onConnectionOpen(Channel channel) {
+        @Override
+        public HandshakeAction onConnectionOpen(Channel channel) {
             if (failAtStage == CLIENT_CONNECTION_OPENED) {
                 handshakeFuture().completeExceptionally(new RuntimeException());
                 return HandshakeAction.FAIL;
@@ -338,7 +349,8 @@ public class ITRecoveryHandshakeTest {
         }
 
         /** {@inheritDoc} */
-        @Override public HandshakeAction onMessage(Channel channel, NetworkMessage message) {
+        @Override
+        public HandshakeAction onMessage(Channel channel, NetworkMessage message) {
             if (failAtStage == CLIENT_SERVER_RESPONDED) {
                 handshakeFuture().completeExceptionally(new RuntimeException());
                 return HandshakeAction.FAIL;
@@ -366,15 +378,15 @@ public class ITRecoveryHandshakeTest {
     /**
      * Starts a {@link ConnectionManager} adding it to the {@link #startedManagers} list.
      *
-     * @param port Port for the {@link ConnectionManager#server}.
+     * @param port                  Port for the {@link ConnectionManager#server}.
      * @param serverHandshakeFailAt At what stage to fail server handshake.
      * @param clientHandshakeFailAt At what stage to fail client handshake.
      * @return Connection manager.
      */
     private ConnectionManager startManager(
-        int port,
-        ServerStageFail serverHandshakeFailAt,
-        ClientStageFail clientHandshakeFailAt
+            int port,
+            ServerStageFail serverHandshakeFailAt,
+            ClientStageFail clientHandshakeFailAt
     ) {
         var registry = new TestMessageSerializationRegistryImpl();
 
@@ -388,11 +400,11 @@ public class ITRecoveryHandshakeTest {
         NetworkView cfg = networkConfiguration.value();
 
         var manager = new ConnectionManager(
-            cfg,
-            registry,
-            consistentId,
-            () -> new FailingRecoveryServerHandshakeManager(launchId, consistentId, serverHandshakeFailAt, messageFactory),
-            () -> new FailingRecoveryClientHandshakeManager(launchId, consistentId, clientHandshakeFailAt, messageFactory)
+                cfg,
+                registry,
+                consistentId,
+                () -> new FailingRecoveryServerHandshakeManager(launchId, consistentId, serverHandshakeFailAt, messageFactory),
+                () -> new FailingRecoveryClientHandshakeManager(launchId, consistentId, clientHandshakeFailAt, messageFactory)
         );
 
         manager.start();
@@ -421,11 +433,11 @@ public class ITRecoveryHandshakeTest {
         NetworkView cfg = networkConfiguration.value();
 
         var manager = new ConnectionManager(
-            cfg,
-            registry,
-            consistentId,
-            () -> new RecoveryServerHandshakeManager(launchId, consistentId, messageFactory),
-            () -> new RecoveryClientHandshakeManager(launchId, consistentId, messageFactory)
+                cfg,
+                registry,
+                consistentId,
+                () -> new RecoveryServerHandshakeManager(launchId, consistentId, messageFactory),
+                () -> new RecoveryClientHandshakeManager(launchId, consistentId, messageFactory)
         );
 
         manager.start();

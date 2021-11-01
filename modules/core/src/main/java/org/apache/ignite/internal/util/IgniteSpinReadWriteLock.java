@@ -20,18 +20,19 @@ package org.apache.ignite.internal.util;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * <p>Spin read-write lock.
- * Its blocking methods use the spinwait strategy. When they do so, they are not interruptible (that is, they do not
- * break their loop on interruption signal).
+ * Spin read-write lock.
+ * Its blocking methods use the spinwait strategy. When they do so, they are not interruptible (that is, they do not break their loop on
+ * interruption signal).
+ *
  * <p>The locks are reentrant (that is, the same thread can acquire the same lock a few times in a row and then
  * release them same number of times.
+ *
  * <p>Write lock acquire requests are prioritized over read lock acquire requests. That is, if both read and write lock
- * acquire requests are received when the write lock is held by someone else, then, on its release,
- * the write lock attempt will be served first.
+ * acquire requests are received when the write lock is held by someone else, then, on its release, the write lock attempt will be served
+ * first.
  */
 public class IgniteSpinReadWriteLock {
     /** Signals that nobody currently owns the read lock. */
@@ -63,12 +64,11 @@ public class IgniteSpinReadWriteLock {
     static {
         try {
             STATE_VH = MethodHandles.lookup()
-                    .findVarHandle(IgniteSpinReadWriteLock.class, "state", int.class);
+                .findVarHandle(IgniteSpinReadWriteLock.class, "state", int.class);
 
             PENDING_WLOCKS_VH = MethodHandles.lookup()
-                    .findVarHandle(IgniteSpinReadWriteLock.class, "pendingWLocks", int.class);
-        }
-        catch (ReflectiveOperationException e) {
+                .findVarHandle(IgniteSpinReadWriteLock.class, "pendingWLocks", int.class);
+        } catch (ReflectiveOperationException e) {
             throw new ExceptionInInitializerError(e);
         }
     }
@@ -91,10 +91,9 @@ public class IgniteSpinReadWriteLock {
     private volatile int state;
 
     /**
-     * Number of pending write attempts to acquire the write lock. Currently it is only used to prioritize
-     * write lock attempts over read lock attempts when the write lock has been released (so, if both an attempt to acquire
-     * the write lock and an attempt to acquire the read lock are waiting for write lock to be released, a write lock attempt
-     * will be served first when the release happens).
+     * Number of pending write attempts to acquire the write lock. Currently it is only used to prioritize write lock attempts over read
+     * lock attempts when the write lock has been released (so, if both an attempt to acquire the write lock and an attempt to acquire the
+     * read lock are waiting for write lock to be released, a write lock attempt will be served first when the release happens).
      */
     private volatile int pendingWLocks;
 
@@ -105,9 +104,8 @@ public class IgniteSpinReadWriteLock {
     private int writeLockEntryCnt;
 
     /**
-     * Acquires the read lock. If the write lock is held by another thread, this blocks until the write lock is released
-     * (and until all concurrent write locks are acquired and released, as this class pripritizes write lock attempts
-     * over read lock attempts).
+     * Acquires the read lock. If the write lock is held by another thread, this blocks until the write lock is released (and until all
+     * concurrent write locks are acquired and released, as this class pripritizes write lock attempts over read lock attempts).
      */
     @SuppressWarnings("BusyWait")
     public void readLock() {
@@ -130,8 +128,7 @@ public class IgniteSpinReadWriteLock {
             if (writeLockedOrGoingToBe(curState)) {
                 try {
                     Thread.sleep(SLEEP_MILLIS);
-                }
-                catch (InterruptedException ignored) {
+                } catch (InterruptedException ignored) {
                     interrupted = true;
                 }
 
@@ -139,8 +136,9 @@ public class IgniteSpinReadWriteLock {
             }
 
             if (tryAdvanceStateToReadLocked(curState)) {
-                if (interrupted)
+                if (interrupted) {
                     Thread.currentThread().interrupt();
+                }
 
                 break;
             }
@@ -152,8 +150,7 @@ public class IgniteSpinReadWriteLock {
     /**
      * Whether the current thread already holds any lock.
      *
-     * @param currentThreadReadLockAcquiredCount how many times current thread acquired (without releasing yet)
-     *                                           the read lock
+     * @param currentThreadReadLockAcquiredCount how many times current thread acquired (without releasing yet) the read lock
      * @return true if current thread already holds any lock
      */
     private boolean alreadyHoldingAnyLock(int currentThreadReadLockAcquiredCount) {
@@ -195,8 +192,9 @@ public class IgniteSpinReadWriteLock {
         while (true) {
             int curState = state;
 
-            if (writeLockedOrGoingToBe(curState))
+            if (writeLockedOrGoingToBe(curState)) {
                 return false;
+            }
 
             if (tryAdvanceStateToReadLocked(curState)) {
                 readLockEntryCnt.set(1);
@@ -214,8 +212,9 @@ public class IgniteSpinReadWriteLock {
     public void readUnlock() {
         int cnt = readLockEntryCnt.get();
 
-        if (cnt == 0)
+        if (cnt == 0) {
             throw new IllegalMonitorStateException();
+        }
 
         // Read unlock when holding write lock is performed here.
         if (cnt > 1 || writeLockedByCurrentThread()) {
@@ -240,8 +239,7 @@ public class IgniteSpinReadWriteLock {
     }
 
     /**
-     * Acquires the write lock waiting, if needed. The thread will block until all other threads release both read
-     * and write locks.
+     * Acquires the write lock waiting, if needed. The thread will block until all other threads release both read and write locks.
      */
     @SuppressWarnings("BusyWait")
     public void writeLock() {
@@ -258,18 +256,17 @@ public class IgniteSpinReadWriteLock {
             while (!trySwitchStateToWriteLocked()) {
                 try {
                     Thread.sleep(SLEEP_MILLIS);
-                }
-                catch (InterruptedException ignored) {
+                } catch (InterruptedException ignored) {
                     interrupted = true;
                 }
             }
-        }
-        finally {
+        } finally {
             decrementPendingWriteLocks();
         }
 
-        if (interrupted)
+        if (interrupted) {
             Thread.currentThread().interrupt();
+        }
 
         finishWriteLockAcquire();
     }
@@ -286,8 +283,9 @@ public class IgniteSpinReadWriteLock {
         while (true) {
             int curPendingWLocks = pendingWLocks;
 
-            if (compareAndSet(PENDING_WLOCKS_VH, curPendingWLocks, curPendingWLocks + 1))
+            if (compareAndSet(PENDING_WLOCKS_VH, curPendingWLocks, curPendingWLocks + 1)) {
                 break;
+            }
         }
     }
 
@@ -303,8 +301,9 @@ public class IgniteSpinReadWriteLock {
 
             assert curPendingWLocks > 0;
 
-            if (compareAndSet(PENDING_WLOCKS_VH, curPendingWLocks, curPendingWLocks - 1))
+            if (compareAndSet(PENDING_WLOCKS_VH, curPendingWLocks, curPendingWLocks - 1)) {
                 break;
+            }
         }
     }
 
@@ -317,8 +316,8 @@ public class IgniteSpinReadWriteLock {
     }
 
     /**
-     * Acquires the write lock without sleeping between unsuccessful attempts. Instead, the spinwait eats cycles of
-     * the core it gets at full speed. It is non-interruptible as its {@link #writeLock()} cousin.
+     * Acquires the write lock without sleeping between unsuccessful attempts. Instead, the spinwait eats cycles of the core it gets at full
+     * speed. It is non-interruptible as its {@link #writeLock()} cousin.
      */
     public void writeLockBusy() {
         if (writeLockedByCurrentThread()) {
@@ -329,9 +328,10 @@ public class IgniteSpinReadWriteLock {
 
         incrementPendingWriteLocks();
         try {
-            while (!trySwitchStateToWriteLocked());
-        }
-        finally {
+            while (!trySwitchStateToWriteLocked()) {
+                // No-op.
+            }
+        } finally {
             decrementPendingWriteLocks();
         }
 
@@ -346,8 +346,8 @@ public class IgniteSpinReadWriteLock {
     }
 
     /**
-     * Tries to acquire the write lock. Never blocks: if any lock has already been acquired by someone else,
-     * returns {@code false} immediately.
+     * Tries to acquire the write lock. Never blocks: if any lock has already been acquired by someone else, returns {@code false}
+     * immediately.
      *
      * @return {@code true} if the write lock has been acquired, {@code false} otherwise
      */
@@ -368,11 +368,11 @@ public class IgniteSpinReadWriteLock {
     }
 
     /**
-     * Tries to acquire the write lock with timeout. If it gets the write lock before the timeout expires, then
-     * returns {@code true}. If the timeout expires before the lock becomes available, returns {@code false}.
+     * Tries to acquire the write lock with timeout. If it gets the write lock before the timeout expires, then returns {@code true}. If the
+     * timeout expires before the lock becomes available, returns {@code false}.
      *
      * @param timeout Timeout.
-     * @param unit Unit.
+     * @param unit    Unit.
      * @return {@code true} if the write lock has been acquired in time; {@code false} otherwise
      * @throws InterruptedException If interrupted.
      */
@@ -399,11 +399,11 @@ public class IgniteSpinReadWriteLock {
 
                 Thread.sleep(SLEEP_MILLIS);
 
-                if (System.nanoTime() - startNanos >= timeoutNanos)
+                if (System.nanoTime() - startNanos >= timeoutNanos) {
                     return false;
+                }
             }
-        }
-        finally {
+        } finally {
             decrementPendingWriteLocks();
         }
     }
@@ -414,8 +414,9 @@ public class IgniteSpinReadWriteLock {
      * @throws IllegalMonitorStateException thrown if the current thread does not hold the write lock
      */
     public void writeUnlock() {
-        if (!writeLockedByCurrentThread())
+        if (!writeLockedByCurrentThread()) {
             throw new IllegalMonitorStateException();
+        }
 
         if (writeLockEntryCnt > 1) {
             writeLockEntryCnt--;
@@ -437,8 +438,8 @@ public class IgniteSpinReadWriteLock {
 
     /**
      * @param varHandle VarHandle.
-     * @param expect Expected.
-     * @param update Update.
+     * @param expect    Expected.
+     * @param update    Update.
      * @return {@code True} on success.
      */
     private boolean compareAndSet(VarHandle varHandle, int expect, int update) {
@@ -455,7 +456,8 @@ public class IgniteSpinReadWriteLock {
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return S.toString(IgniteSpinReadWriteLock.class, this);
     }
 }

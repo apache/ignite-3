@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -36,11 +35,13 @@ import org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.Aggregat
  * Expression factory.
  */
 public interface ExpressionFactory<Row> {
-    /** */
+    /**
+     *
+     */
     Supplier<List<AccumulatorWrapper<Row>>> accumulatorsFactory(
-        AggregateType type,
-        List<AggregateCall> calls,
-        RelDataType rowType
+            AggregateType type,
+            List<AggregateCall> calls,
+            RelDataType rowType
     );
 
     /**
@@ -52,11 +53,11 @@ public interface ExpressionFactory<Row> {
     Comparator<Row> comparator(RelCollation collations);
 
     /**
-     * Creates a comparator for different rows by given field collations. Mainly used for merge join rows comparison.
-     * Note: Both list has to have the same size and matched fields collations has to have the same traits
-     * (i.e. all pairs of field collations should have the same sorting and nulls ordering).
+     * Creates a comparator for different rows by given field collations. Mainly used for merge join rows comparison. Note: Both list has to
+     * have the same size and matched fields collations has to have the same traits (i.e. all pairs of field collations should have the same
+     * sorting and nulls ordering).
      *
-     * @param left Collations of left row.
+     * @param left  Collations of left row.
      * @param right Collations of right row.
      * @return Rows comparator.
      */
@@ -64,17 +65,18 @@ public interface ExpressionFactory<Row> {
 
     /**
      * Creates a Filter predicate.
-     * @param filter Filter expression.
+     *
+     * @param filter  Filter expression.
      * @param rowType Input row type.
      * @return Filter predicate.
      */
     Predicate<Row> predicate(RexNode filter, RelDataType rowType);
 
     /**
-     * Creates a Project function. Resulting function returns a row with different fields,
-     * fields order, fields types, etc.
+     * Creates a Project function. Resulting function returns a row with different fields, fields order, fields types, etc.
+     *
      * @param projects Projection expressions.
-     * @param rowType Input row type.
+     * @param rowType  Input row type.
      * @return Project function.
      */
     Function<Row, Row> project(List<RexNode> projects, RelDataType rowType);
@@ -82,7 +84,7 @@ public interface ExpressionFactory<Row> {
     /**
      * Creates a Values relational node rows source.
      *
-     * @param values Values.
+     * @param values  Values.
      * @param rowType Output row type.
      * @return Values relational node rows source.
      */
@@ -117,7 +119,7 @@ public interface ExpressionFactory<Row> {
      * Creates {@link Scalar}, a code-generated expressions evaluator.
      *
      * @param nodes Expressions.
-     * @param type Row type.
+     * @param type  Row type.
      * @return Scalar.
      */
     Scalar scalar(List<RexNode> nodes, RelDataType type);

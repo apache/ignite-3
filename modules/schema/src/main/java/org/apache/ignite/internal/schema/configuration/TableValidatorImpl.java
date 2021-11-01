@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+
 import java.util.Objects;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.store.DataRegionView;
@@ -31,8 +33,6 @@ import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
 import org.apache.ignite.internal.schema.definition.builder.TableSchemaBuilderImpl;
 import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_REGION_NAME;
-
 /**
  * Table schema configuration validator implementation.
  */
@@ -41,7 +41,8 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
     public static final TableValidatorImpl INSTANCE = new TableValidatorImpl();
 
     /** {@inheritDoc} */
-    @Override public void validate(TableValidator annotation, ValidationContext<NamedListView<TableView>> ctx) {
+    @Override
+    public void validate(TableValidator annotation, ValidationContext<NamedListView<TableView>> ctx) {
         NamedListView<TableView> oldTables = ctx.getOldValue();
         NamedListView<TableView> newTables = ctx.getNewValue();
 
@@ -55,10 +56,9 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
                 assert !tbl.affinityColumns().isEmpty();
 
                 TableSchemaBuilderImpl.validateIndices(tbl.indices(), tbl.columns(), tbl.affinityColumns());
-            }
-            catch (IllegalArgumentException e) {
+            } catch (IllegalArgumentException e) {
                 ctx.addIssue(new ValidationIssue("Validator works success by key " + ctx.currentKey() + ". Found "
-                    + newTable.columns().size() + " columns"));
+                        + newTable.columns().size() + " columns"));
             }
 
             validateDataRegion(oldTables == null ? null : oldTables.get(tableName), newTable, ctx);
@@ -66,45 +66,46 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
     }
 
     /**
-     * Checks that data region configuration is valid. Check involves data region existence and region type preservation
-     * if it's updated.
+     * Checks that data region configuration is valid. Check involves data region existence and region type preservation if it's updated.
      *
      * @param oldTable Previous configuration, maybe {@code null}.
      * @param newTable New configuration.
-     * @param ctx Validation context.
+     * @param ctx      Validation context.
      */
     private void validateDataRegion(@Nullable TableView oldTable, TableView newTable, ValidationContext<?> ctx) {
         DataStorageView oldDbCfg = ctx.getOldRoot(DataStorageConfiguration.KEY);
         DataStorageView newDbCfg = ctx.getNewRoot(DataStorageConfiguration.KEY);
 
-        if (oldTable != null && Objects.equals(oldTable.dataRegion(), newTable.dataRegion()))
+        if (oldTable != null && Objects.equals(oldTable.dataRegion(), newTable.dataRegion())) {
             return;
+        }
 
         DataRegionView newRegion = dataRegion(newDbCfg, newTable.dataRegion());
 
         if (newRegion == null) {
             ctx.addIssue(new ValidationIssue(String.format(
-                "Data region '%s' configured for table '%s' isn't found",
-                newTable.dataRegion(),
-                newTable.name()
+                    "Data region '%s' configured for table '%s' isn't found",
+                    newTable.dataRegion(),
+                    newTable.name()
             )));
 
             return;
         }
 
-        if (oldDbCfg == null || oldTable == null)
+        if (oldDbCfg == null || oldTable == null) {
             return;
+        }
 
         DataRegionView oldRegion = dataRegion(oldDbCfg, oldTable.dataRegion());
 
         if (!oldRegion.type().equalsIgnoreCase(newRegion.type())) {
             ctx.addIssue(new ValidationIssue(String.format(
-                "Unable to move table '%s' from region '%s' to region '%s' because it has different type (old=%s, new=%s)",
-                newTable.name(),
-                oldTable.dataRegion(),
-                newTable.dataRegion(),
-                oldRegion.type(),
-                newRegion.type()
+                    "Unable to move table '%s' from region '%s' to region '%s' because it has different type (old=%s, new=%s)",
+                    newTable.name(),
+                    oldTable.dataRegion(),
+                    newTable.dataRegion(),
+                    oldRegion.type(),
+                    newRegion.type()
             )));
         }
     }
@@ -112,13 +113,14 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
     /**
      * Retrieves data region configuration.
      *
-     * @param dbCfg Data storage configuration.
+     * @param dbCfg      Data storage configuration.
      * @param regionName Data region name.
      * @return Data region configuration.
      */
     private static DataRegionView dataRegion(DataStorageView dbCfg, String regionName) {
-        if (regionName.equals(DEFAULT_DATA_REGION_NAME))
+        if (regionName.equals(DEFAULT_DATA_REGION_NAME)) {
             return dbCfg.defaultRegion();
+        }
 
         return dbCfg.regions().get(regionName);
     }

@@ -29,7 +29,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 public class IgniteCliRunner {
     /** CLI usage message. */
     private static final String USAGE = "IgniteCliRunner [--config conf] nodeName";
-
+    
     /**
      * Main method for run new Ignite node.
      *
@@ -40,38 +40,38 @@ public class IgniteCliRunner {
      */
     public static void main(String[] args) throws IOException {
         Args parsedArgs = null;
-
+        
         try {
             parsedArgs = Args.parseArgs(args);
         } catch (Args.ParseException e) {
             if (e.getMessage() != null) {
                 System.out.println(e.getMessage() + "\n");
             }
-
+            
             System.out.println(USAGE);
-
+            
             System.exit(1);
         }
-
+        
         var ignition = new IgnitionImpl();
-
+        
         // TODO use the work dir provided as a parameter: https://issues.apache.org/jira/browse/IGNITE-15060
         ignition.start(
-            parsedArgs.nodeName,
-            parsedArgs.config != null ? parsedArgs.config.toAbsolutePath() : null,
-            Path.of("work", parsedArgs.nodeName));
+                parsedArgs.nodeName,
+                parsedArgs.config != null ? parsedArgs.config.toAbsolutePath() : null,
+                Path.of("work", parsedArgs.nodeName));
     }
-
+    
     /**
      * Simple value object with parsed CLI args of ignite runner.
      */
     private static class Args {
         /** Name of the node. */
         private final String nodeName;
-
+        
         /** Path to config file. */
         private final Path config;
-
+        
         /**
          * Creates new instance with parsed arguments.
          *
@@ -82,7 +82,7 @@ public class IgniteCliRunner {
             this.nodeName = nodeName;
             this.config = config;
         }
-
+        
         /**
          * Simple CLI arguments parser.
          *
@@ -107,7 +107,7 @@ public class IgniteCliRunner {
                 throw new ParseException();
             }
         }
-
+        
         /**
          * Exception for indicate any problems with parsing CLI args.
          */
@@ -120,7 +120,7 @@ public class IgniteCliRunner {
             private ParseException(String msg) {
                 super(msg);
             }
-
+            
             /**
              * Creates new exception of parsing.
              */

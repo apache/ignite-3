@@ -17,6 +17,18 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.isA;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyShort;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import io.netty.handler.codec.DecoderException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
@@ -28,7 +40,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-import io.netty.handler.codec.DecoderException;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -46,17 +57,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.isA;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyShort;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 /**
  * Tests for {@link ConnectionManager}.
  */
@@ -72,7 +72,9 @@ public class ITConnectionManagerTest {
     @InjectConfiguration
     private NetworkConfiguration networkConfiguration;
 
-    /** */
+    /**
+     *
+     */
     @AfterEach
     final void tearDown() {
         startedManagers.forEach(ConnectionManager::stop);
@@ -115,7 +117,7 @@ public class ITConnectionManagerTest {
      */
     @Test
     public void testReuseIncomingConnection() throws Exception {
-        String msgText = "test";
+        final String msgText = "test";
 
         TestMessage testMessage = messageFactory.testMessage().msg("test").build();
 
@@ -217,8 +219,7 @@ public class ITConnectionManagerTest {
         assertThrows(ClosedChannelException.class, () -> {
             try {
                 finalSender.send(testMessage).get(3, TimeUnit.SECONDS);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 throw e.getCause();
             }
         });
@@ -239,8 +240,7 @@ public class ITConnectionManagerTest {
     }
 
     /**
-     * Tests that a connection to a misconfigured server results in a connection close and an exception on the client
-     * side.
+     * Tests that a connection to a misconfigured server results in a connection close and an exception on the client side.
      */
     @Test
     public void testConnectMisconfiguredServer() throws Exception {
@@ -293,8 +293,7 @@ public class ITConnectionManagerTest {
     }
 
     /**
-     * Creates a mock {@link MessageSerializationRegistry} that throws an exception when trying to get a serializer
-     * or a deserializer.
+     * Creates a mock {@link MessageSerializationRegistry} that throws an exception when trying to get a serializer or a deserializer.
      */
     private static MessageSerializationRegistry mockSerializationRegistry() {
         var mockRegistry = mock(MessageSerializationRegistry.class);
@@ -316,10 +315,9 @@ public class ITConnectionManagerTest {
     }
 
     /**
-     * Creates and starts a {@link ConnectionManager} listening on the given port, configured with the provided
-     * serialization registry.
+     * Creates and starts a {@link ConnectionManager} listening on the given port, configured with the provided serialization registry.
      *
-     * @param port Port for the connection manager to listen on.
+     * @param port     Port for the connection manager to listen on.
      * @param registry Serialization registry.
      * @return Connection manager.
      */
@@ -334,11 +332,11 @@ public class ITConnectionManagerTest {
         NetworkView cfg = networkConfiguration.value();
 
         var manager = new ConnectionManager(
-            cfg,
-            registry,
-            consistentId,
-            () -> new RecoveryServerHandshakeManager(launchId, consistentId, messageFactory),
-            () -> new RecoveryClientHandshakeManager(launchId, consistentId, messageFactory)
+                cfg,
+                registry,
+                consistentId,
+                () -> new RecoveryServerHandshakeManager(launchId, consistentId, messageFactory),
+                () -> new RecoveryClientHandshakeManager(launchId, consistentId, messageFactory)
         );
 
         manager.start();
