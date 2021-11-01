@@ -59,7 +59,7 @@ public interface Serializer {
      * @return Key-value pair.
      * @throws SerializationException If deserialization failed.
      */
-    <K, V> Pair<K,V> deserialize(Row row) throws SerializationException;
+    <K, V> Pair<K, V> deserialize(Row row) throws SerializationException;
 
     /**
      * @return Schema.
