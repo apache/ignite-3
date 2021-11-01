@@ -21,40 +21,56 @@ import java.util.function.Function;
 import org.apache.ignite.table.Tuple;
 
 /**
- * Record mapper interface.
+ * Mapper interface defines methods that are required for a marshaller to map class field names to table columns.
  *
- * @param <R> Record type.
+ * @param <T> Mapped type.
  */
-public interface RecordMapper<R> {
+public interface Mapper<T> {
     /**
-     * Record mapper builder.
+     * Return mapped type.
      *
-     * @param <R> Record type.
+     * @return Mapped type.
      */
-    public interface Builder<R> {
+    Class<T> getType();
+
+    /**
+     * Mapper builder.
+     *
+     * @param <T> Mapped type.
+     */
+    interface Builder<T> {
         /**
          * Map a field to a type of given class.
          *
-         * @param fieldName   Field name.
+         * @param fieldName Field name.
          * @param targetClass Target class.
          * @return {@code this} for chaining.
          */
-        public Builder<R> map(String fieldName, Class<?> targetClass);
+        Builder<T> map(String fieldName, Class<?> targetClass);
 
         /**
-         * Adds a functional mapping for a field, the result depends on function call for every particular row.
+         * Adds a functional mapping for a field,
+         * the result depends on function call for every particular row.
          *
-         * @param fieldName       Field name.
+         * @param fieldName Field name.
          * @param mappingFunction Mapper function.
          * @return {@code this} for chaining.
          */
-        public Builder<R> map(String fieldName, Function<Tuple, Object> mappingFunction);
+        Builder<T> map(String fieldName, Function<Tuple, Object> mappingFunction);
 
         /**
-         * Builds record mapper.
+         * Sets a target class to deserialize to.
+         *
+         * @param targetClass Target class.
+         * @return {@code this} for chaining.
+         */
+        Builder<T> deserializeTo(Class<?> targetClass);
+
+        /**
+         * Builds mapper.
          *
          * @return Mapper.
          */
-        public RecordMapper<R> build();
+        Mapper<T> build();
     }
 }

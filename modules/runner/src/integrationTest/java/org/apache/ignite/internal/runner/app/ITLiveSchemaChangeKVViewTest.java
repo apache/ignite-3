@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.runner.app;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -37,177 +36,178 @@ import org.junit.jupiter.api.Test;
  */
 class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
     /**
-     * Check exception for unknown column when STRICT_SCHEMA is enabled.
+     * Check an operation failed if an unknown column found in case of STRICT_SCHEMA mode is on.
      */
     @Test
     public void testStrictSchemaInsertRowOfNewSchema() {
         List<Ignite> grid = startGrid();
-
+        
         createTable(grid);
-
+        
         KeyValueView<Tuple, Tuple> view = grid.get(0).tables().table(TABLE).keyValueView();
-
-        assertThrows(SchemaMismatchException.class, () -> view.put(Tuple.create().set("key", 1L), Tuple.create().set("unknownColumn", 10)));
+        
+        assertThrowsWithCause(SchemaMismatchException.class,
+                () -> view.put(Tuple.create().set("key", 1L), Tuple.create().set("unknownColumn", 10)));
     }
-
+    
     /**
      * Check live schema kvBinaryView add columns.
      */
     @Test
     public void testLiveSchemaAddColumns() {
         List<Ignite> grid = startGrid();
-
+        
         createTable(grid);
-
+        
         Table tbl = grid.get(1).tables().table(TABLE);
-
+        
         ((TableImpl) tbl).schemaMode(SchemaManagementMode.LIVE);
-
+        
         KeyValueView<Tuple, Tuple> kvBinaryView = tbl.keyValueView();
-
+        
         Tuple key = Tuple.create().set("key", 1L);
         Tuple val = Tuple.create().set("valStrNew", "111").set("valIntNew", 333);
-
+        
         kvBinaryView.put(key, val);
-
+        
         Tuple res = kvBinaryView.get(key);
         assertEquals("111", res.value("valStrNew"));
         assertEquals(Integer.valueOf(333), res.value("valIntNew"));
     }
-
+    
     /**
      * Check strict schema works correctly after live schema
      */
     @Test
     public void testLiveSchemaAddColumnsSwitchToStrict() {
         List<Ignite> grid = startGrid();
-
+        
         createTable(grid);
-
+        
         Table tbl = grid.get(0).tables().table(TABLE);
-
+        
         ((TableImpl) tbl).schemaMode(SchemaManagementMode.LIVE);
-
+        
         KeyValueView<Tuple, Tuple> kvBinaryView = tbl.keyValueView();
-
+        
         Tuple key = Tuple.create().set("key", 1L);
         Tuple val = Tuple.create().set("valStrNew", "111").set("valIntNew", 333);
-
+        
         kvBinaryView.put(key, val);
-
+        
         Tuple res = kvBinaryView.get(key);
         assertEquals("111", res.value("valStrNew"));
         assertEquals(Integer.valueOf(333), res.value("valIntNew"));
-
+        
         ((TableImpl) tbl).schemaMode(SchemaManagementMode.STRICT);
-
+        
         Tuple anotherKey = Tuple.create().set("key", 2L);
         Tuple anotherVal = Tuple.create().set("valStrNew", "111").set("valIntNew", 333);
-
+        
         kvBinaryView.put(anotherKey, anotherVal);
-
+        
         Tuple newRes = kvBinaryView.get(anotherKey);
-
+        
         assertEquals("111", newRes.value("valStrNew"));
         assertEquals(Integer.valueOf(333), newRes.value("valIntNew"));
-
-        assertThrows(SchemaMismatchException.class,
+        
+        assertThrowsWithCause(SchemaMismatchException.class,
                 () -> kvBinaryView.put(Tuple.create().set("key", 1L), Tuple.create().set("unknownColumn", 10)));
     }
-
+    
     /**
      * Check upsert row of old schema with row of new schema.
      */
     @Test
     public void testLiveSchemaUpsertOldSchemaRow() {
         List<Ignite> grid = startGrid();
-
+        
         createTable(grid);
-
+        
         Table tbl = grid.get(1).tables().table(TABLE);
-
+        
         ((TableImpl) tbl).schemaMode(SchemaManagementMode.LIVE);
-
+        
         KeyValueView<Tuple, Tuple> view = tbl.keyValueView();
-
+        
         Tuple oldSchemaKey = Tuple.create().set("key", 32L);
         Tuple oldSchemaVal = Tuple.create().set("valInt", 111).set("valStr", "str");
-
+        
         view.put(oldSchemaKey, oldSchemaVal);
-
+        
         Tuple upsertOldSchemaVal = Tuple.create().set("valStrNew", "111").set("valIntNew", 333);
-
+        
         view.put(oldSchemaKey, upsertOldSchemaVal);
-
+        
         Tuple oldSchemaRes = view.get(oldSchemaKey);
-
+        
         assertEquals("111", oldSchemaRes.value("valStrNew"));
         assertEquals(Integer.valueOf(333), oldSchemaRes.value("valIntNew"));
     }
-
+    
     /**
      * Check upsert row of old schema with row of new schema.
      */
     @Test
     public void testLiveSchemaUpsertSchemaTwice() {
         List<Ignite> grid = startGrid();
-
+        
         createTable(grid);
-
+        
         Table tbl = grid.get(1).tables().table(TABLE);
-
+        
         ((TableImpl) tbl).schemaMode(SchemaManagementMode.LIVE);
-
+        
         KeyValueView<Tuple, Tuple> view = tbl.keyValueView();
-
+        
         Tuple oldSchemaKey = Tuple.create().set("key", 32L);
-
+        
         Tuple oldSchemaVal = Tuple.create().set("valInt", 111).set("valStr", "str");
         Tuple upsertOldSchemaVal = Tuple.create().set("valStrNew", "111").set("valIntNew", 333);
         Tuple secondUpsertOldSchemaVal = Tuple.create().set("valStrNew", "111").set("valIntNew", 333).set("anotherNewVal", 48L);
-
+        
         view.put(oldSchemaKey, oldSchemaVal);
         view.put(oldSchemaKey, upsertOldSchemaVal);
         view.put(oldSchemaKey, secondUpsertOldSchemaVal);
-
+        
         Tuple oldSchemaRes = view.get(oldSchemaKey);
-
+        
         assertEquals("111", oldSchemaRes.value("valStrNew"));
         assertEquals(Integer.valueOf(333), oldSchemaRes.value("valIntNew"));
         assertEquals(Long.valueOf(48L), oldSchemaRes.value("anotherNewVal"));
     }
-
+    
     /**
      * Check inserting row of old schema will not lead to column removal.
      */
     @Test
     public void testLiveSchemaInsertOldSchemaRow() {
         List<Ignite> grid = startGrid();
-
+        
         createTable(grid);
-
+        
         Table tbl = grid.get(0).tables().table(TABLE);
-
+        
         ((TableImpl) tbl).schemaMode(SchemaManagementMode.LIVE);
-
+        
         KeyValueView<Tuple, Tuple> view = tbl.keyValueView();
-
+        
         Tuple oldSchemaKey = Tuple.create().set("key", 32L);
         Tuple oldSchemaVal = Tuple.create().set("valInt", 111).set("valStr", "str");
-
+        
         Tuple newSchemaKey = Tuple.create().set("key", 1L);
         Tuple newSchemaVal = Tuple.create().set("valStrNew", "111").set("valIntNew", 333);
-
+        
         view.put(newSchemaKey, newSchemaVal);
         view.put(oldSchemaKey, oldSchemaVal);
-
+        
         Tuple res = view.get(newSchemaKey);
-
+        
         assertEquals("111", res.value("valStrNew"));
         assertEquals(Integer.valueOf(333), res.value("valIntNew"));
-
+        
         SchemaDescriptor schema = ((TableImpl) tbl).schemaView().schema();
-
+        
         assertTrue(schema.columnNames().contains("valStrNew"));
         assertTrue(schema.columnNames().contains("valIntNew"));
     }

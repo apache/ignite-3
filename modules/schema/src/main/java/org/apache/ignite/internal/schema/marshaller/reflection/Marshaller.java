@@ -36,47 +36,45 @@ class Marshaller {
     /**
      * Creates marshaller for class.
      *
-     * @param cols       Columns.
-     * @param firstColId First column position in schema.
-     * @param clazz     Type.
+     * @param cols   Columns.
+     * @param cls Type.
      * @return Marshaller.
      */
-    static Marshaller createMarshaller(Columns cols, int firstColId, Class<? extends Object> clazz) {
-        final BinaryMode mode = MarshallerUtil.mode(clazz);
-
+    static Marshaller createMarshaller(Columns cols, Class<? extends Object> cls) {
+        final BinaryMode mode = MarshallerUtil.mode(cls);
+        
         if (mode != null) {
             final Column col = cols.column(0);
-
+            
             assert cols.length() == 1;
             assert mode.typeSpec() == col.type().spec() : "Target type is not compatible.";
-            assert !clazz.isPrimitive() : "Non-nullable types are not allowed.";
-
-            return new Marshaller(FieldAccessor.createIdentityAccessor(col, firstColId, mode));
+            assert !cls.isPrimitive() : "Non-nullable types are not allowed.";
+            
+            return new Marshaller(FieldAccessor.createIdentityAccessor(col, col.schemaIndex(), mode));
         }
-
+        
         FieldAccessor[] fieldAccessors = new FieldAccessor[cols.length()];
-
+        
         // Build accessors
         for (int i = 0; i < cols.length(); i++) {
             final Column col = cols.column(i);
-
-            final int colIdx = firstColId + i; /* Absolute column idx in schema. */
-            fieldAccessors[i] = FieldAccessor.create(clazz, col, colIdx);
+            
+            fieldAccessors[i] = FieldAccessor.create(cls, col, col.schemaIndex());
         }
-
-        return new Marshaller(new ObjectFactory<>(clazz), fieldAccessors);
+        
+        return new Marshaller(new ObjectFactory<>(cls), fieldAccessors);
     }
-
+    
     /**
      * Field accessors for mapped columns. Array has same size and order as columns.
      */
     private final FieldAccessor[] fieldAccessors;
-
+    
     /**
      * Object factory for complex types or {@code null} for basic type.
      */
     private final Factory<?> factory;
-
+    
     /**
      * Constructor. Creates marshaller for complex types.
      *
@@ -88,7 +86,7 @@ class Marshaller {
         this.fieldAccessors = fieldAccessors;
         this.factory = Objects.requireNonNull(factory);
     }
-
+    
     /**
      * Constructor. Creates marshaller for basic types.
      *
@@ -98,7 +96,7 @@ class Marshaller {
         fieldAccessors = new FieldAccessor[]{fieldAccessor};
         factory = null;
     }
-
+    
     /**
      * Reads object field.
      *
@@ -109,7 +107,7 @@ class Marshaller {
     public @Nullable Object value(Object obj, int fldIdx) {
         return fieldAccessors[fldIdx].value(obj);
     }
-
+    
     /**
      * Reads object from row.
      *
@@ -121,16 +119,16 @@ class Marshaller {
         if (isSimpleTypeMarshaller()) {
             return fieldAccessors[0].read(reader);
         }
-
+        
         final Object obj = factory.create();
-
+    
         for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
             fieldAccessors[fldIdx].read(reader, obj);
         }
-
+        
         return obj;
     }
-
+    
     /**
      * Write an object to row.
      *
@@ -143,7 +141,7 @@ class Marshaller {
             fieldAccessors[fldIdx].write(writer, obj);
         }
     }
-
+    
     /**
      * @return {@code true} if it is marshaller for simple type, {@code false} otherwise.
      */

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema.marshaller;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Tuple marshaller interface.
@@ -30,23 +31,26 @@ public interface TupleMarshaller {
      *
      * @param tuple Record tuple.
      * @return Table row with columns set from given tuples.
+     * @throws TupleMarshallerException If failed to marshal tuple.
      */
-    Row marshal(@NotNull Tuple tuple);
-
+    Row marshal(@NotNull Tuple tuple) throws TupleMarshallerException;
+    
     /**
      * Marshals KV pair.
      *
      * @param keyTuple Key tuple.
      * @param valTuple Value tuple.
      * @return Table row with columns set from given tuples.
+     * @throws TupleMarshallerException If failed to marshal tuple.
      */
-    Row marshal(@NotNull Tuple keyTuple, Tuple valTuple);
-
+    Row marshal(@NotNull Tuple keyTuple, @Nullable Tuple valTuple) throws TupleMarshallerException;
+    
     /**
      * Marshal tuple key part only.
      *
      * @param tuple Record tuple with key columns only.
      * @return Table row with columns set from given tuples.
+     * @throws TupleMarshallerException If failed to marshal tuple.
      */
-    Row marshalKey(@NotNull Tuple tuple);
+    Row marshalKey(@NotNull Tuple tuple) throws TupleMarshallerException;
 }
