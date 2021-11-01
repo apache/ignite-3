@@ -35,7 +35,11 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.msgpack.core.ExtensionTypeHeader;
 import org.msgpack.core.MessageFormat;
+import org.msgpack.core.MessageFormatException;
+import org.msgpack.core.MessageIntegerOverflowException;
+import org.msgpack.core.MessageNeverUsedFormatException;
 import org.msgpack.core.MessagePack;
+import org.msgpack.core.MessagePackException;
 import org.msgpack.core.MessageSizeException;
 import org.msgpack.core.MessageTypeException;
 import org.msgpack.core.MessageUnpacker;
@@ -59,9 +63,11 @@ import static org.apache.ignite.internal.client.proto.ClientDataType.NUMBER;
 import static org.apache.ignite.internal.client.proto.ClientDataType.STRING;
 import static org.apache.ignite.internal.client.proto.ClientDataType.TIME;
 import static org.apache.ignite.internal.client.proto.ClientDataType.TIMESTAMP;
+import static org.msgpack.core.MessagePack.Code;
 
 /**
- * Ignite-specific MsgPack extension based on Netty ByteBuf.
+ * ByteBuf-based MsgPack implementation.
+ * Replaces {@link org.msgpack.core.MessageUnpacker} to avoid extra buffers and indirection.
  * <p>
  * Releases wrapped buffer on {@link #close()} .
  */
@@ -96,12 +102,46 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     @Override public int unpackInt() {
         assert refCnt > 0 : "Unpacker is closed";
 
-        try {
-            return super.unpackInt();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+        byte b = readByte();
+        if (Code.isFixInt(b)) {
+            return b;
         }
-    }
+        switch (b) {
+            case Code.UINT8: // unsigned int 8
+                byte u8 = readByte();
+                return u8 & 0xff;
+            case Code.UINT16: // unsigned int 16
+                short u16 = readShort();
+                return u16 & 0xffff;
+            case Code.UINT32: // unsigned int 32
+                int u32 = readInt();
+                if (u32 < 0) {
+                    throw overflowU32(u32);
+                }
+                return u32;
+            case Code.UINT64: // unsigned int 64
+                long u64 = readLong();
+                if (u64 < 0L || u64 > (long) Integer.MAX_VALUE) {
+                    throw overflowU64(u64);
+                }
+                return (int) u64;
+            case Code.INT8: // signed int 8
+                byte i8 = readByte();
+                return i8;
+            case Code.INT16: // signed int 16
+                short i16 = readShort();
+                return i16;
+            case Code.INT32: // signed int 32
+                int i32 = readInt();
+                return i32;
+            case Code.INT64: // signed int 64
+                long i64 = readLong();
+                if (i64 < (long) Integer.MIN_VALUE || i64 > (long) Integer.MAX_VALUE) {
+                    throw overflowI64(i64);
+                }
+                return (int) i64;
+        }
+        throw unexpected("Integer", b);    }
 
     /** {@inheritDoc} */
     @Override public String unpackString() {
@@ -708,5 +748,90 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
         if (buf.refCnt() > 0)
             buf.release();
+    }
+
+    private static MessageIntegerOverflowException overflowU8(byte u8)
+    {
+        BigInteger bi = BigInteger.valueOf((long) (u8 & 0xff));
+        return new MessageIntegerOverflowException(bi);
+    }
+
+    private static MessageIntegerOverflowException overflowU16(short u16)
+    {
+        BigInteger bi = BigInteger.valueOf((long) (u16 & 0xffff));
+        return new MessageIntegerOverflowException(bi);
+    }
+
+    private static MessageIntegerOverflowException overflowU32(int u32)
+    {
+        BigInteger bi = BigInteger.valueOf((long) (u32 & 0x7fffffff) + 0x80000000L);
+        return new MessageIntegerOverflowException(bi);
+    }
+
+    private static MessageIntegerOverflowException overflowU64(long u64)
+    {
+        BigInteger bi = BigInteger.valueOf(u64 + Long.MAX_VALUE + 1L).setBit(63);
+        return new MessageIntegerOverflowException(bi);
+    }
+
+    private static MessageIntegerOverflowException overflowI16(short i16)
+    {
+        BigInteger bi = BigInteger.valueOf((long) i16);
+        return new MessageIntegerOverflowException(bi);
+    }
+
+    private static MessageIntegerOverflowException overflowI32(int i32)
+    {
+        BigInteger bi = BigInteger.valueOf((long) i32);
+        return new MessageIntegerOverflowException(bi);
+    }
+
+    private static MessageIntegerOverflowException overflowI64(long i64)
+    {
+        BigInteger bi = BigInteger.valueOf(i64);
+        return new MessageIntegerOverflowException(bi);
+    }
+
+    private static MessageSizeException overflowU32Size(int u32)
+    {
+        long lv = (long) (u32 & 0x7fffffff) + 0x80000000L;
+        return new MessageSizeException(lv);
+    }
+
+    /**
+     * Create an exception for the case when an unexpected byte value is read
+     *
+     * @param expected
+     * @param b
+     * @return
+     * @throws MessageFormatException
+     */
+    private static MessagePackException unexpected(String expected, byte b)
+    {
+        MessageFormat format = MessageFormat.valueOf(b);
+        if (format == MessageFormat.NEVER_USED) {
+            return new MessageNeverUsedFormatException(String.format("Expected %s, but encountered 0xC1 \"NEVER_USED\" byte", expected));
+        }
+        else {
+            String name = format.getValueType().name();
+            String typeName = name.substring(0, 1) + name.substring(1).toLowerCase();
+            return new MessageTypeException(String.format("Expected %s, but got %s (%02x)", expected, typeName, b));
+        }
+    }
+
+    private byte readByte() {
+        return buf.readByte();
+    }
+
+    private short readShort() {
+        return buf.readShort();
+    }
+
+    private int readInt() {
+        return buf.readInt();
+    }
+
+    private long readLong() {
+        return buf.readLong();
     }
 }
