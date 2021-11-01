@@ -15,12 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.mapper;
+package org.apache.ignite.internal.schema.marshaller;
+
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Key mapper interface.
- *
- * @param <K> Key type.
+ * Throws when failed to marshal a tuple.
  */
-public interface KeyMapper<K> {
+public class TupleMarshallerException extends IgniteInternalCheckedException {
+    /**
+     * Creates a new grid exception with the given throwable as a cause and
+     * source of error message.
+     *
+     * @param s
+     * @param cause Non-null throwable cause.
+     */
+    public TupleMarshallerException(String s, Throwable cause) {
+        super(cause);
+    }
 }
