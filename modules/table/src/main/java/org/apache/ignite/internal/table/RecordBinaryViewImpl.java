@@ -112,9 +112,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Void> upsertAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row keyRow = marshal(rec, false);
+        final Row row = marshal(rec, false);
 
-        return tbl.upsert(keyRow, tx);
+        return tbl.upsert(row, tx);
     }
 
     /** {@inheritDoc} */
@@ -129,9 +129,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         HashSet<BinaryRow> keys = new HashSet<>(recs.size());
 
         for (Tuple keyRec : recs) {
-            final Row keyRow = marshal(keyRec, false);
+            final Row row = marshal(keyRec, false);
 
-            keys.add(keyRow);
+            keys.add(row);
         }
 
         return tbl.upsertAll(keys, tx);
@@ -146,9 +146,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Tuple> getAndUpsertAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row keyRow = marshal(rec, false);
+        final Row row = marshal(rec, false);
 
-        return tbl.getAndUpsert(keyRow, tx).thenApply(this::wrap);
+        return tbl.getAndUpsert(row, tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -160,9 +160,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Boolean> insertAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row keyRow = marshal(rec, false);
+        final Row row = marshal(rec, false);
 
-        return tbl.insert(keyRow, tx);
+        return tbl.insert(row, tx);
     }
 
     /** {@inheritDoc} */
@@ -177,9 +177,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         HashSet<BinaryRow> keys = new HashSet<>(recs.size());
 
         for (Tuple keyRec : recs) {
-            final Row keyRow = marshal(keyRec, false);
+            final Row row = marshal(keyRec, false);
 
-            keys.add(keyRow);
+            keys.add(row);
         }
 
         return tbl.insertAll(keys, tx).thenApply(this::wrap);
@@ -194,9 +194,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row keyRow = marshal(rec, false);
+        final Row row = marshal(rec, false);
 
-        return tbl.replace(keyRow, tx);
+        return tbl.replace(row, tx);
     }
 
     /** {@inheritDoc} */
@@ -224,9 +224,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row keyRow = marshal(rec, false);
+        final Row row = marshal(rec, false);
 
-        return tbl.getAndReplace(keyRow, tx).thenApply(this::wrap);
+        return tbl.getAndReplace(row, tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -266,9 +266,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row row = marshal(rec, true);
+        final Row keyRow = marshal(rec, true);
 
-        return tbl.getAndDelete(row, tx).thenApply(this::wrap);
+        return tbl.getAndDelete(keyRow, tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -305,9 +305,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         HashSet<BinaryRow> keys = new HashSet<>(recs.size());
 
         for (Tuple keyRec : recs) {
-            final Row keyRow = marshal(keyRec, false);
+            final Row row = marshal(keyRec, false);
 
-            keys.add(keyRow);
+            keys.add(row);
         }
 
         return tbl.deleteAllExact(keys, tx).thenApply(this::wrap);
