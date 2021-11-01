@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.table;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -86,8 +88,17 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     @Override public @NotNull CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@NotNull Collection<Tuple> keys) {
         Objects.requireNonNull(keys);
 
-        return tbl.getAll(keys.stream().map(k -> marshal(k, null)).collect(Collectors.toList()), tx)
-            .thenApply(ts -> ts.stream().filter(Objects::nonNull).map(this::wrap).collect(Collectors.toMap(TableRow::keyTuple, TableRow::valueTuple)));
+        List<BinaryRow> keyRows = new ArrayList<>(keys.size());
+
+        for (Tuple keyRec : keys) {
+            final Row keyRow = marshal(keyRec, null);
+
+            keyRows.add(keyRow);
+        }
+
+        return tbl.getAll(keyRows, tx)
+            .thenApply(ts -> ts.stream().filter(Objects::nonNull).filter(BinaryRow::hasValue).map(this::wrap)
+                .collect(Collectors.toMap(TableRow::keyTuple, TableRow::valueTuple)));
     }
 
     /** {@inheritDoc} */
@@ -123,10 +134,15 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     @Override public @NotNull CompletableFuture<Void> putAllAsync(@NotNull Map<Tuple, Tuple> pairs) {
         Objects.requireNonNull(pairs);
 
-        return tbl.upsertAll(pairs.entrySet()
-            .stream()
-            .map(p -> marshal(p.getKey(), p.getValue()))
-            .collect(Collectors.toList()), tx);
+        List<BinaryRow> rows = new ArrayList<>(pairs.size());
+
+        for (Map.Entry<Tuple, Tuple> pair : pairs.entrySet()) {
+            final Row row = marshal(pair.getKey(), pair.getValue());
+
+            rows.add(row);
+        }
+
+        return tbl.upsertAll(rows, tx);
     }
 
     /** {@inheritDoc} */
@@ -199,7 +215,15 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     @Override public @NotNull CompletableFuture<Collection<Tuple>> removeAllAsync(@NotNull Collection<Tuple> keys) {
         Objects.requireNonNull(keys);
 
-        return tbl.deleteAll(keys.stream().map(k -> marshal(k, null)).collect(Collectors.toList()), tx)
+        List<BinaryRow> keyRows = new ArrayList<>(keys.size());
+
+        for (Tuple keyRec : keys) {
+            final Row keyRow = marshal(keyRec, null);
+
+            keyRows.add(keyRow);
+        }
+
+        return tbl.deleteAll(keyRows, tx)
                 .thenApply(t -> t.stream().filter(Objects::nonNull).map(this::wrap).map(TableRow::valueTuple).collect(Collectors.toList()));
     }
 
