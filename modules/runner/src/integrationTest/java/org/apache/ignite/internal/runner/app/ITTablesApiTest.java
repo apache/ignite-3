@@ -74,43 +74,45 @@ public class ITTablesApiTest extends IgniteAbstractTest {
     public static final String TABLE_NAME = SCHEMA + "." + SHORT_TABLE_NAME;
 
     /** Nodes bootstrap configuration. */
-    private final ArrayList<Function<String, String>> nodesBootstrapCfg = new ArrayList<>() {{
-        add((metastorageNodeName) -> "{\n"
-                + "  \"node\": {\n"
-                + "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n"
-                + "  },\n"
-                + "  \"network\": {\n"
-                + "    \"port\":3344,\n"
-                + "    \"nodeFinder\": {\n"
-                + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                + "    }\n"
-                + "  }\n"
-                + "}");
-
-        add((metastorageNodeName) -> "{\n"
-                + "  \"node\": {\n"
-                + "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n"
-                + "  },\n"
-                + "  \"network\": {\n"
-                + "    \"port\":3345,\n"
-                + "    \"nodeFinder\": {\n"
-                + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                + "    }\n"
-                + "  }\n"
-                + "}");
-
-        add((metastorageNodeName) -> "{\n"
-                + "  \"node\": {\n"
-                + "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n"
-                + "  },\n"
-                + "  \"network\": {\n"
-                + "    \"port\":3346,\n"
-                + "    \"nodeFinder\": {\n"
-                + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                + "    }\n"
-                + "  }\n"
-                + "}");
-    }};
+    private final ArrayList<Function<String, String>> nodesBootstrapCfg = new ArrayList<>() {
+        {
+            add((metastorageNodeName) -> "{\n"
+                    + "  \"node\": {\n"
+                    + "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n"
+                    + "  },\n"
+                    + "  \"network\": {\n"
+                    + "    \"port\":3344,\n"
+                    + "    \"nodeFinder\": {\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                    + "    }\n"
+                    + "  }\n"
+                    + "}");
+        
+            add((metastorageNodeName) -> "{\n"
+                    + "  \"node\": {\n"
+                    + "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n"
+                    + "  },\n"
+                    + "  \"network\": {\n"
+                    + "    \"port\":3345,\n"
+                    + "    \"nodeFinder\": {\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                    + "    }\n"
+                    + "  }\n"
+                    + "}");
+        
+            add((metastorageNodeName) -> "{\n"
+                    + "  \"node\": {\n"
+                    + "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n"
+                    + "  },\n"
+                    + "  \"network\": {\n"
+                    + "    \"port\":3346,\n"
+                    + "    \"nodeFinder\": {\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                    + "    }\n"
+                    + "  }\n"
+                    + "}");
+        }
+    };
 
     /** Cluster nodes. */
     private List<Ignite> clusterNodes;

@@ -425,6 +425,169 @@ class RelJson {
     private Object toJson(CorrelationId node) {
         return node.getId();
     }
+    
+    /**
+     *
+     */
+    private Object toJson(RexNode node) {
+        // removes calls to SEARCH and the included Sarg and converts them to comparisons
+        node = RexUtil.expandSearch(cluster.getRexBuilder(), null, node);
+        
+        Map<String, Object> map;
+        switch (node.getKind()) {
+            case FIELD_ACCESS:
+                map = map();
+                RexFieldAccess fieldAccess = (RexFieldAccess) node;
+                map.put("field", fieldAccess.getField().getName());
+                map.put("expr", toJson(fieldAccess.getReferenceExpr()));
+                
+                return map;
+            case LITERAL:
+                RexLiteral literal = (RexLiteral) node;
+                Object value = literal.getValue3();
+                map = map();
+                map.put("literal", toJson(value));
+                map.put("type", toJson(node.getType()));
+                
+                return map;
+            case INPUT_REF:
+                map = map();
+                map.put("input", ((RexSlot) node).getIndex());
+                map.put("name", ((RexVariable) node).getName());
+                
+                return map;
+            case DYNAMIC_PARAM:
+                map = map();
+                map.put("input", ((RexDynamicParam) node).getIndex());
+                map.put("name", ((RexVariable) node).getName());
+                map.put("type", toJson(node.getType()));
+                map.put("dynamic", true);
+                
+                return map;
+            case LOCAL_REF:
+                map = map();
+                map.put("input", ((RexSlot) node).getIndex());
+                map.put("name", ((RexVariable) node).getName());
+                map.put("type", toJson(node.getType()));
+                
+                return map;
+            case CORREL_VARIABLE:
+                map = map();
+                map.put("correl", ((RexVariable) node).getName());
+                map.put("type", toJson(node.getType()));
+                
+                return map;
+            default:
+                if (node instanceof RexCall) {
+                    RexCall call = (RexCall) node;
+                    map = map();
+                    map.put("op", toJson(call.getOperator()));
+                    List<Object> list = list();
+                    
+                    for (RexNode operand : call.getOperands()) {
+                        list.add(toJson(operand));
+                    }
+                    
+                    map.put("operands", list);
+                    
+                    if (node.getKind() == SqlKind.CAST) {
+                        map.put("type", toJson(node.getType()));
+                    }
+                    
+                    if (call.getOperator() instanceof SqlFunction) {
+                        if (((SqlFunction) call.getOperator()).getFunctionType().isUserDefined()) {
+                            SqlOperator op = call.getOperator();
+                            map.put("class", op.getClass().getName());
+                            map.put("type", toJson(node.getType()));
+                            map.put("deterministic", op.isDeterministic());
+                            map.put("dynamic", op.isDynamicFunction());
+                        }
+                    }
+                    
+                    if (call instanceof RexOver) {
+                        RexOver over = (RexOver) call;
+                        map.put("distinct", over.isDistinct());
+                        map.put("type", toJson(node.getType()));
+                        map.put("window", toJson(over.getWindow()));
+                    }
+                    
+                    return map;
+                }
+                throw new UnsupportedOperationException("unknown rex " + node);
+        }
+    }
+    
+    /**
+     *
+     */
+    private Object toJson(RexWindow window) {
+        Map<String, Object> map = map();
+        if (!window.partitionKeys.isEmpty()) {
+            map.put("partition", toJson(window.partitionKeys));
+        }
+        if (!window.orderKeys.isEmpty()) {
+            map.put("order", toJson(window.orderKeys));
+        }
+        if (window.getLowerBound() == null) {
+            // No ROWS or RANGE clause
+        } else if (window.getUpperBound() == null) {
+            if (window.isRows()) {
+                map.put("rows-lower", toJson(window.getLowerBound()));
+            } else {
+                map.put("range-lower", toJson(window.getLowerBound()));
+            }
+        } else if (window.isRows()) {
+            map.put("rows-lower", toJson(window.getLowerBound()));
+            map.put("rows-upper", toJson(window.getUpperBound()));
+        } else {
+            map.put("range-lower", toJson(window.getLowerBound()));
+            map.put("range-upper", toJson(window.getUpperBound()));
+        }
+        return map;
+    }
+    
+    /**
+     *
+     */
+    private Object toJson(DistributionTrait distribution) {
+        Type type = distribution.getType();
+        
+        switch (type) {
+            case ANY:
+            case BROADCAST_DISTRIBUTED:
+            case RANDOM_DISTRIBUTED:
+            case SINGLETON:
+                
+                return type.shortName;
+            case HASH_DISTRIBUTED:
+                Map<String, Object> map = map();
+                List<Object> keys = list();
+                for (Integer key : distribution.getKeys()) {
+                    keys.add(toJson(key));
+                }
+                
+                map.put("keys", keys);
+                
+                return map;
+            default:
+                throw new AssertionError("Unexpected distribution type.");
+        }
+    }
+    
+    /**
+     *
+     */
+    private Object toJson(RelCollationImpl node) {
+        List<Object> list = list();
+        for (RelFieldCollation fieldCollation : node.getFieldCollations()) {
+            Map<String, Object> map = map();
+            map.put("field", fieldCollation.getFieldIndex());
+            map.put("direction", toJson(fieldCollation.getDirection()));
+            map.put("nulls", toJson(fieldCollation.nullDirection));
+            list.add(map);
+        }
+        return list;
+    }
 
     /**
      *
@@ -553,10 +716,8 @@ class RelJson {
                 if (window != null) {
                     final SqlAggFunction operator = (SqlAggFunction) toOp(opMap);
                     final RelDataType type = toType(typeFactory, jsonType);
-                    final List<RexNode> partitionKeys = new ArrayList<>();
-                    if (window.containsKey("partition")) {
-                        partitionKeys = toRexList(relInput, (List) window.get("partition"));
-                    }
+                    final List<RexNode> partitionKeys = window.containsKey("partition")
+                            ? toRexList(relInput, (List) window.get("partition")) : new ArrayList<>();
                     List<RexFieldCollation> orderKeys = new ArrayList<>();
                     if (window.containsKey("order")) {
                         orderKeys = toRexFieldCollationList(relInput, (List) window.get("order"));
@@ -807,169 +968,6 @@ class RelJson {
         List<RexNode> list = new ArrayList<>();
         for (Object operand : operands) {
             list.add(toRex(relInput, operand));
-        }
-        return list;
-    }
-
-    /**
-     *
-     */
-    private Object toJson(RexNode node) {
-        // removes calls to SEARCH and the included Sarg and converts them to comparisons
-        node = RexUtil.expandSearch(cluster.getRexBuilder(), null, node);
-
-        Map<String, Object> map;
-        switch (node.getKind()) {
-            case FIELD_ACCESS:
-                map = map();
-                RexFieldAccess fieldAccess = (RexFieldAccess) node;
-                map.put("field", fieldAccess.getField().getName());
-                map.put("expr", toJson(fieldAccess.getReferenceExpr()));
-
-                return map;
-            case LITERAL:
-                RexLiteral literal = (RexLiteral) node;
-                Object value = literal.getValue3();
-                map = map();
-                map.put("literal", toJson(value));
-                map.put("type", toJson(node.getType()));
-
-                return map;
-            case INPUT_REF:
-                map = map();
-                map.put("input", ((RexSlot) node).getIndex());
-                map.put("name", ((RexVariable) node).getName());
-
-                return map;
-            case DYNAMIC_PARAM:
-                map = map();
-                map.put("input", ((RexDynamicParam) node).getIndex());
-                map.put("name", ((RexVariable) node).getName());
-                map.put("type", toJson(node.getType()));
-                map.put("dynamic", true);
-
-                return map;
-            case LOCAL_REF:
-                map = map();
-                map.put("input", ((RexSlot) node).getIndex());
-                map.put("name", ((RexVariable) node).getName());
-                map.put("type", toJson(node.getType()));
-
-                return map;
-            case CORREL_VARIABLE:
-                map = map();
-                map.put("correl", ((RexVariable) node).getName());
-                map.put("type", toJson(node.getType()));
-
-                return map;
-            default:
-                if (node instanceof RexCall) {
-                    RexCall call = (RexCall) node;
-                    map = map();
-                    map.put("op", toJson(call.getOperator()));
-                    List<Object> list = list();
-
-                    for (RexNode operand : call.getOperands()) {
-                        list.add(toJson(operand));
-                    }
-
-                    map.put("operands", list);
-
-                    if (node.getKind() == SqlKind.CAST) {
-                        map.put("type", toJson(node.getType()));
-                    }
-
-                    if (call.getOperator() instanceof SqlFunction) {
-                        if (((SqlFunction) call.getOperator()).getFunctionType().isUserDefined()) {
-                            SqlOperator op = call.getOperator();
-                            map.put("class", op.getClass().getName());
-                            map.put("type", toJson(node.getType()));
-                            map.put("deterministic", op.isDeterministic());
-                            map.put("dynamic", op.isDynamicFunction());
-                        }
-                    }
-
-                    if (call instanceof RexOver) {
-                        RexOver over = (RexOver) call;
-                        map.put("distinct", over.isDistinct());
-                        map.put("type", toJson(node.getType()));
-                        map.put("window", toJson(over.getWindow()));
-                    }
-
-                    return map;
-                }
-                throw new UnsupportedOperationException("unknown rex " + node);
-        }
-    }
-
-    /**
-     *
-     */
-    private Object toJson(RexWindow window) {
-        Map<String, Object> map = map();
-        if (!window.partitionKeys.isEmpty()) {
-            map.put("partition", toJson(window.partitionKeys));
-        }
-        if (!window.orderKeys.isEmpty()) {
-            map.put("order", toJson(window.orderKeys));
-        }
-        if (window.getLowerBound() == null) {
-            // No ROWS or RANGE clause
-        } else if (window.getUpperBound() == null) {
-            if (window.isRows()) {
-                map.put("rows-lower", toJson(window.getLowerBound()));
-            } else {
-                map.put("range-lower", toJson(window.getLowerBound()));
-            }
-        } else if (window.isRows()) {
-            map.put("rows-lower", toJson(window.getLowerBound()));
-            map.put("rows-upper", toJson(window.getUpperBound()));
-        } else {
-            map.put("range-lower", toJson(window.getLowerBound()));
-            map.put("range-upper", toJson(window.getUpperBound()));
-        }
-        return map;
-    }
-
-    /**
-     *
-     */
-    private Object toJson(DistributionTrait distribution) {
-        Type type = distribution.getType();
-
-        switch (type) {
-            case ANY:
-            case BROADCAST_DISTRIBUTED:
-            case RANDOM_DISTRIBUTED:
-            case SINGLETON:
-
-                return type.shortName;
-            case HASH_DISTRIBUTED:
-                Map<String, Object> map = map();
-                List<Object> keys = list();
-                for (Integer key : distribution.getKeys()) {
-                    keys.add(toJson(key));
-                }
-
-                map.put("keys", keys);
-
-                return map;
-            default:
-                throw new AssertionError("Unexpected distribution type.");
-        }
-    }
-
-    /**
-     *
-     */
-    private Object toJson(RelCollationImpl node) {
-        List<Object> list = list();
-        for (RelFieldCollation fieldCollation : node.getFieldCollations()) {
-            Map<String, Object> map = map();
-            map.put("field", fieldCollation.getFieldIndex());
-            map.put("direction", toJson(fieldCollation.getDirection()));
-            map.put("nulls", toJson(fieldCollation.nullDirection));
-            list.add(map);
         }
         return list;
     }

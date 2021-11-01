@@ -65,102 +65,98 @@ public class ITSecondaryIndexTest extends AbstractBasicIntegrationTest {
      */
     @BeforeAll
     static void initTestData() {
-        {
-            TableDefinition schema = SchemaBuilders.tableBuilder("PUBLIC", "DEVELOPER")
-                    .columns(
-                            SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
-                            SchemaBuilders.column("NAME", ColumnType.string()).asNullable().build(),
-                            SchemaBuilders.column("DEPID", ColumnType.INT32).asNullable().build(),
-                            SchemaBuilders.column("CITY", ColumnType.string()).asNullable().build(),
-                            SchemaBuilders.column("AGE", ColumnType.INT32).asNullable().build()
-                    )
-                    .withPrimaryKey("ID")
-                    .withIndex(
-                            SchemaBuilders.sortedIndex(DEPID_IDX).addIndexColumn("DEPID").done().build()
-                    )
-                    .withIndex(
-                            SchemaBuilders.sortedIndex(NAME_CITY_IDX)
-                                    .addIndexColumn("DEPID").desc().done()
-                                    .addIndexColumn("CITY").desc().done()
-                                    .build()
-                    )
-                    .withIndex(
-                            SchemaBuilders.sortedIndex(NAME_DEPID_CITY_IDX)
-                                    .addIndexColumn("NAME").done()
-                                    .addIndexColumn("DEPID").desc().done()
-                                    .addIndexColumn("CITY").desc().done()
-                                    .build()
-                    )
-                    .build();
-            
-            Table dev = CLUSTER_NODES.get(0).tables().createTable(schema.canonicalName(), tblCh ->
-                    SchemaConfigurationConverter.convert(schema, tblCh)
-                            .changeReplicas(2)
-                            .changePartitions(10)
-            );
-            
-            insertData(dev, new String[]{"ID", "NAME", "DEPID", "CITY", "AGE"}, new Object[][]{
-                    {1, "Mozart", 3, "Vienna", 33},
-                    {2, "Beethoven", 2, "Vienna", 44},
-                    {3, "Bach", 1, "Leipzig", 55},
-                    {4, "Strauss", 2, "Munich", 66},
-                    {5, "Vagner", 4, "Leipzig", 70},
-                    {6, "Chaikovsky", 5, "Votkinsk", 53},
-                    {7, "Verdy", 6, "Rankola", 88},
-                    {8, "Stravinsky", 7, "Spt", 89},
-                    {9, "Rahmaninov", 8, "Starorussky ud", 70},
-                    {10, "Shubert", 9, "Vienna", 31},
-                    {11, "Glinka", 10, "Smolenskaya gb", 53},
-                    {12, "Einaudi", 11, "", -1},
-                    {13, "Glass", 12, "", -1},
-                    {14, "Rihter", 13, "", -1},
-                    {15, "Marradi", 14, "", -1},
-                    {16, "Zimmer", 15, "", -1},
-                    {17, "Hasaishi", 16, "", -1},
-                    {18, "Arnalds", 17, "", -1},
-                    {19, "Yiruma", 18, "", -1},
-                    {20, "O'Halloran", 19, "", -1},
-                    {21, "Cacciapaglia", 20, "", -1},
-                    {22, "Prokofiev", 21, "", -1},
-                    {23, "Musorgskii", 22, "", -1}
-            });
-        }
-        
-        {
-            TableDefinition schema = SchemaBuilders.tableBuilder("PUBLIC", "UNWRAP_PK")
-                    .columns(
-                            SchemaBuilders.column("F1", ColumnType.string()).asNullable().build(),
-                            SchemaBuilders.column("F2", ColumnType.INT64).asNullable().build(),
-                            SchemaBuilders.column("F3", ColumnType.INT64).asNullable().build(),
-                            SchemaBuilders.column("F4", ColumnType.INT64).asNullable().build()
-                    )
-                    .withPrimaryKey(
-                            SchemaBuilders.primaryKey().withColumns("F2", "F1").build()
-                    )
-                    .withIndex(
-                            SchemaBuilders.sortedIndex(PK_IDX)
-                                    .addIndexColumn("F2").done()
-                                    .addIndexColumn("F1").done()
-                                    .build()
-                    )
-                    .build();
-            
-            Table dev = CLUSTER_NODES.get(0).tables().createTable(schema.canonicalName(), tblCh ->
-                    SchemaConfigurationConverter.convert(schema, tblCh)
-                            .changeReplicas(2)
-                            .changePartitions(10)
-            );
-            
-            insertData(dev, new String[]{"F1", "F2", "F3", "F4"}, new Object[][]{
-                    {"Petr", 1L, 2L, 3L},
-                    {"Ivan", 2L, 2L, 4L},
-                    {"Ivan1", 21L, 2L, 4L},
-                    {"Ivan2", 22L, 2L, 4L},
-                    {"Ivan3", 23L, 2L, 4L},
-                    {"Ivan4", 24L, 2L, 4L},
-                    {"Ivan5", 25L, 2L, 4L},
-            });
-        }
+        TableDefinition schema0 = SchemaBuilders.tableBuilder("PUBLIC", "DEVELOPER")
+                .columns(
+                        SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
+                        SchemaBuilders.column("NAME", ColumnType.string()).asNullable().build(),
+                        SchemaBuilders.column("DEPID", ColumnType.INT32).asNullable().build(),
+                        SchemaBuilders.column("CITY", ColumnType.string()).asNullable().build(),
+                        SchemaBuilders.column("AGE", ColumnType.INT32).asNullable().build()
+                )
+                .withPrimaryKey("ID")
+                .withIndex(
+                        SchemaBuilders.sortedIndex(DEPID_IDX).addIndexColumn("DEPID").done().build()
+                )
+                .withIndex(
+                        SchemaBuilders.sortedIndex(NAME_CITY_IDX)
+                                .addIndexColumn("DEPID").desc().done()
+                                .addIndexColumn("CITY").desc().done()
+                                .build()
+                )
+                .withIndex(
+                        SchemaBuilders.sortedIndex(NAME_DEPID_CITY_IDX)
+                                .addIndexColumn("NAME").done()
+                                .addIndexColumn("DEPID").desc().done()
+                                .addIndexColumn("CITY").desc().done()
+                                .build()
+                )
+                .build();
+    
+        Table dev0 = CLUSTER_NODES.get(0).tables().createTable(schema0.canonicalName(), tblCh ->
+                SchemaConfigurationConverter.convert(schema0, tblCh)
+                        .changeReplicas(2)
+                        .changePartitions(10)
+        );
+    
+        insertData(dev0, new String[]{"ID", "NAME", "DEPID", "CITY", "AGE"}, new Object[][]{
+                {1, "Mozart", 3, "Vienna", 33},
+                {2, "Beethoven", 2, "Vienna", 44},
+                {3, "Bach", 1, "Leipzig", 55},
+                {4, "Strauss", 2, "Munich", 66},
+                {5, "Vagner", 4, "Leipzig", 70},
+                {6, "Chaikovsky", 5, "Votkinsk", 53},
+                {7, "Verdy", 6, "Rankola", 88},
+                {8, "Stravinsky", 7, "Spt", 89},
+                {9, "Rahmaninov", 8, "Starorussky ud", 70},
+                {10, "Shubert", 9, "Vienna", 31},
+                {11, "Glinka", 10, "Smolenskaya gb", 53},
+                {12, "Einaudi", 11, "", -1},
+                {13, "Glass", 12, "", -1},
+                {14, "Rihter", 13, "", -1},
+                {15, "Marradi", 14, "", -1},
+                {16, "Zimmer", 15, "", -1},
+                {17, "Hasaishi", 16, "", -1},
+                {18, "Arnalds", 17, "", -1},
+                {19, "Yiruma", 18, "", -1},
+                {20, "O'Halloran", 19, "", -1},
+                {21, "Cacciapaglia", 20, "", -1},
+                {22, "Prokofiev", 21, "", -1},
+                {23, "Musorgskii", 22, "", -1}
+        });
+    
+        TableDefinition schema1 = SchemaBuilders.tableBuilder("PUBLIC", "UNWRAP_PK")
+                .columns(
+                        SchemaBuilders.column("F1", ColumnType.string()).asNullable().build(),
+                        SchemaBuilders.column("F2", ColumnType.INT64).asNullable().build(),
+                        SchemaBuilders.column("F3", ColumnType.INT64).asNullable().build(),
+                        SchemaBuilders.column("F4", ColumnType.INT64).asNullable().build()
+                )
+                .withPrimaryKey(
+                        SchemaBuilders.primaryKey().withColumns("F2", "F1").build()
+                )
+                .withIndex(
+                        SchemaBuilders.sortedIndex(PK_IDX)
+                                .addIndexColumn("F2").done()
+                                .addIndexColumn("F1").done()
+                                .build()
+                )
+                .build();
+    
+        Table dev1 = CLUSTER_NODES.get(0).tables().createTable(schema1.canonicalName(), tblCh ->
+                SchemaConfigurationConverter.convert(schema1, tblCh)
+                        .changeReplicas(2)
+                        .changePartitions(10)
+        );
+    
+        insertData(dev1, new String[]{"F1", "F2", "F3", "F4"}, new Object[][]{
+                {"Petr", 1L, 2L, 3L},
+                {"Ivan", 2L, 2L, 4L},
+                {"Ivan1", 21L, 2L, 4L},
+                {"Ivan2", 22L, 2L, 4L},
+                {"Ivan3", 23L, 2L, 4L},
+                {"Ivan4", 24L, 2L, 4L},
+                {"Ivan5", 25L, 2L, 4L},
+        });
     }
     
     /**

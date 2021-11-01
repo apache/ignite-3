@@ -334,38 +334,38 @@ public class RocksDbPartitionStorage implements PartitionStorage {
         Snapshot snapshot = db.getSnapshot();
     
         return CompletableFuture.runAsync(() -> {
-                    // (Re)create the temporary directory
-                    IgniteUtils.deleteIfExists(tempPath);
-                
-                    try {
-                        Files.createDirectories(tempPath);
-                    } catch (IOException e) {
-                        throw new IgniteInternalException("Failed to create directory: " + tempPath, e);
-                    }
-                }, snapshotExecutor)
-                .thenRunAsync(() -> createSstFile(data, snapshot, tempPath), snapshotExecutor)
-                .whenComplete((avoid, throwable) -> {
-                    // Release a snapshot
-                    db.releaseSnapshot(snapshot);
-                
-                    // Snapshot is not actually closed here, because a Snapshot instance doesn't own a pointer, the
-                    // database does. Calling close to maintain the AutoCloseable semantics
-                    snapshot.close();
-                
-                    if (throwable != null) {
-                        return;
-                    }
-                
-                    // Delete snapshot directory if it already exists
-                    IgniteUtils.deleteIfExists(snapshotPath);
-                
-                    try {
-                        // Rename the temporary directory
-                        Files.move(tempPath, snapshotPath);
-                    } catch (IOException e) {
-                        throw new IgniteInternalException("Failed to rename: " + tempPath + " to " + snapshotPath, e);
-                    }
-                });
+            // (Re)create the temporary directory
+            IgniteUtils.deleteIfExists(tempPath);
+        
+            try {
+                Files.createDirectories(tempPath);
+            } catch (IOException e) {
+                throw new IgniteInternalException("Failed to create directory: " + tempPath, e);
+            }
+        }, snapshotExecutor)
+        .thenRunAsync(() -> createSstFile(data, snapshot, tempPath), snapshotExecutor)
+        .whenComplete((avoid, throwable) -> {
+            // Release a snapshot
+            db.releaseSnapshot(snapshot);
+        
+            // Snapshot is not actually closed here, because a Snapshot instance doesn't own a pointer, the
+            // database does. Calling close to maintain the AutoCloseable semantics
+            snapshot.close();
+        
+            if (throwable != null) {
+                return;
+            }
+        
+            // Delete snapshot directory if it already exists
+            IgniteUtils.deleteIfExists(snapshotPath);
+        
+            try {
+                // Rename the temporary directory
+                Files.move(tempPath, snapshotPath);
+            } catch (IOException e) {
+                throw new IgniteInternalException("Failed to rename: " + tempPath + " to " + snapshotPath, e);
+            }
+        });
     }
 
     /** {@inheritDoc} */

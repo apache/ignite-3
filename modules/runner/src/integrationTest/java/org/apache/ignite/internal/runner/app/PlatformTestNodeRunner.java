@@ -55,20 +55,22 @@ public class PlatformTestNodeRunner {
     private static final int RUN_TIME_MINUTES = 30;
 
     /** Nodes bootstrap configuration. */
-    private static final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
-        put(NODE_NAME, "{\n"
-                + "  \"node\": {\n"
-                + "    \"metastorageNodes\":[ \"" + NODE_NAME + "\" ]\n"
-                + "  },\n"
-                + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10},"
-                + "  \"network\": {\n"
-                + "    \"port\":3344,\n"
-                + "    \"nodeFinder\": {\n"
-                + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n"
-                + "    }\n"
-                + "  }\n"
-                + "}");
-    }};
+    private static final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {
+        {
+            put(NODE_NAME, "{\n"
+                    + "  \"node\": {\n"
+                    + "    \"metastorageNodes\":[ \"" + NODE_NAME + "\" ]\n"
+                    + "  },\n"
+                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10},"
+                    + "  \"network\": {\n"
+                    + "    \"port\":3344,\n"
+                    + "    \"nodeFinder\": {\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n"
+                    + "    }\n"
+                    + "  }\n"
+                    + "}");
+        }
+    };
 
     /** Base path for all temporary folders. */
     private static final Path BASE_PATH = Path.of("target", "work", "PlatformTestNodeRunner");
