@@ -238,7 +238,12 @@ public class RexUtils {
                     case LESS_THAN:
                     case LESS_THAN_OR_EQUAL:
                         lowerBoundBelow = !lowerBoundBelow;
-                        // Fall through.
+                        if (lowerBoundBelow) {
+                            bestLower = pred;
+                        } else {
+                            bestUpper = pred;
+                        }
+                        break;
                     
                     case GREATER_THAN:
                     case GREATER_THAN_OR_EQUAL:
