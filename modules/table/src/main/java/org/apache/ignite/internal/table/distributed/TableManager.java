@@ -585,14 +585,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public Table createTable(String name, Consumer<TableChange> tableInitChange) {
-        if (!busyLock.enterBusy())
-            throw new IgniteException(new NodeStoppingException());
-        try {
-            return createTableAsync(name, tableInitChange).join();
-        }
-        finally {
-            busyLock.leaveBusy();
-        }
+        return join(createTableAsync(name, tableInitChange));
     }
 
     /** {@inheritDoc} */
@@ -609,14 +602,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public Table createTableIfNotExists(String name, Consumer<TableChange> tableInitChange) {
-        if (!busyLock.enterBusy())
-            throw new IgniteException(new NodeStoppingException());
-        try {
-            return createTableIfNotExistsAsync(name, tableInitChange).join();
-        }
-        finally {
-            busyLock.leaveBusy();
-        }
+        return join(createTableIfNotExistsAsync(name, tableInitChange));
     }
 
     /** {@inheritDoc} */
@@ -855,14 +841,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public void dropTable(String name) {
-        if (!busyLock.enterBusy())
-            throw new IgniteException(new NodeStoppingException());
-        try {
-            dropTableAsync(name).join();
-        }
-        finally {
-            busyLock.leaveBusy();
-        }
+        join(dropTableAsync(name));
     }
 
     /** {@inheritDoc} */
@@ -932,14 +911,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public List<Table> tables() {
-        if (!busyLock.enterBusy())
-            throw new IgniteException(new NodeStoppingException());
-        try {
-            return tablesAsync().join();
-        }
-        finally {
-            busyLock.leaveBusy();
-        }
+        return join(tablesAsync());
     }
 
     /** {@inheritDoc} */
@@ -1040,14 +1012,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public Table table(String name) {
-        if (!busyLock.enterBusy())
-            throw new IgniteException(new NodeStoppingException());
-        try {
-            return tableAsync(name).join();
-        }
-        finally {
-            busyLock.leaveBusy();
-        }
+        return join(tableAsync(name));
     }
 
     /** {@inheritDoc} */
@@ -1064,14 +1029,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public TableImpl table(IgniteUuid id) throws NodeStoppingException {
-        if (!busyLock.enterBusy())
-            throw new NodeStoppingException();
-        try {
-            return tableAsync(id).join();
-        }
-        finally {
-            busyLock.leaveBusy();
-        }
+        return join(tableAsync(id));
     }
 
     /** {@inheritDoc} */
@@ -1213,16 +1171,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Join and unwrap {@link CompletionException} to {@link IgniteException} if needed.
+     * Waits for future result and return, or
+     * unwraps {@link CompletionException} to {@link IgniteException} if failed.
      *
      * @param future Completable future.
+     * @return Future result.
      */
-    private void join(CompletableFuture<Void> future) {
+    private <T> T join(CompletableFuture<T> future) {
         if (!busyLock.enterBusy())
             throw new IgniteException(new NodeStoppingException());
 
         try {
-            future.join();
+            return future.join();
         }
         catch (CompletionException ex) {
             throw convertThrowable(ex.getCause());
