@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Date;
@@ -65,7 +63,6 @@ public class ClientMessagePacker implements AutoCloseable {
      * Gets the underlying buffer.
      *
      * @return Underlying buffer.
-     * @throws UncheckedIOException When flush fails.
      */
     public ByteBuf getBuffer() {
         buf.setInt(0, buf.writerIndex() - HEADER_SIZE);
@@ -642,7 +639,6 @@ public class ClientMessagePacker implements AutoCloseable {
      * Writes a timestamp.
      *
      * @param val Timestamp value.
-     * @throws UnsupportedOperationException Not supported.
      */
     public void packTimestamp(Instant val) {
         assert !closed : "Packer is closed";
