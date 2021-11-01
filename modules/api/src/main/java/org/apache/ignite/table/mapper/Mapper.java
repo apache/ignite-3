@@ -21,22 +21,22 @@ import java.util.function.Function;
 import org.apache.ignite.table.Tuple;
 
 /**
- * Mapper interface.
+ * Mapper interface defines methods that are required for a marshaller to map class field names to table columns.
  *
- * @param <R> Record type.
+ * @param <T> Mapped type.
  */
-public interface Mapper<R> {
+public interface Mapper<T> {
     /**
      * Return mapped type.
      *
      * @return Mapped type.
      */
-    Class<R> getType();
+    Class<T> getType();
 
     /**
      * Mapper builder.
      *
-     * @param <T> Type.
+     * @param <T> Mapped type.
      */
     interface Builder<T> {
         /**
