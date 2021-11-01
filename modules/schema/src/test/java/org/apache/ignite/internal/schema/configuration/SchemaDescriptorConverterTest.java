@@ -32,7 +32,7 @@ import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
-import org.apache.ignite.schema.definition.builder.TableSchemaBuilder;
+import org.apache.ignite.schema.definition.builder.TableDefinitionBuilder;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -41,46 +41,46 @@ import org.junit.jupiter.api.Test;
 public class SchemaDescriptorConverterTest {
     /** Total number of columns. */
     private static final int columns = 15;
-
+    
     /**
      * Convert table with complex primary key and check it.
      */
     @Test
     public void testComplexPrimaryKey() {
-        TableSchemaBuilder bldr = getBuilder(false, false);
+        TableDefinitionBuilder bldr = getBuilder(false, false);
         TableDefinition tblSchm = bldr.withPrimaryKey(
                 SchemaBuilders.primaryKey()
                         .withColumns("INT8", "ID")
                         .build()
         ).build();
-
+        
         SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
-
+        
         assertEquals(2, tblDscr.keyColumns().length());
         assertEquals(2, tblDscr.affinityColumns().length);
         assertEquals(columns - 2, tblDscr.valueColumns().length());
     }
-
+    
     /**
      * Convert table with complex primary key with affinity column configured and check it.
      */
     @Test
     public void testComplexPrimaryKeyWithAffinity() {
-        TableSchemaBuilder bldr = getBuilder(false, false);
+        TableDefinitionBuilder bldr = getBuilder(false, false);
         TableDefinition tblSchm = bldr.withPrimaryKey(
                 SchemaBuilders.primaryKey()
                         .withColumns("INT8", "ID")
                         .withAffinityColumns("INT8")
                         .build()
         ).build();
-
+        
         SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
-
+        
         assertEquals(2, tblDscr.keyColumns().length());
         assertEquals(1, tblDscr.affinityColumns().length);
         assertEquals(columns - 2, tblDscr.valueColumns().length());
     }
-
+    
     /**
      * Convert table with nullable columns.
      */
@@ -88,7 +88,7 @@ public class SchemaDescriptorConverterTest {
     public void convertNullable() {
         testConvert(true);
     }
-
+    
     /**
      * Convert table with non nullable columns.
      */
@@ -96,7 +96,7 @@ public class SchemaDescriptorConverterTest {
     public void convertTypes() {
         testConvert(false);
     }
-
+    
     /**
      * Convert table with complex primary key and check it.
      */
@@ -112,7 +112,7 @@ public class SchemaDescriptorConverterTest {
                 SchemaBuilders.column("INT16", ColumnType.INT16).build(),
                 SchemaBuilders.column("BITMASK_FS10", ColumnType.bitmaskOf(10)).build()
         };
-
+        
         TableDefinition tblSchm = SchemaBuilders.tableBuilder("SCHEMA", "TABLE")
                 .columns(cols)
                 .withPrimaryKey(
@@ -121,19 +121,19 @@ public class SchemaDescriptorConverterTest {
                                 .withAffinityColumns("INT32")
                                 .build()
                 ).build();
-
+        
         SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
-
+        
         for (int i = 0; i < cols.length; i++) {
             Column col = tblDscr.column(i);
-
+            
             assertEquals(col.name(), cols[col.columnOrder()].name());
         }
-
+        
         assertArrayEquals(Arrays.stream(cols).map(ColumnDefinition::name).toArray(String[]::new),
                 tblDscr.columnNames().toArray(String[]::new));
     }
-
+    
     /**
      * Test set of columns.
      *
@@ -141,12 +141,12 @@ public class SchemaDescriptorConverterTest {
      */
     private void testConvert(boolean nullable) {
         TableDefinition tblSchm = getBuilder(nullable, true).build();
-
+        
         SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
-
+        
         assertEquals(1, tblDscr.keyColumns().length());
         testCol(tblDscr.keyColumns(), "ID", NativeTypeSpec.UUID, nullable);
-
+        
         assertEquals(columns - 1, tblDscr.valueColumns().length());
         testCol(tblDscr.valueColumns(), "INT8", NativeTypeSpec.INT8, nullable);
         testCol(tblDscr.valueColumns(), "INT16", NativeTypeSpec.INT16, nullable);
@@ -163,7 +163,7 @@ public class SchemaDescriptorConverterTest {
         testCol(tblDscr.valueColumns(), "DECIMAL", NativeTypeSpec.DECIMAL, nullable);
         testCol(tblDscr.valueColumns(), "BITMASK_FS10", NativeTypeSpec.BITMASK, nullable);
     }
-
+    
     /**
      * Get TableSchemaBuilder with default table.
      *
@@ -171,7 +171,7 @@ public class SchemaDescriptorConverterTest {
      * @param withPk   If builder should contains primary key index.
      * @return TableSchemaBuilder.
      */
-    private TableSchemaBuilder getBuilder(boolean nullable, boolean withPk) {
+    private TableDefinitionBuilder getBuilder(boolean nullable, boolean withPk) {
         Function<ColumnDefinitionBuilder, ColumnDefinition> postProcess = builder -> {
             if (nullable) {
                 builder.asNullable();
@@ -180,8 +180,8 @@ public class SchemaDescriptorConverterTest {
             }
             return builder.build();
         };
-
-        TableSchemaBuilder res = SchemaBuilders.tableBuilder("SCHEMA", "TABLE")
+        
+        TableDefinitionBuilder res = SchemaBuilders.tableBuilder("SCHEMA", "TABLE")
                 .columns(
                         postProcess.apply(SchemaBuilders.column("ID", ColumnType.UUID)),
                         postProcess.apply(SchemaBuilders.column("INT8", ColumnType.INT8)),
@@ -207,10 +207,10 @@ public class SchemaDescriptorConverterTest {
         if (withPk) {
             res.withPrimaryKey("ID");
         }
-
+        
         return res;
     }
-
+    
     /**
      * Check specified column to match other parameters.
      *
@@ -222,11 +222,11 @@ public class SchemaDescriptorConverterTest {
     private static void testCol(Columns cols, String name, NativeTypeSpec type, boolean nullable) {
         int idx = cols.columnIndex(name);
         Column col = cols.column(idx);
-
+        
         assertEquals(name, col.name());
         assertEquals(type.name(), col.type().spec().name());
         assertEquals(nullable, col.nullable());
-
+    
         if (col.type().spec().fixedLength()) {
             assertTrue(col.type().sizeInBytes() >= 0);
         }
