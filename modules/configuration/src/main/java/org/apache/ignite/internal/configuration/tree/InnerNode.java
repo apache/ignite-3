@@ -20,7 +20,7 @@ package org.apache.ignite.internal.configuration.tree;
 import java.util.NoSuchElementException;
 
 /**
- *
+ * Configuration node implementation.
  */
 public abstract class InnerNode implements TraversableTreeNode, ConstructableTreeNode, Cloneable {
     /** {@inheritDoc} */
@@ -28,7 +28,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     public final <T> T accept(String key, ConfigurationVisitor<T> visitor) {
         return visitor.visitInnerNode(key, this);
     }
-
+    
     /**
      * Method with auto-generated implementation. Must look like this:
      * <pre><code>
@@ -52,12 +52,12 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * @param <T>             Parameter type of the passed visitor.
      */
     public abstract <T> void traverseChildren(ConfigurationVisitor<T> visitor, boolean includeInternal);
-
+    
     /**
      * Method with auto-generated implementation. Must look like this:
      * <pre><code>
-     * {@literal @}Override
-     *  public void traverseChild(String key, ConfigurationVisitor visitor, boolean includeInternal) throws NoSuchElementException {
+     * {@literal @}Override public void traverseChild(String key, ConfigurationVisitor visitor, boolean includeInternal) throws
+     *     NoSuchElementException {
      *     if (boolean includeInternal) {
      *         switch (key) {
      *             case "pojoField1":
@@ -104,12 +104,12 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
             ConfigurationVisitor<T> visitor,
             boolean includeInternal
     ) throws NoSuchElementException;
-
+    
     /**
      * Method with auto-generated implementation. Must look like this:
      * <pre><code>
-     * {@literal @}Override
-     *  public abstract void construct(String key, ConfigurationSource src, boolean includeInternal) throws NoSuchElementException {
+     * {@literal @}Override public abstract void construct(String key, ConfigurationSource src, boolean includeInternal)
+     *     throws NoSuchElementException {
      *     if (includeInternal) {
      *         switch (key) {
      *              case "namedList":
@@ -156,7 +156,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
             ConfigurationSource src,
             boolean includeInternal
     ) throws NoSuchElementException;
-
+    
     /**
      * Assigns default value to the corresponding leaf. Defaults are gathered from configuration schema class.
      *
@@ -164,12 +164,12 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * @throws NoSuchElementException If there's no such field or it is not a leaf value.
      */
     public abstract void constructDefault(String fieldName) throws NoSuchElementException;
-
+    
     /**
      * @return Class of corresponding configuration schema.
      */
     public abstract Class<?> schemaType();
-
+    
     /** {@inheritDoc} */
     @Override
     public InnerNode copy() {
@@ -178,5 +178,16 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
         } catch (CloneNotSupportedException e) {
             throw new IllegalStateException(e);
         }
+    }
+    
+    /**
+     * Returns specific {@code Node} of the value. Overridden for polymorphic configuration to get a specific polymorphic configuration
+     * instance.
+     *
+     * @param <NODE> Type of the {@code Node}.
+     * @return Specific {@code Node} of the value.
+     */
+    public <NODE> NODE specificNode() {
+        return (NODE) this;
     }
 }

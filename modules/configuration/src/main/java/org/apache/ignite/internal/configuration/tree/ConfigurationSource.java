@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.configuration.tree;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
- *
+ * Configuration source.
  */
 public interface ConfigurationSource {
     /**
@@ -32,7 +34,7 @@ public interface ConfigurationSource {
     default <T> T unwrap(Class<T> clazz) {
         throw new UnsupportedOperationException("unwrap");
     }
-
+    
     /**
      * Treats current configuration source as an inner node. Tries to construct the content of {@code node} using available data from the
      * source.
@@ -41,10 +43,22 @@ public interface ConfigurationSource {
      */
     default void descend(ConstructableTreeNode node) {
     }
-
+    
     /**
      * Reset internal state, preparing this configuration source for reuse.
      */
     default void reset() {
+    }
+    
+    /**
+     * Returns the identifier of the polymorphic configuration instance.
+     *
+     * @param fieldName Name of the field in the configuration schema that should store the identifier of the polymorphic configuration
+     *                  instance.
+     * @return Identifier of the polymorphic configuration instance.
+     */
+    @Nullable
+    default String polymorphicTypeId(String fieldName) {
+        return null;
     }
 }

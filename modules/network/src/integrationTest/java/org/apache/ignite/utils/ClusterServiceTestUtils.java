@@ -63,64 +63,64 @@ public class ClusterServiceTestUtils {
             ClusterServiceFactory clusterSvcFactory
     ) {
         var ctx = new ClusterLocalConfiguration(testNodeName(testInfo, port), msgSerializationRegistry);
-
+        
         ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
                 Collections.singleton(NetworkConfiguration.KEY),
                 Map.of(),
                 new TestConfigurationStorage(ConfigurationType.LOCAL),
+                List.of(),
                 List.of()
         );
-
+        
         var clusterSvc = clusterSvcFactory.createClusterService(
                 ctx,
                 nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY)
         );
-
+        
         assert nodeFinder instanceof StaticNodeFinder : "Only StaticNodeFinder is supported at the moment";
-
+        
         return new ClusterService() {
             @Override
             public TopologyService topologyService() {
                 return clusterSvc.topologyService();
             }
-
+            
             @Override
             public MessagingService messagingService() {
                 return clusterSvc.messagingService();
             }
-
+            
             @Override
             public ClusterLocalConfiguration localConfiguration() {
                 return clusterSvc.localConfiguration();
             }
-
+            
             @Override
             public boolean isStopped() {
                 return clusterSvc.isStopped();
             }
-
+            
             @Override
             public void start() {
                 nodeConfigurationMgr.start();
-
+                
                 NetworkConfiguration configuration = nodeConfigurationMgr.configurationRegistry()
                         .getConfiguration(NetworkConfiguration.KEY);
-
-                configuration
-                        .change(netCfg ->
-                                netCfg
-                                        .changePort(port)
-                                        .changeNodeFinder(c -> c
-                                                .changeType(NodeFinderType.STATIC.toString())
-                                                .changeNetClusterNodes(
-                                                        nodeFinder.findNodes().stream().map(NetworkAddress::toString).toArray(String[]::new)
-                                                )
+    
+                configuration.change(netCfg ->
+                        netCfg
+                                .changePort(port)
+                                .changeNodeFinder(c -> c
+                                        .changeType(NodeFinderType.STATIC.toString())
+                                        .changeNetClusterNodes(
+                                                nodeFinder.findNodes().stream().map(NetworkAddress::toString).toArray(String[]::new)
                                         )
-                        ).join();
-
+                                )
+                ).join();
+                
                 clusterSvc.start();
             }
-
+            
             @Override
             public void stop() {
                 clusterSvc.stop();
@@ -128,7 +128,7 @@ public class ClusterServiceTestUtils {
             }
         };
     }
-
+    
     /**
      * Creates a list of {@link NetworkAddress}es within a given port range.
      *

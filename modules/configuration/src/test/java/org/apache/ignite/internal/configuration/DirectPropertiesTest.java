@@ -63,27 +63,27 @@ public class DirectPropertiesTest {
          */
         @ConfigValue
         public DirectNestedConfigurationSchema child;
-
+        
         /**
          *
          */
         @NamedConfigValue
         public DirectNestedConfigurationSchema childrenList;
-
+        
         /**
          *
          */
         @Value(hasDefault = true)
         @DirectAccess
         public String directStr = "foo";
-
+        
         /**
          *
          */
         @Value(hasDefault = true)
         public String nonDirectStr = "bar";
     }
-
+    
     /**
      *
      */
@@ -96,20 +96,20 @@ public class DirectPropertiesTest {
         @Value(hasDefault = true)
         @DirectAccess
         public String str = "bar";
-
+        
         /**
          *
          */
         @Value(hasDefault = true)
         public String nonDirectStr = "bar";
-
+        
         /**
          *
          */
         @NamedConfigValue
         public DirectNested2ConfigurationSchema childrenList2;
     }
-
+    
     /**
      *
      */
@@ -122,31 +122,35 @@ public class DirectPropertiesTest {
         @Value(hasDefault = true)
         @DirectAccess
         public String str = "bar";
-
+        
         /**
          *
          */
         @Value(hasDefault = true)
         public String nonDirectStr = "bar";
     }
-
+    
     /**
      *
      */
     private final ConfigurationRegistry registry = new ConfigurationRegistry(
-            List.of(DirectConfiguration.KEY), Map.of(), new TestConfigurationStorage(LOCAL), List.of()
+            List.of(DirectConfiguration.KEY),
+            Map.of(),
+            new TestConfigurationStorage(LOCAL),
+            List.of(),
+            List.of()
     );
-
+    
     /**
      *
      */
     @BeforeEach
     void setUp() {
         registry.start();
-
+        
         registry.initializeDefaults();
     }
-
+    
     /**
      *
      */
@@ -154,7 +158,7 @@ public class DirectPropertiesTest {
     void tearDown() {
         registry.stop();
     }
-
+    
     /**
      * Tests that configuration values and nested configurations are correctly compiled: properties marked with {@link DirectAccess} should
      * extend {@link DirectConfigurationProperty} and provide correct values.
@@ -162,35 +166,35 @@ public class DirectPropertiesTest {
     @Test
     public void testDirectProperties() {
         DirectConfiguration cfg = registry.getConfiguration(DirectConfiguration.KEY);
-
+        
         assertThat(directValue(cfg).directStr(), is("foo"));
         assertThat(directValue(cfg.directStr()), is("foo"));
-
+        
         assertThat(cfg.nonDirectStr(), not(instanceOf(DirectConfigurationProperty.class)));
         assertThat(directValue(cfg).nonDirectStr(), not(instanceOf(DirectConfigurationProperty.class)));
-
+        
         assertThat(directValue(cfg.child()).str(), is("bar"));
         assertThat(directValue(cfg.child().str()), is("bar"));
-
+        
         assertThat(cfg.child().nonDirectStr(), not(instanceOf(DirectConfigurationProperty.class)));
         assertThat(directValue(cfg.child()).nonDirectStr(), not(instanceOf(DirectConfigurationProperty.class)));
     }
-
+    
     /**
      * Same as {@link #testDirectProperties} but checks Named List properties.
      */
     @Test
     public void testNamedListDirectProperties() throws Exception {
         DirectConfiguration cfg = registry.getConfiguration(DirectConfiguration.KEY);
-
+        
         cfg.childrenList()
                 .change(change -> change.create("foo", value -> {
                 }))
                 .get(1, TimeUnit.SECONDS);
-
+        
         assertThat(directValue(cfg.childrenList()).get("foo").str(), is("bar"));
         assertThat(directValue(cfg.childrenList().get("foo")).str(), is("bar"));
-
+        
         assertThat(cfg.childrenList().get("foo").nonDirectStr(), not(instanceOf(DirectConfigurationProperty.class)));
         assertThat(
                 directValue(cfg.childrenList()).get("foo").nonDirectStr(),
@@ -201,7 +205,7 @@ public class DirectPropertiesTest {
                 not(instanceOf(DirectConfigurationProperty.class))
         );
     }
-
+    
     /**
      * Tests the following scenario:
      * <ol>
@@ -216,33 +220,33 @@ public class DirectPropertiesTest {
     @Test
     public void testNamedListDeleteCreate() {
         DirectConfiguration cfg = registry.getConfiguration(DirectConfiguration.KEY);
-
+        
         CompletableFuture<Void> changeFuture = cfg.childrenList().change(change -> change.create("x", value -> {
         }));
-
+        
         assertThat(changeFuture, willBe(nullValue(Void.class)));
-
+        
         DirectNestedConfiguration childCfg = cfg.childrenList().get("x");
-
+        
         assertThat(childCfg.str().value(), is("bar"));
         assertThat(directValue(childCfg.str()), is("bar"));
-
+        
         changeFuture = cfg.childrenList().change(change -> change.delete("x"));
-
+        
         assertThat(changeFuture, willBe(nullValue(Void.class)));
-
+        
         assertThrows(NoSuchElementException.class, () -> childCfg.str().value());
         assertThrows(NoSuchElementException.class, () -> directValue(childCfg.str()));
-
+        
         changeFuture = cfg.childrenList().change(change -> change.create("x", value -> {
         }));
-
+        
         assertThat(changeFuture, willBe(nullValue(Void.class)));
-
+        
         assertThrows(NoSuchElementException.class, () -> childCfg.str().value());
         assertThat(directValue(childCfg.str()), is("bar"));
     }
-
+    
     /**
      *
      */
@@ -250,7 +254,7 @@ public class DirectPropertiesTest {
     void testDirectAccessForAny() {
         NamedConfigurationTree<DirectNestedConfiguration, DirectNestedView, DirectNestedChange> childrenList =
                 registry.getConfiguration(DirectConfiguration.KEY).childrenList();
-
+        
         assertThrows(ConfigurationListenOnlyException.class, () -> directValue(childrenList.any()));
         assertThrows(ConfigurationListenOnlyException.class, () -> directValue(childrenList.any().str()));
         assertThrows(ConfigurationListenOnlyException.class, () -> directValue(childrenList.any().childrenList2()));

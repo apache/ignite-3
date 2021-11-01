@@ -30,7 +30,9 @@ import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
+import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This class represents configuration root or node.
@@ -39,7 +41,7 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
         implements ConfigurationTree<VIEW, CHANGE> {
     /** Configuration members (leaves and nodes). */
     protected volatile Map<String, ConfigurationProperty<?>> members = new LinkedHashMap<>();
-
+    
     /**
      * Constructor.
      *
@@ -58,7 +60,7 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
     ) {
         super(prefix, key, rootKey, changer, listenOnly);
     }
-
+    
     /**
      * Add new configuration member.
      *
@@ -66,57 +68,80 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
      * @param <P>    Type of member.
      */
     protected final <P extends ConfigurationProperty<?>> void add(P member) {
-        members.put(member.key(), member);
+        addMember(members, member);
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public final CompletableFuture<Void> change(Consumer<CHANGE> change) {
         Objects.requireNonNull(change, "Configuration consumer cannot be null.");
-
+    
         if (listenOnly) {
             throw listenOnlyException();
         }
-
+        
         assert keys instanceof RandomAccess;
-
+        
         ConfigurationSource src = new ConfigurationSource() {
             /** Current index in the {@code keys}. */
             private int level = 0;
-
+            
             /** {@inheritDoc} */
             @Override
             public void descend(ConstructableTreeNode node) {
                 if (level == keys.size()) {
-                    change.accept((CHANGE) node);
+                    if (node instanceof InnerNode) {
+                        // To support polymorphic configuration.
+                        change.accept(((InnerNode) node).specificNode());
+                    } else {
+                        // To support namedList configuration.
+                        change.accept((CHANGE) node);
+                    }
                 } else {
                     node.construct(keys.get(level++), this, true);
                 }
             }
-
+            
             /** {@inheritDoc} */
             @Override
             public void reset() {
                 level = 0;
             }
         };
-
+        
         // Use resulting tree as update request for the storage.
         return changer.change(src);
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public final String key() {
         return key;
     }
-
+    
     /** {@inheritDoc} */
     @Override
-    public final VIEW value() {
-        return refreshValue();
+    public VIEW value() {
+        // To support polymorphic configuration.
+        return ((InnerNode) refreshValue()).specificNode();
     }
-
+    
+    /** {@inheritDoc} */
+    @Override
+    protected void beforeRefreshValue(VIEW newValue, @Nullable VIEW oldValue) {
+        if (oldValue == null || ((InnerNode) oldValue).schemaType() != ((InnerNode) newValue).schemaType()) {
+            Map<String, ConfigurationProperty<?>> newMembers = new LinkedHashMap<>(members);
+    
+            if (oldValue != null) {
+                removeMembers(oldValue, newMembers);
+            }
+            
+            addMembers(newValue, newMembers);
+            
+            members = newMembers;
+        }
+    }
+    
     /**
      * Returns all child nodes of the current configuration tree node.
      *
@@ -126,10 +151,10 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
         if (!listenOnly) {
             refreshValue();
         }
-
+        
         return Collections.unmodifiableMap(members);
     }
-
+    
     /**
      * Touches current Dynamic Configuration node. Currently this method makes sense for {@link NamedListConfiguration} class only, but this
      * will be changed in <a href="https://issues.apache.org/jira/browse/IGNITE-14645">IGNITE-14645
@@ -147,10 +172,70 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
     public Map<String, ConfigurationProperty<?>> touchMembers() {
         return members();
     }
-
+    
     /**
+     * Returns configuration interface.
+     *
      * @return Configuration interface, for example {@code RootConfiguration}.
      * @throws UnsupportedOperationException In the case of a named list.
      */
     public abstract Class<? extends ConfigurationProperty<VIEW>> configType();
+    
+    /**
+     * Returns specific configuration tree.
+     *
+     * @return Specific configuration tree.
+     */
+    public ConfigurationTree<VIEW, CHANGE> specificConfigTree() {
+        // To work with polymorphic configuration.
+        return this;
+    }
+    
+    /**
+     * Removes members of the previous instance of polymorphic configuration.
+     *
+     * @param oldValue Old configuration value.
+     * @param members  Configuration members (leaves and nodes).
+     */
+    protected void removeMembers(VIEW oldValue, Map<String, ConfigurationProperty<?>> members) {
+        // No-op.
+    }
+    
+    /**
+     * Adds members of the previous instance of polymorphic configuration.
+     *
+     * @param newValue New configuration value.
+     * @param members  Configuration members (leaves and nodes).
+     */
+    protected void addMembers(VIEW newValue, Map<String, ConfigurationProperty<?>> members) {
+        // No-op.
+    }
+    
+    /**
+     * Add configuration member.
+     *
+     * @param members Configuration members (leaves and nodes).
+     * @param member  Configuration member (leaf or node).
+     * @param <P>     Type of member.
+     */
+    protected <P extends ConfigurationProperty<?>> void addMember(
+            Map<String, ConfigurationProperty<?>> members,
+            P member
+    ) {
+        members.put(member.key(), member);
+    }
+    
+    /**
+     * Remove configuration member.
+     *
+     * @param members Configuration members (leaves and nodes).
+     * @param member  Configuration member (leaf or node).
+     * @param <P>     Type of member.
+     */
+    protected <P extends ConfigurationProperty<?>> void removeMember(
+            Map<String, ConfigurationProperty<?>> members,
+            P member
+    ) {
+        members.remove(member.key());
+    }
 }

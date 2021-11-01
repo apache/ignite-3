@@ -65,47 +65,47 @@ public class ITDistributedConfigurationStorageTest {
          *
          */
         private final String name;
-
+        
         /**
          *
          */
         private final VaultManager vaultManager;
-
+        
         /**
          *
          */
         private final ClusterService clusterService;
-
+        
         /**
          *
          */
         private final Loza raftManager;
-
+        
         /**
          *
          */
         private final ConfigurationManager cfgManager;
-
+        
         /**
          *
          */
         private final MetaStorageManager metaStorageManager;
-
+        
         /**
          *
          */
         private final DistributedConfigurationStorage cfgStorage;
-
+        
         /**
          * Constructor that simply creates a subset of components of this node.
          */
         Node(TestInfo testInfo, Path workDir) {
             var addr = new NetworkAddress("localhost", 10000);
-
+            
             name = testNodeName(testInfo, addr.port());
-
+            
             vaultManager = new VaultManager(new PersistentVaultService(workDir.resolve("vault")));
-
+            
             clusterService = ClusterServiceTestUtils.clusterService(
                     testInfo,
                     addr.port(),
@@ -113,18 +113,19 @@ public class ITDistributedConfigurationStorageTest {
                     new MessageSerializationRegistryImpl(),
                     new TestScaleCubeClusterServiceFactory()
             );
-
+            
             raftManager = new Loza(clusterService, workDir);
-
+            
             List<RootKey<?, ?>> rootKeys = List.of(NodeConfiguration.KEY);
-
+            
             cfgManager = new ConfigurationManager(
                     rootKeys,
                     Map.of(),
                     new LocalConfigurationStorage(vaultManager),
+                    List.of(),
                     List.of()
             );
-
+            
             metaStorageManager = new MetaStorageManager(
                     vaultManager,
                     cfgManager,
@@ -132,49 +133,49 @@ public class ITDistributedConfigurationStorageTest {
                     raftManager,
                     new SimpleInMemoryKeyValueStorage()
             );
-
+            
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
         }
-
+        
         /**
          * Starts the created components.
          */
         void start() throws Exception {
             vaultManager.start();
-
+            
             cfgManager.start();
-
+            
             // metastorage configuration
             var config = String.format("{\"node\": {\"metastorageNodes\": [ \"%s\" ]}}", name);
-
+            
             cfgManager.bootstrap(config);
-
+            
             Stream.of(clusterService, raftManager, metaStorageManager).forEach(IgniteComponent::start);
-
+            
             // this is needed to avoid assertion errors
             cfgStorage.registerConfigurationListener(changedEntries -> completedFuture(null));
-
+            
             // deploy watches to propagate data from the metastore into the vault
             metaStorageManager.deployWatches();
         }
-
+        
         /**
          * Stops the created components.
          */
         void stop() throws Exception {
             var components =
                     List.of(metaStorageManager, raftManager, clusterService, cfgManager, vaultManager);
-
+    
             for (IgniteComponent igniteComponent : components) {
                 igniteComponent.beforeNodeStop();
             }
-
+    
             for (IgniteComponent component : components) {
                 component.stop();
             }
         }
     }
-
+    
     /**
      * Tests a scenario when a node is restarted with an existing PDS folder. A node is started and some data is written to the distributed
      * configuration storage. We then expect that the same data can be read by the node after restart.
@@ -184,26 +185,26 @@ public class ITDistributedConfigurationStorageTest {
     @Test
     void testRestartWithPds(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
         var node = new Node(testInfo, workDir);
-
+        
         Map<String, Serializable> data = Map.of("foo", "bar");
-
+        
         try {
             node.start();
-
+            
             assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
-
+            
             waitForCondition(() -> Objects.nonNull(node.vaultManager.get(APPLIED_REV).join().value()), 3000);
         } finally {
             node.stop();
         }
-
+        
         var node2 = new Node(testInfo, workDir);
-
+        
         try {
             node2.start();
-
+            
             Data storageData = node2.cfgStorage.readAll();
-
+            
             assertThat(storageData.values(), equalTo(data));
         } finally {
             node2.stop();

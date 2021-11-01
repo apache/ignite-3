@@ -24,84 +24,93 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 /**
  * Closure parameter for {@link NamedConfigurationTree#change(Consumer)} method. Contains methods to modify named lists.
  *
- * @param <View>   Type for the reading named list elements of this particular list.
- * @param <Change> Type for changing named list elements of this particular list.
+ * @param <VIEW> Type for the reading named list elements of this particular list.
+ * @param <CHANGE> Type for changing named list elements of this particular list.
  */
-public interface NamedListChange<View, Change extends View> extends NamedListView<View> {
+public interface NamedListChange<VIEW, CHANGE extends VIEW> extends NamedListView<VIEW> {
     /**
      * Creates a new value in the named list configuration.
      *
-     * @param key         Key for the value to be created.
-     * @param valConsumer Closure to modify the value associated with the key. Closure parameter must not be leaked outside the scope of the
-     *                    closure.
+     * @param key Key for the value to be created.
+     * @param valConsumer Closure to modify the value associated with the key. Closure parameter must not be leaked
+     *      outside the scope of the closure.
      * @return {@code this} for chaining.
-     * @throws NullPointerException     If one of the parameters is null.
+     *
+     * @throws NullPointerException If one of the parameters is null.
      * @throws IllegalArgumentException If an element with the given name already exists.
      */
-    NamedListChange<View, Change> create(String key, Consumer<Change> valConsumer);
+    NamedListChange<VIEW, CHANGE> create(String key, Consumer<CHANGE> valConsumer);
 
     /**
      * Creates a new value at the given position in the named list configuration.
      *
-     * @param index       Index of the inserted element.
-     * @param key         Key for the value to be created.
-     * @param valConsumer Closure to modify the value associated with the key. Closure parameter must not be leaked outside the scope of the
-     *                    closure.
+     * @param index Index of the inserted element.
+     * @param key Key for the value to be created.
+     * @param valConsumer Closure to modify the value associated with the key. Closure parameter must not be leaked
+     *      outside the scope of the closure.
      * @return {@code this} for chaining.
-     * @throws NullPointerException      If one of the parameters is null.
+     *
+     * @throws NullPointerException If one of the parameters is null.
      * @throws IndexOutOfBoundsException If index is negative of exceeds the size of the list.
-     * @throws IllegalArgumentException  If an element with the given name already exists.
+     * @throws IllegalArgumentException If an element with the given name already exists.
      */
-    NamedListChange<View, Change> create(int index, String key, Consumer<Change> valConsumer);
+    NamedListChange<VIEW, CHANGE> create(int index, String key, Consumer<CHANGE> valConsumer);
 
     /**
      * Create a new value after a given precedingKey key in the named list configuration.
      *
      * @param precedingKey Name of the preceding element.
-     * @param key          Key for the value to be created.
-     * @param valConsumer  Closure to modify the value associated with the key. Closure parameter must not be leaked outside the scope of
-     *                     the closure.
+     * @param key Key for the value to be created.
+     * @param valConsumer Closure to modify the value associated with the key. Closure parameter must not be leaked
+     *      outside the scope of the closure.
      * @return {@code this} for chaining.
-     * @throws NullPointerException     If one of parameters is null.
-     * @throws IllegalArgumentException If element with given name already exists or if {@code precedingKey} element doesn't exist.
+     *
+     * @throws NullPointerException If one of parameters is null.
+     * @throws IllegalArgumentException If element with given name already exists
+     *      or if {@code precedingKey} element doesn't exist.
      */
-    NamedListChange<View, Change> createAfter(String precedingKey, String key, Consumer<Change> valConsumer);
+    NamedListChange<VIEW, CHANGE> createAfter(String precedingKey, String key, Consumer<CHANGE> valConsumer);
 
     /**
      * Updates a value in the named list configuration. If the value cannot be found, creates a new one instead.
      *
-     * @param key         Key for the value to be updated.
-     * @param valConsumer Closure to modify the value associated with the key. Closure parameter must not be leaked outside the scope of the
-     *                    closure.
+     * @param key Key for the value to be updated.
+     * @param valConsumer Closure to modify the value associated with the key. Closure parameter must not be leaked
+     *      outside the scope of the closure.
      * @return {@code this} for chaining.
-     * @throws NullPointerException     If one of parameters is null.
+     *
+     * @throws NullPointerException If one of parameters is null.
      * @throws IllegalArgumentException If {@link #delete(String)} has been invoked with the same key previously.
      */
-    NamedListChange<View, Change> createOrUpdate(String key, Consumer<Change> valConsumer);
+    NamedListChange<VIEW, CHANGE> createOrUpdate(String key, Consumer<CHANGE> valConsumer);
 
     /**
-     * Renames the existing value in the named list configuration. Element with key {@code oldKey} must exist and key {@code newKey} must
-     * not. Error will occur if {@code newKey} has just been deleted on the same {@link NamedListChange} instance (to distinguish between
-     * {@link ConfigurationNamedListListener#onRename(String, String, ConfigurationNotificationEvent)} and {@link
-     * ConfigurationNamedListListener#onUpdate(ConfigurationNotificationEvent)} on {@code newKey}).
+     * Renames the existing value in the named list configuration. Element with key {@code oldKey} must exist and key
+     * {@code newKey} must not. Error will occur if {@code newKey} has just been deleted on the same
+     * {@link NamedListChange} instance (to distinguish between
+     * {@link ConfigurationNamedListListener#onRename(String, String, ConfigurationNotificationEvent)} and
+     * {@link ConfigurationNamedListListener#onUpdate(ConfigurationNotificationEvent)} on {@code newKey}).
      *
      * @param oldKey Key for the value to be updated.
      * @param newKey New key for the same value.
      * @return {@code this} for chaining.
-     * @throws NullPointerException     If one of parameters is null.
-     * @throws IllegalArgumentException If an element with name {@code newKey} already exists, or an element with name {@code oldKey}
-     *                                  doesn't exist, or {@link #delete(String)} has previously been invoked with either the {@code newKey}
-     *                                  or the {@code oldKey}.
+     *
+     * @throws NullPointerException If one of parameters is null.
+     * @throws IllegalArgumentException If an element with name {@code newKey} already exists, or an element with name
+     *      {@code oldKey} doesn't exist, or {@link #delete(String)} has previously been invoked with either the
+     *      {@code newKey} or the {@code oldKey}.
      */
-    NamedListChange<View, Change> rename(String oldKey, String newKey);
+    NamedListChange<VIEW, CHANGE> rename(String oldKey, String newKey);
 
     /**
      * Removes the value from the named list configuration.
      *
      * @param key Key for the value to be removed.
      * @return {@code this} for chaining.
-     * @throws NullPointerException     If key is null.
-     * @throws IllegalArgumentException If {@link #createOrUpdate(String, Consumer)} has been invoked with the same key previously.
+     *
+     * @throws NullPointerException If key is null.
+     * @throws IllegalArgumentException If {@link #createOrUpdate(String, Consumer)} has been invoked with the same key
+     *      previously.
      */
-    NamedListChange<View, Change> delete(String key);
+    NamedListChange<VIEW, CHANGE> delete(String key);
 }
