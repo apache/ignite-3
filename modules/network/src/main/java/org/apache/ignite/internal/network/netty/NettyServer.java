@@ -50,50 +50,48 @@ import org.jetbrains.annotations.TestOnly;
 public class NettyServer {
     /** A lock for start and stop operations. */
     private final Object startStopLock = new Object();
-
+    
     /** {@link NioServerSocketChannel} bootstrapper. */
     private final ServerBootstrap bootstrap;
-
+    
     /** Socket accepter event loop group. */
-    private final NioEventLoopGroup bossGroup = new NioEventLoopGroup();
-
+    private final NioEventLoopGroup bossGroup;
+    
     /** Socket handler event loop group. */
-    private final NioEventLoopGroup workerGroup = new NioEventLoopGroup();
-
+    private final NioEventLoopGroup workerGroup;
+    
     /** Server socket configuration. */
     private final NetworkView configuration;
-
+    
     /** Serialization registry. */
     private final MessageSerializationRegistry serializationRegistry;
-
+    
     /** Incoming message listener. */
     private final BiConsumer<SocketAddress, NetworkMessage> messageListener;
-
+    
     /** Handshake manager. */
     private final Supplier<HandshakeManager> handshakeManager;
-
+    
     /** Server start future. */
     private CompletableFuture<Void> serverStartFuture;
-
+    
     /** Server socket channel. */
     @Nullable
     private volatile ServerChannel channel;
-
+    
     /** Server close future. */
-    private CompletableFuture<Void> serverCloseFuture = CompletableFuture.allOf(
-            NettyUtils.toCompletableFuture(bossGroup.terminationFuture()),
-            NettyUtils.toCompletableFuture(workerGroup.terminationFuture())
-    );
-
+    private CompletableFuture<Void> serverCloseFuture;
+    
     /** New connections listener. */
     private final Consumer<NettySender> newConnectionListener;
-
+    
     /** Flag indicating if {@link #stop()} has been called. */
     private boolean stopped = false;
-
+    
     /**
      * Constructor.
      *
+     * @param consistentId          Consistent id.
      * @param configuration         Server configuration.
      * @param handshakeManager      Handshake manager supplier.
      * @param newConnectionListener New connections listener.
@@ -101,18 +99,28 @@ public class NettyServer {
      * @param serializationRegistry Serialization registry.
      */
     public NettyServer(
+            String consistentId,
             NetworkView configuration,
             Supplier<HandshakeManager> handshakeManager,
             Consumer<NettySender> newConnectionListener,
             BiConsumer<SocketAddress, NetworkMessage> messageListener,
             MessageSerializationRegistry serializationRegistry
     ) {
-        this(new ServerBootstrap(), configuration, handshakeManager, newConnectionListener, messageListener, serializationRegistry);
+        this(
+                consistentId,
+                new ServerBootstrap(),
+                configuration,
+                handshakeManager,
+                newConnectionListener,
+                messageListener,
+                serializationRegistry
+        );
     }
-
+    
     /**
      * Constructor.
      *
+     * @param consistentId          Consistent id.
      * @param bootstrap             Server bootstrap.
      * @param configuration         Server configuration.
      * @param handshakeManager      Handshake manager supplier.
@@ -121,6 +129,7 @@ public class NettyServer {
      * @param serializationRegistry Serialization registry.
      */
     public NettyServer(
+            String consistentId,
             ServerBootstrap bootstrap,
             NetworkView configuration,
             Supplier<HandshakeManager> handshakeManager,
@@ -134,8 +143,14 @@ public class NettyServer {
         this.newConnectionListener = newConnectionListener;
         this.messageListener = messageListener;
         this.serializationRegistry = serializationRegistry;
+        this.bossGroup = NamedNioEventLoopGroup.create(consistentId + "-srv-accept");
+        this.workerGroup = NamedNioEventLoopGroup.create(consistentId + "-srv-worker");
+        serverCloseFuture = CompletableFuture.allOf(
+                NettyUtils.toCompletableFuture(bossGroup.terminationFuture()),
+                NettyUtils.toCompletableFuture(workerGroup.terminationFuture())
+        );
     }
-
+    
     /**
      * Starts the server.
      *
@@ -146,13 +161,13 @@ public class NettyServer {
             if (stopped) {
                 throw new IgniteInternalException("Attempted to start an already stopped server");
             }
-
+    
             if (serverStartFuture != null) {
                 throw new IgniteInternalException("Attempted to start an already started server");
             }
-
+            
             InboundView inboundConfiguration = configuration.inbound();
-
+            
             bootstrap.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
                     .childHandler(new ChannelInitializer<SocketChannel>() {
@@ -161,7 +176,7 @@ public class NettyServer {
                         public void initChannel(SocketChannel ch) {
                             // Get handshake manager for the new channel.
                             HandshakeManager manager = handshakeManager.get();
-
+                            
                             ch.pipeline().addLast(
                                     /*
                                      * Decoder that uses the MessageReader
@@ -181,7 +196,7 @@ public class NettyServer {
                                     new OutboundEncoder(serializationRegistry),
                                     new IoExceptionSuppressingHandler()
                             );
-
+                            
                             manager.handshakeFuture().thenAccept(newConnectionListener);
                         }
                     })
@@ -215,40 +230,40 @@ public class NettyServer {
                      * and https://en.wikipedia.org/wiki/Nagle%27s_algorithm.
                      */
                     .childOption(ChannelOption.TCP_NODELAY, inboundConfiguration.tcpNoDelay());
-
+            
             int port = configuration.port();
             int portRange = configuration.portRange();
-
+            
             var bindFuture = new CompletableFuture<Channel>();
-
+            
             tryBind(port, port + portRange, bindFuture);
-
+            
             serverStartFuture = bindFuture
                     .handle((channel, err) -> {
                         synchronized (startStopLock) {
                             CompletableFuture<Void> workerCloseFuture = serverCloseFuture;
-
+                            
                             if (channel != null) {
                                 CompletableFuture<Void> channelCloseFuture = NettyUtils.toCompletableFuture(channel.closeFuture())
                                         // Shutdown event loops on channel close.
                                         .whenComplete((v, err0) -> shutdownEventLoopGroups());
-
+                                
                                 serverCloseFuture = CompletableFuture.allOf(channelCloseFuture, workerCloseFuture);
                             }
-
+                            
                             this.channel = (ServerChannel) channel;
-
+                            
                             // Shutdown event loops if the server has failed to start or has been stopped.
                             if (err != null || stopped) {
                                 shutdownEventLoopGroups();
-
+    
                                 return workerCloseFuture.handle((unused, throwable) -> {
                                     Throwable stopErr = err != null ? err : new CancellationException("Server was stopped");
-
+        
                                     if (throwable != null) {
                                         stopErr.addSuppressed(throwable);
                                     }
-
+        
                                     return CompletableFuture.<Void>failedFuture(stopErr);
                                 }).thenCompose(Function.identity());
                             } else {
@@ -257,11 +272,11 @@ public class NettyServer {
                         }
                     })
                     .thenCompose(Function.identity());
-
+            
             return serverStartFuture;
         }
     }
-
+    
     /**
      * Try bind this server to a port.
      *
@@ -273,7 +288,7 @@ public class NettyServer {
         if (port > endPort) {
             fut.completeExceptionally(new IllegalStateException("No available port in range"));
         }
-
+        
         bootstrap.bind(port).addListener((ChannelFuture future) -> {
             if (future.isSuccess()) {
                 fut.complete(future.channel());
@@ -284,14 +299,14 @@ public class NettyServer {
             }
         });
     }
-
+    
     /**
      * @return Gets the local address of the server.
      */
     public SocketAddress address() {
         return channel.localAddress();
     }
-
+    
     /**
      * Stops the server.
      *
@@ -302,23 +317,23 @@ public class NettyServer {
             if (stopped) {
                 return CompletableFuture.completedFuture(null);
             }
-
+            
             stopped = true;
-
+    
             if (serverStartFuture == null) {
                 return CompletableFuture.completedFuture(null);
             }
-
+            
             return serverStartFuture.handle((unused, throwable) -> {
                 if (channel != null) {
                     channel.close();
                 }
-
+                
                 return serverCloseFuture;
             }).thenCompose(Function.identity());
         }
     }
-
+    
     /**
      * Shutdown event loops.
      */
@@ -327,7 +342,7 @@ public class NettyServer {
         bossGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS);
         workerGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS);
     }
-
+    
     /**
      * @return {@code true} if the server is running, {@code false} otherwise.
      */
@@ -335,7 +350,7 @@ public class NettyServer {
     public boolean isRunning() {
         return channel != null && channel.isOpen() && !bossGroup.isShuttingDown() && !workerGroup.isShuttingDown();
     }
-
+    
     /**
      * @return Accepter event loop group.
      */
@@ -343,7 +358,7 @@ public class NettyServer {
     public NioEventLoopGroup getBossGroup() {
         return bossGroup;
     }
-
+    
     /**
      * @return Worker event loop group.
      */
