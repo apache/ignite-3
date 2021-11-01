@@ -144,9 +144,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             // Response.
             ProtocolVersion.LATEST_VER.pack(packer);
 
-            packer.packInt(ClientErrorCode.SUCCESS)
-                    .packBinaryHeader(0) // Features.
-                    .packMapHeader(0); // Extensions.
+            packer.packInt(ClientErrorCode.SUCCESS);
+            packer.packBinaryHeader(0); // Features.
+            packer.packMapHeader(0); // Extensions.
 
             write(packer, ctx);
         }
@@ -163,7 +163,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 if (message == null)
                     message = t.getClass().getName();
 
-                errPacker.packInt(ClientErrorCode.FAILED).packString(message);
+                errPacker.packInt(ClientErrorCode.FAILED);
+                errPacker.packString(message);
 
                 write(errPacker, ctx);
             }
@@ -226,9 +227,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             var opCode = in.unpackInt();
             requestId = in.unpackLong();
 
-            out.packInt(ServerMessageType.RESPONSE)
-                    .packLong(requestId)
-                    .packInt(ClientErrorCode.SUCCESS);
+            out.packInt(ServerMessageType.RESPONSE);
+            out.packLong(requestId);
+            out.packInt(ClientErrorCode.SUCCESS);
 
             var fut = processOperation(in, out, opCode);
 

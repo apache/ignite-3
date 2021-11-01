@@ -29,11 +29,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import org.apache.ignite.lang.IgniteUuid;
-import org.msgpack.value.Value;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER_SIZE;
 import static org.msgpack.core.MessagePack.Code;
@@ -84,28 +82,24 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /** {@inheritDoc} */
-    public ClientMessagePacker packBoolean(boolean b) {
+    public void packBoolean(boolean b) {
         assert !closed : "Packer is closed";
 
         buf.writeByte(b ? Code.TRUE : Code.FALSE);
-
-        return this;
     }
 
     /** {@inheritDoc} */
-    public ClientMessagePacker packByte(byte b) {
+    public void packByte(byte b) {
         assert !closed : "Packer is closed";
 
         if (b < -(1 << 5))
             buf.writeByte(Code.INT8);
 
         buf.writeByte(b);
-
-        return this;
     }
 
     /** {@inheritDoc} */
-    public ClientMessagePacker packShort(short v) {
+    public void packShort(short v) {
         assert !closed : "Packer is closed";
 
         if (v < -(1 << 5)) {
@@ -131,12 +125,10 @@ public class ClientMessagePacker implements AutoCloseable {
                 buf.writeShort(v);
             }
         }
-
-        return this;
     }
 
     /** {@inheritDoc} */
-    public ClientMessagePacker packInt(int r) {
+    public void packInt(int r) {
         assert !closed : "Packer is closed";
 
         if (r < -(1 << 5)) {
@@ -170,12 +162,10 @@ public class ClientMessagePacker implements AutoCloseable {
                 buf.writeInt(r);
             }
         }
-
-        return this;
     }
 
     /** {@inheritDoc} */
-    public ClientMessagePacker packLong(long v) {
+    public void packLong(long v) {
         assert !closed : "Packer is closed";
 
         if (v < -(1L << 5)) {
@@ -225,12 +215,10 @@ public class ClientMessagePacker implements AutoCloseable {
                 }
             }
         }
-
-        return this;
     }
 
     /** {@inheritDoc} */
-    public ClientMessagePacker packBigInteger(BigInteger bi) {
+    public void packBigInteger(BigInteger bi) {
         assert !closed : "Packer is closed";
 
         if (bi.bitLength() <= 63) {
@@ -243,32 +231,26 @@ public class ClientMessagePacker implements AutoCloseable {
         else {
             throw new IllegalArgumentException("MessagePack cannot serialize BigInteger larger than 2^64-1");
         }
-
-        return this;
     }
 
     /** {@inheritDoc} */
-    public ClientMessagePacker packFloat(float v) {
+    public void packFloat(float v) {
         assert !closed : "Packer is closed";
 
         buf.writeByte(Code.FLOAT32);
         buf.writeFloat(v);
-
-        return this;
     }
 
     /** {@inheritDoc} */
-    public ClientMessagePacker packDouble(double v) {
+    public void packDouble(double v) {
         assert !closed : "Packer is closed";
 
         buf.writeByte(Code.FLOAT64);
         buf.writeDouble(v);
-
-        return this;
     }
 
     /** {@inheritDoc} */
-    public ClientMessagePacker packString(String s) {
+    public void packString(String s) {
         assert !closed : "Packer is closed";
 
         // Header is a varint.
@@ -299,12 +281,10 @@ public class ClientMessagePacker implements AutoCloseable {
         }
 
         buf.writerIndex(endPos);
-
-        return this;
     }
 
     /** {@inheritDoc} */
-    public ClientMessagePacker packArrayHeader(int arraySize) {
+    public void packArrayHeader(int arraySize) {
         assert !closed : "Packer is closed";
 
         if (arraySize < 0) {
@@ -322,12 +302,10 @@ public class ClientMessagePacker implements AutoCloseable {
             buf.writeByte(Code.ARRAY32);
             buf.writeInt(arraySize);
         }
-
-        return this;
     }
 
     /** {@inheritDoc} */
-    public ClientMessagePacker packMapHeader(int mapSize) {
+    public void packMapHeader(int mapSize) {
         assert !closed : "Packer is closed";
 
         if (mapSize < 0) {
@@ -345,17 +323,10 @@ public class ClientMessagePacker implements AutoCloseable {
             buf.writeByte(Code.MAP32);
             buf.writeInt(mapSize);
         }
-
-        return this;
     }
 
     /** {@inheritDoc} */
-    public ClientMessagePacker packValue(Value v) {
-        throw new UnsupportedOperationException("TODO: Remove");
-    }
-
-    /** {@inheritDoc} */
-    public ClientMessagePacker packExtensionTypeHeader(byte extType, int payloadLen) {
+    public void packExtensionTypeHeader(byte extType, int payloadLen) {
         assert !closed : "Packer is closed";
 
         if (payloadLen < (1 << 8)) {
@@ -402,12 +373,10 @@ public class ClientMessagePacker implements AutoCloseable {
             buf.writeInt(payloadLen);
             buf.writeByte(extType);
         }
-
-        return this;
     }
 
     /** {@inheritDoc} */
-    public ClientMessagePacker packBinaryHeader(int len) {
+    public void packBinaryHeader(int len) {
         assert !closed : "Packer is closed";
 
         if (len < (1 << 8)) {
@@ -422,12 +391,10 @@ public class ClientMessagePacker implements AutoCloseable {
             buf.writeByte(Code.BIN32);
             buf.writeInt(len);
         }
-
-        return this;
     }
 
     /** {@inheritDoc} */
-    public ClientMessagePacker packRawStringHeader(int len) {
+    public void packRawStringHeader(int len) {
         assert !closed : "Packer is closed";
 
         if (len < (1 << 5)) {
@@ -442,8 +409,6 @@ public class ClientMessagePacker implements AutoCloseable {
             buf.writeByte(Code.STR32);
             buf.writeInt(len);
         }
-
-        return this;
     }
 
     private int getStringHeaderSize(int len) {
@@ -462,63 +427,39 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /** {@inheritDoc} */
-    public ClientMessagePacker writePayload(byte[] src) {
+    public void writePayload(byte[] src) {
         assert !closed : "Packer is closed";
 
         buf.writeBytes(src);
-
-        return this;
     }
 
     /** {@inheritDoc} */
-    public ClientMessagePacker writePayload(byte[] src, int off, int len) {
+    public void writePayload(byte[] src, int off, int len) {
         assert !closed : "Packer is closed";
 
         buf.writeBytes(src, off, len);
-
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    public ClientMessagePacker addPayload(byte[] src) {
-        assert !closed : "Packer is closed";
-
-        // TODO: Remove this method.
-        return writePayload(src);
-    }
-
-    /** {@inheritDoc} */
-    public ClientMessagePacker addPayload(byte[] src, int off, int len) {
-        assert !closed : "Packer is closed";
-
-        // TODO: Remove this method.
-        return writePayload(src, off, len);
     }
 
     /**
      * Writes a UUID.
      *
      * @param val UUID value.
-     * @return This instance.
      */
-    public ClientMessagePacker packUuid(UUID val) {
+    public void packUuid(UUID val) {
         assert !closed : "Packer is closed";
 
         packExtensionTypeHeader(ClientMsgPackType.UUID, 16);
 
         buf.writeLong(val.getMostSignificantBits());
         buf.writeLong(val.getLeastSignificantBits());
-
-        return this;
     }
 
     /**
      * Writes an {@link IgniteUuid}.
      *
      * @param val {@link IgniteUuid} value.
-     * @return This instance.
      */
-    public ClientMessagePacker packIgniteUuid(IgniteUuid val) {
+    public void packIgniteUuid(IgniteUuid val) {
         assert !closed : "Packer is closed";
 
         packExtensionTypeHeader(ClientMsgPackType.IGNITE_UUID, 24);
@@ -528,17 +469,14 @@ public class ClientMessagePacker implements AutoCloseable {
         buf.writeLong(globalId.getMostSignificantBits());
         buf.writeLong(globalId.getLeastSignificantBits());
         buf.writeLong(val.localId());
-
-        return this;
     }
 
     /**
      * Writes a decimal.
      *
      * @param val Decimal value.
-     * @return This instance.
      */
-    public ClientMessagePacker packDecimal(BigDecimal val) {
+    public void packDecimal(BigDecimal val) {
         assert !closed : "Packer is closed";
 
         byte[] unscaledValue = val.unscaledValue().toByteArray();
@@ -547,17 +485,14 @@ public class ClientMessagePacker implements AutoCloseable {
 
         buf.writeInt(val.scale());
         buf.writeBytes(unscaledValue);
-
-        return this;
     }
 
     /**
      * Writes a decimal.
      *
      * @param val Decimal value.
-     * @return This instance.
      */
-    public ClientMessagePacker packNumber(BigInteger val) {
+    public void packNumber(BigInteger val) {
         assert !closed : "Packer is closed";
 
         byte[] data = val.toByteArray();
@@ -565,17 +500,14 @@ public class ClientMessagePacker implements AutoCloseable {
         packExtensionTypeHeader(ClientMsgPackType.NUMBER, data.length);
 
         buf.writeBytes(data);
-
-        return this;
     }
 
     /**
      * Writes a bit set.
      *
      * @param val Bit set value.
-     * @return This instance.
      */
-    public ClientMessagePacker packBitSet(BitSet val) {
+    public void packBitSet(BitSet val) {
         assert !closed : "Packer is closed";
 
         byte[] data = val.toByteArray();
@@ -583,40 +515,34 @@ public class ClientMessagePacker implements AutoCloseable {
         packExtensionTypeHeader(ClientMsgPackType.BITMASK, data.length);
 
         buf.writeBytes(data);
-
-        return this;
     }
 
     /**
      * Writes an integer array.
      *
      * @param arr Integer array value.
-     * @return This instance.
      */
-    public ClientMessagePacker packIntArray(int[] arr) {
+    public void packIntArray(int[] arr) {
         assert !closed : "Packer is closed";
 
         if (arr == null) {
             packNil();
 
-            return this;
+            return;
         }
 
         packArrayHeader(arr.length);
 
         for (int i : arr)
             packInt(i);
-
-        return this;
     }
 
     /**
      * Writes a date.
      *
      * @param val Date value.
-     * @return This instance.
      */
-    public ClientMessagePacker packDate(LocalDate val) {
+    public void packDate(LocalDate val) {
         assert !closed : "Packer is closed";
 
         packExtensionTypeHeader(ClientMsgPackType.DATE, 6);
@@ -624,17 +550,14 @@ public class ClientMessagePacker implements AutoCloseable {
         buf.writeInt(val.getYear());
         buf.writeByte(val.getMonthValue());
         buf.writeByte(val.getDayOfMonth());
-
-        return this;
     }
 
     /**
      * Writes a time.
      *
      * @param val Time value.
-     * @return This instance.
      */
-    public ClientMessagePacker packTime(LocalTime val) {
+    public void packTime(LocalTime val) {
         assert !closed : "Packer is closed";
 
         packExtensionTypeHeader(ClientMsgPackType.TIME, 7);
@@ -643,17 +566,14 @@ public class ClientMessagePacker implements AutoCloseable {
         buf.writeByte(val.getMinute());
         buf.writeByte(val.getSecond());
         buf.writeInt(val.getNano());
-
-        return this;
     }
 
     /**
      * Writes a datetime.
      *
      * @param val Datetime value.
-     * @return This instance.
      */
-    public ClientMessagePacker packDateTime(LocalDateTime val) {
+    public void packDateTime(LocalDateTime val) {
         assert !closed : "Packer is closed";
 
         packExtensionTypeHeader(ClientMsgPackType.DATETIME, 13);
@@ -665,26 +585,21 @@ public class ClientMessagePacker implements AutoCloseable {
         buf.writeByte(val.getMinute());
         buf.writeByte(val.getSecond());
         buf.writeInt(val.getNano());
-
-        return this;
     }
 
     /**
      * Writes a timestamp.
      *
      * @param val Timestamp value.
-     * @return This instance.
      * @throws UnsupportedOperationException Not supported.
      */
-    public ClientMessagePacker packTimestamp(Instant val) {
+    public void packTimestamp(Instant val) {
         assert !closed : "Packer is closed";
 
         packExtensionTypeHeader(ClientMsgPackType.TIMESTAMP, 12);
 
         buf.writeLong(val.getEpochSecond());
         buf.writeInt(val.getNano());
-
-        return this;
     }
 
     /**
@@ -805,16 +720,15 @@ public class ClientMessagePacker implements AutoCloseable {
      * Packs an array of different objects.
      *
      * @param args Object array.
-     * @return This instance.
      * @throws UnsupportedOperationException in case of unknown type.
      */
-    public ClientMessagePacker packObjectArray(Object[] args) {
+    public void packObjectArray(Object[] args) {
         assert !closed : "Packer is closed";
 
         if (args == null) {
             packNil();
 
-            return this;
+            return;
         }
 
         packArrayHeader(args.length);
@@ -909,8 +823,6 @@ public class ClientMessagePacker implements AutoCloseable {
             else
                 throw new UnsupportedOperationException("Custom objects are not supported");
         }
-
-        return this;
     }
 
     /** {@inheritDoc} */
