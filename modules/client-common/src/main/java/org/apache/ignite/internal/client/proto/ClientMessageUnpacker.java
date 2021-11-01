@@ -100,48 +100,56 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public int unpackInt() {
-        assert refCnt > 0 : "Unpacker is closed";
+        byte code = readByte();
 
-        byte b = readByte();
-        if (Code.isFixInt(b)) {
-            return b;
-        }
-        switch (b) {
-            case Code.UINT8: // unsigned int 8
+        if (Code.isFixInt(code))
+            return code;
+
+        switch (code) {
+            case Code.UINT8:
                 byte u8 = readByte();
                 return u8 & 0xff;
-            case Code.UINT16: // unsigned int 16
+
+            case Code.UINT16:
                 short u16 = readShort();
                 return u16 & 0xffff;
-            case Code.UINT32: // unsigned int 32
+
+            case Code.UINT32:
                 int u32 = readInt();
-                if (u32 < 0) {
+
+                if (u32 < 0)
                     throw overflowU32(u32);
-                }
+
                 return u32;
-            case Code.UINT64: // unsigned int 64
+
+            case Code.UINT64:
                 long u64 = readLong();
-                if (u64 < 0L || u64 > (long) Integer.MAX_VALUE) {
+
+                if (u64 < 0L || u64 > (long) Integer.MAX_VALUE)
                     throw overflowU64(u64);
-                }
+
                 return (int) u64;
-            case Code.INT8: // signed int 8
-                byte i8 = readByte();
-                return i8;
-            case Code.INT16: // signed int 16
-                short i16 = readShort();
-                return i16;
-            case Code.INT32: // signed int 32
-                int i32 = readInt();
-                return i32;
-            case Code.INT64: // signed int 64
+
+            case Code.INT8:
+                return readByte();
+
+            case Code.INT16:
+                return readShort();
+
+            case Code.INT32:
+                return readInt();
+
+            case Code.INT64:
                 long i64 = readLong();
-                if (i64 < (long) Integer.MIN_VALUE || i64 > (long) Integer.MAX_VALUE) {
+
+                if (i64 < (long) Integer.MIN_VALUE || i64 > (long) Integer.MAX_VALUE)
                     throw overflowI64(i64);
-                }
+
                 return (int) i64;
         }
-        throw unexpected("Integer", b);    }
+
+        throw unexpected("Integer", code);
+    }
 
     /** {@inheritDoc} */
     @Override public String unpackString() {
@@ -820,6 +828,9 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     private byte readByte() {
+        // TODO: Inline this and below?
+        assert refCnt > 0 : "Unpacker is closed";
+
         return buf.readByte();
     }
 
