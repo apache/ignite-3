@@ -276,6 +276,29 @@ abstract class AbstractSchemaChangeTest {
     }
 
     /**
+     * Ensure configuration validation failed.
+     *
+     * @param grid Grid.
+     * @param colName Column to change.
+     * @param colChanger Column configuration changer.
+     */
+    private void assertColumnChangeFailed(List<Ignite> grid, String colName, Consumer<ColumnChange> colChanger) {
+        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
+            grid.get(0).tables().alterTable(TABLE,
+                tblChanger -> tblChanger.changeColumns(cols -> {
+                    final String colKey = tblChanger.columns().namedListKeys().stream()
+                        .filter(c -> colName.equals(tblChanger.columns().get(c).name()))
+                        .findFirst()
+                        .orElseGet(() -> Assertions.fail("Column not found."));
+
+                    tblChanger.changeColumns(listChanger -> listChanger.createOrUpdate(colKey, colChanger)
+                    );
+                })
+            );
+        });
+    }
+
+    /**
      * @param expectedType Expected cause type.
      * @param executable Executable that throws exception.
      */
@@ -290,28 +313,5 @@ abstract class AbstractSchemaChangeTest {
         }
 
         fail("Expected cause wasn't found.");
-    }
-
-    /**
-     * Ensure configuration validation failed.
-     *
-     * @param grid Grid.
-     * @param colName Column to change.
-     * @param colChanger Column configuration changer.
-     */
-    private void assertColumnChangeFailed(List<Ignite> grid, String colName, Consumer<ColumnChange> colChanger) {
-        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
-            grid.get(0).tables().alterTable(TABLE,
-                tblChanger -> tblChanger.changeColumns(cols -> {
-                    final String colKey = tblChanger.columns().namedListKeys().stream()
-                                              .filter(c -> colName.equals(tblChanger.columns().get(c).name()))
-                                              .findFirst()
-                                              .orElseGet(() -> Assertions.fail("Column not found."));
-
-                    tblChanger.changeColumns(listChanger -> listChanger.createOrUpdate(colKey, colChanger)
-                    );
-                })
-            );
-        });
     }
 }
