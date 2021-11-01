@@ -35,16 +35,10 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteRel;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteRelVisitor;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 
-/**
- *
- */
 public class IgniteSingleSortAggregate extends IgniteSingleAggregateBase implements IgniteSortAggregateBase {
     /** Collation. */
     private final RelCollation collation;
 
-    /**
-     *
-     */
     public IgniteSingleSortAggregate(
             RelOptCluster cluster,
             RelTraitSet traitSet,
@@ -61,9 +55,6 @@ public class IgniteSingleSortAggregate extends IgniteSingleAggregateBase impleme
         collation = TraitUtils.collation(traitSet);
     }
 
-    /**
-     *
-     */
     public IgniteSingleSortAggregate(RelInput input) {
         super(input);
 

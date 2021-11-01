@@ -32,36 +32,18 @@ import org.jetbrains.annotations.Nullable;
  * Index conditions and bounds holder. Conditions are not printed to terms (serialized). They are used only to calculate selectivity.
  */
 public class IndexConditions {
-    /**
-     *
-     */
     private final List<RexNode> lowerCond;
 
-    /**
-     *
-     */
     private final List<RexNode> upperCond;
 
-    /**
-     *
-     */
     private final List<RexNode> lowerBound;
 
-    /**
-     *
-     */
     private final List<RexNode> upperBound;
 
-    /**
-     *
-     */
     public IndexConditions() {
         this(null, null, null, null);
     }
 
-    /**
-     *
-     */
     public IndexConditions(
             @Nullable List<RexNode> lowerCond,
             @Nullable List<RexNode> upperCond,
@@ -74,9 +56,6 @@ public class IndexConditions {
         this.upperBound = upperBound;
     }
 
-    /**
-     *
-     */
     public IndexConditions(RelInput input) {
         lowerCond = null;
         upperCond = null;
@@ -112,9 +91,6 @@ public class IndexConditions {
         return upperBound;
     }
 
-    /**
-     *
-     */
     public Set<Integer> keys() {
         if (upperBound == null && lowerBound == null) {
             return Collections.emptySet();

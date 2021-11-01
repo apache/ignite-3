@@ -19,12 +19,6 @@ package org.apache.ignite.internal.processors.query.calcite.exec.exp;
 
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 
-/**
- *
- */
 public interface Scalar {
-    /**
-     *
-     */
     void execute(ExecutionContext ctx, Object in, Object out);
 }

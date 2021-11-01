@@ -36,14 +36,8 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * Distribution function.
  */
 public abstract class DistributionFunction {
-    /**
-     *
-     */
     private String name;
 
-    /**
-     *
-     */
     private DistributionFunction() {
         // No-op.
     }
@@ -64,16 +58,10 @@ public abstract class DistributionFunction {
         return name = name0().intern();
     }
 
-    /**
-     *
-     */
     public boolean affinity() {
         return false;
     }
 
-    /**
-     *
-     */
     public static DistributionFunction affinity(int cacheId, Object identity) {
         return new AffinityDistribution(cacheId, identity);
     }
@@ -119,44 +107,26 @@ public abstract class DistributionFunction {
         return name();
     }
 
-    /**
-     *
-     */
     public static DistributionFunction any() {
         return AnyDistribution.INSTANCE;
     }
 
-    /**
-     *
-     */
     public static DistributionFunction broadcast() {
         return BroadcastDistribution.INSTANCE;
     }
 
-    /**
-     *
-     */
     public static DistributionFunction singleton() {
         return SingletonDistribution.INSTANCE;
     }
 
-    /**
-     *
-     */
     public static DistributionFunction random() {
         return RandomDistribution.INSTANCE;
     }
 
-    /**
-     *
-     */
     public static DistributionFunction hash() {
         return HashDistribution.INSTANCE;
     }
 
-    /**
-     *
-     */
     public static boolean satisfy(DistributionFunction f0, DistributionFunction f1) {
         if (f0 == f1 || f0.name() == f1.name()) {
             return true;
@@ -166,18 +136,9 @@ public abstract class DistributionFunction {
                 && Objects.equals(((AffinityDistribution) f0).identity(), ((AffinityDistribution) f1).identity());
     }
 
-    /**
-     *
-     */
     private static final class AnyDistribution extends DistributionFunction {
-        /**
-         *
-         */
         public static final DistributionFunction INSTANCE = new AnyDistribution();
 
-        /**
-         *
-         */
         public static DistributionFunction affinity(int cacheId, Object identity) {
             return new AffinityDistribution(cacheId, identity);
         }
@@ -196,13 +157,7 @@ public abstract class DistributionFunction {
         }
     }
 
-    /**
-     *
-     */
     private static final class BroadcastDistribution extends DistributionFunction {
-        /**
-         *
-         */
         public static final DistributionFunction INSTANCE = new BroadcastDistribution();
 
         /** {@inheritDoc} */
@@ -221,13 +176,7 @@ public abstract class DistributionFunction {
         }
     }
 
-    /**
-     *
-     */
     private static final class RandomDistribution extends DistributionFunction {
-        /**
-         *
-         */
         public static final DistributionFunction INSTANCE = new RandomDistribution();
 
         /** {@inheritDoc} */
@@ -246,13 +195,7 @@ public abstract class DistributionFunction {
         }
     }
 
-    /**
-     *
-     */
     private static final class SingletonDistribution extends DistributionFunction {
-        /**
-         *
-         */
         public static final DistributionFunction INSTANCE = new SingletonDistribution();
 
         /** {@inheritDoc} */
@@ -273,9 +216,6 @@ public abstract class DistributionFunction {
         }
     }
 
-    /**
-     *
-     */
     private static final class HashDistribution extends DistributionFunction {
         public static final DistributionFunction INSTANCE = new HashDistribution();
 
@@ -306,18 +246,9 @@ public abstract class DistributionFunction {
         }
     }
 
-    /**
-     *
-     */
     private static final class AffinityDistribution extends DistributionFunction {
-        /**
-         *
-         */
         private final int cacheId;
 
-        /**
-         *
-         */
         private final Object identity;
 
         /**
@@ -360,9 +291,6 @@ public abstract class DistributionFunction {
             return new Partitioned<>(assignments, affinity);
         }
 
-        /**
-         *
-         */
         public Object identity() {
             return identity;
         }

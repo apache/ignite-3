@@ -21,28 +21,13 @@ import java.util.function.ToIntFunction;
 import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 import org.apache.ignite.internal.util.IgniteUtils;
 
-/**
- *
- */
 final class AffinityAdapter<RowT> implements ToIntFunction<RowT> {
-    /**
-     *
-     */
     private final ToIntFunction<Object> affinity;
 
-    /**
-     *
-     */
     private final int[] keys;
 
-    /**
-     *
-     */
     private final RowHandler<RowT> hndlr;
 
-    /**
-     *
-     */
     AffinityAdapter(ToIntFunction<Object> affinity, int[] keys, RowHandler<RowT> hndlr) {
         this.affinity = affinity;
         this.keys = keys;

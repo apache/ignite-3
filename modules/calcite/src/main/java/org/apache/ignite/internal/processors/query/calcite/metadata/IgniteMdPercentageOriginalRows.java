@@ -34,9 +34,6 @@ import org.apache.calcite.util.BuiltInMethod;
  */
 @SuppressWarnings("unused") // actually all methods are used by runtime generated classes
 public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMetadata.PercentageOriginalRows> {
-    /**
-     *
-     */
     public static final RelMetadataProvider SOURCE = ReflectiveRelMetadataProvider.reflectiveSource(
             BuiltInMethod.PERCENTAGE_ORIGINAL_ROWS.method, new IgniteMdPercentageOriginalRows());
 
@@ -46,9 +43,6 @@ public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMe
         return BuiltInMetadata.PercentageOriginalRows.DEF;
     }
 
-    /**
-     *
-     */
     public Double getPercentageOriginalRows(Aggregate rel, RelMetadataQuery mq) {
         // REVIEW jvs 28-Mar-2006: The assumption here seems to be that
         // aggregation does not apply any filtering, so it does not modify the
@@ -56,9 +50,6 @@ public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMe
         return mq.getPercentageOriginalRows(rel.getInput());
     }
 
-    /**
-     *
-     */
     public Double getPercentageOriginalRows(Union rel, RelMetadataQuery mq) {
         double numerator = 0.0;
         double denominator = 0.0;
@@ -91,9 +82,6 @@ public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMe
         return quotientForPercentage(numerator, denominator);
     }
 
-    /**
-     *
-     */
     public Double getPercentageOriginalRows(Join rel, RelMetadataQuery mq) {
         // Assume any single-table filter conditions have already
         // been pushed down.
@@ -114,9 +102,6 @@ public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMe
         return left * right;
     }
 
-    /**
-     *
-     */
     public Double getPercentageOriginalRows(RelNode rel, RelMetadataQuery mq) {
         if (rel.getInputs().size() > 1) {
             // No generic formula available for multiple inputs.
@@ -153,9 +138,6 @@ public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMe
         return relPercentage * childPercentage;
     }
 
-    /**
-     *
-     */
     private static Double quotientForPercentage(
             Double numerator,
             Double denominator) {

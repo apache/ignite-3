@@ -19,26 +19,16 @@ package org.apache.ignite.internal.processors.query.calcite.metadata;
 
 import java.util.UUID;
 
-/**
- *
- */
 public class RemoteException extends RuntimeException {
-    /**
-     *
-     */
     private final String nodeId;
 
-    /**
-     *
-     */
     private final UUID queryId;
 
-    /**
-     *
-     */
     private final long fragmentId;
 
     /**
+     * Constructor.
+     *
      * @param cause      Cause.
      * @param nodeId     Node ID.
      * @param queryId    Query ID.

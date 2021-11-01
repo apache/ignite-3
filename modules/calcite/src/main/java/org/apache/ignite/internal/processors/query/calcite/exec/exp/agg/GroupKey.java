@@ -22,37 +22,19 @@ import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import java.io.Serializable;
 import java.util.Arrays;
 
-/**
- *
- */
 public class GroupKey implements Serializable {
-    /**
-     *
-     */
     public static final GroupKey EMPTY_GRP_KEY = new GroupKey(OBJECT_EMPTY_ARRAY);
 
-    /**
-     *
-     */
     private final Object[] fields;
 
-    /**
-     *
-     */
     public GroupKey(Object[] fields) {
         this.fields = fields;
     }
 
-    /**
-     *
-     */
     public Object field(int idx) {
         return fields[idx];
     }
 
-    /**
-     *
-     */
     public int fieldsCount() {
         return fields.length;
     }
@@ -84,37 +66,19 @@ public class GroupKey implements Serializable {
         return "GroupKey" + Arrays.toString(fields);
     }
 
-    /**
-     *
-     */
     public static Builder builder(int rowLen) {
         return new Builder(rowLen);
     }
 
-    /**
-     *
-     */
     public static class Builder {
-        /**
-         *
-         */
         private final Object[] fields;
 
-        /**
-         *
-         */
         private int idx;
 
-        /**
-         *
-         */
         private Builder(int rowLen) {
             fields = new Object[rowLen];
         }
 
-        /**
-         *
-         */
         public Builder add(Object val) {
             if (idx == fields.length) {
                 throw new IndexOutOfBoundsException();
@@ -125,9 +89,6 @@ public class GroupKey implements Serializable {
             return this;
         }
 
-        /**
-         *
-         */
         public GroupKey build() {
             assert idx == fields.length;
 

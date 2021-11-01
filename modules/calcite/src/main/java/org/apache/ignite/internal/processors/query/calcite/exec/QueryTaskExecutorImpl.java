@@ -23,23 +23,11 @@ import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
 
-/**
- *
- */
 public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.UncaughtExceptionHandler {
-    /**
-     *
-     */
     private static final IgniteLogger LOG = IgniteLogger.forClass(QueryTaskExecutorImpl.class);
 
-    /**
-     *
-     */
     private final StripedThreadPoolExecutor stripedThreadPoolExecutor;
 
-    /**
-     *
-     */
     private Thread.UncaughtExceptionHandler exHnd;
 
     /**
@@ -97,9 +85,6 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
         }
     }
 
-    /**
-     *
-     */
     private static int hash(UUID qryId, long fragmentId) {
         // inlined Objects.hash(...)
         return IgniteUtils.safeAbs(31 * (31 + (qryId != null ? qryId.hashCode() : 0)) + Long.hashCode(fragmentId));

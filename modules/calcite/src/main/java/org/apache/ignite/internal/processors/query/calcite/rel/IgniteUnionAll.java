@@ -41,20 +41,11 @@ import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitsAwareIgniteRel;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
-/**
- *
- */
 public class IgniteUnionAll extends Union implements TraitsAwareIgniteRel {
-    /**
-     *
-     */
     public IgniteUnionAll(RelOptCluster cluster, RelTraitSet traits, List<RelNode> inputs) {
         super(cluster, traits, inputs, true);
     }
 
-    /**
-     *
-     */
     public IgniteUnionAll(RelInput input) {
         this(
                 input.getCluster(),

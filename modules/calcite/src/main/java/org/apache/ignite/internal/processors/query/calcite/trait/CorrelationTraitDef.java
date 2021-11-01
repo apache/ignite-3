@@ -21,13 +21,7 @@ import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.rel.RelNode;
 
-/**
- *
- */
 public class CorrelationTraitDef extends RelTraitDef<CorrelationTrait> {
-    /**
-     *
-     */
     public static final CorrelationTraitDef INSTANCE = new CorrelationTraitDef();
 
     /** {@inheritDoc} */

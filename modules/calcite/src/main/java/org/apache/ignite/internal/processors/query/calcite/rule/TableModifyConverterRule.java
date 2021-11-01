@@ -31,13 +31,7 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableModify
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions;
 import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 
-/**
- *
- */
 public class TableModifyConverterRule extends AbstractIgniteConverterRule<LogicalTableModify> {
-    /**
-     *
-     */
     public static final RelOptRule INSTANCE = new TableModifyConverterRule();
 
     /**

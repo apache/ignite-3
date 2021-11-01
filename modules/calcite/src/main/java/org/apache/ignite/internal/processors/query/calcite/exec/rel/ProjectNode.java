@@ -23,13 +23,7 @@ import java.util.function.Function;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 
-/**
- *
- */
 public class ProjectNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
-    /**
-     *
-     */
     private final Function<RowT, RowT> prj;
 
     /**

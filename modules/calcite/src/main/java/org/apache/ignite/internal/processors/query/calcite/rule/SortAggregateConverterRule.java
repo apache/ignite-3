@@ -37,34 +37,16 @@ import org.apache.ignite.internal.processors.query.calcite.rel.agg.IgniteSingleS
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions;
 import org.apache.ignite.internal.processors.query.calcite.util.HintUtils;
 
-/**
- *
- */
 public class SortAggregateConverterRule {
-    /**
-     *
-     */
     public static final RelOptRule SINGLE = new SortSingleAggregateConverterRule();
 
-    /**
-     *
-     */
     public static final RelOptRule MAP_REDUCE = new SortMapReduceAggregateConverterRule();
 
-    /**
-     *
-     */
     private SortAggregateConverterRule() {
         // No-op.
     }
 
-    /**
-     *
-     */
     private static class SortSingleAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
-        /**
-         *
-         */
         SortSingleAggregateConverterRule() {
             super(LogicalAggregate.class, "SortSingleAggregateConverterRule");
         }
@@ -106,13 +88,7 @@ public class SortAggregateConverterRule {
         }
     }
 
-    /**
-     *
-     */
     private static class SortMapReduceAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
-        /**
-         *
-         */
         SortMapReduceAggregateConverterRule() {
             super(LogicalAggregate.class, "SortMapReduceAggregateConverterRule");
         }

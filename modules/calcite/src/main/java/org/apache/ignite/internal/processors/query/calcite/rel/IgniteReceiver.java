@@ -34,23 +34,14 @@ import org.apache.calcite.util.Pair;
  * Relational expression that receives elements from remote {@link IgniteSender}
  */
 public class IgniteReceiver extends AbstractRelNode implements IgniteRel {
-    /**
-     *
-     */
     private final long exchangeId;
 
-    /**
-     *
-     */
     private final long sourceFragmentId;
 
-    /**
-     *
-     */
     private final RelCollation collation;
 
     /**
-     * Creates a Receiver
+     * Creates a Receiver.
      */
     public IgniteReceiver(
             RelOptCluster cluster,
@@ -62,9 +53,6 @@ public class IgniteReceiver extends AbstractRelNode implements IgniteRel {
         this(cluster, traits, rowType, exchangeId, sourceFragmentId, traits.getCollation());
     }
 
-    /**
-     *
-     */
     public IgniteReceiver(RelInput input) {
         this(
                 input.getCluster(),
@@ -76,9 +64,6 @@ public class IgniteReceiver extends AbstractRelNode implements IgniteRel {
         );
     }
 
-    /**
-     *
-     */
     private IgniteReceiver(
             RelOptCluster cluster,
             RelTraitSet traits,
@@ -95,23 +80,14 @@ public class IgniteReceiver extends AbstractRelNode implements IgniteRel {
         this.collation = collation;
     }
 
-    /**
-     *
-     */
     public long exchangeId() {
         return exchangeId;
     }
 
-    /**
-     *
-     */
     public long sourceFragmentId() {
         return sourceFragmentId;
     }
 
-    /**
-     *
-     */
     @Override
     public RelCollation collation() {
         return collation;

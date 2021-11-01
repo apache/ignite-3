@@ -22,23 +22,11 @@ import java.util.List;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
-/**
- *
- */
 public final class Partitioned<RowT> implements Destination<RowT> {
-    /**
-     *
-     */
     private final List<List<String>> assignments;
 
-    /**
-     *
-     */
     private final ToIntFunction<RowT> partFun;
 
-    /**
-     *
-     */
     public Partitioned(List<List<String>> assignments, ToIntFunction<RowT> partFun) {
         this.assignments = assignments;
         this.partFun = partFun;

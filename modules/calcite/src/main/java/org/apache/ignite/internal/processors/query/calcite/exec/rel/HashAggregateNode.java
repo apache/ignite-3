@@ -41,46 +41,22 @@ import org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.GroupKey
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.lang.IgniteInternalException;
 
-/**
- *
- */
 public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
-    /**
-     *
-     */
     private final AggregateType type;
 
     /** May be {@code null} when there are not accumulators (DISTINCT aggregate node). */
     private final Supplier<List<AccumulatorWrapper<RowT>>> accFactory;
 
-    /**
-     *
-     */
     private final RowFactory<RowT> rowFactory;
 
-    /**
-     *
-     */
     private final ImmutableBitSet grpSet;
 
-    /**
-     *
-     */
     private final List<Grouping> groupings;
 
-    /**
-     *
-     */
     private int requested;
 
-    /**
-     *
-     */
     private int waiting;
 
-    /**
-     *
-     */
     private boolean inLoop;
 
     /**
@@ -181,16 +157,10 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         return this;
     }
 
-    /**
-     *
-     */
     private boolean hasAccumulators() {
         return accFactory != null;
     }
 
-    /**
-     *
-     */
     private void flush() throws Exception {
         if (isClosed()) {
             return;
@@ -240,42 +210,21 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
     }
 
-    /**
-     *
-     */
     private ArrayDeque<Grouping> groupingsQueue() {
         return groupings.stream()
                 .filter(negate(Grouping::isEmpty))
                 .collect(toCollection(ArrayDeque::new));
     }
 
-    /**
-     *
-     */
     private class Grouping {
-        /**
-         *
-         */
         private final byte grpId;
 
-        /**
-         *
-         */
         private final ImmutableBitSet grpFields;
 
-        /**
-         *
-         */
         private final Map<GroupKey, List<AccumulatorWrapper<RowT>>> groups = new HashMap<>();
 
-        /**
-         *
-         */
         private final RowHandler<RowT> handler;
 
-        /**
-         *
-         */
         private Grouping(byte grpId, ImmutableBitSet grpFields) {
             this.grpId = grpId;
             this.grpFields = grpFields;
@@ -289,9 +238,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             }
         }
 
-        /**
-         *
-         */
         private void add(RowT row) {
             if (type == AggregateType.REDUCE) {
                 addOnReducer(row);
@@ -314,9 +260,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             }
         }
 
-        /**
-         *
-         */
         private void addOnMapper(RowT row) {
             GroupKey.Builder b = GroupKey.builder(grpFields.cardinality());
 
@@ -333,9 +276,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             }
         }
 
-        /**
-         *
-         */
         private void addOnReducer(RowT row) {
             byte targetGrpId = (byte) handler.get(0, row);
 
@@ -356,9 +296,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             }
         }
 
-        /**
-         *
-         */
         private List<RowT> getOnMapper(int cnt) {
             Iterator<Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>>> it = groups.entrySet().iterator();
 
@@ -381,9 +318,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             return res;
         }
 
-        /**
-         *
-         */
         private List<RowT> getOnReducer(int cnt) {
             Iterator<Map.Entry<GroupKey, List<AccumulatorWrapper<RowT>>>> it = groups.entrySet().iterator();
 
@@ -416,9 +350,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             return res;
         }
 
-        /**
-         *
-         */
         private List<AccumulatorWrapper<RowT>> create(GroupKey key) {
             if (accFactory == null) {
                 return Collections.emptyList();
@@ -427,9 +358,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             return accFactory.get();
         }
 
-        /**
-         *
-         */
         private boolean isEmpty() {
             return groups.isEmpty();
         }

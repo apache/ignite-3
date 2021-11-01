@@ -17,17 +17,8 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel;
 
-/**
- *
- */
 public interface SourceAwareIgniteRel extends IgniteRel {
-    /**
-     *
-     */
     long sourceId();
 
-    /**
-     *
-     */
     IgniteRel clone(long sourceId);
 }

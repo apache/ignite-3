@@ -33,9 +33,6 @@ import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteC
  * Relational operator that returns the contents of a table.
  */
 public class IgniteTableSpool extends AbstractIgniteSpool implements IgniteRel {
-    /**
-     *
-     */
     public IgniteTableSpool(
             RelOptCluster cluster,
             RelTraitSet traits,
@@ -65,9 +62,6 @@ public class IgniteTableSpool extends AbstractIgniteSpool implements IgniteRel {
         return visitor.visit(this);
     }
 
-    /**
-     *
-     */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteTableSpool(cluster, getTraitSet(), readType, inputs.get(0));

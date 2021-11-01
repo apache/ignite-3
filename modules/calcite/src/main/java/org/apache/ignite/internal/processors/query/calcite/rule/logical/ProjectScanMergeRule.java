@@ -40,9 +40,6 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
 
-/**
- *
- */
 public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableScan> extends RelOptRule {
     /** Instance. */
     public static final ProjectScanMergeRule<IgniteLogicalIndexScan> INDEX_SCAN =
@@ -100,9 +97,6 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
                 }
             };
 
-    /**
-     *
-     */
     protected abstract T createNode(
             RelOptCluster cluster,
             T scan,

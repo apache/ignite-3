@@ -70,88 +70,42 @@ import org.apache.ignite.lang.IgniteException;
  * Query planer.
  */
 public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
-    /**
-     *
-     */
     private final SqlOperatorTable operatorTbl;
 
-    /**
-     *
-     */
     private final ImmutableList<Program> programs;
 
-    /**
-     *
-     */
     private final FrameworkConfig frameworkCfg;
 
-    /**
-     *
-     */
     private final PlanningContext ctx;
 
-    /**
-     *
-     */
     @SuppressWarnings("rawtypes")
     private final ImmutableList<RelTraitDef> traitDefs;
 
-    /**
-     *
-     */
     private final SqlParser.Config parserCfg;
 
-    /**
-     *
-     */
     private final SqlToRelConverter.Config sqlToRelConverterCfg;
 
-    /**
-     *
-     */
     private final SqlValidator.Config validatorCfg;
 
-    /**
-     *
-     */
     private final SqlRexConvertletTable convertletTbl;
 
-    /**
-     *
-     */
     private final RexBuilder rexBuilder;
 
-    /**
-     *
-     */
     private final RexExecutor rexExecutor;
 
-    /**
-     *
-     */
     private final IgniteTypeFactory typeFactory;
 
-    /**
-     *
-     */
     private final CalciteCatalogReader catalogReader;
 
-    /**
-     *
-     */
     private RelOptPlanner planner;
 
-    /**
-     *
-     */
     private SqlValidator validator;
 
-    /**
-     *
-     */
     private RelOptCluster cluster;
 
     /**
+     * Constructor.
+     *
      * @param ctx Planner context.
      */
     IgnitePlanner(PlanningContext ctx) {
@@ -311,9 +265,6 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         return typeFactory;
     }
 
-    /**
-     *
-     */
     private RelOptPlanner planner() {
         if (planner == null) {
             VolcanoPlannerExt planner = new VolcanoPlannerExt(frameworkCfg.getCostFactory(), ctx);
@@ -329,7 +280,9 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     }
 
     /**
+     * Dump planner state to string.
      *
+     * @return Planner state dump.
      */
     public String dump() {
         StringWriter w = new StringWriter();
@@ -339,9 +292,6 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         return w.toString();
     }
 
-    /**
-     *
-     */
     private SqlValidator validator() {
         if (validator == null) {
             validator = new IgniteSqlValidator(operatorTbl, catalogReader, typeFactory, validatorCfg, ctx.parameters());
@@ -361,9 +311,6 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         return cluster;
     }
 
-    /**
-     *
-     */
     private List<RelOptLattice> latices() {
         return ImmutableList.of(); // TODO
     }
@@ -398,16 +345,15 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         return root.withRel(converter.trimUnusedFields(dml || ordered, root.rel));
     }
 
-    /**
-     *
-     */
     private SqlToRelConverter sqlToRelConverter(SqlValidator validator, CalciteCatalogReader reader,
             SqlToRelConverter.Config config) {
         return new SqlToRelConverter(this, validator, reader, cluster(), convertletTbl, config);
     }
 
     /**
+     * Create RelOptRule filter to disable rules by names.
      *
+     * @param disabledRuleNames Disabled rule names.
      */
     public void setDisabledRules(Set<String> disabledRuleNames) {
         ctx.rulesFilter(rulesSet -> {
@@ -423,9 +369,6 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         });
     }
 
-    /**
-     *
-     */
     private static String shortRuleName(String ruleDesc) {
         int pos = ruleDesc.indexOf('(');
 
@@ -436,13 +379,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         return ruleDesc.substring(0, pos);
     }
 
-    /**
-     *
-     */
     private static class VolcanoPlannerExt extends VolcanoPlanner {
-        /**
-         *
-         */
         protected VolcanoPlannerExt(RelOptCostFactory costFactory, Context externalCtx) {
             super(costFactory, externalCtx);
             setTopDownOpt(true);

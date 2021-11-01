@@ -21,23 +21,11 @@ import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlNode;
 
-/**
- *
- */
 public class ValidationResult {
-    /**
-     *
-     */
     private final SqlNode sqlNode;
 
-    /**
-     *
-     */
     private final RelDataType dataType;
 
-    /**
-     *
-     */
     private final List<List<String>> origins;
 
     /**

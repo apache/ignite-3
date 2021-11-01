@@ -27,34 +27,16 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
  * Universal accessor and mutator for rows. It also has factory methods.
  */
 public interface RowHandler<RowT> {
-    /**
-     *
-     */
     Object get(int field, RowT row);
 
-    /**
-     *
-     */
     void set(int field, RowT row, Object val);
 
-    /**
-     *
-     */
     RowT concat(RowT left, RowT right);
 
-    /**
-     *
-     */
     int columnCount(RowT row);
 
-    /**
-     *
-     */
     String toString(RowT row);
 
-    /**
-     *
-     */
     default RowFactory<RowT> factory(IgniteTypeFactory typeFactory, RelDataType rowType) {
         if (rowType.isStruct()) {
             return factory(typeFactory, RelOptUtil.getFieldTypeList(rowType));
@@ -63,9 +45,6 @@ public interface RowHandler<RowT> {
         return factory(typeFactory.getJavaClass(rowType));
     }
 
-    /**
-     *
-     */
     default RowFactory<RowT> factory(IgniteTypeFactory typeFactory, List<RelDataType> fieldTypes) {
         Type[] types = new Type[fieldTypes.size()];
         for (int i = 0; i < fieldTypes.size(); i++) {
@@ -82,19 +61,10 @@ public interface RowHandler<RowT> {
      */
     @SuppressWarnings("PublicInnerClass")
     interface RowFactory<RowT> {
-        /**
-         *
-         */
         RowHandler<RowT> handler();
 
-        /**
-         *
-         */
         RowT create();
 
-        /**
-         *
-         */
         RowT create(Object... fields);
     }
 }

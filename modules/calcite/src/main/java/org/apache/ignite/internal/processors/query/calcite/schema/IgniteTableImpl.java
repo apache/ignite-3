@@ -45,19 +45,10 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
  * Ignite table implementation.
  */
 public class IgniteTableImpl extends AbstractTable implements IgniteTable {
-    /**
-     *
-     */
     private final TableDescriptor desc;
 
-    /**
-     *
-     */
     private final Statistic statistic;
 
-    /**
-     *
-     */
     private final Map<String, IgniteIndex> indexes = new ConcurrentHashMap<>();
 
     /**
@@ -153,9 +144,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
         return super.unwrap(clazz);
     }
 
-    /**
-     *
-     */
     private class StatisticsImpl implements Statistic {
         /** {@inheritDoc} */
         @Override

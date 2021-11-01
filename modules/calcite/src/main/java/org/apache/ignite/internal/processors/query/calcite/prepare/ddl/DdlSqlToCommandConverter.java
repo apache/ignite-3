@@ -57,9 +57,6 @@ import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTa
 import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOptionEnum;
 import org.apache.ignite.lang.IgniteException;
 
-/**
- *
- */
 public class DdlSqlToCommandConverter {
     /** Processor that validates a value is a Sql Identifier. */
     private static final BiFunction<IgniteSqlCreateTableOption, PlanningContext, String> VALUE_IS_IDENTIFIER_VALIDATOR = (opt, ctx) -> {
@@ -263,9 +260,6 @@ public class DdlSqlToCommandConverter {
         return objId.getSimple();
     }
 
-    /**
-     *
-     */
     private void ensureSchemaExists(PlanningContext ctx, String schemaName) {
         if (ctx.catalogReader().getRootSchema().getSubSchema(schemaName, true) == null) {
             throw new IgniteException("Schema with name " + schemaName + " not found"/*,
@@ -327,23 +321,11 @@ public class DdlSqlToCommandConverter {
                 + "querySql=\"" + qry + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
     }
 
-    /**
-     *
-     */
     private static class TableOptionProcessor<T> {
-        /**
-         *
-         */
         private final IgniteSqlCreateTableOptionEnum key;
 
-        /**
-         *
-         */
         private final BiFunction<IgniteSqlCreateTableOption, PlanningContext, T> validator;
 
-        /**
-         *
-         */
         private final BiConsumer<CreateTableCommand, T> valSetter;
 
         /**

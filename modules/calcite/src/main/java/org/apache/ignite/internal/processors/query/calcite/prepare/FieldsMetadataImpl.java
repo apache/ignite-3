@@ -20,23 +20,11 @@ package org.apache.ignite.internal.processors.query.calcite.prepare;
 import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 
-/**
- *
- */
 public class FieldsMetadataImpl implements FieldsMetadata {
-    /**
-     *
-     */
     private final RelDataType rowType;
 
-    /**
-     *
-     */
     private final List<List<String>> origins;
 
-    /**
-     *
-     */
     public FieldsMetadataImpl(RelDataType rowType, List<List<String>> origins) {
         this.rowType = rowType;
         this.origins = origins;

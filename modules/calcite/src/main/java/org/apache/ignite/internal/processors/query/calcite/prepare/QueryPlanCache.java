@@ -19,11 +19,10 @@ package org.apache.ignite.internal.processors.query.calcite.prepare;
 
 import java.util.List;
 
-/**
- *
- */
 public interface QueryPlanCache {
     /**
+     * Get cached or create new and cache query plan.
+     *
      * @param ctx     Context.
      * @param key     Cache key.
      * @param factory Factory method to generate a plan on cache miss.

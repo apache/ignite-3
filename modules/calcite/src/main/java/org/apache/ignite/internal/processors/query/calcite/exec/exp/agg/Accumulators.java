@@ -36,13 +36,7 @@ import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 
-/**
- *
- */
 public class Accumulators {
-    /**
-     *
-     */
     public static Supplier<Accumulator> accumulatorFactory(AggregateCall call) {
         if (!call.isDistinct()) {
             return accumulatorFunctionFactory(call);
@@ -53,9 +47,6 @@ public class Accumulators {
         return () -> new DistinctAccumulator(fac);
     }
 
-    /**
-     *
-     */
     public static Supplier<Accumulator> accumulatorFunctionFactory(AggregateCall call) {
         switch (call.getAggregation().getName()) {
             case "COUNT":
@@ -77,9 +68,6 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static Supplier<Accumulator> avgFactory(AggregateCall call) {
         switch (call.type.getSqlTypeName()) {
             case BIGINT:
@@ -94,9 +82,6 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static Supplier<Accumulator> sumFactory(AggregateCall call) {
         switch (call.type.getSqlTypeName()) {
             case DOUBLE:
@@ -113,9 +98,6 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static Supplier<Accumulator> sumEmptyIsZeroFactory(AggregateCall call) {
         switch (call.type.getSqlTypeName()) {
             case DOUBLE:
@@ -132,9 +114,6 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static Supplier<Accumulator> minFactory(AggregateCall call) {
         switch (call.type.getSqlTypeName()) {
             case DOUBLE:
@@ -176,23 +155,11 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static class SingleVal implements Accumulator {
-        /**
-         *
-         */
         private Object holder;
 
-        /**
-         *
-         */
         private boolean touched;
 
-        /**
-         *
-         */
         public static final Supplier<Accumulator> FACTORY = SingleVal::new;
 
         /** {@inheritDoc} */
@@ -239,23 +206,11 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     public static class DecimalAvg implements Accumulator {
-        /**
-         *
-         */
         public static final Supplier<Accumulator> FACTORY = DecimalAvg::new;
 
-        /**
-         *
-         */
         private BigDecimal sum = BigDecimal.ZERO;
 
-        /**
-         *
-         */
         private BigDecimal cnt = BigDecimal.ZERO;
 
         /** {@inheritDoc} */
@@ -299,23 +254,11 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     public static class DoubleAvg implements Accumulator {
-        /**
-         *
-         */
         public static final Supplier<Accumulator> FACTORY = DoubleAvg::new;
 
-        /**
-         *
-         */
         private double sum;
 
-        /**
-         *
-         */
         private long cnt;
 
         /** {@inheritDoc} */
@@ -359,18 +302,9 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static class LongCount implements Accumulator {
-        /**
-         *
-         */
         public static final Supplier<Accumulator> FACTORY = LongCount::new;
 
-        /**
-         *
-         */
         private long cnt;
 
         /** {@inheritDoc} */
@@ -409,23 +343,11 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static class DoubleSum implements Accumulator {
-        /**
-         *
-         */
         public static final Supplier<Accumulator> FACTORY = DoubleSum::new;
 
-        /**
-         *
-         */
         private double sum;
 
-        /**
-         *
-         */
         private boolean empty = true;
 
         /** {@inheritDoc} */
@@ -473,23 +395,11 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static class IntSum implements Accumulator {
-        /**
-         *
-         */
         public static final Supplier<Accumulator> FACTORY = IntSum::new;
 
-        /**
-         *
-         */
         private int sum;
 
-        /**
-         *
-         */
         private boolean empty = true;
 
         /** {@inheritDoc} */
@@ -537,23 +447,11 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static class LongSum implements Accumulator {
-        /**
-         *
-         */
         public static final Supplier<Accumulator> FACTORY = LongSum::new;
 
-        /**
-         *
-         */
         private long sum;
 
-        /**
-         *
-         */
         private boolean empty = true;
 
         /** {@inheritDoc} */
@@ -601,18 +499,9 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static class DecimalSum implements Accumulator {
-        /**
-         *
-         */
         public static final Supplier<Accumulator> FACTORY = DecimalSum::new;
 
-        /**
-         *
-         */
         private BigDecimal sum;
 
         /** {@inheritDoc} */
@@ -658,18 +547,9 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static class DoubleSumEmptyIsZero implements Accumulator {
-        /**
-         *
-         */
         public static final Supplier<Accumulator> FACTORY = DoubleSumEmptyIsZero::new;
 
-        /**
-         *
-         */
         private double sum;
 
         /** {@inheritDoc} */
@@ -711,18 +591,9 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static class IntSumEmptyIsZero implements Accumulator {
-        /**
-         *
-         */
         public static final Supplier<Accumulator> FACTORY = IntSumEmptyIsZero::new;
 
-        /**
-         *
-         */
         private int sum;
 
         /** {@inheritDoc} */
@@ -764,18 +635,9 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static class LongSumEmptyIsZero implements Accumulator {
-        /**
-         *
-         */
         public static final Supplier<Accumulator> FACTORY = LongSumEmptyIsZero::new;
 
-        /**
-         *
-         */
         private long sum;
 
         /** {@inheritDoc} */
@@ -817,18 +679,9 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static class DecimalSumEmptyIsZero implements Accumulator {
-        /**
-         *
-         */
         public static final Supplier<Accumulator> FACTORY = DecimalSumEmptyIsZero::new;
 
-        /**
-         *
-         */
         private BigDecimal sum;
 
         /** {@inheritDoc} */
@@ -870,38 +723,17 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static class DoubleMinMax implements Accumulator {
-        /**
-         *
-         */
         public static final Supplier<Accumulator> MIN_FACTORY = () -> new DoubleMinMax(true);
 
-        /**
-         *
-         */
         public static final Supplier<Accumulator> MAX_FACTORY = () -> new DoubleMinMax(false);
 
-        /**
-         *
-         */
         private final boolean min;
 
-        /**
-         *
-         */
         private double val;
 
-        /**
-         *
-         */
         private boolean empty = true;
 
-        /**
-         *
-         */
         private DoubleMinMax(boolean min) {
             this.min = min;
         }
@@ -951,38 +783,17 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static class VarCharMinMax implements Accumulator {
-        /**
-         *
-         */
         public static final Supplier<Accumulator> MIN_FACTORY = () -> new VarCharMinMax(true);
 
-        /**
-         *
-         */
         public static final Supplier<Accumulator> MAX_FACTORY = () -> new VarCharMinMax(false);
 
-        /**
-         *
-         */
         private final boolean min;
 
-        /**
-         *
-         */
         private CharSequence val;
 
-        /**
-         *
-         */
         private boolean empty = true;
 
-        /**
-         *
-         */
         private VarCharMinMax(boolean min) {
             this.min = min;
         }
@@ -1037,19 +848,10 @@ public class Accumulators {
             return typeFactory.createTypeWithNullability(typeFactory.createSqlType(VARCHAR), true);
         }
 
-        /**
-         *
-         */
         @SuppressWarnings("ComparatorNotSerializable")
         private static class CharSeqComparator implements Comparator<CharSequence> {
-            /**
-             *
-             */
             private static final CharSeqComparator INSTANCE = new CharSeqComparator();
 
-            /**
-             *
-             */
             @Override
             public int compare(CharSequence s1, CharSequence s2) {
                 int len = Math.min(s1.length(), s2.length());
@@ -1068,38 +870,17 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static class IntMinMax implements Accumulator {
-        /**
-         *
-         */
         public static final Supplier<Accumulator> MIN_FACTORY = () -> new IntMinMax(true);
 
-        /**
-         *
-         */
         public static final Supplier<Accumulator> MAX_FACTORY = () -> new IntMinMax(false);
 
-        /**
-         *
-         */
         private final boolean min;
 
-        /**
-         *
-         */
         private int val;
 
-        /**
-         *
-         */
         private boolean empty = true;
 
-        /**
-         *
-         */
         private IntMinMax(boolean min) {
             this.min = min;
         }
@@ -1149,38 +930,17 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static class LongMinMax implements Accumulator {
-        /**
-         *
-         */
         public static final Supplier<Accumulator> MIN_FACTORY = () -> new LongMinMax(true);
 
-        /**
-         *
-         */
         public static final Supplier<Accumulator> MAX_FACTORY = () -> new LongMinMax(false);
 
-        /**
-         *
-         */
         private final boolean min;
 
-        /**
-         *
-         */
         private long val;
 
-        /**
-         *
-         */
         private boolean empty = true;
 
-        /**
-         *
-         */
         private LongMinMax(boolean min) {
             this.min = min;
         }
@@ -1230,33 +990,15 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static class DecimalMinMax implements Accumulator {
-        /**
-         *
-         */
         public static final Supplier<Accumulator> MIN_FACTORY = () -> new DecimalMinMax(true);
 
-        /**
-         *
-         */
         public static final Supplier<Accumulator> MAX_FACTORY = () -> new DecimalMinMax(false);
 
-        /**
-         *
-         */
         private final boolean min;
 
-        /**
-         *
-         */
         private BigDecimal val;
 
-        /**
-         *
-         */
         private DecimalMinMax(boolean min) {
             this.min = min;
         }
@@ -1304,23 +1046,11 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static class DistinctAccumulator implements Accumulator {
-        /**
-         *
-         */
         private final Accumulator acc;
 
-        /**
-         *
-         */
         private final Set<Object> set = new HashSet<>();
 
-        /**
-         *
-         */
         private DistinctAccumulator(Supplier<Accumulator> accSup) {
             this.acc = accSup.get();
         }

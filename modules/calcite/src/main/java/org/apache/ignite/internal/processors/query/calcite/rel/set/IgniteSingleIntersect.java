@@ -39,9 +39,6 @@ public class IgniteSingleIntersect extends IgniteIntersect implements IgniteSing
         super(cluster, traitSet, inputs, all);
     }
 
-    /**
-     *
-     */
     public IgniteSingleIntersect(RelInput input) {
         super(input);
     }

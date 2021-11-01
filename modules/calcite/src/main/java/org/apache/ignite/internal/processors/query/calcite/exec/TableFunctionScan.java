@@ -23,23 +23,11 @@ import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler.RowFa
 import org.apache.ignite.internal.processors.query.calcite.util.TransformingIterator;
 import org.jetbrains.annotations.NotNull;
 
-/**
- *
- */
 public class TableFunctionScan<RowT> implements Iterable<RowT> {
-    /**
-     *
-     */
     private final Supplier<Iterable<Object[]>> dataSupplier;
 
-    /**
-     *
-     */
     private final RowFactory<RowT> rowFactory;
 
-    /**
-     *
-     */
     public TableFunctionScan(
             Supplier<Iterable<Object[]>> dataSupplier,
             RowFactory<RowT> rowFactory

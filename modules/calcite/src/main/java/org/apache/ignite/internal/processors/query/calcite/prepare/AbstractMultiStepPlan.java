@@ -29,28 +29,13 @@ import org.apache.ignite.internal.processors.query.calcite.metadata.FragmentMapp
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteReceiver;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteSender;
 
-/**
- *
- */
 public abstract class AbstractMultiStepPlan implements MultiStepPlan {
-    /**
-     *
-     */
     protected final FieldsMetadata fieldsMetadata;
 
-    /**
-     *
-     */
     protected final QueryTemplate queryTemplate;
 
-    /**
-     *
-     */
     protected ExecutionPlan executionPlan;
 
-    /**
-     *
-     */
     protected AbstractMultiStepPlan(QueryTemplate queryTemplate, FieldsMetadata fieldsMetadata) {
         this.queryTemplate = queryTemplate;
         this.fieldsMetadata = fieldsMetadata;
@@ -74,9 +59,6 @@ public abstract class AbstractMultiStepPlan implements MultiStepPlan {
         return mapping(fragment.fragmentId());
     }
 
-    /**
-     *
-     */
     private FragmentMapping mapping(long fragmentId) {
         return Objects.requireNonNull(executionPlan).fragments().stream()
                 .filter(f -> f.fragmentId() == fragmentId)

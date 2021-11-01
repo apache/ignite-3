@@ -36,9 +36,6 @@ import org.apache.ignite.internal.processors.query.calcite.util.IndexConditions;
 import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
 import org.jetbrains.annotations.Nullable;
 
-/**
- *
- */
 public class IgniteLogicalIndexScan extends AbstractIndexScan {
     /** Creates a IgniteLogicalIndexScan. */
     public static IgniteLogicalIndexScan create(

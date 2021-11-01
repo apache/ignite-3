@@ -32,100 +32,50 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 
-/**
- *
- */
 public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
-    /**
-     *
-     */
     private final Predicate<RowT> cond;
 
-    /**
-     *
-     */
     private final List<CorrelationId> correlationIds;
 
-    /**
-     *
-     */
     private final JoinRelType joinType;
 
-    /**
-     *
-     */
     private final RowHandler<RowT> handler;
 
-    /**
-     *
-     */
     private final int leftInBufferSize;
 
-    /**
-     *
-     */
     private final int rightInBufferSize;
 
-    /**
-     *
-     */
     private final BitSet leftMatched = new BitSet();
 
-    /**
-     *
-     */
     private int requested;
 
-    /**
-     *
-     */
     private int waitingLeft;
 
-    /**
-     *
-     */
     private int waitingRight;
 
-    /**
-     *
-     */
     private List<RowT> leftInBuf;
 
-    /**
-     *
-     */
     private List<RowT> rightInBuf;
 
-    /**
-     *
-     */
     private int leftIdx;
 
-    /**
-     *
-     */
     private int rightIdx;
 
-    /**
-     *
-     */
     private RowT rightEmptyRow;
 
-    /**
-     *
-     */
     private State state = State.INITIAL;
 
-    /**
-     *
-     */
     private enum State {
         INITIAL, FILLING_LEFT, FILLING_RIGHT, IDLE, IN_LOOP, END
     }
 
     /**
-     * @param ctx  Execution context.
-     * @param cond Join expression.
+     *
+     * @param ctx            Execution context.
+     * @param rowType        Output row type.
+     * @param cond           Join expression.
+     * @param correlationIds
+     * @param joinType
      */
     public CorrelatedNestedLoopJoinNode(ExecutionContext<RowT> ctx, RelDataType rowType, Predicate<RowT> cond,
             Set<CorrelationId> correlationIds, JoinRelType joinType) {
@@ -220,9 +170,6 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         throw new IndexOutOfBoundsException();
     }
 
-    /**
-     *
-     */
     private void pushLeft(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingLeft > 0;
@@ -240,9 +187,6 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         onPushLeft();
     }
 
-    /**
-     *
-     */
     private void pushRight(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
@@ -260,9 +204,6 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         onPushRight();
     }
 
-    /**
-     *
-     */
     private void endLeft() throws Exception {
         assert downstream() != null;
         assert waitingLeft > 0;
@@ -278,9 +219,6 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         onEndLeft();
     }
 
-    /**
-     *
-     */
     private void endRight() throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
@@ -296,9 +234,6 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         onEndRight();
     }
 
-    /**
-     *
-     */
     private void onRequest() throws Exception {
         switch (state) {
             case IN_LOOP:
@@ -342,9 +277,6 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    /**
-     *
-     */
     private void onPushLeft() throws Exception {
         assert state == State.FILLING_LEFT : "Unexpected state:" + state;
         assert waitingRight == 0 || waitingRight == -1;
@@ -364,9 +296,6 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    /**
-     *
-     */
     private void onPushRight() throws Exception {
         assert state == State.FILLING_RIGHT : "Unexpected state:" + state;
         assert !nullOrEmpty(leftInBuf);
@@ -381,9 +310,6 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    /**
-     *
-     */
     private void onEndLeft() throws Exception {
         assert state == State.FILLING_LEFT : "Unexpected state:" + state;
         assert waitingLeft == -1;
@@ -411,9 +337,6 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    /**
-     *
-     */
     private void onEndRight() throws Exception {
         assert state == State.FILLING_RIGHT : "Unexpected state:" + state;
         assert waitingRight == -1;
@@ -425,9 +348,6 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         join();
     }
 
-    /**
-     *
-     */
     private void join() throws Exception {
         assert state == State.IDLE;
 
@@ -532,23 +452,14 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    /**
-     *
-     */
     private Node<RowT> leftSource() {
         return sources().get(0);
     }
 
-    /**
-     *
-     */
     private Node<RowT> rightSource() {
         return sources().get(1);
     }
 
-    /**
-     *
-     */
     private void prepareCorrelations() {
         for (int i = 0; i < correlationIds.size(); i++) {
             RowT row = i < leftInBuf.size() ? leftInBuf.get(i) : first(leftInBuf);

@@ -33,23 +33,11 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
-/**
- *
- */
 public class MailboxRegistryImpl implements MailboxRegistry {
-    /**
-     *
-     */
     private static final Predicate<Mailbox<?>> ALWAYS_TRUE = o -> true;
 
-    /**
-     *
-     */
     private final Map<MailboxKey, Outbox<?>> locals;
 
-    /**
-     *
-     */
     private final Map<MailboxKey, Inbox<?>> remotes;
 
     /**
@@ -120,17 +108,11 @@ public class MailboxRegistryImpl implements MailboxRegistry {
                 .collect(Collectors.toList());
     }
 
-    /**
-     *
-     */
     private void onNodeLeft(ClusterNode node) {
         locals.values().forEach(n -> n.onNodeLeft(node.id()));
         remotes.values().forEach(n -> n.onNodeLeft(node.id()));
     }
 
-    /**
-     *
-     */
     private static Predicate<Mailbox<?>> makeFilter(@Nullable UUID qryId, long fragmentId, long exchangeId) {
         Predicate<Mailbox<?>> filter = ALWAYS_TRUE;
         if (qryId != null) {
@@ -152,23 +134,11 @@ public class MailboxRegistryImpl implements MailboxRegistry {
         return S.toString(MailboxRegistryImpl.class, this);
     }
 
-    /**
-     *
-     */
     private static class MailboxKey {
-        /**
-         *
-         */
         private final UUID qryId;
 
-        /**
-         *
-         */
         private final long exchangeId;
 
-        /**
-         *
-         */
         private MailboxKey(UUID qryId, long exchangeId) {
             this.qryId = qryId;
             this.exchangeId = exchangeId;

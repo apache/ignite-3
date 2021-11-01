@@ -70,13 +70,7 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableSpool;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTrimExchange;
 import org.jetbrains.annotations.Nullable;
 
-/**
- *
- */
 public class TraitUtils {
-    /**
-     *
-     */
     @Nullable
     public static RelNode enforce(RelNode rel, RelTraitSet toTraits) {
         RelOptPlanner planner = rel.getCluster().getPlanner();
@@ -111,9 +105,6 @@ public class TraitUtils {
         return rel;
     }
 
-    /**
-     *
-     */
     @SuppressWarnings({"rawtypes"})
     @Nullable
     private static RelNode convertTrait(RelOptPlanner planner, RelTrait fromTrait, RelTrait toTrait, RelNode rel) {
@@ -132,9 +123,6 @@ public class TraitUtils {
         }
     }
 
-    /**
-     *
-     */
     @Nullable
     public static RelNode convertCollation(RelOptPlanner planner,
             RelCollation toTrait, RelNode rel) {
@@ -149,9 +137,6 @@ public class TraitUtils {
         return new IgniteSort(rel.getCluster(), traits, rel, toTrait);
     }
 
-    /**
-     *
-     */
     @Nullable
     public static RelNode convertDistribution(RelOptPlanner planner,
             IgniteDistribution toTrait, RelNode rel) {
@@ -185,9 +170,6 @@ public class TraitUtils {
         }
     }
 
-    /**
-     *
-     */
     @Nullable
     public static RelNode convertRewindability(RelOptPlanner planner,
             RewindabilityTrait toTrait, RelNode rel) {
@@ -203,9 +185,6 @@ public class TraitUtils {
         return new IgniteTableSpool(rel.getCluster(), traits, Spool.Type.LAZY, rel);
     }
 
-    /**
-     *
-     */
     @SuppressWarnings({"unchecked", "rawtypes"})
     @Nullable
     private static RelNode convertOther(RelOptPlanner planner, RelTraitDef converter,
@@ -232,73 +211,46 @@ public class TraitUtils {
         return traits.replace(IgniteConvention.INSTANCE);
     }
 
-    /**
-     *
-     */
     public static IgniteDistribution distribution(RelNode rel) {
         return rel instanceof IgniteRel
                 ? ((IgniteRel) rel).distribution()
                 : distribution(rel.getTraitSet());
     }
 
-    /**
-     *
-     */
     public static IgniteDistribution distribution(RelTraitSet traits) {
         return traits.getTrait(DistributionTraitDef.INSTANCE);
     }
 
-    /**
-     *
-     */
     public static RelCollation collation(RelNode rel) {
         return rel instanceof IgniteRel
                 ? ((IgniteRel) rel).collation()
                 : collation(rel.getTraitSet());
     }
 
-    /**
-     *
-     */
     public static RelCollation collation(RelTraitSet traits) {
         return traits.getTrait(RelCollationTraitDef.INSTANCE);
     }
 
-    /**
-     *
-     */
     public static RewindabilityTrait rewindability(RelNode rel) {
         return rel instanceof IgniteRel
                 ? ((IgniteRel) rel).rewindability()
                 : rewindability(rel.getTraitSet());
     }
 
-    /**
-     *
-     */
     public static RewindabilityTrait rewindability(RelTraitSet traits) {
         return traits.getTrait(RewindabilityTraitDef.INSTANCE);
     }
 
-    /**
-     *
-     */
     public static CorrelationTrait correlation(RelNode rel) {
         return rel instanceof IgniteRel
                 ? ((IgniteRel) rel).correlation()
                 : correlation(rel.getTraitSet());
     }
 
-    /**
-     *
-     */
     public static CorrelationTrait correlation(RelTraitSet traits) {
         return traits.getTrait(CorrelationTraitDef.INSTANCE);
     }
 
-    /**
-     *
-     */
     public static RelInput changeTraits(RelInput input, RelTrait... traits) {
         RelTraitSet traitSet = input.getTraitSet();
 
@@ -427,9 +379,6 @@ public class TraitUtils {
         };
     }
 
-    /**
-     *
-     */
     public static RelCollation projectCollation(RelCollation collation, List<RexNode> projects, RelDataType inputRowType) {
         if (collation.getFieldCollations().isEmpty()) {
             return RelCollations.EMPTY;
@@ -440,9 +389,6 @@ public class TraitUtils {
         return collation.apply(mapping);
     }
 
-    /**
-     *
-     */
     public static IgniteDistribution projectDistribution(IgniteDistribution distribution, List<RexNode> projects,
             RelDataType inputRowType) {
         if (distribution.getType() != HASH_DISTRIBUTED) {
@@ -454,9 +400,6 @@ public class TraitUtils {
         return distribution.apply(mapping);
     }
 
-    /**
-     *
-     */
     public static Pair<RelTraitSet, List<RelTraitSet>> passThrough(TraitsAwareIgniteRel rel, RelTraitSet requiredTraits) {
         if (requiredTraits.getConvention() != IgniteConvention.INSTANCE || rel.getInputs().isEmpty()) {
             return null;
@@ -477,9 +420,6 @@ public class TraitUtils {
         return first(traits);
     }
 
-    /**
-     *
-     */
     public static List<RelNode> derive(TraitsAwareIgniteRel rel, List<List<RelTraitSet>> inTraits) {
         assert !nullOrEmpty(inTraits);
 
@@ -505,18 +445,12 @@ public class TraitUtils {
         return elem == null ? emptyList() : singletonList(elem);
     }
 
-    /**
-     *
-     */
     private static Set<Pair<RelTraitSet, List<RelTraitSet>>> combinations(RelTraitSet outTraits, List<List<RelTraitSet>> inTraits) {
         Set<Pair<RelTraitSet, List<RelTraitSet>>> out = new HashSet<>();
         fillRecursive(outTraits, inTraits, out, new RelTraitSet[inTraits.size()], 0);
         return out;
     }
 
-    /**
-     *
-     */
     private static boolean fillRecursive(RelTraitSet outTraits, List<List<RelTraitSet>> inTraits,
             Set<Pair<RelTraitSet, List<RelTraitSet>>> result, RelTraitSet[] combination, int idx) throws ControlFlowException {
         boolean processed = false;
@@ -568,18 +502,9 @@ public class TraitUtils {
         return Mappings.target(src -> src2target.getOrDefault(src, -1), inputFieldCount, projects.size());
     }
 
-    /**
-     *
-     */
     private static class PropagationContext {
-        /**
-         *
-         */
         private final Set<Pair<RelTraitSet, List<RelTraitSet>>> combinations;
 
-        /**
-         *
-         */
         private PropagationContext(Set<Pair<RelTraitSet, List<RelTraitSet>>> combinations) {
             this.combinations = combinations;
         }
@@ -614,17 +539,11 @@ public class TraitUtils {
             return b.build();
         }
 
-        /**
-         *
-         */
         public List<Pair<RelTraitSet, List<RelTraitSet>>> combinations() {
             return ImmutableList.copyOf(combinations);
         }
     }
 
-    /**
-     *
-     */
     private interface TraitsPropagator {
         /**
          * Propagates traits in bottom-up or up-to-bottom manner.

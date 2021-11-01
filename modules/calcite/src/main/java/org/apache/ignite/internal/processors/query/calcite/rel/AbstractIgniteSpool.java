@@ -27,9 +27,6 @@ import org.apache.calcite.rel.core.Spool;
  * Relational operator that returns the contents of a table.
  */
 public abstract class AbstractIgniteSpool extends Spool implements IgniteRel {
-    /**
-     *
-     */
     public AbstractIgniteSpool(
             RelOptCluster cluster,
             RelTraitSet traits,

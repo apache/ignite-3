@@ -34,9 +34,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
-/**
- *
- */
 public interface TableDescriptor extends RelProtoDataType, InitializerExpressionFactory {
     /** Returns distribution of the table. */
     IgniteDistribution distribution();
@@ -122,7 +119,7 @@ public interface TableDescriptor extends RelProtoDataType, InitializerExpression
     );
 
     /**
-     * Converts a relational node row to internal tuple;
+     * Converts a relational node row to internal tuple.
      *
      * @param ectx Execution context.
      * @param row  Relational node row.

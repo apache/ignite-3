@@ -74,55 +74,31 @@ import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
-/**
- *
- */
 public class RexUtils {
-    /**
-     *
-     */
     public static RexNode makeCast(RexBuilder builder, RexNode node, RelDataType type) {
         return TypeUtils.needCast(builder.getTypeFactory(), node.getType(), type) ? builder.makeCast(type, node) : node;
     }
 
-    /**
-     *
-     */
     public static RexBuilder builder(RelNode rel) {
         return builder(rel.getCluster());
     }
 
-    /**
-     *
-     */
     public static RexBuilder builder(RelOptCluster cluster) {
         return cluster.getRexBuilder();
     }
 
-    /**
-     *
-     */
     public static RexExecutor executor(RelNode rel) {
         return executor(rel.getCluster());
     }
 
-    /**
-     *
-     */
     public static RexExecutor executor(RelOptCluster cluster) {
         return Util.first(cluster.getPlanner().getExecutor(), RexUtil.EXECUTOR);
     }
 
-    /**
-     *
-     */
     public static RexSimplify simplifier(RelOptCluster cluster) {
         return new RexSimplify(builder(cluster), RelOptPredicateList.EMPTY, executor(cluster));
     }
 
-    /**
-     *
-     */
     public static RexNode makeCase(RexBuilder builder, RexNode... operands) {
         if (IgniteUtils.assertionsEnabled()) {
             // each odd operand except last one has to return a boolean type
@@ -244,7 +220,7 @@ public class RexUtils {
                             bestUpper = pred;
                         }
                         break;
-                        
+
                     case GREATER_THAN:
                     case GREATER_THAN_OR_EQUAL:
                         if (lowerBoundBelow) {
@@ -365,9 +341,6 @@ public class RexUtils {
         return asBound(cluster, searchPreds, rowType, null);
     }
 
-    /**
-     *
-     */
     private static Map<Integer, List<RexCall>> mapPredicatesToFields(RexNode condition, RelOptCluster cluster) {
         List<RexNode> conjunctions = RelOptUtil.conjunctions(condition);
 
@@ -397,9 +370,6 @@ public class RexUtils {
         return res;
     }
 
-    /**
-     *
-     */
     private static RexNode extractRef(RexCall call) {
         assert isBinaryComparison(call);
 
@@ -418,9 +388,6 @@ public class RexUtils {
         return null;
     }
 
-    /**
-     *
-     */
     private static boolean refOnTheRight(RexCall predCall) {
         RexNode rightOp = predCall.getOperands().get(1);
 
@@ -429,32 +396,20 @@ public class RexUtils {
         return rightOp.isA(SqlKind.LOCAL_REF) || rightOp.isA(SqlKind.INPUT_REF);
     }
 
-    /**
-     *
-     */
     public static boolean isBinaryComparison(RexNode exp) {
         return TREE_INDEX_COMPARISON.contains(exp.getKind()) && (exp instanceof RexCall) && ((RexCall) exp).getOperands().size() == 2;
     }
 
-    /**
-     *
-     */
     private static boolean idxOpSupports(RexNode op) {
         return op instanceof RexLiteral
                 || op instanceof RexDynamicParam
                 || op instanceof RexFieldAccess;
     }
 
-    /**
-     *
-     */
     private static List<RexNode> makeListOfNullLiterals(RexBuilder builder, List<RelDataType> types) {
         return Commons.transform(types, builder::makeNullLiteral);
     }
 
-    /**
-     *
-     */
     public static boolean isNotNull(RexNode op) {
         if (op == null) {
             return false;
@@ -463,9 +418,6 @@ public class RexUtils {
         return !(op instanceof RexLiteral) || !((RexLiteral) op).isNull();
     }
 
-    /**
-     *
-     */
     public static List<RexNode> asBound(RelOptCluster cluster, Iterable<RexNode> idxCond, RelDataType rowType,
             @Nullable Mappings.TargetMapping mapping) {
         if (nullOrEmpty(idxCond)) {
@@ -495,9 +447,6 @@ public class RexUtils {
         return res;
     }
 
-    /**
-     *
-     */
     public static Mappings.TargetMapping permutation(List<RexNode> nodes, RelDataType inputRowType, boolean local) {
         final Mappings.TargetMapping mapping =
                 Mappings.create(MappingType.PARTIAL_FUNCTION, nodes.size(), inputRowType.getFieldCount());
@@ -512,16 +461,10 @@ public class RexUtils {
         return mapping;
     }
 
-    /**
-     *
-     */
     public static Mappings.TargetMapping permutation(List<RexNode> nodes, RelDataType inputRowType) {
         return permutation(nodes, inputRowType, false);
     }
 
-    /**
-     *
-     */
     public static Mappings.TargetMapping inversePermutation(List<RexNode> nodes, RelDataType inputRowType, boolean local) {
         final Mappings.TargetMapping mapping =
                 Mappings.create(MappingType.INVERSE_FUNCTION, nodes.size(), inputRowType.getFieldCount());
@@ -536,44 +479,26 @@ public class RexUtils {
         return mapping;
     }
 
-    /**
-     *
-     */
     public static List<RexNode> replaceInputRefs(List<RexNode> nodes) {
         return InputRefReplacer.INSTANCE.apply(nodes);
     }
 
-    /**
-     *
-     */
     public static RexNode replaceInputRefs(RexNode node) {
         return InputRefReplacer.INSTANCE.apply(node);
     }
 
-    /**
-     *
-     */
     public static RexNode replaceLocalRefs(RexNode node) {
         return LocalRefReplacer.INSTANCE.apply(node);
     }
 
-    /**
-     *
-     */
     public static List<RexNode> replaceLocalRefs(List<RexNode> nodes) {
         return LocalRefReplacer.INSTANCE.apply(nodes);
     }
 
-    /**
-     *
-     */
     public static boolean hasCorrelation(RexNode node) {
         return hasCorrelation(Collections.singletonList(node));
     }
 
-    /**
-     *
-     */
     public static boolean hasCorrelation(List<RexNode> nodes) {
         try {
             RexVisitor<Void> v = new RexVisitorImpl<Void>(true) {
@@ -591,9 +516,6 @@ public class RexUtils {
         }
     }
 
-    /**
-     *
-     */
     public static Set<CorrelationId> extractCorrelationIds(RexNode node) {
         if (node == null) {
             return Collections.emptySet();
@@ -602,9 +524,6 @@ public class RexUtils {
         return extractCorrelationIds(Collections.singletonList(node));
     }
 
-    /**
-     *
-     */
     public static Set<CorrelationId> extractCorrelationIds(List<RexNode> nodes) {
         final Set<CorrelationId> cors = new HashSet<>();
 
@@ -622,10 +541,6 @@ public class RexUtils {
         return cors;
     }
 
-
-    /**
-     *
-     */
     public static Set<Integer> notNullKeys(List<RexNode> row) {
         if (nullOrEmpty(row)) {
             return Collections.emptySet();
@@ -644,9 +559,6 @@ public class RexUtils {
 
     /** Visitor for replacing scan local refs to input refs. */
     private static class LocalRefReplacer extends RexShuttle {
-        /**
-         *
-         */
         private static final RexShuttle INSTANCE = new LocalRefReplacer();
 
         /** {@inheritDoc} */
@@ -658,9 +570,6 @@ public class RexUtils {
 
     /** Visitor for replacing input refs to local refs. We need it for proper plan serialization. */
     private static class InputRefReplacer extends RexShuttle {
-        /**
-         *
-         */
         private static final RexShuttle INSTANCE = new InputRefReplacer();
 
         /** {@inheritDoc} */

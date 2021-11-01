@@ -31,9 +31,6 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
  * Physical node for MAP phase of MINUS (EXCEPT) operator.
  */
 public class IgniteMapMinus extends IgniteMinus implements IgniteMapSetOp {
-    /**
-     *
-     */
     public IgniteMapMinus(
             RelOptCluster cluster,
             RelTraitSet traitSet,
@@ -43,9 +40,6 @@ public class IgniteMapMinus extends IgniteMinus implements IgniteMapSetOp {
         super(cluster, traitSet, inputs, all);
     }
 
-    /**
-     *
-     */
     public IgniteMapMinus(RelInput input) {
         super(input);
     }

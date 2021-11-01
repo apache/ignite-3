@@ -34,55 +34,28 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.internal.util.IgniteIntList;
 import org.jetbrains.annotations.NotNull;
 
-/**
- *
- */
 public class ColocationGroup implements Serializable {
-    /**
-     *
-     */
     private static final int SYNTHETIC_PARTITIONS_COUNT = 512;
     // TODO: IgniteSystemProperties.getInteger("IGNITE_CALCITE_SYNTHETIC_PARTITIONS_COUNT", 512);
 
-    /**
-     *
-     */
     private List<Long> sourceIds;
 
-    /**
-     *
-     */
     private List<String> nodeIds;
 
-    /**
-     *
-     */
     private List<List<String>> assignments;
 
-    /**
-     *
-     */
     public static ColocationGroup forNodes(List<String> nodeIds) {
         return new ColocationGroup(null, nodeIds, null);
     }
 
-    /**
-     *
-     */
     public static ColocationGroup forAssignments(List<List<String>> assignments) {
         return new ColocationGroup(null, null, assignments);
     }
 
-    /**
-     *
-     */
     public static ColocationGroup forSourceId(long sourceId) {
         return new ColocationGroup(Collections.singletonList(sourceId), null, null);
     }
 
-    /**
-     *
-     */
     private ColocationGroup(List<Long> sourceIds, List<String> nodeIds, List<List<String>> assignments) {
         this.sourceIds = sourceIds;
         this.nodeIds = nodeIds;
@@ -225,16 +198,10 @@ public class ColocationGroup implements Serializable {
         return forNodes0(nodeIds);
     }
 
-    /**
-     *
-     */
     public ColocationGroup mapToNodes(List<String> nodeIds) {
         return !nullOrEmpty(this.nodeIds) ? this : forNodes0(nodeIds);
     }
 
-    /**
-     *
-     */
     @NotNull
     private ColocationGroup forNodes0(List<String> nodeIds) {
         List<List<String>> assignments = new ArrayList<>(SYNTHETIC_PARTITIONS_COUNT);

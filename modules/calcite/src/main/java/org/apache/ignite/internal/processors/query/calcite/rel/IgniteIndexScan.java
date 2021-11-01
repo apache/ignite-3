@@ -35,9 +35,6 @@ import org.jetbrains.annotations.Nullable;
  * Relational operator that returns the contents of a table.
  */
 public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgniteRel {
-    /**
-     *
-     */
     private final long sourceId;
 
     /**

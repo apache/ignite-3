@@ -27,39 +27,18 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.lang.IgniteLogger;
 
-/**
- *
- */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class ClosableIteratorsHolder {
-    /**
-     *
-     */
     private final ReferenceQueue refQueue;
 
-    /**
-     *
-     */
     private final Map<Reference, Object> refMap;
 
-    /**
-     *
-     */
     private final IgniteLogger log;
 
-    /**
-     *
-     */
     private volatile boolean stopped;
 
-    /**
-     *
-     */
     private Thread cleanWorker;
 
-    /**
-     *
-     */
     public ClosableIteratorsHolder(IgniteLogger log) {
         this.log = log;
 
@@ -77,18 +56,12 @@ public class ClosableIteratorsHolder {
         return new DelegatingIterator<>(src);
     }
 
-    /**
-     *
-     */
     public void init() {
         cleanWorker = new Thread(null, () -> cleanUp(true), "calciteIteratorsCleanWorker");
         cleanWorker.setDaemon(true);
         cleanWorker.start();
     }
 
-    /**
-     *
-     */
     public void tearDown() {
         stopped = true;
         refMap.clear();
@@ -100,18 +73,12 @@ public class ClosableIteratorsHolder {
         }
     }
 
-    /**
-     *
-     */
     private void cleanUp(boolean blocking) {
         for (Reference<?> ref = nextRef(blocking); !stopped && ref != null; ref = nextRef(blocking)) {
             Commons.close(refMap.remove(ref), log);
         }
     }
 
-    /**
-     *
-     */
     private Reference nextRef(boolean blocking) {
         try {
             return !blocking ? refQueue.poll() : refQueue.remove();
@@ -120,9 +87,6 @@ public class ClosableIteratorsHolder {
         }
     }
 
-    /**
-     *
-     */
     private AutoCloseable closeable(Object referent, Object resource) {
         if (!(resource instanceof AutoCloseable)) {
             return null;
@@ -131,23 +95,11 @@ public class ClosableIteratorsHolder {
         return new CloseableReference(referent, resource);
     }
 
-    /**
-     *
-     */
     private final class DelegatingIterator<T> implements Iterator<T>, AutoCloseable {
-        /**
-         *
-         */
         private final Iterator<T> delegate;
 
-        /**
-         *
-         */
         private final AutoCloseable closeable;
 
-        /**
-         *
-         */
         private DelegatingIterator(Iterator<T> delegate) {
             closeable = closeable(this, this.delegate = delegate);
         }
@@ -183,13 +135,7 @@ public class ClosableIteratorsHolder {
         }
     }
 
-    /**
-     *
-     */
     private final class CloseableReference extends WeakReference implements AutoCloseable {
-        /**
-         *
-         */
         private CloseableReference(Object referent, Object resource) {
             super(referent, refQueue);
 

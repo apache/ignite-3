@@ -40,9 +40,6 @@ import org.apache.calcite.sql.type.IntervalSqlType;
  * Ignite type factory.
  */
 public class IgniteTypeFactory extends JavaTypeFactoryImpl {
-    /**
-     *
-     */
     public IgniteTypeFactory() {
         super(IgniteTypeSystem.INSTANCE);
     }
@@ -229,9 +226,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         return Charset.defaultCharset();
     }
 
-    /**
-     *
-     */
     private boolean allEquals(List<RelDataType> types) {
         assert types.size() > 1;
 

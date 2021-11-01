@@ -45,9 +45,6 @@ public class FilterSpoolMergeToSortedIndexSpoolRule extends RelRule<FilterSpoolM
     /** Instance. */
     public static final RelOptRule INSTANCE = Config.DEFAULT.toRule();
 
-    /**
-     *
-     */
     private FilterSpoolMergeToSortedIndexSpoolRule(Config cfg) {
         super(cfg);
     }
@@ -95,14 +92,8 @@ public class FilterSpoolMergeToSortedIndexSpoolRule extends RelRule<FilterSpoolM
         call.transformTo(res);
     }
 
-    /**
-     *
-     */
     @SuppressWarnings("ClassNameSameAsAncestorName")
     public interface Config extends RelRule.Config {
-        /**
-         *
-         */
         Config DEFAULT = RelRule.Config.EMPTY
                 .withRelBuilderFactory(RelFactories.LOGICAL_BUILDER)
                 .withDescription("FilterSpoolMergeToSortedIndexSpoolRule")

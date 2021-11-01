@@ -21,9 +21,6 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
-/**
- *
- */
 public interface ExchangeService {
     /**
      * Sends a batch of data to remote node.

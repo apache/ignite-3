@@ -32,9 +32,6 @@ import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLog
 import org.apache.ignite.internal.processors.query.calcite.trait.CorrelationTrait;
 import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
 
-/**
- *
- */
 public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTableScan> extends AbstractIgniteConverterRule<T> {
     /** Instance. */
     public static final LogicalScanConverterRule<IgniteLogicalIndexScan> INDEX_SCAN =
@@ -81,9 +78,6 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                 }
             };
 
-    /**
-     *
-     */
     private LogicalScanConverterRule(Class<T> clazz, String descPrefix) {
         super(clazz, descPrefix);
     }

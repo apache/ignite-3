@@ -27,28 +27,19 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
  * Scan node.
  */
 public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT> {
-    /**
-     *
-     */
     private final Iterable<RowT> src;
 
-    /**
-     *
-     */
     private Iterator<RowT> it;
 
-    /**
-     *
-     */
     private int requested;
 
-    /**
-     *
-     */
     private boolean inLoop;
 
     /**
+     * Constructor.
+     *
      * @param ctx Execution context.
+     * @param rowType Output row type.
      * @param src Source.
      */
     public ScanNode(ExecutionContext<RowT> ctx, RelDataType rowType, Iterable<RowT> src) {
@@ -100,9 +91,6 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         throw new UnsupportedOperationException();
     }
 
-    /**
-     *
-     */
     private void push() throws Exception {
         if (isClosed()) {
             return;

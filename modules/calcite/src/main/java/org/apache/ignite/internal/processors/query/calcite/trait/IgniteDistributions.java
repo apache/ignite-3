@@ -21,28 +21,13 @@ import java.util.List;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.util.ImmutableIntList;
 
-/**
- *
- */
 public class IgniteDistributions {
-    /**
-     *
-     */
     private static final IgniteDistribution BROADCAST = canonize(new DistributionTrait(DistributionFunction.broadcast()));
 
-    /**
-     *
-     */
     private static final IgniteDistribution SINGLETON = canonize(new DistributionTrait(DistributionFunction.singleton()));
 
-    /**
-     *
-     */
     private static final IgniteDistribution RANDOM = canonize(new DistributionTrait(DistributionFunction.random()));
 
-    /**
-     *
-     */
     private static final IgniteDistribution ANY = canonize(new DistributionTrait(DistributionFunction.any()));
 
     /**

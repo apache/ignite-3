@@ -49,9 +49,6 @@ public class FilterSpoolMergeToHashIndexSpoolRule extends RelRule<FilterSpoolMer
     /** Instance. */
     public static final RelOptRule INSTANCE = Config.DEFAULT.toRule();
 
-    /**
-     *
-     */
     private FilterSpoolMergeToHashIndexSpoolRule(Config cfg) {
         super(cfg);
     }
@@ -108,14 +105,8 @@ public class FilterSpoolMergeToHashIndexSpoolRule extends RelRule<FilterSpoolMer
         call.transformTo(res);
     }
 
-    /**
-     *
-     */
     @SuppressWarnings("ClassNameSameAsAncestorName")
     public interface Config extends RelRule.Config {
-        /**
-         *
-         */
         Config DEFAULT = RelRule.Config.EMPTY
                 .withRelBuilderFactory(RelFactories.LOGICAL_BUILDER)
                 .withDescription("FilterSpoolMergeToHashIndexSpoolRule")

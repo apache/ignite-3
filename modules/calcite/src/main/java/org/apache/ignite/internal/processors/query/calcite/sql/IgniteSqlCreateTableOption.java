@@ -35,9 +35,6 @@ import org.jetbrains.annotations.NotNull;
 
 /** An AST node representing option to create table with. */
 public class IgniteSqlCreateTableOption extends SqlCall {
-    /**
-     *
-     */
     private static final SqlOperator OPERATOR =
             new SqlSpecialOperator("TableOption", SqlKind.OTHER);
 

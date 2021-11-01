@@ -61,9 +61,6 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     /** Participating columns. */
     protected final ImmutableBitSet requiredColumns;
 
-    /**
-     *
-     */
     protected ProjectableFilterableTableScan(
             RelOptCluster cluster,
             RelTraitSet traitSet,
@@ -80,9 +77,6 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         requiredColumns = reqColumns;
     }
 
-    /**
-     *
-     */
     protected ProjectableFilterableTableScan(RelInput input) {
         super(input);
         condition = input.getExpression("filters");
@@ -125,9 +119,6 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         return explainTerms0(super.explainTerms(pw));
     }
 
-    /**
-     *
-     */
     protected RelWriter explainTerms0(RelWriter pw) {
         return pw
                 .itemIf("filters", condition, condition != null)
@@ -164,16 +155,10 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         }
     }
 
-    /**
-     *
-     */
     public boolean simple() {
         return condition == null && projects == null && requiredColumns == null;
     }
 
-    /**
-     *
-     */
     public RexNode pushUpPredicate() {
         if (condition == null || projects == null) {
             return replaceLocalRefs(condition);

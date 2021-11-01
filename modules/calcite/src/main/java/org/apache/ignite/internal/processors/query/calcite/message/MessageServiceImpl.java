@@ -46,24 +46,12 @@ public class MessageServiceImpl implements MessageService {
 
     private final MessagingService messagingSrvc;
 
-    /**
-     *
-     */
     private final String locNodeId;
 
-    /**
-     *
-     */
     private final QueryTaskExecutor taskExecutor;
 
-    /**
-     *
-     */
     private Map<Short, MessageListener> lsnrs;
 
-    /**
-     *
-     */
     public MessageServiceImpl(
             TopologyService topSrvc,
             MessagingService messagingSrvc,
@@ -121,9 +109,6 @@ public class MessageServiceImpl implements MessageService {
                 .anyMatch(id -> id.equals(nodeId));
     }
 
-    /**
-     *
-     */
     protected void onMessage(String nodeId, NetworkMessage msg) {
         if (msg instanceof ExecutionContextAwareMessage) {
             ExecutionContextAwareMessage msg0 = (ExecutionContextAwareMessage) msg;
@@ -137,9 +122,6 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
-    /**
-     *
-     */
     private void onMessage(NetworkMessage msg, NetworkAddress addr, String correlationId) {
         assert msg.groupType() == GROUP_TYPE : "unexpected message group grpType=" + msg.groupType();
 
@@ -154,9 +136,6 @@ public class MessageServiceImpl implements MessageService {
         onMessage(node.id(), msg);
     }
 
-    /**
-     *
-     */
     private void onMessageInternal(String nodeId, NetworkMessage msg) {
         MessageListener lsnr = Objects.requireNonNull(
                 lsnrs.get(msg.messageType()),

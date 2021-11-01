@@ -26,16 +26,10 @@ import org.jetbrains.annotations.NotNull;
  * A node with a single input
  */
 public interface SingleNode<RowT> extends Node<RowT> {
-    /**
-     *
-     */
     default void register(@NotNull Node<RowT> src) {
         register(List.of(src));
     }
 
-    /**
-     *
-     */
     default @NotNull Node<RowT> source() {
         return first(sources());
     }

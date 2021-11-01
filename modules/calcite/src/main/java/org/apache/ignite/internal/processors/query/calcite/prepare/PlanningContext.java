@@ -44,69 +44,30 @@ import org.jetbrains.annotations.NotNull;
  * Planning context.
  */
 public final class PlanningContext implements Context {
-    /**
-     *
-     */
     private static final PlanningContext EMPTY = builder().build();
 
-    /**
-     *
-     */
     private final FrameworkConfig cfg;
 
-    /**
-     *
-     */
     private final Context parentCtx;
 
-    /**
-     *
-     */
     private final String locNodeId;
 
-    /**
-     *
-     */
     private final String originatingNodeId;
 
-    /**
-     *
-     */
     private final String qry;
 
-    /**
-     *
-     */
     private final Object[] parameters;
 
-    /**
-     *
-     */
     private final long topVer;
 
-    /**
-     *
-     */
     private final IgniteTypeFactory typeFactory;
 
-    /**
-     *
-     */
     private Function<RuleSet, RuleSet> rulesFilter;
 
-    /**
-     *
-     */
     private IgnitePlanner planner;
 
-    /**
-     *
-     */
     private CalciteConnectionConfig connCfg;
 
-    /**
-     *
-     */
     private CalciteCatalogReader catalogReader;
 
     /**
@@ -308,9 +269,6 @@ public final class PlanningContext implements Context {
         return EMPTY;
     }
 
-    /**
-     *
-     */
     public RuleSet rules(RuleSet set) {
         return rulesFilter != null ? rulesFilter.apply(set) : set;
     }
@@ -327,48 +285,24 @@ public final class PlanningContext implements Context {
      */
     @SuppressWarnings("PublicInnerClass")
     public static class Builder {
-        /**
-         *
-         */
         private static final FrameworkConfig EMPTY_CONFIG =
                 Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                         .defaultSchema(createRootSchema(false))
                         .traitDefs()
                         .build();
 
-        /**
-         *
-         */
         private FrameworkConfig frameworkCfg = EMPTY_CONFIG;
 
-        /**
-         *
-         */
         private Context parentCtx = Contexts.empty();
 
-        /**
-         *
-         */
         private String locNodeId;
 
-        /**
-         *
-         */
         private String originatingNodeId;
 
-        /**
-         *
-         */
         private String qry;
 
-        /**
-         *
-         */
         private Object[] parameters;
 
-        /**
-         *
-         */
         private long topVer;
 
         /**

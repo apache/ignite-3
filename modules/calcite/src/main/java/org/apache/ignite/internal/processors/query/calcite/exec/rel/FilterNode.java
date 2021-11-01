@@ -25,33 +25,15 @@ import java.util.function.Predicate;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 
-/**
- *
- */
 public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
-    /**
-     *
-     */
     private final Predicate<RowT> pred;
 
-    /**
-     *
-     */
     private final Deque<RowT> inBuf = new ArrayDeque<>(inBufSize);
 
-    /**
-     *
-     */
     private int requested;
 
-    /**
-     *
-     */
     private int waiting;
 
-    /**
-     *
-     */
     private boolean inLoop;
 
     /**
@@ -127,18 +109,12 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         inBuf.clear();
     }
 
-    /**
-     *
-     */
     private void doFilter() throws Exception {
         checkState();
 
         filter();
     }
 
-    /**
-     *
-     */
     private void filter() throws Exception {
         inLoop = true;
         try {

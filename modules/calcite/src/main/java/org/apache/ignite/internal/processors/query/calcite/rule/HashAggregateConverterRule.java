@@ -32,34 +32,16 @@ import org.apache.ignite.internal.processors.query.calcite.rel.agg.IgniteSingleH
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions;
 import org.apache.ignite.internal.processors.query.calcite.util.HintUtils;
 
-/**
- *
- */
 public class HashAggregateConverterRule {
-    /**
-     *
-     */
     public static final RelOptRule SINGLE = new HashSingleAggregateConverterRule();
 
-    /**
-     *
-     */
     public static final RelOptRule MAP_REDUCE = new HashMapReduceAggregateConverterRule();
 
-    /**
-     *
-     */
     private HashAggregateConverterRule() {
         // No-op.
     }
 
-    /**
-     *
-     */
     private static class HashSingleAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
-        /**
-         *
-         */
         HashSingleAggregateConverterRule() {
             super(LogicalAggregate.class, "HashSingleAggregateConverterRule");
         }
@@ -88,13 +70,7 @@ public class HashAggregateConverterRule {
         }
     }
 
-    /**
-     *
-     */
     private static class HashMapReduceAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
-        /**
-         *
-         */
         HashMapReduceAggregateConverterRule() {
             super(LogicalAggregate.class, "HashMapReduceAggregateConverterRule");
         }

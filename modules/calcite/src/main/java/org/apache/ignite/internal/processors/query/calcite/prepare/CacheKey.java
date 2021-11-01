@@ -20,25 +20,18 @@ package org.apache.ignite.internal.processors.query.calcite.prepare;
 import java.util.Objects;
 
 /**
- *
+ * Query plan cache key.
  */
 public class CacheKey {
-    /**
-     *
-     */
     private final String schemaName;
 
-    /**
-     *
-     */
     private final String query;
 
-    /**
-     *
-     */
     private final Object contextKey;
 
     /**
+     * Constructor.
+     *
      * @param schemaName Schema name.
      * @param query      Query string.
      * @param contextKey Optional context key to differ queries with and without/different flags, having an impact on result plan (like
@@ -51,6 +44,8 @@ public class CacheKey {
     }
 
     /**
+     * Constructor.
+     *
      * @param schemaName Schema name.
      * @param query      Query string.
      */

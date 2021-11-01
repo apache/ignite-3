@@ -19,9 +19,6 @@ package org.apache.ignite.internal.processors.query.calcite.schema;
 
 import org.apache.calcite.schema.SchemaPlus;
 
-/**
- *
- */
 public interface SchemaHolder {
     /**
      * @return Schema.

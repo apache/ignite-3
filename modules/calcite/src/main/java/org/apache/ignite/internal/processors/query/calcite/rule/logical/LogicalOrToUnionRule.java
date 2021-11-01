@@ -97,14 +97,8 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
                 .build();
     }
 
-    /**
-     *
-     */
     @SuppressWarnings("ClassNameSameAsAncestorName")
     public interface Config extends RelRule.Config {
-        /**
-         *
-         */
         Config DEFAULT = RelRule.Config.EMPTY
                 .withRelBuilderFactory(RelFactories.LOGICAL_BUILDER)
                 .withDescription("LogicalOrToUnionRule")

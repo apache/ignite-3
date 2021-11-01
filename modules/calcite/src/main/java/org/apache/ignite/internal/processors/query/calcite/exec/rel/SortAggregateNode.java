@@ -36,61 +36,28 @@ import org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.Accumula
 import org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
-/**
- *
- */
 public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
-    /**
-     *
-     */
     private final AggregateType type;
 
     /** May be {@code null} when there are not accumulators (DISTINCT aggregate node). */
     private final Supplier<List<AccumulatorWrapper<RowT>>> accFactory;
 
-    /**
-     *
-     */
     private final RowFactory<RowT> rowFactory;
 
-    /**
-     *
-     */
     private final ImmutableBitSet grpSet;
 
-    /**
-     *
-     */
     private final Comparator<RowT> comp;
 
-    /**
-     *
-     */
     private final Deque<RowT> outBuf = new ArrayDeque<>(inBufSize);
 
-    /**
-     *
-     */
     private RowT prevRow;
 
-    /**
-     *
-     */
     private Group grp;
 
-    /**
-     *
-     */
     private int requested;
 
-    /**
-     *
-     */
     private int waiting;
 
-    /**
-     *
-     */
     private int cmpRes;
 
     /**
@@ -222,16 +189,10 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         return this;
     }
 
-    /**
-     *
-     */
     private boolean hasAccumulators() {
         return accFactory != null;
     }
 
-    /**
-     *
-     */
     private Group newGroup(RowT r) {
         final Object[] grpKeys = new Object[grpSet.cardinality()];
         List<Integer> fldIdxs = grpSet.asList();
@@ -249,9 +210,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         return grp;
     }
 
-    /**
-     *
-     */
     private void doPush() throws Exception {
         while (requested > 0 && !outBuf.isEmpty()) {
             requested--;
@@ -260,28 +218,13 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
     }
 
-    /**
-     *
-     */
     private class Group {
-        /**
-         *
-         */
         private final List<AccumulatorWrapper<RowT>> accumWrps;
 
-        /**
-         *
-         */
         private final RowHandler<RowT> handler;
 
-        /**
-         *
-         */
         private final Object[] grpKeys;
 
-        /**
-         *
-         */
         private Group(Object[] grpKeys) {
             this.grpKeys = grpKeys;
 
@@ -290,9 +233,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             handler = context().rowHandler();
         }
 
-        /**
-         *
-         */
         private void add(RowT row) {
             if (type == AggregateType.REDUCE) {
                 addOnReducer(row);
@@ -301,9 +241,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             }
         }
 
-        /**
-         *
-         */
         private RowT row() {
             if (type == AggregateType.MAP) {
                 return rowOnMapper();
@@ -312,18 +249,12 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             }
         }
 
-        /**
-         *
-         */
         private void addOnMapper(RowT row) {
             for (AccumulatorWrapper<RowT> wrapper : accumWrps) {
                 wrapper.add(row);
             }
         }
 
-        /**
-         *
-         */
         private void addOnReducer(RowT row) {
             List<Accumulator> accums = hasAccumulators()
                     ? (List<Accumulator>) handler.get(handler.columnCount(row) - 1, row) : Collections.emptyList();
@@ -337,9 +268,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             }
         }
 
-        /**
-         *
-         */
         private RowT rowOnMapper() {
             Object[] fields = new Object[grpSet.cardinality() + (accFactory != null ? 1 : 0)];
 
@@ -357,9 +285,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             return rowFactory.create(fields);
         }
 
-        /**
-         *
-         */
         private RowT rowOnReducer() {
             Object[] fields = new Object[grpSet.cardinality() + accumWrps.size()];
 

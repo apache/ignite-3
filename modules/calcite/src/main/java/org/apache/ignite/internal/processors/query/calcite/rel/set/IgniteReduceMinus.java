@@ -35,9 +35,6 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteRelVisitor;
  * Physical node for REDUCE phase of MINUS (EXCEPT) operator.
  */
 public class IgniteReduceMinus extends IgniteMinus implements IgniteReduceSetOp {
-    /**
-     *
-     */
     public IgniteReduceMinus(
             RelOptCluster cluster,
             RelTraitSet traitSet,
@@ -50,9 +47,6 @@ public class IgniteReduceMinus extends IgniteMinus implements IgniteReduceSetOp 
         this.rowType = rowType;
     }
 
-    /**
-     *
-     */
     public IgniteReduceMinus(RelInput input) {
         this(
                 input.getCluster(),

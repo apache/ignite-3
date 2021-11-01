@@ -50,9 +50,6 @@ import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteC
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
-/**
- *
- */
 public class IgniteMergeJoin extends AbstractIgniteJoin {
     /**
      * Collation of a left child. Keep it here to restore after deserialization.
@@ -64,9 +61,6 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
      */
     private final RelCollation rightCollation;
 
-    /**
-     *
-     */
     public IgniteMergeJoin(
             RelOptCluster cluster,
             RelTraitSet traitSet,
@@ -80,9 +74,6 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
                 left.getTraitSet().getCollation(), right.getTraitSet().getCollation());
     }
 
-    /**
-     *
-     */
     public IgniteMergeJoin(RelInput input) {
         this(
                 input.getCluster(),
@@ -97,9 +88,6 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
         );
     }
 
-    /**
-     *
-     */
     private IgniteMergeJoin(
             RelOptCluster cluster,
             RelTraitSet traitSet,

@@ -54,22 +54,13 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-/**
- *
- */
 public class TypeUtils {
-    /**
-     *
-     */
     private static final EnumSet<SqlTypeName> CONVERTABLE_SQL_TYPES = EnumSet.of(
             SqlTypeName.DATE,
             SqlTypeName.TIME,
             SqlTypeName.TIMESTAMP
     );
 
-    /**
-     *
-     */
     private static final Set<Type> CONVERTABLE_TYPES = ImmutableSet.of(
             java.util.Date.class,
             java.sql.Date.class,
@@ -77,9 +68,6 @@ public class TypeUtils {
             java.sql.Timestamp.class
     );
 
-    /**
-     *
-     */
     public static RelDataType combinedRowType(IgniteTypeFactory typeFactory, RelDataType... types) {
 
         RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
@@ -102,9 +90,6 @@ public class TypeUtils {
         return builder.build();
     }
 
-    /**
-     *
-     */
     public static boolean needCast(RelDataTypeFactory factory, RelDataType fromType, RelDataType toType) {
         // This prevents that we cast a JavaType to normal RelDataType.
         if (fromType instanceof RelDataTypeFactoryImpl.JavaType
@@ -143,9 +128,6 @@ public class TypeUtils {
         return true;
     }
 
-    /**
-     *
-     */
     @NotNull
     public static RelDataType createRowType(@NotNull IgniteTypeFactory typeFactory, @NotNull Class<?>... fields) {
         List<RelDataType> types = Arrays.stream(fields)
@@ -155,9 +137,6 @@ public class TypeUtils {
         return createRowType(typeFactory, types, "$F");
     }
 
-    /**
-     *
-     */
     @NotNull
     public static RelDataType createRowType(@NotNull IgniteTypeFactory typeFactory, @NotNull RelDataType... fields) {
         List<RelDataType> types = Arrays.asList(fields);
@@ -165,9 +144,6 @@ public class TypeUtils {
         return createRowType(typeFactory, types, "$F");
     }
 
-    /**
-     *
-     */
     private static RelDataType createRowType(IgniteTypeFactory typeFactory, List<RelDataType> fields, String namePreffix) {
         List<String> names = IntStream.range(0, fields.size())
                 .mapToObj(ord -> namePreffix + ord)
@@ -176,9 +152,6 @@ public class TypeUtils {
         return typeFactory.createStructType(fields, names);
     }
 
-    /**
-     *
-     */
     public static RelDataType sqlType(IgniteTypeFactory typeFactory, RelDataType rowType) {
         if (!rowType.isStruct()) {
             return typeFactory.toSql(rowType);
@@ -234,9 +207,6 @@ public class TypeUtils {
         return nativeTypeToClass(fldDesc.storageType());
     }
 
-    /**
-     *
-     */
     public static <RowT> Function<RowT, RowT> resultTypeConverter(ExecutionContext<RowT> ectx, RelDataType resultType) {
         assert resultType.isStruct();
 
@@ -259,9 +229,6 @@ public class TypeUtils {
         return Function.identity();
     }
 
-    /**
-     *
-     */
     private static Function<Object, Object> fieldConverter(ExecutionContext<?> ectx, RelDataType fieldType) {
         if (CONVERTABLE_SQL_TYPES.contains(fieldType.getSqlTypeName())) {
             Type storageType = ectx.getTypeFactory().getJavaClass(fieldType);
@@ -270,38 +237,23 @@ public class TypeUtils {
         return Function.identity();
     }
 
-    /**
-     *
-     */
     public static boolean isConvertableType(Type type) {
         return CONVERTABLE_TYPES.contains(type);
     }
 
-    /**
-     *
-     */
     public static boolean isConvertableType(RelDataType type) {
         return CONVERTABLE_SQL_TYPES.contains(type.getSqlTypeName());
     }
 
-    /**
-     *
-     */
     private static boolean hasConvertableFields(RelDataType resultType) {
         return RelOptUtil.getFieldTypeList(resultType).stream()
                 .anyMatch(t -> CONVERTABLE_SQL_TYPES.contains(t.getSqlTypeName()));
     }
 
-    /**
-     *
-     */
     public static Object toInternal(ExecutionContext<?> ectx, Object val) {
         return val == null ? null : toInternal(ectx, val, val.getClass());
     }
 
-    /**
-     *
-     */
     public static Object toInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
         if (val == null) {
             return null;
@@ -320,9 +272,6 @@ public class TypeUtils {
         }
     }
 
-    /**
-     *
-     */
     public static Object fromInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
         if (val == null) {
             return null;

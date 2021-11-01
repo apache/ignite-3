@@ -33,35 +33,17 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteSender;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
-/**
- *
- */
 public class FragmentSplitter extends IgniteRelShuttle {
-    /**
-     *
-     */
     private final Deque<FragmentProto> stack = new LinkedList<>();
 
-    /**
-     *
-     */
     private RelNode cutPoint;
 
-    /**
-     *
-     */
     private FragmentProto curr;
 
-    /**
-     *
-     */
     public FragmentSplitter(RelNode cutPoint) {
         this.cutPoint = cutPoint;
     }
 
-    /**
-     *
-     */
     public List<Fragment> go(Fragment fragment) {
         ArrayList<Fragment> res = new ArrayList<>();
 
@@ -111,9 +93,6 @@ public class FragmentSplitter extends IgniteRelShuttle {
         return rel;
     }
 
-    /**
-     *
-     */
     private IgniteRel split(IgniteRel rel) {
         RelOptCluster cluster = rel.getCluster();
         RelTraitSet traits = rel.getTraitSet();
@@ -134,36 +113,18 @@ public class FragmentSplitter extends IgniteRelShuttle {
         return receiver;
     }
 
-    /**
-     *
-     */
     private static class FragmentProto {
-        /**
-         *
-         */
         private final long id;
 
-        /**
-         *
-         */
         private IgniteRel root;
 
-        /**
-         *
-         */
         private final ImmutableList.Builder<IgniteReceiver> remotes = ImmutableList.builder();
 
-        /**
-         *
-         */
         private FragmentProto(long id, IgniteRel root) {
             this.id = id;
             this.root = root;
         }
 
-        /**
-         *
-         */
         Fragment build() {
             return new Fragment(id, root, remotes.build());
         }

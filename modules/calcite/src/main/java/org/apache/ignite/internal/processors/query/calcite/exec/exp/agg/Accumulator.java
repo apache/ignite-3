@@ -22,32 +22,14 @@ import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 
-/**
- *
- */
 public interface Accumulator extends Serializable {
-    /**
-     *
-     */
     void add(Object... args);
 
-    /**
-     *
-     */
     void apply(Accumulator other);
 
-    /**
-     *
-     */
     Object end();
 
-    /**
-     *
-     */
     List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory);
 
-    /**
-     *
-     */
     RelDataType returnType(IgniteTypeFactory typeFactory);
 }

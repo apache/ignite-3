@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.processors.query.calcite.exec.exp.agg;
 
-/**
- *
- */
 public enum AggregateType {
     /** Map phase. */
     MAP,

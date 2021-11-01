@@ -20,9 +20,6 @@ package org.apache.ignite.internal.processors.query.calcite.prepare;
 import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 
-/**
- *
- */
 public interface FieldsMetadata {
     /**
      * @return Result row type.

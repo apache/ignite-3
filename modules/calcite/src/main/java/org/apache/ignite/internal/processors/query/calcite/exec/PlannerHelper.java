@@ -49,9 +49,6 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.internal.processors.query.calcite.util.HintUtils;
 import org.apache.ignite.lang.IgniteLogger;
 
-/**
- *
- */
 public class PlannerHelper {
     /**
      * Default constructor.
@@ -61,6 +58,8 @@ public class PlannerHelper {
     }
 
     /**
+     *
+     *
      * @param sqlNode Sql node.
      * @param planner Planner.
      * @param log     Logger.

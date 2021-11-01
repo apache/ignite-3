@@ -22,9 +22,6 @@ import java.util.UUID;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
-/**
- *
- */
 @Transferable(value = SqlQueryMessageGroup.OUTBOX_CLOSE_MESSAGE)
 public interface OutboxCloseMessage extends NetworkMessage, Serializable {
     /**

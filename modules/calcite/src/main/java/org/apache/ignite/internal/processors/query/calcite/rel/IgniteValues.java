@@ -29,9 +29,6 @@ import org.apache.calcite.rel.core.Values;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
 
-/**
- *
- */
 public class IgniteValues extends Values implements IgniteRel {
     /**
      * Creates a new Values.
@@ -48,9 +45,6 @@ public class IgniteValues extends Values implements IgniteRel {
         super(cluster, rowType, tuples, traits);
     }
 
-    /**
-     *
-     */
     public IgniteValues(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
     }

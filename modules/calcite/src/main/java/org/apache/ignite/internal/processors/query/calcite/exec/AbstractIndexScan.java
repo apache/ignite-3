@@ -30,9 +30,6 @@ import org.apache.ignite.lang.IgniteInternalException;
  * Abstract index scan.
  */
 public abstract class AbstractIndexScan<RowT, IdxRowT> implements Iterable<RowT>, AutoCloseable {
-    /**
-     *
-     */
     private final TreeIndex<IdxRowT> idx;
 
     /** Additional filters. */
@@ -44,22 +41,15 @@ public abstract class AbstractIndexScan<RowT, IdxRowT> implements Iterable<RowT>
     /** Upper index scan bound. */
     private final Supplier<RowT> upperBound;
 
-    /**
-     *
-     */
     private final Function<RowT, RowT> rowTransformer;
 
-    /**
-     *
-     */
     protected final ExecutionContext<RowT> ectx;
 
-    /**
-     *
-     */
     protected final RelDataType rowType;
 
     /**
+     * Constructor.
+     *
      * @param ectx       Execution context.
      * @param idx        Physical index.
      * @param filters    Additional filters.
@@ -104,14 +94,8 @@ public abstract class AbstractIndexScan<RowT, IdxRowT> implements Iterable<RowT>
         return it;
     }
 
-    /**
-     *
-     */
     protected abstract IdxRowT row2indexRow(RowT bound);
 
-    /**
-     *
-     */
     protected abstract RowT indexRow2Row(IdxRowT idxRow) throws IgniteInternalException;
 
     /** {@inheritDoc} */

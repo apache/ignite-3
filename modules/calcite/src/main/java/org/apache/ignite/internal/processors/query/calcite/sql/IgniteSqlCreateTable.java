@@ -35,24 +35,12 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * Parse tree for {@code CREATE TABLE} statement with Ignite specific features.
  */
 public class IgniteSqlCreateTable extends SqlCreate {
-    /**
-     *
-     */
     private final SqlIdentifier name;
 
-    /**
-     *
-     */
     private final @Nullable SqlNodeList columnList;
 
-    /**
-     *
-     */
     private final @Nullable SqlNodeList createOptionList;
 
-    /**
-     *
-     */
     private static final SqlOperator OPERATOR =
             new SqlSpecialOperator("CREATE TABLE", SqlKind.CREATE_TABLE);
 

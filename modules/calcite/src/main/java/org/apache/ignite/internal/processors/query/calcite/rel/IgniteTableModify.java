@@ -27,9 +27,6 @@ import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
-/**
- *
- */
 public class IgniteTableModify extends TableModify implements IgniteRel {
     /**
      * Creates a {@code TableModify}.

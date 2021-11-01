@@ -33,61 +33,30 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 
-/**
- *
- */
 public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
-    /**
-     *
-     */
     protected final TableDescriptor desc;
 
-    /**
-     *
-     */
     private final TableModify.Operation op;
 
-    /**
-     *
-     */
     private final List<String> cols;
 
-    /**
-     *
-     */
     private final RecordView<Tuple> tableView;
 
-    /**
-     *
-     */
     private List<Tuple> tuples = new ArrayList<>(MODIFY_BATCH_SIZE);
 
-    /**
-     *
-     */
     private long updatedRows;
 
-    /**
-     *
-     */
     private int waiting;
 
-    /**
-     *
-     */
     private int requested;
 
-    /**
-     *
-     */
     private boolean inLoop;
 
-    /**
-     *
-     */
     private State state = State.UPDATING;
 
     /**
+     * Constructor.
+     *
      * @param ctx  Execution context.
      * @param desc Table descriptor.
      * @param cols Update column list.
@@ -182,9 +151,6 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         return this;
     }
 
-    /**
-     *
-     */
     private void tryEnd() throws Exception {
         assert downstream() != null;
 
@@ -212,9 +178,6 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         }
     }
 
-    /**
-     *
-     */
     private void flushTuples(boolean force) {
         if (nullOrEmpty(tuples) || !force && tuples.size() < MODIFY_BATCH_SIZE) {
             return;
@@ -259,23 +222,11 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         updatedRows += tuples.size();
     }
 
-    /**
-     *
-     */
     private enum State {
-        /**
-         *
-         */
         UPDATING,
 
-        /**
-         *
-         */
         UPDATED,
 
-        /**
-         *
-         */
         END
     }
 }

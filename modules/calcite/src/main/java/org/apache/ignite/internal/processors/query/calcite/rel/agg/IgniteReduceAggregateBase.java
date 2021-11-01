@@ -41,28 +41,13 @@ import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitsAwareIgniteRel;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
-/**
- *
- */
 public abstract class IgniteReduceAggregateBase extends SingleRel implements TraitsAwareIgniteRel {
-    /**
-     *
-     */
     protected final ImmutableBitSet groupSet;
 
-    /**
-     *
-     */
     protected final List<ImmutableBitSet> groupSets;
 
-    /**
-     *
-     */
     protected final List<AggregateCall> aggCalls;
 
-    /**
-     *
-     */
     protected IgniteReduceAggregateBase(
             RelOptCluster cluster,
             RelTraitSet traits,
@@ -84,9 +69,6 @@ public abstract class IgniteReduceAggregateBase extends SingleRel implements Tra
         this.rowType = rowType;
     }
 
-    /**
-     *
-     */
     protected IgniteReduceAggregateBase(RelInput input) {
         this(
                 input.getCluster(),
@@ -122,23 +104,14 @@ public abstract class IgniteReduceAggregateBase extends SingleRel implements Tra
         return pw;
     }
 
-    /**
-     *
-     */
     public ImmutableBitSet getGroupSet() {
         return groupSet;
     }
 
-    /**
-     *
-     */
     public List<ImmutableBitSet> getGroupSets() {
         return groupSets;
     }
 
-    /**
-     *
-     */
     public List<AggregateCall> getAggregateCalls() {
         return aggCalls;
     }

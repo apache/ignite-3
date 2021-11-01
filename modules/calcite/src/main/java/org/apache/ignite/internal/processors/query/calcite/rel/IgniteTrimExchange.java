@@ -34,26 +34,14 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
 
-/**
- *
- */
 public class IgniteTrimExchange extends Exchange implements SourceAwareIgniteRel {
-    /**
-     *
-     */
     private final long sourceId;
 
-    /**
-     *
-     */
     public IgniteTrimExchange(RelOptCluster cluster, RelTraitSet traits, RelNode input,
             RelDistribution distribution) {
         this(-1, cluster, traits, input, distribution);
     }
 
-    /**
-     *
-     */
     public IgniteTrimExchange(long sourceId, RelOptCluster cluster, RelTraitSet traits, RelNode input, RelDistribution distribution) {
         super(cluster, traits, input, distribution);
 
@@ -62,9 +50,6 @@ public class IgniteTrimExchange extends Exchange implements SourceAwareIgniteRel
         this.sourceId = sourceId;
     }
 
-    /**
-     *
-     */
     public IgniteTrimExchange(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE, input.getDistribution()));
 

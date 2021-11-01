@@ -34,9 +34,6 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     /** How many rows are we waiting for from the upstream. {@code -1} means end of stream. */
     private int waiting;
 
-    /**
-     *
-     */
     private boolean inLoop;
 
     /** Rows buffer. */
@@ -118,9 +115,6 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         flush();
     }
 
-    /**
-     *
-     */
     private void flush() throws Exception {
         if (isClosed()) {
             return;

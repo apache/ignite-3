@@ -115,69 +115,30 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
 
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
-    /**
-     *
-     */
     private final MessageService msgSrvc;
 
-    /**
-     *
-     */
     private final String locNodeId;
 
-    /**
-     *
-     */
     private final QueryPlanCache qryPlanCache;
 
-    /**
-     *
-     */
     private final SchemaHolder schemaHolder;
 
-    /**
-     *
-     */
     private final QueryTaskExecutor taskExecutor;
 
-    /**
-     *
-     */
     private final AffinityService affSrvc;
 
-    /**
-     *
-     */
     private final MailboxRegistry mailboxRegistry;
 
-    /**
-     *
-     */
     private final MappingService mappingSrvc;
 
-    /**
-     *
-     */
     private final ExchangeService exchangeSrvc;
 
-    /**
-     *
-     */
     private final ClosableIteratorsHolder iteratorsHolder;
 
-    /**
-     *
-     */
     private final Map<UUID, QueryInfo> running;
 
-    /**
-     *
-     */
     private final RowHandler<RowT> handler;
 
-    /**
-     *
-     */
     private final DdlSqlToCommandConverter ddlConverter;
 
     /**
@@ -241,9 +202,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         return executePlans(qryPlans, pctx);
     }
 
-    /**
-     *
-     */
     private SqlCursor<List<?>> executeQuery(UUID qryId, MultiStepPlan plan, PlanningContext pctx) {
         plan.init(pctx);
 
@@ -367,16 +325,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         }
     }
 
-    /**
-     *
-     */
     protected long topologyVersion() {
         return 1L;
     }
 
-    /**
-     *
-     */
     private PlanningContext createContext(long topVer, String originator,
             @Nullable String schema, String qry, Object[] params) {
         RelTraitDef<?>[] traitDefs = {
@@ -403,9 +355,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
                 .build();
     }
 
-    /**
-     *
-     */
     private List<QueryPlan> prepareQuery(PlanningContext ctx) {
         try {
             String qry = ctx.query();
@@ -436,9 +385,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         }
     }
 
-    /**
-     *
-     */
     private QueryPlan prepareQuery(SqlNode sqlNode, PlanningContext ctx) {
         IgnitePlanner planner = ctx.planner();
 
@@ -457,16 +403,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         return new MultiStepQueryPlan(template, queryFieldsMetadata(ctx, validated.dataType(), validated.origins()));
     }
 
-    /**
-     *
-     */
     private List<QueryPlan> prepareFragment(PlanningContext ctx) {
         return ImmutableList.of(new FragmentPlan(fromJson(ctx, ctx.query())));
     }
 
-    /**
-     *
-     */
     private QueryPlan prepareSingle(SqlNode sqlNode, PlanningContext ctx) throws ValidationException {
         assert single(sqlNode);
 
@@ -501,9 +441,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         }
     }
 
-    /**
-     *
-     */
     private QueryPlan prepareDml(SqlNode sqlNode, PlanningContext ctx) throws ValidationException {
         IgnitePlanner planner = ctx.planner();
 
@@ -521,9 +458,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         return new MultiStepDmlPlan(template, queryFieldsMetadata(ctx, igniteRel.getRowType(), null));
     }
 
-    /**
-     *
-     */
     private QueryPlan prepareDdl(SqlNode sqlNode, PlanningContext ctx) {
         assert sqlNode instanceof SqlDdl : sqlNode == null ? "null" : sqlNode.getClass().getName();
 
@@ -532,9 +466,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         return new DdlPlan(ddlConverter.convert(ddlNode, ctx));
     }
 
-    /**
-     *
-     */
     private QueryPlan prepareExplain(SqlNode explain, PlanningContext ctx) throws ValidationException {
         IgnitePlanner planner = ctx.planner();
 
@@ -551,9 +482,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         return new ExplainPlan(plan, explainFieldsMetadata(ctx));
     }
 
-    /**
-     *
-     */
     private FieldsMetadata explainFieldsMetadata(PlanningContext ctx) {
         IgniteTypeFactory factory = ctx.typeFactory();
         RelDataType planStrDataType =
@@ -564,9 +492,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         return queryFieldsMetadata(ctx, planDataType, null);
     }
 
-    /**
-     *
-     */
     private SqlCursor<List<?>> executePlan(UUID qryId, PlanningContext pctx, QueryPlan plan) {
         switch (plan.type()) {
             case DML:
@@ -583,16 +508,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         }
     }
 
-    /**
-     *
-     */
     private SqlCursor<List<?>> executeDdl(DdlPlan plan, PlanningContext pctx) {
         throw new UnsupportedOperationException("plan=" + plan + ", ctx=" + pctx);
     }
 
-    /**
-     *
-     */
     private SqlCursor<List<?>> executeExplain(ExplainPlan plan) {
         SqlCursor<List<?>> cur = Commons.createCursor(singletonList(singletonList(plan.plan())), plan);
         // TODO: fix this
@@ -601,9 +520,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         return cur;
     }
 
-    /**
-     *
-     */
     private void executeFragment(UUID qryId, FragmentPlan plan, PlanningContext pctx, FragmentDescription fragmentDesc) {
         ExecutionContext<RowT> ectx = new ExecutionContext<>(taskExecutor, pctx, qryId,
                 fragmentDesc, handler, Commons.parametersMap(pctx.parameters()));
@@ -635,18 +551,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         node.init();
     }
 
-    /**
-     *
-     */
     private void register(QueryInfo info) {
         UUID qryId = info.ctx.queryId();
 
         running.put(qryId, info);
     }
 
-    /**
-     *
-     */
     private FieldsMetadata queryFieldsMetadata(PlanningContext ctx, RelDataType sqlType,
             @Nullable List<List<String>> origins) {
         RelDataType resultType = TypeUtils.getResultType(
@@ -654,16 +564,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         return new FieldsMetadataImpl(resultType, origins);
     }
 
-    /**
-     *
-     */
     private boolean single(SqlNode sqlNode) {
         return !(sqlNode instanceof SqlNodeList);
     }
 
-    /**
-     *
-     */
     private void onMessage(String nodeId, QueryStartRequest msg) {
         assert nodeId != null && msg != null;
 
@@ -713,9 +617,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         }
     }
 
-    /**
-     *
-     */
     private void onMessage(String nodeId, QueryStartResponse msg) {
         assert nodeId != null && msg != null;
 
@@ -726,9 +627,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         }
     }
 
-    /**
-     *
-     */
     private void onMessage(String nodeId, ErrorMessage msg) {
         assert nodeId != null && msg != null;
 
@@ -739,50 +637,23 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         }
     }
 
-    /**
-     *
-     */
     private void onNodeLeft(ClusterNode node) {
         running.forEach((uuid, queryInfo) -> queryInfo.onNodeLeft(node.id()));
     }
 
-    /**
-     *
-     */
     private enum QueryState {
-        /**
-         *
-         */
         RUNNING,
 
-        /**
-         *
-         */
         CLOSING,
 
-        /**
-         *
-         */
         CLOSED
     }
 
-    /**
-     *
-     */
     private static final class RemoteFragmentKey {
-        /**
-         *
-         */
         private final String nodeId;
 
-        /**
-         *
-         */
         private final long fragmentId;
 
-        /**
-         *
-         */
         private RemoteFragmentKey(String nodeId, long fragmentId) {
             this.nodeId = nodeId;
             this.fragmentId = fragmentId;
@@ -815,18 +686,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         }
     }
 
-    /**
-     *
-     */
     private final class QueryInfo implements Cancellable {
-        /**
-         *
-         */
         private final ExecutionContext<RowT> ctx;
 
-        /**
-         *
-         */
         private final RootNode<RowT> root;
 
         /** remote nodes */
@@ -835,14 +697,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         /** node to fragment */
         private final Set<RemoteFragmentKey> waiting;
 
-        /**
-         *
-         */
         private volatile QueryState state;
 
-        /**
-         *
-         */
         private QueryInfo(ExecutionContext<RowT> ctx, MultiStepPlan plan, Node<RowT> root) {
             this.ctx = ctx;
 
@@ -868,9 +724,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
             state = QueryState.RUNNING;
         }
 
-        /**
-         *
-         */
         public Iterator<RowT> iterator() {
             return iteratorsHolder.iterator(root);
         }
@@ -932,9 +785,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
             }
         }
 
-        /**
-         *
-         */
         private void onNodeLeft(String nodeId) {
             List<RemoteFragmentKey> fragments = null;
 
@@ -962,16 +812,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
             }
         }
 
-        /**
-         *
-         */
         private void onResponse(String nodeId, long fragmentId, Throwable error) {
             onResponse(new RemoteFragmentKey(nodeId, fragmentId), error);
         }
 
-        /**
-         *
-         */
         private void onResponse(RemoteFragmentKey fragment, Throwable error) {
             QueryState state;
             synchronized (this) {
@@ -986,9 +830,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
             }
         }
 
-        /**
-         *
-         */
         private void onError(Throwable error) {
             root.onError(error);
 

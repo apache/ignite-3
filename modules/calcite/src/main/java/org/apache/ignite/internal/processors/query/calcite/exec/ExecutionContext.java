@@ -44,49 +44,22 @@ import org.jetbrains.annotations.NotNull;
  * Runtime context allowing access to the tables in a database.
  */
 public class ExecutionContext<RowT> implements DataContext {
-    /**
-     *
-     */
     private static final TimeZone TIME_ZONE = TimeZone.getDefault(); // TODO DistributedSqlConfiguration#timeZone
 
-    /**
-     *
-     */
     private final UUID qryId;
 
-    /**
-     *
-     */
     private final PlanningContext ctx;
 
-    /**
-     *
-     */
     private final FragmentDescription fragmentDesc;
 
-    /**
-     *
-     */
     private final Map<String, Object> params;
 
-    /**
-     *
-     */
     private final QueryTaskExecutor executor;
 
-    /**
-     *
-     */
     private final RowHandler<RowT> handler;
 
-    /**
-     *
-     */
     private final ExpressionFactory<RowT> expressionFactory;
 
-    /**
-     *
-     */
     private final AtomicBoolean cancelFlag = new AtomicBoolean();
 
     /**
@@ -95,12 +68,11 @@ public class ExecutionContext<RowT> implements DataContext {
      */
     private final long startTs;
 
-    /**
-     *
-     */
     private Object[] correlations = new Object[16];
 
     /**
+     * Constructor.
+     *
      * @param executor     Task executor.
      * @param ctx          Parent context.
      * @param qryId        Query ID.
@@ -308,14 +280,8 @@ public class ExecutionContext<RowT> implements DataContext {
         });
     }
 
-    /**
-     *
-     */
     @FunctionalInterface
     public interface RunnableX {
-        /**
-         *
-         */
         void run() throws Throwable;
     }
 
@@ -328,9 +294,6 @@ public class ExecutionContext<RowT> implements DataContext {
         return !cancelFlag.get() && cancelFlag.compareAndSet(false, true);
     }
 
-    /**
-     *
-     */
     public boolean isCancelled() {
         return cancelFlag.get();
     }

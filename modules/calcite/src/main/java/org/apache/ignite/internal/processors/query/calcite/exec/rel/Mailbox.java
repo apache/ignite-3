@@ -19,9 +19,6 @@ package org.apache.ignite.internal.processors.query.calcite.exec.rel;
 
 import java.util.UUID;
 
-/**
- *
- */
 public interface Mailbox<T> extends Node<T> {
     /**
      * @return Query ID.

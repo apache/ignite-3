@@ -30,13 +30,8 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteConvention;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteValues;
 import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 
-/**
- *
- */
 public class ValuesConverterRule extends AbstractIgniteConverterRule<LogicalValues> {
-    /**
-     *
-     */
+
     public static final RelOptRule INSTANCE = new ValuesConverterRule();
 
     /**

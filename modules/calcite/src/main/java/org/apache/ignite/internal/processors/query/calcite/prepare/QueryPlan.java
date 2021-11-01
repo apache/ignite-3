@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
-/**
- *
- */
 public interface QueryPlan {
     /** Query type */
     enum Type {

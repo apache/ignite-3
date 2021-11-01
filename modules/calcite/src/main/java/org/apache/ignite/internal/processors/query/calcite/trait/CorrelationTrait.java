@@ -42,26 +42,14 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteCorrelatedN
  * correlation variables.
  */
 public class CorrelationTrait implements RelTrait {
-    /**
-     *
-     */
     public static final CorrelationTrait UNCORRELATED = canonize(new CorrelationTrait(Collections.emptyList()));
 
-    /**
-     *
-     */
     private final ImmutableSet<CorrelationId> correlations;
 
-    /**
-     *
-     */
     public CorrelationTrait(Collection<CorrelationId> correlationIds) {
         correlations = ImmutableSet.copyOf(correlationIds);
     }
 
-    /**
-     *
-     */
     public boolean correlated() {
         return !nullOrEmpty(correlations);
     }
@@ -120,23 +108,14 @@ public class CorrelationTrait implements RelTrait {
         // no-op
     }
 
-    /**
-     *
-     */
     private static CorrelationTrait canonize(CorrelationTrait trait) {
         return CorrelationTraitDef.INSTANCE.canonize(trait);
     }
 
-    /**
-     *
-     */
     public Set<CorrelationId> correlationIds() {
         return correlations;
     }
 
-    /**
-     *
-     */
     public static CorrelationTrait correlations(Collection<CorrelationId> correlationIds) {
         return canonize(new CorrelationTrait(correlationIds));
     }

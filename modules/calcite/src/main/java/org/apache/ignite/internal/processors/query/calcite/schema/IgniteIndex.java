@@ -23,49 +23,28 @@ import org.apache.calcite.rel.RelCollation;
  * Ignite scannable index.
  */
 public class IgniteIndex {
-    /**
-     *
-     */
     private final RelCollation collation;
 
-    /**
-     *
-     */
     private final String idxName;
 
     //    private final GridIndex<H2Row> idx;
 
-    /**
-     *
-     */
     private final IgniteTable tbl;
 
-    /**
-     *
-     */
     public IgniteIndex(RelCollation collation, String name, IgniteTable tbl) {
         this.collation = collation;
         idxName = name;
         this.tbl = tbl;
     }
 
-    /**
-     *
-     */
     public RelCollation collation() {
         return collation;
     }
 
-    /**
-     *
-     */
     public String name() {
         return idxName;
     }
 
-    /**
-     *
-     */
     public IgniteTable table() {
         return tbl;
     }

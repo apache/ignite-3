@@ -28,9 +28,6 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteRel;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
-/**
- *
- */
 public interface TraitsAwareIgniteRel extends IgniteRel {
     /** {@inheritDoc} */
     @Override

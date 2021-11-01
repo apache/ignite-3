@@ -40,44 +40,20 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * A part of exchange.
  */
 public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, SingleNode<RowT>, Downstream<RowT> {
-    /**
-     *
-     */
     private final ExchangeService exchange;
 
-    /**
-     *
-     */
     private final MailboxRegistry registry;
 
-    /**
-     *
-     */
     private final long exchangeId;
 
-    /**
-     *
-     */
     private final long targetFragmentId;
 
-    /**
-     *
-     */
     private final Destination<RowT> dest;
 
-    /**
-     *
-     */
     private final Deque<RowT> inBuf = new ArrayDeque<>(inBufSize);
 
-    /**
-     *
-     */
     private final Map<String, Buffer> nodeBuffers = new HashMap<>();
 
-    /**
-     *
-     */
     private int waiting;
 
     /**
@@ -125,9 +101,6 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         nodeBuffers.get(nodeId).acknowledge(batchId);
     }
 
-    /**
-     *
-     */
     public void init() {
         try {
             checkState();
@@ -219,23 +192,14 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         return this;
     }
 
-    /**
-     *
-     */
     private void sendBatch(String nodeId, int batchId, boolean last, List<RowT> rows) throws IgniteInternalCheckedException {
         exchange.sendBatch(nodeId, queryId(), targetFragmentId, exchangeId, batchId, last, rows);
     }
 
-    /**
-     *
-     */
     private void sendError(Throwable err) throws IgniteInternalCheckedException {
         exchange.sendError(context().originatingNodeId(), queryId(), fragmentId(), err);
     }
 
-    /**
-     *
-     */
     private void sendInboxClose(String nodeId) {
         try {
             exchange.closeInbox(nodeId, queryId(), targetFragmentId, exchangeId);
@@ -244,23 +208,14 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         }
     }
 
-    /**
-     *
-     */
     private Buffer getOrCreateBuffer(String nodeId) {
         return nodeBuffers.computeIfAbsent(nodeId, this::createBuffer);
     }
 
-    /**
-     *
-     */
     private Buffer createBuffer(String nodeId) {
         return new Buffer(nodeId);
     }
 
-    /**
-     *
-     */
     private void flush() throws Exception {
         while (!inBuf.isEmpty()) {
             checkState();
@@ -293,42 +248,21 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         }
     }
 
-    /**
-     *
-     */
     public void onNodeLeft(String nodeId) {
         if (nodeId.equals(context().originatingNodeId())) {
             context().execute(this::close, this::onError);
         }
     }
 
-    /**
-     *
-     */
     private final class Buffer {
-        /**
-         *
-         */
         private final String nodeId;
 
-        /**
-         *
-         */
         private int hwm = -1;
 
-        /**
-         *
-         */
         private int lwm = -1;
 
-        /**
-         *
-         */
         private List<RowT> curr;
 
-        /**
-         *
-         */
         private Buffer(String nodeId) {
             this.nodeId = nodeId;
 
@@ -401,9 +335,6 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
             }
         }
 
-        /**
-         *
-         */
         public void close() {
             final int currBatchId = hwm;
 

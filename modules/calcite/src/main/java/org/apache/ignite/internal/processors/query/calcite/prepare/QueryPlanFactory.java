@@ -19,11 +19,10 @@ package org.apache.ignite.internal.processors.query.calcite.prepare;
 
 import java.util.List;
 
-/**
- *
- */
 public interface QueryPlanFactory {
     /**
+     * Create plans from context.
+     *
      * @param ctx Planning context.
      * @return Query plan.
      */

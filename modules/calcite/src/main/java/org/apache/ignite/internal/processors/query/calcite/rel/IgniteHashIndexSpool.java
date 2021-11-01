@@ -48,9 +48,6 @@ public class IgniteHashIndexSpool extends AbstractIgniteSpool implements IgniteR
     /** Condition (used to calculate selectivity). */
     private final RexNode cond;
 
-    /**
-     *
-     */
     public IgniteHashIndexSpool(
             RelOptCluster cluster,
             RelTraitSet traits,
@@ -88,9 +85,6 @@ public class IgniteHashIndexSpool extends AbstractIgniteSpool implements IgniteR
         return visitor.visit(this);
     }
 
-    /**
-     *
-     */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteHashIndexSpool(cluster, getTraitSet(), inputs.get(0), searchRow, cond);
@@ -108,9 +102,6 @@ public class IgniteHashIndexSpool extends AbstractIgniteSpool implements IgniteR
         return true;
     }
 
-    /**
-     *
-     */
     @Override
     public RelWriter explainTerms(RelWriter pw) {
         RelWriter writer = super.explainTerms(pw);
@@ -137,23 +128,14 @@ public class IgniteHashIndexSpool extends AbstractIgniteSpool implements IgniteR
         return mq.getRowCount(getInput()) * mq.getSelectivity(this, null);
     }
 
-    /**
-     *
-     */
     public List<RexNode> searchRow() {
         return searchRow;
     }
 
-    /**
-     *
-     */
     public ImmutableBitSet keys() {
         return keys;
     }
 
-    /**
-     *
-     */
     public RexNode condition() {
         return cond;
     }

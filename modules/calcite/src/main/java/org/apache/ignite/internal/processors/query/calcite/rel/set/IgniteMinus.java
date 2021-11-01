@@ -36,9 +36,6 @@ public abstract class IgniteMinus extends Minus implements IgniteSetOp {
     /** Count of counter fields used to aggregate results. */
     protected static final int COUNTER_FIELDS_CNT = 2;
 
-    /**
-     *
-     */
     IgniteMinus(RelOptCluster cluster, RelTraitSet traits, List<RelNode> inputs, boolean all) {
         super(cluster, traits, inputs, all);
     }

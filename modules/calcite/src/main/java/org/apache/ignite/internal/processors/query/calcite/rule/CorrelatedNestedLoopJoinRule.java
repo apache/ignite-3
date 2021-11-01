@@ -46,28 +46,13 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteCorrelatedN
 import org.apache.ignite.internal.processors.query.calcite.trait.CorrelationTrait;
 import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 
-/**
- *
- */
 public class CorrelatedNestedLoopJoinRule extends ConverterRule {
-    /**
-     *
-     */
     public static final RelOptRule INSTANCE = Config.DEFAULT.toRule();
 
-    /**
-     *
-     */
     public static final RelOptRule INSTANCE_BATCHED = Config.DEFAULT.withBatchSize(100).toRule();
 
-    /**
-     *
-     */
     private final int batchSize;
 
-    /**
-     *
-     */
     public CorrelatedNestedLoopJoinRule(Config cfg) {
         super(cfg);
 
@@ -166,14 +151,8 @@ public class CorrelatedNestedLoopJoinRule extends ConverterRule {
         );
     }
 
-    /**
-     *
-     */
     @SuppressWarnings("ClassNameSameAsAncestorName")
     public interface Config extends ConverterRule.Config {
-        /**
-         *
-         */
         Config DEFAULT = ConverterRule.Config.INSTANCE
                 .withDescription("CorrelatedNestedLoopJoin")
                 .withRelBuilderFactory(RelFactories.LOGICAL_BUILDER)
@@ -188,9 +167,6 @@ public class CorrelatedNestedLoopJoinRule extends ConverterRule {
         /** Sets {@link #description()}. */
         Config withBatchSize(int batchSize);
 
-        /**
-         *
-         */
         default Config withConversion(Class<? extends Join> clazz, RelTrait in, RelTrait out) {
             return withInTrait(in)
                     .withOutTrait(out)
@@ -206,9 +182,6 @@ public class CorrelatedNestedLoopJoinRule extends ConverterRule {
         }
     }
 
-    /**
-     *
-     */
     private static boolean preMatch(Join join) {
         return join.getJoinType() == JoinRelType.INNER || join.getJoinType() == JoinRelType.LEFT; // TODO SEMI, ANTI
     }

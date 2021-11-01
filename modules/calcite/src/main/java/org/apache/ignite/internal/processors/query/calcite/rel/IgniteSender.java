@@ -34,19 +34,10 @@ import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribut
  * Relational expression that iterates over its input and sends elements to remote {@link IgniteReceiver}
  */
 public class IgniteSender extends SingleRel implements IgniteRel {
-    /**
-     *
-     */
     private final long exchangeId;
 
-    /**
-     *
-     */
     private final long targetFragmentId;
 
-    /**
-     *
-     */
     private final IgniteDistribution distribution;
 
     /**
@@ -71,9 +62,6 @@ public class IgniteSender extends SingleRel implements IgniteRel {
         this.distribution = distribution;
     }
 
-    /**
-     *
-     */
     public IgniteSender(RelInput input) {
         this(
                 input.getCluster(),
@@ -86,16 +74,10 @@ public class IgniteSender extends SingleRel implements IgniteRel {
                 (IgniteDistribution) input.getDistribution());
     }
 
-    /**
-     *
-     */
     public long exchangeId() {
         return exchangeId;
     }
 
-    /**
-     *
-     */
     public long targetFragmentId() {
         return targetFragmentId;
     }

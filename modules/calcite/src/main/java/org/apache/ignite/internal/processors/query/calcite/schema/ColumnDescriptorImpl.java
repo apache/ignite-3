@@ -25,32 +25,17 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
 import org.apache.ignite.internal.schema.NativeType;
 import org.jetbrains.annotations.Nullable;
 
-/**
- *
- */
 public class ColumnDescriptorImpl implements ColumnDescriptor {
     private final boolean key;
 
     private final String name;
 
-    /**
-     *
-     */
     private final @Nullable Supplier<Object> dfltVal;
 
-    /**
-     *
-     */
     private final int fieldIdx;
 
-    /**
-     *
-     */
     private final NativeType storageType;
 
-    /**
-     *
-     */
     public ColumnDescriptorImpl(
             String name,
             boolean key,

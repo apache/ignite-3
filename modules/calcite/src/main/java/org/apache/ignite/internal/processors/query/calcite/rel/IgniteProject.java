@@ -73,9 +73,6 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
         super(cluster, traits, input, projects, rowType);
     }
 
-    /**
-     *
-     */
     public IgniteProject(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
     }
@@ -201,9 +198,6 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
         return ImmutableList.of(Pair.of(nodeTraits.replace(collation), ImmutableList.of(in)));
     }
 
-    /**
-     *
-     */
     @Override
     public Pair<RelTraitSet, List<RelTraitSet>> passThroughCorrelation(RelTraitSet nodeTraits,
             List<RelTraitSet> inTraits) {
@@ -217,9 +211,6 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
         return Pair.of(nodeTraits, ImmutableList.of(inTraits.get(0).replace(TraitUtils.correlation(nodeTraits))));
     }
 
-    /**
-     *
-     */
     @Override
     public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(RelTraitSet nodeTraits,
             List<RelTraitSet> inTraits) {

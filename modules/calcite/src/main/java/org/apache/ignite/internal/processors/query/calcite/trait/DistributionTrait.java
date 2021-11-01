@@ -40,20 +40,11 @@ import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGr
  * Description of the physical distribution of a relational expression.
  */
 public final class DistributionTrait implements IgniteDistribution {
-    /**
-     *
-     */
     private static final Ordering<Iterable<Integer>> ORDERING =
             Ordering.<Integer>natural().lexicographical();
 
-    /**
-     *
-     */
     private final DistributionFunction function;
 
-    /**
-     *
-     */
     private final ImmutableIntList keys;
 
     /**
@@ -68,6 +59,8 @@ public final class DistributionTrait implements IgniteDistribution {
     }
 
     /**
+     * Constructor.
+     *
      * @param keys     Distribution keys.
      * @param function Distribution function.
      */

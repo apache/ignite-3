@@ -90,14 +90,8 @@ import org.jetbrains.annotations.Nullable;
  * Utility methods.
  */
 public final class Commons {
-    /**
-     *
-     */
     public static final int IN_BUFFER_SIZE = 512;
 
-    /**
-     *
-     */
     public static final FrameworkConfig FRAMEWORK_CONFIG = Frameworks.newConfigBuilder()
             .executor(EXECUTOR)
             .sqlToRelConverterConfig(SqlToRelConverter.config()
@@ -138,22 +132,13 @@ public final class Commons {
             .typeSystem(IgniteTypeSystem.INSTANCE)
             .build();
 
-    /**
-     *
-     */
     private Commons() {
     }
 
-    /**
-     *
-     */
     public static <T> SqlCursor<T> createCursor(Iterable<T> iterable, QueryPlan plan) {
         return createCursor(iterable.iterator(), plan);
     }
 
-    /**
-     *
-     */
     public static <T> SqlCursor<T> createCursor(Iterator<T> iter, QueryPlan plan) {
         return new SqlCursor<>() {
             @Override
@@ -356,16 +341,10 @@ public final class Commons {
     //            U.closeQuiet((AutoCloseable) o);
     //    }
 
-    /**
-     *
-     */
     public static <T> List<T> flat(List<List<? extends T>> src) {
         return src.stream().flatMap(List::stream).collect(Collectors.toList());
     }
 
-    /**
-     *
-     */
     public static int max(ImmutableIntList list) {
         if (list.isEmpty()) {
             throw new UnsupportedOperationException();
@@ -380,9 +359,6 @@ public final class Commons {
         return res;
     }
 
-    /**
-     *
-     */
     public static int min(ImmutableIntList list) {
         if (list.isEmpty()) {
             throw new UnsupportedOperationException();
@@ -397,9 +373,6 @@ public final class Commons {
         return res;
     }
 
-    /**
-     *
-     */
     public static <T> T compile(Class<T> interfaceType, String body) {
         final boolean debug = CalciteSystemProperty.DEBUG.value();
 
@@ -432,18 +405,12 @@ public final class Commons {
         }
     }
 
-    /**
-     *
-     */
     public static void checkRange(@NotNull Object[] array, int idx) {
         if (idx < 0 || idx >= array.length) {
             throw new ArrayIndexOutOfBoundsException(idx);
         }
     }
 
-    /**
-     *
-     */
     public static <T> T[] ensureCapacity(T[] array, int required) {
         if (required < 0) {
             throw new IllegalArgumentException("Capacity must not be negative");
@@ -470,16 +437,10 @@ public final class Commons {
         return 1 << (32 - Integer.numberOfLeadingZeros(v - 1));
     }
 
-    /**
-     *
-     */
     public static <T> Predicate<T> negate(Predicate<T> p) {
         return p.negate();
     }
 
-    /**
-     *
-     */
     public static Mappings.TargetMapping mapping(ImmutableBitSet bitSet, int sourceSize) {
         Mapping mapping = Mappings.create(MappingType.PARTIAL_FUNCTION, sourceSize, bitSet.cardinality());
         for (Ord<Integer> ord : Ord.zip(bitSet)) {
@@ -488,9 +449,6 @@ public final class Commons {
         return mapping;
     }
 
-    /**
-     *
-     */
     public static Mappings.TargetMapping inverseMapping(ImmutableBitSet bitSet, int sourceSize) {
         Mapping mapping = Mappings.create(MappingType.INVERSE_FUNCTION, sourceSize, bitSet.cardinality());
         for (Ord<Integer> ord : Ord.zip(bitSet)) {

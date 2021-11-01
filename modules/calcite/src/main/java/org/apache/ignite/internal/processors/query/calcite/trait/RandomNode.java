@@ -21,23 +21,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
-/**
- *
- */
 public final class RandomNode<RowT> implements Destination<RowT> {
-    /**
-     *
-     */
     private final Random random;
 
-    /**
-     *
-     */
     private final List<String> nodes;
 
-    /**
-     *
-     */
     public RandomNode(List<String> nodes) {
         this.nodes = nodes;
 

@@ -33,9 +33,6 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteSort;
  * Converter rule for sort operator.
  */
 public class SortConverterRule extends RelRule<SortConverterRule.Config> {
-    /**
-     *
-     */
     public static final RelOptRule INSTANCE =
             SortConverterRule.Config.DEFAULT
                     .as(SortConverterRule.Config.class).toRule();

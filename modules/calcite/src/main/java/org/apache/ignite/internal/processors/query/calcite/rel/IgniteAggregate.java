@@ -34,9 +34,6 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCostFactory;
 
-/**
- *
- */
 public abstract class IgniteAggregate extends Aggregate implements IgniteRel {
     /** {@inheritDoc} */
     protected IgniteAggregate(
@@ -69,9 +66,6 @@ public abstract class IgniteAggregate extends Aggregate implements IgniteRel {
         return super.estimateRowCount(mq);
     }
 
-    /**
-     *
-     */
     public double estimateMemoryForGroup(RelMetadataQuery mq) {
         double mem = groupSet.cardinality() * IgniteCost.AVERAGE_FIELD_SIZE;
 
@@ -91,9 +85,6 @@ public abstract class IgniteAggregate extends Aggregate implements IgniteRel {
         return mem;
     }
 
-    /**
-     *
-     */
     public RelOptCost computeSelfCostHash(RelOptPlanner planner, RelMetadataQuery mq) {
         IgniteCostFactory costFactory = (IgniteCostFactory) planner.getCostFactory();
 
@@ -109,9 +100,6 @@ public abstract class IgniteAggregate extends Aggregate implements IgniteRel {
         );
     }
 
-    /**
-     *
-     */
     public RelOptCost computeSelfCostSort(RelOptPlanner planner, RelMetadataQuery mq) {
         IgniteCostFactory costFactory = (IgniteCostFactory) planner.getCostFactory();
 

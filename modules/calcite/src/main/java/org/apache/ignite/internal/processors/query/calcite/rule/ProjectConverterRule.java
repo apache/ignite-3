@@ -28,18 +28,9 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteConvention;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteProject;
 
-/**
- *
- */
 public class ProjectConverterRule extends AbstractIgniteConverterRule<LogicalProject> {
-    /**
-     *
-     */
     public static final RelOptRule INSTANCE = new ProjectConverterRule();
 
-    /**
-     *
-     */
     public ProjectConverterRule() {
         super(LogicalProject.class, "ProjectConverterRule");
     }

@@ -20,18 +20,9 @@ package org.apache.ignite.internal.processors.query.calcite.metadata;
 import org.apache.calcite.rel.RelNode;
 import org.apache.ignite.internal.processors.query.calcite.prepare.Fragment;
 
-/**
- *
- */
 public class FragmentMappingException extends RuntimeException {
-    /**
-     *
-     */
     private final Fragment fragment;
 
-    /**
-     *
-     */
     private final RelNode node;
 
     /**

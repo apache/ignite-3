@@ -74,34 +74,16 @@ import org.apache.ignite.internal.processors.query.calcite.util.IgniteMethod;
 public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     //    private static final Map<String, Scalar> SCALAR_CACHE = new GridBoundedConcurrentLinkedHashMap<>(1024);
 
-    /**
-     *
-     */
     private final IgniteTypeFactory typeFactory;
 
-    /**
-     *
-     */
     private final SqlConformance conformance;
 
-    /**
-     *
-     */
     private final RexBuilder rexBuilder;
 
-    /**
-     *
-     */
     private final RelDataType emptyType;
 
-    /**
-     *
-     */
     private final ExecutionContext<RowT> ctx;
 
-    /**
-     *
-     */
     public ExpressionFactoryImpl(ExecutionContext<RowT> ctx, IgniteTypeFactory typeFactory, SqlConformance conformance) {
         this.ctx = ctx;
         this.typeFactory = typeFactory;
@@ -156,9 +138,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         return Ordering.compound(comparators);
     }
 
-    /**
-     *
-     */
     @SuppressWarnings("rawtypes")
     private Comparator<RowT> comparator(RelFieldCollation fieldCollation) {
         final int nullComparison = fieldCollation.nullDirection.nullComparison;
@@ -180,9 +159,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         };
     }
 
-    /**
-     *
-     */
     @SuppressWarnings("rawtypes")
     private Comparator<RowT> comparator(RelFieldCollation left, RelFieldCollation right) {
         final int nullComparison = left.nullDirection.nullComparison;
@@ -275,9 +251,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         return compile(nodes, type);
     }
 
-    /**
-     *
-     */
     private Scalar compile(Iterable<RexNode> nodes, RelDataType type) {
         if (type == null) {
             type = emptyType;
@@ -331,9 +304,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         return Commons.compile(Scalar.class, Expressions.toString(List.of(decl), "\n", false));
     }
 
-    /**
-     *
-     */
     private String digest(List<RexNode> nodes, RelDataType type) {
         StringBuilder b = new StringBuilder();
 
@@ -356,23 +326,11 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         return b.toString();
     }
 
-    /**
-     *
-     */
     private class PredicateImpl implements Predicate<RowT> {
-        /**
-         *
-         */
         private final Scalar scalar;
 
-        /**
-         *
-         */
         private final RowT out;
 
-        /**
-         *
-         */
         private final RowHandler<RowT> handler;
 
         /**
@@ -393,18 +351,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    /**
-     *
-     */
     private class ProjectImpl implements Function<RowT, RowT> {
-        /**
-         *
-         */
         private final Scalar scalar;
 
-        /**
-         *
-         */
         private final RowFactory<RowT> factory;
 
         /**
@@ -426,23 +375,11 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    /**
-     *
-     */
     private class ValuesImpl implements Supplier<RowT> {
-        /**
-         *
-         */
         private final Scalar scalar;
 
-        /**
-         *
-         */
         private final RowFactory<RowT> factory;
 
-        /**
-         *
-         */
         private ValuesImpl(Scalar scalar, RowFactory<RowT> factory) {
             this.scalar = scalar;
             this.factory = factory;
@@ -458,23 +395,11 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    /**
-     *
-     */
     private class ValueImpl<T> implements Supplier<T> {
-        /**
-         *
-         */
         private final Scalar scalar;
 
-        /**
-         *
-         */
         private final RowFactory<RowT> factory;
 
-        /**
-         *
-         */
         private ValueImpl(Scalar scalar, RowFactory<RowT> factory) {
             this.scalar = scalar;
             this.factory = factory;
@@ -490,28 +415,13 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    /**
-     *
-     */
     private class FieldGetter implements InputGetter {
-        /**
-         *
-         */
         private final Expression hnd;
 
-        /**
-         *
-         */
         private final Expression row;
 
-        /**
-         *
-         */
         private final RelDataType rowType;
 
-        /**
-         *
-         */
         private FieldGetter(Expression hnd, Expression row, RelDataType rowType) {
             this.hnd = hnd;
             this.row = row;
@@ -542,42 +452,21 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    /**
-     *
-     */
     private class CorrelatesBuilder extends RexShuttle {
-        /**
-         *
-         */
         private final BlockBuilder builder;
 
-        /**
-         *
-         */
         private final Expression ctx;
 
-        /**
-         *
-         */
         private final Expression hnd;
 
-        /**
-         *
-         */
         private Map<String, FieldGetter> correlates;
 
-        /**
-         *
-         */
         private CorrelatesBuilder(BlockBuilder builder, Expression ctx, Expression hnd) {
             this.builder = builder;
             this.hnd = hnd;
             this.ctx = ctx;
         }
 
-        /**
-         *
-         */
         public Function1<String, InputGetter> build(Iterable<RexNode> nodes) {
             try {
                 for (RexNode node : nodes) {

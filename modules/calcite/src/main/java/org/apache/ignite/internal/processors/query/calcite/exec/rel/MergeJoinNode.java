@@ -30,51 +30,24 @@ import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext
 import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 import org.jetbrains.annotations.NotNull;
 
-/**
- *
- */
 public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
     /** Special value to highlights that all row were received and we are not waiting any more. */
     protected static final int NOT_WAITING = -1;
 
-    /**
-     *
-     */
     protected final Comparator<RowT> comp;
 
-    /**
-     *
-     */
     protected final RowHandler<RowT> handler;
 
-    /**
-     *
-     */
     protected int requested;
 
-    /**
-     *
-     */
     protected int waitingLeft;
 
-    /**
-     *
-     */
     protected int waitingRight;
 
-    /**
-     *
-     */
     protected final Deque<RowT> rightInBuf = new ArrayDeque<>(inBufSize);
 
-    /**
-     *
-     */
     protected final Deque<RowT> leftInBuf = new ArrayDeque<>(inBufSize);
 
-    /**
-     *
-     */
     protected boolean inLoop;
 
     /**
@@ -103,9 +76,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    /**
-     *
-     */
     private void doJoin() throws Exception {
         checkState();
 
@@ -171,9 +141,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         throw new IndexOutOfBoundsException();
     }
 
-    /**
-     *
-     */
     private void pushLeft(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingLeft > 0;
@@ -187,9 +154,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         join();
     }
 
-    /**
-     *
-     */
     private void pushRight(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
@@ -203,9 +167,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         join();
     }
 
-    /**
-     *
-     */
     private void endLeft() throws Exception {
         assert downstream() != null;
         assert waitingLeft > 0;
@@ -217,9 +178,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         join();
     }
 
-    /**
-     *
-     */
     private void endRight() throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
@@ -231,28 +189,16 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         join();
     }
 
-    /**
-     *
-     */
     protected Node<RowT> leftSource() {
         return sources().get(0);
     }
 
-    /**
-     *
-     */
     protected Node<RowT> rightSource() {
         return sources().get(1);
     }
 
-    /**
-     *
-     */
     protected abstract void join() throws Exception;
 
-    /**
-     *
-     */
     @NotNull
     public static <RowT> MergeJoinNode<RowT> create(ExecutionContext<RowT> ctx, RelDataType outputRowType, RelDataType leftRowType,
             RelDataType rightRowType, JoinRelType joinType, Comparator<RowT> comp) {
@@ -290,31 +236,16 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    /**
-     *
-     */
     private static class InnerJoin<RowT> extends MergeJoinNode<RowT> {
-        /**
-         *
-         */
         private RowT left;
 
-        /**
-         *
-         */
         private RowT right;
 
         /** Used to store similar rows of rights stream in many-to-many join mode. */
         private List<RowT> rightMaterialization;
 
-        /**
-         *
-         */
         private int rightIdx;
 
-        /**
-         *
-         */
         private boolean drainMaterialization;
 
         /**
@@ -455,34 +386,19 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    /**
-     *
-     */
     private static class LeftJoin<RowT> extends MergeJoinNode<RowT> {
         /** Right row factory. */
         private final RowHandler.RowFactory<RowT> rightRowFactory;
 
-        /**
-         *
-         */
         private RowT left;
 
-        /**
-         *
-         */
         private RowT right;
 
         /** Used to store similar rows of rights stream in many-to-many join mode. */
         private List<RowT> rightMaterialization;
 
-        /**
-         *
-         */
         private int rightIdx;
 
-        /**
-         *
-         */
         private boolean drainMaterialization;
 
         /** Whether current left row was matched (hence pushed to downstream) or not. */
@@ -644,34 +560,19 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    /**
-     *
-     */
     private static class RightJoin<RowT> extends MergeJoinNode<RowT> {
         /** Right row factory. */
         private final RowHandler.RowFactory<RowT> leftRowFactory;
 
-        /**
-         *
-         */
         private RowT left;
 
-        /**
-         *
-         */
         private RowT right;
 
         /** Used to store similar rows of rights stream in many-to-many join mode. */
         private List<RowT> rightMaterialization;
 
-        /**
-         *
-         */
         private int rightIdx;
 
-        /**
-         *
-         */
         private boolean drainMaterialization;
 
         /** Whether current right row was matched (hence pushed to downstream) or not. */
@@ -849,9 +750,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    /**
-     *
-     */
     private static class FullOuterJoin<RowT> extends MergeJoinNode<RowT> {
         /** Left row factory. */
         private final RowHandler.RowFactory<RowT> leftRowFactory;
@@ -859,27 +757,15 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** Right row factory. */
         private final RowHandler.RowFactory<RowT> rightRowFactory;
 
-        /**
-         *
-         */
         private RowT left;
 
-        /**
-         *
-         */
         private RowT right;
 
         /** Used to store similar rows of rights stream in many-to-many join mode. */
         private List<RowT> rightMaterialization;
 
-        /**
-         *
-         */
         private int rightIdx;
 
-        /**
-         *
-         */
         private boolean drainMaterialization;
 
         /** Whether current left row was matched (hence pushed to downstream) or not. */
@@ -1093,18 +979,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    /**
-     *
-     */
     private static class SemiJoin<RowT> extends MergeJoinNode<RowT> {
-        /**
-         *
-         */
         private RowT left;
 
-        /**
-         *
-         */
         private RowT right;
 
         /**
@@ -1179,18 +1056,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    /**
-     *
-     */
     private static class AntiJoin<RowT> extends MergeJoinNode<RowT> {
-        /**
-         *
-         */
         private RowT left;
 
-        /**
-         *
-         */
         private RowT right;
 
         /**

@@ -48,19 +48,10 @@ public class IgniteCost implements RelOptCost {
      */
     public static final double BROADCAST_DISTRIBUTION_PENALTY = 5;
 
-    /**
-     *
-     */
     static final IgniteCost ZERO = new IgniteCost(0, 0, 0, 0, 0);
 
-    /**
-     *
-     */
     static final IgniteCost TINY = new IgniteCost(1, 1, 1, 1, 1);
 
-    /**
-     *
-     */
     static final IgniteCost HUGE = new IgniteCost(
             Double.MAX_VALUE,
             Double.MAX_VALUE,
@@ -69,9 +60,6 @@ public class IgniteCost implements RelOptCost {
             Double.MAX_VALUE
     );
 
-    /**
-     *
-     */
     static final IgniteCost INFINITY = new IgniteCost(
             Double.POSITIVE_INFINITY,
             Double.POSITIVE_INFINITY,

@@ -30,59 +30,32 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteRel;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.jetbrains.annotations.NotNull;
 
-/**
- *
- */
 public class FragmentMapping implements Serializable {
-    /**
-     *
-     */
     private List<ColocationGroup> colocationGroups;
 
-    /**
-     *
-     */
     public FragmentMapping() {
     }
 
-    /**
-     *
-     */
     private FragmentMapping(ColocationGroup colocationGroup) {
         this(asList(colocationGroup));
     }
 
-    /**
-     *
-     */
     private FragmentMapping(List<ColocationGroup> colocationGroups) {
         this.colocationGroups = colocationGroups;
     }
 
-    /**
-     *
-     */
     public static FragmentMapping create() {
         return new FragmentMapping(Collections.emptyList());
     }
 
-    /**
-     *
-     */
     public static FragmentMapping create(String nodeId) {
         return new FragmentMapping(ColocationGroup.forNodes(Collections.singletonList(nodeId)));
     }
 
-    /**
-     *
-     */
     public static FragmentMapping create(long sourceId) {
         return new FragmentMapping(ColocationGroup.forSourceId(sourceId));
     }
 
-    /**
-     *
-     */
     public static FragmentMapping create(long sourceId, ColocationGroup group) {
         try {
             return new FragmentMapping(ColocationGroup.forSourceId(sourceId).colocate(group));
@@ -91,16 +64,10 @@ public class FragmentMapping implements Serializable {
         }
     }
 
-    /**
-     *
-     */
     public boolean colocated() {
         return colocationGroups.isEmpty() || colocationGroups.size() == 1;
     }
 
-    /**
-     *
-     */
     public FragmentMapping prune(IgniteRel rel) {
         if (colocationGroups.size() != 1) {
             return this;
@@ -109,16 +76,10 @@ public class FragmentMapping implements Serializable {
         return new FragmentMapping(first(colocationGroups).prune(rel));
     }
 
-    /**
-     *
-     */
     public FragmentMapping combine(FragmentMapping other) {
         return new FragmentMapping(Commons.combine(colocationGroups, other.colocationGroups));
     }
 
-    /**
-     *
-     */
     public FragmentMapping colocate(FragmentMapping other) throws ColocationMappingException {
         assert colocated() && other.colocated();
 
@@ -134,18 +95,12 @@ public class FragmentMapping implements Serializable {
         }
     }
 
-    /**
-     *
-     */
     public List<String> nodeIds() {
         return colocationGroups.stream()
                 .flatMap(g -> g.nodeIds().stream())
                 .distinct().collect(Collectors.toList());
     }
 
-    /**
-     *
-     */
     public FragmentMapping finalize(Supplier<List<String>> nodesSource) {
         if (colocationGroups.isEmpty()) {
             return this;
@@ -163,9 +118,6 @@ public class FragmentMapping implements Serializable {
         return new FragmentMapping(colocationGroups);
     }
 
-    /**
-     *
-     */
     public @NotNull ColocationGroup findGroup(long sourceId) {
         List<ColocationGroup> groups = colocationGroups.stream()
                 .filter(c -> c.belongs(sourceId))

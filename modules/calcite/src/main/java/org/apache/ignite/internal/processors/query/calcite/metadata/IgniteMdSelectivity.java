@@ -37,20 +37,11 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteSortedIndex
 import org.apache.ignite.internal.processors.query.calcite.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
 
-/**
- *
- */
 public class IgniteMdSelectivity extends RelMdSelectivity {
-    /**
-     *
-     */
     public static final RelMetadataProvider SOURCE =
             ReflectiveRelMetadataProvider.reflectiveSource(
                     BuiltInMethod.SELECTIVITY.method, new IgniteMdSelectivity());
 
-    /**
-     *
-     */
     public Double getSelectivity(AbstractIndexScan rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate != null) {
             return getSelectivity((ProjectableFilterableTableScan) rel, mq, predicate);
@@ -94,9 +85,6 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         return idxSelectivity * RelMdUtil.guessSelectivity(remaining);
     }
 
-    /**
-     *
-     */
     public Double getSelectivity(ProjectableFilterableTableScan rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate == null) {
             return RelMdUtil.guessSelectivity(rel.condition());
@@ -111,9 +99,6 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         return RelMdUtil.guessSelectivity(diff);
     }
 
-    /**
-     *
-     */
     public Double getSelectivity(IgniteSortedIndexSpool rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate != null) {
             return mq.getSelectivity(rel.getInput(),
@@ -126,9 +111,6 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         return mq.getSelectivity(rel.getInput(), rel.condition());
     }
 
-    /**
-     *
-     */
     public Double getSelectivity(IgniteHashIndexSpool rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate != null) {
             return mq.getSelectivity(rel.getInput(),

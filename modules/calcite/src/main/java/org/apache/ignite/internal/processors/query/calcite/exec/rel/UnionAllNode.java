@@ -22,18 +22,9 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 
-/**
- *
- */
 public class UnionAllNode<RowT> extends AbstractNode<RowT> implements Downstream<RowT> {
-    /**
-     *
-     */
     private int curSrc;
 
-    /**
-     *
-     */
     private int waiting;
 
     /**
@@ -99,9 +90,6 @@ public class UnionAllNode<RowT> extends AbstractNode<RowT> implements Downstream
         waiting = 0;
     }
 
-    /**
-     *
-     */
     private Node<RowT> source() {
         return sources().get(curSrc);
     }

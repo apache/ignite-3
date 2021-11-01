@@ -40,14 +40,8 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
     /** Runtime index */
     private final RuntimeIndex<RowT> idx;
 
-    /**
-     *
-     */
     private int requested;
 
-    /**
-     *
-     */
     private int waiting;
 
     /**
@@ -65,17 +59,11 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         this.scan = scan;
     }
 
-    /**
-     *
-     */
     @Override
     public void onRegister(Downstream<RowT> downstream) {
         scan.onRegister(downstream);
     }
 
-    /**
-     *
-     */
     @Override
     public Downstream<RowT> downstream() {
         return scan.downstream();
@@ -120,9 +108,6 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         }
     }
 
-    /**
-     *
-     */
     private void requestSource() throws Exception {
         waiting = inBufSize;
 
@@ -171,16 +156,10 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         super.closeInternal();
     }
 
-    /**
-     *
-     */
     private boolean indexReady() {
         return waiting == -1;
     }
 
-    /**
-     *
-     */
     public static <RowT> IndexSpoolNode<RowT> createTreeSpool(
             ExecutionContext<RowT> ctx,
             RelDataType rowType,
@@ -207,9 +186,6 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         return new IndexSpoolNode<>(ctx, rowType, idx, scan);
     }
 
-    /**
-     *
-     */
     public static <RowT> IndexSpoolNode<RowT> createHashSpool(
             ExecutionContext<RowT> ctx,
             RelDataType rowType,

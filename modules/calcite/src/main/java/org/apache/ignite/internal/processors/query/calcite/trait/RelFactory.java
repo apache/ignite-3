@@ -21,9 +21,6 @@ import java.util.List;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 
-/**
- *
- */
 public interface RelFactory {
     /**
      * Creates a node for given traits combination.
