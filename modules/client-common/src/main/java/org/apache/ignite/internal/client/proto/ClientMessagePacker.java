@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -37,7 +38,8 @@ import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER
 import static org.msgpack.core.MessagePack.Code;
 
 /**
- * Ignite-specific MsgPack extension based on Netty ByteBuf.
+ * ByteBuf-based MsgPack implementation.
+ * Replaces {@link org.msgpack.core.MessagePacker} to avoid extra buffers and indirection.
  * <p>
  * Releases wrapped buffer on {@link #close()} .
  */
@@ -81,14 +83,18 @@ public class ClientMessagePacker implements AutoCloseable {
         buf.writeByte(Code.NIL);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Writes a boolean value.
+     */
     public void packBoolean(boolean b) {
         assert !closed : "Packer is closed";
 
         buf.writeByte(b ? Code.TRUE : Code.FALSE);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Writes a byte value.
+     */
     public void packByte(byte b) {
         assert !closed : "Packer is closed";
 
@@ -98,7 +104,9 @@ public class ClientMessagePacker implements AutoCloseable {
         buf.writeByte(b);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Writes a short value.
+     */
     public void packShort(short v) {
         assert !closed : "Packer is closed";
 
@@ -127,7 +135,9 @@ public class ClientMessagePacker implements AutoCloseable {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Writes an int value.
+     */
     public void packInt(int r) {
         assert !closed : "Packer is closed";
 
@@ -164,7 +174,9 @@ public class ClientMessagePacker implements AutoCloseable {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Writes a long value.
+     */
     public void packLong(long v) {
         assert !closed : "Packer is closed";
 
