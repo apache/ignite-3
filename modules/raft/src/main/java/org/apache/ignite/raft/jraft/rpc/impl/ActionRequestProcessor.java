@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -46,6 +47,8 @@ import org.apache.ignite.raft.jraft.util.JDKMarshaller;
  * Process action request.
  */
 public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ActionRequestProcessor.class);
+
     private final Executor executor;
 
     private final RaftMessagesFactory factory;
@@ -187,6 +190,8 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             .build();
 
         ctx.sendResponse(resp);
+
+        LOG.info("Error occurred on a user's state machine", th);
     }
 
     /**
