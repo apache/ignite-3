@@ -182,7 +182,7 @@ public class RexUtils {
 
         // Force collation for all fields of the condition.
         if (collation == null || collation.isDefault())
-            collation = RelCollations.of(ImmutableIntList.copyOf(fieldsToPredicates.keySet()));
+            collation = RelCollations.of(ImmutableIntList.of(fieldsToPredicates.keySet().toIntArray()));
 
         for (int i = 0; i < collation.getFieldCollations().size(); i++) {
             RelFieldCollation fc = collation.getFieldCollations().get(i);

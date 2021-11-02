@@ -115,9 +115,10 @@ public class QueryTemplate {
                 fragment0 = first(replacement);
             else if (!fragment0.rootFragment()) {
                 IgniteSender sender = (IgniteSender)fragment0.root();
-                Long newTargetId = newTargets.get(sender.exchangeId());
 
-                if (newTargetId != null) {
+                if (newTargets.containsKey(sender.exchangeId())) {
+                    long newTargetId = newTargets.get(sender.exchangeId());
+
                     sender = new IgniteSender(sender.getCluster(), sender.getTraitSet(),
                         sender.getInput(), sender.exchangeId(), newTargetId, sender.distribution());
 
