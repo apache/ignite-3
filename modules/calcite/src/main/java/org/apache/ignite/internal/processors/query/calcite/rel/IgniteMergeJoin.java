@@ -171,9 +171,8 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
 
         Int2IntOpenHashMap rightToLeft = new Int2IntOpenHashMap(pairs.size());
 
-        for (IntPair pair : pairs) {
+        for (IntPair pair : pairs)
             rightToLeft.put(pair.target, pair.source);
-        }
 
         List<Integer> collationLeftPrj = new ArrayList<>();
 
@@ -189,9 +188,8 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
 
         Int2IntOpenHashMap leftToRight = new Int2IntOpenHashMap(pairs.size());
 
-        for (IntPair pair : pairs) {
+        for (IntPair pair : pairs)
             leftToRight.put(pair.source, pair.target);
-        }
 
         if (isPrefix(collationLeftPrj, joinInfo.leftKeys)) { // preserve collation
             newLeftCollation = new ArrayList<>();
