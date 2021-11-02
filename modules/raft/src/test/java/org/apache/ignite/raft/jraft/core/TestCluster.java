@@ -22,13 +22,11 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -48,18 +46,15 @@ import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.conf.Configuration;
-import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.TestIgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
-import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
-import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
@@ -94,32 +89,6 @@ public class TestCluster {
 
     /** Test info. */
     private final TestInfo testInfo;
-
-    /**
-     * These disruptors will be used for all RAFT servers in the cluster.
-     */
-    private final HashMap<Endpoint, StripedDisruptor<FSMCallerImpl.ApplyTask>> fsmCallerDusruptors = new HashMap<>();
-
-    /**
-     * These disruptors will be used for all RAFT servers in the cluster.
-     */
-    private final HashMap<Endpoint, StripedDisruptor<NodeImpl.LogEntryAndClosure>> nodeDisruptors = new HashMap<>();
-
-    /**
-     * These disruptors will be used for all RAFT servers in the cluster.
-     */
-    private final HashMap<Endpoint, StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent>> readOnlyServiceDisruptors = new HashMap<>();
-
-    /**
-     * These disruptors will be used for all RAFT servers in the cluster.
-     */
-    private final HashMap<Endpoint, StripedDisruptor<LogManagerImpl.StableClosureEvent>> logManagerDisruptors = new HashMap<>();
-
-    private List<ExecutorService> executors = new CopyOnWriteArrayList<>();
-
-    private List<FixedThreadsExecutorGroup> fixedThreadsExecutorGroups = new CopyOnWriteArrayList<>();
-
-    private List<Scheduler> schedulers = new CopyOnWriteArrayList<>();
 
     private JRaftServiceFactory raftServiceFactory = new TestJRaftServiceFactory();
 
@@ -236,22 +205,10 @@ public class TestCluster {
                 return true;
             }
 
+            // Start node in non shared pools mode. Pools will be managed by node itself.
             NodeOptions nodeOptions = new NodeOptions();
 
             nodeOptions.setServerName(listenAddr.toString());
-
-            ExecutorService executor = JRaftUtils.createCommonExecutor(nodeOptions);
-            executors.add(executor);
-            nodeOptions.setCommonExecutor(executor);
-            FixedThreadsExecutorGroup threadsExecutorGroup = JRaftUtils.createAppendEntriesExecutor(nodeOptions);
-            fixedThreadsExecutorGroups.add(threadsExecutorGroup);
-            nodeOptions.setStripedExecutor(threadsExecutorGroup);
-            ExecutorService clientExecutor = JRaftUtils.createClientExecutor(nodeOptions, nodeOptions.getServerName());
-            executors.add(clientExecutor);
-            nodeOptions.setClientExecutor(clientExecutor);
-            Scheduler scheduler = JRaftUtils.createScheduler(nodeOptions);
-            schedulers.add(scheduler);
-            nodeOptions.setScheduler(scheduler);
 
             nodeOptions.setElectionTimeoutMs(this.electionTimeoutMs);
             nodeOptions.setEnableMetrics(enableMetrics);
@@ -267,30 +224,6 @@ public class TestCluster {
             nodeOptions.setRaftMetaUri(serverDataPath + File.separator + "meta");
             nodeOptions.setSnapshotUri(serverDataPath + File.separator + "snapshot");
             nodeOptions.setElectionPriority(priority);
-
-            nodeOptions.setfSMCallerExecutorDisruptor(fsmCallerDusruptors.computeIfAbsent(listenAddr, endpoint -> new StripedDisruptor<>(
-                "JRaft-FSMCaller-Disruptor_TestCluster",
-                nodeOptions.getRaftOptions().getDisruptorBufferSize(),
-                () -> new FSMCallerImpl.ApplyTask(),
-                nodeOptions.getStripes())));
-
-            nodeOptions.setNodeApplyDisruptor(nodeDisruptors.computeIfAbsent(listenAddr, endpoint -> new StripedDisruptor<>(
-                "JRaft-NodeImpl-Disruptor_TestCluster",
-                nodeOptions.getRaftOptions().getDisruptorBufferSize(),
-                () -> new NodeImpl.LogEntryAndClosure(),
-                nodeOptions.getStripes())));
-
-            nodeOptions.setReadOnlyServiceDisruptor(readOnlyServiceDisruptors.computeIfAbsent(listenAddr, endpoint -> new StripedDisruptor<>(
-                "JRaft-ReadOnlyService-Disruptor_TestCluster",
-                nodeOptions.getRaftOptions().getDisruptorBufferSize(),
-                () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
-                nodeOptions.getStripes())));
-
-            nodeOptions.setLogManagerDisruptor(logManagerDisruptors.computeIfAbsent(listenAddr, endpoint -> new StripedDisruptor<>(
-                "JRaft-LogManager-Disruptor_TestCluster",
-                nodeOptions.getRaftOptions().getDisruptorBufferSize(),
-                () -> new LogManagerImpl.StableClosureEvent(),
-                nodeOptions.getStripes())));
 
             MockStateMachine fsm = new MockStateMachine(listenAddr);
             nodeOptions.setFsm(fsm);
@@ -319,8 +252,6 @@ public class TestCluster {
 
             ExecutorService requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
 
-            executors.add(requestExecutor);
-
             var rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
 
             clusterService.start();
@@ -332,6 +263,8 @@ public class TestCluster {
                 nodeOptions, rpcServer, nodeManager) {
                 @Override public synchronized void shutdown() {
                     super.shutdown();
+
+                    ExecutorServiceHelper.shutdownAndAwaitTermination(requestExecutor);
 
                     rpcServer.shutdown();
 
@@ -402,14 +335,6 @@ public class TestCluster {
         List<Endpoint> addrs = getAllNodes();
         for (Endpoint addr : addrs)
             stop(addr);
-
-        fsmCallerDusruptors.values().forEach(StripedDisruptor::shutdown);
-        nodeDisruptors.values().forEach(StripedDisruptor::shutdown);
-        readOnlyServiceDisruptors.values().forEach(StripedDisruptor::shutdown);
-        logManagerDisruptors.values().forEach(StripedDisruptor::shutdown);
-        executors.forEach(ExecutorServiceHelper::shutdownAndAwaitTermination);
-        fixedThreadsExecutorGroups.forEach(FixedThreadsExecutorGroup::shutdownGracefully);
-        schedulers.forEach(Scheduler::shutdown);
     }
 
     public void clean(Endpoint listenAddr) {

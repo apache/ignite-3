@@ -107,6 +107,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotExecutorImpl;
 import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.Describer;
 import org.apache.ignite.raft.jraft.util.DisruptorMetricSet;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.RepeatedTimer;
 import org.apache.ignite.raft.jraft.util.Requires;
@@ -116,7 +117,6 @@ import org.apache.ignite.raft.jraft.util.ThreadHelper;
 import org.apache.ignite.raft.jraft.util.ThreadId;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.LongHeldDetectingReadWriteLock;
-import org.apache.ignite.raft.jraft.util.timer.Timer;
 
 /**
  * The raft replica node implementation.
@@ -176,15 +176,10 @@ public class NodeImpl implements Node, RaftServerService {
     /**
      * Timers
      */
-    private Scheduler scheduler;
     private RepeatedTimer electionTimer;
     private RepeatedTimer voteTimer;
     private RepeatedTimer stepDownTimer; // Triggered on a leader each electionTimeoutMs / 2 millis to ensure the quorum.
     private RepeatedTimer snapshotTimer;
-    private Timer electionTimer0;
-    private Timer voteTimer0;
-    private Timer snapshotTimer0;
-    private Timer stepDownTimer0;
     private ScheduledFuture<?> transferTimer;
     private ThreadId wakingCandidate;
     /**
@@ -877,8 +872,11 @@ public class NodeImpl implements Node, RaftServerService {
             return false;
         }
 
-        // Init timers
+        // Init timers.
         initTimers(opts);
+
+        // Init pools.
+        initPools(opts);
 
         this.configManager = new ConfigurationManager();
 
@@ -953,7 +951,7 @@ public class NodeImpl implements Node, RaftServerService {
         rgOpts.setRaftRpcClientService(this.rpcClientService);
         rgOpts.setSnapshotStorage(this.snapshotExecutor != null ? this.snapshotExecutor.getSnapshotStorage() : null);
         rgOpts.setRaftOptions(this.raftOptions);
-        rgOpts.setTimerManager(this.scheduler);
+        rgOpts.setTimerManager(this.options.getScheduler());
 
         // Adds metric registry to RPC service.
         this.options.setMetricRegistry(this.metrics.getMetricRegistry());
@@ -1010,21 +1008,33 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     /**
+     * Validates a required option if shared pools are enabled.
+     *
+     * @param opts Options.
+     * @param name Option name.
+     */
+    private boolean validateOption(NodeOptions opts, String name) {
+        if (opts.isSharedPools())
+            throw new IllegalArgumentException(name + " is required if shared pools are enabled");
+
+        return true;
+    }
+
+
+    /**
      * Initialize timer pools.
      * @param opts The options.
      */
     private void initTimers(final NodeOptions opts) {
-        if (getOptions().getScheduler() == null)
-            scheduler = JRaftUtils.createScheduler(getOptions());
-        else
-            scheduler = getOptions().getScheduler();
+        if (opts.getScheduler() == null && validateOption(opts, "scheduler"))
+            opts.setScheduler(JRaftUtils.createScheduler(opts));
 
-        String name = NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-VoteTimer");
-        if (getOptions().getVoteTimer() == null)
-            voteTimer0 = JRaftUtils.createTimer(getOptions(), name);
-        else
-            voteTimer0 = getOptions().getVoteTimer();
-        this.voteTimer = new RepeatedTimer(name, options.getElectionTimeoutMs(), voteTimer0) {
+        String name = "JRaft-VoteTimer";
+        if (opts.getVoteTimer() == null && validateOption(opts, "voteTimer")) {
+            opts.setVoteTimer(JRaftUtils.createTimer(opts, name));
+        }
+
+        this.voteTimer = new RepeatedTimer(name, NodeImpl.this.options.getElectionTimeoutMs(), opts.getVoteTimer()) {
             @Override
             protected void onTrigger() {
                 handleVoteTimeout();
@@ -1036,13 +1046,10 @@ public class NodeImpl implements Node, RaftServerService {
             }
         };
 
-        name = NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-ElectionTimer");
-        if (getOptions().getElectionTimer() == null)
-            electionTimer0 = JRaftUtils.createTimer(getOptions(), name);
-        else {
-            electionTimer0 = getOptions().getElectionTimer();
-        }
-        electionTimer = new RepeatedTimer(name, options.getElectionTimeoutMs(), electionTimer0) {
+        name = "JRaft-ElectionTimer";
+        if (opts.getElectionTimer() == null && validateOption(opts, "electionTimer"))
+            opts.setElectionTimer(JRaftUtils.createTimer(opts, name));
+        electionTimer = new RepeatedTimer(name, NodeImpl.this.options.getElectionTimeoutMs(), opts.getElectionTimer()) {
             @Override
             protected void onTrigger() {
                 handleElectionTimeout();
@@ -1054,26 +1061,20 @@ public class NodeImpl implements Node, RaftServerService {
             }
         };
 
-        name = NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-StepDownTimer");
-        if (getOptions().getStepDownTimer() == null)
-            stepDownTimer0 = JRaftUtils.createTimer(getOptions(), name);
-        else {
-            stepDownTimer0 = getOptions().getStepDownTimer();
-        }
-        stepDownTimer = new RepeatedTimer(name, options.getElectionTimeoutMs() >> 1, stepDownTimer0) {
+        name = "JRaft-StepDownTimer";
+        if (opts.getStepDownTimer() == null && validateOption(opts, "stepDownTimer"))
+            opts.setStepDownTimer(JRaftUtils.createTimer(opts, name));
+        stepDownTimer = new RepeatedTimer(name, NodeImpl.this.options.getElectionTimeoutMs() >> 1, opts.getStepDownTimer()) {
             @Override
             protected void onTrigger() {
                 handleStepDownTimeout();
             }
         };
 
-        name = NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-SnapshotTimer");
-        if (getOptions().getSnapshotTimer() == null)
-            snapshotTimer0 = JRaftUtils.createTimer(getOptions(), name);
-        else {
-            snapshotTimer0 = getOptions().getSnapshotTimer();
-        }
-        snapshotTimer = new RepeatedTimer(name, options.getSnapshotIntervalSecs() * 1000, snapshotTimer0) {
+        name = "JRaft-SnapshotTimer";
+        if (opts.getSnapshotTimer() == null && validateOption(opts, "snapshotTimer"))
+            opts.setSnapshotTimer(JRaftUtils.createTimer(opts, name));
+        snapshotTimer = new RepeatedTimer(name, NodeImpl.this.options.getSnapshotIntervalSecs() * 1000, opts.getSnapshotTimer()) {
             private volatile boolean firstSchedule = true;
 
             @Override
@@ -1098,6 +1099,52 @@ public class NodeImpl implements Node, RaftServerService {
                 }
             }
         };
+    }
+
+    /**
+     * @param opts Options.
+     */
+    private void initPools(final NodeOptions opts) {
+        if (opts.getCommonExecutor() == null && validateOption(opts, "commonExecutor"))
+            opts.setCommonExecutor(JRaftUtils.createCommonExecutor(opts));
+
+        if (opts.getStripedExecutor() == null && validateOption(opts, "stripedExecutor"))
+            opts.setStripedExecutor(JRaftUtils.createAppendEntriesExecutor(opts));
+
+        if (opts.getClientExecutor() == null && validateOption(opts, "clientExecutor"))
+            opts.setClientExecutor(JRaftUtils.createClientExecutor(opts, opts.getServerName()));
+
+        if (opts.getfSMCallerExecutorDisruptor() == null) {
+            opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
+                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-FSMCaller-Disruptor"),
+                opts.getRaftOptions().getDisruptorBufferSize(),
+                () -> new FSMCallerImpl.ApplyTask(),
+                opts.getStripes()));
+        }
+
+        if (opts.getNodeApplyDisruptor() == null) {
+            opts.setNodeApplyDisruptor(new StripedDisruptor<NodeImpl.LogEntryAndClosure>(
+                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-NodeImpl-Disruptor"),
+                opts.getRaftOptions().getDisruptorBufferSize(),
+                () -> new NodeImpl.LogEntryAndClosure(),
+                opts.getStripes()));
+        }
+
+        if (opts.getReadOnlyServiceDisruptor() == null) {
+            opts.setReadOnlyServiceDisruptor(new StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent>(
+                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-ReadOnlyService-Disruptor"),
+                opts.getRaftOptions().getDisruptorBufferSize(),
+                () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
+                opts.getStripes()));
+        }
+
+        if (opts.getLogManagerDisruptor() == null) {
+            opts.setLogManagerDisruptor(new StripedDisruptor<LogManagerImpl.StableClosureEvent>(
+                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-LogManager-Disruptor"),
+                opts.getRaftOptions().getDisruptorBufferSize(),
+                () -> new LogManagerImpl.StableClosureEvent(),
+                opts.getStripes()));
+        }
     }
 
     @OnlyForTest
@@ -2429,10 +2476,6 @@ public class NodeImpl implements Node, RaftServerService {
         return this.options;
     }
 
-    public Scheduler getScheduler() {
-        return this.scheduler;
-    }
-
     @Override
     public RaftOptions getRaftOptions() {
         return this.raftOptions;
@@ -2822,20 +2865,19 @@ public class NodeImpl implements Node, RaftServerService {
                         }));
                 }
                 // Stop not shared pool mode timers.
-                if (getOptions().getScheduler() == null) {
-                    this.scheduler.shutdown();
+                NodeOptions opts = getOptions();
+
+                if (opts.getScheduler() != null && !opts.isSharedPools()) {
+                    opts.getScheduler().shutdown();
                 }
-                if (getOptions().getElectionTimer() == null) {
-                    this.electionTimer0.stop();
+                if (opts.getElectionTimer() != null && !opts.isSharedPools()) {
+                    opts.getElectionTimer().stop();
                 }
-                if (getOptions().getVoteTimer() == null) {
-                    this.voteTimer0.stop();
+                if (opts.getVoteTimer() != null && !opts.isSharedPools()) {
+                    opts.getVoteTimer().stop();
                 }
-                if (getOptions().getStepDownTimer() == null) {
-                    this.stepDownTimer0.stop();
-                }
-                if (getOptions().getSnapshotTimer() == null) {
-                    this.snapshotTimer0.stop();
+                if (opts.getStepDownTimer() != null && !opts.isSharedPools()) {
+                    opts.getStepDownTimer().stop();
                 }
             }
 
@@ -2859,6 +2901,33 @@ public class NodeImpl implements Node, RaftServerService {
             // Destroy all timers out of lock
             if (timers != null) {
                 destroyAllTimers(timers);
+            }
+
+            NodeOptions opts = getOptions();
+
+            if (opts.getSnapshotTimer() != null && !opts.isSharedPools()) {
+                opts.getSnapshotTimer().stop();
+            }
+            if (opts.getCommonExecutor() != null && !opts.isSharedPools()) {
+                ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getCommonExecutor());
+            }
+            if (opts.getStripedExecutor() != null && !opts.isSharedPools()) {
+                opts.getStripedExecutor().shutdownGracefully();
+            }
+            if (opts.getClientExecutor() != null && !opts.isSharedPools()) {
+                ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getClientExecutor());
+            }
+            if (opts.getfSMCallerExecutorDisruptor() != null && !opts.isSharedPools()) {
+                opts.getfSMCallerExecutorDisruptor().shutdown();
+            }
+            if (opts.getNodeApplyDisruptor() != null && !opts.isSharedPools()) {
+                opts.getNodeApplyDisruptor().shutdown();
+            }
+            if (opts.getReadOnlyServiceDisruptor() != null && !opts.isSharedPools()) {
+                opts.getReadOnlyServiceDisruptor().shutdown();
+            }
+            if (opts.getLogManagerDisruptor() != null && !opts.isSharedPools()) {
+                opts.getLogManagerDisruptor().shutdown();
             }
         }
     }
@@ -3263,7 +3332,7 @@ public class NodeImpl implements Node, RaftServerService {
             LOG.info("Node {} starts to transfer leadership to peer {}.", getNodeId(), peer);
             final StopTransferArg stopArg = new StopTransferArg(this, this.currTerm, peerId);
             this.stopTransferArg = stopArg;
-            this.transferTimer = this.scheduler.schedule(() -> onTransferTimeout(stopArg),
+            this.transferTimer = this.getOptions().getScheduler().schedule(() -> onTransferTimeout(stopArg),
                 this.options.getElectionTimeoutMs(), TimeUnit.MILLISECONDS);
 
         }

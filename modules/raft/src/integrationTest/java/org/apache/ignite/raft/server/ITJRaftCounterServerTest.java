@@ -18,11 +18,9 @@
 package org.apache.ignite.raft.server;
 
 import java.io.IOException;
-import java.lang.management.ManagementFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -50,8 +48,6 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.jraft.Node;
-import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -97,6 +93,11 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
      * Counter group name 1.
      */
     private static final String COUNTER_GROUP_1 = "counter1";
+
+    /**
+     * Counter group name 2.
+     */
+    private static final String COUNTER_GROUP_2 = "counter2";
 
     /**
      * The server port offset.
@@ -174,6 +175,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
             server.stopRaftGroup(COUNTER_GROUP_0);
             server.stopRaftGroup(COUNTER_GROUP_1);
+            server.stopRaftGroup(COUNTER_GROUP_2);
 
             server.beforeNodeStop();
 
@@ -194,12 +196,16 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
      *
      * @return Raft server instance.
      */
-    private JRaftServerImpl startServer(int idx, Consumer<RaftServer> clo, NodeOptions nodeOptions) {
+    private JRaftServerImpl startServer(int idx, Consumer<RaftServer> clo, Consumer<NodeOptions> cons) {
         var addr = new NetworkAddress(getLocalAddress(), PORT);
 
         ClusterService service = clusterService(PORT + idx, List.of(addr), true);
 
-        JRaftServerImpl server = new JRaftServerImpl(service, dataPath, nodeOptions) {
+        NodeOptions opts = new NodeOptions();
+
+        cons.accept(opts);
+
+        JRaftServerImpl server = new JRaftServerImpl(service, dataPath, opts) {
             @Override public void stop() {
                 servers.remove(this);
 
@@ -248,7 +254,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
             startServer(i, raftServer -> {
                 raftServer.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
                 raftServer.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
-            }, new NodeOptions());
+            }, opts -> {});
         }
 
         startClient(COUNTER_GROUP_0);
@@ -262,7 +268,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     public void testDisruptorThreadsCount() {
         startServer(0, raftServer -> {
             raftServer.startRaftGroup("test_raft_group", listenerFactory.get(), INITIAL_CONF);
-        }, new NodeOptions());
+        }, opts -> {});
 
         Set<Thread> threads = getAllDisruptorCurrentThreads();
 
@@ -577,29 +583,32 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     /** Tests if a starting a new group in shared pools mode doesn't increases timer threads count. */
     @Test
     public void testTimerThreadsCount() {
-        JRaftServerImpl srv0 = startServer(0, x -> {}, new NodeOptions());
-        JRaftServerImpl srv1 = startServer(1, x -> {}, new NodeOptions());
-        JRaftServerImpl srv2 = startServer(2, x -> {}, new NodeOptions());
+        JRaftServerImpl srv0 = startServer(0, x -> {}, opts -> opts.setTimerPoolSize(1));
+        JRaftServerImpl srv1 = startServer(1, x -> {}, opts -> opts.setTimerPoolSize(1));
+        JRaftServerImpl srv2 = startServer(2, x -> {}, opts -> opts.setTimerPoolSize(1));
 
         waitForTopology(srv0.clusterService(), 3, 5_000);
 
         srv0.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
         srv1.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
         srv2.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
-        assertTrue(waitForCondition(() -> hasLeader(COUNTER_GROUP_0), 30_000));
 
-        List<Thread> before = Thread.getAllStackTraces().keySet().stream().filter(this::isTimer).
-            sorted((o1, o2) -> o1.getName().compareTo(o2.getName())).collect(toList());
+        assertTrue(waitForCondition(() -> hasLeader(COUNTER_GROUP_0), 30_000));
 
         srv0.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
         srv1.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
         srv2.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
         assertTrue(waitForCondition(() -> hasLeader(COUNTER_GROUP_1), 30_000));
 
-        List<Thread> after = Thread.getAllStackTraces().keySet().stream().filter(this::isTimer).
+        srv0.startRaftGroup(COUNTER_GROUP_2, listenerFactory.get(), INITIAL_CONF);
+        srv1.startRaftGroup(COUNTER_GROUP_2, listenerFactory.get(), INITIAL_CONF);
+        srv2.startRaftGroup(COUNTER_GROUP_2, listenerFactory.get(), INITIAL_CONF);
+        assertTrue(waitForCondition(() -> hasLeader(COUNTER_GROUP_2), 30_000));
+
+        List<Thread> timerThreads = Thread.getAllStackTraces().keySet().stream().filter(this::isTimer).
             sorted((o1, o2) -> o1.getName().compareTo(o2.getName())).collect(toList());
 
-        assertFalse(after.removeAll(before), "New timer threads: " + after.toString());
+        assertTrue(timerThreads.size() <= 15, "New timer threads: " + timerThreads.toString());
     }
 
     /**
@@ -699,7 +708,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         var svc2 = startServer(stopIdx, r -> {
             r.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
             r.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
-        }, new NodeOptions());
+        }, opts -> {});
 
         waitForCondition(() -> validateStateMachine(sum(20), svc2, COUNTER_GROUP_0), 5_000);
         waitForCondition(() -> validateStateMachine(sum(30), svc2, COUNTER_GROUP_1), 5_000);
@@ -714,7 +723,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         var svc3 = startServer(stopIdx, r -> {
             r.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
             r.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
-        }, new NodeOptions());
+        }, opts -> {});
 
         waitForCondition(() -> validateStateMachine(sum(20), svc3, COUNTER_GROUP_0), 5_000);
         waitForCondition(() -> validateStateMachine(sum(30), svc3, COUNTER_GROUP_1), 5_000);

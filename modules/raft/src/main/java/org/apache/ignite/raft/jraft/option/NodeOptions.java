@@ -168,37 +168,37 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /**
      * The common executor for short running tasks.
      */
-    private @Nullable ExecutorService commonExecutor;
+    private ExecutorService commonExecutor;
 
     /**
      * Striped executor for processing AppendEntries request/reponse.
      */
-    private @Nullable FixedThreadsExecutorGroup stripedExecutor;
+    private FixedThreadsExecutorGroup stripedExecutor;
 
     /**
      * The scheduler to execute delayed jobs.
      */
-    private @Nullable Scheduler scheduler;
+    private Scheduler scheduler;
 
     /**
      * The election timer.
      */
-    private @Nullable Timer electionTimer;
+    private Timer electionTimer;
 
     /**
      * The election timer.
      */
-    private @Nullable Timer voteTimer;
+    private Timer voteTimer;
 
     /**
      * The election timer.
      */
-    private @Nullable Timer snapshotTimer;
+    private Timer snapshotTimer;
 
     /**
      * The election timer.
      */
-    private @Nullable Timer stepDownTimer;
+    private Timer stepDownTimer;
 
     /**
      * Server name.
@@ -208,27 +208,30 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /**
      * Striped disruptor for FSMCaller service. The queue serves of an Append entry requests in the RAFT state machine.
      */
-    private @Nullable StripedDisruptor<FSMCallerImpl.ApplyTask> fSMCallerExecutorDisruptor;
+    private StripedDisruptor<FSMCallerImpl.ApplyTask> fSMCallerExecutorDisruptor;
 
     /**
      * Striped disruptor for Node apply service.
      */
-    private @Nullable StripedDisruptor<NodeImpl.LogEntryAndClosure> nodeApplyDisruptor;
+    private StripedDisruptor<NodeImpl.LogEntryAndClosure> nodeApplyDisruptor;
 
     /**
      * Striped disruptor for Read only service.
      */
-    private @Nullable StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent> readOnlyServiceDisruptor;
+    private StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent> readOnlyServiceDisruptor;
 
     /**
      * Striped disruptor for Log manager service.
      */
-    private @Nullable StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
+    private StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
 
     /**
      * Amount of Disruptors that will handle the RAFT server.
      */
     private int stripes = DEFAULT_STRIPES;
+
+    /** */
+    private boolean sharedPools = false;
 
     public NodeOptions() {
         raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());
@@ -246,6 +249,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      */
     public void setStripes(int stripes) {
         this.stripes = stripes;
+    }
+
+    public boolean isSharedPools() {
+        return sharedPools;
+    }
+
+    public void setSharedPools(boolean sharedPools) {
+        this.sharedPools = sharedPools;
     }
 
     /**
