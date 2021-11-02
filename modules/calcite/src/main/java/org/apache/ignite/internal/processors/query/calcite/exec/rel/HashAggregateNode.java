@@ -43,7 +43,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * HashAggregateNode.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     private final AggregateType type;
@@ -65,7 +65,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx        Execution context.
      * @param rowType    RelDataType.
@@ -260,7 +260,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         /**
          * Get rows.
-         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          *
          * @param cnt Number of rows.
          * @return Actually sent rows number.

@@ -29,6 +29,10 @@ import org.apache.calcite.rel.core.Values;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
 
+/**
+ * IgniteValues.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public class IgniteValues extends Values implements IgniteRel {
     /**
      * Creates a new Values.

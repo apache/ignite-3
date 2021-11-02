@@ -85,28 +85,28 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
     }
 
     /**
-     * @return Lower index condition.
+     * Get lower index condition.
      */
     public List<RexNode> lowerCondition() {
         return idxCond == null ? null : idxCond.lowerCondition();
     }
 
     /**
-     * @return Lower index condition.
+     * Get lower index condition.
      */
     public List<RexNode> lowerBound() {
         return idxCond == null ? null : idxCond.lowerBound();
     }
 
     /**
-     * @return Upper index condition.
+     * Get upper index condition.
      */
     public List<RexNode> upperCondition() {
         return idxCond == null ? null : idxCond.upperCondition();
     }
 
     /**
-     * @return Upper index condition.
+     * Get upper index condition.
      */
     public List<RexNode> upperBound() {
         return idxCond == null ? null : idxCond.upperBound();

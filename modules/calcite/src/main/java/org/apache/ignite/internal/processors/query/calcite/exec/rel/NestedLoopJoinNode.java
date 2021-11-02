@@ -33,7 +33,7 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * NestedLoopJoinNode.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     /** Special value to highlights that all row were received and we are not waiting any more. */
@@ -211,7 +211,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @NotNull
     public static <RowT> NestedLoopJoinNode<RowT> create(ExecutionContext<RowT> ctx, RelDataType outputRowType,
@@ -567,7 +567,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
         /**
          * Constructor.
-         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          *
          * @param ctx Execution context.
          * @param rowType Output row type.

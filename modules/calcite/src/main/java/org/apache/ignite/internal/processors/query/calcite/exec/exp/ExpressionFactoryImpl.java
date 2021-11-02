@@ -84,6 +84,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     private final ExecutionContext<RowT> ctx;
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public ExpressionFactoryImpl(ExecutionContext<RowT> ctx, IgniteTypeFactory typeFactory, SqlConformance conformance) {
         this.ctx = ctx;
         this.typeFactory = typeFactory;

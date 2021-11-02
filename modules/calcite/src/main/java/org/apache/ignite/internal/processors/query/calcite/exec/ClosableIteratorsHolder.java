@@ -29,7 +29,7 @@ import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * ClosableIteratorsHolder.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class ClosableIteratorsHolder {
@@ -69,7 +69,7 @@ public class ClosableIteratorsHolder {
 
     /**
      * Init.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public void init() {
         cleanWorker = new Thread(null, () -> cleanUp(true), "calciteIteratorsCleanWorker");
@@ -79,7 +79,7 @@ public class ClosableIteratorsHolder {
 
     /**
      * Tear down.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public void tearDown() {
         stopped = true;

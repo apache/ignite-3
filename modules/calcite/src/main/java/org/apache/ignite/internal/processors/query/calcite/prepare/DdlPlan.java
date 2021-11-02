@@ -21,7 +21,7 @@ import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.DdlComman
 
 /**
  * Query plan for DDL commands.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class DdlPlan implements QueryPlan {
     private final DdlCommand cmd;

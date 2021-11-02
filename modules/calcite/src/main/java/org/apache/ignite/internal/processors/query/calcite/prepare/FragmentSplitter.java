@@ -35,7 +35,7 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
 /**
  * Fragment splitter.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class FragmentSplitter extends IgniteRelShuttle {
     private final Deque<FragmentProto> stack = new LinkedList<>();
@@ -50,7 +50,7 @@ public class FragmentSplitter extends IgniteRelShuttle {
 
     /**
      * Split fragment.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param fragment Fragment to split.
      * @return Splitted fragments.

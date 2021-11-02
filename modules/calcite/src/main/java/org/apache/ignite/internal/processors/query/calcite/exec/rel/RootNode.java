@@ -72,7 +72,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public RootNode(ExecutionContext<RowT> ctx, RelDataType rowType, Runnable onClose) {
         super(ctx, rowType);

@@ -27,6 +27,10 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.processors.query.calcite.rel.ProjectableFilterableTableScan;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * IgniteLogicalTableScan.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
     /** Creates a IgniteTableScan. */
     public static IgniteLogicalTableScan create(

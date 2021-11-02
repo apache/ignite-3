@@ -24,7 +24,7 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
 
 /**
  * Accumulator interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public interface Accumulator extends Serializable {
     void add(Object... args);

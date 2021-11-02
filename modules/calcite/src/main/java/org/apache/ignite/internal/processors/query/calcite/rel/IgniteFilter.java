@@ -60,7 +60,8 @@ public class IgniteFilter extends Filter implements TraitsAwareIgniteRel {
     }
 
     /**
-     *
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public IgniteFilter(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
@@ -106,9 +107,6 @@ public class IgniteFilter extends Filter implements TraitsAwareIgniteRel {
                 inTraits));
     }
 
-    /**
-     *
-     */
     @Override
     public Pair<RelTraitSet, List<RelTraitSet>> passThroughCorrelation(RelTraitSet nodeTraits,
             List<RelTraitSet> inTraits) {
@@ -123,9 +121,6 @@ public class IgniteFilter extends Filter implements TraitsAwareIgniteRel {
         return null;
     }
 
-    /**
-     *
-     */
     @Override
     public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(RelTraitSet nodeTraits,
             List<RelTraitSet> inTraits) {

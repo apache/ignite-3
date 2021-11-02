@@ -21,6 +21,10 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * FragmentDescription.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public class FragmentDescription implements Serializable {
     private long fragmentId;
 
@@ -33,6 +37,10 @@ public class FragmentDescription implements Serializable {
     public FragmentDescription() {
     }
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public FragmentDescription(long fragmentId, FragmentMapping mapping, ColocationGroup target,
             Map<Long, List<String>> remoteSources) {
         this.fragmentId = fragmentId;

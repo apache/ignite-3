@@ -22,12 +22,10 @@ import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.rel.RelNode;
 
 /**
- *
+ * DistributionTraitDef.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class DistributionTraitDef extends RelTraitDef<IgniteDistribution> {
-    /**
-     *
-     */
     public static final DistributionTraitDef INSTANCE = new DistributionTraitDef();
 
     /** {@inheritDoc} */

@@ -73,21 +73,21 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
     }
 
     /**
-     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}
+     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}.
      */
     public FragmentMapping fragmentMapping(RelSubset rel, RelMetadataQuery mq) {
         throw new AssertionError();
     }
 
     /**
-     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}
+     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}.
      */
     public FragmentMapping fragmentMapping(SingleRel rel, RelMetadataQuery mq) {
         return fragmentMappingForMetadataQuery(rel.getInput(), mq);
     }
 
     /**
-     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}
+     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}.
      *
      * <p>{@link ColocationMappingException} may be thrown on two children nodes locations merge. This means that the fragment (which part
      * the parent node is) cannot be executed on any node and additional exchange is needed. This case we throw
@@ -122,7 +122,7 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
     }
 
     /**
-     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}
+     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}.
      *
      * <p>{@link ColocationMappingException} may be thrown on two children nodes locations merge. This means that the fragment (which part
      * the parent node is) cannot be executed on any node and additional exchange is needed. This case we throw
@@ -151,7 +151,7 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
     }
 
     /**
-     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}
+     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}.
      *
      * <p>Prunes involved partitions (hence nodes, involved in query execution) if possible.
      */
@@ -160,7 +160,7 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
     }
 
     /**
-     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}
+     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}.
      *
      * <p>Prunes involved partitions (hence nodes, involved in query execution) if possible.
      */
@@ -174,14 +174,14 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
     }
 
     /**
-     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}
+     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}.
      */
     public FragmentMapping fragmentMapping(IgniteReceiver rel, RelMetadataQuery mq) {
         return FragmentMapping.create(rel.exchangeId());
     }
 
     /**
-     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}
+     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}.
      */
     public FragmentMapping fragmentMapping(IgniteIndexScan rel, RelMetadataQuery mq) {
         return FragmentMapping.create(rel.sourceId(),
@@ -189,7 +189,7 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
     }
 
     /**
-     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}
+     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}.
      */
     public FragmentMapping fragmentMapping(IgniteTableScan rel, RelMetadataQuery mq) {
         return FragmentMapping.create(rel.sourceId(),
@@ -197,14 +197,14 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
     }
 
     /**
-     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}
+     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)} .
      */
     public FragmentMapping fragmentMapping(IgniteValues rel, RelMetadataQuery mq) {
         return FragmentMapping.create();
     }
 
     /**
-     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}
+     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)} .
      */
     public FragmentMapping fragmentMapping(IgniteTableFunctionScan rel, RelMetadataQuery mq) {
         return FragmentMapping.create();

@@ -32,8 +32,7 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * MergeJoinNode.
- *
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
     /** Special value to highlights that all row were received and we are not waiting any more. */
@@ -56,6 +55,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
     protected boolean inLoop;
 
     /**
+     * Constructor.
+     *
      * @param ctx  Execution context.
      * @param comp Join expression.
      */
@@ -204,6 +205,10 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
 
     protected abstract void join() throws Exception;
 
+    /**
+     * Create.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     @NotNull
     public static <RowT> MergeJoinNode<RowT> create(ExecutionContext<RowT> ctx, RelDataType outputRowType, RelDataType leftRowType,
             RelDataType rightRowType, JoinRelType joinType, Comparator<RowT> comp) {

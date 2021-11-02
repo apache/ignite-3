@@ -24,7 +24,7 @@ import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext
 
 /**
  * UnionAllNode.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class UnionAllNode<RowT> extends AbstractNode<RowT> implements Downstream<RowT> {
     private int curSrc;
@@ -33,7 +33,7 @@ public class UnionAllNode<RowT> extends AbstractNode<RowT> implements Downstream
 
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx     Execution context.
      * @param rowType RelDataType.

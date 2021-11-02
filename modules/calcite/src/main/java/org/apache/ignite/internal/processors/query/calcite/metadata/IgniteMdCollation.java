@@ -88,7 +88,6 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
  */
 @SuppressWarnings("unused") // actually all methods are used by runtime generated classes
 public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collation> {
-
     public static final RelMetadataProvider SOURCE =
             ReflectiveRelMetadataProvider.reflectiveSource(
                     BuiltInMethod.COLLATIONS.method, new IgniteMdCollation());
@@ -125,7 +124,8 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
     }
 
     /**
-     *
+     * Collations.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public ImmutableList<RelCollation> collations(IgniteRel rel, RelMetadataQuery mq) {
         RelCollation collation = rel.collation();
@@ -142,7 +142,8 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
     }
 
     /**
-     *
+     * Collations.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public ImmutableList<RelCollation> collations(Match rel,
             RelMetadataQuery mq) {
@@ -170,7 +171,8 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
     }
 
     /**
-     *
+     * Collations.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public ImmutableList<RelCollation> collations(EnumerableMergeJoin join,
             RelMetadataQuery mq) {
@@ -189,7 +191,8 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
     }
 
     /**
-     *
+     * Collations.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public ImmutableList<RelCollation> collations(EnumerableNestedLoopJoin join,
             RelMetadataQuery mq) {
@@ -199,7 +202,8 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
     }
 
     /**
-     *
+     * Collations.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public ImmutableList<RelCollation> collations(EnumerableCorrelate join,
             RelMetadataQuery mq) {

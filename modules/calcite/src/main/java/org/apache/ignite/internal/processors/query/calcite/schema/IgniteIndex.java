@@ -33,8 +33,7 @@ public class IgniteIndex {
 
     /**
      * Constructor.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public IgniteIndex(RelCollation collation, String name, IgniteTable tbl) {
         this.collation = collation;

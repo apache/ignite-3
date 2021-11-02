@@ -25,7 +25,7 @@ import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext
 
 /**
  * ProjectNode.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ProjectNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     private final Function<RowT, RowT> prj;

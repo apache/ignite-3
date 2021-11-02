@@ -52,8 +52,7 @@ import org.apache.ignite.lang.IgniteException;
 
 /**
  * RelJsonReader.
- *
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class RelJsonReader {
@@ -74,8 +73,7 @@ public class RelJsonReader {
 
     /**
      * FromJson.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static <T extends RelNode> T fromJson(PlanningContext ctx, String json) {
         RelJsonReader reader = new RelJsonReader(ctx.cluster(), ctx.catalogReader());
@@ -85,8 +83,7 @@ public class RelJsonReader {
 
     /**
      * Constructor.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public RelJsonReader(RelOptCluster cluster, RelOptSchema relOptSchema) {
         this.cluster = cluster;
@@ -97,8 +94,7 @@ public class RelJsonReader {
 
     /**
      * Read node.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public RelNode read(String s) {
         try {

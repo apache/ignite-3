@@ -59,7 +59,7 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * AccumulatorsFactory.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapper<RowT>>> {
     private static final LoadingCache<Pair<RelDataType, RelDataType>, Function<Object, Object>> CACHE =
@@ -67,7 +67,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
     /**
      * CastFunction interface.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static interface CastFunction extends Function<Object, Object> {
         @Override
@@ -147,7 +147,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx          ExecutionContext.
      * @param type         AggregateType.

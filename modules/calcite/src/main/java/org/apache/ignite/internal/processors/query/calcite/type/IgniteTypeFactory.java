@@ -129,7 +129,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
     /**
      * Get result type.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param type Field logical type.
      * @return Result type.

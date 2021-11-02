@@ -38,13 +38,11 @@ import org.apache.calcite.util.BuiltInMethod;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteCorrelatedNestedLoopJoin;
 
 /**
- *
+ * IgniteMdCumulativeCost.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 @SuppressWarnings("unused") // actually all methods are used by runtime generated classes
 public class IgniteMdCumulativeCost implements MetadataHandler<BuiltInMetadata.CumulativeCost> {
-    /**
-     *
-     */
     public static final RelMetadataProvider SOURCE = ReflectiveRelMetadataProvider.reflectiveSource(
             BuiltInMethod.CUMULATIVE_COST.method, new IgniteMdCumulativeCost());
 
@@ -54,15 +52,13 @@ public class IgniteMdCumulativeCost implements MetadataHandler<BuiltInMetadata.C
         return BuiltInMetadata.CumulativeCost.DEF;
     }
 
-    /**
-     *
-     */
     public RelOptCost getCumulativeCost(RelSubset rel, RelMetadataQuery mq) {
         return VolcanoUtils.bestCost(rel);
     }
 
     /**
-     *
+     * GetCumulativeCost.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public RelOptCost getCumulativeCost(RelNode rel, RelMetadataQuery mq) {
         RelOptCost cost = nonCumulativeCost(rel, mq);
@@ -84,7 +80,8 @@ public class IgniteMdCumulativeCost implements MetadataHandler<BuiltInMetadata.C
     }
 
     /**
-     *
+     * GetCumulativeCost.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public RelOptCost getCumulativeCost(IgniteCorrelatedNestedLoopJoin rel, RelMetadataQuery mq) {
         RelOptCost cost = nonCumulativeCost(rel, mq);
@@ -111,9 +108,6 @@ public class IgniteMdCumulativeCost implements MetadataHandler<BuiltInMetadata.C
         return cost.plus(leftCost).plus(rightCost.multiplyBy(left.estimateRowCount(mq) / corIds.size()));
     }
 
-    /**
-     *
-     */
     private static RelOptCost nonCumulativeCost(RelNode rel, RelMetadataQuery mq) {
         RelOptCost cost = mq.getNonCumulativeCost(rel);
 

@@ -105,7 +105,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
 
     /**
      * Init.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public void init() {
         try {
@@ -256,7 +256,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
 
     /**
      * OnNodeLeft.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public void onNodeLeft(String nodeId) {
         if (nodeId.equals(context().originatingNodeId())) {

@@ -32,6 +32,10 @@ import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLog
 import org.apache.ignite.internal.processors.query.calcite.trait.CorrelationTrait;
 import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
 
+/**
+ * LogicalScanConverterRule.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTableScan> extends AbstractIgniteConverterRule<T> {
     /** Instance. */
     public static final LogicalScanConverterRule<IgniteLogicalIndexScan> INDEX_SCAN =

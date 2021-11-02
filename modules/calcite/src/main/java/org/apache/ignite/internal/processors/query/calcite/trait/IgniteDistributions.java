@@ -23,8 +23,7 @@ import org.apache.calcite.util.ImmutableIntList;
 
 /**
  * IgniteDistributions.
- *
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteDistributions {
     private static final IgniteDistribution BROADCAST = canonize(new DistributionTrait(DistributionFunction.broadcast()));
@@ -65,8 +64,7 @@ public class IgniteDistributions {
 
     /**
      * Affinity.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param key       Affinity key.
      * @param cacheName Affinity cache name.
@@ -80,8 +78,7 @@ public class IgniteDistributions {
 
     /**
      * Affinity.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param key      Affinity key.
      * @param cacheId  Affinity cache ID.
@@ -94,8 +91,7 @@ public class IgniteDistributions {
 
     /**
      * Affinity.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param keys     Affinity keys.
      * @param cacheId  Affinity cache ID.
@@ -108,8 +104,7 @@ public class IgniteDistributions {
 
     /**
      * Hash.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param keys Distribution keys.
      * @return Hash distribution.
@@ -120,8 +115,7 @@ public class IgniteDistributions {
 
     /**
      * Hash.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param keys     Distribution keys.
      * @param function Specific hash function.

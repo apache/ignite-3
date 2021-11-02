@@ -63,7 +63,7 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
 
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx     Execution context.
      * @param rowType RelDataType.

@@ -21,6 +21,10 @@ import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.rel.RelNode;
 
+/**
+ * RewindabilityTraitDef.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public class RewindabilityTraitDef extends RelTraitDef<RewindabilityTrait> {
     public static final RewindabilityTraitDef INSTANCE = new RewindabilityTraitDef();
 

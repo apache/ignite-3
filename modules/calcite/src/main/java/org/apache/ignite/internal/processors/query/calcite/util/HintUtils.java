@@ -28,26 +28,22 @@ import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 
 /**
- *
+ * HintUtils.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class HintUtils {
-    /**
-     *
-     */
     private HintUtils() {
         // No-op.
     }
 
-    /**
-     *
-     */
     public static boolean containsDisabledRules(ImmutableList<RelHint> hints) {
         return hints.stream()
                 .anyMatch(h -> "DISABLE_RULE".equals(h.hintName) && !h.listOptions.isEmpty());
     }
 
     /**
-     *
+     * DisabledRules.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static Set<String> disabledRules(ImmutableList<RelHint> hints) {
         if (nullOrEmpty(hints)) {
@@ -61,7 +57,8 @@ public class HintUtils {
     }
 
     /**
-     *
+     * IsExpandDistinctAggregate.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static boolean isExpandDistinctAggregate(LogicalAggregate rel) {
         return rel.getHints().stream()

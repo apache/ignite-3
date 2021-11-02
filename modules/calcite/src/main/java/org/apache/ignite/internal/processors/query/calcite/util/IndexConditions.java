@@ -40,10 +40,18 @@ public class IndexConditions {
 
     private final List<RexNode> upperBound;
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IndexConditions() {
         this(null, null, null, null);
     }
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IndexConditions(
             @Nullable List<RexNode> lowerCond,
             @Nullable List<RexNode> upperCond,
@@ -56,6 +64,10 @@ public class IndexConditions {
         this.upperBound = upperBound;
     }
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IndexConditions(RelInput input) {
         lowerCond = null;
         upperCond = null;
@@ -64,33 +76,37 @@ public class IndexConditions {
     }
 
     /**
-     * @return Lower index condition.
+     * Get lower index condition.
      */
     public List<RexNode> lowerCondition() {
         return lowerCond;
     }
 
     /**
-     * @return Upper index condition.
+     * GEt upper index condition.
      */
     public List<RexNode> upperCondition() {
         return upperCond;
     }
 
     /**
-     * @return Lower index bounds (a row with values at the index columns).
+     * Get lower index bounds (a row with values at the index columns).
      */
     public List<RexNode> lowerBound() {
         return lowerBound;
     }
 
     /**
-     * @return Upper index bounds (a row with values at the index columns).
+     * Get upper index bounds (a row with values at the index columns).
      */
     public List<RexNode> upperBound() {
         return upperBound;
     }
 
+    /**
+     * Keys.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public Set<Integer> keys() {
         if (upperBound == null && lowerBound == null) {
             return Collections.emptySet();

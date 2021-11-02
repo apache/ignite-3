@@ -38,7 +38,7 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * Query template.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class QueryTemplate {
     private final MappingService mappingService;
@@ -49,7 +49,7 @@ public class QueryTemplate {
 
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public QueryTemplate(MappingService mappingService, List<Fragment> fragments) {
         this.mappingService = mappingService;
@@ -64,7 +64,7 @@ public class QueryTemplate {
 
     /**
      * Map context to execution plan.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public ExecutionPlan map(PlanningContext ctx) {
         ExecutionPlan executionPlan = this.executionPlan.get();

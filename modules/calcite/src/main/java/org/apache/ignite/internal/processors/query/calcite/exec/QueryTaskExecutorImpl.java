@@ -25,7 +25,7 @@ import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * QueryTaskExecutorImpl.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.UncaughtExceptionHandler {
     private static final IgniteLogger LOG = IgniteLogger.forClass(QueryTaskExecutorImpl.class);

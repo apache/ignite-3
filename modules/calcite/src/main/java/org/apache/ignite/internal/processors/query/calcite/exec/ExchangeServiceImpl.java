@@ -41,7 +41,7 @@ import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * ExchangeServiceImpl.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ExchangeServiceImpl implements ExchangeService {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ExchangeServiceImpl.class);
@@ -246,7 +246,7 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /**
      * BaseInboxContext.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @return Minimal execution context to meet Inbox needs.
      */

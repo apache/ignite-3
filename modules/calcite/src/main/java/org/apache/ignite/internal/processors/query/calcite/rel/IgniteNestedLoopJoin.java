@@ -59,6 +59,10 @@ public class IgniteNestedLoopJoin extends AbstractIgniteJoin {
         super(cluster, traitSet, left, right, condition, variablesSet, joinType);
     }
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IgniteNestedLoopJoin(RelInput input) {
         this(input.getCluster(),
                 input.getTraitSet().replace(IgniteConvention.INSTANCE),

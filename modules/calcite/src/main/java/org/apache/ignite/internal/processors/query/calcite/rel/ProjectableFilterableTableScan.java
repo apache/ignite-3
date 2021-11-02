@@ -85,21 +85,21 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     }
 
     /**
-     * @return Projections.
+     * Get projections.
      */
     public List<RexNode> projects() {
         return projects;
     }
 
     /**
-     * @return Rex condition.
+     * Get rex condition.
      */
     public RexNode condition() {
         return condition;
     }
 
     /**
-     * @return Participating columns.
+     * Get participating columns.
      */
     public ImmutableBitSet requiredColumns() {
         return requiredColumns;
@@ -159,6 +159,10 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         return condition == null && projects == null && requiredColumns == null;
     }
 
+    /**
+     * PushUpPredicate.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public RexNode pushUpPredicate() {
         if (condition == null || projects == null) {
             return replaceLocalRefs(condition);

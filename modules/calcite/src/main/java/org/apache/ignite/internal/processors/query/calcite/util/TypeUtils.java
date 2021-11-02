@@ -56,8 +56,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * TypeUtils.
- *
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TypeUtils {
     private static final EnumSet<SqlTypeName> CONVERTABLE_SQL_TYPES = EnumSet.of(
@@ -75,8 +74,7 @@ public class TypeUtils {
 
     /**
      * CombinedRowType.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static RelDataType combinedRowType(IgniteTypeFactory typeFactory, RelDataType... types) {
 
@@ -102,8 +100,7 @@ public class TypeUtils {
 
     /**
      * NeedCast.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static boolean needCast(RelDataTypeFactory factory, RelDataType fromType, RelDataType toType) {
         // This prevents that we cast a JavaType to normal RelDataType.
@@ -145,8 +142,7 @@ public class TypeUtils {
 
     /**
      * CreateRowType.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @NotNull
     public static RelDataType createRowType(@NotNull IgniteTypeFactory typeFactory, @NotNull Class<?>... fields) {
@@ -159,8 +155,7 @@ public class TypeUtils {
 
     /**
      * CreateRowType.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @NotNull
     public static RelDataType createRowType(@NotNull IgniteTypeFactory typeFactory, @NotNull RelDataType... fields) {
@@ -179,8 +174,7 @@ public class TypeUtils {
 
     /**
      * SqlType.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static RelDataType sqlType(IgniteTypeFactory typeFactory, RelDataType rowType) {
         if (!rowType.isStruct()) {
@@ -194,8 +188,7 @@ public class TypeUtils {
 
     /**
      * GetResultType.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param schema  Schema.
      * @param sqlType Logical row type.
@@ -220,8 +213,7 @@ public class TypeUtils {
 
     /**
      * GetResultClass.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param schema Schema.
      * @param type   Logical column type.
@@ -247,8 +239,7 @@ public class TypeUtils {
 
     /**
      * ResultTypeConverter.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static <RowT> Function<RowT, RowT> resultTypeConverter(ExecutionContext<RowT> ectx, RelDataType resultType) {
         assert resultType.isStruct();
@@ -299,8 +290,7 @@ public class TypeUtils {
 
     /**
      * ToInternal.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static Object toInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
         if (val == null) {
@@ -322,8 +312,7 @@ public class TypeUtils {
 
     /**
      * FromInternal.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static Object fromInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
         if (val == null) {

@@ -141,8 +141,7 @@ public final class Commons {
 
     /**
      * CreateCursor.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static <T> SqlCursor<T> createCursor(Iterator<T> iter, QueryPlan plan) {
         return new SqlCursor<>() {
@@ -289,8 +288,7 @@ public final class Commons {
 
     /**
      * ParametersMap.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param params Parameters.
      * @return Parameters map.
@@ -358,8 +356,7 @@ public final class Commons {
 
     /**
      * Max.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static int max(ImmutableIntList list) {
         if (list.isEmpty()) {
@@ -377,8 +374,7 @@ public final class Commons {
 
     /**
      * Min.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static int min(ImmutableIntList list) {
         if (list.isEmpty()) {
@@ -396,8 +392,7 @@ public final class Commons {
 
     /**
      * Compile.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static <T> T compile(Class<T> interfaceType, String body) {
         final boolean debug = CalciteSystemProperty.DEBUG.value();
@@ -433,8 +428,7 @@ public final class Commons {
 
     /**
      * CheckRange.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static void checkRange(@NotNull Object[] array, int idx) {
         if (idx < 0 || idx >= array.length) {
@@ -444,8 +438,7 @@ public final class Commons {
 
     /**
      * EnsureCapacity.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static <T> T[] ensureCapacity(T[] array, int required) {
         if (required < 0) {
@@ -477,6 +470,10 @@ public final class Commons {
         return p.negate();
     }
 
+    /**
+     * InverseMapping.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public static Mappings.TargetMapping mapping(ImmutableBitSet bitSet, int sourceSize) {
         Mapping mapping = Mappings.create(MappingType.PARTIAL_FUNCTION, sourceSize, bitSet.cardinality());
         for (Ord<Integer> ord : Ord.zip(bitSet)) {
@@ -485,6 +482,10 @@ public final class Commons {
         return mapping;
     }
 
+    /**
+     * InverseMapping.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public static Mappings.TargetMapping inverseMapping(ImmutableBitSet bitSet, int sourceSize) {
         Mapping mapping = Mappings.create(MappingType.INVERSE_FUNCTION, sourceSize, bitSet.cardinality());
         for (Ord<Integer> ord : Ord.zip(bitSet)) {

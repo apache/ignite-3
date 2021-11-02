@@ -44,7 +44,8 @@ public abstract class IgniteMinusBase extends Minus implements TraitsAwareIgnite
     protected static final int COUNTER_FIELDS_CNT = 2;
 
     /**
-     *
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     IgniteMinusBase(RelOptCluster cluster, RelTraitSet traits, List<RelNode> inputs, boolean all) {
         super(cluster, traits, inputs, all);

@@ -34,6 +34,10 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.internal.util.IgniteIntList;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * ColocationGroup.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public class ColocationGroup implements Serializable {
     private static final int SYNTHETIC_PARTITIONS_COUNT = 512;
     // TODO: IgniteSystemProperties.getInteger("IGNITE_CALCITE_SYNTHETIC_PARTITIONS_COUNT", 512);
@@ -63,21 +67,21 @@ public class ColocationGroup implements Serializable {
     }
 
     /**
-     * @return Lists of colocation group sources.
+     * Get lists of colocation group sources.
      */
     public List<Long> sourceIds() {
         return sourceIds == null ? Collections.emptyList() : sourceIds;
     }
 
     /**
-     * @return Lists of nodes capable to execute a query fragment for what the mapping is calculated.
+     * Get lists of nodes capable to execute a query fragment for what the mapping is calculated.
      */
     public List<String> nodeIds() {
         return nodeIds == null ? Collections.emptyList() : nodeIds;
     }
 
     /**
-     * @return List of partitions (index) and nodes (items) having an appropriate partition in OWNING state, calculated for distributed
+     * Get list of partitions (index) and nodes (items) having an appropriate partition in OWNING state, calculated for distributed
      *      tables, involved in query execution.
      */
     public List<List<String>> assignments() {
@@ -95,9 +99,6 @@ public class ColocationGroup implements Serializable {
         return this; // TODO https://issues.apache.org/jira/browse/IGNITE-12455
     }
 
-    /**
-     *
-     */
     public boolean belongs(long sourceId) {
         return sourceIds != null && sourceIds.contains(sourceId);
     }
@@ -174,7 +175,8 @@ public class ColocationGroup implements Serializable {
     }
 
     /**
-     *
+     * Finalize.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public ColocationGroup finalaze() {
         if (assignments == null && nodeIds == null) {

@@ -54,7 +54,7 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
 /**
  * Relation cloner.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class Cloner implements IgniteRelVisitor<IgniteRel> {
     private final RelOptCluster cluster;
@@ -86,7 +86,7 @@ public class Cloner implements IgniteRelVisitor<IgniteRel> {
 
     /**
      * Clone relation.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param r Ignite relation to clone.
      * @return Clone of specified relation.

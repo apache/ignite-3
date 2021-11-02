@@ -726,7 +726,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
     /**
      * Translate list.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public List<Expression> translateList(
             List<RexNode> operandList,
@@ -797,7 +797,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
     /**
      * SetBlock.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public RexToLixTranslator setBlock(BlockBuilder block) {
         if (block == list) {
@@ -810,7 +810,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
     /**
      * SetCorrelates.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public RexToLixTranslator setCorrelates(Function1<String, InputGetter> correlates) {
         if (this.correlates == correlates) {

@@ -34,7 +34,7 @@ import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 
 /**
  * CorrelatedNestedLoopJoinNode.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     private final Predicate<RowT> cond;
@@ -75,7 +75,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx            Execution context.
      * @param rowType        Output row type.

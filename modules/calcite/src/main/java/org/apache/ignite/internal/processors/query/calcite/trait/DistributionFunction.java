@@ -43,12 +43,12 @@ public abstract class DistributionFunction {
     }
 
     /**
-     * @return Distribution function type.
+     * Get distribution function type.
      */
     public abstract RelDistribution.Type type();
 
     /**
-     * @return Function name. This name used for equality checking and in {@link RelNode#getDigest()}.
+     * Get function name. This name used for equality checking and in {@link RelNode#getDigest()}.
      */
     public final String name() {
         if (name != null) {
@@ -79,7 +79,7 @@ public abstract class DistributionFunction {
             ColocationGroup group, ImmutableIntList keys);
 
     /**
-     * @return Function name. This name used for equality checking and in {@link RelNode#getDigest()}.
+     * Get function name. This name used for equality checking and in {@link RelNode#getDigest()}.
      */
     protected String name0() {
         return type().shortName;
@@ -127,6 +127,10 @@ public abstract class DistributionFunction {
         return HashDistribution.INSTANCE;
     }
 
+    /**
+     * Satisfy.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public static boolean satisfy(DistributionFunction f0, DistributionFunction f1) {
         if (f0 == f1 || f0.name() == f1.name()) {
             return true;
@@ -252,6 +256,8 @@ public abstract class DistributionFunction {
         private final Object identity;
 
         /**
+         * Constructor.
+         *
          * @param cacheId  Cache ID.
          * @param identity Affinity identity key.
          */

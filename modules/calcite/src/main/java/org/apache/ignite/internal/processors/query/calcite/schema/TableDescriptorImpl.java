@@ -49,8 +49,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * TableDescriptorImpl.
- *
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TableDescriptorImpl extends NullInitializerExpressionFactory implements TableDescriptor {
     private static final ColumnDescriptor[] DUMMY = new ColumnDescriptor[0];
@@ -65,6 +64,10 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     private final ImmutableBitSet keyFields;
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public TableDescriptorImpl(
             TableImpl table,
             List<ColumnDescriptor> columnDescriptors

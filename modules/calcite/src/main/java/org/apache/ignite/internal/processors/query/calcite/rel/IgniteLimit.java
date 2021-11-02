@@ -35,7 +35,8 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCost;
 
 /**
- *
+ * IgniteLimit.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteLimit extends SingleRel implements IgniteRel {
     /** In case the fetch value is a DYNAMIC_PARAM. */
@@ -47,7 +48,7 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     /** Offset. */
     private final RexNode offset;
 
-    /** Fetches rows expression (limit) */
+    /** Fetches rows expression (limit). */
     private final RexNode fetch;
 
     /**
@@ -72,7 +73,8 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     }
 
     /**
-     *
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public IgniteLimit(RelInput input) {
         super(
@@ -153,6 +155,9 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     }
 
     /**
+     * Get double from rex.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @return Integer value of the literal expression.
      */
     private double doubleFromRex(RexNode n, double def) {
@@ -170,14 +175,14 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     }
 
     /**
-     * @return Offset.
+     * Get offset.
      */
     public RexNode offset() {
         return offset;
     }
 
     /**
-     * @return Fetches rows expression (limit)
+     * Get fetches rows expression (limit).
      */
     public RexNode fetch() {
         return fetch;

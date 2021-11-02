@@ -23,7 +23,7 @@ import org.apache.calcite.sql.SqlNode;
 
 /**
  * ValidationResult.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ValidationResult {
     private final SqlNode sqlNode;

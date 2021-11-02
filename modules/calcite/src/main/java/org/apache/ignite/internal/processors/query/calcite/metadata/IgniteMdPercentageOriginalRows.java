@@ -30,7 +30,7 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.util.BuiltInMethod;
 
 /**
- * See {@link org.apache.calcite.rel.metadata.RelMdPercentageOriginalRows}
+ * See {@link org.apache.calcite.rel.metadata.RelMdPercentageOriginalRows}.
  */
 @SuppressWarnings("unused") // actually all methods are used by runtime generated classes
 public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMetadata.PercentageOriginalRows> {
@@ -43,6 +43,10 @@ public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMe
         return BuiltInMetadata.PercentageOriginalRows.DEF;
     }
 
+    /**
+     * GetPercentageOriginalRows.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public Double getPercentageOriginalRows(Aggregate rel, RelMetadataQuery mq) {
         // REVIEW jvs 28-Mar-2006: The assumption here seems to be that
         // aggregation does not apply any filtering, so it does not modify the
@@ -50,6 +54,10 @@ public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMe
         return mq.getPercentageOriginalRows(rel.getInput());
     }
 
+    /**
+     * GetPercentageOriginalRows.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public Double getPercentageOriginalRows(Union rel, RelMetadataQuery mq) {
         double numerator = 0.0;
         double denominator = 0.0;
@@ -82,6 +90,10 @@ public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMe
         return quotientForPercentage(numerator, denominator);
     }
 
+    /**
+     * GetPercentageOriginalRows.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public Double getPercentageOriginalRows(Join rel, RelMetadataQuery mq) {
         // Assume any single-table filter conditions have already
         // been pushed down.
@@ -102,6 +114,10 @@ public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMe
         return left * right;
     }
 
+    /**
+     * GetPercentageOriginalRows.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public Double getPercentageOriginalRows(RelNode rel, RelMetadataQuery mq) {
         if (rel.getInputs().size() > 1) {
             // No generic formula available for multiple inputs.

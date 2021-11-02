@@ -132,7 +132,7 @@ public class ExecutionContext<RowT> implements DataContext {
 
     /**
      * Remotes.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param exchangeId ExchangeId to find remote nodes for.
      * @return Remote nodes for given exchangeId.
@@ -287,7 +287,7 @@ public class ExecutionContext<RowT> implements DataContext {
 
     /**
      * RunnableX interface.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @FunctionalInterface
     public interface RunnableX {

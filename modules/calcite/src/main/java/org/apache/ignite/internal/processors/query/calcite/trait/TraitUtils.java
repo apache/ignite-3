@@ -72,14 +72,12 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * TraitUtils.
- *
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TraitUtils {
     /**
      * Enforce.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Nullable
     public static RelNode enforce(RelNode rel, RelTraitSet toTraits) {
@@ -135,8 +133,7 @@ public class TraitUtils {
 
     /**
      * ConvertCollation.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Nullable
     public static RelNode convertCollation(RelOptPlanner planner,
@@ -152,6 +149,10 @@ public class TraitUtils {
         return new IgniteSort(rel.getCluster(), traits, rel, toTrait);
     }
 
+    /**
+     * ConvertDistribution.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     @Nullable
     public static RelNode convertDistribution(RelOptPlanner planner,
             IgniteDistribution toTrait, RelNode rel) {
@@ -185,6 +186,10 @@ public class TraitUtils {
         }
     }
 
+    /**
+     * ConvertRewindability.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     @Nullable
     public static RelNode convertRewindability(RelOptPlanner planner,
             RewindabilityTrait toTrait, RelNode rel) {
@@ -228,8 +233,7 @@ public class TraitUtils {
 
     /**
      * Distribution.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static IgniteDistribution distribution(RelNode rel) {
         return rel instanceof IgniteRel
@@ -239,8 +243,7 @@ public class TraitUtils {
 
     /**
      * Distribution.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static IgniteDistribution distribution(RelTraitSet traits) {
         return traits.getTrait(DistributionTraitDef.INSTANCE);
@@ -248,8 +251,7 @@ public class TraitUtils {
 
     /**
      * Collation.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static RelCollation collation(RelNode rel) {
         return rel instanceof IgniteRel
@@ -263,8 +265,7 @@ public class TraitUtils {
 
     /**
      * Rewindability.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static RewindabilityTrait rewindability(RelNode rel) {
         return rel instanceof IgniteRel
@@ -278,8 +279,7 @@ public class TraitUtils {
 
     /**
      * Correlation.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static CorrelationTrait correlation(RelNode rel) {
         return rel instanceof IgniteRel
@@ -288,9 +288,8 @@ public class TraitUtils {
     }
 
     /**
-     *
-     * @param traits
-     * @return
+     * Correlation.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static CorrelationTrait correlation(RelTraitSet traits) {
         return traits.getTrait(CorrelationTraitDef.INSTANCE);
@@ -298,8 +297,7 @@ public class TraitUtils {
 
     /**
      * ChangeTraits.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static RelInput changeTraits(RelInput input, RelTrait... traits) {
         RelTraitSet traitSet = input.getTraitSet();
@@ -431,8 +429,7 @@ public class TraitUtils {
 
     /**
      * ProjectCollation.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static RelCollation projectCollation(RelCollation collation, List<RexNode> projects, RelDataType inputRowType) {
         if (collation.getFieldCollations().isEmpty()) {
@@ -446,8 +443,7 @@ public class TraitUtils {
 
     /**
      * ProjectDistribution.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static IgniteDistribution projectDistribution(IgniteDistribution distribution, List<RexNode> projects,
             RelDataType inputRowType) {
@@ -462,8 +458,7 @@ public class TraitUtils {
 
     /**
      * PassThrough.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static Pair<RelTraitSet, List<RelTraitSet>> passThrough(TraitsAwareIgniteRel rel, RelTraitSet requiredTraits) {
         if (requiredTraits.getConvention() != IgniteConvention.INSTANCE || rel.getInputs().isEmpty()) {
@@ -487,8 +482,7 @@ public class TraitUtils {
 
     /**
      * Derive.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static List<RelNode> derive(TraitsAwareIgniteRel rel, List<List<RelTraitSet>> inTraits) {
         assert !nullOrEmpty(inTraits);
@@ -509,6 +503,9 @@ public class TraitUtils {
     }
 
     /**
+     * SingletonListFromNullable.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @param elem Elem.
      */
     private static <T> List<T> singletonListFromNullable(@Nullable T elem) {

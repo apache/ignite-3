@@ -32,7 +32,7 @@ import org.reflections.scanners.SubTypesScanner;
 import org.reflections.util.ConfigurationBuilder;
 
 /**
- * See {@link RelMetadataQuery}
+ * See {@link RelMetadataQuery}.
  */
 public class RelMetadataQueryEx extends RelMetadataQuery {
     static {

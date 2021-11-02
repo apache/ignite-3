@@ -20,6 +20,10 @@ package org.apache.ignite.internal.processors.query.calcite.util;
 import org.apache.calcite.runtime.Resources;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 
+/**
+ * IgniteResource interface.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public interface IgniteResource {
     IgniteResource INSTANCE = Resources.create(IgniteResource.class);
 

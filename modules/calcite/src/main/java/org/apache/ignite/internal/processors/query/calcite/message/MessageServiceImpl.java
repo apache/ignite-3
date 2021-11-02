@@ -35,7 +35,8 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyService;
 
 /**
- *
+ * MessageServiceImpl.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class MessageServiceImpl implements MessageService {
     private static final UUID QUERY_ID_STUB = UUID.randomUUID();
@@ -52,6 +53,10 @@ public class MessageServiceImpl implements MessageService {
 
     private Map<Short, MessageListener> lsnrs;
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public MessageServiceImpl(
             TopologyService topSrvc,
             MessagingService messagingSrvc,

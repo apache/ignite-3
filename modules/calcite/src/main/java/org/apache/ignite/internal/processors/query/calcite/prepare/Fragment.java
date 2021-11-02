@@ -140,7 +140,7 @@ public class Fragment {
 
     /**
      * Attach fragment to planning context.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public Fragment attach(PlanningContext ctx) {
         RelOptCluster cluster = ctx.cluster();
@@ -150,7 +150,7 @@ public class Fragment {
 
     /**
      * Detach fragment.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public Fragment detach() {
         RelOptCluster cluster = PlanningContext.empty().cluster();

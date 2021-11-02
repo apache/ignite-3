@@ -108,14 +108,14 @@ public class IgniteSqlCreateTableOption extends SqlCall {
     }
 
     /**
-     * @return Option's key.
+     * Get option's key.
      */
     public IgniteSqlCreateTableOptionEnum key() {
         return key.getValueAs(IgniteSqlCreateTableOptionEnum.class);
     }
 
     /**
-     * @return Option's value.
+     * Get option's value.
      */
     public SqlNode value() {
         return value;

@@ -92,6 +92,10 @@ public class FilterSpoolMergeToSortedIndexSpoolRule extends RelRule<FilterSpoolM
         call.transformTo(res);
     }
 
+    /**
+     * Config interface.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     @SuppressWarnings("ClassNameSameAsAncestorName")
     public interface Config extends RelRule.Config {
         Config DEFAULT = RelRule.Config.EMPTY

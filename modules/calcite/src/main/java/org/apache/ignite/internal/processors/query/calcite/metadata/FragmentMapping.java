@@ -30,6 +30,10 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteRel;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * FragmentMapping.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public class FragmentMapping implements Serializable {
     private List<ColocationGroup> colocationGroups;
 
@@ -56,6 +60,10 @@ public class FragmentMapping implements Serializable {
         return new FragmentMapping(ColocationGroup.forSourceId(sourceId));
     }
 
+    /**
+     * Create.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public static FragmentMapping create(long sourceId, ColocationGroup group) {
         try {
             return new FragmentMapping(ColocationGroup.forSourceId(sourceId).colocate(group));
@@ -68,6 +76,10 @@ public class FragmentMapping implements Serializable {
         return colocationGroups.isEmpty() || colocationGroups.size() == 1;
     }
 
+    /**
+     * Prune.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public FragmentMapping prune(IgniteRel rel) {
         if (colocationGroups.size() != 1) {
             return this;
@@ -80,6 +92,10 @@ public class FragmentMapping implements Serializable {
         return new FragmentMapping(Commons.combine(colocationGroups, other.colocationGroups));
     }
 
+    /**
+     * Colocate.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public FragmentMapping colocate(FragmentMapping other) throws ColocationMappingException {
         assert colocated() && other.colocated();
 
@@ -95,12 +111,20 @@ public class FragmentMapping implements Serializable {
         }
     }
 
+    /**
+     * nodeIds.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public List<String> nodeIds() {
         return colocationGroups.stream()
                 .flatMap(g -> g.nodeIds().stream())
                 .distinct().collect(Collectors.toList());
     }
 
+    /**
+     * finalize.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public FragmentMapping finalize(Supplier<List<String>> nodesSource) {
         if (colocationGroups.isEmpty()) {
             return this;
@@ -118,6 +142,10 @@ public class FragmentMapping implements Serializable {
         return new FragmentMapping(colocationGroups);
     }
 
+    /**
+     * FindGroup.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public @NotNull ColocationGroup findGroup(long sourceId) {
         List<ColocationGroup> groups = colocationGroups.stream()
                 .filter(c -> c.belongs(sourceId))

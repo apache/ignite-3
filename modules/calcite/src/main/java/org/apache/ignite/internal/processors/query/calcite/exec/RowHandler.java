@@ -39,7 +39,7 @@ public interface RowHandler<RowT> {
 
     /**
      * Get row factory.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     default RowFactory<RowT> factory(IgniteTypeFactory typeFactory, RelDataType rowType) {
         if (rowType.isStruct()) {
@@ -51,7 +51,7 @@ public interface RowHandler<RowT> {
 
     /**
      * Get row factory.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     default RowFactory<RowT> factory(IgniteTypeFactory typeFactory, List<RelDataType> fieldTypes) {
         Type[] types = new Type[fieldTypes.size()];

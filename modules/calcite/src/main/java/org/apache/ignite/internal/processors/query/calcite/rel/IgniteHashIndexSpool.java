@@ -48,6 +48,10 @@ public class IgniteHashIndexSpool extends AbstractIgniteSpool implements IgniteR
     /** Condition (used to calculate selectivity). */
     private final RexNode cond;
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IgniteHashIndexSpool(
             RelOptCluster cluster,
             RelTraitSet traits,

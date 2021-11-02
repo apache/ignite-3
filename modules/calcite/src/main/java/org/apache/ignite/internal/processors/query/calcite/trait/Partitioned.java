@@ -22,6 +22,10 @@ import java.util.List;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
+/**
+ * Partitioned.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public final class Partitioned<RowT> implements Destination<RowT> {
     private final List<List<String>> assignments;
 

@@ -91,8 +91,7 @@ public class CorrelateToNestedLoopRule extends ConverterRule {
 
     /**
      * Config interface.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @SuppressWarnings("ClassNameSameAsAncestorName")
     public interface Config extends ConverterRule.Config {
@@ -102,6 +101,10 @@ public class CorrelateToNestedLoopRule extends ConverterRule {
                 .as(Config.class)
                 .withConversion(LogicalCorrelate.class, Convention.NONE, IgniteConvention.INSTANCE);
 
+        /**
+         * WithConversion.
+         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+         */
         default Config withConversion(Class<? extends Correlate> clazz, RelTrait in, RelTrait out) {
             return withInTrait(in)
                     .withOutTrait(out)

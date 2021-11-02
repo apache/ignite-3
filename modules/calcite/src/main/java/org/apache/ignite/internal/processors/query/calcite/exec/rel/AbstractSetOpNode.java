@@ -77,7 +77,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
 
     /**
      * Push.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public void push(RowT row, int idx) throws Exception {
         assert downstream() != null;
@@ -96,7 +96,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
 
     /**
      * End.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public void end(int idx) throws Exception {
         assert downstream() != null;
@@ -196,7 +196,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
 
     /**
      * Grouping.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     protected abstract static class Grouping<RowT> {
         protected final Map<GroupKey, int[]> groups = new HashMap<>();
@@ -235,7 +235,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
 
         /**
          * GetRows.
-         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          *
          * @param cnt Number of rows.
          * @return Actually sent rows number.

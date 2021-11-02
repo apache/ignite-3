@@ -51,7 +51,7 @@ import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * PlannerHelper.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class PlannerHelper {
     /**
@@ -63,7 +63,7 @@ public class PlannerHelper {
 
     /**
      * Optimize.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param sqlNode Sql node.
      * @param planner Planner.

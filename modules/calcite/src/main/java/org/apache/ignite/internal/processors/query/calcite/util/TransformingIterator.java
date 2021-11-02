@@ -21,13 +21,18 @@ import java.util.Iterator;
 import java.util.function.Function;
 
 /**
- *
+ * TransformingIterator.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TransformingIterator<InT, OutT> implements Iterator<OutT> {
     private final Iterator<InT> delegate;
 
     private final Function<InT, OutT> transformation;
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public TransformingIterator(Iterator<InT> delegate, Function<InT, OutT> transformation) {
         this.delegate = delegate;
         this.transformation = transformation;

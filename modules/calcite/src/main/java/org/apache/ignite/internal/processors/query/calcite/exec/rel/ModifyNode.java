@@ -35,7 +35,7 @@ import org.apache.ignite.table.Tuple;
 
 /**
  * ModifyNode.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     protected final TableDescriptor desc;

@@ -32,8 +32,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * MappingServiceImpl.
- *
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class MappingServiceImpl implements MappingService {
     private final TopologyService topSrvc;

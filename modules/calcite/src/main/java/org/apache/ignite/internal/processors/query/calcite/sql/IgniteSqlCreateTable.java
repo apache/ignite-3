@@ -87,28 +87,28 @@ public class IgniteSqlCreateTable extends SqlCreate {
     }
 
     /**
-     * @return Name of the table.
+     * Get name of the table.
      */
     public SqlIdentifier name() {
         return name;
     }
 
     /**
-     * @return List of the specified columns and constraints.
+     * Get list of the specified columns and constraints.
      */
     public SqlNodeList columnList() {
         return columnList;
     }
 
     /**
-     * @return List of the specified options to create table with.
+     * Get list of the specified options to create table with.
      */
     public SqlNodeList createOptionList() {
         return createOptionList;
     }
 
     /**
-     * @return Whether the IF NOT EXISTS is specified.
+     * Get whether the IF NOT EXISTS is specified.
      */
     public boolean ifNotExists() {
         return ifNotExists;

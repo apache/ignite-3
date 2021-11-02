@@ -48,6 +48,8 @@ public final class DistributionTrait implements IgniteDistribution {
     private final ImmutableIntList keys;
 
     /**
+     * Constructor.
+     *
      * @param function Distribution function.
      */
     DistributionTrait(DistributionFunction function) {

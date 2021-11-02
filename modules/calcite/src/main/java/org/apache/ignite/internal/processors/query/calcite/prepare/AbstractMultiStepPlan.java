@@ -31,7 +31,7 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteSender;
 
 /**
  * Base multistep plan.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public abstract class AbstractMultiStepPlan implements MultiStepPlan {
     protected final FieldsMetadata fieldsMetadata;

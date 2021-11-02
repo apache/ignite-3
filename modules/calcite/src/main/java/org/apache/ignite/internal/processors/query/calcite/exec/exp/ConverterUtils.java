@@ -38,7 +38,7 @@ import org.apache.calcite.util.Util;
 
 /**
  * ConverterUtils.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ConverterUtils {
     private ConverterUtils() {

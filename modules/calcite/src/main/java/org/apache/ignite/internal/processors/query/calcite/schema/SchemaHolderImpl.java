@@ -36,6 +36,10 @@ public class SchemaHolderImpl implements SchemaHolder {
 
     private volatile SchemaPlus calciteSchema;
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public SchemaHolderImpl() {
         SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
         newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));

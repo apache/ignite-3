@@ -107,8 +107,7 @@ public class FilterSpoolMergeToHashIndexSpoolRule extends RelRule<FilterSpoolMer
 
     /**
      * Config interface.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @SuppressWarnings("ClassNameSameAsAncestorName")
     public interface Config extends RelRule.Config {

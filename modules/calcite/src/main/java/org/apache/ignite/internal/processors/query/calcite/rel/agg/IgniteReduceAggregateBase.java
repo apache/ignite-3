@@ -41,6 +41,10 @@ import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitsAwareIgniteRel;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
+/**
+ * IgniteReduceAggregateBase.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public abstract class IgniteReduceAggregateBase extends SingleRel implements TraitsAwareIgniteRel {
     protected final ImmutableBitSet groupSet;
 

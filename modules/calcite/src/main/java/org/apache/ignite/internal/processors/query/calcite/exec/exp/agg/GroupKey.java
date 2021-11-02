@@ -88,7 +88,7 @@ public class GroupKey implements Serializable {
 
         /**
          * Add value.
-         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          *
          * @param val Field value.
          * @return Builder for chaining.

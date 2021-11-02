@@ -30,6 +30,10 @@ import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLog
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
 
+/**
+ * ExposeIndexRule.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public class ExposeIndexRule extends RelOptRule {
     public static final RelOptRule INSTANCE = new ExposeIndexRule();
 

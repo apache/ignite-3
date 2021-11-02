@@ -36,7 +36,7 @@ import org.apache.ignite.lang.IgniteException;
 /**
  * Callback for a relational expression to dump itself as JSON.
  *
- * @see RelJsonReader
+ * @see RelJsonReader .
  */
 public class RelJsonWriter implements RelWriter {
     private static final boolean PRETTY_PRINT = false;
@@ -56,8 +56,7 @@ public class RelJsonWriter implements RelWriter {
 
     /**
      * ToJson.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static String toJson(RelNode rel) {
         RelJsonWriter writer = new RelJsonWriter(rel.getCluster(), PRETTY_PRINT);
@@ -68,8 +67,7 @@ public class RelJsonWriter implements RelWriter {
 
     /**
      * Constructor.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public RelJsonWriter(RelOptCluster cluster, boolean pretty) {
         this.pretty = pretty;
@@ -113,8 +111,7 @@ public class RelJsonWriter implements RelWriter {
 
     /**
      * AsString.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public String asString() {
         try {

@@ -74,6 +74,10 @@ import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * RexUtils.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public class RexUtils {
     public static RexNode makeCast(RexBuilder builder, RexNode node, RelDataType type) {
         return TypeUtils.needCast(builder.getTypeFactory(), node.getType(), type) ? builder.makeCast(type, node) : node;
@@ -99,6 +103,10 @@ public class RexUtils {
         return new RexSimplify(builder(cluster), RelOptPredicateList.EMPTY, executor(cluster));
     }
 
+    /**
+     * MakeCase.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public static RexNode makeCase(RexBuilder builder, RexNode... operands) {
         if (IgniteUtils.assertionsEnabled()) {
             // each odd operand except last one has to return a boolean type
@@ -410,6 +418,10 @@ public class RexUtils {
         return Commons.transform(types, builder::makeNullLiteral);
     }
 
+    /**
+     * IsNotNull.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public static boolean isNotNull(RexNode op) {
         if (op == null) {
             return false;
@@ -418,6 +430,10 @@ public class RexUtils {
         return !(op instanceof RexLiteral) || !((RexLiteral) op).isNull();
     }
 
+    /**
+     * AsBound.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public static List<RexNode> asBound(RelOptCluster cluster, Iterable<RexNode> idxCond, RelDataType rowType,
             @Nullable Mappings.TargetMapping mapping) {
         if (nullOrEmpty(idxCond)) {
@@ -447,6 +463,10 @@ public class RexUtils {
         return res;
     }
 
+    /**
+     * Permutation.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public static Mappings.TargetMapping permutation(List<RexNode> nodes, RelDataType inputRowType, boolean local) {
         final Mappings.TargetMapping mapping =
                 Mappings.create(MappingType.PARTIAL_FUNCTION, nodes.size(), inputRowType.getFieldCount());
@@ -465,6 +485,10 @@ public class RexUtils {
         return permutation(nodes, inputRowType, false);
     }
 
+    /**
+     * InversePermutation.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public static Mappings.TargetMapping inversePermutation(List<RexNode> nodes, RelDataType inputRowType, boolean local) {
         final Mappings.TargetMapping mapping =
                 Mappings.create(MappingType.INVERSE_FUNCTION, nodes.size(), inputRowType.getFieldCount());
@@ -499,6 +523,10 @@ public class RexUtils {
         return hasCorrelation(Collections.singletonList(node));
     }
 
+    /**
+     * HasCorrelation.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public static boolean hasCorrelation(List<RexNode> nodes) {
         try {
             RexVisitor<Void> v = new RexVisitorImpl<Void>(true) {
@@ -516,6 +544,10 @@ public class RexUtils {
         }
     }
 
+    /**
+     * ExtractCorrelationIds.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public static Set<CorrelationId> extractCorrelationIds(RexNode node) {
         if (node == null) {
             return Collections.emptySet();
@@ -524,6 +556,10 @@ public class RexUtils {
         return extractCorrelationIds(Collections.singletonList(node));
     }
 
+    /**
+     * ExtractCorrelationIds.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public static Set<CorrelationId> extractCorrelationIds(List<RexNode> nodes) {
         final Set<CorrelationId> cors = new HashSet<>();
 
@@ -541,6 +577,10 @@ public class RexUtils {
         return cors;
     }
 
+    /**
+     * NotNullKeys.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public static Set<Integer> notNullKeys(List<RexNode> row) {
         if (nullOrEmpty(row)) {
             return Collections.emptySet();

@@ -46,6 +46,10 @@ public class IgniteSortedIndexSpool extends AbstractIgniteSpool implements Ignit
     /** Filters. */
     protected final RexNode condition;
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IgniteSortedIndexSpool(
             RelOptCluster cluster,
             RelTraitSet traits,

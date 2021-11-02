@@ -84,6 +84,8 @@ public class IgniteCost implements RelOptCost {
     private final double network;
 
     /**
+     * Constructor.
+     *
      * @param rowCount Row count.
      * @param cpu      Cpu.
      * @param memory   Memory.
@@ -117,14 +119,14 @@ public class IgniteCost implements RelOptCost {
     }
 
     /**
-     * @return Usage of Memory resources.
+     * Get usage of Memory resources.
      */
     public double getMemory() {
         return memory;
     }
 
     /**
-     * @return Usage of Network resources.
+     * Get usage of Network resources.
      */
     public double getNetwork() {
         return network;

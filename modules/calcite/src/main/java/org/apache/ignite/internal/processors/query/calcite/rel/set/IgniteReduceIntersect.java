@@ -36,7 +36,8 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteRelVisitor;
  */
 public class IgniteReduceIntersect extends IgniteIntersect implements IgniteReduceSetOp {
     /**
-     *
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public IgniteReduceIntersect(
             RelOptCluster cluster,
@@ -51,7 +52,8 @@ public class IgniteReduceIntersect extends IgniteIntersect implements IgniteRedu
     }
 
     /**
-     *
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public IgniteReduceIntersect(RelInput input) {
         this(

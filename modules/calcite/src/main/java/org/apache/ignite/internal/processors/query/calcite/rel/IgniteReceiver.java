@@ -31,7 +31,7 @@ import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.util.Pair;
 
 /**
- * Relational expression that receives elements from remote {@link IgniteSender}
+ * Relational expression that receives elements from remote {@link IgniteSender}.
  */
 public class IgniteReceiver extends AbstractRelNode implements IgniteRel {
     private final long exchangeId;
@@ -53,6 +53,10 @@ public class IgniteReceiver extends AbstractRelNode implements IgniteRel {
         this(cluster, traits, rowType, exchangeId, sourceFragmentId, traits.getCollation());
     }
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IgniteReceiver(RelInput input) {
         this(
                 input.getCluster(),

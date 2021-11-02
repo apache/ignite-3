@@ -22,11 +22,16 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
 
 /**
- *
+ * NodeLeaveHandler.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class NodeLeaveHandler implements TopologyEventHandler {
     private final Consumer<ClusterNode> onDisappeared;
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public NodeLeaveHandler(Consumer<ClusterNode> onDisappeared) {
         this.onDisappeared = onDisappeared;
     }

@@ -40,10 +40,18 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteRelVisitor;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
+/**
+ * IgniteMapSortAggregate.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public class IgniteMapSortAggregate extends IgniteMapAggregateBase implements IgniteSortAggregateBase {
     /** Collation. */
     private final RelCollation collation;
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IgniteMapSortAggregate(
             RelOptCluster cluster,
             RelTraitSet traitSet,
@@ -61,6 +69,10 @@ public class IgniteMapSortAggregate extends IgniteMapAggregateBase implements Ig
         this.collation = collation;
     }
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IgniteMapSortAggregate(RelInput input) {
         super(TraitUtils.changeTraits(input, IgniteConvention.INSTANCE));
 

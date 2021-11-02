@@ -23,8 +23,7 @@ import org.apache.ignite.internal.schema.NativeType;
 
 /**
  * ColumnDescriptor.
- *
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public interface ColumnDescriptor {
     boolean key();

@@ -32,6 +32,10 @@ import org.apache.ignite.internal.processors.query.calcite.rel.agg.IgniteSingleH
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions;
 import org.apache.ignite.internal.processors.query.calcite.util.HintUtils;
 
+/**
+ * HashAggregateConverterRule.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public class HashAggregateConverterRule {
     public static final RelOptRule SINGLE = new HashSingleAggregateConverterRule();
 

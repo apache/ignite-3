@@ -23,6 +23,10 @@ import org.apache.calcite.plan.RelTrait;
 import org.apache.calcite.plan.RelTraitDef;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * RewindabilityTrait.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public class RewindabilityTrait implements RelMultipleTrait {
     public static final RewindabilityTrait ONE_WAY = canonize(new RewindabilityTrait(false));
 

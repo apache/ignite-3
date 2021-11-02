@@ -39,14 +39,17 @@ import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
 
 /**
  * IgniteMdSelectivity.
- *
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteMdSelectivity extends RelMdSelectivity {
     public static final RelMetadataProvider SOURCE =
             ReflectiveRelMetadataProvider.reflectiveSource(
                     BuiltInMethod.SELECTIVITY.method, new IgniteMdSelectivity());
 
+    /**
+     * GetSelectivity
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public Double getSelectivity(AbstractIndexScan rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate != null) {
             return getSelectivity((ProjectableFilterableTableScan) rel, mq, predicate);
@@ -90,6 +93,10 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         return idxSelectivity * RelMdUtil.guessSelectivity(remaining);
     }
 
+    /**
+     * GetSelectivity
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public Double getSelectivity(ProjectableFilterableTableScan rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate == null) {
             return RelMdUtil.guessSelectivity(rel.condition());
@@ -104,6 +111,10 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         return RelMdUtil.guessSelectivity(diff);
     }
 
+    /**
+     * GetSelectivity
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public Double getSelectivity(IgniteSortedIndexSpool rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate != null) {
             return mq.getSelectivity(rel.getInput(),
@@ -116,6 +127,10 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         return mq.getSelectivity(rel.getInput(), rel.condition());
     }
 
+    /**
+     * GetSelectivity
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public Double getSelectivity(IgniteHashIndexSpool rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate != null) {
             return mq.getSelectivity(rel.getInput(),

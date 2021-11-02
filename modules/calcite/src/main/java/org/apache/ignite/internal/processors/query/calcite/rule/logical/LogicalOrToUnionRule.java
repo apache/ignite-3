@@ -97,6 +97,10 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
                 .build();
     }
 
+    /**
+     * Config interface.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     @SuppressWarnings("ClassNameSameAsAncestorName")
     public interface Config extends RelRule.Config {
         Config DEFAULT = RelRule.Config.EMPTY

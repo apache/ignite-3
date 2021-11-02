@@ -604,7 +604,7 @@ public class RexImpTable {
 
     /**
      * Get RexCallImplementor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public RexCallImplementor get(final SqlOperator operator) {
         if (operator instanceof SqlUserDefinedFunction) {
@@ -2566,8 +2566,7 @@ public class RexImpTable {
 
     /**
      * Create implementor.
-     *
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static CallImplementor createImplementor(
             final NotNullImplementor implementor,
