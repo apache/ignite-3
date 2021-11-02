@@ -18,8 +18,10 @@
 package com.facebook.presto.bytecode;
 
 public class ByteCodeTooLargeException
-        extends RuntimeException {
-    public ByteCodeTooLargeException(Exception cause) {
+        extends RuntimeException
+{
+    public ByteCodeTooLargeException(Exception cause)
+    {
         super(cause);
     }
 }

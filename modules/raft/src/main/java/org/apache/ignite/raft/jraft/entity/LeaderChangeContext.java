@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.entity;
 
 import org.apache.ignite.raft.jraft.Status;
@@ -90,14 +89,16 @@ public class LeaderChangeContext {
             if (other.leaderId != null) {
                 return false;
             }
-        } else if (!this.leaderId.equals(other.leaderId)) {
+        }
+        else if (!this.leaderId.equals(other.leaderId)) {
             return false;
         }
         if (this.status == null) {
             if (other.status != null) {
                 return false;
             }
-        } else if (!this.status.equals(other.status)) {
+        }
+        else if (!this.status.equals(other.status)) {
             return false;
         }
         return this.term == other.term;
@@ -106,7 +107,7 @@ public class LeaderChangeContext {
     @Override
     public String toString() {
         return "LeaderChangeContext [leaderId=" + this.leaderId + ", term=" + this.term + ", status=" + this.status
-                + "]";
+            + "]";
     }
 
 }

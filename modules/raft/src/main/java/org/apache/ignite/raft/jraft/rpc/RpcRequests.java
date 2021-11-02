@@ -41,8 +41,9 @@ public final class RpcRequests {
     public interface ErrorResponse extends Message {
         /**
          * Error code.
-         * <p>
-         * Note: despite of the naming, 0 code is the success response, see {@link RaftError#SUCCESS}.
+         *
+         * Note: despite of the naming, 0 code is the success response,
+         * see {@link RaftError#SUCCESS}.
          *
          * @return error code.
          */

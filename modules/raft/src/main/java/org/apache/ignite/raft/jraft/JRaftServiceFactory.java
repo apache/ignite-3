@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft;
 
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
@@ -32,7 +31,7 @@ public interface JRaftServiceFactory {
     /**
      * Creates a raft log storage.
      *
-     * @param uri         The log storage uri from {@link NodeOptions#getSnapshotUri()}
+     * @param uri The log storage uri from {@link NodeOptions#getSnapshotUri()}
      * @param raftOptions the raft options.
      * @return storage to store raft log entires.
      */
@@ -41,7 +40,7 @@ public interface JRaftServiceFactory {
     /**
      * Creates a raft snapshot storage
      *
-     * @param uri         The snapshot storage uri from {@link NodeOptions#getSnapshotUri()}
+     * @param uri The snapshot storage uri from {@link NodeOptions#getSnapshotUri()}
      * @param raftOptions the raft options.
      * @return storage to store state machine snapshot.
      */
@@ -50,7 +49,7 @@ public interface JRaftServiceFactory {
     /**
      * Creates a raft meta storage.
      *
-     * @param uri         The meta storage uri from {@link NodeOptions#getRaftMetaUri()}
+     * @param uri The meta storage uri from {@link NodeOptions#getRaftMetaUri()}
      * @param raftOptions the raft options.
      * @return meta storage to store raft meta info.
      */

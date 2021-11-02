@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft;
 
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -76,7 +75,8 @@ public class Status implements Copiable<Status> {
             }
             if (this.msg == null) {
                 return other.msg == null;
-            } else {
+            }
+            else {
                 return this.msg.equals(other.msg);
             }
         }
@@ -98,7 +98,8 @@ public class Status implements Copiable<Status> {
     public Status(Status s) {
         if (s.state != null) {
             this.state = new State(s.state.code, s.state.msg);
-        } else {
+        }
+        else {
             this.state = null;
         }
     }
@@ -137,7 +138,8 @@ public class Status implements Copiable<Status> {
         Status other = (Status) obj;
         if (this.state == null) {
             return other.state == null;
-        } else {
+        }
+        else {
             return this.state.equals(other.state);
         }
     }
@@ -162,7 +164,8 @@ public class Status implements Copiable<Status> {
     public void setCode(int code) {
         if (this.state == null) {
             this.state = new State(code, null);
-        } else {
+        }
+        else {
             this.state.code = code;
         }
     }
@@ -187,7 +190,8 @@ public class Status implements Copiable<Status> {
     public void setErrorMsg(String errMsg) {
         if (this.state == null) {
             this.state = new State(0, errMsg);
-        } else {
+        }
+        else {
             this.state.msg = errMsg;
         }
     }
@@ -210,9 +214,10 @@ public class Status implements Copiable<Status> {
     public String toString() {
         if (isOk()) {
             return "Status[OK]";
-        } else {
+        }
+        else {
             return "Status[" + RaftError.describeCode(this.state.code) + "<" + this.state.code + ">: " + this.state.msg
-                    + "]";
+                + "]";
         }
     }
 

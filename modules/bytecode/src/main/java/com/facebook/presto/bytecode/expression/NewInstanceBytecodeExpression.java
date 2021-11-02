@@ -17,32 +17,35 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import static java.util.Objects.requireNonNull;
-
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.ParameterizedType;
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
+
+import static java.util.Objects.requireNonNull;
 
 class NewInstanceBytecodeExpression
-        extends BytecodeExpression {
+        extends BytecodeExpression
+{
     private final List<BytecodeExpression> parameters;
     private final List<ParameterizedType> parameterTypes;
 
     NewInstanceBytecodeExpression(
             ParameterizedType type,
             Collection<ParameterizedType> parameterTypes,
-            Collection<? extends BytecodeExpression> parameters) {
+            Collection<? extends BytecodeExpression> parameters)
+    {
         super(type);
         this.parameterTypes = List.copyOf(requireNonNull(parameterTypes, "parameterTypes is null"));
         this.parameters = List.copyOf(requireNonNull(parameters, "parameters is null"));
     }
 
     @Override
-    public BytecodeNode getBytecode(MethodGenerationContext generationContext) {
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
+    {
         BytecodeBlock block = new BytecodeBlock()
                 .newObject(getType())
                 .dup();
@@ -54,13 +57,15 @@ class NewInstanceBytecodeExpression
     }
 
     @Override
-    protected String formatOneLine() {
+    protected String formatOneLine()
+    {
         return "new " + getType().getSimpleName() + "(" +
-                parameters.stream().map(BytecodeExpression::toString).collect(Collectors.joining(", ")) + ")";
+            parameters.stream().map(BytecodeExpression::toString).collect(Collectors.joining(", ")) + ")";
     }
 
     @Override
-    public List<BytecodeNode> getChildNodes() {
+    public List<BytecodeNode> getChildNodes()
+    {
         return List.copyOf(parameters);
     }
 }

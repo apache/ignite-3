@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.util.concurrent;
 
 import java.util.ArrayList;
@@ -39,7 +38,7 @@ public class MpscSingleThreadExecutor implements SingleThreadExecutor {
     private static final IgniteLogger LOG = IgniteLogger.forClass(MpscSingleThreadExecutor.class);
 
     private static final AtomicIntegerFieldUpdater<MpscSingleThreadExecutor> STATE_UPDATER = AtomicIntegerFieldUpdater
-            .newUpdater(MpscSingleThreadExecutor.class, "state");
+        .newUpdater(MpscSingleThreadExecutor.class, "state");
 
     private static final long DEFAULT_SHUTDOWN_TIMEOUT = 15;
 
@@ -65,7 +64,7 @@ public class MpscSingleThreadExecutor implements SingleThreadExecutor {
     }
 
     public MpscSingleThreadExecutor(int maxPendingTasks, ThreadFactory threadFactory,
-            RejectedExecutionHandler rejectedExecutionHandler) {
+        RejectedExecutionHandler rejectedExecutionHandler) {
         this.taskQueue = newTaskQueue(maxPendingTasks);
         this.executor = new ThreadPerTaskExecutor(threadFactory);
         this.rejectedExecutionHandler = rejectedExecutionHandler;
@@ -109,7 +108,8 @@ public class MpscSingleThreadExecutor implements SingleThreadExecutor {
         if (oldState == ST_NOT_STARTED) {
             try {
                 doStartWorker();
-            } catch (final Throwable t) {
+            }
+            catch (final Throwable t) {
                 this.state = ST_TERMINATED;
 
                 if (!(t instanceof Exception)) {
@@ -159,9 +159,11 @@ public class MpscSingleThreadExecutor implements SingleThreadExecutor {
             for (final Runnable task : copy) {
                 try {
                     task.run();
-                } catch (final Throwable t) {
+                }
+                catch (final Throwable t) {
                     LOG.warn("Shutdown hook raised an exception.", t);
-                } finally {
+                }
+                finally {
                     ran = true;
                 }
             }
@@ -189,7 +191,8 @@ public class MpscSingleThreadExecutor implements SingleThreadExecutor {
             if (this.threadLock.tryAcquire(timeout, unit)) {
                 this.threadLock.release();
             }
-        } catch (final InterruptedException ignored) {
+        }
+        catch (final InterruptedException ignored) {
             // ignored
         }
 
@@ -201,7 +204,8 @@ public class MpscSingleThreadExecutor implements SingleThreadExecutor {
     }
 
     /**
-     * Add a task to the task queue or throws a {@link RejectedExecutionException} if this instance was shutdown before.
+     * Add a task to the task queue or throws a {@link RejectedExecutionException} if this instance was shutdown
+     * before.
      */
     protected void addTask(final Runnable task) {
         if (!offerTask(task)) {
@@ -241,7 +245,8 @@ public class MpscSingleThreadExecutor implements SingleThreadExecutor {
         if (STATE_UPDATER.compareAndSet(this, ST_NOT_STARTED, ST_STARTED)) {
             try {
                 doStartWorker();
-            } catch (final Throwable t) {
+            }
+            catch (final Throwable t) {
                 this.state = ST_NOT_STARTED;
                 throw new RuntimeException("Fail to start executor", t);
             }
@@ -254,9 +259,11 @@ public class MpscSingleThreadExecutor implements SingleThreadExecutor {
 
             try {
                 MpscSingleThreadExecutor.this.worker.run();
-            } catch (final Throwable t) {
+            }
+            catch (final Throwable t) {
                 LOG.warn("Unexpected exception from executor: ", t);
-            } finally {
+            }
+            finally {
                 for (; ; ) {
                     int oldState = MpscSingleThreadExecutor.this.state;
                     if (oldState >= ST_SHUTDOWN || STATE_UPDATER.compareAndSet(MpscSingleThreadExecutor.this, oldState, ST_SHUTDOWN)) {
@@ -286,7 +293,7 @@ public class MpscSingleThreadExecutor implements SingleThreadExecutor {
     }
 
     private static final AtomicIntegerFieldUpdater<Worker> NOTIFY_UPDATER = AtomicIntegerFieldUpdater.newUpdater(
-            Worker.class, "notifyNeeded");
+        Worker.class, "notifyNeeded");
     private static final int NOT_NEEDED = 0;
     private static final int NEEDED = 1;
 
@@ -319,7 +326,8 @@ public class MpscSingleThreadExecutor implements SingleThreadExecutor {
                             if (this.stop || isShutdown()) {
                                 break;
                             }
-                        } catch (final InterruptedException ignored) {
+                        }
+                        catch (final InterruptedException ignored) {
                             // ignored
                         }
                     }
@@ -343,7 +351,8 @@ public class MpscSingleThreadExecutor implements SingleThreadExecutor {
         private void runTask(final Runnable task) {
             try {
                 task.run();
-            } catch (final Throwable t) {
+            }
+            catch (final Throwable t) {
                 LOG.warn("Caught an unknown error while executing a task", t);
             }
         }

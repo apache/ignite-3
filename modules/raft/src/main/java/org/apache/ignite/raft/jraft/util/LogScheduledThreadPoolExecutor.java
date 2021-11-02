@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.util;
 
 import java.util.concurrent.CancellationException;
@@ -26,8 +25,8 @@ import java.util.concurrent.ThreadFactory;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
- * A {@link java.util.concurrent.ThreadPoolExecutor} that can additionally schedule commands to run after a given delay with a logger witch
- * can print error message for failed execution.
+ * A {@link java.util.concurrent.ThreadPoolExecutor} that can additionally schedule commands to run after a given delay
+ * with a logger witch can print error message for failed execution.
  */
 public class LogScheduledThreadPoolExecutor extends ScheduledThreadPoolExecutor {
     private static final IgniteLogger LOG = IgniteLogger.forClass(LogScheduledThreadPoolExecutor.class);
@@ -50,7 +49,7 @@ public class LogScheduledThreadPoolExecutor extends ScheduledThreadPoolExecutor 
     }
 
     public LogScheduledThreadPoolExecutor(int corePoolSize, ThreadFactory threadFactory,
-            RejectedExecutionHandler handler, String name) {
+        RejectedExecutionHandler handler, String name) {
         super(corePoolSize, threadFactory, handler);
         this.name = name;
     }
@@ -68,11 +67,14 @@ public class LogScheduledThreadPoolExecutor extends ScheduledThreadPoolExecutor 
                 if (f.isDone()) {
                     f.get();
                 }
-            } catch (final CancellationException ce) {
+            }
+            catch (final CancellationException ce) {
                 // ignored
-            } catch (final ExecutionException ee) {
+            }
+            catch (final ExecutionException ee) {
                 t = ee.getCause();
-            } catch (final InterruptedException ie) {
+            }
+            catch (final InterruptedException ie) {
                 Thread.currentThread().interrupt(); // ignore/reset
             }
         }

@@ -14,10 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.core;
-
-import static java.util.stream.Collectors.toList;
 
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.EventTranslator;
@@ -59,6 +56,8 @@ import org.apache.ignite.raft.jraft.util.DisruptorMetricSet;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.Utils;
+
+import static java.util.stream.Collectors.toList;
 
 /**
  * The finite state machine caller implementation.
@@ -110,8 +109,7 @@ public class FSMCallerImpl implements FSMCaller {
         CountDownLatch shutdownLatch;
 
         /** {@inheritDoc} */
-        @Override
-        public String groupId() {
+        @Override public String groupId() {
             return groupId;
         }
 
@@ -183,7 +181,7 @@ public class FSMCallerImpl implements FSMCaller {
 
         if (this.nodeMetrics.getMetricRegistry() != null) {
             this.nodeMetrics.getMetricRegistry().register("jraft-fsm-caller-disruptor",
-                    new DisruptorMetricSet(this.taskQueue));
+                new DisruptorMetricSet(this.taskQueue));
         }
         this.error = new RaftException(ErrorType.ERROR_TYPE_NONE);
         this.msgFactory = opts.getRaftMessagesFactory();
@@ -225,7 +223,7 @@ public class FSMCallerImpl implements FSMCaller {
 
         if (!this.taskQueue.tryPublishEvent(tpl)) {
             setError(new RaftException(ErrorType.ERROR_TYPE_STATE_MACHINE, new Status(RaftError.EBUSY,
-                    "FSMCaller is overload.")));
+                "FSMCaller is overload.")));
             return false;
         }
         return true;
@@ -371,7 +369,8 @@ public class FSMCallerImpl implements FSMCaller {
             if (task.committedIndex > maxCommittedIndex) {
                 maxCommittedIndex = task.committedIndex;
             }
-        } else {
+        }
+        else {
             if (maxCommittedIndex >= 0) {
                 this.currTask = TaskType.COMMITTED;
                 doCommitted(maxCommittedIndex);
@@ -427,7 +426,8 @@ public class FSMCallerImpl implements FSMCaller {
                         shutdown = task.shutdownLatch;
                         break;
                 }
-            } finally {
+            }
+            finally {
                 this.nodeMetrics.recordLatency(task.type.metricName(), Utils.monotonicMs() - startMs);
             }
         }
@@ -439,7 +439,8 @@ public class FSMCallerImpl implements FSMCaller {
             }
             this.currTask = TaskType.IDLE;
             return maxCommittedIndex;
-        } finally {
+        }
+        finally {
             if (shutdown != null) {
                 shutdown.countDown();
             }
@@ -481,7 +482,7 @@ public class FSMCallerImpl implements FSMCaller {
 
             Requires.requireTrue(firstClosureIndex >= 0, "Invalid firstClosureIndex");
             final IteratorImpl iterImpl = new IteratorImpl(this.fsm, this.logManager, closures, firstClosureIndex,
-                    lastAppliedIndex, committedIndex, this.applyingIndex, this.node.getOptions());
+                lastAppliedIndex, committedIndex, this.applyingIndex, this.node.getOptions());
 
             while (iterImpl.isGood()) {
                 final LogEntry logEntry = iterImpl.entry();
@@ -517,7 +518,8 @@ public class FSMCallerImpl implements FSMCaller {
             this.lastAppliedTerm = lastTerm;
             this.logManager.setAppliedId(lastAppliedId);
             notifyLastAppliedIndexUpdated(lastIndex);
-        } finally {
+        }
+        finally {
             this.nodeMetrics.recordLatency("fsm-commit", Utils.monotonicMs() - startMs);
         }
     }
@@ -535,7 +537,8 @@ public class FSMCallerImpl implements FSMCaller {
         final long startIndex = iter.getIndex();
         try {
             this.fsm.onApply(iter);
-        } finally {
+        }
+        finally {
             this.nodeMetrics.recordLatency("fsm-apply-tasks", Utils.monotonicMs() - startApplyMs);
             this.nodeMetrics.recordSize("fsm-apply-tasks-count", iter.getIndex() - startIndex);
         }
@@ -553,20 +556,20 @@ public class FSMCallerImpl implements FSMCaller {
         if (confEntry == null || confEntry.isEmpty()) {
             LOG.error("Empty conf entry for lastAppliedIndex={}", lastAppliedIndex);
             Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, new Status(RaftError.EINVAL,
-                    "Empty conf entry for lastAppliedIndex=%s", lastAppliedIndex));
+                "Empty conf entry for lastAppliedIndex=%s", lastAppliedIndex));
             return;
         }
 
         SnapshotMetaBuilder metaBuilder = msgFactory.snapshotMeta()
-                .lastIncludedIndex(lastAppliedIndex)
-                .lastIncludedTerm(this.lastAppliedTerm)
-                .peersList(confEntry.getConf().getPeers().stream().map(Object::toString).collect(toList()))
-                .learnersList(confEntry.getConf().getLearners().stream().map(Object::toString).collect(toList()));
+            .lastIncludedIndex(lastAppliedIndex)
+            .lastIncludedTerm(this.lastAppliedTerm)
+            .peersList(confEntry.getConf().getPeers().stream().map(Object::toString).collect(toList()))
+            .learnersList(confEntry.getConf().getLearners().stream().map(Object::toString).collect(toList()));
 
         if (confEntry.getOldConf() != null) {
             metaBuilder
-                    .oldPeersList(confEntry.getOldConf().getPeers().stream().map(Object::toString).collect(toList()))
-                    .oldLearnersList(confEntry.getOldConf().getLearners().stream().map(Object::toString).collect(toList()));
+                .oldPeersList(confEntry.getOldConf().getPeers().stream().map(Object::toString).collect(toList()))
+                .oldLearnersList(confEntry.getOldConf().getLearners().stream().map(Object::toString).collect(toList()));
         }
 
         final SnapshotWriter writer = done.start(metaBuilder.build());
@@ -629,7 +632,7 @@ public class FSMCallerImpl implements FSMCaller {
             done.run(new Status(RaftError.EINVAL, "SnapshotReader load meta failed"));
             if (reader.getRaftError() == RaftError.EIO) {
                 final RaftException err = new RaftException(ErrorType.ERROR_TYPE_SNAPSHOT, RaftError.EIO,
-                        "Fail to load snapshot meta");
+                    "Fail to load snapshot meta");
                 setError(err);
             }
             return;
@@ -638,15 +641,15 @@ public class FSMCallerImpl implements FSMCaller {
         final LogId snapshotId = new LogId(meta.lastIncludedIndex(), meta.lastIncludedTerm());
         if (lastAppliedId.compareTo(snapshotId) > 0) {
             done.run(new Status(
-                    RaftError.ESTALE,
-                    "Loading a stale snapshot last_applied_index=%d last_applied_term=%d snapshot_index=%d snapshot_term=%d",
-                    lastAppliedId.getIndex(), lastAppliedId.getTerm(), snapshotId.getIndex(), snapshotId.getTerm()));
+                RaftError.ESTALE,
+                "Loading a stale snapshot last_applied_index=%d last_applied_term=%d snapshot_index=%d snapshot_term=%d",
+                lastAppliedId.getIndex(), lastAppliedId.getTerm(), snapshotId.getIndex(), snapshotId.getTerm()));
             return;
         }
         if (!this.fsm.onSnapshotLoad(reader)) {
             done.run(new Status(-1, "StateMachine onSnapshotLoad failed"));
             final RaftException e = new RaftException(ErrorType.ERROR_TYPE_STATE_MACHINE,
-                    RaftError.ESTATEMACHINE, "StateMachine onSnapshotLoad failed");
+                RaftError.ESTATEMACHINE, "StateMachine onSnapshotLoad failed");
             setError(e);
             return;
         }
@@ -720,6 +723,6 @@ public class FSMCallerImpl implements FSMCaller {
     @Override
     public void describe(final Printer out) {
         out.print("  ") //
-                .println(toString());
+            .println(toString());
     }
 }

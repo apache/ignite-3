@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
 import java.util.concurrent.Executor;
@@ -26,8 +25,8 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
 
 /**
  * Handle install snapshot request.
- * <p>
- * <p>
+ *
+ *
  * TODO asch use dedicated executor for potentially long jobs ? https://issues.apache.org/jira/browse/IGNITE-14832
  */
 public class InstallSnapshotRequestProcessor extends NodeRequestProcessor<InstallSnapshotRequest> {
@@ -47,7 +46,7 @@ public class InstallSnapshotRequestProcessor extends NodeRequestProcessor<Instal
 
     @Override
     public Message processRequest0(final RaftServerService service, final InstallSnapshotRequest request,
-            final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         return service.handleInstallSnapshot(request, done);
     }
 
