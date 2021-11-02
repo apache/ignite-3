@@ -71,11 +71,11 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Jraft cli tests.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ITCliServiceTest {
+public class ItCliServiceTest {
     /**
      * The logger.
      */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ITCliServiceTest.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ItCliServiceTest.class);
 
     private static final int LEARNER_PORT_STEP = 100;
 
