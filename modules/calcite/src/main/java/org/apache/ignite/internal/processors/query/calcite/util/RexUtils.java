@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Set;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.ints.IntIterator;
+import it.unimi.dsi.fastutil.objects.ObjectIterator;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPredicateList;
@@ -298,12 +298,10 @@ public class RexUtils {
 
         List<RexNode> searchPreds = null;
 
-        IntIterator iterator = fieldsToPredicates.keySet().iterator();
+        ObjectIterator<List<RexCall>> iterator = fieldsToPredicates.values().iterator();
 
         while (iterator.hasNext()) {
-            int fldIdx = iterator.nextInt();
-
-            List<RexCall> collFldPreds = fieldsToPredicates.get(fldIdx);
+            List<RexCall> collFldPreds = iterator.next();
 
             if (nullOrEmpty(collFldPreds))
                 break;
