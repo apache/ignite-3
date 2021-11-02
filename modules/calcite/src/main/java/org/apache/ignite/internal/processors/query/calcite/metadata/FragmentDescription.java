@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.processors.query.calcite.metadata;
 
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-
 import java.io.Serializable;
 import java.util.List;
+
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
 /** */
 public class FragmentDescription implements Serializable {
