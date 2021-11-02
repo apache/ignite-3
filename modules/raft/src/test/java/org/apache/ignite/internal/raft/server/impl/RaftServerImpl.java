@@ -47,7 +47,6 @@ import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.SMCompactedThrowable;
-import org.apache.ignite.raft.jraft.rpc.impl.SMFullThrowable;
 import org.jetbrains.annotations.Nullable;
 
 /**
