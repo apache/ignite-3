@@ -28,11 +28,7 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelCollations;
-import org.apache.calcite.rel.RelInput;
-import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.RelWriter;
+import org.apache.calcite.rel.*;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
@@ -176,11 +172,10 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
 
         List<Integer> collationLeftPrj = new ArrayList<>();
 
-        int[] collKeys = collation.getKeys().toIntArray();
-
-        for (int c : collKeys) {
+        for (RelFieldCollation fieldCollation : collation.getFieldCollations()) {
+            int c = fieldCollation.getFieldIndex();
             collationLeftPrj.add(
-                c >= rightOff ? rightToLeft.get(c - rightOff) : c
+                    c >= rightOff ? rightToLeft.get(c - rightOff) : c
             );
         }
 
@@ -198,7 +193,9 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
             newRightCollation = new ArrayList<>();
 
             int ind = 0;
-            for (int c : collKeys) {
+            for (RelFieldCollation fieldCollation : collation.getFieldCollations()) {
+                int c = fieldCollation.getFieldIndex();
+
                 if (c < rightOff) {
                     newLeftCollation.add(c);
 
