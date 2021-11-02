@@ -43,7 +43,7 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.TestUtils;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.asm.AsmSerializerGenerator;
 import org.apache.ignite.internal.schema.marshaller.reflection.JavaSerializerFactory;
 import org.apache.ignite.internal.schema.row.Row;
@@ -401,7 +401,7 @@ public class JavaSerializerTest {
      * @param type Type.
      */
     private Object generateRandomValue(NativeType type) {
-        return TestUtils.generateRandomValue(rnd, type);
+        return SchemaTestUtils.generateRandomValue(rnd, type);
     }
 
     /**
@@ -477,8 +477,8 @@ public class JavaSerializerTest {
             obj.bitmaskCol = IgniteTestUtils.randomBitSet(rnd, 42);
             obj.stringCol = IgniteTestUtils.randomString(rnd, rnd.nextInt(255));
             obj.bytesCol = IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));
-            obj.numberCol = (BigInteger)TestUtils.generateRandomValue(rnd, NativeTypes.numberOf(12));
-            obj.decimalCol = (BigDecimal)TestUtils.generateRandomValue(rnd, NativeTypes.decimalOf(19, 3));
+            obj.numberCol = (BigInteger)SchemaTestUtils.generateRandomValue(rnd, NativeTypes.numberOf(12));
+            obj.decimalCol = (BigDecimal)SchemaTestUtils.generateRandomValue(rnd, NativeTypes.decimalOf(19, 3));
 
             return obj;
         }

@@ -33,7 +33,7 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.TestUtils;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
@@ -184,7 +184,7 @@ public class UpgradingRowAdapterTest {
         for (int i = 0; i < schema.length(); i++) {
             NativeType type = schema.column(i).type();
 
-            res.add(TestUtils.generateRandomValue(rnd, type));
+            res.add(SchemaTestUtils.generateRandomValue(rnd, type));
         }
 
         return res;
@@ -195,7 +195,7 @@ public class UpgradingRowAdapterTest {
      *
      * @param schema Row schema.
      * @param vals Row values.
-     * @return
+     * @return Serialized row.
      */
     private byte[] serializeValuesToRow(SchemaDescriptor schema, List<Object> vals) {
         assertEquals(schema.keyColumns().length() + schema.valueColumns().length(), vals.size());

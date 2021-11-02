@@ -17,15 +17,35 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 
+import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
+import static org.apache.ignite.internal.schema.NativeTypes.DATE;
+import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
+import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.schema.NativeTypes.INT16;
+import static org.apache.ignite.internal.schema.NativeTypes.INT32;
+import static org.apache.ignite.internal.schema.NativeTypes.INT64;
+import static org.apache.ignite.internal.schema.NativeTypes.INT8;
+import static org.apache.ignite.internal.schema.NativeTypes.STRING;
+import static org.apache.ignite.internal.schema.NativeTypes.datetime;
+import static org.apache.ignite.internal.schema.NativeTypes.time;
+import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -38,28 +58,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * TODO: IGNITE-14487 Add bulk operations tests.
  * TODO: IGNITE-14487 Add async operations tests.
  */
-public class KeyValueOperationsTest {
-    /** Default mapper. */
-    private final Mapper<Long> mapper = new Mapper<>() {
-        @Override public Class<Long> getType() {
-            return Long.class;
-        }
-    };
-
-    /** Simple schema. */
-    private SchemaDescriptor schema = new SchemaDescriptor(
-        1,
-        new Column[]{new Column("id", NativeTypes.INT64, false)},
-        new Column[]{new Column("val", NativeTypes.INT64, false)}
-    );
-
+public class KeyValueViewOperationsSimpleSchemaTest {
     /**
      * Creates table view.
      *
      * @return Table KV-view.
      */
     private KeyValueView<Long, Long> kvView() {
-        return new KeyValueViewImpl<>(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), mapper, mapper, null);
+        return kvViewForValueType(NativeTypes.INT64, Long.class);
     }
 
     /**
@@ -297,5 +303,61 @@ public class KeyValueOperationsTest {
 
         // Remove non-existed KV pair.
         assertTrue(tbl.replace(2L, null, null));
+    }
+
+    /**
+     *
+     */
+    @Test
+    public void putGetAllTypes() {
+        Random rnd = new Random();
+        Long key = 42L;
+
+        List<NativeType> allTypes = List.of(INT8, INT16, INT32, INT64, FLOAT, DOUBLE, DATE,
+            NativeTypes.numberOf(20), NativeTypes.decimalOf(25, 5),
+            NativeTypes.bitmaskOf(22),
+            time(), datetime(), timestamp(),
+            BYTES, STRING);
+
+        assertEquals(Set.of(NativeTypeSpec.values()), allTypes.stream().map(NativeType::spec).collect(Collectors.toSet()));
+
+        for (NativeType type : allTypes) {
+            final Object val = SchemaTestUtils.generateRandomValue(rnd, type);
+
+            assertFalse(type.mismatch(NativeTypes.fromObject(val)));
+
+            KeyValueViewImpl<Long, Object> kvView = kvViewForValueType(NativeTypes.fromObject(val), (Class<Object>)val.getClass());
+
+            kvView.put(key, val);
+
+            if (val instanceof byte[])
+                assertArrayEquals((byte[])val, (byte[])kvView.get(key));
+            else
+                assertEquals(val, kvView.get(key));
+        }
+    }
+
+    /**
+     * @param type Value column native type.
+     * @param aClass Value class.
+     * @return Key-value view for given value type.
+     */
+    private <T> KeyValueViewImpl<Long, T> kvViewForValueType(NativeType type, Class<T> aClass) {
+        Mapper<Long> keyMapper = () -> Long.class;
+        Mapper<T> valMapper = () -> aClass;
+
+        SchemaDescriptor schema = new SchemaDescriptor(
+            1,
+            new Column[] {new Column("id", NativeTypes.INT64, false)},
+            new Column[] {new Column("val", type, false)}
+        );
+
+        return new KeyValueViewImpl<>(
+            new DummyInternalTableImpl(),
+            new DummySchemaManagerImpl(schema),
+            keyMapper,
+            valMapper,
+            null
+        );
     }
 }

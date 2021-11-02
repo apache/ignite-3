@@ -22,6 +22,10 @@ import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
@@ -103,6 +107,10 @@ abstract class FieldAccessor {
                 case BITSET:
                 case NUMBER:
                 case DECIMAL:
+                case TIME:
+                case DATE:
+                case DATETIME:
+                case TIMESTAMP:
                     return new ReferenceFieldAccessor(varHandle, colIdx, mode);
 
                 default:
@@ -147,6 +155,10 @@ abstract class FieldAccessor {
             case BITSET:
             case NUMBER:
             case DECIMAL:
+            case TIME:
+            case DATE:
+            case DATETIME:
+            case TIMESTAMP:
                 return new IdentityAccessor(colIdx, mode);
 
             default:
@@ -231,6 +243,26 @@ abstract class FieldAccessor {
 
                 break;
 
+            case DATE:
+                val = reader.dateValue(colIdx);
+
+                break;
+
+            case TIME:
+                val = reader.timeValue(colIdx);
+
+                break;
+
+            case TIMESTAMP:
+                val = reader.timestampValue(colIdx);
+
+                break;
+
+            case DATETIME:
+                val = reader.dateTimeValue(colIdx);
+
+                break;
+
             default:
                 assert false : "Invalid mode: " + mode;
         }
@@ -312,6 +344,26 @@ abstract class FieldAccessor {
 
             case DECIMAL:
                 writer.appendDecimal((BigDecimal)val);
+
+                break;
+
+            case DATE:
+                writer.appendDate((LocalDate)val);
+
+                break;
+
+            case TIME:
+                writer.appendTime((LocalTime)val);
+
+                break;
+
+            case TIMESTAMP:
+                writer.appendTimestamp((Instant)val);
+
+                break;
+
+            case DATETIME:
+                writer.appendDateTime((LocalDateTime)val);
 
                 break;
 

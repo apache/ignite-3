@@ -19,6 +19,10 @@ package org.apache.ignite.internal.schema.marshaller;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.InvalidTypeException;
@@ -94,6 +98,16 @@ public final class MarshallerUtil {
             return BinaryMode.FLOAT;
         else if (cls == Double.class)
             return BinaryMode.DOUBLE;
+
+            // Temporal types
+        else if (cls == LocalDate.class)
+            return BinaryMode.DATE;
+        else if (cls == LocalTime.class)
+            return BinaryMode.TIME;
+        else if (cls == LocalDateTime.class)
+            return BinaryMode.DATETIME;
+        else if (cls == Instant.class)
+            return BinaryMode.TIMESTAMP;
 
             // Other types
         else if (cls == byte[].class)

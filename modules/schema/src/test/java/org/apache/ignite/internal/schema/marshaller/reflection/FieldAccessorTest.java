@@ -27,7 +27,7 @@ import java.util.Random;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.TestUtils;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.BinaryMode;
 import org.apache.ignite.internal.schema.marshaller.SerializationException;
 import org.apache.ignite.internal.schema.row.Row;
@@ -322,8 +322,8 @@ public class FieldAccessorTest {
             obj.bitmaskCol = IgniteTestUtils.randomBitSet(rnd, rnd.nextInt(42));
             obj.stringCol = IgniteTestUtils.randomString(rnd, rnd.nextInt(255));
             obj.bytesCol = IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));
-            obj.numberCol = (BigInteger)TestUtils.generateRandomValue(rnd, NativeTypes.numberOf(12));
-            obj.decimalCol = (BigDecimal) TestUtils.generateRandomValue(rnd, NativeTypes.decimalOf(19, 3));
+            obj.numberCol = (BigInteger)SchemaTestUtils.generateRandomValue(rnd, NativeTypes.numberOf(12));
+            obj.decimalCol = (BigDecimal) SchemaTestUtils.generateRandomValue(rnd, NativeTypes.decimalOf(19, 3));
 
             return obj;
         }

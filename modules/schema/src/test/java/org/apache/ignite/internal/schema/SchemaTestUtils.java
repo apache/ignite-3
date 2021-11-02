@@ -35,7 +35,7 @@ import static org.apache.ignite.internal.schema.row.TemporalTypesHelper.normaliz
 /**
  * Test utility class.
  */
-public final class TestUtils {
+public final class SchemaTestUtils {
     /**
      * Generates random value of given type.
      *
@@ -118,6 +118,6 @@ public final class TestUtils {
     /**
      * Stub.
      */
-    private TestUtils() {
+    private SchemaTestUtils() {
     }
 }
