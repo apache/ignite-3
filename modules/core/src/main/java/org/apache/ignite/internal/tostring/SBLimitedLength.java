@@ -93,91 +93,91 @@ class SBLimitedLength extends IgniteStringBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public SBLimitedLength a(Object obj) {
+    public SBLimitedLength app(Object obj) {
         if (isOverflowed()) {
             tail.append(obj);
             return this;
         }
 
-        super.a(obj);
+        super.app(obj);
 
         return onWrite();
     }
 
     /** {@inheritDoc} */
     @Override
-    public SBLimitedLength a(String str) {
+    public SBLimitedLength app(String str) {
         if (isOverflowed()) {
             tail.append(str);
             return this;
         }
 
-        super.a(str);
+        super.app(str);
 
         return onWrite();
     }
 
     /** {@inheritDoc} */
     @Override
-    public SBLimitedLength a(StringBuffer sb) {
+    public SBLimitedLength app(StringBuffer sb) {
         if (isOverflowed()) {
             tail.append(sb);
             return this;
         }
 
-        super.a(sb);
+        super.app(sb);
 
         return onWrite();
     }
 
     /** {@inheritDoc} */
     @Override
-    public SBLimitedLength a(CharSequence s) {
+    public SBLimitedLength app(CharSequence s) {
         if (isOverflowed()) {
             tail.append(s);
             return this;
         }
 
-        super.a(s);
+        super.app(s);
 
         return onWrite();
     }
 
     /** {@inheritDoc} */
     @Override
-    public SBLimitedLength a(CharSequence s, int start, int end) {
+    public SBLimitedLength app(CharSequence s, int start, int end) {
         if (isOverflowed()) {
             tail.append(s.subSequence(start, end));
             return this;
         }
 
-        super.a(s, start, end);
+        super.app(s, start, end);
 
         return onWrite();
     }
 
     /** {@inheritDoc} */
     @Override
-    public SBLimitedLength a(char[] str) {
+    public SBLimitedLength app(char[] str) {
         if (isOverflowed()) {
             tail.append(str);
             return this;
         }
 
-        super.a(str);
+        super.app(str);
 
         return onWrite();
     }
 
     /** {@inheritDoc} */
     @Override
-    public SBLimitedLength a(char[] str, int offset, int len) {
+    public SBLimitedLength app(char[] str, int offset, int len) {
         if (isOverflowed()) {
             tail.append(Arrays.copyOfRange(str, offset, len));
             return this;
         }
 
-        super.a(str, offset, len);
+        super.app(str, offset, len);
 
         return onWrite();
     }
@@ -185,78 +185,78 @@ class SBLimitedLength extends IgniteStringBuilder {
     /** {@inheritDoc} */
     @SuppressWarnings("BooleanParameter")
     @Override
-    public SBLimitedLength a(boolean b) {
+    public SBLimitedLength app(boolean b) {
         if (isOverflowed()) {
             tail.append(b);
             return this;
         }
 
-        super.a(b);
+        super.app(b);
 
         return onWrite();
     }
 
     /** {@inheritDoc} */
     @Override
-    public SBLimitedLength a(char c) {
+    public SBLimitedLength app(char c) {
         if (isOverflowed()) {
             tail.append(c);
             return this;
         }
 
-        super.a(c);
+        super.app(c);
 
         return onWrite();
     }
 
     /** {@inheritDoc} */
     @Override
-    public SBLimitedLength a(int i) {
+    public SBLimitedLength app(int i) {
         if (isOverflowed()) {
             tail.append(i);
             return this;
         }
 
-        super.a(i);
+        super.app(i);
 
         return onWrite();
     }
 
     /** {@inheritDoc} */
     @Override
-    public SBLimitedLength a(long lng) {
+    public SBLimitedLength app(long lng) {
         if (isOverflowed()) {
             tail.append(lng);
             return this;
         }
 
-        super.a(lng);
+        super.app(lng);
 
         return onWrite();
     }
 
     /** {@inheritDoc} */
     @Override
-    public SBLimitedLength a(float f) {
+    public SBLimitedLength app(float f) {
         if (isOverflowed()) {
             tail.append(f);
             return this;
         }
 
-        super.a(f);
+        super.app(f);
 
         return onWrite();
     }
 
     /** {@inheritDoc} */
     @Override
-    public SBLimitedLength a(double d) {
+    public SBLimitedLength app(double d) {
         if (isOverflowed()) {
             tail.append(d);
             return this;
         }
 
-        super.a(d);
+        super.app(d);
 
         return onWrite();
     }

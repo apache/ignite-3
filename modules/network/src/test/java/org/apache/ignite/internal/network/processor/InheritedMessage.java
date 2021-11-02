@@ -28,5 +28,5 @@ public interface InheritedMessage extends NetworkMessage2 {
     /**
      *
      */
-    int z();
+    int intZ();
 }

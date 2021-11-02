@@ -83,7 +83,7 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
      * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery)}
      */
     public FragmentMapping fragmentMapping(SingleRel rel, RelMetadataQuery mq) {
-        return _fragmentMapping(rel.getInput(), mq);
+        return fragmentMappingForMetadataQuery(rel.getInput(), mq);
     }
 
     /**
@@ -98,8 +98,8 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
         RelNode left = rel.getLeft();
         RelNode right = rel.getRight();
 
-        FragmentMapping frgLeft = _fragmentMapping(left, mq);
-        FragmentMapping frgRight = _fragmentMapping(right, mq);
+        FragmentMapping frgLeft = fragmentMappingForMetadataQuery(left, mq);
+        FragmentMapping frgRight = fragmentMappingForMetadataQuery(right, mq);
 
         try {
             return frgLeft.colocate(frgRight);
@@ -134,12 +134,13 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
 
         if (TraitUtils.distribution(rel) == IgniteDistributions.random()) {
             for (RelNode input : rel.getInputs()) {
-                res = res == null ? _fragmentMapping(input, mq) : res.combine(_fragmentMapping(input, mq));
+                res = res == null ? fragmentMappingForMetadataQuery(input, mq) : res.combine(fragmentMappingForMetadataQuery(input, mq));
             }
         } else {
             for (RelNode input : rel.getInputs()) {
                 try {
-                    res = res == null ? _fragmentMapping(input, mq) : res.colocate(_fragmentMapping(input, mq));
+                    res = res == null
+                            ? fragmentMappingForMetadataQuery(input, mq) : res.colocate(fragmentMappingForMetadataQuery(input, mq));
                 } catch (ColocationMappingException e) {
                     throw new NodeMappingException("Failed to calculate physical distribution", input, e);
                 }
@@ -155,7 +156,7 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
      * <p>Prunes involved partitions (hence nodes, involved in query execution) if possible.
      */
     public FragmentMapping fragmentMapping(IgniteFilter rel, RelMetadataQuery mq) {
-        return _fragmentMapping(rel.getInput(), mq).prune(rel);
+        return fragmentMappingForMetadataQuery(rel.getInput(), mq).prune(rel);
     }
 
     /**
@@ -166,7 +167,7 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
     public FragmentMapping fragmentMapping(IgniteTrimExchange rel, RelMetadataQuery mq) {
         try {
             return FragmentMapping.create(rel.sourceId())
-                    .colocate(_fragmentMapping(rel.getInput(), mq));
+                    .colocate(fragmentMappingForMetadataQuery(rel.getInput(), mq));
         } catch (ColocationMappingException e) {
             throw new AssertionError(e);
         }
@@ -216,7 +217,7 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
      * @param mq  Metadata query instance.
      * @return Fragment meta information.
      */
-    public static FragmentMapping _fragmentMapping(RelNode rel, RelMetadataQuery mq) {
+    public static FragmentMapping fragmentMappingForMetadataQuery(RelNode rel, RelMetadataQuery mq) {
         assert mq instanceof RelMetadataQueryEx;
 
         return ((RelMetadataQueryEx) mq).fragmentMapping(rel);

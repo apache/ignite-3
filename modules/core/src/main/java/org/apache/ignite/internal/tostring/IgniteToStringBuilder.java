@@ -865,7 +865,7 @@ public class IgniteToStringBuilder {
      */
     private static void toString(SBLimitedLength buf, Class<?> cls, Object val) {
         if (val == null) {
-            buf.a("null");
+            buf.app("null");
 
             return;
         }
@@ -875,7 +875,7 @@ public class IgniteToStringBuilder {
         }
 
         if (cls.isPrimitive()) {
-            buf.a(val);
+            buf.app(val);
 
             return;
         }
@@ -896,7 +896,7 @@ public class IgniteToStringBuilder {
             } else if (val instanceof Map) {
                 addMap(buf, (Map<?, ?>) val);
             } else {
-                buf.a(val);
+                buf.app(val);
             }
         } finally {
             svdObjs.remove(val);
@@ -1408,14 +1408,14 @@ public class IgniteToStringBuilder {
      */
     private static void addArray(SBLimitedLength buf, Class arrType, Object obj) {
         if (arrType.getComponentType().isPrimitive()) {
-            buf.a(arrayToString(obj));
+            buf.app(arrayToString(obj));
 
             return;
         }
 
         Object[] arr = (Object[]) obj;
 
-        buf.a(arrType.getSimpleName()).a(" [");
+        buf.app(arrType.getSimpleName()).app(" [");
 
         for (int i = 0; i < arr.length; i++) {
             toString(buf, arr[i]);
@@ -1424,12 +1424,12 @@ public class IgniteToStringBuilder {
                 break;
             }
 
-            buf.a(", ");
+            buf.app(", ");
         }
 
         handleOverflow(buf, arr.length);
 
-        buf.a(']');
+        buf.app(']');
     }
 
     /**
@@ -1439,7 +1439,7 @@ public class IgniteToStringBuilder {
      * @param col Collection object.
      */
     private static void addCollection(SBLimitedLength buf, Collection<?> col) {
-        buf.a(col.getClass().getSimpleName()).a(" [");
+        buf.app(col.getClass().getSimpleName()).app(" [");
 
         int cnt = 0;
         boolean needHandleOverflow = true;
@@ -1465,14 +1465,14 @@ public class IgniteToStringBuilder {
                 break;
             }
 
-            buf.a(", ");
+            buf.app(", ");
         }
 
         if (needHandleOverflow) {
             handleOverflow(buf, colSize);
         }
 
-        buf.a(']');
+        buf.app(']');
     }
 
     /**
@@ -1482,7 +1482,7 @@ public class IgniteToStringBuilder {
      * @param map Map object.
      */
     private static <K, V> void addMap(SBLimitedLength buf, Map<K, V> map) {
-        buf.a(map.getClass().getSimpleName()).a(" {");
+        buf.app(map.getClass().getSimpleName()).app(" {");
 
         int cnt = 0;
         boolean needHandleOverflow = true;
@@ -1508,7 +1508,7 @@ public class IgniteToStringBuilder {
 
             toString(buf, key);
 
-            buf.a('=');
+            buf.app('=');
 
             toString(buf, value);
 
@@ -1516,14 +1516,14 @@ public class IgniteToStringBuilder {
                 break;
             }
 
-            buf.a(", ");
+            buf.app(", ");
         }
 
         if (needHandleOverflow) {
             handleOverflow(buf, mapSize);
         }
 
-        buf.a('}');
+        buf.app('}');
     }
 
     /**
@@ -1536,7 +1536,7 @@ public class IgniteToStringBuilder {
         int overflow = size - COLLECTION_LIMIT;
 
         if (overflow > 0) {
-            buf.a("... and ").a(overflow).a(" more");
+            buf.app("... and ").app(overflow).app(" more");
         }
     }
 
@@ -1548,8 +1548,8 @@ public class IgniteToStringBuilder {
      * @param size            Overall size of collection.
      */
     private static void handleConcurrentModification(SBLimitedLength buf, int writtenElements, int size) {
-        buf.a("... concurrent modification was detected, ").a(writtenElements).a(" out of ").a(size)
-                .a(" were written");
+        buf.app("... concurrent modification was detected, ").app(writtenElements).app(" out of ").app(size)
+                .app(" were written");
     }
 
     /**
@@ -1625,14 +1625,14 @@ public class IgniteToStringBuilder {
         final boolean newStr = buf.length() == 0;
 
         if (str != null) {
-            buf.a(str).a(" ");
+            buf.app(str).app(" ");
         }
 
-        buf.a("[");
+        buf.app("[");
 
         appendVals(buf, true, propNames, propVals, propSens, propCnt);
 
-        buf.a(']');
+        buf.app(']');
 
         if (newStr) {
             return buf.toString();
@@ -1669,28 +1669,28 @@ public class IgniteToStringBuilder {
 
             assert cd != null;
 
-            buf.a(cd.getSimpleClassName());
+            buf.app(cd.getSimpleClassName());
 
             EntryReference ref = savedObjects.get().get(obj);
 
             if (ref != null && ref.hashNeeded) {
-                buf.a(identity(obj));
+                buf.app(identity(obj));
 
                 ref.hashNeeded = false;
             }
 
-            buf.a(" [");
+            buf.app(" [");
 
             boolean first = true;
 
             for (FieldDescriptor fd : cd.getFields()) {
                 if (!first) {
-                    buf.a(", ");
+                    buf.app(", ");
                 } else {
                     first = false;
                 }
 
-                buf.a(fd.getName()).a('=');
+                buf.app(fd.getName()).app('=');
 
                 final VarHandle fH = fd.varHandle();
 
@@ -1700,7 +1700,7 @@ public class IgniteToStringBuilder {
                             toString(buf, fd.fieldClass(), fH.get(obj));
                         } catch (RuntimeException e) {
                             if (IGNORE_RUNTIME_EXCEPTION) {
-                                buf.a("Runtime exception was caught when building string representation: "
+                                buf.app("Runtime exception was caught when building string representation: "
                                         + e.getMessage());
                             } else {
                                 throw e;
@@ -1709,35 +1709,35 @@ public class IgniteToStringBuilder {
 
                         break;
                     case FieldDescriptor.FIELD_TYPE_BYTE:
-                        buf.a((byte) fH.get(obj));
+                        buf.app((byte) fH.get(obj));
 
                         break;
                     case FieldDescriptor.FIELD_TYPE_BOOLEAN:
-                        buf.a((boolean) fH.get(obj));
+                        buf.app((boolean) fH.get(obj));
 
                         break;
                     case FieldDescriptor.FIELD_TYPE_CHAR:
-                        buf.a((char) fH.get(obj));
+                        buf.app((char) fH.get(obj));
 
                         break;
                     case FieldDescriptor.FIELD_TYPE_SHORT:
-                        buf.a((short) fH.get(obj));
+                        buf.app((short) fH.get(obj));
 
                         break;
                     case FieldDescriptor.FIELD_TYPE_INT:
-                        buf.a((int) fH.get(obj));
+                        buf.app((int) fH.get(obj));
 
                         break;
                     case FieldDescriptor.FIELD_TYPE_FLOAT:
-                        buf.a((float) fH.get(obj));
+                        buf.app((float) fH.get(obj));
 
                         break;
                     case FieldDescriptor.FIELD_TYPE_LONG:
-                        buf.a((long) fH.get(obj));
+                        buf.app((long) fH.get(obj));
 
                         break;
                     case FieldDescriptor.FIELD_TYPE_DOUBLE:
-                        buf.a((double) fH.get(obj));
+                        buf.app((double) fH.get(obj));
 
                         break;
                     default:
@@ -1747,7 +1747,7 @@ public class IgniteToStringBuilder {
 
             appendVals(buf, first, addNames, addVals, addSens, addLen);
 
-            buf.a(']');
+            buf.app(']');
 
             return buf.toString();
         } catch (Exception e) { // Specifically catching all exceptions.
@@ -1870,12 +1870,12 @@ public class IgniteToStringBuilder {
                 }
 
                 if (!first) {
-                    buf.a(", ");
+                    buf.app(", ");
                 } else {
                     first = false;
                 }
 
-                buf.a(addNames[i]).a('=');
+                buf.app(addNames[i]).app('=');
 
                 toString(buf, addVal);
             }
@@ -1998,7 +1998,7 @@ public class IgniteToStringBuilder {
         }
 
         IgniteStringBuilder sb = new IgniteStringBuilder();
-        sb.a('[');
+        sb.app('[');
 
         List<T> l = new ArrayList<>(col);
         Collections.sort(l);
@@ -2014,23 +2014,23 @@ public class IgniteToStringBuilder {
             }
 
             if (left.compareTo(right) == 0) {
-                sb.a(left);
+                sb.app(left);
             } else {
-                sb.a(left).a('-').a(right);
+                sb.app(left).app('-').app(right);
             }
 
-            sb.a(',').a(' ');
+            sb.app(',').app(' ');
 
             left = right = val;
         }
 
         if (left.compareTo(right) == 0) {
-            sb.a(left);
+            sb.app(left);
         } else {
-            sb.a(left).a('-').a(right);
+            sb.app(left).app('-').app(right);
         }
 
-        sb.a(']');
+        sb.app(']');
 
         return sb.toString();
     }
@@ -2067,7 +2067,7 @@ public class IgniteToStringBuilder {
 
         if (!buf.isOverflowed() && !savedName.equals(charsAtPos)) {
             if (charsAtPos.startsWith(cls.getSimpleName())) {
-                buf.i(pos + name.length(), hash);
+                buf.ins(pos + name.length(), hash);
 
                 incValues(svdObjs, obj, hash.length());
             } else {
@@ -2075,7 +2075,7 @@ public class IgniteToStringBuilder {
             }
         }
 
-        buf.a(savedName);
+        buf.app(savedName);
 
         return true;
     }

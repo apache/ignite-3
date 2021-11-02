@@ -96,7 +96,7 @@ public class IgniteMdDistribution implements MetadataHandler<BuiltInMetadata.Dis
      * See {@link IgniteMdDistribution#distribution(RelNode, RelMetadataQuery)}
      */
     public IgniteDistribution distribution(HepRelVertex rel, RelMetadataQuery mq) {
-        return _distribution(rel.getCurrentRel(), mq);
+        return distributionForRelMetadataQuery(rel.getCurrentRel(), mq);
     }
 
     /**
@@ -106,7 +106,7 @@ public class IgniteMdDistribution implements MetadataHandler<BuiltInMetadata.Dis
      * @param mq  Metadata query instance.
      * @return Actual distribution of the given relational node.
      */
-    public static IgniteDistribution _distribution(RelNode rel, RelMetadataQuery mq) {
+    public static IgniteDistribution distributionForRelMetadataQuery(RelNode rel, RelMetadataQuery mq) {
         assert mq instanceof RelMetadataQueryEx;
 
         return (IgniteDistribution) mq.distribution(rel);
