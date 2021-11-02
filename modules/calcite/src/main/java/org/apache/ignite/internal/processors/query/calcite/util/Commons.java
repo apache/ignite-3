@@ -115,6 +115,7 @@ public final class Commons {
             // TODO: remove this after IGNITE-14277
             .withInSubQueryThreshold(Integer.MAX_VALUE)
             .withDecorrelationEnabled(true)
+            .withExpand(false)
             .withHintStrategyTable(
                 HintStrategyTable.builder()
                     .hintStrategy("DISABLE_RULE", (hint, rel) -> true)

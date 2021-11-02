@@ -215,8 +215,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     @Override public RelRoot rel(SqlNode sql) {
         SqlToRelConverter sqlToRelConverter = sqlToRelConverter(validator(), catalogReader, sqlToRelConverterCfg);
         RelRoot root = sqlToRelConverter.convertQuery(sql, false, true);
+
         root = root.withRel(sqlToRelConverter.decorrelate(sql, root.rel));
-        root = trimUnusedFields(root);
 
         return root;
     }
@@ -244,7 +244,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         RelRoot root = sqlToRelConverter.convertQuery(sqlNode, true, false);
         root = root.withRel(sqlToRelConverter.decorrelate(sqlNode, root.rel));
 
-        return root;
+        return trimUnusedFields(root);
     }
 
     /** {@inheritDoc} */
@@ -338,6 +338,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         // near the leaves created by trim migrate past joins and seem to
         // prevent join-reordering.
         final SqlToRelConverter.Config config = sqlToRelConverterCfg
+            .withExpand(false)
             .withTrimUnusedFields(RelOptUtil.countJoins(root.rel) < 2);
         SqlToRelConverter converter = sqlToRelConverter(validator(), catalogReader, config);
         boolean ordered = !root.collation.getFieldCollations().isEmpty();

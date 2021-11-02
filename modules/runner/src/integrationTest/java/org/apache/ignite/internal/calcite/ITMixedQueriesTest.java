@@ -270,7 +270,6 @@ public class ITMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     /** Quantified predicates test. */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-13159")
     @Test
     public void quantifiedCompTest() throws InterruptedException {
         assertQuery("select salary from emp2 where salary > SOME (10, 11) ORDER BY salary")
