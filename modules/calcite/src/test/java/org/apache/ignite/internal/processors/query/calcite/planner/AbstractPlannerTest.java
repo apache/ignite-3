@@ -63,6 +63,7 @@ import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 import org.apache.ignite.internal.processors.query.calcite.externalize.RelJsonReader;
@@ -298,7 +299,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected <T extends RelNode> Predicate<IgniteTableScan> isTableScan(String tableName) {
         return isInstanceOf(IgniteTableScan.class).and(
             n -> {
-                String scanTableName = n.getTable().unwrap(TestTable.class).name();
+                String scanTableName = Util.last(n.getTable().getQualifiedName());
 
                 if (tableName.equalsIgnoreCase(scanTableName))
                     return true;
