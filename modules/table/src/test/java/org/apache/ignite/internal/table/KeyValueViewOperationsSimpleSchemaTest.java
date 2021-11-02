@@ -33,18 +33,6 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 
-import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
-import static org.apache.ignite.internal.schema.NativeTypes.DATE;
-import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
-import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
-import static org.apache.ignite.internal.schema.NativeTypes.INT16;
-import static org.apache.ignite.internal.schema.NativeTypes.INT32;
-import static org.apache.ignite.internal.schema.NativeTypes.INT64;
-import static org.apache.ignite.internal.schema.NativeTypes.INT8;
-import static org.apache.ignite.internal.schema.NativeTypes.STRING;
-import static org.apache.ignite.internal.schema.NativeTypes.datetime;
-import static org.apache.ignite.internal.schema.NativeTypes.time;
-import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -313,11 +301,22 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         Random rnd = new Random();
         Long key = 42L;
 
-        List<NativeType> allTypes = List.of(INT8, INT16, INT32, INT64, FLOAT, DOUBLE, DATE,
-            NativeTypes.numberOf(20), NativeTypes.decimalOf(25, 5),
+        List<NativeType> allTypes = List.of(
+            NativeTypes.INT8,
+            NativeTypes.INT16,
+            NativeTypes.INT32,
+            NativeTypes.INT64,
+            NativeTypes.FLOAT,
+            NativeTypes.DOUBLE,
+            NativeTypes.DATE,
+            NativeTypes.numberOf(20),
+            NativeTypes.decimalOf(25, 5),
             NativeTypes.bitmaskOf(22),
-            time(), datetime(), timestamp(),
-            BYTES, STRING);
+            NativeTypes.time(),
+            NativeTypes.datetime(),
+            NativeTypes.timestamp(),
+            NativeTypes.BYTES,
+            NativeTypes.STRING);
 
         assertEquals(Set.of(NativeTypeSpec.values()), allTypes.stream().map(NativeType::spec).collect(Collectors.toSet()));
 

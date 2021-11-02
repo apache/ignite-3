@@ -425,9 +425,14 @@ public class KeyValueViewOperationsTest {
         }
 
         @Override public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+            if (this == o)
+                return true;
+
+            if (o == null || getClass() != o.getClass())
+                return false;
+
             TestKeyObject that = (TestKeyObject)o;
+
             return id == that.id;
         }
 
