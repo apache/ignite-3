@@ -130,7 +130,8 @@
   <codeStyleSettings language="JAVA">
     <option name="KEEP_CONTROL_STATEMENT_IN_ONE_LINE" value="false"/>
     <option name="KEEP_BLANK_LINES_IN_CODE" value="1"/>
-    <option name="BLANK_LINES_AFTER_CLASS_HEADER" value="1"/>
+    <option name="KEEP_BLANK_LINES_BETWEEN_PACKAGE_DECLARATION_AND_HEADER" value="1"/>
+    <option name="BLANK_LINES_BEFORE_PACKAGE" value="1"/>
     <option name="ALIGN_MULTILINE_PARAMETERS" value="false"/>
     <option name="ALIGN_MULTILINE_RESOURCES" value="false"/>
     <option name="ALIGN_MULTILINE_FOR" value="false"/>
@@ -150,10 +151,10 @@
     <option name="DOWHILE_BRACE_FORCE" value="3"/>
     <option name="WHILE_BRACE_FORCE" value="3"/>
     <option name="FOR_BRACE_FORCE" value="3"/>
-    <option name="PARENT_SETTINGS_INSTALLED" value="true"/>
     <indentOptions>
+      <option name="KEEP_INDENTS_ON_EMPTY_LINES" value="true"/>
       <option name="INDENT_SIZE" value="4"/>
-      <option name="CONTINUATION_INDENT_SIZE" value="4"/>
+      <option name="CONTINUATION_INDENT_SIZE" value="8"/>
       <option name="TAB_SIZE" value="4"/>
     </indentOptions>
   </codeStyleSettings>
