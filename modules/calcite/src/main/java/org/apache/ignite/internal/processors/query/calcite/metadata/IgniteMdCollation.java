@@ -31,6 +31,7 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.apache.calcite.adapter.enumerable.EnumerableCorrelate;
 import org.apache.calcite.adapter.enumerable.EnumerableHashJoin;
@@ -348,8 +349,9 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
 
         final List<RelFieldCollation> fieldCollationsForRexCalls =
             new ArrayList<>();
-        for (Map.Entry<Integer, SqlMonotonicity> entry
-            : targetsWithMonotonicity.entrySet()) {
+
+        for (Int2ObjectMap.Entry<SqlMonotonicity> entry
+            : targetsWithMonotonicity.int2ObjectEntrySet()) {
             final SqlMonotonicity value = entry.getValue();
             switch (value) {
                 case NOT_MONOTONIC:
@@ -357,7 +359,7 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
                     break;
                 default:
                     fieldCollationsForRexCalls.add(
-                        new RelFieldCollation(entry.getKey(),
+                        new RelFieldCollation(entry.getIntKey(),
                             RelFieldCollation.Direction.of(value)));
                     break;
             }
