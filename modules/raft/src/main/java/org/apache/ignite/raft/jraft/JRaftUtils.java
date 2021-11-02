@@ -41,6 +41,8 @@ import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.DefaultFixedThreadsExecutorGroupFactory;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
+import org.apache.ignite.raft.jraft.util.timer.DefaultTimer;
+import org.apache.ignite.raft.jraft.util.timer.Timer;
 
 /**
  * Some helper methods for jraft usage.
@@ -183,6 +185,18 @@ public final class JRaftUtils {
         return new TimerManager(
             opts.getTimerPoolSize(),
             NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-Node-Scheduler")
+        );
+    }
+
+    /**
+     * @param opts Node options.
+     * @param name The name.
+     * @return The timer.
+     */
+    public static Timer createTimer(NodeOptions opts, String name) {
+        return new DefaultTimer(
+            opts.getTimerPoolSize(),
+            NamedThreadFactory.threadPrefix(opts.getServerName(), name)
         );
     }
 
