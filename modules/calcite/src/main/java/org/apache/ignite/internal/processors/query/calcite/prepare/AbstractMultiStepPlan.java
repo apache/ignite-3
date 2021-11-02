@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -74,7 +73,7 @@ public abstract class AbstractMultiStepPlan implements MultiStepPlan {
     }
 
     /** {@inheritDoc} */
-    @Override public Map<Long, List<String>> remotes(Fragment fragment) {
+    @Override public Long2ObjectOpenHashMap<List<String>> remotes(Fragment fragment) {
         List<IgniteReceiver> remotes = fragment.remotes();
 
         if (nullOrEmpty(remotes))
