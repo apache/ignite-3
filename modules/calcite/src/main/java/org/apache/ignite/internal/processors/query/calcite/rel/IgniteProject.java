@@ -142,10 +142,11 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
 
         List<RelFieldCollation> inFieldCollations = new ArrayList<>();
         for (RelFieldCollation inFieldCollation : fieldCollations) {
-            if (!targets.containsKey(inFieldCollation.getFieldIndex()))
+            int newIndex = targets.getOrDefault(inFieldCollation.getFieldIndex(), Integer.MIN_VALUE);
+
+            if (newIndex == Integer.MIN_VALUE)
                 break;
 
-            int newIndex = targets.get(inFieldCollation.getFieldIndex());
             inFieldCollations.add(inFieldCollation.withFieldIndex(newIndex));
         }
 
