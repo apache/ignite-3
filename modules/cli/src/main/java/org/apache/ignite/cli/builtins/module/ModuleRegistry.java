@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import org.apache.ignite.cli.CliPathsConfigLoader;
-import org.apache.ignite.cli.IgniteCLIException;
+import org.apache.ignite.cli.IgniteCliException;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
@@ -121,7 +121,7 @@ public class ModuleRegistry {
                         moduleFile().toFile(),
                         ModuleDefinitionsList.class);
             } catch (IOException e) {
-                throw new IgniteCLIException("Can't read lsit of installed modules because of IO error", e);
+                throw new IgniteCliException("Can't read lsit of installed modules because of IO error", e);
             }
         }
     }

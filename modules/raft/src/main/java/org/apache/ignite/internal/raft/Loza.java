@@ -28,7 +28,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -86,7 +86,7 @@ public class Loza implements IgniteComponent {
     public Loza(ClusterService clusterNetSvc, Path dataPath) {
         this.clusterNetSvc = clusterNetSvc;
 
-        this.raftServer = new JRaftServerImpl(clusterNetSvc, dataPath);
+        this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath);
 
         this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),

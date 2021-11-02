@@ -24,7 +24,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.KVMarshaller;
+import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.SerializationException;
 import org.apache.ignite.internal.schema.marshaller.Serializer;
 import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
@@ -51,7 +51,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     private final Mapper<V> valueMapper;
     
     /** Marshaller. */
-    private KVMarshallerImpl<K, V> marsh;
+    private KvMarshallerImpl<K, V> marsh;
     
     /**
      * Constructor.
@@ -307,10 +307,10 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param schemaVersion Schema version.
      * @return Marshaller.
      */
-    private KVMarshaller<K, V> marshaller(int schemaVersion) {
+    private KvMarshaller<K, V> marshaller(int schemaVersion) {
         if (marsh == null || marsh.schemaVersion == schemaVersion) {
             // TODO: Cache marshaller for schema version or upgrade row?
-            marsh = new KVMarshallerImpl<>(
+            marsh = new KvMarshallerImpl<>(
                     schemaVersion,
                     marshallerFactory.create(
                             schemaReg.schema(schemaVersion),
@@ -330,13 +330,13 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         
         Row row = schemaReg.resolve(v);
         
-        KVMarshaller<K, V> marshaller = marshaller(row.schemaVersion());
+        KvMarshaller<K, V> marshaller = marshaller(row.schemaVersion());
         
         return marshaller.unmarshalValue(row);
     }
     
     private BinaryRow marshal(@NotNull K key, V o) {
-        final KVMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+        final KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
         
         return marsh.marshal(key, o);
     }
@@ -347,7 +347,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param <K> Key type.
      * @param <V> Value type.
      */
-    private static class KVMarshallerImpl<K, V> implements KVMarshaller<K, V> {
+    private static class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         /** Schema version. */
         private final int schemaVersion;
         
@@ -360,7 +360,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
          * @param schemaVersion Schema version.
          * @param serializer    Serializer.
          */
-        KVMarshallerImpl(int schemaVersion, Serializer serializer) {
+        KvMarshallerImpl(int schemaVersion, Serializer serializer) {
             this.schemaVersion = schemaVersion;
             
             this.serializer = serializer;

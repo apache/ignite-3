@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import org.apache.ignite.cli.CliVersionInfo;
-import org.apache.ignite.cli.IgniteCLIException;
+import org.apache.ignite.cli.IgniteCliException;
 import org.apache.ignite.cli.IgnitePaths;
 import picocli.CommandLine.Help.ColorScheme;
 
@@ -151,7 +151,7 @@ public class ModuleManager {
                 out.println("New Maven dependency successfully added. To remove, type: "
                         + cs.commandText("ignite module remove ") + cs.parameterText(mvnName));
             } catch (IOException e) {
-                throw new IgniteCLIException("\nFailed to install " + name, e);
+                throw new IgniteCliException("\nFailed to install " + name, e);
             }
         } else if (isBuiltinModuleName(name)) {
             StandardModuleDefinition moduleDesc = readBuiltinModules()
@@ -173,7 +173,7 @@ public class ModuleManager {
                             repositories
                     ));
                 } catch (IOException e) {
-                    throw new IgniteCLIException("\nFailed to install an Ignite module: " + name, e);
+                    throw new IgniteCliException("\nFailed to install an Ignite module: " + name, e);
                 }
             }
 
@@ -191,7 +191,7 @@ public class ModuleManager {
                             repositories
                     ));
                 } catch (IOException e) {
-                    throw new IgniteCLIException("\nFailed to install a module " + name, e);
+                    throw new IgniteCliException("\nFailed to install a module " + name, e);
                 }
             }
 
@@ -204,11 +204,11 @@ public class ModuleManager {
                         name
                 ));
             } catch (IOException e) {
-                throw new IgniteCLIException("Error during saving the installed module info");
+                throw new IgniteCliException("Error during saving the installed module info");
             }
 
         } else {
-            throw new IgniteCLIException(
+            throw new IgniteCliException(
                     "Module coordinates for non-standard modules must be started with mvn:|file://");
         }
     }
@@ -224,7 +224,7 @@ public class ModuleManager {
         try {
             return moduleRegistry.removeModule(name);
         } catch (IOException e) {
-            throw new IgniteCLIException(
+            throw new IgniteCliException(
                     "Can't remove module " + name, e);
         }
     }

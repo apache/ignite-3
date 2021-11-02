@@ -158,7 +158,7 @@ public class IgnitePaths {
     private void initDirIfNeeded(Path dir, String exceptionMessage) {
         File dirFile = dir.toFile();
         if (!(dirFile.exists() || dirFile.mkdirs())) {
-            throw new IgniteCLIException(exceptionMessage);
+            throw new IgniteCliException(exceptionMessage);
         }
     }
 

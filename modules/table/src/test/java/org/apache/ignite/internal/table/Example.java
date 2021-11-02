@@ -175,8 +175,8 @@ public class Example {
         BankAccount bankAccount = backAccKvView.get(2L);
 
         // Truncated view.
-        KeyValueView<Long, BillingDetails> billingDetailsKVView = t.keyValueView(Long.class, BillingDetails.class);
-        BillingDetails billingDetails = billingDetailsKVView.get(2L);
+        KeyValueView<Long, BillingDetails> billingDetailsKvView = t.keyValueView(Long.class, BillingDetails.class);
+        BillingDetails billingDetails = billingDetailsKvView.get(2L);
 
         // Without discriminator it is impossible to deserialize to correct type automatically.
         assert !(billingDetails instanceof CreditCard);

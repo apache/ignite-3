@@ -36,7 +36,7 @@ public class ErrorHandler implements CommandLine.IExecutionExceptionHandler, Com
             Exception ex,
             CommandLine cmd,
             CommandLine.ParseResult parseRes) {
-        if (ex instanceof IgniteCLIException) {
+        if (ex instanceof IgniteCliException) {
             cmd.getErr().println(cmd.getColorScheme().errorText(ex.getMessage()));
         } else {
             log.error("", ex);

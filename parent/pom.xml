@@ -1008,7 +1008,7 @@
                 <configuration>
                     <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
                     <excludes>
-                        <exclude>**/IT*.java</exclude>
+                        <exclude>%regex[.*(It)(A-Z).*class]</exclude>
                         <!-- Exclude inner classes (preserve default behaviour) -->
                         <exclude>**/*$*</exclude>
                     </excludes>

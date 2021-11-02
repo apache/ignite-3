@@ -82,13 +82,13 @@ public class CliPathsConfigLoader {
 
         if (ignitePaths.isPresent()) {
             if (!ignitePaths.get().validateDirs()) {
-                throw new IgniteCLIException("Some required directories are absent. "
+                throw new IgniteCliException("Some required directories are absent. "
                         + "Try to run 'init' command to fix the issue.");
             }
 
             return ignitePaths.get();
         } else {
-            throw new IgniteCLIException("To execute node module/node management commands you must run 'init' first");
+            throw new IgniteCliException("To execute node module/node management commands you must run 'init' first");
         }
     }
 
@@ -115,7 +115,7 @@ public class CliPathsConfigLoader {
                     || (props.getProperty("work") == null)
                     || (props.getProperty("config") == null)
                     || (props.getProperty("log") == null)) {
-                throw new IgniteCLIException("Config file has wrong format. "
+                throw new IgniteCliException("Config file has wrong format. "
                         + "It must contain correct paths to bin, work, config and log dirs");
             }
 
@@ -126,7 +126,7 @@ public class CliPathsConfigLoader {
                     Path.of(props.getProperty("log")),
                     ver);
         } catch (IOException e) {
-            throw new IgniteCLIException("Can't read config file");
+            throw new IgniteCliException("Can't read config file");
         }
     }
 }

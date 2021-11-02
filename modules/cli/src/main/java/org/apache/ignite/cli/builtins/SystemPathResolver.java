@@ -22,8 +22,8 @@ import java.io.File;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import javax.inject.Singleton;
-import org.apache.ignite.cli.IgniteCLIException;
 import org.apache.ignite.cli.IgniteCliApp;
+import org.apache.ignite.cli.IgniteCliException;
 
 /**
  * Interface for resolving different fs paths like home directory.
@@ -63,7 +63,7 @@ public interface SystemPathResolver {
 
                 return file.toPath();
             } catch (URISyntaxException e) {
-                throw new IgniteCLIException("Failed to resolve the CLI tool home directory.", e);
+                throw new IgniteCliException("Failed to resolve the CLI tool home directory.", e);
             }
         }
     }

@@ -31,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
  */
 class RangeCursor implements Cursor<Entry> {
     /** Storage. */
-    private final RocksDBKeyValueStorage storage;
+    private final RocksDbKeyValueStorage storage;
 
     /** Lower iteration bound (included). */
     private final byte[] keyFrom;
@@ -65,7 +65,7 @@ class RangeCursor implements Cursor<Entry> {
      * @param keyTo   {@link #keyTo}.
      * @param rev     {@link #rev}.
      */
-    RangeCursor(RocksDBKeyValueStorage storage, byte[] keyFrom, byte @Nullable [] keyTo, long rev) {
+    RangeCursor(RocksDbKeyValueStorage storage, byte[] keyFrom, byte @Nullable [] keyTo, long rev) {
         this.storage = storage;
         this.keyFrom = keyFrom;
         this.keyTo = keyTo;
@@ -135,7 +135,7 @@ class RangeCursor implements Cursor<Entry> {
 
                             key = e.getKey();
 
-                            if (keyTo != null && RocksDBKeyValueStorage.CMP.compare(key, keyTo) >= 0) {
+                            if (keyTo != null && RocksDbKeyValueStorage.CMP.compare(key, keyTo) >= 0) {
                                 finished = true;
 
                                 break;
@@ -146,7 +146,7 @@ class RangeCursor implements Cursor<Entry> {
                             assert revs != null && revs.length != 0 :
                                     "Revisions should not be empty or null: [revs=" + Arrays.toString(revs) + ']';
 
-                            long lastRev = RocksDBKeyValueStorage.maxRevision(revs, rev);
+                            long lastRev = RocksDbKeyValueStorage.maxRevision(revs, rev);
 
                             if (lastRev == -1) {
                                 continue;

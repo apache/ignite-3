@@ -49,7 +49,7 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.persistence.RocksDBKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
 import org.apache.ignite.internal.raft.Loza;
@@ -176,7 +176,7 @@ public class IgniteImpl implements Ignite {
                 nodeCfgMgr,
                 clusterSvc,
                 raftMgr,
-                new RocksDBKeyValueStorage(workDir.resolve(METASTORAGE_DB_PATH))
+                new RocksDbKeyValueStorage(workDir.resolve(METASTORAGE_DB_PATH))
         );
         
         clusterCfgMgr = new ConfigurationManager(

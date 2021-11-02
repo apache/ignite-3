@@ -18,7 +18,7 @@
 package org.apache.ignite.cli.spec;
 
 import javax.inject.Inject;
-import org.apache.ignite.cli.IgniteCLIException;
+import org.apache.ignite.cli.IgniteCliException;
 import org.apache.ignite.cli.builtins.config.ConfigurationClient;
 import picocli.CommandLine;
 
@@ -140,7 +140,7 @@ public class ConfigCommandSpec extends CategorySpec {
             try {
                 return Integer.parseInt(hostPort[1]);
             } catch (NumberFormatException ex) {
-                throw new IgniteCLIException("Can't parse port from " + hostPort[1] + " value");
+                throw new IgniteCliException("Can't parse port from " + hostPort[1] + " value");
             }
         }
 
@@ -160,7 +160,7 @@ public class ConfigCommandSpec extends CategorySpec {
             var hostPort = endpoint.split(":");
 
             if (hostPort.length != 2) {
-                throw new IgniteCLIException("Incorrect host:port pair provided "
+                throw new IgniteCliException("Incorrect host:port pair provided "
                         + "(example of valid value 'localhost:10300')");
             }
 

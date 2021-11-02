@@ -40,7 +40,7 @@ public class CliVersionInfo {
 
             ver = prop.getProperty("version", "undefined");
         } catch (IOException e) {
-            throw new IgniteCLIException("Can' read ignite version info");
+            throw new IgniteCliException("Can' read ignite version info");
         }
     }
 

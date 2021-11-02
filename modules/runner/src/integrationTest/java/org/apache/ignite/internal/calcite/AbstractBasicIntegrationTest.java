@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.ITUtils;
+import org.apache.ignite.internal.ItUtils;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.calcite.util.QueryChecker;
 import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
@@ -123,7 +123,7 @@ public class AbstractBasicIntegrationTest {
     static void stopNodes() throws Exception {
         LOG.info("Start tearDown()");
         
-        IgniteUtils.closeAll(ITUtils.reverse(CLUSTER_NODES));
+        IgniteUtils.closeAll(ItUtils.reverse(CLUSTER_NODES));
         
         CLUSTER_NODES.clear();
         

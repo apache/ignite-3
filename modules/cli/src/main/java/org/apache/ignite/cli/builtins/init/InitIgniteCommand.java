@@ -30,7 +30,7 @@ import java.util.Optional;
 import java.util.Properties;
 import javax.inject.Inject;
 import org.apache.ignite.cli.CliPathsConfigLoader;
-import org.apache.ignite.cli.IgniteCLIException;
+import org.apache.ignite.cli.IgniteCliException;
 import org.apache.ignite.cli.IgnitePaths;
 import org.apache.ignite.cli.Table;
 import org.apache.ignite.cli.builtins.SystemPathResolver;
@@ -133,7 +133,7 @@ public class InitIgniteCommand {
                                 .getResourceAsStream("/default-config.xml"), srvCfgFile);
             }
         } catch (IOException e) {
-            throw new IgniteCLIException("Can't create default config file for server", e);
+            throw new IgniteCliException("Can't create default config file for server", e);
         }
     }
 
@@ -150,7 +150,7 @@ public class InitIgniteCommand {
                                 .getResourceAsStream("/ignite.java.util.logging.properties"), javaUtilLogProps);
             }
         } catch (IOException e) {
-            throw new IgniteCLIException("Can't create default config file for server", e);
+            throw new IgniteCliException("Can't create default config file for server", e);
         }
     }
 
@@ -186,7 +186,7 @@ public class InitIgniteCommand {
 
             return newCfgFile;
         } catch (IOException e) {
-            throw new IgniteCLIException("Can't create configuration file in current directory: " + newCfgPath);
+            throw new IgniteCliException("Can't create configuration file in current directory: " + newCfgPath);
         }
     }
 
@@ -212,7 +212,7 @@ public class InitIgniteCommand {
             props.setProperty("log", logDir.toString());
             props.store(fileWriter, "");
         } catch (IOException e) {
-            throw new IgniteCLIException("Can't write to ignitecfg file");
+            throw new IgniteCliException("Can't write to ignitecfg file");
         }
     }
 }

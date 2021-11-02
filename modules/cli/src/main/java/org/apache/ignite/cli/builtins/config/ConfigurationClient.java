@@ -31,7 +31,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import org.apache.ignite.cli.IgniteCLIException;
+import org.apache.ignite.cli.IgniteCliException;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine.Help.ColorScheme;
 
@@ -101,7 +101,7 @@ public class ConfigurationClient {
                 throw error("Can't get configuration", res);
             }
         } catch (IOException | InterruptedException e) {
-            throw new IgniteCLIException("Connection issues while trying to send http request");
+            throw new IgniteCliException("Connection issues while trying to send http request");
         }
     }
 
@@ -136,7 +136,7 @@ public class ConfigurationClient {
                 throw error("Failed to set configuration", res);
             }
         } catch (IOException | InterruptedException e) {
-            throw new IgniteCLIException("Connection issues while trying to send http request", e);
+            throw new IgniteCliException("Connection issues while trying to send http request", e);
         }
     }
 
@@ -148,11 +148,11 @@ public class ConfigurationClient {
      * @return Exception with detailed message.
      * @throws JsonProcessingException if response has incorrect error format.
      */
-    private IgniteCLIException error(String msg, HttpResponse<String> res) throws JsonProcessingException {
+    private IgniteCliException error(String msg, HttpResponse<String> res) throws JsonProcessingException {
         var errorMsg = mapper.writerWithDefaultPrettyPrinter()
                 .writeValueAsString(mapper.readValue(res.body(), JsonNode.class));
 
-        return new IgniteCLIException(msg + "\n\n" + errorMsg);
+        return new IgniteCliException(msg + "\n\n" + errorMsg);
     }
 
     /**

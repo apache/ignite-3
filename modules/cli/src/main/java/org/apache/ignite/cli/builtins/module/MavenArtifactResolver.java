@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import org.apache.ignite.cli.IgniteCLIException;
+import org.apache.ignite.cli.IgniteCliException;
 import org.apache.ignite.cli.builtins.SystemPathResolver;
 import org.apache.ignite.cli.ui.ProgressBar;
 import org.apache.ignite.lang.IgniteLogger;
@@ -144,7 +144,7 @@ public class MavenArtifactResolver {
                 ResolveReport rr = ivy.resolve(md, ro);
 
                 if (rr.hasError()) {
-                    throw new IgniteCLIException(rr.getAllProblemMessages().toString());
+                    throw new IgniteCliException(rr.getAllProblemMessages().toString());
                 }
 
                 // Step 2: retrieve
@@ -199,7 +199,7 @@ public class MavenArtifactResolver {
         try {
             tmpDir = Files.createTempDirectory("ignite-installer-cache").toFile();
         } catch (IOException e) {
-            throw new IgniteCLIException("Can't create temp directory for ivy");
+            throw new IgniteCliException("Can't create temp directory for ivy");
         }
 
         tmpDir.deleteOnExit();

@@ -21,7 +21,7 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.Executor;
-import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -88,8 +88,8 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                     @Override
                     public void run(Status status, long index, byte[] reqCtx) {
                         if (status.isOk()) {
-                            JRaftServerImpl.DelegatingStateMachine fsm =
-                                    (JRaftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
+                            JraftServerImpl.DelegatingStateMachine fsm =
+                                    (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
 
                             try {
                                 fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
@@ -113,8 +113,8 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                 });
             } else {
                 // TODO asch remove copy paste, batching https://issues.apache.org/jira/browse/IGNITE-14832
-                JRaftServerImpl.DelegatingStateMachine fsm =
-                        (JRaftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
+                JraftServerImpl.DelegatingStateMachine fsm =
+                        (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
 
                 try {
                     fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
