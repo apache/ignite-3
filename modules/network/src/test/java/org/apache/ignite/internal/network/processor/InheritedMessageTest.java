@@ -69,9 +69,9 @@ public class InheritedMessageTest {
 
         InOrder inOrder = inOrder(mockWriter);
 
-        inOrder.verify(mockWriter).writeInt(eq("x"), eq(1));
-        inOrder.verify(mockWriter).writeInt(eq("y"), eq(2));
-        inOrder.verify(mockWriter).writeInt(eq("z"), eq(3));
+        inOrder.verify(mockWriter).writeInt(eq("intX"), eq(1));
+        inOrder.verify(mockWriter).writeInt(eq("intY"), eq(2));
+        inOrder.verify(mockWriter).writeInt(eq("intZ"), eq(3));
     }
 
     /**
@@ -90,8 +90,8 @@ public class InheritedMessageTest {
 
         InOrder inOrder = inOrder(mockReader);
 
-        inOrder.verify(mockReader).readInt(eq("x"));
-        inOrder.verify(mockReader).readInt(eq("y"));
-        inOrder.verify(mockReader).readInt(eq("z"));
+        inOrder.verify(mockReader).readInt(eq("intX"));
+        inOrder.verify(mockReader).readInt(eq("intY"));
+        inOrder.verify(mockReader).readInt(eq("intZ"));
     }
 }
