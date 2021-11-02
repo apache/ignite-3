@@ -68,12 +68,14 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
         if (request.command() instanceof WriteCommand) {
             node.apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(request.command())),
                 new CommandClosureImpl<>(request.command()) {
-                    @Override public void success(Serializable res) {
-                        rpcCtx.sendResponse(factory.actionResponse().result(res).build());
-                    }
+                    @Override public void result(Serializable res) {
+                        if (res instanceof Throwable) {
+                            sendSMError(rpcCtx, (Throwable)res, true);
 
-                    @Override public void failure(Throwable th, boolean compacted) {
-                        sendSMError(rpcCtx, th, compacted);
+                            return;
+                        }
+
+                        rpcCtx.sendResponse(factory.actionResponse().result(res).build());
                     }
 
                     @Override public void run(Status status) {
@@ -97,12 +99,14 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                                         return (ReadCommand)request.command();
                                     }
 
-                                    @Override public void success(Serializable res) {
-                                        rpcCtx.sendResponse(factory.actionResponse().result(res).build());
-                                    }
+                                    @Override public void result(Serializable res) {
+                                        if (res instanceof Throwable) {
+                                            sendSMError(rpcCtx, (Throwable)res, true);
 
-                                    @Override public void failure(Throwable th, boolean compacted) {
-                                        sendSMError(rpcCtx, th, compacted);
+                                            return;
+                                        }
+
+                                        rpcCtx.sendResponse(factory.actionResponse().result(res).build());
                                     }
                                 }).iterator());
                             }
@@ -126,12 +130,13 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                             return (ReadCommand)request.command();
                         }
 
-                        @Override public void success(Serializable res) {
-                            rpcCtx.sendResponse(factory.actionResponse().result(res).build());
-                        }
+                        @Override public void result(Serializable res) {
+                            if (res instanceof Throwable) {
+                                sendSMError(rpcCtx, (Throwable)res, true);
 
-                        @Override public void failure(Throwable th, boolean compacted) {
-                            sendSMError(rpcCtx, th, compacted);
+                                return;
+                            }
+                            rpcCtx.sendResponse(factory.actionResponse().result(res).build());
                         }
                     }).iterator());
                 }

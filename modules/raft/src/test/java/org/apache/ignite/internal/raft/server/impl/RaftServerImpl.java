@@ -32,6 +32,7 @@ import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.ReadCommand;
@@ -216,15 +217,15 @@ public class RaftServerImpl implements RaftServer {
                 return (T) req.command();
             }
 
-            @Override public void success(Serializable res) {
-                var msg = clientMsgFactory.actionResponse().result(res).build();
-                service.messagingService().send(sender, msg, corellationId);
-            }
-
-            @Override public void failure(Throwable th, boolean compacted) {
-                var msg = clientMsgFactory.sMErrorResponse()
-                    .error(compacted ? new SMCompactedThrowable(th) : new SMFullThrowable(th))
-                    .build();
+            @Override public void result(Serializable res) {
+                NetworkMessage msg;
+                if (res instanceof Throwable) {
+                    msg = clientMsgFactory.sMErrorResponse()
+                        .error(new SMCompactedThrowable((Throwable)res))
+                        .build();
+                } else {
+                    msg = clientMsgFactory.actionResponse().result(res).build();
+                }
                 service.messagingService().send(sender, msg, corellationId);
             }
         })) {

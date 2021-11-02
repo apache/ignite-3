@@ -546,7 +546,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
                     @Override public CommandClosure<WriteCommand> next() {
                         CommandClosure<WriteCommand> cmd = iterator.next();
 
-                        cmd.failure(new RuntimeException("Expected message"), true);
+                        cmd.result(new RuntimeException("Expected message"));
 
                         return cmd;
                     }
@@ -564,7 +564,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
                     @Override public CommandClosure<ReadCommand> next() {
                         CommandClosure<ReadCommand> cmd = iterator.next();
 
-                        cmd.failure(new RuntimeException("Another expected message"), true);
+                        cmd.result(new RuntimeException("Another expected message"));
 
                         return cmd;
                     }

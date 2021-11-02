@@ -37,14 +37,5 @@ public interface CommandClosure<R extends Command> {
      * Must be called after a command has been processed normally.
      * @param res Execution result.
      */
-    void success(@Nullable Serializable res);
-
-    /**
-     * Must be called after a command has failed.
-     * @param th Throwable
-     * @param compacted True if {@code th} must be compacted before sending over network. Compaction means
-     * that throwable will be changed to a more compact structure, containing only message. Note, that
-     * in case of compaction, corresponding throwable must be in classpath on a client side.
-     */
-    void failure(Throwable th, boolean compacted);
+    void result(@Nullable Serializable res);
 }

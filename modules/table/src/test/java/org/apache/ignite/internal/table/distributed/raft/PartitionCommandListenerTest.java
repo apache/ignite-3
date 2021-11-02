@@ -312,7 +312,7 @@ public class PartitionCommandListenerTest {
                     assertTrue(resp.getValues().isEmpty());
 
                 return null;
-            }).when(clo).success(any(MultiRowsResponse.class));
+            }).when(clo).result(any(MultiRowsResponse.class));
 
             Set<BinaryRow> rows = new HashSet<>(KEY_COUNT);
 
@@ -332,7 +332,7 @@ public class PartitionCommandListenerTest {
                 assertNull(invocation.getArgument(0));
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
 
             Set<BinaryRow> rows = new HashSet<>(KEY_COUNT);
 
@@ -366,7 +366,7 @@ public class PartitionCommandListenerTest {
                     assertTrue(resp.getValues().isEmpty());
 
                 return null;
-            }).when(clo).success(any(MultiRowsResponse.class));
+            }).when(clo).result(any(MultiRowsResponse.class));
 
             Set<BinaryRow> keyRows = new HashSet<>(KEY_COUNT);
 
@@ -401,7 +401,7 @@ public class PartitionCommandListenerTest {
                     assertTrue(resp.getValues().isEmpty());
 
                 return null;
-            }).when(clo).success(any(MultiRowsResponse.class));
+            }).when(clo).result(any(MultiRowsResponse.class));
 
             Set<BinaryRow> keyRows = new HashSet<>(KEY_COUNT);
 
@@ -423,7 +423,7 @@ public class PartitionCommandListenerTest {
                 assertNull(invocation.getArgument(0));
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
@@ -438,7 +438,7 @@ public class PartitionCommandListenerTest {
                 assertEquals(existed, invocation.getArgument(0));
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
@@ -478,7 +478,7 @@ public class PartitionCommandListenerTest {
                     assertNull(resp.getValue());
 
                 return null;
-            }).when(clo).success(any(SingleRowResponse.class));
+            }).when(clo).result(any(SingleRowResponse.class));
         }));
     }
 
@@ -493,7 +493,7 @@ public class PartitionCommandListenerTest {
                 assertEquals(!existed, mock.getArgument(0));
 
                 return null;
-            }).when(clo).success(!existed);
+            }).when(clo).result(!existed);
         }));
     }
 
@@ -529,7 +529,7 @@ public class PartitionCommandListenerTest {
                     assertTrue(resp.getValues().isEmpty());
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
@@ -553,7 +553,7 @@ public class PartitionCommandListenerTest {
                     assertNull(resp.getValue());
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
@@ -577,7 +577,7 @@ public class PartitionCommandListenerTest {
                     assertNull(resp.getValue());
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
@@ -602,7 +602,7 @@ public class PartitionCommandListenerTest {
                     assertNull(resp.getValue());
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
@@ -619,7 +619,7 @@ public class PartitionCommandListenerTest {
                 assertEquals(existed, result);
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
@@ -636,7 +636,7 @@ public class PartitionCommandListenerTest {
                 assertEquals(existed, result);
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
@@ -657,7 +657,7 @@ public class PartitionCommandListenerTest {
                 assertEquals(existed, result);
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
