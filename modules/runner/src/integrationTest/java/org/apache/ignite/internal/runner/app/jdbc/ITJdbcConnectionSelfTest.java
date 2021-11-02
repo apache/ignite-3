@@ -105,7 +105,7 @@ public class ITJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     @SuppressWarnings({"EmptyTryBlock", "unused"})
     @Test
     @Disabled("ITDS-1887")
-    public void testDefaultsIPv6() throws Exception {
+    public void testDefaultsIpv6() throws Exception {
         var url = "jdbc:ignite:thin://[::1]:10800";
 
         try (Connection conn = DriverManager.getConnection(url)) {
@@ -1034,7 +1034,7 @@ public class ITJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testCreateNClob() throws Exception {
+    public void testCreateNclob() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // Unsupported
             assertThrows(
@@ -1057,7 +1057,7 @@ public class ITJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testCreateSQLXML() throws Exception {
+    public void testCreateSqlXml() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // Unsupported
             assertThrows(

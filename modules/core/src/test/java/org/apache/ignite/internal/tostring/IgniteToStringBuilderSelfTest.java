@@ -282,11 +282,11 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         final String arrOfStr = IgniteToStringBuilder.arrayToString(arrOf);
 
         // Simulate overflow
-        StringBuilder resultSB = new StringBuilder(arrStr);
-        resultSB.deleteCharAt(resultSB.length() - 1);
-        resultSB.append("... and ").append(arrOf.length - limit).append(" more]");
+        StringBuilder sb = new StringBuilder(arrStr);
+        sb.deleteCharAt(sb.length() - 1);
+        sb.append("... and ").append(arrOf.length - limit).append(" more]");
 
-        arrStr = resultSB.toString();
+        arrStr = sb.toString();
 
         assertEquals(arrStr, arrOfStr, "Collection limit error in array of type "
                 + arrOf.getClass().getName() + " error, normal arr: <" + arrStr + ">, overflowed arr: <" + arrOfStr + ">");

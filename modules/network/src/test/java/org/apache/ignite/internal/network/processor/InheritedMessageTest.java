@@ -55,7 +55,7 @@ public class InheritedMessageTest {
     @Test
     void testSerialization() {
         InheritedMessage msg = messageFactory.inheritedMessage()
-                .x(1).y(2).z(3)
+                .intX(1).intY(2).intZ(3)
                 .build();
 
         MessageSerializer<InheritedMessage> serializer = serializationFactory.createSerializer();

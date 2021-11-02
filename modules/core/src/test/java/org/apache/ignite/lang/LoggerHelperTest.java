@@ -268,12 +268,12 @@ public class LoggerHelperTest {
         result = LoggerMessageHelper.format("{}{}", new Object[]{"a", multiFloatA});
         assertEquals("a[[1.0, 2.0], [10.0, 20.0]]", result);
 
-        Object[][] multiOA = new Object[][]{ia0, ia1};
-        result = LoggerMessageHelper.format("{}{}", new Object[]{"a", multiOA});
+        Object[][] multiOa = new Object[][]{ia0, ia1};
+        result = LoggerMessageHelper.format("{}{}", new Object[]{"a", multiOa});
         assertEquals("a[[1, 2, 3], [10, 20, 30]]", result);
 
-        Object[][][] multiOA3 = new Object[][][]{multiOA, multiOA};
-        result = LoggerMessageHelper.format("{}{}", new Object[]{"a", multiOA3});
+        Object[][][] multiOa3 = new Object[][][]{multiOa, multiOa};
+        result = LoggerMessageHelper.format("{}{}", new Object[]{"a", multiOa3});
         assertEquals("a[[[1, 2, 3], [10, 20, 30]], [[1, 2, 3], [10, 20, 30]]]", result);
     }
 

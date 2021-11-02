@@ -228,7 +228,7 @@ public class ITInternalTableScanTest {
      */
     @Test
     public void testOneRowScan() throws Exception {
-        requestNTest(
+        requestNtest(
                 List.of(
                         prepareDataRow("key1", "val1"),
                         prepareDataRow("key2", "val2")
@@ -241,7 +241,7 @@ public class ITInternalTableScanTest {
      */
     @Test
     public void testMultipleRowScan() throws Exception {
-        requestNTest(
+        requestNtest(
                 List.of(
                         prepareDataRow("key1", "val1"),
                         prepareDataRow("key2", "val2"),
@@ -529,7 +529,7 @@ public class ITInternalTableScanTest {
      * @param reqAmount      Amount of rows to request at a time.
      * @throws Exception If Any.
      */
-    private void requestNTest(List<DataRow> submittedItems, int reqAmount) throws Exception {
+    private void requestNtest(List<DataRow> submittedItems, int reqAmount) throws Exception {
         AtomicInteger cursorTouchCnt = new AtomicInteger(0);
 
         List<BinaryRow> retrievedItems = Collections.synchronizedList(new ArrayList<>());

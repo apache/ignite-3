@@ -184,7 +184,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         
         try {
             // Delete existing data, relying on the raft's snapshot and log playback
-            destroyRocksDB();
+            destroyRocksDb();
             
             this.db = RocksDB.open(options, dbPath.toAbsolutePath().toString(), descriptors, handles);
         } catch (RocksDBException e) {
@@ -203,7 +203,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
      *
      * @throws RocksDBException If failed.
      */
-    private void destroyRocksDB() throws RocksDBException {
+    private void destroyRocksDb() throws RocksDBException {
         try (Options opt = new Options()) {
             RocksDB.destroyDB(dbPath.toString(), opt);
         }

@@ -81,12 +81,12 @@ public class ClientMessagePackerUnpackerTest {
     }
 
     @Test
-    public void testUUID() {
-        testUUID(UUID.randomUUID());
-        testUUID(new UUID(0, 0));
+    public void testUuid() {
+        testUuid(UUID.randomUUID());
+        testUuid(new UUID(0, 0));
     }
 
-    private void testUUID(UUID u) {
+    private void testUuid(UUID u) {
         try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
             packer.packUuid(u);
 

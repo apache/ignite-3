@@ -302,7 +302,7 @@ class ITDynamicTableCreationTest {
     
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15747")
     @Test
-    void testMissedPK() {
+    void testMissedPk() {
         List<Ignite> grid = startGrid();
         
         // Missed PK.

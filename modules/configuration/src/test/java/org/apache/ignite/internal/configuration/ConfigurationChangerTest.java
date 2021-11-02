@@ -21,7 +21,7 @@ import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
-import static org.apache.ignite.internal.configuration.AConfiguration.KEY;
+import static org.apache.ignite.internal.configuration.FirstConfiguration.KEY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -74,26 +74,26 @@ public class ConfigurationChangerTest {
      *
      */
     @ConfigurationRoot(rootName = "key", type = LOCAL)
-    public static class AConfigurationSchema {
+    public static class FirstConfigurationSchema {
         /**
          *
          */
         @ConfigValue
         @MaybeInvalid
-        public BConfigurationSchema child;
+        public SecondConfigurationSchema child;
         
         /**
          *
          */
         @NamedConfigValue
-        public CConfigurationSchema elements;
+        public ThirdConfigurationSchema elements;
     }
     
     /**
      *
      */
     @Config
-    public static class BConfigurationSchema {
+    public static class SecondConfigurationSchema {
         /**
          *
          */
@@ -112,7 +112,7 @@ public class ConfigurationChangerTest {
      *
      */
     @Config
-    public static class CConfigurationSchema {
+    public static class ThirdConfigurationSchema {
         /**
          *
          */
@@ -144,12 +144,12 @@ public class ConfigurationChangerTest {
         ConfigurationChanger changer = createChanger(KEY);
         changer.start();
         
-        changer.change(source(KEY, (AChange parent) -> parent
+        changer.change(source(KEY, (FirstChange parent) -> parent
                 .changeChild(change -> change.changeIntCfg(1).changeStrCfg("1"))
                 .changeElements(change -> change.create("a", element -> element.changeStrCfg("1")))
         )).get(1, SECONDS);
         
-        AView newRoot = (AView) changer.getRootNode(KEY);
+        FirstView newRoot = (FirstView) changer.getRootNode(KEY);
         
         assertEquals(1, newRoot.child().intCfg());
         assertEquals("1", newRoot.child().strCfg());
@@ -167,12 +167,12 @@ public class ConfigurationChangerTest {
         ConfigurationChanger changer2 = createChanger(KEY);
         changer2.start();
         
-        changer1.change(source(KEY, (AChange parent) -> parent
+        changer1.change(source(KEY, (FirstChange parent) -> parent
                 .changeChild(change -> change.changeIntCfg(1).changeStrCfg("1"))
                 .changeElements(change -> change.create("a", element -> element.changeStrCfg("1")))
         )).get(1, SECONDS);
         
-        changer2.change(source(KEY, (AChange parent) -> parent
+        changer2.change(source(KEY, (FirstChange parent) -> parent
                 .changeChild(change -> change.changeIntCfg(2).changeStrCfg("2"))
                 .changeElements(change -> change
                         .createOrUpdate("a", element -> element.changeStrCfg("2"))
@@ -180,14 +180,14 @@ public class ConfigurationChangerTest {
                 )
         )).get(1, SECONDS);
         
-        AView newRoot1 = (AView) changer1.getRootNode(KEY);
+        FirstView newRoot1 = (FirstView) changer1.getRootNode(KEY);
         
         assertEquals(2, newRoot1.child().intCfg());
         assertEquals("2", newRoot1.child().strCfg());
         assertEquals("2", newRoot1.elements().get("a").strCfg());
         assertEquals("2", newRoot1.elements().get("b").strCfg());
         
-        AView newRoot2 = (AView) changer2.getRootNode(KEY);
+        FirstView newRoot2 = (FirstView) changer2.getRootNode(KEY);
         
         assertEquals(2, newRoot2.child().intCfg());
         assertEquals("2", newRoot2.child().strCfg());
@@ -222,12 +222,12 @@ public class ConfigurationChangerTest {
         
         changer2.start();
         
-        changer1.change(source(KEY, (AChange parent) -> parent
+        changer1.change(source(KEY, (FirstChange parent) -> parent
                 .changeChild(change -> change.changeIntCfg(1).changeStrCfg("1"))
                 .changeElements(change -> change.create("a", element -> element.changeStrCfg("1")))
         )).get(1, SECONDS);
         
-        assertThrows(ExecutionException.class, () -> changer2.change(source(KEY, (AChange parent) -> parent
+        assertThrows(ExecutionException.class, () -> changer2.change(source(KEY, (FirstChange parent) -> parent
                 .changeChild(change -> change.changeIntCfg(2).changeStrCfg("2"))
                 .changeElements(change -> change
                         .create("a", element -> element.changeStrCfg("2"))
@@ -235,7 +235,7 @@ public class ConfigurationChangerTest {
                 )
         )).get(1, SECONDS));
         
-        AView newRoot = (AView) changer2.getRootNode(KEY);
+        FirstView newRoot = (FirstView) changer2.getRootNode(KEY);
         
         assertEquals(1, newRoot.child().intCfg());
         assertEquals("1", newRoot.child().strCfg());
@@ -259,7 +259,7 @@ public class ConfigurationChangerTest {
         
         storage.fail(true);
         
-        assertThrows(ExecutionException.class, () -> changer.change(source(KEY, (AChange parent) -> parent
+        assertThrows(ExecutionException.class, () -> changer.change(source(KEY, (FirstChange parent) -> parent
                 .changeChild(child -> child.changeIntCfg(1).changeStrCfg("1"))
         )).get(1, SECONDS));
         
@@ -270,7 +270,7 @@ public class ConfigurationChangerTest {
         
         assertEquals(0, dataMap.size());
         
-        AView newRoot = (AView) changer.getRootNode(KEY);
+        FirstView newRoot = (FirstView) changer.getRootNode(KEY);
         assertNotNull(newRoot.child());
         assertNull(newRoot.child().strCfg());
     }

@@ -111,8 +111,8 @@ public class IgniteToStringBuilder {
             });
 
     /** Every thread has its own string builder. */
-    private static final ThreadLocal<SBLimitedLength> threadLocSB = ThreadLocal.withInitial(() ->
-            new SBLimitedLength(256));
+    private static final ThreadLocal<StringBuilderLimitedLength> threadLocSB = ThreadLocal.withInitial(() ->
+            new StringBuilderLimitedLength(256));
 
     /**
      * Tracks the objects currently printing in the string builder.
@@ -347,7 +347,7 @@ public class IgniteToStringBuilder {
         addVals[4] = val4;
         addSens[4] = sens4;
 
-        SBLimitedLength sb = threadLocSB.get();
+        StringBuilderLimitedLength sb = threadLocSB.get();
 
         boolean newStr = sb.length() == 0;
 
@@ -425,7 +425,7 @@ public class IgniteToStringBuilder {
         addVals[5] = val5;
         addSens[5] = sens5;
 
-        SBLimitedLength sb = threadLocSB.get();
+        StringBuilderLimitedLength sb = threadLocSB.get();
 
         boolean newStr = sb.length() == 0;
 
@@ -511,7 +511,7 @@ public class IgniteToStringBuilder {
         addVals[6] = val6;
         addSens[6] = sens6;
 
-        SBLimitedLength sb = threadLocSB.get();
+        StringBuilderLimitedLength sb = threadLocSB.get();
 
         boolean newStr = sb.length() == 0;
 
@@ -601,7 +601,7 @@ public class IgniteToStringBuilder {
         addVals[3] = val3;
         addSens[3] = sens3;
 
-        SBLimitedLength sb = threadLocSB.get();
+        StringBuilderLimitedLength sb = threadLocSB.get();
 
         boolean newStr = sb.length() == 0;
 
@@ -680,7 +680,7 @@ public class IgniteToStringBuilder {
         addVals[2] = val2;
         addSens[2] = sens2;
 
-        SBLimitedLength sb = threadLocSB.get();
+        StringBuilderLimitedLength sb = threadLocSB.get();
 
         boolean newStr = sb.length() == 0;
 
@@ -744,7 +744,7 @@ public class IgniteToStringBuilder {
         addVals[1] = val1;
         addSens[1] = sens1;
 
-        SBLimitedLength sb = threadLocSB.get();
+        StringBuilderLimitedLength sb = threadLocSB.get();
 
         boolean newStr = sb.length() == 0;
 
@@ -795,7 +795,7 @@ public class IgniteToStringBuilder {
         addVals[0] = val;
         addSens[0] = sens;
 
-        SBLimitedLength sb = threadLocSB.get();
+        StringBuilderLimitedLength sb = threadLocSB.get();
 
         boolean newStr = sb.length() == 0;
 
@@ -820,7 +820,7 @@ public class IgniteToStringBuilder {
         assert cls != null;
         assert obj != null;
 
-        SBLimitedLength sb = threadLocSB.get();
+        StringBuilderLimitedLength sb = threadLocSB.get();
 
         boolean newStr = sb.length() == 0;
 
@@ -852,7 +852,7 @@ public class IgniteToStringBuilder {
      * @param buf buffer to print to.
      * @param val value to print, can be {@code null}.
      */
-    private static void toString(SBLimitedLength buf, Object val) {
+    private static void toString(StringBuilderLimitedLength buf, Object val) {
         toString(buf, null, val);
     }
 
@@ -863,7 +863,7 @@ public class IgniteToStringBuilder {
      * @param cls value class.
      * @param val value to print.
      */
-    private static void toString(SBLimitedLength buf, Class<?> cls, Object val) {
+    private static void toString(StringBuilderLimitedLength buf, Class<?> cls, Object val) {
         if (val == null) {
             buf.app("null");
 
@@ -935,7 +935,7 @@ public class IgniteToStringBuilder {
         propVals[0] = val;
         propSens[0] = sens;
 
-        SBLimitedLength sb = threadLocSB.get();
+        StringBuilderLimitedLength sb = threadLocSB.get();
 
         boolean newStr = sb.length() == 0;
 
@@ -1009,7 +1009,7 @@ public class IgniteToStringBuilder {
         propVals[1] = val1;
         propSens[1] = sens1;
 
-        SBLimitedLength sb = threadLocSB.get();
+        StringBuilderLimitedLength sb = threadLocSB.get();
 
         boolean newStr = sb.length() == 0;
 
@@ -1059,7 +1059,7 @@ public class IgniteToStringBuilder {
         propVals[2] = val2;
         propSens[2] = sens2;
 
-        SBLimitedLength sb = threadLocSB.get();
+        StringBuilderLimitedLength sb = threadLocSB.get();
 
         boolean newStr = sb.length() == 0;
 
@@ -1117,7 +1117,7 @@ public class IgniteToStringBuilder {
         propVals[3] = val3;
         propSens[3] = sens3;
 
-        SBLimitedLength sb = threadLocSB.get();
+        StringBuilderLimitedLength sb = threadLocSB.get();
 
         boolean newStr = sb.length() == 0;
 
@@ -1183,7 +1183,7 @@ public class IgniteToStringBuilder {
         propVals[4] = val4;
         propSens[4] = sens4;
 
-        SBLimitedLength sb = threadLocSB.get();
+        StringBuilderLimitedLength sb = threadLocSB.get();
 
         boolean newStr = sb.length() == 0;
 
@@ -1257,7 +1257,7 @@ public class IgniteToStringBuilder {
         propVals[5] = val5;
         propSens[5] = sens5;
 
-        SBLimitedLength sb = threadLocSB.get();
+        StringBuilderLimitedLength sb = threadLocSB.get();
 
         boolean newStr = sb.length() == 0;
 
@@ -1339,7 +1339,7 @@ public class IgniteToStringBuilder {
         propVals[6] = val6;
         propSens[6] = sens6;
 
-        SBLimitedLength sb = threadLocSB.get();
+        StringBuilderLimitedLength sb = threadLocSB.get();
 
         boolean newStr = sb.length() == 0;
 
@@ -1386,7 +1386,7 @@ public class IgniteToStringBuilder {
             propSens[i] = (Boolean) sens;
         }
 
-        SBLimitedLength sb = threadLocSB.get();
+        StringBuilderLimitedLength sb = threadLocSB.get();
 
         boolean newStr = sb.length() == 0;
 
@@ -1406,7 +1406,7 @@ public class IgniteToStringBuilder {
      * @param arrType Type of the array.
      * @param obj     Array object.
      */
-    private static void addArray(SBLimitedLength buf, Class arrType, Object obj) {
+    private static void addArray(StringBuilderLimitedLength buf, Class arrType, Object obj) {
         if (arrType.getComponentType().isPrimitive()) {
             buf.app(arrayToString(obj));
 
@@ -1438,7 +1438,7 @@ public class IgniteToStringBuilder {
      * @param buf String builder buffer.
      * @param col Collection object.
      */
-    private static void addCollection(SBLimitedLength buf, Collection<?> col) {
+    private static void addCollection(StringBuilderLimitedLength buf, Collection<?> col) {
         buf.app(col.getClass().getSimpleName()).app(" [");
 
         int cnt = 0;
@@ -1481,7 +1481,7 @@ public class IgniteToStringBuilder {
      * @param buf String builder buffer.
      * @param map Map object.
      */
-    private static <K, V> void addMap(SBLimitedLength buf, Map<K, V> map) {
+    private static <K, V> void addMap(StringBuilderLimitedLength buf, Map<K, V> map) {
         buf.app(map.getClass().getSimpleName()).app(" {");
 
         int cnt = 0;
@@ -1532,7 +1532,7 @@ public class IgniteToStringBuilder {
      * @param buf  String builder buffer.
      * @param size Size to compare with limit.
      */
-    private static void handleOverflow(SBLimitedLength buf, int size) {
+    private static void handleOverflow(StringBuilderLimitedLength buf, int size) {
         int overflow = size - COLLECTION_LIMIT;
 
         if (overflow > 0) {
@@ -1547,7 +1547,7 @@ public class IgniteToStringBuilder {
      * @param writtenElements Number of elements successfully written to output.
      * @param size            Overall size of collection.
      */
-    private static void handleConcurrentModification(SBLimitedLength buf, int writtenElements, int size) {
+    private static void handleConcurrentModification(StringBuilderLimitedLength buf, int writtenElements, int size) {
         buf.app("... concurrent modification was detected, ").app(writtenElements).app(" out of ").app(size)
                 .app(" were written");
     }
@@ -1567,7 +1567,7 @@ public class IgniteToStringBuilder {
      */
     private static <T> String toStringImpl(
             Class<T> cls,
-            SBLimitedLength buf,
+            StringBuilderLimitedLength buf,
             T obj,
             Object[] addNames,
             Object[] addVals,
@@ -1619,7 +1619,7 @@ public class IgniteToStringBuilder {
      * @param propCnt   Properties count.
      * @return String presentation of the object.
      */
-    private static String toStringImpl(String str, SBLimitedLength buf, Object[] propNames, Object[] propVals,
+    private static String toStringImpl(String str, StringBuilderLimitedLength buf, Object[] propNames, Object[] propVals,
             boolean[] propSens, int propCnt) {
 
         final boolean newStr = buf.length() == 0;
@@ -1657,7 +1657,7 @@ public class IgniteToStringBuilder {
      */
     private static <T> String toStringImpl0(
             Class<T> cls,
-            SBLimitedLength buf,
+            StringBuilderLimitedLength buf,
             T obj,
             Object[] addNames,
             Object[] addVals,
@@ -1792,13 +1792,13 @@ public class IgniteToStringBuilder {
         }
 
         if (arrLen > COLLECTION_LIMIT) {
-            StringBuilder resSB = new StringBuilder(res);
+            StringBuilder sb = new StringBuilder(res);
 
-            resSB.deleteCharAt(resSB.length() - 1);
+            sb.deleteCharAt(sb.length() - 1);
 
-            resSB.append("... and ").append(arrLen - COLLECTION_LIMIT).append(" more]");
+            sb.append("... and ").append(arrLen - COLLECTION_LIMIT).append(" more]");
 
-            res = resSB.toString();
+            res = sb.toString();
         }
 
         return res;
@@ -1847,7 +1847,7 @@ public class IgniteToStringBuilder {
      * @param addSens  Sensitive flag of values or {@code null} if all values are not sensitive.
      * @param addLen   How many additional values will be included.
      */
-    private static void appendVals(SBLimitedLength buf,
+    private static void appendVals(StringBuilderLimitedLength buf,
             boolean first,
             Object[] addNames,
             Object[] addVals,
@@ -2047,7 +2047,7 @@ public class IgniteToStringBuilder {
      *      should be saved.
      */
     private static boolean handleRecursion(
-            SBLimitedLength buf,
+            StringBuilderLimitedLength buf,
             Object obj,
             @NotNull Class<?> cls,
             IdentityHashMap<Object, EntryReference> svdObjs

@@ -52,7 +52,7 @@ public class SerializationOrderTest {
      */
     @Test
     void testSerializationOrder() {
-        final SerializationOrderMessage msg = messageFactory.serializationOrderMessage().a(1).b("2").c(3).d("4").build();
+        final SerializationOrderMessage msg = messageFactory.serializationOrderMessage().intA(1).strB("2").intC(3).strD("4").build();
 
         final MessageSerializer<SerializationOrderMessage> serializer = serializationFactory.createSerializer();
 

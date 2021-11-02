@@ -67,7 +67,7 @@ public class IgniteSpinReadWriteLock {
                 .findVarHandle(IgniteSpinReadWriteLock.class, "state", int.class);
 
             PENDING_WLOCKS_VH = MethodHandles.lookup()
-                .findVarHandle(IgniteSpinReadWriteLock.class, "pendingWLocks", int.class);
+                .findVarHandle(IgniteSpinReadWriteLock.class, "pendingWriteLocks", int.class);
         } catch (ReflectiveOperationException e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -95,7 +95,7 @@ public class IgniteSpinReadWriteLock {
      * lock attempts when the write lock has been released (so, if both an attempt to acquire the write lock and an attempt to acquire the
      * read lock are waiting for write lock to be released, a write lock attempt will be served first when the release happens).
      */
-    private volatile int pendingWLocks;
+    private volatile int pendingWriteLocks;
 
     /** ID of the thread holding write lock (or {@link #NO_OWNER} if the write lock is not held). */
     private long writeLockOwner = NO_OWNER;
@@ -166,7 +166,7 @@ public class IgniteSpinReadWriteLock {
 
     /***/
     private boolean writeLockedOrGoingToBe(int curState) {
-        return curState == WRITE_LOCKED || pendingWLocks > 0;
+        return curState == WRITE_LOCKED || pendingWriteLocks > 0;
     }
 
     /***/
@@ -281,9 +281,9 @@ public class IgniteSpinReadWriteLock {
     /***/
     private void incrementPendingWriteLocks() {
         while (true) {
-            int curPendingWLocks = pendingWLocks;
+            int curPendingWriteLocks = pendingWriteLocks;
 
-            if (compareAndSet(PENDING_WLOCKS_VH, curPendingWLocks, curPendingWLocks + 1)) {
+            if (compareAndSet(PENDING_WLOCKS_VH, curPendingWriteLocks, curPendingWriteLocks + 1)) {
                 break;
             }
         }
@@ -297,11 +297,11 @@ public class IgniteSpinReadWriteLock {
     /***/
     private void decrementPendingWriteLocks() {
         while (true) {
-            int curPendingWLocks = pendingWLocks;
+            int curPendingWriteLocks = pendingWriteLocks;
 
-            assert curPendingWLocks > 0;
+            assert curPendingWriteLocks > 0;
 
-            if (compareAndSet(PENDING_WLOCKS_VH, curPendingWLocks, curPendingWLocks - 1)) {
+            if (compareAndSet(PENDING_WLOCKS_VH, curPendingWriteLocks, curPendingWriteLocks - 1)) {
                 break;
             }
         }
@@ -452,7 +452,7 @@ public class IgniteSpinReadWriteLock {
      * @return count of pending requests to get the write lock
      */
     int pendingWriteLocksCount() {
-        return pendingWLocks;
+        return pendingWriteLocks;
     }
 
     /** {@inheritDoc} */

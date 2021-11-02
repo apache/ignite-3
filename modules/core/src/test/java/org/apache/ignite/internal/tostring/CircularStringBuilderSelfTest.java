@@ -30,7 +30,7 @@ public class CircularStringBuilderSelfTest extends IgniteAbstractTest {
      *
      */
     @Test
-    public void testCSBPrimitive() {
+    public void testCsbPrimitive() {
         CircularStringBuilder csb = new CircularStringBuilder(1);
         csb.append((String) null);
         assertEquals("l", csb.toString());
@@ -46,13 +46,13 @@ public class CircularStringBuilderSelfTest extends IgniteAbstractTest {
      *
      */
     @Test
-    public void testCSBOverflow() {
-        testSB(3, "1234", 2, "234");
-        testSB(4, "1234", 2, "1234");
-        testSB(5, "1234", 2, "41234");
-        testSB(6, "1234", 2, "341234");
-        testSB(7, "1234", 2, "2341234");
-        testSB(8, "1234", 2, "12341234");
+    public void testCsbOverflow() {
+        testSb(3, "1234", 2, "234");
+        testSb(4, "1234", 2, "1234");
+        testSb(5, "1234", 2, "41234");
+        testSb(6, "1234", 2, "341234");
+        testSb(7, "1234", 2, "2341234");
+        testSb(8, "1234", 2, "12341234");
     }
 
     /**
@@ -61,7 +61,7 @@ public class CircularStringBuilderSelfTest extends IgniteAbstractTest {
      * @param num      How many times pattern should be added.
      * @param expected Expected string.
      */
-    private void testSB(int capacity, String pattern, int num, String expected) {
+    private void testSb(int capacity, String pattern, int num, String expected) {
         CircularStringBuilder csb = new CircularStringBuilder(capacity);
 
         for (int i = 0; i < num; i++) {

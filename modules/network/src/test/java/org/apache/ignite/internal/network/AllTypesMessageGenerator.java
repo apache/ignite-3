@@ -55,15 +55,15 @@ public class AllTypesMessageGenerator {
             }
 
             if (nestedMsg) {
-                message.v(
+                message.netMsgArrV(
                         IntStream.range(0, 10).mapToObj(unused -> generate(seed, false)).toArray(NetworkMessage[]::new)
                 );
 
-                message.w(IntStream.range(0, 10)
+                message.netMsgCollW(IntStream.range(0, 10)
                         .mapToObj(unused -> generate(seed, false))
                         .collect(Collectors.toList()));
 
-                message.x(IntStream.range(0, 10)
+                message.newMsgMapX(IntStream.range(0, 10)
                         .boxed()
                         .collect(Collectors.toMap(String::valueOf, unused -> generate(seed, false))));
             }
