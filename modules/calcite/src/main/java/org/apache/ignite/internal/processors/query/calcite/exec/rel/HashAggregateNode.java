@@ -41,6 +41,10 @@ import org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.GroupKey
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.lang.IgniteInternalException;
 
+/**
+ * HashAggregateNode.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     private final AggregateType type;
 
@@ -60,7 +64,15 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     private boolean inLoop;
 
     /**
-     * @param ctx Execution context.
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
+     * @param ctx        Execution context.
+     * @param rowType    RelDataType.
+     * @param type       AggregateType.
+     * @param grpSets    List of ImmutableBitSet.
+     * @param accFactory List of AccumulatorWrapper.
+     * @param rowFactory RowFactory.
      */
     public HashAggregateNode(
             ExecutionContext<RowT> ctx, RelDataType rowType, AggregateType type, List<ImmutableBitSet> grpSets,
@@ -247,6 +259,9 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         /**
+         * Get rows.
+         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+         *
          * @param cnt Number of rows.
          * @return Actually sent rows number.
          */

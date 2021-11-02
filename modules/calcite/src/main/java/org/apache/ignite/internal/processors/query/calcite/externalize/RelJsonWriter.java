@@ -54,6 +54,11 @@ public class RelJsonWriter implements RelWriter {
 
     private List<Pair<String, Object>> items = new ArrayList<>();
 
+    /**
+     * ToJson.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static String toJson(RelNode rel) {
         RelJsonWriter writer = new RelJsonWriter(rel.getCluster(), PRETTY_PRINT);
         rel.explain(writer);
@@ -61,6 +66,11 @@ public class RelJsonWriter implements RelWriter {
         return writer.asString();
     }
 
+    /**
+     * Constructor.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public RelJsonWriter(RelOptCluster cluster, boolean pretty) {
         this.pretty = pretty;
 
@@ -101,6 +111,11 @@ public class RelJsonWriter implements RelWriter {
         return true;
     }
 
+    /**
+     * AsString.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public String asString() {
         try {
             StringWriter writer = new StringWriter();

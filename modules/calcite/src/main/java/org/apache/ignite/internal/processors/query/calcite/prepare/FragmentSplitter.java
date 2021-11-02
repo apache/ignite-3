@@ -33,6 +33,10 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteSender;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
+/**
+ * Fragment splitter.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class FragmentSplitter extends IgniteRelShuttle {
     private final Deque<FragmentProto> stack = new LinkedList<>();
 
@@ -44,6 +48,13 @@ public class FragmentSplitter extends IgniteRelShuttle {
         this.cutPoint = cutPoint;
     }
 
+    /**
+     * Split fragment.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
+     * @param fragment Fragment to split.
+     * @return Splitted fragments.
+     */
     public List<Fragment> go(Fragment fragment) {
         ArrayList<Fragment> res = new ArrayList<>();
 

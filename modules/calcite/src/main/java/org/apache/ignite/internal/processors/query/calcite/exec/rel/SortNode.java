@@ -40,6 +40,8 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     private final PriorityQueue<RowT> rows;
 
     /**
+     * Constructor.
+     *
      * @param ctx  Execution context.
      * @param comp Rows comparator.
      */

@@ -49,6 +49,10 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.internal.processors.query.calcite.util.HintUtils;
 import org.apache.ignite.lang.IgniteLogger;
 
+/**
+ * PlannerHelper.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class PlannerHelper {
     /**
      * Default constructor.
@@ -58,7 +62,8 @@ public class PlannerHelper {
     }
 
     /**
-     *
+     * Optimize.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
      *
      * @param sqlNode Sql node.
      * @param planner Planner.
@@ -225,7 +230,7 @@ public class PlannerHelper {
         }
 
         /**
-         * @return {@code true} in case {@link #modifyNode} produces any insert.
+         * Get insert data flag: {@code true} in case {@link #modifyNode} produces any insert.
          */
         private boolean modifyNodeInsertsData() {
             return modifyNode.isInsert(); // MERGE should be analyzed too

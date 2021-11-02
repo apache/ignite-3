@@ -89,6 +89,11 @@ public class CorrelateToNestedLoopRule extends ConverterRule {
         );
     }
 
+    /**
+     * Config interface.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     @SuppressWarnings("ClassNameSameAsAncestorName")
     public interface Config extends ConverterRule.Config {
         Config DEFAULT = ConverterRule.Config.INSTANCE

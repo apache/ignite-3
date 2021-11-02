@@ -22,7 +22,8 @@ import java.util.UUID;
 import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
 
 /**
- *
+ * ExecutionService interface.
+ * // TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
  */
 public interface ExecutionService {
     /**

@@ -41,7 +41,7 @@ public class IgniteSchema extends AbstractSchema {
     }
 
     /**
-     * @return Schema name.
+     * Get schema name.
      */
     public String getName() {
         return schemaName;
@@ -54,6 +54,8 @@ public class IgniteSchema extends AbstractSchema {
     }
 
     /**
+     * Add table.
+     *
      * @param tbl Table.
      */
     public void addTable(String tblName, IgniteTable tbl) {
@@ -61,6 +63,8 @@ public class IgniteSchema extends AbstractSchema {
     }
 
     /**
+     * Remove table.
+     *
      * @param tblName Table name.
      */
     public void removeTable(String tblName) {

@@ -32,17 +32,13 @@ import org.apache.ignite.internal.processors.query.calcite.trait.CorrelationTrai
 import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
 
 /**
+ * FilterConverterRule.
  *
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
  */
 public class FilterConverterRule extends AbstractIgniteConverterRule<LogicalFilter> {
-    /**
-     *
-     */
     public static final RelOptRule INSTANCE = new FilterConverterRule();
 
-    /**
-     *
-     */
     public FilterConverterRule() {
         super(LogicalFilter.class, "FilterConverterRule");
     }

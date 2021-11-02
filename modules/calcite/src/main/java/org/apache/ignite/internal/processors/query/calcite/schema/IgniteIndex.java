@@ -31,6 +31,11 @@ public class IgniteIndex {
 
     private final IgniteTable tbl;
 
+    /**
+     * Constructor.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public IgniteIndex(RelCollation collation, String name, IgniteTable tbl) {
         this.collation = collation;
         idxName = name;

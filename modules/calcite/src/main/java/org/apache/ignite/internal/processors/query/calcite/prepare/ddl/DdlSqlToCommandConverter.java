@@ -57,6 +57,10 @@ import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTa
 import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOptionEnum;
 import org.apache.ignite.lang.IgniteException;
 
+/**
+ * DdlSqlToCommandConverter.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class DdlSqlToCommandConverter {
     /** Processor that validates a value is a Sql Identifier. */
     private static final BiFunction<IgniteSqlCreateTableOption, PlanningContext, String> VALUE_IS_IDENTIFIER_VALIDATOR = (opt, ctx) -> {
@@ -329,6 +333,8 @@ public class DdlSqlToCommandConverter {
         private final BiConsumer<CreateTableCommand, T> valSetter;
 
         /**
+         * Constructor.
+         *
          * @param key       Option key this processor is supopsed to handle.
          * @param validator Validator that derives a value from a {@link SqlNode}, validates it and then returns if validation passed,
          *                  throws an exeption otherwise.
@@ -359,7 +365,7 @@ public class DdlSqlToCommandConverter {
         }
 
         /**
-         * @return Key this processor is supposed to handle.
+         * Get key this processor is supposed to handle.
          */
         private IgniteSqlCreateTableOptionEnum key() {
             return key;

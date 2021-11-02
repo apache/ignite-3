@@ -42,7 +42,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Fragment of distributed query
+ * Fragment of distributed query.
  */
 public class Fragment {
     private final long id;
@@ -58,6 +58,8 @@ public class Fragment {
     private final ImmutableList<IgniteReceiver> remotes;
 
     /**
+     * Constructor.
+     *
      * @param id      Fragment id.
      * @param root    Root node of the fragment.
      * @param remotes Remote sources of the fragment.
@@ -75,14 +77,14 @@ public class Fragment {
     }
 
     /**
-     * @return Fragment ID.
+     * Get fragment ID.
      */
     public long fragmentId() {
         return id;
     }
 
     /**
-     * @return Root node.
+     * Get root node.
      */
     public IgniteRel root() {
         return root;
@@ -126,7 +128,7 @@ public class Fragment {
     }
 
     /**
-     * @return Fragment remote sources.
+     * Get fragment remote sources.
      */
     public List<IgniteReceiver> remotes() {
         return remotes;
@@ -136,12 +138,20 @@ public class Fragment {
         return !(root instanceof IgniteSender);
     }
 
+    /**
+     * Attach fragment to planning context.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public Fragment attach(PlanningContext ctx) {
         RelOptCluster cluster = ctx.cluster();
 
         return root.getCluster() == cluster ? this : new Cloner(cluster).go(this);
     }
 
+    /**
+     * Detach fragment.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public Fragment detach() {
         RelOptCluster cluster = PlanningContext.empty().cluster();
 

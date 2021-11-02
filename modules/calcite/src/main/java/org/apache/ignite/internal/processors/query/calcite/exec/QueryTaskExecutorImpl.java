@@ -23,6 +23,10 @@ import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
 
+/**
+ * QueryTaskExecutorImpl.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.UncaughtExceptionHandler {
     private static final IgniteLogger LOG = IgniteLogger.forClass(QueryTaskExecutorImpl.class);
 
@@ -31,6 +35,8 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     private Thread.UncaughtExceptionHandler exHnd;
 
     /**
+     * Constructor.
+     *
      * @param stripedThreadPoolExecutor Executor.
      */
     public QueryTaskExecutorImpl(StripedThreadPoolExecutor stripedThreadPoolExecutor) {
@@ -38,7 +44,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     }
 
     /**
-     * @param exHnd Uncaught exception handler.
+     * Set uncaught exception handler.
      */
     public void exceptionHandler(Thread.UncaughtExceptionHandler exHnd) {
         this.exHnd = exHnd;

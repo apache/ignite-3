@@ -36,6 +36,10 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Query template.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class QueryTemplate {
     private final MappingService mappingService;
 
@@ -43,6 +47,10 @@ public class QueryTemplate {
 
     private final AtomicReference<ExecutionPlan> executionPlan = new AtomicReference<>();
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public QueryTemplate(MappingService mappingService, List<Fragment> fragments) {
         this.mappingService = mappingService;
 
@@ -54,6 +62,10 @@ public class QueryTemplate {
         this.fragments = b.build();
     }
 
+    /**
+     * Map context to execution plan.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public ExecutionPlan map(PlanningContext ctx) {
         ExecutionPlan executionPlan = this.executionPlan.get();
         if (executionPlan != null && Objects.equals(executionPlan.topologyVersion(), ctx.topologyVersion())) {

@@ -52,6 +52,8 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
     private final Map<String, IgniteIndex> indexes = new ConcurrentHashMap<>();
 
     /**
+     * Constructor.
+     *
      * @param desc Table descriptor.
      */
     public IgniteTableImpl(TableDescriptor desc) {

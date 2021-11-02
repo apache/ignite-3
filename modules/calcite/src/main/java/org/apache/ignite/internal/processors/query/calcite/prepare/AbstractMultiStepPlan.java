@@ -29,6 +29,10 @@ import org.apache.ignite.internal.processors.query.calcite.metadata.FragmentMapp
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteReceiver;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteSender;
 
+/**
+ * Base multistep plan.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public abstract class AbstractMultiStepPlan implements MultiStepPlan {
     protected final FieldsMetadata fieldsMetadata;
 

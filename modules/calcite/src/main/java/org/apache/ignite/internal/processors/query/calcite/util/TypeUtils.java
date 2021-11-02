@@ -54,6 +54,11 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * TypeUtils.
+ *
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class TypeUtils {
     private static final EnumSet<SqlTypeName> CONVERTABLE_SQL_TYPES = EnumSet.of(
             SqlTypeName.DATE,
@@ -68,6 +73,11 @@ public class TypeUtils {
             java.sql.Timestamp.class
     );
 
+    /**
+     * CombinedRowType.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static RelDataType combinedRowType(IgniteTypeFactory typeFactory, RelDataType... types) {
 
         RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
@@ -90,6 +100,11 @@ public class TypeUtils {
         return builder.build();
     }
 
+    /**
+     * NeedCast.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static boolean needCast(RelDataTypeFactory factory, RelDataType fromType, RelDataType toType) {
         // This prevents that we cast a JavaType to normal RelDataType.
         if (fromType instanceof RelDataTypeFactoryImpl.JavaType
@@ -128,6 +143,11 @@ public class TypeUtils {
         return true;
     }
 
+    /**
+     * CreateRowType.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     @NotNull
     public static RelDataType createRowType(@NotNull IgniteTypeFactory typeFactory, @NotNull Class<?>... fields) {
         List<RelDataType> types = Arrays.stream(fields)
@@ -137,6 +157,11 @@ public class TypeUtils {
         return createRowType(typeFactory, types, "$F");
     }
 
+    /**
+     * CreateRowType.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     @NotNull
     public static RelDataType createRowType(@NotNull IgniteTypeFactory typeFactory, @NotNull RelDataType... fields) {
         List<RelDataType> types = Arrays.asList(fields);
@@ -152,6 +177,11 @@ public class TypeUtils {
         return typeFactory.createStructType(fields, names);
     }
 
+    /**
+     * SqlType.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static RelDataType sqlType(IgniteTypeFactory typeFactory, RelDataType rowType) {
         if (!rowType.isStruct()) {
             return typeFactory.toSql(rowType);
@@ -163,6 +193,10 @@ public class TypeUtils {
     }
 
     /**
+     * GetResultType.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
      * @param schema  Schema.
      * @param sqlType Logical row type.
      * @param origins Columns origins.
@@ -185,6 +219,10 @@ public class TypeUtils {
     }
 
     /**
+     * GetResultClass.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
      * @param schema Schema.
      * @param type   Logical column type.
      * @param origin Column origin.
@@ -207,6 +245,11 @@ public class TypeUtils {
         return nativeTypeToClass(fldDesc.storageType());
     }
 
+    /**
+     * ResultTypeConverter.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static <RowT> Function<RowT, RowT> resultTypeConverter(ExecutionContext<RowT> ectx, RelDataType resultType) {
         assert resultType.isStruct();
 
@@ -254,6 +297,11 @@ public class TypeUtils {
         return val == null ? null : toInternal(ectx, val, val.getClass());
     }
 
+    /**
+     * ToInternal.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static Object toInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
         if (val == null) {
             return null;
@@ -272,6 +320,11 @@ public class TypeUtils {
         }
     }
 
+    /**
+     * FromInternal.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static Object fromInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
         if (val == null) {
             return null;

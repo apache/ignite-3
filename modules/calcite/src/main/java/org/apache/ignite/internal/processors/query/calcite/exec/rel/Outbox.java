@@ -57,6 +57,8 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     private int waiting;
 
     /**
+     * Constructor.
+     *
      * @param ctx              Execution context.
      * @param exchange         Exchange service.
      * @param registry         Mailbox registry.
@@ -101,6 +103,10 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         nodeBuffers.get(nodeId).acknowledge(batchId);
     }
 
+    /**
+     * Init.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public void init() {
         try {
             checkState();
@@ -248,6 +254,10 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         }
     }
 
+    /**
+     * OnNodeLeft.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public void onNodeLeft(String nodeId) {
         if (nodeId.equals(context().originatingNodeId())) {
             context().execute(this::close, this::onError);

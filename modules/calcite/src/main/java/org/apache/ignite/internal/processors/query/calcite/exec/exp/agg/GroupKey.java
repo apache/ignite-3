@@ -22,6 +22,10 @@ import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import java.io.Serializable;
 import java.util.Arrays;
 
+/**
+ * Group key.
+ * Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class GroupKey implements Serializable {
     public static final GroupKey EMPTY_GRP_KEY = new GroupKey(OBJECT_EMPTY_ARRAY);
 
@@ -70,6 +74,9 @@ public class GroupKey implements Serializable {
         return new Builder(rowLen);
     }
 
+    /**
+     * Group key builder.
+     */
     public static class Builder {
         private final Object[] fields;
 
@@ -79,6 +86,13 @@ public class GroupKey implements Serializable {
             fields = new Object[rowLen];
         }
 
+        /**
+         * Add value.
+         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+         *
+         * @param val Field value.
+         * @return Builder for chaining.
+         */
         public Builder add(Object val) {
             if (idx == fields.length) {
                 throw new IndexOutOfBoundsException();
@@ -89,6 +103,11 @@ public class GroupKey implements Serializable {
             return this;
         }
 
+        /**
+         * Build group key.
+         *
+         * @return GroupKey.
+         */
         public GroupKey build() {
             assert idx == fields.length;
 

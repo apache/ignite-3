@@ -57,11 +57,18 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * AccumulatorsFactory.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapper<RowT>>> {
     private static final LoadingCache<Pair<RelDataType, RelDataType>, Function<Object, Object>> CACHE =
             CacheBuilder.newBuilder().build(CacheLoader.from(AccumulatorsFactory::cast0));
 
-
+    /**
+     * CastFunction interface.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static interface CastFunction extends Function<Object, Object> {
         @Override
         Object apply(Object o);
@@ -138,6 +145,15 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
     private final List<WrapperPrototype> prototypes;
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
+     * @param ctx          ExecutionContext.
+     * @param type         AggregateType.
+     * @param aggCalls     List of AggregateCalls.
+     * @param inputRowType RelDataType.
+     */
     public AccumulatorsFactory(
             ExecutionContext<RowT> ctx,
             AggregateType type,

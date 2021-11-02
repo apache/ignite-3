@@ -602,6 +602,10 @@ public class RexImpTable {
         };
     }
 
+    /**
+     * Get RexCallImplementor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public RexCallImplementor get(final SqlOperator operator) {
         if (operator instanceof SqlUserDefinedFunction) {
             org.apache.calcite.schema.Function udf =
@@ -2560,6 +2564,11 @@ public class RexImpTable {
                 }, NullPolicy.NONE, false);
     }
 
+    /**
+     * Create implementor.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static CallImplementor createImplementor(
             final NotNullImplementor implementor,
             final NullPolicy nullPolicy,

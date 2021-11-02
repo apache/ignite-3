@@ -30,6 +30,11 @@ import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext
 import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * MergeJoinNode.
+ *
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
     /** Special value to highlights that all row were received and we are not waiting any more. */
     protected static final int NOT_WAITING = -1;
@@ -249,6 +254,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         private boolean drainMaterialization;
 
         /**
+         * Constructor.
+         *
          * @param ctx     Execution context.
          * @param rowType Row type.
          * @param comp    Join expression comparator.
@@ -405,6 +412,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         private boolean matched;
 
         /**
+         * Constructor.
+         *
          * @param ctx             Execution context.
          * @param rowType         Row type.
          * @param comp            Join expression comparator.
@@ -579,6 +588,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         private boolean matched;
 
         /**
+         * Constructor.
+         *
          * @param ctx            Execution context.
          * @param rowType        Row type.
          * @param comp           Join expression comparator.
@@ -775,6 +786,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         private boolean rightMatched;
 
         /**
+         * Constructor.
+         *
          * @param ctx             Execution context.
          * @param rowType         Row type.
          * @param comp            Join expression comparator.
@@ -985,6 +998,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         private RowT right;
 
         /**
+         * Constructor.
+         *
          * @param ctx     Execution context.
          * @param rowType Row type.
          * @param comp    Join expression comparator.
@@ -1062,6 +1077,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         private RowT right;
 
         /**
+         * Constructor.
+         *
          * @param ctx     Execution context.
          * @param rowType Row type.
          * @param comp    Join expression comparator.

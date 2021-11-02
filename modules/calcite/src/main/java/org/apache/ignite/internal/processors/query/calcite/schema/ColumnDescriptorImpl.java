@@ -25,6 +25,11 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
 import org.apache.ignite.internal.schema.NativeType;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * ColumnDescriptorImpl.
+ *
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class ColumnDescriptorImpl implements ColumnDescriptor {
     private final boolean key;
 

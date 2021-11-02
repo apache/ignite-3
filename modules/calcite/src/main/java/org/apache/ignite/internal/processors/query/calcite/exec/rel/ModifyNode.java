@@ -33,6 +33,10 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 
+/**
+ * ModifyNode.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     protected final TableDescriptor desc;
 

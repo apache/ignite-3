@@ -22,6 +22,8 @@ package org.apache.ignite.internal.processors.query.calcite.prepare;
  */
 public class MultiStepDmlPlan extends AbstractMultiStepPlan {
     /**
+     * Constructor.
+     *
      * @param fieldsMeta Fields metadata.
      */
     public MultiStepDmlPlan(QueryTemplate queryTemplate, FieldsMetadata fieldsMeta) {

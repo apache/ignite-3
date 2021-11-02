@@ -37,6 +37,11 @@ import org.apache.ignite.internal.processors.query.calcite.rel.agg.IgniteSingleS
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions;
 import org.apache.ignite.internal.processors.query.calcite.util.HintUtils;
 
+/**
+ * SortAggregateConverterRule.
+ *
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class SortAggregateConverterRule {
     public static final RelOptRule SINGLE = new SortSingleAggregateConverterRule();
 

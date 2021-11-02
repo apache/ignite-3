@@ -36,6 +36,10 @@ import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.Util;
 
+/**
+ * ConverterUtils.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class ConverterUtils {
     private ConverterUtils() {
     }

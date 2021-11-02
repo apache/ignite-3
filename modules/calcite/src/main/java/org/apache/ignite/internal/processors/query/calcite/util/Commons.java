@@ -139,6 +139,11 @@ public final class Commons {
         return createCursor(iterable.iterator(), plan);
     }
 
+    /**
+     * CreateCursor.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static <T> SqlCursor<T> createCursor(Iterator<T> iter, QueryPlan plan) {
         return new SqlCursor<>() {
             @Override
@@ -283,6 +288,10 @@ public final class Commons {
     }
 
     /**
+     * ParametersMap.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
      * @param params Parameters.
      * @return Parameters map.
      */
@@ -309,6 +318,8 @@ public final class Commons {
     }
 
     /**
+     * Close given resource.
+     *
      * @param o Object to close.
      */
     public static void close(Object o) throws Exception {
@@ -345,6 +356,11 @@ public final class Commons {
         return src.stream().flatMap(List::stream).collect(Collectors.toList());
     }
 
+    /**
+     * Max.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static int max(ImmutableIntList list) {
         if (list.isEmpty()) {
             throw new UnsupportedOperationException();
@@ -359,6 +375,11 @@ public final class Commons {
         return res;
     }
 
+    /**
+     * Min.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static int min(ImmutableIntList list) {
         if (list.isEmpty()) {
             throw new UnsupportedOperationException();
@@ -373,6 +394,11 @@ public final class Commons {
         return res;
     }
 
+    /**
+     * Compile.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static <T> T compile(Class<T> interfaceType, String body) {
         final boolean debug = CalciteSystemProperty.DEBUG.value();
 
@@ -405,12 +431,22 @@ public final class Commons {
         }
     }
 
+    /**
+     * CheckRange.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static void checkRange(@NotNull Object[] array, int idx) {
         if (idx < 0 || idx >= array.length) {
             throw new ArrayIndexOutOfBoundsException(idx);
         }
     }
 
+    /**
+     * EnsureCapacity.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static <T> T[] ensureCapacity(T[] array, int required) {
         if (required < 0) {
             throw new IllegalArgumentException("Capacity must not be negative");
@@ -420,7 +456,7 @@ public final class Commons {
     }
 
     /**
-     * Round up the argument to the next highest power of 2;
+     * Round up the argument to the next highest power of 2.
      *
      * @param v Value to round up.
      * @return Next closest power of 2.

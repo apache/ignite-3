@@ -103,34 +103,37 @@ public class ExecutionContext<RowT> implements DataContext {
     }
 
     /**
-     * @return Parent context.
+     * Get parent context.
      */
     public PlanningContext planningContext() {
         return ctx;
     }
 
     /**
-     * @return Query ID.
+     * Get query ID.
      */
     public UUID queryId() {
         return qryId;
     }
 
     /**
-     * @return Fragment ID.
+     * Get fragment ID.
      */
     public long fragmentId() {
         return fragmentDesc.fragmentId();
     }
 
     /**
-     * @return Target mapping.
+     * Get target mapping.
      */
     public ColocationGroup target() {
         return fragmentDesc.target();
     }
 
     /**
+     * Remotes.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
      * @param exchangeId ExchangeId to find remote nodes for.
      * @return Remote nodes for given exchangeId.
      */
@@ -139,6 +142,8 @@ public class ExecutionContext<RowT> implements DataContext {
     }
 
     /**
+     * Get colocation group by source id.
+     *
      * @param sourceId SourceId to find colocation group for.
      * @return Colocation group for given sourceId.
      */
@@ -147,28 +152,28 @@ public class ExecutionContext<RowT> implements DataContext {
     }
 
     /**
-     * @return Keep binary flag.
+     * Get keep binary flag.
      */
     public boolean keepBinary() {
         return true; // TODO
     }
 
     /**
-     * @return Handler to access row fields.
+     * Get handler to access row fields.
      */
     public RowHandler<RowT> rowHandler() {
         return handler;
     }
 
     /**
-     * @return Expression factory.
+     * Get expression factory.
      */
     public ExpressionFactory<RowT> expressionFactory() {
         return expressionFactory;
     }
 
     /**
-     * @return Originating node ID.
+     * Get originating node ID.
      */
     public String originatingNodeId() {
         return planningContext().originatingNodeId();
@@ -280,6 +285,10 @@ public class ExecutionContext<RowT> implements DataContext {
         });
     }
 
+    /**
+     * RunnableX interface.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     @FunctionalInterface
     public interface RunnableX {
         void run() throws Throwable;

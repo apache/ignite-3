@@ -37,6 +37,10 @@ public interface RowHandler<RowT> {
 
     String toString(RowT row);
 
+    /**
+     * Get row factory.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     default RowFactory<RowT> factory(IgniteTypeFactory typeFactory, RelDataType rowType) {
         if (rowType.isStruct()) {
             return factory(typeFactory, RelOptUtil.getFieldTypeList(rowType));
@@ -45,6 +49,10 @@ public interface RowHandler<RowT> {
         return factory(typeFactory.getJavaClass(rowType));
     }
 
+    /**
+     * Get row factory.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     default RowFactory<RowT> factory(IgniteTypeFactory typeFactory, List<RelDataType> fieldTypes) {
         Type[] types = new Type[fieldTypes.size()];
         for (int i = 0; i < fieldTypes.size(); i++) {

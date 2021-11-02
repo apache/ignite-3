@@ -58,7 +58,9 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
 import org.apache.ignite.internal.processors.query.calcite.util.IgniteResource;
 import org.jetbrains.annotations.Nullable;
 
-/** Validator. */
+/**
+ * Validator.
+ */
 public class IgniteSqlValidator extends SqlValidatorImpl {
     /** Decimal of Integer.MAX_VALUE for fetch/offset bounding. */
     private static final BigDecimal DEC_INT_MAX = BigDecimal.valueOf(Integer.MAX_VALUE);
@@ -190,6 +192,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     /**
+     * Check limits.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
      * @param n        Node to check limit.
      * @param nodeName Node name.
      */

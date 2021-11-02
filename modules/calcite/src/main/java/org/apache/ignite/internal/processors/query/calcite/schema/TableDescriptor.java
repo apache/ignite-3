@@ -34,6 +34,11 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * TableDescriptor interface.
+ *
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public interface TableDescriptor extends RelProtoDataType, InitializerExpressionFactory {
     /** Returns distribution of the table. */
     IgniteDistribution distribution();

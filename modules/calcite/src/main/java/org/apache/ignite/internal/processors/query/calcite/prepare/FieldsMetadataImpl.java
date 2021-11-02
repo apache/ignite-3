@@ -20,6 +20,10 @@ package org.apache.ignite.internal.processors.query.calcite.prepare;
 import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 
+/**
+ * FieldsMetadataImpl.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class FieldsMetadataImpl implements FieldsMetadata {
     private final RelDataType rowType;
 

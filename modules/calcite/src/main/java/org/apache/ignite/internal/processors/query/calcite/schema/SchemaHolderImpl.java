@@ -32,19 +32,10 @@ import org.apache.ignite.internal.table.TableImpl;
  * Holds actual schema and mutates it on schema change, requested by Ignite.
  */
 public class SchemaHolderImpl implements SchemaHolder {
-    /**
-     *
-     */
     private final Map<String, IgniteSchema> igniteSchemas = new HashMap<>();
 
-    /**
-     *
-     */
     private volatile SchemaPlus calciteSchema;
 
-    /**
-     *
-     */
     public SchemaHolderImpl() {
         SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
         newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));

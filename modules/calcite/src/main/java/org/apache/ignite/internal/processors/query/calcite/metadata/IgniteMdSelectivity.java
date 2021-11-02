@@ -37,6 +37,11 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteSortedIndex
 import org.apache.ignite.internal.processors.query.calcite.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
 
+/**
+ * IgniteMdSelectivity.
+ *
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class IgniteMdSelectivity extends RelMdSelectivity {
     public static final RelMetadataProvider SOURCE =
             ReflectiveRelMetadataProvider.reflectiveSource(

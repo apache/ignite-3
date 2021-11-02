@@ -23,6 +23,10 @@ import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler.RowFa
 import org.apache.ignite.internal.processors.query.calcite.util.TransformingIterator;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * TableFunctionScan.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class TableFunctionScan<RowT> implements Iterable<RowT> {
     private final Supplier<Iterable<Object[]>> dataSupplier;
 

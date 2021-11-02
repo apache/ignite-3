@@ -20,8 +20,15 @@ package org.apache.ignite.internal.processors.query.calcite.externalize;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelInput;
 
+/**
+ * RelInputEx interface.
+ *
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public interface RelInputEx extends RelInput {
     /**
+     * GetCollation.
+     *
      * @param tag Tag.
      * @return A collation value.
      */

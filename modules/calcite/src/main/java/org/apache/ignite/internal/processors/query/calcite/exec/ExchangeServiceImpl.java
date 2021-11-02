@@ -40,26 +40,18 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
- *
+ * ExchangeServiceImpl.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
  */
 public class ExchangeServiceImpl implements ExchangeService {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ExchangeServiceImpl.class);
 
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
-    /**
-     *
-     */
     private final QueryTaskExecutor taskExecutor;
 
-    /**
-     *
-     */
     private final MailboxRegistry mailboxRegistry;
 
-    /**
-     *
-     */
     private final MessageService msgSrvc;
 
     /**
@@ -165,9 +157,6 @@ public class ExchangeServiceImpl implements ExchangeService {
         return msgSrvc.alive(nodeId);
     }
 
-    /**
-     *
-     */
     protected void onMessage(String nodeId, InboxCloseMessage msg) {
         Collection<Inbox<?>> inboxes = mailboxRegistry.inboxes(msg.queryId(), msg.fragmentId(), msg.exchangeId());
 
@@ -184,9 +173,6 @@ public class ExchangeServiceImpl implements ExchangeService {
         }
     }
 
-    /**
-     *
-     */
     protected void onMessage(String nodeId, OutboxCloseMessage msg) {
         Collection<Outbox<?>> outboxes = mailboxRegistry.outboxes(msg.queryId(), msg.fragmentId(), msg.exchangeId());
 
@@ -207,9 +193,6 @@ public class ExchangeServiceImpl implements ExchangeService {
         }
     }
 
-    /**
-     *
-     */
     protected void onMessage(String nodeId, QueryBatchAcknowledgeMessage msg) {
         Outbox<?> outbox = mailboxRegistry.outbox(msg.queryId(), msg.exchangeId());
 
@@ -231,9 +214,6 @@ public class ExchangeServiceImpl implements ExchangeService {
         }
     }
 
-    /**
-     *
-     */
     protected void onMessage(String nodeId, QueryBatchMessage msg) {
         Inbox<?> inbox = mailboxRegistry.inbox(msg.queryId(), msg.exchangeId());
 
@@ -265,6 +245,9 @@ public class ExchangeServiceImpl implements ExchangeService {
     }
 
     /**
+     * BaseInboxContext.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
      * @return Minimal execution context to meet Inbox needs.
      */
     private ExecutionContext<?> baseInboxContext(String nodeId, UUID qryId, long fragmentId) {

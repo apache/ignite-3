@@ -36,7 +36,18 @@ import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 
+/**
+ * Accumulators.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class Accumulators {
+    /**
+     * Get accumulator function factory by aggregation call.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
+     * @param call AggregateCall.
+     * @return Accumulator.
+     */
     public static Supplier<Accumulator> accumulatorFactory(AggregateCall call) {
         if (!call.isDistinct()) {
             return accumulatorFunctionFactory(call);
@@ -47,6 +58,13 @@ public class Accumulators {
         return () -> new DistinctAccumulator(fac);
     }
 
+    /**
+     * Get accumulator function factory by aggregation call.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
+     * @param call AggregateCall.
+     * @return Accumulator.
+     */
     public static Supplier<Accumulator> accumulatorFunctionFactory(AggregateCall call) {
         switch (call.getAggregation().getName()) {
             case "COUNT":
@@ -133,9 +151,6 @@ public class Accumulators {
         }
     }
 
-    /**
-     *
-     */
     private static Supplier<Accumulator> maxFactory(AggregateCall call) {
         switch (call.type.getSqlTypeName()) {
             case DOUBLE:
@@ -206,6 +221,10 @@ public class Accumulators {
         }
     }
 
+    /**
+     * Decimal average accumulator.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static class DecimalAvg implements Accumulator {
         public static final Supplier<Accumulator> FACTORY = DecimalAvg::new;
 
@@ -254,6 +273,10 @@ public class Accumulators {
         }
     }
 
+    /**
+     * Double average accumulator.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static class DoubleAvg implements Accumulator {
         public static final Supplier<Accumulator> FACTORY = DoubleAvg::new;
 

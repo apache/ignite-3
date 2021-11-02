@@ -724,6 +724,10 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 ConverterUtils.internalTypes(operandList));
     }
 
+    /**
+     * Translate list.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public List<Expression> translateList(
             List<RexNode> operandList,
             RexImpTable.NullAs nullAs,
@@ -784,13 +788,17 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     /**
      * Returns whether an expression is nullable.
      *
-     * @param e Expression
-     * @return Whether expression is nullable
+     * @param e Expression.
+     * @return Whether expression is nullable.
      */
     public boolean isNullable(RexNode e) {
         return e.getType().isNullable();
     }
 
+    /**
+     * SetBlock.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public RexToLixTranslator setBlock(BlockBuilder block) {
         if (block == list) {
             return this;
@@ -800,6 +808,10 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 block, builder, conformance, correlates);
     }
 
+    /**
+     * SetCorrelates.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public RexToLixTranslator setCorrelates(Function1<String, InputGetter> correlates) {
         if (this.correlates == correlates) {
             return this;

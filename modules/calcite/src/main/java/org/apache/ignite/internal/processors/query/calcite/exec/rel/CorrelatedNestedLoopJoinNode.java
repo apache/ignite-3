@@ -32,6 +32,10 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 
+/**
+ * CorrelatedNestedLoopJoinNode.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     private final Predicate<RowT> cond;
 
@@ -70,12 +74,14 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     }
 
     /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
      *
      * @param ctx            Execution context.
      * @param rowType        Output row type.
      * @param cond           Join expression.
-     * @param correlationIds
-     * @param joinType
+     * @param correlationIds Set ofCorrelationId.
+     * @param joinType       JoinRelType.
      */
     public CorrelatedNestedLoopJoinNode(ExecutionContext<RowT> ctx, RelDataType rowType, Predicate<RowT> cond,
             Set<CorrelationId> correlationIds, JoinRelType joinType) {

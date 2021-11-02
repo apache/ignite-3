@@ -45,6 +45,8 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     }
 
     /**
+     * Constructor.
+     *
      * @param typeSystem Type system.
      */
     public IgniteTypeFactory(RelDataTypeSystem typeSystem) {
@@ -126,6 +128,9 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     }
 
     /**
+     * Get result type.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
      * @param type Field logical type.
      * @return Result type.
      */

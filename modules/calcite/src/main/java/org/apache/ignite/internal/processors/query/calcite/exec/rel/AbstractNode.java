@@ -44,7 +44,7 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
 
     protected final IgniteLogger log = IgniteLogger.forClass(getClass());
 
-    /** for debug purpose */
+    /** For debug purpose. */
     private volatile Thread thread;
 
     /**
@@ -62,7 +62,11 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
     private List<Node<RowT>> sources;
 
     /**
-     * @param ctx Execution context.
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
+     * @param ctx     Execution context.
+     * @param rowType RelDataType.
      */
     protected AbstractNode(ExecutionContext<RowT> ctx, RelDataType rowType) {
         this.ctx = ctx;
@@ -167,7 +171,7 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
     }
 
     /**
-     * @return {@code true} if the subtree is canceled.
+     * Get closed flag: {@code true} if the subtree is canceled.
      */
     protected boolean isClosed() {
         return closed;

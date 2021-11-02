@@ -19,9 +19,14 @@ package org.apache.ignite.internal.processors.query.calcite.schema;
 
 import org.apache.calcite.schema.SchemaPlus;
 
+/**
+ * SchemaHolder interface.
+ *
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public interface SchemaHolder {
     /**
-     * @return Schema.
+     * Get schema.
      */
     SchemaPlus schema();
 }

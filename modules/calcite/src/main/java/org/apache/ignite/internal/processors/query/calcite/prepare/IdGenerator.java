@@ -19,6 +19,10 @@ package org.apache.ignite.internal.processors.query.calcite.prepare;
 
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * Id generator.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class IdGenerator {
     private static final AtomicLong ID_GEN = new AtomicLong();
 

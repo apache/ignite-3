@@ -50,7 +50,8 @@ import org.apache.ignite.internal.processors.query.calcite.rel.set.IgniteSetOp;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
 /**
- *
+ * IgniteRelShuttle.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
  */
 public class IgniteRelShuttle implements IgniteRelVisitor<IgniteRel> {
     /** {@inheritDoc} */

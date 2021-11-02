@@ -50,6 +50,9 @@ public class RuntimeTreeIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<Row
     /** Rows. */
     private TreeMap<RowT, List<RowT>> rows;
 
+    /**
+     * Constructor.
+     */
     public RuntimeTreeIndex(
             ExecutionContext<RowT> ectx,
             RelCollation collation,

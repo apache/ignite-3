@@ -20,6 +20,10 @@ package org.apache.ignite.internal.processors.query.calcite.exec;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * QueryTaskExecutor interface.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public interface QueryTaskExecutor {
     /**
      * Executes a query task in a thread, responsible for particular query fragment.

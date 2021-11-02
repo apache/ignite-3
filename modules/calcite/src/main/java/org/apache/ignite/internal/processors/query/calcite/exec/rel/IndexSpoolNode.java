@@ -37,7 +37,7 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
     /** Scan. */
     private final ScanNode<RowT> scan;
 
-    /** Runtime index */
+    /** Runtime index. */
     private final RuntimeIndex<RowT> idx;
 
     private int requested;
@@ -45,7 +45,13 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
     private int waiting;
 
     /**
-     * @param ctx Execution context.
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
+     * @param ctx     ExecutionContext.
+     * @param rowType RelDataType.
+     * @param idx     RuntimeIndex.
+     * @param scan    ScanNode.
      */
     private IndexSpoolNode(
             ExecutionContext<RowT> ctx,
@@ -160,6 +166,10 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         return waiting == -1;
     }
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static <RowT> IndexSpoolNode<RowT> createTreeSpool(
             ExecutionContext<RowT> ctx,
             RelDataType rowType,
@@ -186,6 +196,10 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         return new IndexSpoolNode<>(ctx, rowType, idx, scan);
     }
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static <RowT> IndexSpoolNode<RowT> createHashSpool(
             ExecutionContext<RowT> ctx,
             RelDataType rowType,

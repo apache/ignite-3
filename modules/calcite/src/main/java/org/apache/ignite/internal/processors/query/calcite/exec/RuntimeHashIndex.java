@@ -40,6 +40,13 @@ public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
     /** Rows. */
     private HashMap<GroupKey, List<RowT>> rows;
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
+     * @param ectx ExecutionContext.
+     * @param keys ImmutableBitSet.
+     */
     public RuntimeHashIndex(
             ExecutionContext<RowT> ectx,
             ImmutableBitSet keys
@@ -84,6 +91,8 @@ public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
         private final Supplier<RowT> searchRow;
 
         /**
+         * Constructor.
+         *
          * @param searchRow Search row.
          */
         IndexScan(Supplier<RowT> searchRow) {

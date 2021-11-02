@@ -108,7 +108,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation of ExecutionService/
+ * Implementation of ExecutionService.
  */
 public class ExecutionServiceImpl<RowT> implements ExecutionService {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ExecutionServiceImpl.class);
@@ -691,10 +691,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
 
         private final RootNode<RowT> root;
 
-        /** remote nodes */
+        /** Remote nodes. */
         private final Set<String> remotes;
 
-        /** node to fragment */
+        /** Node to fragment. */
         private final Set<RemoteFragmentKey> waiting;
 
         private volatile QueryState state;

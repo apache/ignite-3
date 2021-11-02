@@ -21,6 +21,11 @@ import java.util.List;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.util.ImmutableIntList;
 
+/**
+ * IgniteDistributions.
+ *
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class IgniteDistributions {
     private static final IgniteDistribution BROADCAST = canonize(new DistributionTrait(DistributionFunction.broadcast()));
 
@@ -31,34 +36,38 @@ public class IgniteDistributions {
     private static final IgniteDistribution ANY = canonize(new DistributionTrait(DistributionFunction.any()));
 
     /**
-     * @return Any distribution.
+     * Get any distribution.
      */
     public static IgniteDistribution any() {
         return ANY;
     }
 
     /**
-     * @return Random distribution.
+     * Get random distribution.
      */
     public static IgniteDistribution random() {
         return RANDOM;
     }
 
     /**
-     * @return Single distribution.
+     * Get single distribution.
      */
     public static IgniteDistribution single() {
         return SINGLETON;
     }
 
     /**
-     * @return Broadcast distribution.
+     * Get broadcast distribution.
      */
     public static IgniteDistribution broadcast() {
         return BROADCAST;
     }
 
     /**
+     * Affinity.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
      * @param key       Affinity key.
      * @param cacheName Affinity cache name.
      * @param identity  Affinity identity key.
@@ -70,6 +79,10 @@ public class IgniteDistributions {
     }
 
     /**
+     * Affinity.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
      * @param key      Affinity key.
      * @param cacheId  Affinity cache ID.
      * @param identity Affinity identity key.
@@ -80,6 +93,10 @@ public class IgniteDistributions {
     }
 
     /**
+     * Affinity.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
      * @param keys     Affinity keys.
      * @param cacheId  Affinity cache ID.
      * @param identity Affinity identity key.
@@ -90,6 +107,10 @@ public class IgniteDistributions {
     }
 
     /**
+     * Hash.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
      * @param keys Distribution keys.
      * @return Hash distribution.
      */
@@ -98,6 +119,10 @@ public class IgniteDistributions {
     }
 
     /**
+     * Hash.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
      * @param keys     Distribution keys.
      * @param function Specific hash function.
      * @return Hash distribution.

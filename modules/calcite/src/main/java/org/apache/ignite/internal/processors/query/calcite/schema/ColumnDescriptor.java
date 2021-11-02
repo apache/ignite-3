@@ -21,6 +21,11 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.schema.NativeType;
 
+/**
+ * ColumnDescriptor.
+ *
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public interface ColumnDescriptor {
     boolean key();
 

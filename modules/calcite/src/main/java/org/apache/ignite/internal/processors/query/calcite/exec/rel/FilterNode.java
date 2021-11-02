@@ -25,6 +25,10 @@ import java.util.function.Predicate;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 
+/**
+ * FilterNode.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     private final Predicate<RowT> pred;
 
@@ -37,6 +41,8 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     private boolean inLoop;
 
     /**
+     * Constructor.
+     *
      * @param ctx  Execution context.
      * @param pred Predicate.
      */

@@ -58,7 +58,10 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     private volatile boolean closed;
 
     /**
-     * @param ctx Execution context.
+     * Constructor.
+     *
+     * @param ctx     Execution context.
+     * @param rowType RelDataType.
      */
     public RootNode(ExecutionContext<RowT> ctx, RelDataType rowType) {
         super(ctx, rowType);
@@ -68,7 +71,8 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     }
 
     /**
-     * @param ctx Execution context.
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
      */
     public RootNode(ExecutionContext<RowT> ctx, RelDataType rowType, Runnable onClose) {
         super(ctx, rowType);

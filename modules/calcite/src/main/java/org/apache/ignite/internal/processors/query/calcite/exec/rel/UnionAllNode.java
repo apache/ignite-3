@@ -22,13 +22,21 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 
+/**
+ * UnionAllNode.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class UnionAllNode<RowT> extends AbstractNode<RowT> implements Downstream<RowT> {
     private int curSrc;
 
     private int waiting;
 
     /**
-     * @param ctx Execution context.
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
+     * @param ctx     Execution context.
+     * @param rowType RelDataType.
      */
     public UnionAllNode(ExecutionContext<RowT> ctx, RelDataType rowType) {
         super(ctx, rowType);

@@ -97,35 +97,35 @@ public final class PlanningContext implements Context {
     }
 
     /**
-     * @return Local node ID.
+     * Get local node ID.
      */
     public String localNodeId() {
         return locNodeId;
     }
 
     /**
-     * @return Originating node ID (the node, who started the execution).
+     * Get originating node ID (the node, who started the execution).
      */
     public String originatingNodeId() {
         return originatingNodeId == null ? locNodeId : originatingNodeId;
     }
 
     /**
-     * @return Framework config.
+     * Get framework config.
      */
     public FrameworkConfig config() {
         return cfg;
     }
 
     /**
-     * @return Query.
+     * Get query.
      */
     public String query() {
         return qry;
     }
 
     /**
-     * @return Query parameters.
+     * Get query parameters.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public Object[] parameters() {
@@ -133,7 +133,7 @@ public final class PlanningContext implements Context {
     }
 
     /**
-     * @return Topology version.
+     * Get topology version.
      */
     public long topologyVersion() {
         return topVer;
@@ -142,21 +142,21 @@ public final class PlanningContext implements Context {
     // Helper methods
 
     /**
-     * @return Sql operators table.
+     * Get sql operators table.
      */
     public SqlOperatorTable opTable() {
         return config().getOperatorTable();
     }
 
     /**
-     * @return Sql conformance.
+     * Get sql conformance.
      */
     public SqlConformance conformance() {
         return cfg.getParserConfig().conformance();
     }
 
     /**
-     * @return Planner.
+     * Get ignite planner.
      */
     public IgnitePlanner planner() {
         if (planner == null) {
@@ -167,27 +167,29 @@ public final class PlanningContext implements Context {
     }
 
     /**
-     * @return Schema name.
+     * Get schema name.
      */
     public String schemaName() {
         return schema().getName();
     }
 
     /**
-     * @return Schema.
+     * Get schema.
      */
     public SchemaPlus schema() {
         return cfg.getDefaultSchema();
     }
 
     /**
-     * @return Type factory.
+     * Get type factory.
      */
     public IgniteTypeFactory typeFactory() {
         return typeFactory;
     }
 
     /**
+     * Get connection config.
+     *
      * @return Connection config. Defines connected user parameters like TimeZone or Locale.
      */
     public CalciteConnectionConfig connectionConfig() {
@@ -214,7 +216,9 @@ public final class PlanningContext implements Context {
     }
 
     /**
-     * @return New catalog reader.
+     * Get catalog reader.
+     *
+     * @return New or cached catalog reader.
      */
     public CalciteCatalogReader catalogReader() {
         if (catalogReader != null) {
@@ -235,7 +239,7 @@ public final class PlanningContext implements Context {
     }
 
     /**
-     * @return Cluster based on a planner and its configuration.
+     * Get cluster based on a planner and its configuration.
      */
     public RelOptCluster cluster() {
         return planner().cluster();
@@ -256,14 +260,14 @@ public final class PlanningContext implements Context {
     }
 
     /**
-     * @return Context builder.
+     * Get new context builder.
      */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * @return Empty context.
+     * Get empty context.
      */
     public static PlanningContext empty() {
         return EMPTY;
@@ -274,6 +278,8 @@ public final class PlanningContext implements Context {
     }
 
     /**
+     * Set rules filter.
+     *
      * @param rulesFilter Rules filter.
      */
     public void rulesFilter(Function<RuleSet, RuleSet> rulesFilter) {
@@ -306,6 +312,8 @@ public final class PlanningContext implements Context {
         private long topVer;
 
         /**
+         * Set local node id.
+         *
          * @param locNodeId Local node ID.
          * @return Builder for chaining.
          */
@@ -315,6 +323,8 @@ public final class PlanningContext implements Context {
         }
 
         /**
+         * Set originating node id.
+         *
          * @param originatingNodeId Originating node ID (the node, who started the execution).
          * @return Builder for chaining.
          */
@@ -324,6 +334,8 @@ public final class PlanningContext implements Context {
         }
 
         /**
+         * Set framework config.
+         *
          * @param frameworkCfg Framework config.
          * @return Builder for chaining.
          */
@@ -333,6 +345,8 @@ public final class PlanningContext implements Context {
         }
 
         /**
+         * Set parent context.
+         *
          * @param parentCtx Parent context.
          * @return Builder for chaining.
          */
@@ -342,6 +356,8 @@ public final class PlanningContext implements Context {
         }
 
         /**
+         * Set query string.
+         *
          * @param qry Query.
          * @return Builder for chaining.
          */
@@ -351,6 +367,8 @@ public final class PlanningContext implements Context {
         }
 
         /**
+         * Set parameters.
+         *
          * @param parameters Query parameters.
          * @return Builder for chaining.
          */
@@ -361,6 +379,8 @@ public final class PlanningContext implements Context {
         }
 
         /**
+         * Set topology version.
+         *
          * @param topVer Topology version.
          * @return Builder for chaining.
          */

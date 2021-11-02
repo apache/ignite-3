@@ -32,7 +32,8 @@ import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 import org.jetbrains.annotations.NotNull;
 
 /**
- *
+ * NestedLoopJoinNode.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
  */
 public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     /** Special value to highlights that all row were received and we are not waiting any more. */
@@ -208,6 +209,10 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
     protected abstract void join() throws Exception;
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     @NotNull
     public static <RowT> NestedLoopJoinNode<RowT> create(ExecutionContext<RowT> ctx, RelDataType outputRowType,
             RelDataType leftRowType, RelDataType rightRowType, JoinRelType joinType, Predicate<RowT> cond) {
@@ -251,6 +256,8 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         private int rightIdx;
 
         /**
+         * Constructor.
+         *
          * @param ctx  Execution context.
          * @param rowType Output row type.
          * @param cond Join expression.
@@ -328,6 +335,8 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         private int rightIdx;
 
         /**
+         * Constructor.
+         *
          * @param ctx Execution context.
          * @param rowType Output row type.
          * @param cond Join expression.
@@ -425,6 +434,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         private int rightIdx;
 
         /**
+         * Constructor.
          *
          * @param ctx Execution context.
          * @param rowType Output row type.
@@ -557,12 +567,13 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
         /**
          * Constructor.
+         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
          *
          * @param ctx Execution context.
          * @param rowType Output row type.
          * @param cond Join expression.
-         * @param leftRowFactory
-         * @param rightRowFactory
+         * @param leftRowFactory Left row factory.
+         * @param rightRowFactory Right row factory.
          */
         private FullOuterJoin(ExecutionContext<RowT> ctx, RelDataType rowType, Predicate<RowT> cond,
                 RowHandler.RowFactory<RowT> leftRowFactory,
@@ -693,6 +704,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         private int rightIdx;
 
         /**
+         * Constructor.
          *
          * @param ctx Execution context.
          * @param rowType Output row type.

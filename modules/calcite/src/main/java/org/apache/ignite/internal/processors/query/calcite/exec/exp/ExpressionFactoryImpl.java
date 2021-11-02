@@ -334,6 +334,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         private final RowHandler<RowT> handler;
 
         /**
+         * Constructor.
+         *
          * @param scalar Scalar.
          */
         private PredicateImpl(Scalar scalar) {
@@ -357,6 +359,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         private final RowFactory<RowT> factory;
 
         /**
+         * Constructor.
+         *
          * @param scalar  Scalar.
          * @param factory Row factory.
          */

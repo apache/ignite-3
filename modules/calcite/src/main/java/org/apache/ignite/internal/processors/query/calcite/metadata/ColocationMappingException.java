@@ -18,10 +18,14 @@
 package org.apache.ignite.internal.processors.query.calcite.metadata;
 
 /**
+ * ColocationMappingException.
  *
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
  */
 public class ColocationMappingException extends Exception {
     /**
+     * Constructor.
+     *
      * @param message Message.
      */
     public ColocationMappingException(String message) {

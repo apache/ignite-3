@@ -36,6 +36,10 @@ import org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.Accumula
 import org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
+/**
+ * SortAggregateNode.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     private final AggregateType type;
 
@@ -61,7 +65,16 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     private int cmpRes;
 
     /**
-     * @param ctx Execution context.
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
+     * @param ctx        Execution context.
+     * @param rowType    RelDataType.
+     * @param type       AggregateType.
+     * @param grpSet     ImmutableBitSet.
+     * @param accFactory AccumulatorWrapper.
+     * @param rowFactory RowFactory.
+     * @param comp       Row comparator.
      */
     public SortAggregateNode(
             ExecutionContext<RowT> ctx,

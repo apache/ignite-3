@@ -27,6 +27,10 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.lang.IgniteLogger;
 
+/**
+ * ClosableIteratorsHolder.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class ClosableIteratorsHolder {
     private final ReferenceQueue refQueue;
@@ -39,6 +43,11 @@ public class ClosableIteratorsHolder {
 
     private Thread cleanWorker;
 
+    /**
+     * Constructor.
+     *
+     * @param log Ignite logger.
+     */
     public ClosableIteratorsHolder(IgniteLogger log) {
         this.log = log;
 
@@ -47,6 +56,8 @@ public class ClosableIteratorsHolder {
     }
 
     /**
+     * Get iterator.
+     *
      * @param src Closeable iterator.
      * @return Weak closable iterator wrapper.
      */
@@ -56,12 +67,20 @@ public class ClosableIteratorsHolder {
         return new DelegatingIterator<>(src);
     }
 
+    /**
+     * Init.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public void init() {
         cleanWorker = new Thread(null, () -> cleanUp(true), "calciteIteratorsCleanWorker");
         cleanWorker.setDaemon(true);
         cleanWorker.start();
     }
 
+    /**
+     * Tear down.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public void tearDown() {
         stopped = true;
         refMap.clear();

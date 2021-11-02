@@ -50,6 +50,11 @@ import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningConte
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.lang.IgniteException;
 
+/**
+ * RelJsonReader.
+ *
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class RelJsonReader {
     private static final TypeReference<LinkedHashMap<String, Object>> TYPE_REF = new TypeReference<>() {
@@ -67,12 +72,22 @@ public class RelJsonReader {
 
     private RelNode lastRel;
 
+    /**
+     * FromJson.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static <T extends RelNode> T fromJson(PlanningContext ctx, String json) {
         RelJsonReader reader = new RelJsonReader(ctx.cluster(), ctx.catalogReader());
 
         return (T) reader.read(json);
     }
 
+    /**
+     * Constructor.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public RelJsonReader(RelOptCluster cluster, RelOptSchema relOptSchema) {
         this.cluster = cluster;
         this.relOptSchema = relOptSchema;
@@ -80,6 +95,11 @@ public class RelJsonReader {
         relJson = new RelJson(cluster);
     }
 
+    /**
+     * Read node.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public RelNode read(String s) {
         try {
             lastRel = null;

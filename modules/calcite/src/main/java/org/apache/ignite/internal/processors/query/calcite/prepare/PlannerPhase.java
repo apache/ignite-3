@@ -206,6 +206,8 @@ public enum PlannerPhase {
     public final String description;
 
     /**
+     * Constructor.
+     *
      * @param description Phase description.
      */
     PlannerPhase(String description) {

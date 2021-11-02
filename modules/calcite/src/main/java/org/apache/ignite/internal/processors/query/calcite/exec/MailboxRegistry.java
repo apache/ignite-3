@@ -23,6 +23,10 @@ import org.apache.ignite.internal.processors.query.calcite.exec.rel.Inbox;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Outbox;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * MailboxRegistry interface.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public interface MailboxRegistry {
     /**
      * Tries to register and inbox node and returns it if success or returns previously registered inbox otherwise.

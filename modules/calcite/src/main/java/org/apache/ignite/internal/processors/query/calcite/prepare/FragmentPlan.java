@@ -20,9 +20,18 @@ package org.apache.ignite.internal.processors.query.calcite.prepare;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteRel;
 
+/**
+ * Fragment plan.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class FragmentPlan implements QueryPlan {
     private final IgniteRel root;
 
+    /**
+     * Constructor.
+     *
+     * @param root Root relation.
+     */
     public FragmentPlan(IgniteRel root) {
         RelOptCluster cluster = PlanningContext.empty().cluster();
 

@@ -70,7 +70,17 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableSpool;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTrimExchange;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * TraitUtils.
+ *
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class TraitUtils {
+    /**
+     * Enforce.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     @Nullable
     public static RelNode enforce(RelNode rel, RelTraitSet toTraits) {
         RelOptPlanner planner = rel.getCluster().getPlanner();
@@ -123,6 +133,11 @@ public class TraitUtils {
         }
     }
 
+    /**
+     * ConvertCollation.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     @Nullable
     public static RelNode convertCollation(RelOptPlanner planner,
             RelCollation toTrait, RelNode rel) {
@@ -211,16 +226,31 @@ public class TraitUtils {
         return traits.replace(IgniteConvention.INSTANCE);
     }
 
+    /**
+     * Distribution.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static IgniteDistribution distribution(RelNode rel) {
         return rel instanceof IgniteRel
                 ? ((IgniteRel) rel).distribution()
                 : distribution(rel.getTraitSet());
     }
 
+    /**
+     * Distribution.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static IgniteDistribution distribution(RelTraitSet traits) {
         return traits.getTrait(DistributionTraitDef.INSTANCE);
     }
 
+    /**
+     * Collation.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static RelCollation collation(RelNode rel) {
         return rel instanceof IgniteRel
                 ? ((IgniteRel) rel).collation()
@@ -231,6 +261,11 @@ public class TraitUtils {
         return traits.getTrait(RelCollationTraitDef.INSTANCE);
     }
 
+    /**
+     * Rewindability.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static RewindabilityTrait rewindability(RelNode rel) {
         return rel instanceof IgniteRel
                 ? ((IgniteRel) rel).rewindability()
@@ -241,16 +276,31 @@ public class TraitUtils {
         return traits.getTrait(RewindabilityTraitDef.INSTANCE);
     }
 
+    /**
+     * Correlation.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static CorrelationTrait correlation(RelNode rel) {
         return rel instanceof IgniteRel
                 ? ((IgniteRel) rel).correlation()
                 : correlation(rel.getTraitSet());
     }
 
+    /**
+     *
+     * @param traits
+     * @return
+     */
     public static CorrelationTrait correlation(RelTraitSet traits) {
         return traits.getTrait(CorrelationTraitDef.INSTANCE);
     }
 
+    /**
+     * ChangeTraits.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static RelInput changeTraits(RelInput input, RelTrait... traits) {
         RelTraitSet traitSet = input.getTraitSet();
 
@@ -379,6 +429,11 @@ public class TraitUtils {
         };
     }
 
+    /**
+     * ProjectCollation.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static RelCollation projectCollation(RelCollation collation, List<RexNode> projects, RelDataType inputRowType) {
         if (collation.getFieldCollations().isEmpty()) {
             return RelCollations.EMPTY;
@@ -389,6 +444,11 @@ public class TraitUtils {
         return collation.apply(mapping);
     }
 
+    /**
+     * ProjectDistribution.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static IgniteDistribution projectDistribution(IgniteDistribution distribution, List<RexNode> projects,
             RelDataType inputRowType) {
         if (distribution.getType() != HASH_DISTRIBUTED) {
@@ -400,6 +460,11 @@ public class TraitUtils {
         return distribution.apply(mapping);
     }
 
+    /**
+     * PassThrough.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static Pair<RelTraitSet, List<RelTraitSet>> passThrough(TraitsAwareIgniteRel rel, RelTraitSet requiredTraits) {
         if (requiredTraits.getConvention() != IgniteConvention.INSTANCE || rel.getInputs().isEmpty()) {
             return null;
@@ -420,6 +485,11 @@ public class TraitUtils {
         return first(traits);
     }
 
+    /**
+     * Derive.
+     *
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     */
     public static List<RelNode> derive(TraitsAwareIgniteRel rel, List<List<RelTraitSet>> inTraits) {
         assert !nullOrEmpty(inTraits);
 

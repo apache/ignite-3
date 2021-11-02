@@ -324,6 +324,12 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         return new Buffer(nodeId);
     }
 
+    /**
+     * On node left.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+     *
+     * @param nodeId Left node id.
+     */
     public void onNodeLeft(String nodeId) {
         if (context().originatingNodeId().equals(nodeId) && srcNodeIds == null) {
             context().execute(this::close, this::onError);

@@ -21,6 +21,10 @@ import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlNode;
 
+/**
+ * ValidationResult.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-0987654321
+ */
 public class ValidationResult {
     private final SqlNode sqlNode;
 
@@ -29,6 +33,8 @@ public class ValidationResult {
     private final List<List<String>> origins;
 
     /**
+     * Constructor.
+     *
      * @param sqlNode  Validated SQL node.
      * @param dataType Validated type.
      * @param origins  Type fields provenance.
@@ -40,21 +46,21 @@ public class ValidationResult {
     }
 
     /**
-     * @return Validated SQL node.
+     * Get validated SQL node.
      */
     public SqlNode sqlNode() {
         return sqlNode;
     }
 
     /**
-     * @return Validated type.
+     * Get validated type.
      */
     public RelDataType dataType() {
         return dataType;
     }
 
     /**
-     * @return Type fields provenance.
+     * Get type fields provenance.
      */
     public List<List<String>> origins() {
         return origins;
