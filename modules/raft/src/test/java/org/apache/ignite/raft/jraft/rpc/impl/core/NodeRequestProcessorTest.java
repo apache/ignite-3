@@ -14,12 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.rpc.impl.core;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.Mockito.withSettings;
 
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -39,6 +34,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.withSettings;
 
 public class NodeRequestProcessorTest {
     private static class MockRequestProcessor extends NodeRequestProcessor<PingRequest> {
@@ -63,7 +62,7 @@ public class NodeRequestProcessorTest {
 
         @Override
         protected Message processRequest0(RaftServerService serviceService, PingRequest request,
-                RpcRequestClosure done) {
+            RpcRequestClosure done) {
             return RaftRpcFactory.DEFAULT.newResponse(msgFactory(), Status.OK());
         }
 

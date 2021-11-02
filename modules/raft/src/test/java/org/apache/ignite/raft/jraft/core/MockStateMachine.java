@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.core;
 
 import java.io.BufferedInputStream;
@@ -103,7 +102,8 @@ public class MockStateMachine extends StateMachineAdapter {
         this.lock.lock();
         try {
             return this.logs;
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -124,7 +124,8 @@ public class MockStateMachine extends StateMachineAdapter {
                 if (iter.done() != null) {
                     iter.done().run(Status.OK());
                 }
-            } finally {
+            }
+            finally {
                 this.lock.unlock();
             }
             this.appliedIndex = iter.getIndex();
@@ -142,7 +143,7 @@ public class MockStateMachine extends StateMachineAdapter {
         final String path = writer.getPath() + File.separator + "data";
         final File file = new File(path);
         try (FileOutputStream fout = new FileOutputStream(file);
-                BufferedOutputStream out = new BufferedOutputStream(fout)) {
+             BufferedOutputStream out = new BufferedOutputStream(fout)) {
             this.lock.lock();
             try {
                 for (final ByteBuffer buf : this.logs) {
@@ -152,13 +153,15 @@ public class MockStateMachine extends StateMachineAdapter {
                     out.write(buf.array());
                 }
                 this.snapshotIndex = this.appliedIndex;
-            } finally {
+            }
+            finally {
                 this.lock.unlock();
             }
             LOG.info("Node<" + this.address + "> saved snapshot into " + file);
             writer.addFile("data");
             done.run(Status.OK());
-        } catch (final IOException e) {
+        }
+        catch (final IOException e) {
             LOG.error("Failed to save the snapshot", e);
             done.run(new Status(RaftError.EIO, "Fail to save snapshot"));
         }
@@ -186,16 +189,19 @@ public class MockStateMachine extends StateMachineAdapter {
                             break;
                         }
                         this.logs.add(ByteBuffer.wrap(buf));
-                    } else {
+                    }
+                    else {
                         break;
                     }
                 }
-            } finally {
+            }
+            finally {
                 this.lock.unlock();
             }
             LOG.info("Node<" + this.address + "> loaded snapshot from " + path);
             return true;
-        } catch (final IOException e) {
+        }
+        catch (final IOException e) {
             LOG.error("Failed to load the snapshot", e);
             return false;
         }
