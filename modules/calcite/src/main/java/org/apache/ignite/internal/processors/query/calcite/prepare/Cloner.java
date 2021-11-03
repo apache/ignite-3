@@ -19,7 +19,8 @@ package org.apache.ignite.internal.processors.query.calcite.prepare;
 
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 
-import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteExchange;
@@ -53,14 +54,22 @@ import org.apache.ignite.internal.processors.query.calcite.rel.set.IgniteSetOp;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
 /**
- * Relation cloner.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class Cloner implements IgniteRelVisitor<IgniteRel> {
+    /**
+     *
+     */
     private final RelOptCluster cluster;
 
-    private ImmutableList.Builder<IgniteReceiver> remotes;
+    /**
+     *
+     */
+    private List<IgniteReceiver> remotes;
 
+    /**
+     *
+     */
     Cloner(RelOptCluster cluster) {
         this.cluster = cluster;
     }
@@ -73,23 +82,18 @@ public class Cloner implements IgniteRelVisitor<IgniteRel> {
      */
     public Fragment go(Fragment src) {
         try {
-            remotes = ImmutableList.builder();
+            remotes = new ArrayList<>();
 
             IgniteRel newRoot = visit(src.root());
-            ImmutableList<IgniteReceiver> remotes = this.remotes.build();
 
-            return new Fragment(src.fragmentId(), newRoot, remotes, src.serialized(), src.mapping());
+            return new Fragment(src.fragmentId(), newRoot, List.copyOf(remotes), src.serialized(), src.mapping());
         } finally {
             remotes = null;
         }
     }
 
     /**
-     * Clone relation.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
-     * @param r Ignite relation to clone.
-     * @return Clone of specified relation.
      */
     public static IgniteRel clone(IgniteRel r) {
         Cloner c = new Cloner(r.getCluster());
@@ -97,6 +101,9 @@ public class Cloner implements IgniteRelVisitor<IgniteRel> {
         return c.visit(r);
     }
 
+    /**
+     *
+     */
     private IgniteReceiver collect(IgniteReceiver receiver) {
         if (remotes != null) {
             remotes.add(receiver);

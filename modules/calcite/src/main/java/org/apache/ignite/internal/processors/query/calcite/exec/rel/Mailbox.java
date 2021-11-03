@@ -20,26 +20,25 @@ package org.apache.ignite.internal.processors.query.calcite.exec.rel;
 import java.util.UUID;
 
 /**
- * Mailbox interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public interface Mailbox<T> extends Node<T> {
     /**
-     * Get query ID.
+     * @return Query ID.
      */
     default UUID queryId() {
         return context().queryId();
     }
 
     /**
-     * Get fragment ID.
+     * @return Fragment ID.
      */
     default long fragmentId() {
         return context().fragmentId();
     }
 
     /**
-     * Get exchange ID.
+     * @return Exchange ID.
      */
     long exchangeId();
 }

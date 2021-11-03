@@ -22,8 +22,11 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.intellij.lang.annotations.Language;
 
 /**
  * Annotation for injecting configuration instances into tests.
@@ -54,6 +57,7 @@ public @interface InjectConfiguration {
      *
      * @return Initial configuration values in HOCON format.
      */
+    @Language("HOCON")
     String value() default "mock : {}";
 
     /**
@@ -62,5 +66,13 @@ public @interface InjectConfiguration {
      *
      * @return Array of configuration schema extensions.
      */
-    Class<?>[] extensions() default {};
+    Class<?>[] internalExtensions() default {};
+
+    /**
+     * Array of configuration schema extensions. Every class in the array must be annotated with
+     * {@link PolymorphicConfigInstance} and extend some {@link PolymorphicConfig} schema.
+     *
+     * @return Array of configuration schema extensions.
+     */
+    Class<?>[] polymorphicExtensions() default {};
 }

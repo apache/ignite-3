@@ -27,5 +27,5 @@ interface NetworkMessage2 extends NetworkMessage1, Serializable {
     /**
      *
      */
-    int x();
+    int intX();
 }

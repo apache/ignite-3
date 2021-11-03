@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.processors.query.calcite.util.Commons.n
 import static org.apache.ignite.internal.processors.query.calcite.util.Commons.transform;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import com.google.common.collect.ImmutableSet;
 import java.lang.reflect.Type;
 import java.sql.Timestamp;
 import java.util.Arrays;
@@ -51,56 +50,61 @@ import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 import org.apache.ignite.internal.processors.query.calcite.schema.ColumnDescriptor;
 import org.apache.ignite.internal.processors.query.calcite.schema.TableDescriptor;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * TypeUtils.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class TypeUtils {
+    /**
+     *
+     */
     private static final EnumSet<SqlTypeName> CONVERTABLE_SQL_TYPES = EnumSet.of(
             SqlTypeName.DATE,
             SqlTypeName.TIME,
             SqlTypeName.TIMESTAMP
     );
-
-    private static final Set<Type> CONVERTABLE_TYPES = ImmutableSet.of(
+    
+    /**
+     *
+     */
+    private static final Set<Type> CONVERTABLE_TYPES = Set.of(
             java.util.Date.class,
             java.sql.Date.class,
             java.sql.Time.class,
             java.sql.Timestamp.class
     );
-
+    
     /**
-     * CombinedRowType.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public static RelDataType combinedRowType(IgniteTypeFactory typeFactory, RelDataType... types) {
-
+        
         RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
-
+        
         Set<String> names = new HashSet<>();
-
+        
         for (RelDataType type : types) {
             for (RelDataTypeField field : type.getFieldList()) {
                 int idx = 0;
                 String fieldName = field.getName();
-
+    
                 while (!names.add(fieldName)) {
                     fieldName = field.getName() + idx++;
                 }
-
+                
                 builder.add(fieldName, field.getType());
             }
         }
-
+        
         return builder.build();
     }
-
+    
     /**
-     * NeedCast.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public static boolean needCast(RelDataTypeFactory factory, RelDataType fromType, RelDataType toType) {
         // This prevents that we cast a JavaType to normal RelDataType.
@@ -108,18 +112,18 @@ public class TypeUtils {
                 && toType.getSqlTypeName() == fromType.getSqlTypeName()) {
             return false;
         }
-
+        
         // Do not make a cast when we don't know specific type (ANY) of the origin node.
         if (toType.getSqlTypeName() == SqlTypeName.ANY
                 || fromType.getSqlTypeName() == SqlTypeName.ANY) {
             return false;
         }
-
+        
         // No need to cast between char and varchar.
         if (SqlTypeUtil.isCharacter(toType) && SqlTypeUtil.isCharacter(fromType)) {
             return false;
         }
-
+        
         // No need to cast if the source type precedence list
         // contains target type. i.e. do not cast from
         // tinyint to int or int to bigint.
@@ -128,68 +132,65 @@ public class TypeUtils {
                 && SqlTypeUtil.isIntType(toType)) {
             return false;
         }
-
+        
         // Implicit type coercion does not handle nullability.
         if (SqlTypeUtil.equalSansNullability(factory, fromType, toType)) {
             return false;
         }
-
+        
         // Should keep sync with rules in SqlTypeCoercionRule.
         assert SqlTypeUtil.canCastFrom(toType, fromType, true);
-
+        
         return true;
     }
-
+    
     /**
-     * CreateRowType.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     @NotNull
     public static RelDataType createRowType(@NotNull IgniteTypeFactory typeFactory, @NotNull Class<?>... fields) {
         List<RelDataType> types = Arrays.stream(fields)
                 .map(typeFactory::createJavaType)
                 .collect(Collectors.toList());
-
+        
         return createRowType(typeFactory, types, "$F");
     }
-
+    
     /**
-     * CreateRowType.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     @NotNull
     public static RelDataType createRowType(@NotNull IgniteTypeFactory typeFactory, @NotNull RelDataType... fields) {
         List<RelDataType> types = Arrays.asList(fields);
-
+        
         return createRowType(typeFactory, types, "$F");
     }
-
+    
+    /**
+     *
+     */
     private static RelDataType createRowType(IgniteTypeFactory typeFactory, List<RelDataType> fields, String namePreffix) {
         List<String> names = IntStream.range(0, fields.size())
                 .mapToObj(ord -> namePreffix + ord)
                 .collect(Collectors.toList());
-
+        
         return typeFactory.createStructType(fields, names);
     }
-
+    
     /**
-     * SqlType.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public static RelDataType sqlType(IgniteTypeFactory typeFactory, RelDataType rowType) {
         if (!rowType.isStruct()) {
             return typeFactory.toSql(rowType);
         }
-
+        
         return typeFactory.createStructType(
                 transform(rowType.getFieldList(),
                         f -> Pair.of(f.getName(), sqlType(typeFactory, f.getType()))));
     }
-
+    
     /**
-     * GetResultType.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
      * @param schema  Schema.
      * @param sqlType Logical row type.
      * @param origins Columns origins.
@@ -198,23 +199,20 @@ public class TypeUtils {
     public static RelDataType getResultType(IgniteTypeFactory typeFactory, RelOptSchema schema, RelDataType sqlType,
             @Nullable List<List<String>> origins) {
         assert origins == null || origins.size() == sqlType.getFieldCount();
-
+        
         RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(typeFactory);
         List<RelDataTypeField> fields = sqlType.getFieldList();
-
+        
         for (int i = 0; i < sqlType.getFieldCount(); i++) {
             List<String> origin = origins == null ? null : origins.get(i);
             b.add(fields.get(i).getName(), typeFactory.createType(
                     getResultClass(typeFactory, schema, fields.get(i).getType(), origin)));
         }
-
+        
         return b.build();
     }
-
+    
     /**
-     * GetResultClass.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
      * @param schema Schema.
      * @param type   Logical column type.
      * @param origin Column origin.
@@ -225,25 +223,24 @@ public class TypeUtils {
         if (nullOrEmpty(origin)) {
             return typeFactory.getResultClass(type);
         }
-
+        
         RelOptTable table = schema.getTableForMember(origin.subList(0, 2));
-
+        
         assert table != null;
-
+        
         ColumnDescriptor fldDesc = table.unwrap(TableDescriptor.class).columnDescriptor(origin.get(2));
-
+        
         assert fldDesc != null;
-
+        
         return nativeTypeToClass(fldDesc.storageType());
     }
-
+    
     /**
-     * ResultTypeConverter.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public static <RowT> Function<RowT, RowT> resultTypeConverter(ExecutionContext<RowT> ectx, RelDataType resultType) {
         assert resultType.isStruct();
-
+        
         if (hasConvertableFields(resultType)) {
             RowHandler<RowT> handler = ectx.rowHandler();
             List<RelDataType> types = RelOptUtil.getFieldTypeList(resultType);
@@ -259,10 +256,13 @@ public class TypeUtils {
                 return newRow;
             };
         }
-
+        
         return Function.identity();
     }
-
+    
+    /**
+     *
+     */
     private static Function<Object, Object> fieldConverter(ExecutionContext<?> ectx, RelDataType fieldType) {
         if (CONVERTABLE_SQL_TYPES.contains(fieldType.getSqlTypeName())) {
             Type storageType = ectx.getTypeFactory().getJavaClass(fieldType);
@@ -270,27 +270,38 @@ public class TypeUtils {
         }
         return Function.identity();
     }
-
+    
+    /**
+     *
+     */
     public static boolean isConvertableType(Type type) {
         return CONVERTABLE_TYPES.contains(type);
     }
-
+    
+    /**
+     *
+     */
     public static boolean isConvertableType(RelDataType type) {
         return CONVERTABLE_SQL_TYPES.contains(type.getSqlTypeName());
     }
-
+    
+    /**
+     *
+     */
     private static boolean hasConvertableFields(RelDataType resultType) {
         return RelOptUtil.getFieldTypeList(resultType).stream()
                 .anyMatch(t -> CONVERTABLE_SQL_TYPES.contains(t.getSqlTypeName()));
     }
-
+    
+    /**
+     *
+     */
     public static Object toInternal(ExecutionContext<?> ectx, Object val) {
         return val == null ? null : toInternal(ectx, val, val.getClass());
     }
-
+    
     /**
-     * ToInternal.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public static Object toInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
         if (val == null) {
@@ -309,10 +320,9 @@ public class TypeUtils {
             return val;
         }
     }
-
+    
     /**
-     * FromInternal.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public static Object fromInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
         if (val == null) {
@@ -328,6 +338,51 @@ public class TypeUtils {
             return new java.util.Date((Long) val - DataContext.Variable.TIME_ZONE.<TimeZone>get(ectx).getOffset((Long) val));
         } else {
             return val;
+        }
+    }
+
+    /**
+     * Convert calcite date type to Ignite native type.
+     */
+    public static NativeType nativeType(RelDataType type) {
+        switch (type.getSqlTypeName()) {
+            case VARCHAR:
+            case CHAR:
+                return type.getPrecision() > 0 ? NativeTypes.stringOf(type.getPrecision()) : NativeTypes.STRING;
+            case DATE:
+                return NativeTypes.DATE;
+            case TIME:
+            case TIME_WITH_LOCAL_TIME_ZONE:
+                return type.getPrecision() > 0 ? NativeTypes.time(type.getPrecision()) : NativeTypes.time();
+            case INTEGER:
+                return NativeTypes.INT32;
+            case TIMESTAMP:
+            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                return type.getPrecision() > 0 ? NativeTypes.timestamp(type.getPrecision()) : NativeTypes.timestamp();
+            case BIGINT:
+                return NativeTypes.INT64;
+            case SMALLINT:
+                return NativeTypes.INT16;
+            case TINYINT:
+                return NativeTypes.INT8;
+            case DECIMAL:
+                return NativeTypes.decimalOf(type.getPrecision(), type.getScale());
+            case BOOLEAN:
+                return NativeTypes.INT8;
+            case DOUBLE:
+                return NativeTypes.DOUBLE;
+            case REAL:
+            case FLOAT:
+                return NativeTypes.FLOAT;
+            case BINARY:
+            case VARBINARY:
+                return NativeTypes.blobOf(type.getPrecision());
+            case ANY:
+            case OTHER:
+                return NativeTypes.blobOf(type.getPrecision());
+            default:
+                assert false : "Unexpected type of result: " + type;
+                return null;
         }
     }
 }

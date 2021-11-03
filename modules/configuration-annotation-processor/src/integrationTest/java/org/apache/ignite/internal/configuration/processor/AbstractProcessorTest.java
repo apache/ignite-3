@@ -33,9 +33,8 @@ import javax.tools.JavaFileObject;
  * Base class for configuration annotation processor tests.
  */
 public class AbstractProcessorTest {
-
     /**
-     * Compile set of classes
+     * Compile set of classes.
      *
      * @param schemaClasses Configuration schema classes.
      * @return Result of batch compilation.

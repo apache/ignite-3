@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel.set;
 
-import com.google.common.collect.ImmutableList;
 import java.util.List;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.util.Pair;
@@ -37,10 +36,10 @@ public interface IgniteReduceSetOp extends IgniteSetOp {
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
     ) {
-        return ImmutableList.of(
-                Pair.of(nodeTraits.replace(RewindabilityTrait.ONE_WAY), ImmutableList.of(inputTraits.get(0))));
+        return List.of(
+                Pair.of(nodeTraits.replace(RewindabilityTrait.ONE_WAY), List.of(inputTraits.get(0))));
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public default Pair<RelTraitSet, List<RelTraitSet>> passThroughDistribution(RelTraitSet nodeTraits,
@@ -48,30 +47,30 @@ public interface IgniteReduceSetOp extends IgniteSetOp {
         if (TraitUtils.distribution(nodeTraits) == IgniteDistributions.single()) {
             return Pair.of(nodeTraits, Commons.transform(inTraits, t -> t.replace(IgniteDistributions.single())));
         }
-
+        
         return null;
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
     ) {
-        return ImmutableList.of(Pair.of(nodeTraits.replace(IgniteDistributions.single()),
-                ImmutableList.of(inputTraits.get(0).replace(IgniteDistributions.single()))));
+        return List.of(Pair.of(nodeTraits.replace(IgniteDistributions.single()),
+                List.of(inputTraits.get(0).replace(IgniteDistributions.single()))));
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
             RelTraitSet nodeTraits,
             List<RelTraitSet> inTraits
     ) {
-        return ImmutableList.of(Pair.of(nodeTraits.replace(TraitUtils.correlation(inTraits.get(0))),
+        return List.of(Pair.of(nodeTraits.replace(TraitUtils.correlation(inTraits.get(0))),
                 inTraits));
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public default AggregateType aggregateType() {

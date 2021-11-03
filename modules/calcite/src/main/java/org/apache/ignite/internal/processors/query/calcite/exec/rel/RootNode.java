@@ -39,29 +39,53 @@ import org.apache.ignite.lang.IgniteInternalException;
  * Client iterator.
  */
 public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT>, Iterator<RowT> {
+    /**
+     *
+     */
     private final ReentrantLock lock = new ReentrantLock();
 
+    /**
+     *
+     */
     private final Condition cond = lock.newCondition();
 
+    /**
+     *
+     */
     private final Runnable onClose;
 
+    /**
+     *
+     */
     private final AtomicReference<Throwable> ex = new AtomicReference<>();
 
+    /**
+     *
+     */
     private final Function<RowT, RowT> converter;
 
+    /**
+     *
+     */
     private int waiting;
 
+    /**
+     *
+     */
     private Deque<RowT> inBuff = new ArrayDeque<>(inBufSize);
 
+    /**
+     *
+     */
     private Deque<RowT> outBuff = new ArrayDeque<>(inBufSize);
 
+    /**
+     *
+     */
     private volatile boolean closed;
 
     /**
-     * Constructor.
-     *
-     * @param ctx     Execution context.
-     * @param rowType RelDataType.
+     * @param ctx Execution context.
      */
     public RootNode(ExecutionContext<RowT> ctx, RelDataType rowType) {
         super(ctx, rowType);
@@ -71,8 +95,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * @param ctx Execution context.
      */
     public RootNode(ExecutionContext<RowT> ctx, RelDataType rowType, Runnable onClose) {
         super(ctx, rowType);
@@ -81,6 +104,9 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         converter = TypeUtils.resultTypeConverter(ctx, rowType);
     }
 
+    /**
+     *
+     */
     public UUID queryId() {
         return context().queryId();
     }
@@ -94,7 +120,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
         lock.lock();
         try {
-            if (waiting != -1) {
+            if (waiting != -1 || !outBuff.isEmpty()) {
                 ex.compareAndSet(null, new IgniteException("Query was cancelled"));
             }
 
@@ -224,6 +250,9 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         throw new UnsupportedOperationException();
     }
 
+    /**
+     *
+     */
     private void exchangeBuffers() {
         assert !nullOrEmpty(sources()) && sources().size() == 1;
 
@@ -238,7 +267,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                     outBuff = tmp;
                 }
 
-                if (waiting == -1) {
+                if (waiting == -1 && outBuff.isEmpty()) {
                     close();
                 } else if (inBuff.isEmpty() && waiting == 0) {
                     int req = waiting = inBufSize;
@@ -260,6 +289,9 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         checkException();
     }
 
+    /**
+     *
+     */
     private void checkException() {
         Throwable e = ex.get();
 
@@ -267,7 +299,11 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
             return;
         }
 
-        throw new IgniteInternalException(e);
+        if (e instanceof IgniteException) {
+            throw (IgniteException) e;
+        } else {
+            throw new IgniteException("An error occurred while query executing.", e);
+        }
         // TODO: rework with SQL error code
         //        if (e instanceof IgniteSQLException)
         //            throw (IgniteSQLException)e;

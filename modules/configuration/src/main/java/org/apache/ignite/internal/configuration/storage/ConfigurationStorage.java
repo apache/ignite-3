@@ -62,6 +62,8 @@ public interface ConfigurationStorage {
     void registerConfigurationListener(@NotNull ConfigurationStorageListener lsnr);
 
     /**
+     * Returns type of this configuration storage.
+     *
      * @return Type of this configuration storage.
      */
     ConfigurationType type();

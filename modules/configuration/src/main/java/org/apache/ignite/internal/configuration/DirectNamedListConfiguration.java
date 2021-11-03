@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.function.BiFunction;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.DirectConfigurationProperty;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.DirectAccess;
 
@@ -29,9 +30,9 @@ import org.apache.ignite.configuration.annotation.DirectAccess;
  *
  * @see DirectAccess
  */
-public class DirectNamedListConfiguration<T extends ConfigurationProperty<VIEW>, VIEW, CHANGE extends VIEW>
-        extends NamedListConfiguration<T, VIEW, CHANGE>
-        implements DirectConfigurationProperty<VIEW> {
+public class DirectNamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEWT, CHANGET extends VIEWT>
+        extends NamedListConfiguration<T, VIEWT, CHANGET>
+        implements DirectConfigurationProperty<NamedListView<VIEWT>> {
     /**
      * Constructor.
      *
@@ -57,7 +58,7 @@ public class DirectNamedListConfiguration<T extends ConfigurationProperty<VIEW>,
 
     /** {@inheritDoc} */
     @Override
-    public VIEW directValue() {
+    public NamedListView<VIEWT> directValue() {
         if (listenOnly) {
             throw listenOnlyException();
         }

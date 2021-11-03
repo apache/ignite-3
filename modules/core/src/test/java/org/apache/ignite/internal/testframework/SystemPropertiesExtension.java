@@ -144,7 +144,10 @@ public class SystemPropertiesExtension implements
         final String val;
 
         /**
+         * Constructor.
          *
+         * @param key Property key.
+         * @param val Property value.
          */
         Property(String key, @Nullable String val) {
             this.key = key;

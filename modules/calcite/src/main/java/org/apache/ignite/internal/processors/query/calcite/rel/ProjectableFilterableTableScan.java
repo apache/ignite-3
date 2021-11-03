@@ -61,6 +61,9 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     /** Participating columns. */
     protected final ImmutableBitSet requiredColumns;
 
+    /**
+     *
+     */
     protected ProjectableFilterableTableScan(
             RelOptCluster cluster,
             RelTraitSet traitSet,
@@ -77,6 +80,9 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         requiredColumns = reqColumns;
     }
 
+    /**
+     *
+     */
     protected ProjectableFilterableTableScan(RelInput input) {
         super(input);
         condition = input.getExpression("filters");
@@ -85,21 +91,21 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     }
 
     /**
-     * Get projections.
+     * @return Projections.
      */
     public List<RexNode> projects() {
         return projects;
     }
 
     /**
-     * Get rex condition.
+     * @return Rex condition.
      */
     public RexNode condition() {
         return condition;
     }
 
     /**
-     * Get participating columns.
+     * @return Participating columns.
      */
     public ImmutableBitSet requiredColumns() {
         return requiredColumns;
@@ -119,6 +125,9 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         return explainTerms0(super.explainTerms(pw));
     }
 
+    /**
+     *
+     */
     protected RelWriter explainTerms0(RelWriter pw) {
         return pw
                 .itemIf("filters", condition, condition != null)
@@ -155,13 +164,15 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         }
     }
 
+    /**
+     *
+     */
     public boolean simple() {
         return condition == null && projects == null && requiredColumns == null;
     }
 
     /**
-     * PushUpPredicate.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public RexNode pushUpPredicate() {
         if (condition == null || projects == null) {

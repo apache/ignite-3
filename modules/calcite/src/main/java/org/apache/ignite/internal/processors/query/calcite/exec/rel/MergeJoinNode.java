@@ -31,32 +31,53 @@ import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * MergeJoinNode.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
     /** Special value to highlights that all row were received and we are not waiting any more. */
     protected static final int NOT_WAITING = -1;
 
+    /**
+     *
+     */
     protected final Comparator<RowT> comp;
 
+    /**
+     *
+     */
     protected final RowHandler<RowT> handler;
 
+    /**
+     *
+     */
     protected int requested;
 
+    /**
+     *
+     */
     protected int waitingLeft;
 
+    /**
+     *
+     */
     protected int waitingRight;
 
+    /**
+     *
+     */
     protected final Deque<RowT> rightInBuf = new ArrayDeque<>(inBufSize);
 
+    /**
+     *
+     */
     protected final Deque<RowT> leftInBuf = new ArrayDeque<>(inBufSize);
 
+    /**
+     *
+     */
     protected boolean inLoop;
 
     /**
-     * Constructor.
-     *
      * @param ctx  Execution context.
      * @param comp Join expression.
      */
@@ -82,6 +103,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
+    /**
+     *
+     */
     private void doJoin() throws Exception {
         checkState();
 
@@ -147,6 +171,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         throw new IndexOutOfBoundsException();
     }
 
+    /**
+     *
+     */
     private void pushLeft(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingLeft > 0;
@@ -160,6 +187,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         join();
     }
 
+    /**
+     *
+     */
     private void pushRight(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
@@ -173,6 +203,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         join();
     }
 
+    /**
+     *
+     */
     private void endLeft() throws Exception {
         assert downstream() != null;
         assert waitingLeft > 0;
@@ -184,6 +217,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         join();
     }
 
+    /**
+     *
+     */
     private void endRight() throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
@@ -195,19 +231,27 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         join();
     }
 
+    /**
+     *
+     */
     protected Node<RowT> leftSource() {
         return sources().get(0);
     }
 
+    /**
+     *
+     */
     protected Node<RowT> rightSource() {
         return sources().get(1);
     }
 
+    /**
+     *
+     */
     protected abstract void join() throws Exception;
 
     /**
-     * Create.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     @NotNull
     public static <RowT> MergeJoinNode<RowT> create(ExecutionContext<RowT> ctx, RelDataType outputRowType, RelDataType leftRowType,
@@ -246,21 +290,34 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
+    /**
+     *
+     */
     private static class InnerJoin<RowT> extends MergeJoinNode<RowT> {
+        /**
+         *
+         */
         private RowT left;
 
+        /**
+         *
+         */
         private RowT right;
 
         /** Used to store similar rows of rights stream in many-to-many join mode. */
         private List<RowT> rightMaterialization;
 
+        /**
+         *
+         */
         private int rightIdx;
 
+        /**
+         *
+         */
         private boolean drainMaterialization;
 
         /**
-         * Constructor.
-         *
          * @param ctx     Execution context.
          * @param rowType Row type.
          * @param comp    Join expression comparator.
@@ -398,34 +455,51 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
+    /**
+     *
+     */
     private static class LeftJoin<RowT> extends MergeJoinNode<RowT> {
         /** Right row factory. */
         private final RowHandler.RowFactory<RowT> rightRowFactory;
 
+        /**
+         *
+         */
         private RowT left;
 
+        /**
+         *
+         */
         private RowT right;
 
         /** Used to store similar rows of rights stream in many-to-many join mode. */
         private List<RowT> rightMaterialization;
 
+        /**
+         *
+         */
         private int rightIdx;
 
+        /**
+         *
+         */
         private boolean drainMaterialization;
 
         /** Whether current left row was matched (hence pushed to downstream) or not. */
         private boolean matched;
 
         /**
-         * Constructor.
-         *
          * @param ctx             Execution context.
          * @param rowType         Row type.
          * @param comp            Join expression comparator.
          * @param rightRowFactory Right row factory.
          */
-        private LeftJoin(ExecutionContext<RowT> ctx, RelDataType rowType, Comparator<RowT> comp,
-                RowHandler.RowFactory<RowT> rightRowFactory) {
+        private LeftJoin(
+                ExecutionContext<RowT> ctx,
+                RelDataType rowType,
+                Comparator<RowT> comp,
+                RowHandler.RowFactory<RowT> rightRowFactory
+        ) {
             super(ctx, rowType, comp);
 
             this.rightRowFactory = rightRowFactory;
@@ -574,34 +648,51 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
+    /**
+     *
+     */
     private static class RightJoin<RowT> extends MergeJoinNode<RowT> {
         /** Right row factory. */
         private final RowHandler.RowFactory<RowT> leftRowFactory;
 
+        /**
+         *
+         */
         private RowT left;
 
+        /**
+         *
+         */
         private RowT right;
 
         /** Used to store similar rows of rights stream in many-to-many join mode. */
         private List<RowT> rightMaterialization;
 
+        /**
+         *
+         */
         private int rightIdx;
 
+        /**
+         *
+         */
         private boolean drainMaterialization;
 
         /** Whether current right row was matched (hence pushed to downstream) or not. */
         private boolean matched;
 
         /**
-         * Constructor.
-         *
          * @param ctx            Execution context.
          * @param rowType        Row type.
          * @param comp           Join expression comparator.
          * @param leftRowFactory Left row factory.
          */
-        private RightJoin(ExecutionContext<RowT> ctx, RelDataType rowType, Comparator<RowT> comp,
-                RowHandler.RowFactory<RowT> leftRowFactory) {
+        private RightJoin(
+                ExecutionContext<RowT> ctx,
+                RelDataType rowType,
+                Comparator<RowT> comp,
+                RowHandler.RowFactory<RowT> leftRowFactory
+        ) {
             super(ctx, rowType, comp);
 
             this.leftRowFactory = leftRowFactory;
@@ -766,6 +857,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
+    /**
+     *
+     */
     private static class FullOuterJoin<RowT> extends MergeJoinNode<RowT> {
         /** Left row factory. */
         private final RowHandler.RowFactory<RowT> leftRowFactory;
@@ -773,15 +867,27 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         /** Right row factory. */
         private final RowHandler.RowFactory<RowT> rightRowFactory;
 
+        /**
+         *
+         */
         private RowT left;
 
+        /**
+         *
+         */
         private RowT right;
 
         /** Used to store similar rows of rights stream in many-to-many join mode. */
         private List<RowT> rightMaterialization;
 
+        /**
+         *
+         */
         private int rightIdx;
 
+        /**
+         *
+         */
         private boolean drainMaterialization;
 
         /** Whether current left row was matched (hence pushed to downstream) or not. */
@@ -791,8 +897,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         private boolean rightMatched;
 
         /**
-         * Constructor.
-         *
          * @param ctx             Execution context.
          * @param rowType         Row type.
          * @param comp            Join expression comparator.
@@ -997,14 +1101,21 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
+    /**
+     *
+     */
     private static class SemiJoin<RowT> extends MergeJoinNode<RowT> {
+        /**
+         *
+         */
         private RowT left;
 
+        /**
+         *
+         */
         private RowT right;
 
         /**
-         * Constructor.
-         *
          * @param ctx     Execution context.
          * @param rowType Row type.
          * @param comp    Join expression comparator.
@@ -1076,14 +1187,21 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
+    /**
+     *
+     */
     private static class AntiJoin<RowT> extends MergeJoinNode<RowT> {
+        /**
+         *
+         */
         private RowT left;
 
+        /**
+         *
+         */
         private RowT right;
 
         /**
-         * Constructor.
-         *
          * @param ctx     Execution context.
          * @param rowType Row type.
          * @param comp    Join expression comparator.

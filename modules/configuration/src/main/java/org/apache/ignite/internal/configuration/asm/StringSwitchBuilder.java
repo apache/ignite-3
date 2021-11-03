@@ -43,10 +43,10 @@ import java.util.Set;
  * Class similar to {@link SwitchBuilder} but it allows to use {@link String}s as switch keys.
  */
 class StringSwitchBuilder {
-    /** {@link Object#equals(Object)} */
+    /** {@link Object#equals(Object)}. */
     private static final Method EQUALS;
 
-    /** {@link Object#hashCode()} */
+    /** {@link Object#hashCode()}. */
     private static final Method HASH_CODE;
 
     static {
@@ -72,6 +72,8 @@ class StringSwitchBuilder {
     private final Scope scope;
 
     /**
+     * Constructor.
+     *
      * @param scope Scope to create temp variables.
      */
     StringSwitchBuilder(Scope scope) {
@@ -79,6 +81,8 @@ class StringSwitchBuilder {
     }
 
     /**
+     * Constructor.
+     *
      * @param expression Expression to be used for matching.
      * @return {@code this} for chaining.
      */
@@ -88,6 +92,8 @@ class StringSwitchBuilder {
     }
 
     /**
+     * Adds case.
+     *
      * @param key  Key for matching.
      * @param body Case statement.
      * @return {@code this} for chaining.
@@ -101,6 +107,8 @@ class StringSwitchBuilder {
     }
 
     /**
+     * Adds default case.
+     *
      * @param body Default statement.
      * @return {@code this} for chaining.
      */
@@ -191,6 +199,8 @@ class StringSwitchBuilder {
         private final BytecodeNode body;
 
         /**
+         * Constructor.
+         *
          * @param key  String key of the case statement.
          * @param body Body of the case statement.
          */

@@ -39,8 +39,14 @@ import org.jetbrains.annotations.Nullable;
  * Class with index conditions info.
  */
 public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
+    /**
+     *
+     */
     protected final String idxName;
 
+    /**
+     *
+     */
     protected final IndexConditions idxCond;
 
     /**
@@ -54,6 +60,9 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
         idxCond = new IndexConditions(input);
     }
 
+    /**
+     *
+     */
     protected AbstractIndexScan(
             RelOptCluster cluster,
             RelTraitSet traitSet,
@@ -80,33 +89,36 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
         return idxCond.explainTerms(pw);
     }
 
+    /**
+     *
+     */
     public String indexName() {
         return idxName;
     }
 
     /**
-     * Get lower index condition.
+     * @return Lower index condition.
      */
     public List<RexNode> lowerCondition() {
         return idxCond == null ? null : idxCond.lowerCondition();
     }
 
     /**
-     * Get lower index condition.
+     * @return Lower index condition.
      */
     public List<RexNode> lowerBound() {
         return idxCond == null ? null : idxCond.lowerBound();
     }
 
     /**
-     * Get upper index condition.
+     * @return Upper index condition.
      */
     public List<RexNode> upperCondition() {
         return idxCond == null ? null : idxCond.upperCondition();
     }
 
     /**
-     * Get upper index condition.
+     * @return Upper index condition.
      */
     public List<RexNode> upperBound() {
         return idxCond == null ? null : idxCond.upperBound();
@@ -152,6 +164,9 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
         return planner.getCostFactory().makeCost(rows, cost, 0);
     }
 
+    /**
+     *
+     */
     public IndexConditions indexConditions() {
         return idxCond;
     }

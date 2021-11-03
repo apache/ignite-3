@@ -25,39 +25,64 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
+import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
- * ClosableIteratorsHolder.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class ClosableIteratorsHolder {
-    private final ReferenceQueue refQueue;
-
-    private final Map<Reference, Object> refMap;
-
-    private final IgniteLogger log;
-
-    private volatile boolean stopped;
-
-    private Thread cleanWorker;
+public class ClosableIteratorsHolder implements LifecycleAware {
+    /**
+     *
+     */
+    private final String nodeName;
 
     /**
-     * Constructor.
      *
-     * @param log Ignite logger.
      */
-    public ClosableIteratorsHolder(IgniteLogger log) {
+    private final ReferenceQueue refQueue;
+
+    /**
+     *
+     */
+    private final Map<Reference, Object> refMap;
+
+    /**
+     *
+     */
+    private final IgniteLogger log;
+
+    /**
+     *
+     */
+    private volatile boolean stopped;
+
+    /**
+     *
+     */
+    private volatile IgniteThread cleanWorker;
+
+    /**
+     *
+     */
+    public ClosableIteratorsHolder(String nodeName, IgniteLogger log) {
+        this.nodeName = nodeName;
         this.log = log;
 
         refQueue = new ReferenceQueue<>();
         refMap = new ConcurrentHashMap<>();
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void start() {
+        cleanWorker = new IgniteThread(nodeName, "calciteIteratorsCleanWorker", () -> cleanUp(true));
+        cleanWorker.setDaemon(true);
+        cleanWorker.start();
+    }
+
     /**
-     * Get iterator.
-     *
      * @param src Closeable iterator.
      * @return Weak closable iterator wrapper.
      */
@@ -68,36 +93,17 @@ public class ClosableIteratorsHolder {
     }
 
     /**
-     * Init.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
-    public void init() {
-        cleanWorker = new Thread(null, () -> cleanUp(true), "calciteIteratorsCleanWorker");
-        cleanWorker.setDaemon(true);
-        cleanWorker.start();
-    }
-
-    /**
-     * Tear down.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public void tearDown() {
-        stopped = true;
-        refMap.clear();
-
-        Thread t = cleanWorker;
-
-        if (t != null) {
-            t.interrupt();
-        }
-    }
-
     private void cleanUp(boolean blocking) {
         for (Reference<?> ref = nextRef(blocking); !stopped && ref != null; ref = nextRef(blocking)) {
             Commons.close(refMap.remove(ref), log);
         }
     }
 
+    /**
+     *
+     */
     private Reference nextRef(boolean blocking) {
         try {
             return !blocking ? refQueue.poll() : refQueue.remove();
@@ -106,6 +112,9 @@ public class ClosableIteratorsHolder {
         }
     }
 
+    /**
+     *
+     */
     private AutoCloseable closeable(Object referent, Object resource) {
         if (!(resource instanceof AutoCloseable)) {
             return null;
@@ -114,11 +123,39 @@ public class ClosableIteratorsHolder {
         return new CloseableReference(referent, resource);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void stop() {
+        stopped = true;
+
+        refMap.values().forEach(o -> Commons.close(o, log));
+
+        refMap.clear();
+
+        IgniteThread t = cleanWorker;
+
+        if (t != null) {
+            t.interrupt();
+        }
+    }
+
+    /**
+     *
+     */
     private final class DelegatingIterator<T> implements Iterator<T>, AutoCloseable {
+        /**
+         *
+         */
         private final Iterator<T> delegate;
 
+        /**
+         *
+         */
         private final AutoCloseable closeable;
 
+        /**
+         *
+         */
         private DelegatingIterator(Iterator<T> delegate) {
             closeable = closeable(this, this.delegate = delegate);
         }
@@ -154,7 +191,13 @@ public class ClosableIteratorsHolder {
         }
     }
 
+    /**
+     *
+     */
     private final class CloseableReference extends WeakReference implements AutoCloseable {
+        /**
+         *
+         */
         private CloseableReference(Object referent, Object resource) {
             super(referent, refQueue);
 

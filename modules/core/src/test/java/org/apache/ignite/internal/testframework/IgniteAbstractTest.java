@@ -93,6 +93,8 @@ public abstract class IgniteAbstractTest {
     }
 
     /**
+     * Returns logger.
+     *
      * @return Logger.
      */
     protected IgniteLogger logger() {

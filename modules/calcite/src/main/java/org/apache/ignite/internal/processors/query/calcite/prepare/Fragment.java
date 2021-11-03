@@ -19,7 +19,6 @@ package org.apache.ignite.internal.processors.query.calcite.prepare;
 
 import static org.apache.ignite.internal.processors.query.calcite.externalize.RelJsonWriter.toJson;
 
-import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
@@ -42,24 +41,34 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Fragment of distributed query.
+ * Fragment of distributed query
  */
 public class Fragment {
+    /**
+     *
+     */
     private final long id;
 
+    /**
+     *
+     */
     private final IgniteRel root;
 
     /** Serialized root representation. */
     @IgniteToStringExclude
     private final String rootSer;
 
+    /**
+     *
+     */
     private final FragmentMapping mapping;
 
-    private final ImmutableList<IgniteReceiver> remotes;
+    /**
+     *
+     */
+    private final List<IgniteReceiver> remotes;
 
     /**
-     * Constructor.
-     *
      * @param id      Fragment id.
      * @param root    Root node of the fragment.
      * @param remotes Remote sources of the fragment.
@@ -68,23 +77,26 @@ public class Fragment {
         this(id, root, remotes, null, null);
     }
 
+    /**
+     *
+     */
     Fragment(long id, IgniteRel root, List<IgniteReceiver> remotes, @Nullable String rootSer, @Nullable FragmentMapping mapping) {
         this.id = id;
         this.root = root;
-        this.remotes = ImmutableList.copyOf(remotes);
+        this.remotes = List.copyOf(remotes);
         this.rootSer = rootSer != null ? rootSer : toJson(root);
         this.mapping = mapping;
     }
 
     /**
-     * Get fragment ID.
+     * @return Fragment ID.
      */
     public long fragmentId() {
         return id;
     }
 
     /**
-     * Get root node.
+     * @return Root node.
      */
     public IgniteRel root() {
         return root;
@@ -99,18 +111,24 @@ public class Fragment {
         return rootSer;
     }
 
+    /**
+     *
+     */
     public FragmentMapping mapping() {
         return mapping;
     }
-
+    
+    /**
+     *
+     */
     private FragmentMapping mapping(PlanningContext ctx, RelMetadataQuery mq, Supplier<List<String>> nodesSource) {
         try {
             FragmentMapping mapping = IgniteMdFragmentMapping.fragmentMappingForMetadataQuery(root, mq);
-
+            
             if (rootFragment()) {
                 mapping = FragmentMapping.create(ctx.localNodeId()).colocate(mapping);
             }
-
+            
             if (single() && mapping.nodeIds().size() > 1) {
                 // this is possible when the fragment contains scan of a replicated cache, which brings
                 // several nodes (actually all containing nodes) to the colocation group, but this fragment
@@ -118,7 +136,7 @@ public class Fragment {
                 mapping = FragmentMapping.create(mapping.nodeIds()
                         .get(ThreadLocalRandom.current().nextInt(mapping.nodeIds().size()))).colocate(mapping);
             }
-
+            
             return mapping.finalize(nodesSource);
         } catch (NodeMappingException e) {
             throw new FragmentMappingException("Failed to calculate physical distribution", this, e.node(), e);
@@ -128,19 +146,21 @@ public class Fragment {
     }
 
     /**
-     * Get fragment remote sources.
+     * @return Fragment remote sources.
      */
     public List<IgniteReceiver> remotes() {
         return remotes;
     }
 
+    /**
+     *
+     */
     public boolean rootFragment() {
         return !(root instanceof IgniteSender);
     }
 
     /**
-     * Attach fragment to planning context.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public Fragment attach(PlanningContext ctx) {
         RelOptCluster cluster = ctx.cluster();
@@ -149,8 +169,7 @@ public class Fragment {
     }
 
     /**
-     * Detach fragment.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public Fragment detach() {
         RelOptCluster cluster = PlanningContext.empty().cluster();
@@ -159,7 +178,7 @@ public class Fragment {
     }
 
     /**
-     * Maps the fragment to its data location.
+     * Mapps the fragment to its data location.
      *
      * @param ctx Planner context.
      * @param mq  Metadata query.
@@ -174,11 +193,17 @@ public class Fragment {
         return new Fragment(id, root, remotes, rootSer, mapping(ctx, mq, nodesSource(mappingSrvc, ctx)));
     }
 
+    /**
+     *
+     */
     @NotNull
     private Supplier<List<String>> nodesSource(MappingService mappingSrvc, PlanningContext ctx) {
         return () -> mappingSrvc.executionNodes(ctx.topologyVersion(), single(), null);
     }
 
+    /**
+     *
+     */
     private boolean single() {
         return root instanceof IgniteSender
                 && ((IgniteSender) root).sourceDistribution().satisfies(IgniteDistributions.single());

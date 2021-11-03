@@ -22,8 +22,7 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 
 /**
- * RelFactory interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public interface RelFactory {
     /**

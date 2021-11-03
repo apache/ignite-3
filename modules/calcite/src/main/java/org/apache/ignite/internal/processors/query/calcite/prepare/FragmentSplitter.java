@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
-import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
@@ -34,26 +33,33 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTrimExchang
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
 /**
- * Fragment splitter.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class FragmentSplitter extends IgniteRelShuttle {
+    /**
+     *
+     */
     private final Deque<FragmentProto> stack = new LinkedList<>();
 
+    /**
+     *
+     */
     private RelNode cutPoint;
 
+    /**
+     *
+     */
     private FragmentProto curr;
 
+    /**
+     *
+     */
     public FragmentSplitter(RelNode cutPoint) {
         this.cutPoint = cutPoint;
     }
 
     /**
-     * Split fragment.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
-     * @param fragment Fragment to split.
-     * @return Splitted fragments.
      */
     public List<Fragment> go(Fragment fragment) {
         ArrayList<Fragment> res = new ArrayList<>();
@@ -104,6 +110,9 @@ public class FragmentSplitter extends IgniteRelShuttle {
         return rel;
     }
 
+    /**
+     *
+     */
     private IgniteRel split(IgniteRel rel) {
         RelOptCluster cluster = rel.getCluster();
         RelTraitSet traits = rel.getTraitSet();
@@ -124,20 +133,38 @@ public class FragmentSplitter extends IgniteRelShuttle {
         return receiver;
     }
 
+    /**
+     *
+     */
     private static class FragmentProto {
+        /**
+         *
+         */
         private final long id;
 
+        /**
+         *
+         */
         private IgniteRel root;
 
-        private final ImmutableList.Builder<IgniteReceiver> remotes = ImmutableList.builder();
+        /**
+         *
+         */
+        private final List<IgniteReceiver> remotes = new ArrayList<>();
 
+        /**
+         *
+         */
         private FragmentProto(long id, IgniteRel root) {
             this.id = id;
             this.root = root;
         }
 
+        /**
+         *
+         */
         Fragment build() {
-            return new Fragment(id, root, remotes.build());
+            return new Fragment(id, root, List.copyOf(remotes));
         }
     }
 }

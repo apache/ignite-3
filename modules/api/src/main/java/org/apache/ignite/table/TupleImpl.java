@@ -38,7 +38,7 @@ import org.jetbrains.annotations.NotNull;
  * Simple tuple implementation.
  */
 class TupleImpl implements Tuple, Serializable {
-    /** Version UID. */
+    /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
     /**

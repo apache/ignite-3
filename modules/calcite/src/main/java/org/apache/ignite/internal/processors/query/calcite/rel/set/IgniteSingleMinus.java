@@ -40,8 +40,7 @@ public class IgniteSingleMinus extends IgniteMinus implements IgniteSingleSetOp 
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public IgniteSingleMinus(RelInput input) {
         super(input);

@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
-import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
@@ -47,10 +47,12 @@ import org.apache.ignite.internal.processors.query.calcite.util.HintUtils;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
- * PlannerHelper.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class PlannerHelper {
+    /**
+     *
+     */
     private static final IgniteLogger LOG = IgniteLogger.forClass(PlannerHelper.class);
 
     /**
@@ -61,9 +63,6 @@ public class PlannerHelper {
     }
 
     /**
-     * Optimize.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
      * @param sqlNode Sql node.
      * @param planner Planner.
      */
@@ -100,7 +99,7 @@ public class PlannerHelper {
                 igniteRel = new IgniteProject(igniteRel.getCluster(), desired, igniteRel, projects, root.validatedRowType);
             }
 
-            if (sqlNode.isA(ImmutableSet.of(SqlKind.INSERT, SqlKind.UPDATE, SqlKind.MERGE))) {
+            if (sqlNode.isA(Set.of(SqlKind.INSERT, SqlKind.UPDATE, SqlKind.MERGE))) {
                 igniteRel = new FixDependentModifyNodeShuttle().visit(igniteRel);
             }
 
@@ -219,7 +218,7 @@ public class PlannerHelper {
                 return (IgniteRel) scan;
             }
 
-            ImmutableSet<Integer> indexedCols = ImmutableSet.copyOf(
+            Set<Integer> indexedCols = Set.copyOf(
                     tbl.getIndex(((AbstractIndexScan) scan).indexName()).collation().getKeys());
 
             spoolNeeded = modifyNode.getUpdateColumnList().stream()
@@ -231,7 +230,7 @@ public class PlannerHelper {
         }
 
         /**
-         * Get isInsert flag: {@code true} in case {@link #modifyNode} produces any insert.
+         * @return {@code true} in case {@link #modifyNode} produces any insert.
          */
         private boolean modifyNodeInsertsData() {
             return modifyNode.isInsert(); // MERGE should be analyzed too

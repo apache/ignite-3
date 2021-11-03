@@ -24,15 +24,15 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 
 /**
- * ProjectNode.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class ProjectNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
+    /**
+     *
+     */
     private final Function<RowT, RowT> prj;
 
     /**
-     * Constructor.
-     *
      * @param ctx Execution context.
      * @param prj Projection.
      */

@@ -48,10 +48,19 @@ public class IgniteCost implements RelOptCost {
      */
     public static final double BROADCAST_DISTRIBUTION_PENALTY = 5;
 
+    /**
+     *
+     */
     static final IgniteCost ZERO = new IgniteCost(0, 0, 0, 0, 0);
 
+    /**
+     *
+     */
     static final IgniteCost TINY = new IgniteCost(1, 1, 1, 1, 1);
 
+    /**
+     *
+     */
     static final IgniteCost HUGE = new IgniteCost(
             Double.MAX_VALUE,
             Double.MAX_VALUE,
@@ -60,6 +69,9 @@ public class IgniteCost implements RelOptCost {
             Double.MAX_VALUE
     );
 
+    /**
+     *
+     */
     static final IgniteCost INFINITY = new IgniteCost(
             Double.POSITIVE_INFINITY,
             Double.POSITIVE_INFINITY,
@@ -84,8 +96,6 @@ public class IgniteCost implements RelOptCost {
     private final double network;
 
     /**
-     * Constructor.
-     *
      * @param rowCount Row count.
      * @param cpu      Cpu.
      * @param memory   Memory.
@@ -119,14 +129,14 @@ public class IgniteCost implements RelOptCost {
     }
 
     /**
-     * Get usage of Memory resources.
+     * @return Usage of Memory resources.
      */
     public double getMemory() {
         return memory;
     }
 
     /**
-     * Get usage of Network resources.
+     * @return Usage of Network resources.
      */
     public double getNetwork() {
         return network;

@@ -25,9 +25,9 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Configuration property change listener for named list configurations.
  *
- * @param <VIEW> VIEW type configuration.
+ * @param <VIEWT> VIEW type configuration.
  */
-public interface ConfigurationNamedListListener<VIEW> extends ConfigurationListener<VIEW> {
+public interface ConfigurationNamedListListener<VIEWT> extends ConfigurationListener<VIEWT> {
     /**
      * Called when new named list element is created.
      *
@@ -35,7 +35,7 @@ public interface ConfigurationNamedListListener<VIEW> extends ConfigurationListe
      * @return Future that signifies the end of the listener execution.
      */
     @NotNull
-    default CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<VIEW> ctx) {
+    default CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<VIEWT> ctx) {
         return completedFuture(null);
     }
 
@@ -53,7 +53,7 @@ public interface ConfigurationNamedListListener<VIEW> extends ConfigurationListe
     default CompletableFuture<?> onRename(
             @NotNull String oldName,
             @NotNull String newName,
-            @NotNull ConfigurationNotificationEvent<VIEW> ctx
+            @NotNull ConfigurationNotificationEvent<VIEWT> ctx
     ) {
         return completedFuture(null);
     }
@@ -65,14 +65,14 @@ public interface ConfigurationNamedListListener<VIEW> extends ConfigurationListe
      * @return Future that signifies the end of the listener execution.
      */
     @NotNull
-    default CompletableFuture<?> onDelete(@NotNull ConfigurationNotificationEvent<VIEW> ctx) {
+    default CompletableFuture<?> onDelete(@NotNull ConfigurationNotificationEvent<VIEWT> ctx) {
         return completedFuture(null);
     }
 
     /** {@inheritDoc} */
     @Override
     @NotNull
-    default CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<VIEW> ctx) {
+    default CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<VIEWT> ctx) {
         return completedFuture(null);
     }
 }

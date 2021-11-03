@@ -17,6 +17,8 @@
 
 package org.apache.ignite.distributed;
 
+import static org.mockito.Mockito.mock;
+
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Map;
@@ -24,7 +26,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
-import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -32,21 +34,22 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.DataRow;
-import org.apache.ignite.internal.storage.Storage;
-import org.apache.ignite.internal.storage.basic.ConcurrentHashMapStorage;
+import org.apache.ignite.internal.storage.PartitionStorage;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
+import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.client.service.ITAbstractListenerSnapshotTest;
+import org.apache.ignite.raft.client.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 
 /**
  * Persistent partitions raft group snapshots tests.
  */
-public class ItTablePersistenceTest extends ITAbstractListenerSnapshotTest<PartitionListener> {
+public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<PartitionListener> {
     /**
      *
      */
@@ -87,7 +90,8 @@ public class ItTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
                 new IgniteUuid(UUID.randomUUID(), 0),
                 Map.of(0, service),
                 1,
-                NetworkAddress::toString
+                NetworkAddress::toString,
+                mock(TableStorage.class)
         );
 
         table.upsert(FIRST_VALUE, null).get();
@@ -101,7 +105,8 @@ public class ItTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
                 new IgniteUuid(UUID.randomUUID(), 0),
                 Map.of(0, service),
                 1,
-                NetworkAddress::toString
+                NetworkAddress::toString,
+                mock(TableStorage.class)
         );
 
         // Remove the first key
@@ -119,7 +124,8 @@ public class ItTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
                 new IgniteUuid(UUID.randomUUID(), 0),
                 Map.of(0, service),
                 1,
-                NetworkAddress::toString
+                NetworkAddress::toString,
+                mock(TableStorage.class)
         );
 
         table.upsert(SECOND_VALUE, null).get();
@@ -127,8 +133,8 @@ public class ItTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override
-    public BooleanSupplier snapshotCheckClosure(JRaftServerImpl restarted, boolean interactedAfterSnapshot) {
-        Storage storage = getListener(restarted, raftGroupId()).getStorage();
+    public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted, boolean interactedAfterSnapshot) {
+        PartitionStorage storage = getListener(restarted, raftGroupId()).getStorage();
 
         Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;
         Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
@@ -160,7 +166,7 @@ public class ItTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
                 .map(Map.Entry::getKey)
                 .findAny()
                 .orElseGet(() -> {
-                    PartitionListener listener = new PartitionListener(new ConcurrentHashMapStorage());
+                    PartitionListener listener = new PartitionListener(new ConcurrentHashMapPartitionStorage());
 
                     paths.put(listener, workDir);
 

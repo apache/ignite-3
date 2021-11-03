@@ -50,9 +50,10 @@ import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.DataRow;
-import org.apache.ignite.internal.storage.Storage;
+import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
+import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -108,9 +109,12 @@ public class ItInternalTableScanTest {
      */
     private static final String TEST_TABLE_NAME = "testTbl";
 
+    /** Id for the test RAFT group. */
+    public static final String RAFT_GRP_ID = "test_part_grp";
+
     /** Mock partition storage. */
     @Mock
-    private Storage mockStorage;
+    private PartitionStorage mockStorage;
 
     /**
      *
@@ -158,14 +162,12 @@ public class ItInternalTableScanTest {
 
         raftSrv.start();
 
-        String grpName = "test_part_grp";
-
         List<Peer> conf = List.of(new Peer(nodeNetworkAddress));
 
-        mockStorage = mock(Storage.class);
+        mockStorage = mock(PartitionStorage.class);
 
         raftSrv.startRaftGroup(
-                grpName,
+                RAFT_GRP_ID,
                 new PartitionListener(mockStorage),
                 conf
         );
@@ -173,7 +175,7 @@ public class ItInternalTableScanTest {
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
 
         RaftGroupService raftGrpSvc = RaftGroupServiceImpl.start(
-                grpName,
+                RAFT_GRP_ID,
                 network,
                 FACTORY,
                 10_000,
@@ -188,7 +190,8 @@ public class ItInternalTableScanTest {
                 new IgniteUuidGenerator(UUID.randomUUID(), 0).randomUuid(),
                 Map.of(0, raftGrpSvc),
                 1,
-                NetworkAddress::toString
+                NetworkAddress::toString,
+                mock(TableStorage.class)
         );
     }
 
@@ -199,6 +202,8 @@ public class ItInternalTableScanTest {
      */
     @AfterEach
     public void tearDown() throws Exception {
+        raftSrv.stopRaftGroup(RAFT_GRP_ID);
+
         if (raftSrv != null) {
             raftSrv.beforeNodeStop();
         }
@@ -223,7 +228,7 @@ public class ItInternalTableScanTest {
      */
     @Test
     public void testOneRowScan() throws Exception {
-        requestNTest(
+        requestNtest(
                 List.of(
                         prepareDataRow("key1", "val1"),
                         prepareDataRow("key2", "val2")
@@ -236,7 +241,7 @@ public class ItInternalTableScanTest {
      */
     @Test
     public void testMultipleRowScan() throws Exception {
-        requestNTest(
+        requestNtest(
                 List.of(
                         prepareDataRow("key1", "val1"),
                         prepareDataRow("key2", "val2"),
@@ -524,7 +529,7 @@ public class ItInternalTableScanTest {
      * @param reqAmount      Amount of rows to request at a time.
      * @throws Exception If Any.
      */
-    private void requestNTest(List<DataRow> submittedItems, int reqAmount) throws Exception {
+    private void requestNtest(List<DataRow> submittedItems, int reqAmount) throws Exception {
         AtomicInteger cursorTouchCnt = new AtomicInteger(0);
 
         List<BinaryRow> retrievedItems = Collections.synchronizedList(new ArrayList<>());
@@ -534,7 +539,7 @@ public class ItInternalTableScanTest {
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
 
-            when(cursor.next()).thenAnswer(invocation1 -> submittedItems.get(cursorTouchCnt.getAndIncrement()));
+            when(cursor.next()).thenAnswer(ninvocation -> submittedItems.get(cursorTouchCnt.getAndIncrement()));
 
             return cursor;
         });

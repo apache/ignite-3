@@ -20,8 +20,6 @@ package org.apache.ignite.internal.processors.query.calcite.rel;
 import static org.apache.ignite.internal.processors.query.calcite.util.Commons.maxPrefix;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -72,8 +70,7 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public IgniteCorrelatedNestedLoopJoin(RelInput input) {
         this(input.getCluster(),
@@ -81,7 +78,7 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
                 input.getInputs().get(0),
                 input.getInputs().get(1),
                 input.getExpression("condition"),
-                ImmutableSet.copyOf(Commons.transform(input.getIntegerList("variablesSet"), CorrelationId::new)),
+                Set.copyOf(Commons.transform(input.getIntegerList("variablesSet"), CorrelationId::new)),
                 input.getEnum("joinType", JoinRelType.class));
     }
 
@@ -112,7 +109,7 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
         List<Integer> newRightCollationFields = maxPrefix(rightCollation.getKeys(), joinInfo.leftKeys);
 
         if (nullOrEmpty(newRightCollationFields)) {
-            return ImmutableList.of(Pair.of(nodeTraits.replace(RelCollations.EMPTY), inputTraits));
+            return List.of(Pair.of(nodeTraits.replace(RelCollations.EMPTY), inputTraits));
         }
 
         // We preserve left edge collation only if batch size == 1
@@ -122,7 +119,7 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
             nodeTraits = nodeTraits.replace(RelCollations.EMPTY);
         }
 
-        return ImmutableList.of(Pair.of(nodeTraits, inputTraits));
+        return List.of(Pair.of(nodeTraits, inputTraits));
     }
 
     /** {@inheritDoc} */
@@ -137,8 +134,8 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
 
         RewindabilityTrait rewindability = TraitUtils.rewindability(left);
 
-        return ImmutableList.of(Pair.of(nodeTraits.replace(rewindability),
-                ImmutableList.of(left, right.replace(RewindabilityTrait.REWINDABLE))));
+        return List.of(Pair.of(nodeTraits.replace(rewindability),
+                List.of(left, right.replace(RewindabilityTrait.REWINDABLE))));
     }
 
     /** {@inheritDoc} */
@@ -156,7 +153,7 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
 
             return Pair.of(
                     baseTraits.getKey(),
-                    ImmutableList.of(
+                    List.of(
                             baseTraits.getValue().get(0),
                             baseTraits.getValue().get(1)
                     )
@@ -164,7 +161,7 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
         }
 
         return Pair.of(nodeTraits.replace(RelCollations.EMPTY),
-                ImmutableList.of(left.replace(RelCollations.EMPTY), right));
+                List.of(left.replace(RelCollations.EMPTY), right));
     }
 
     /** {@inheritDoc} */
@@ -177,7 +174,7 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
         RewindabilityTrait rewindability = TraitUtils.rewindability(nodeTraits);
 
         return Pair.of(nodeTraits.replace(rewindability),
-                ImmutableList.of(left.replace(rewindability), right.replace(RewindabilityTrait.REWINDABLE)));
+                List.of(left.replace(rewindability), right.replace(RewindabilityTrait.REWINDABLE)));
     }
 
     /** {@inheritDoc} */
@@ -213,7 +210,7 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
         selfCorrIds.addAll(nodeCorr.correlationIds());
 
         return Pair.of(nodeTraits,
-                ImmutableList.of(
+                List.of(
                         inTraits.get(0).replace(nodeCorr),
                         inTraits.get(1).replace(CorrelationTrait.correlations(selfCorrIds))
                 )
@@ -227,7 +224,7 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
         Set<CorrelationId> rightCorrIds = TraitUtils.correlation(inTraits.get(1)).correlationIds();
 
         if (!rightCorrIds.containsAll(variablesSet)) {
-            return ImmutableList.of();
+            return List.of();
         }
 
         Set<CorrelationId> corrIds = new HashSet<>(rightCorrIds);
@@ -237,7 +234,7 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
 
         corrIds.removeAll(variablesSet);
 
-        return ImmutableList.of(Pair.of(nodeTraits.replace(CorrelationTrait.correlations(corrIds)), inTraits));
+        return List.of(Pair.of(nodeTraits.replace(CorrelationTrait.correlations(corrIds)), inTraits));
     }
 
     /** {@inheritDoc} */
@@ -247,6 +244,9 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
                 getVariablesSet(), getJoinType());
     }
 
+    /**
+     *
+     */
     @Override
     public RelWriter explainTerms(RelWriter pw) {
         return super.explainTerms(pw).item("correlationVariables", getVariablesSet());

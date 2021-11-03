@@ -23,10 +23,19 @@ import org.jetbrains.annotations.Nullable;
 
 /** Defines a particular column within table. */
 public class ColumnDefinition {
+    /**
+     *
+     */
     private final String name;
 
+    /**
+     *
+     */
     private final RelDataType type;
 
+    /**
+     *
+     */
     private final Object dflt;
 
     /** Creates a column definition. */
@@ -37,42 +46,42 @@ public class ColumnDefinition {
     }
 
     /**
-     * Get column's name.
+     * @return Column's name.
      */
     public String name() {
         return name;
     }
 
     /**
-     * Get column's type.
+     * @return Column's type.
      */
     public RelDataType type() {
         return type;
     }
 
     /**
-     * Get column's default value.
+     * @return Column's default value.
      */
     public @Nullable Object defaultValue() {
         return dflt;
     }
 
     /**
-     * Get accept nulls flag.
+     * @return {@code true} if this column accepts nulls.
      */
     public boolean nullable() {
         return type.isNullable();
     }
 
     /**
-     * Get column's precision.
+     * @return Column's precision.
      */
     public Integer precision() {
         return type.getPrecision() != RelDataType.PRECISION_NOT_SPECIFIED ? type.getPrecision() : null;
     }
 
     /**
-     * Get column's scale.
+     * @return Column's scale.
      */
     public Integer scale() {
         return type.getScale() != RelDataType.SCALE_NOT_SPECIFIED ? type.getScale() : null;

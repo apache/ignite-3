@@ -31,13 +31,14 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Super class for dynamic configuration tree nodes. Has all common data and value retrieving algorithm in it.
  */
-public abstract class ConfigurationNode<VIEW> implements ConfigurationProperty<VIEW> {
+public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<VIEWT> {
     /** Listeners of property update. */
-    private final List<ConfigurationListener<VIEW>> updateListeners = new CopyOnWriteArrayList<>();
+    private final List<ConfigurationListener<VIEWT>> updateListeners = new CopyOnWriteArrayList<>();
 
     /** Full path to the current node. */
     protected final List<String> keys;
@@ -60,7 +61,7 @@ public abstract class ConfigurationNode<VIEW> implements ConfigurationProperty<V
     private volatile TraversableTreeNode cachedRootNode;
 
     /** Cached configuration value. Immutable. */
-    private VIEW val;
+    private VIEWT val;
 
     /**
      * Validity flag. Configuration is declared invalid if it's a part of named list configuration and corresponding entry is already
@@ -95,20 +96,22 @@ public abstract class ConfigurationNode<VIEW> implements ConfigurationProperty<V
 
     /** {@inheritDoc} */
     @Override
-    public void listen(ConfigurationListener<VIEW> listener) {
+    public void listen(ConfigurationListener<VIEWT> listener) {
         updateListeners.add(listener);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void stopListen(ConfigurationListener<VIEW> listener) {
+    public void stopListen(ConfigurationListener<VIEWT> listener) {
         updateListeners.remove(listener);
     }
 
     /**
+     * Returns list of update listeners.
+     *
      * @return List of update listeners.
      */
-    public Collection<ConfigurationListener<VIEW>> listeners() {
+    public Collection<ConfigurationListener<VIEWT>> listeners() {
         return unmodifiableCollection(updateListeners);
     }
 
@@ -120,7 +123,7 @@ public abstract class ConfigurationNode<VIEW> implements ConfigurationProperty<V
      * @throws ConfigurationListenOnlyException If there was an attempt to get or update a property value in {@link #listenOnly listen-only}
      *                                          mode.
      */
-    protected final VIEW refreshValue() throws NoSuchElementException {
+    protected final VIEWT refreshValue() throws NoSuchElementException {
         TraversableTreeNode newRootNode = changer.getRootNode(rootKey);
         TraversableTreeNode oldRootNode = cachedRootNode;
 
@@ -136,11 +139,11 @@ public abstract class ConfigurationNode<VIEW> implements ConfigurationProperty<V
         }
 
         try {
-            VIEW newVal = ConfigurationUtil.find(keys.subList(1, keys.size()), newRootNode, true);
+            VIEWT newVal = ConfigurationUtil.find(keys.subList(1, keys.size()), newRootNode, true);
 
             synchronized (this) {
                 if (cachedRootNode == oldRootNode) {
-                    beforeRefreshValue(newVal);
+                    beforeRefreshValue(newVal, val);
 
                     val = newVal;
 
@@ -167,6 +170,8 @@ public abstract class ConfigurationNode<VIEW> implements ConfigurationProperty<V
     }
 
     /**
+     * Returns exception instance with a proper error message.
+     *
      * @return Exception instance with a proper error message.
      */
     private NoSuchElementException noSuchElementException() {
@@ -177,12 +182,15 @@ public abstract class ConfigurationNode<VIEW> implements ConfigurationProperty<V
      * Callback from {@link #refreshValue()} that's called right before the update. Synchronized.
      *
      * @param newValue New configuration value.
+     * @param oldValue Old configuration value.
      */
-    protected void beforeRefreshValue(VIEW newValue) {
+    protected void beforeRefreshValue(VIEWT newValue, @Nullable VIEWT oldValue) {
         // No-op.
     }
 
     /**
+     * Returns Exception if there was an attempt to get or update a property value in {@link #listenOnly listen-only} mode.
+     *
      * @return Exception if there was an attempt to get or update a property value in {@link #listenOnly listen-only} mode.
      */
     protected ConfigurationListenOnlyException listenOnlyException() {

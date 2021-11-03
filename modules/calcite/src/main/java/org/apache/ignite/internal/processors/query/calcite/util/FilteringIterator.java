@@ -22,10 +22,6 @@ import java.util.NoSuchElementException;
 import java.util.function.Predicate;
 import org.jetbrains.annotations.NotNull;
 
-/**
- * FilteringIterator.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
- */
 public class FilteringIterator<T> implements Iterator<T> {
     private final Iterator<T> delegate;
 
@@ -33,10 +29,6 @@ public class FilteringIterator<T> implements Iterator<T> {
 
     private T cur;
 
-    /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
     public FilteringIterator(
             @NotNull Iterator<T> delegate,
             @NotNull Predicate<T> pred
@@ -76,8 +68,7 @@ public class FilteringIterator<T> implements Iterator<T> {
     }
 
     /**
-     * Advance.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     private void advance() {
         if (cur != null) {

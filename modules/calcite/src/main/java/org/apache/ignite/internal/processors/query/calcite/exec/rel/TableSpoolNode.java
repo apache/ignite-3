@@ -52,12 +52,7 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
     private boolean inLoop;
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param ctx      Execution context.
-     * @param rowType  RelDataType.
-     * @param lazyRead Lazy read flag.
+     * @param ctx Execution context.
      */
     public TableSpoolNode(ExecutionContext<RowT> ctx, RelDataType rowType, boolean lazyRead) {
         super(ctx, rowType);
@@ -107,6 +102,9 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         }
     }
 
+    /**
+     *
+     */
     private void doPush() throws Exception {
         if (isClosed()) {
             return;

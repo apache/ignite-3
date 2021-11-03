@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.processors.query.calcite.exec.rel;
 
-import com.google.common.collect.ImmutableMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -32,7 +32,6 @@ import org.apache.ignite.internal.processors.query.calcite.metadata.FragmentDesc
 import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,40 +44,33 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
      *
      */
     private Throwable lastE;
-
+    
     /**
      *
      */
     private QueryTaskExecutorImpl taskExecutor;
-
+    
     /**
      *
      */
     @BeforeEach
     public void beforeTest() {
-        taskExecutor = new QueryTaskExecutorImpl(
-                new StripedThreadPoolExecutor(
-                        4,
-                        "calciteQry",
-                        this::handle,
-                        true,
-                        60_000L
-                )
-        );
+        taskExecutor = new QueryTaskExecutorImpl("no_node");
+        taskExecutor.start();
     }
-
+    
     /**
      *
      */
     @AfterEach
     public void afterTest() {
-        taskExecutor.tearDown();
-
+        taskExecutor.stop();
+    
         if (lastE != null) {
             throw new AssertionError(lastE);
         }
     }
-
+    
     /**
      *
      */
@@ -92,10 +84,10 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
                 UUID.randomUUID(),
                 fragmentDesc,
                 ArrayRowHandler.INSTANCE,
-                ImmutableMap.of()
+                Map.of()
         );
     }
-
+    
     /**
      *
      */
@@ -103,14 +95,14 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
         log.error(ex.getMessage(), ex);
         lastE = ex;
     }
-
+    
     /**
      *
      */
     protected Object[] row(Object... fields) {
         return fields;
     }
-
+    
     /**
      *
      */
@@ -119,17 +111,17 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
          *
          */
         private int rowsCnt;
-
+        
         /**
          *
          */
         private RelDataType rowType;
-
+        
         /**
          *
          */
         private Function<Integer, Object>[] fieldCreators;
-
+        
         /**
          *
          */
@@ -142,10 +134,10 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
                                 switch (t.getType().getSqlTypeName().getFamily()) {
                                     case NUMERIC:
                                         return TestTable::intField;
-
+                                    
                                     case CHARACTER:
                                         return TestTable::stringField;
-
+                                    
                                     default:
                                         assert false : "Not supported type for test: " + t;
                                         return null;
@@ -154,7 +146,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
                             .collect(Collectors.toList()).toArray(new Function[rowType.getFieldCount()])
             );
         }
-
+        
         /**
          *
          */
@@ -163,53 +155,53 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
             this.rowType = rowType;
             this.fieldCreators = fieldCreators;
         }
-
+        
         /**
          *
          */
         private static Object field(Integer rowNum) {
             return "val_" + rowNum;
         }
-
+        
         /**
          *
          */
         private static Object stringField(Integer rowNum) {
             return "val_" + rowNum;
         }
-
+        
         /**
          *
          */
         private static Object intField(Integer rowNum) {
             return rowNum;
         }
-
+        
         /**
          *
          */
         private Object[] createRow(int rowNum) {
             Object[] row = new Object[rowType.getFieldCount()];
-
+    
             for (int i = 0; i < fieldCreators.length; ++i) {
                 row[i] = fieldCreators[i].apply(rowNum);
             }
-
+            
             return row;
         }
-
+        
         /** {@inheritDoc} */
         @NotNull
         @Override
         public Iterator<Object[]> iterator() {
             return new Iterator<Object[]>() {
                 private int curRow;
-
+                
                 @Override
                 public boolean hasNext() {
                     return curRow < rowsCnt;
                 }
-
+                
                 @Override
                 public Object[] next() {
                     return createRow(curRow++);
@@ -217,7 +209,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
             };
         }
     }
-
+    
     /**
      *
      */
@@ -228,20 +220,20 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
         public RootRewindable(ExecutionContext<RowT> ctx, RelDataType rowType) {
             super(ctx, rowType);
         }
-
+        
         /** {@inheritDoc} */
         @Override
         protected void rewindInternal() {
             IgniteTestUtils.setFieldValue(this, RootNode.class, "waiting", 0);
             IgniteTestUtils.setFieldValue(this, RootNode.class, "closed", false);
         }
-
+        
         /** {@inheritDoc} */
         @Override
         public void closeInternal() {
             // No-op
         }
-
+        
         /**
          *
          */
@@ -249,7 +241,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
             super.closeInternal();
         }
     }
-
+    
     /**
      *
      */
@@ -260,13 +252,13 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
             public RowHandler<Object[]> handler() {
                 return ArrayRowHandler.INSTANCE;
             }
-
+            
             /** */
             @Override
             public Object[] create() {
                 throw new AssertionError();
             }
-
+            
             /** */
             @Override
             public Object[] create(Object... fields) {

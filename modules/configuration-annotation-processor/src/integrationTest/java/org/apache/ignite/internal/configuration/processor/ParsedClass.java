@@ -73,6 +73,8 @@ public class ParsedClass {
     }
 
     /**
+     * Returns qualified class name.
+     *
      * @return Qualified class name.
      */
     public String getClassName() {

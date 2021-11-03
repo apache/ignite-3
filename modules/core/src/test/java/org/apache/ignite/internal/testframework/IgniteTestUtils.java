@@ -21,11 +21,13 @@ import static java.lang.Thread.sleep;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.LoggerMessageHelper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
@@ -201,8 +203,7 @@ public final class IgniteTestUtils {
      * @throws InterruptedException If waiting was interrupted.
      */
     @SuppressWarnings("BusyWait")
-    public static boolean waitForCondition(BooleanSupplier cond, long timeoutMillis)
-            throws InterruptedException {
+    public static boolean waitForCondition(BooleanSupplier cond, long timeoutMillis) throws InterruptedException {
         long stop = System.currentTimeMillis() + timeoutMillis;
 
         while (System.currentTimeMillis() < stop) {
@@ -217,6 +218,8 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Returns random BitSet.
+     *
      * @param rnd  Random generator.
      * @param bits Amount of bits in bitset.
      * @return Random BitSet.
@@ -234,6 +237,8 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Returns random byte array.
+     *
      * @param rnd Random generator.
      * @param len Byte array length.
      * @return Random byte array.
@@ -246,6 +251,8 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Returns random string.
+     *
      * @param rnd Random generator.
      * @param len String length.
      * @return Random string.
@@ -256,7 +263,10 @@ public final class IgniteTestUtils {
         while (sb.length() < len) {
             char pt = (char) rnd.nextInt(Character.MAX_VALUE + 1);
 
-            if (Character.isDefined(pt) && Character.getType(pt) != Character.PRIVATE_USE && !Character.isSurrogate(pt)) {
+            if (Character.isDefined(pt)
+                    && Character.getType(pt) != Character.PRIVATE_USE
+                    && !Character.isSurrogate(pt)
+            ) {
                 sb.append(pt);
             }
         }
@@ -267,14 +277,10 @@ public final class IgniteTestUtils {
     /**
      * Creates a unique Ignite node name for the given test.
      */
-    public static String testNodeName(TestInfo testInfo, int port) {
-        return testInfo.getTestClass()
-                .map(Class::getCanonicalName)
-                .map(name -> testInfo.getTestMethod()
-                        .map(method -> name + '#' + method.getName())
-                        .orElse(name)
-                )
-                .map(name -> name + ':' + port)
-                .orElseThrow();
+    public static String testNodeName(TestInfo testInfo, int idx) {
+        return LoggerMessageHelper.format("{}_{}_{}",
+            testInfo.getTestClass().map(Class::getSimpleName).orElseGet(() -> "null"),
+            testInfo.getTestMethod().map(Method::getName).orElseGet(() -> "null"),
+            idx);
     }
 }

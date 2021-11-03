@@ -30,7 +30,7 @@ import org.apache.ignite.cli.CliPathsConfigLoader;
 import org.apache.ignite.cli.CommandFactory;
 import org.apache.ignite.cli.ErrorHandler;
 import org.apache.ignite.cli.HelpFactoryImpl;
-import org.apache.ignite.cli.IgniteCLIException;
+import org.apache.ignite.cli.IgniteCliException;
 import org.apache.ignite.cli.InteractiveWrapper;
 import org.apache.ignite.cli.builtins.module.ModuleRegistry;
 import org.apache.ignite.cli.common.IgniteCommand;
@@ -123,7 +123,7 @@ public class IgniteCliSpec extends CommandSpec {
                     try {
                         return p.toUri().toURL();
                     } catch (MalformedURLException e) {
-                        throw new IgniteCLIException("Can't convert cli module path to URL for loading by classloader");
+                        throw new IgniteCliException("Can't convert cli module path to URL for loading by classloader");
                     }
                 }).toArray(URL[]::new);
 

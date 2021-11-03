@@ -279,7 +279,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             long off = baseOff + pos;
 
             if (BIG_ENDIAN) {
-                GridUnsafe.putShortLE(heapArr, off, val);
+                GridUnsafe.putShortLittleEndian(heapArr, off, val);
             } else {
                 GridUnsafe.putShort(heapArr, off, val);
             }
@@ -355,7 +355,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             long off = baseOff + pos;
 
             if (BIG_ENDIAN) {
-                GridUnsafe.putFloatLE(heapArr, off, val);
+                GridUnsafe.putFloatLittleEndian(heapArr, off, val);
             } else {
                 GridUnsafe.putFloat(heapArr, off, val);
             }
@@ -375,7 +375,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             long off = baseOff + pos;
 
             if (BIG_ENDIAN) {
-                GridUnsafe.putDoubleLE(heapArr, off, val);
+                GridUnsafe.putDoubleLittleEndian(heapArr, off, val);
             } else {
                 GridUnsafe.putDouble(heapArr, off, val);
             }
@@ -395,7 +395,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             long off = baseOff + pos;
 
             if (BIG_ENDIAN) {
-                GridUnsafe.putCharLE(heapArr, off, val);
+                GridUnsafe.putCharLittleEndian(heapArr, off, val);
             } else {
                 GridUnsafe.putChar(heapArr, off, val);
             }
@@ -443,7 +443,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     public void writeShortArray(short[] val) {
         if (val != null) {
             if (BIG_ENDIAN) {
-                lastFinished = writeArrayLE(val, SHORT_ARR_OFF, val.length, 2, 1);
+                lastFinished = writeArrayLittleEndian(val, SHORT_ARR_OFF, val.length, 2, 1);
             } else {
                 lastFinished = writeArray(val, SHORT_ARR_OFF, val.length, val.length << 1);
             }
@@ -457,7 +457,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     public void writeIntArray(int[] val) {
         if (val != null) {
             if (BIG_ENDIAN) {
-                lastFinished = writeArrayLE(val, INT_ARR_OFF, val.length, 4, 2);
+                lastFinished = writeArrayLittleEndian(val, INT_ARR_OFF, val.length, 4, 2);
             } else {
                 lastFinished = writeArray(val, INT_ARR_OFF, val.length, val.length << 2);
             }
@@ -471,7 +471,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     public void writeLongArray(long[] val) {
         if (val != null) {
             if (BIG_ENDIAN) {
-                lastFinished = writeArrayLE(val, LONG_ARR_OFF, val.length, 8, 3);
+                lastFinished = writeArrayLittleEndian(val, LONG_ARR_OFF, val.length, 8, 3);
             } else {
                 lastFinished = writeArray(val, LONG_ARR_OFF, val.length, val.length << 3);
             }
@@ -485,7 +485,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     public void writeLongArray(long[] val, int len) {
         if (val != null) {
             if (BIG_ENDIAN) {
-                lastFinished = writeArrayLE(val, LONG_ARR_OFF, len, 8, 3);
+                lastFinished = writeArrayLittleEndian(val, LONG_ARR_OFF, len, 8, 3);
             } else {
                 lastFinished = writeArray(val, LONG_ARR_OFF, len, len << 3);
             }
@@ -499,7 +499,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     public void writeFloatArray(float[] val) {
         if (val != null) {
             if (BIG_ENDIAN) {
-                lastFinished = writeArrayLE(val, FLOAT_ARR_OFF, val.length, 4, 2);
+                lastFinished = writeArrayLittleEndian(val, FLOAT_ARR_OFF, val.length, 4, 2);
             } else {
                 lastFinished = writeArray(val, FLOAT_ARR_OFF, val.length, val.length << 2);
             }
@@ -513,7 +513,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     public void writeDoubleArray(double[] val) {
         if (val != null) {
             if (BIG_ENDIAN) {
-                lastFinished = writeArrayLE(val, DOUBLE_ARR_OFF, val.length, 8, 3);
+                lastFinished = writeArrayLittleEndian(val, DOUBLE_ARR_OFF, val.length, 8, 3);
             } else {
                 lastFinished = writeArray(val, DOUBLE_ARR_OFF, val.length, val.length << 3);
             }
@@ -527,7 +527,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     public void writeCharArray(char[] val) {
         if (val != null) {
             if (BIG_ENDIAN) {
-                lastFinished = writeArrayLE(val, CHAR_ARR_OFF, val.length, 2, 1);
+                lastFinished = writeArrayLittleEndian(val, CHAR_ARR_OFF, val.length, 2, 1);
             } else {
                 lastFinished = writeArray(val, CHAR_ARR_OFF, val.length, val.length << 1);
             }
@@ -596,12 +596,16 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 //noinspection fallthrough
             case 2:
                 writeLong(val.getLeastSignificantBits());
-
+    
                 if (!lastFinished) {
                     return;
                 }
-
+    
                 uuidState = 0;
+                break;
+    
+            default:
+                throw new IllegalArgumentException("Unknown uuidState: " + uuidState);
         }
     }
 
@@ -647,6 +651,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 }
 
                 uuidState = 0;
+                break;
+                
+            default:
+                throw new IllegalArgumentException("Unknown uuidState: " + uuidState);
         }
     }
 
@@ -866,7 +874,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             long off = baseOff + pos;
 
-            return BIG_ENDIAN ? GridUnsafe.getShortLE(heapArr, off) : GridUnsafe.getShort(heapArr, off);
+            return BIG_ENDIAN ? GridUnsafe.getShortLittleEndian(heapArr, off) : GridUnsafe.getShort(heapArr, off);
         } else {
             return 0;
         }
@@ -962,7 +970,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             long off = baseOff + pos;
 
-            return BIG_ENDIAN ? GridUnsafe.getFloatLE(heapArr, off) : GridUnsafe.getFloat(heapArr, off);
+            return BIG_ENDIAN ? GridUnsafe.getFloatLittleEndian(heapArr, off) : GridUnsafe.getFloat(heapArr, off);
         } else {
             return 0;
         }
@@ -980,7 +988,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             long off = baseOff + pos;
 
-            return BIG_ENDIAN ? GridUnsafe.getDoubleLE(heapArr, off) : GridUnsafe.getDouble(heapArr, off);
+            return BIG_ENDIAN ? GridUnsafe.getDoubleLittleEndian(heapArr, off) : GridUnsafe.getDouble(heapArr, off);
         } else {
             return 0;
         }
@@ -998,7 +1006,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             long off = baseOff + pos;
 
-            return BIG_ENDIAN ? GridUnsafe.getCharLE(heapArr, off) : GridUnsafe.getChar(heapArr, off);
+            return BIG_ENDIAN ? GridUnsafe.getCharLittleEndian(heapArr, off) : GridUnsafe.getChar(heapArr, off);
         } else {
             return 0;
         }
@@ -1030,7 +1038,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public short[] readShortArray() {
         if (BIG_ENDIAN) {
-            return readArrayLE(SHORT_ARRAY, 2, 1, SHORT_ARR_OFF);
+            return readArrayLittleEndian(SHORT_ARRAY, 2, 1, SHORT_ARR_OFF);
         } else {
             return readArray(SHORT_ARRAY, 1, SHORT_ARR_OFF);
         }
@@ -1040,7 +1048,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public int[] readIntArray() {
         if (BIG_ENDIAN) {
-            return readArrayLE(INT_ARRAY, 4, 2, INT_ARR_OFF);
+            return readArrayLittleEndian(INT_ARRAY, 4, 2, INT_ARR_OFF);
         } else {
             return readArray(INT_ARRAY, 2, INT_ARR_OFF);
         }
@@ -1050,7 +1058,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public long[] readLongArray() {
         if (BIG_ENDIAN) {
-            return readArrayLE(LONG_ARRAY, 8, 3, LONG_ARR_OFF);
+            return readArrayLittleEndian(LONG_ARRAY, 8, 3, LONG_ARR_OFF);
         } else {
             return readArray(LONG_ARRAY, 3, LONG_ARR_OFF);
         }
@@ -1060,7 +1068,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public float[] readFloatArray() {
         if (BIG_ENDIAN) {
-            return readArrayLE(FLOAT_ARRAY, 4, 2, FLOAT_ARR_OFF);
+            return readArrayLittleEndian(FLOAT_ARRAY, 4, 2, FLOAT_ARR_OFF);
         } else {
             return readArray(FLOAT_ARRAY, 2, FLOAT_ARR_OFF);
         }
@@ -1070,7 +1078,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public double[] readDoubleArray() {
         if (BIG_ENDIAN) {
-            return readArrayLE(DOUBLE_ARRAY, 8, 3, DOUBLE_ARR_OFF);
+            return readArrayLittleEndian(DOUBLE_ARRAY, 8, 3, DOUBLE_ARR_OFF);
         } else {
             return readArray(DOUBLE_ARRAY, 3, DOUBLE_ARR_OFF);
         }
@@ -1080,7 +1088,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public char[] readCharArray() {
         if (BIG_ENDIAN) {
-            return readArrayLE(CHAR_ARRAY, 2, 1, CHAR_ARR_OFF);
+            return readArrayLittleEndian(CHAR_ARRAY, 2, 1, CHAR_ARR_OFF);
         } else {
             return readArray(CHAR_ARRAY, 1, CHAR_ARR_OFF);
         }
@@ -1140,6 +1148,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 }
 
                 uuidState = 0;
+                break;
+                
+            default:
+                throw new IllegalArgumentException("Unknown uuidState: " + uuidState);
         }
 
         UUID val = new UUID(uuidMost, uuidLeast);
@@ -1192,6 +1204,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 }
 
                 uuidState = 0;
+                break;
+                
+            default:
+                throw new IllegalArgumentException("Unknown uuidState: " + uuidState);
         }
 
         final IgniteUuid val = new IgniteUuid(new UUID(uuidMost, uuidLeast), uuidLocId);
@@ -1458,7 +1474,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      * @param shiftCnt Shift for length.
      * @return Whether array was fully written.
      */
-    boolean writeArrayLE(Object arr, long off, int len, int typeSize, int shiftCnt) {
+    boolean writeArrayLittleEndian(Object arr, long off, int len, int typeSize, int shiftCnt) {
         assert arr != null;
         assert arr.getClass().isArray() && arr.getClass().getComponentType().isPrimitive();
         assert off > 0;
@@ -1476,14 +1492,14 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         int remaining = buf.remaining() >> shiftCnt;
 
         if (toWrite <= remaining) {
-            writeArrayLE(arr, off, toWrite, typeSize);
+            writeArrayLittleEndian(arr, off, toWrite, typeSize);
 
             arrOff = -1;
 
             return true;
         } else {
             if (remaining > 0) {
-                writeArrayLE(arr, off, remaining, typeSize);
+                writeArrayLittleEndian(arr, off, remaining, typeSize);
             }
 
             return false;
@@ -1496,7 +1512,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      * @param len      Length.
      * @param typeSize Primitive type size in bytes.
      */
-    private void writeArrayLE(Object arr, long off, int len, int typeSize) {
+    private void writeArrayLittleEndian(Object arr, long off, int len, int typeSize) {
         int pos = buf.position();
 
         for (int i = 0; i < len; i++) {
@@ -1598,7 +1614,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      * @param off      Base offset.
      * @return Array or special value if it was not fully read.
      */
-    <T> T readArrayLE(ArrayFactory<T> creator, int typeSize, int lenShift, long off) {
+    <T> T readArrayLittleEndian(ArrayFactory<T> creator, int typeSize, int lenShift, long off) {
         assert creator != null;
 
         if (tmpArr == null) {

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel.set;
 
-import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -48,15 +47,15 @@ public interface IgniteMapSetOp extends IgniteSetOp {
         boolean rewindable = inputTraits.stream()
                 .map(TraitUtils::rewindability)
                 .allMatch(RewindabilityTrait::rewindable);
-
+    
         if (rewindable) {
-            return ImmutableList.of(Pair.of(nodeTraits.replace(RewindabilityTrait.REWINDABLE), inputTraits));
+            return List.of(Pair.of(nodeTraits.replace(RewindabilityTrait.REWINDABLE), inputTraits));
         }
-
-        return ImmutableList.of(Pair.of(nodeTraits.replace(RewindabilityTrait.ONE_WAY),
+        
+        return List.of(Pair.of(nodeTraits.replace(RewindabilityTrait.ONE_WAY),
                 Commons.transform(inputTraits, t -> t.replace(RewindabilityTrait.ONE_WAY))));
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
@@ -64,19 +63,18 @@ public interface IgniteMapSetOp extends IgniteSetOp {
             List<RelTraitSet> inputTraits
     ) {
         if (inputTraits.stream().allMatch(t -> TraitUtils.distribution(t).satisfies(IgniteDistributions.single()))) {
-            return ImmutableList.of(); // If all distributions are single or broadcast IgniteSingleMinus should be used.
+            return List.of(); // If all distributions are single or broadcast IgniteSingleMinus should be used.
         }
-
-        return ImmutableList.of(
+        
+        return List.of(
                 Pair.of(nodeTraits.replace(IgniteDistributions.random()), Commons.transform(inputTraits,
                         t -> TraitUtils.distribution(t) == IgniteDistributions.broadcast()
-                                ?
                                 // Allow broadcast with trim-exchange to be used in map-reduce set-op.
-                                t.replace(IgniteDistributions.hash(ImmutableList.of(0))) :
+                                ? t.replace(IgniteDistributions.hash(List.of(0))) :
                                 t.replace(IgniteDistributions.random())))
         );
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
@@ -87,25 +85,25 @@ public interface IgniteMapSetOp extends IgniteSetOp {
                 .map(TraitUtils::correlation)
                 .flatMap(corrTr -> corrTr.correlationIds().stream())
                 .collect(Collectors.toSet());
-
-        return ImmutableList.of(Pair.of(nodeTraits.replace(CorrelationTrait.correlations(correlationIds)),
+        
+        return List.of(Pair.of(nodeTraits.replace(CorrelationTrait.correlations(correlationIds)),
                 inTraits));
     }
-
+    
     /** Build RowType for MAP node. */
     public default RelDataType buildRowType() {
         RelDataTypeFactory typeFactory = Commons.typeFactory(getCluster());
-
+        
         assert typeFactory instanceof IgniteTypeFactory;
-
+        
         RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
-
+        
         builder.add("GROUP_KEY", typeFactory.createJavaType(GroupKey.class));
         builder.add("COUNTERS", typeFactory.createJavaType(int[].class));
-
+        
         return builder.build();
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public default AggregateType aggregateType() {

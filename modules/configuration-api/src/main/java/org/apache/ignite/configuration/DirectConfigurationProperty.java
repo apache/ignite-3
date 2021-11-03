@@ -33,10 +33,10 @@ import org.apache.ignite.configuration.annotation.DirectAccess;
  * <p>This is a hack that is intentionally made ugly to use, because it breaks the configuration abstraction and essentially allows to "look
  * into the future" of the distributed property, skipping some intermediate updates.
  *
- * @param <VIEW> Read-only view of the property value.
+ * @param <VIEWT> Read-only view of the property value.
  * @see DirectAccess
  */
-public interface DirectConfigurationProperty<VIEW> {
+public interface DirectConfigurationProperty<VIEWT> {
     /** Value of this property. */
-    VIEW directValue();
+    VIEWT directValue();
 }

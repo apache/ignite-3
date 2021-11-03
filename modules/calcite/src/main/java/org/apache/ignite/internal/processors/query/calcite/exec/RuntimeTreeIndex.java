@@ -40,8 +40,14 @@ import org.jetbrains.annotations.NotNull;
  * Runtime sorted index based on on-heap tree.
  */
 public class RuntimeTreeIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<RowT> {
+    /**
+     *
+     */
     protected final ExecutionContext<RowT> ectx;
 
+    /**
+     *
+     */
     protected final Comparator<RowT> comp;
 
     /** Collation. */
@@ -51,7 +57,7 @@ public class RuntimeTreeIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<Row
     private TreeMap<RowT, List<RowT>> rows;
 
     /**
-     * Constructor.
+     *
      */
     public RuntimeTreeIndex(
             ExecutionContext<RowT> ectx,
@@ -116,6 +122,9 @@ public class RuntimeTreeIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<Row
         return new IndexScan(rowType, this, filter, lowerBound, upperBound);
     }
 
+    /**
+     *
+     */
     private class CursorImpl implements Cursor<RowT> {
         /** Sub map iterator. */
         private final Iterator<Map.Entry<RowT, List<RowT>>> mapIt;
@@ -123,8 +132,14 @@ public class RuntimeTreeIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<Row
         /** Iterator over rows with equal index keys. */
         private Iterator<RowT> listIt;
 
+        /**
+         *
+         */
         private RowT row;
 
+        /**
+         *
+         */
         CursorImpl(SortedMap<RowT, List<RowT>> subMap) {
             mapIt = subMap.entrySet().iterator();
             listIt = null;
@@ -148,6 +163,9 @@ public class RuntimeTreeIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<Row
             return listIt != null && listIt.hasNext() || mapIt.hasNext();
         }
 
+        /**
+         *
+         */
         private void advance() {
             if (listIt == null || !listIt.hasNext()) {
                 listIt = mapIt.next().getValue().iterator();
@@ -167,10 +185,11 @@ public class RuntimeTreeIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<Row
         }
     }
 
+    /**
+     *
+     */
     private class IndexScan extends AbstractIndexScan<RowT, RowT> {
         /**
-         * Constructor.
-         *
          * @param rowType    Row type.
          * @param idx        Physical index.
          * @param filter     Additional filters.

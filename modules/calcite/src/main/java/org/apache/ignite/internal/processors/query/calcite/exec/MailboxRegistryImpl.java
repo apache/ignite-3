@@ -34,25 +34,39 @@ import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * MailboxRegistryImpl.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class MailboxRegistryImpl implements MailboxRegistry {
+    /**
+     *
+     */
     private static final Predicate<Mailbox<?>> ALWAYS_TRUE = o -> true;
 
-    private final Map<MailboxKey, Outbox<?>> locals;
-
-    private final Map<MailboxKey, Inbox<?>> remotes;
+    /**
+     *
+     */
+    private final TopologyService topSrvc;
 
     /**
-     * Constructor.
      *
-     * @param topSrvc Topology service.
      */
+    private final Map<MailboxKey, Outbox<?>> locals;
+
+    /**
+     *
+     */
+    private final Map<MailboxKey, Inbox<?>> remotes;
+
     public MailboxRegistryImpl(TopologyService topSrvc) {
+        this.topSrvc = topSrvc;
+
         locals = new ConcurrentHashMap<>();
         remotes = new ConcurrentHashMap<>();
+    }
 
+    /** {@inheritDoc} */
+    @Override
+    public void start() {
         topSrvc.addEventHandler(new NodeLeaveHandler(this::onNodeLeft));
     }
 
@@ -63,12 +77,12 @@ public class MailboxRegistryImpl implements MailboxRegistry {
 
         return old != null ? old : inbox;
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public void register(Outbox<?> outbox) {
         Outbox<?> res = locals.put(new MailboxKey(outbox.queryId(), outbox.exchangeId()), outbox);
-
+        
         assert res == null : res;
     }
 
@@ -112,11 +126,17 @@ public class MailboxRegistryImpl implements MailboxRegistry {
                 .collect(Collectors.toList());
     }
 
+    /**
+     *
+     */
     private void onNodeLeft(ClusterNode node) {
         locals.values().forEach(n -> n.onNodeLeft(node.id()));
         remotes.values().forEach(n -> n.onNodeLeft(node.id()));
     }
 
+    /**
+     *
+     */
     private static Predicate<Mailbox<?>> makeFilter(@Nullable UUID qryId, long fragmentId, long exchangeId) {
         Predicate<Mailbox<?>> filter = ALWAYS_TRUE;
         if (qryId != null) {
@@ -138,11 +158,30 @@ public class MailboxRegistryImpl implements MailboxRegistry {
         return S.toString(MailboxRegistryImpl.class, this);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void stop() {
+        locals.clear();
+        remotes.clear();
+    }
+
+    /**
+     *
+     */
     private static class MailboxKey {
+        /**
+         *
+         */
         private final UUID qryId;
 
+        /**
+         *
+         */
         private final long exchangeId;
 
+        /**
+         *
+         */
         private MailboxKey(UUID qryId, long exchangeId) {
             this.qryId = qryId;
             this.exchangeId = exchangeId;

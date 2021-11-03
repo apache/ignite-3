@@ -27,6 +27,7 @@ import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -37,8 +38,8 @@ import org.junit.jupiter.api.Test;
  *
  * <p>A query above will be rewritten to next (or equivalient similar query)
  *
- * <p>SELECT * FROM products WHERE category = 'Photo' UNION ALL SELECT * FROM products WHERE subcategory ='Camera Media' AND LNNVL(
- * category,'Photo');
+ * <p>SELECT * FROM products WHERE category = 'Photo' UNION ALL SELECT * FROM products WHERE subcategory ='Camera Media' AND LNNVL(category,
+ * 'Photo');
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-14925")
 public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
@@ -46,25 +47,27 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
      *
      */
     public static final String IDX_SUBCAT_ID = "IDX_SUBCAT_ID";
-
+    
     /**
      *
      */
     public static final String IDX_SUBCATEGORY = "IDX_SUBCATEGORY";
-
+    
     /**
      *
      */
     public static final String IDX_CATEGORY = "IDX_CATEGORY";
-
+    
     /**
      *
      */
     public static final String IDX_CAT_ID = "IDX_CAT_ID";
-
-    /** {@inheritDoc} */
-    @Override
-    protected void initTestData() {
+    
+    /**
+     *
+     */
+    @BeforeAll
+    static void initTestData() {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "PRODUCTS").columns(
                         SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
                         SchemaBuilders.column("CATEGORY", ColumnType.string()).asNullable().build(),
@@ -79,13 +82,13 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
                 .withIndex(SchemaBuilders.sortedIndex(IDX_SUBCATEGORY).addIndexColumn("SUBCATEGORY").done().build())
                 .withIndex(SchemaBuilders.sortedIndex(IDX_SUBCAT_ID).addIndexColumn("SUBCAT_ID").done().build())
                 .build();
-
+        
         Table tbl = CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl1, tblCh)
                         .changeReplicas(1)
                         .changePartitions(10)
         );
-
+        
         insertData(tbl, new String[]{"ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"}, new Object[][]{
                 {1, "Photo", 1, "Camera Media", 11, "Media 1"},
                 {2, "Photo", 1, "Camera Media", 11, "Media 2"},
@@ -112,7 +115,7 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
                 {23, null, 0, null, 41, null},
         });
     }
-
+    
     /**
      * Check 'OR -> UNION' rule is applied for equality conditions on indexed columns.
      *
@@ -134,7 +137,7 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
                 .returns(8, null, 0, "Camera Lens", 11, "Zeiss")
                 .check();
     }
-
+    
     /**
      * Check 'OR -> UNION' rule is applied for equality conditions on indexed columns.
      *
@@ -156,7 +159,7 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
                 .returns(8, null, 0, "Camera Lens", 11, "Zeiss")
                 .check();
     }
-
+    
     /**
      * Check 'OR -> UNION' rule is applied for mixed conditions on indexed columns.
      *
@@ -178,7 +181,7 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
                 .returns(5, "Video", 2, "Camera Media", 21, "Media 3")
                 .check();
     }
-
+    
     /**
      * Check 'OR -> UNION' rule is not applied for range conditions on indexed columns.
      *
@@ -198,7 +201,7 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
                 .returns(9, null, 0, null, 0, null)
                 .check();
     }
-
+    
     /**
      * Check 'OR -> UNION' rule is not applied if (at least) one of column is not indexed.
      */
@@ -215,7 +218,7 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
                 .returns(7, "Video", 1, null, 0, "Canon")
                 .check();
     }
-
+    
     /**
      * Check 'OR -> UNION' rule is not applied if all columns are not indexed.
      *

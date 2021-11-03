@@ -17,12 +17,6 @@
 
 package com.facebook.presto.bytecode;
 
-import static com.facebook.presto.bytecode.ClassInfoLoader.createClassInfoLoader;
-import static com.facebook.presto.bytecode.ParameterizedType.typeFromJavaClassName;
-import static java.io.Writer.nullWriter;
-import static java.nio.file.Files.createDirectories;
-import static java.util.Objects.requireNonNull;
-
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -43,7 +37,14 @@ import org.objectweb.asm.util.CheckClassAdapter;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceClassVisitor;
 
-public class ClassGenerator {
+import static com.facebook.presto.bytecode.ClassInfoLoader.createClassInfoLoader;
+import static com.facebook.presto.bytecode.ParameterizedType.typeFromJavaClassName;
+import static java.io.Writer.nullWriter;
+import static java.nio.file.Files.createDirectories;
+import static java.util.Objects.requireNonNull;
+
+public class ClassGenerator
+{
     private final DynamicClassLoader classLoader;
     private final boolean fakeLineNumbers;
     private final boolean runAsmVerifier;
@@ -51,19 +52,21 @@ public class ClassGenerator {
     private final Writer output;
     private final Optional<Path> dumpClassPath;
 
-    public static ClassGenerator classGenerator(ClassLoader parentClassLoader) {
-        if (parentClassLoader instanceof DynamicClassLoader) {
-            return classGenerator((DynamicClassLoader) parentClassLoader);
-        }
+    public static ClassGenerator classGenerator(ClassLoader parentClassLoader)
+    {
+        if (parentClassLoader instanceof DynamicClassLoader)
+            return classGenerator((DynamicClassLoader)parentClassLoader);
 
         return classGenerator(parentClassLoader, Map.of());
     }
 
-    public static ClassGenerator classGenerator(ClassLoader parentClassLoader, Map<Long, MethodHandle> callSiteBindings) {
+    public static ClassGenerator classGenerator(ClassLoader parentClassLoader, Map<Long, MethodHandle> callSiteBindings)
+    {
         return classGenerator(new DynamicClassLoader(parentClassLoader, callSiteBindings));
     }
 
-    public static ClassGenerator classGenerator(DynamicClassLoader classLoader) {
+    public static ClassGenerator classGenerator(DynamicClassLoader classLoader)
+    {
         return new ClassGenerator(classLoader, false, false, false, nullWriter(), Optional.empty());
     }
 
@@ -73,7 +76,8 @@ public class ClassGenerator {
             boolean runAsmVerifier,
             boolean dumpRawBytecode,
             Writer output,
-            Optional<Path> dumpClassPath) {
+            Optional<Path> dumpClassPath)
+    {
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
         this.fakeLineNumbers = fakeLineNumbers;
         this.runAsmVerifier = runAsmVerifier;
@@ -82,59 +86,57 @@ public class ClassGenerator {
         this.dumpClassPath = requireNonNull(dumpClassPath, "dumpClassPath is null");
     }
 
-    public ClassGenerator fakeLineNumbers(boolean fakeLineNumbers) {
+    public ClassGenerator fakeLineNumbers(boolean fakeLineNumbers)
+    {
         return new ClassGenerator(classLoader, fakeLineNumbers, runAsmVerifier, dumpRawBytecode, output, dumpClassPath);
     }
 
-    public ClassGenerator runAsmVerifier(boolean runAsmVerifier) {
+    public ClassGenerator runAsmVerifier(boolean runAsmVerifier)
+    {
         return new ClassGenerator(classLoader, fakeLineNumbers, runAsmVerifier, dumpRawBytecode, output, dumpClassPath);
     }
 
-    public ClassGenerator dumpRawBytecode(boolean dumpRawBytecode) {
+    public ClassGenerator dumpRawBytecode(boolean dumpRawBytecode)
+    {
         return new ClassGenerator(classLoader, fakeLineNumbers, runAsmVerifier, dumpRawBytecode, output, dumpClassPath);
     }
 
-    public ClassGenerator outputTo(Writer output) {
+    public ClassGenerator outputTo(Writer output)
+    {
         return new ClassGenerator(classLoader, fakeLineNumbers, runAsmVerifier, dumpRawBytecode, output, dumpClassPath);
     }
 
-    public ClassGenerator dumpClassFilesTo(Path dumpClassPath) {
+    public ClassGenerator dumpClassFilesTo(Path dumpClassPath)
+    {
         return dumpClassFilesTo(Optional.of(dumpClassPath));
     }
 
-    public ClassGenerator dumpClassFilesTo(Optional<Path> dumpClassPath) {
+    public ClassGenerator dumpClassFilesTo(Optional<Path> dumpClassPath)
+    {
         return new ClassGenerator(classLoader, fakeLineNumbers, runAsmVerifier, dumpRawBytecode, output, dumpClassPath);
     }
 
-    public <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType) {
+    public <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType)
+    {
         Map<String, Class<?>> classes = defineClasses(List.of(classDefinition));
 
         return classes.values().stream().findFirst().get().asSubclass(superType);
     }
 
-    public Map<String, Class<?>> defineClasses(List<ClassDefinition> classDefinitions) {
+    public Map<String, Class<?>> defineClasses(List<ClassDefinition> classDefinitions)
+    {
         ClassInfoLoader classInfoLoader = createClassInfoLoader(classDefinitions, classLoader);
         Map<String, byte[]> bytecodes = new LinkedHashMap<>();
 
         for (ClassDefinition classDefinition : classDefinitions) {
-            // We call the simpler class writer first to get any errors out using simpler setting.
-            // This helps when we have large queries that can potentially cause COMPUTE_FRAMES
-            // (used by SmartClassWriter for doing more thorough analysis)
-            ClassWriter simpleClassWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
-            classDefinition.visit(simpleClassWriter);
-            try {
-                simpleClassWriter.toByteArray();
-            } catch (ClassTooLargeException | MethodTooLargeException largeCodeException) {
-                throw new ByteCodeTooLargeException(largeCodeException);
-            } catch (RuntimeException e) {
-                throw new CompilationException("Error compiling class: " + classDefinition.getName(), e);
-            }
+            // Code associated with a simple class writer was removed due to labels reuse when re-generating the bytecode.
 
             ClassWriter writer = new SmartClassWriter(classInfoLoader);
 
             try {
                 classDefinition.visit(fakeLineNumbers ? new AddFakeLineNumberClassVisitor(writer) : writer);
-            } catch (IndexOutOfBoundsException | NegativeArraySizeException e) {
+            }
+            catch (IndexOutOfBoundsException | NegativeArraySizeException e) {
                 StringWriter out = new StringWriter();
                 classDefinition.visit(new TraceClassVisitor(null, new Textifier(), new PrintWriter(out)));
                 throw new IllegalArgumentException("Error processing class definition:\n" + out, e);
@@ -143,9 +145,11 @@ public class ClassGenerator {
             byte[] bytecode;
             try {
                 bytecode = writer.toByteArray();
-            } catch (ClassTooLargeException | MethodTooLargeException largeCodeException) {
+            }
+            catch (ClassTooLargeException | MethodTooLargeException largeCodeException) {
                 throw new ByteCodeTooLargeException(largeCodeException);
-            } catch (RuntimeException e) {
+            }
+            catch (RuntimeException e) {
                 throw new CompilationException("Error compiling class: " + classDefinition.getName(), e);
             }
 
@@ -163,7 +167,8 @@ public class ClassGenerator {
             try {
                 createDirectories(file.getParent());
                 Files.write(file, bytecode);
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 throw new UncheckedIOException("Failed to write generated class file: " + file, e);
             }
         }));

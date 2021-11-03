@@ -30,7 +30,7 @@ public class FeatureChecker {
             + "--add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED\n"
             + "--illegal-access=permit";
 
-    /** Java version specific warning to be added in case access failed */
+    /** Java version specific warning to be added in case access failed. */
     public static final String JAVA_VER_SPECIFIC_WARN =
             "\nPlease add the following parameters to JVM startup settings and restart the application: {parameters: "
                     + JAVA_9_10_11_OPTIONS

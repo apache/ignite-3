@@ -32,6 +32,9 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteNestedLoopJ
  * Ignite Join converter.
  */
 public class NestedLoopJoinConverterRule extends AbstractIgniteConverterRule<LogicalJoin> {
+    /**
+     *
+     */
     public static final RelOptRule INSTANCE = new NestedLoopJoinConverterRule();
 
     /**

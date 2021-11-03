@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.processors.query.calcite.metadata;
 
-import com.google.common.collect.ImmutableList;
+import java.util.List;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.metadata.ChainedRelMetadataProvider;
 import org.apache.calcite.rel.metadata.DefaultRelMetadataProvider;
@@ -32,9 +32,12 @@ import org.apache.ignite.internal.processors.query.calcite.util.IgniteMethod;
  * Utility class, holding metadata related interfaces and metadata providers.
  */
 public class IgniteMetadata {
+    /**
+     *
+     */
     public static final RelMetadataProvider METADATA_PROVIDER =
             ChainedRelMetadataProvider.of(
-                    ImmutableList.of(
+                    List.of(
                             // Ignite specific providers
                             IgniteMdFragmentMapping.SOURCE,
 
@@ -53,8 +56,7 @@ public class IgniteMetadata {
                             DefaultRelMetadataProvider.INSTANCE));
 
     /**
-     * FragmentMappingMetadata interface.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public interface FragmentMappingMetadata extends Metadata {
         MetadataDef<FragmentMappingMetadata> DEF = MetadataDef.of(FragmentMappingMetadata.class,

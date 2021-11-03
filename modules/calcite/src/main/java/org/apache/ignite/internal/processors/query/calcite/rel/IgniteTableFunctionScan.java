@@ -20,7 +20,6 @@ package org.apache.ignite.internal.processors.query.calcite.rel;
 import static org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils.changeTraits;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Set;
@@ -40,7 +39,7 @@ import org.apache.calcite.rex.RexNode;
 public class IgniteTableFunctionScan extends TableFunctionScan implements IgniteRel {
     /** Default estimate row count. */
     private static final int ESTIMATE_ROW_COUNT = 100;
-
+    
     /**
      * Creates a TableFunctionScan.
      */
@@ -50,9 +49,9 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Ignite
             RexNode call,
             RelDataType rowType
     ) {
-        super(cluster, traits, ImmutableList.of(), call, null, rowType, null);
+        super(cluster, traits, List.of(), call, null, rowType, null);
     }
-
+    
     /**
      * Constructor used for deserialization.
      *
@@ -61,28 +60,28 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Ignite
     public IgniteTableFunctionScan(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteTableFunctionScan(cluster, getTraitSet(), getCall(), getRowType());
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public <T> T accept(IgniteRelVisitor<T> visitor) {
         return visitor.visit(this);
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public TableFunctionScan copy(RelTraitSet traitSet, List<RelNode> inputs, RexNode rexCall,
             Type elementType, RelDataType rowType, Set<RelColumnMapping> columnMappings) {
         assert nullOrEmpty(inputs);
-
+        
         return this;
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public double estimateRowCount(RelMetadataQuery mq) {

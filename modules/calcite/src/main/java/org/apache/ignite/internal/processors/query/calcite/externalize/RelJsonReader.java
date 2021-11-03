@@ -51,29 +51,48 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.lang.IgniteException;
 
 /**
- * RelJsonReader.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class RelJsonReader {
+    /**
+     *
+     */
     private static final TypeReference<LinkedHashMap<String, Object>> TYPE_REF = new TypeReference<>() {
     };
 
+    /**
+     *
+     */
     private final ObjectMapper mapper = new ObjectMapper().enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
 
+    /**
+     *
+     */
     private final RelOptCluster cluster;
 
+    /**
+     *
+     */
     private final RelOptSchema relOptSchema;
 
+    /**
+     *
+     */
     private final RelJson relJson;
 
+    /**
+     *
+     */
     private final Map<String, RelNode> relMap = new LinkedHashMap<>();
 
+    /**
+     *
+     */
     private RelNode lastRel;
 
     /**
-     * FromJson.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public static <T extends RelNode> T fromJson(PlanningContext ctx, String json) {
         RelJsonReader reader = new RelJsonReader(ctx.cluster(), ctx.catalogReader());
@@ -82,8 +101,7 @@ public class RelJsonReader {
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public RelJsonReader(RelOptCluster cluster, RelOptSchema relOptSchema) {
         this.cluster = cluster;
@@ -93,8 +111,7 @@ public class RelJsonReader {
     }
 
     /**
-     * Read node.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public RelNode read(String s) {
         try {
@@ -108,12 +125,18 @@ public class RelJsonReader {
         }
     }
 
+    /**
+     *
+     */
     private void readRels(List<Map<String, Object>> jsonRels) {
         for (Map<String, Object> jsonRel : jsonRels) {
             readRel(jsonRel);
         }
     }
 
+    /**
+     *
+     */
     private void readRel(Map<String, Object> jsonRel) {
         String id = (String) jsonRel.get("id");
         String type = (String) jsonRel.get("relOp");
@@ -123,9 +146,18 @@ public class RelJsonReader {
         lastRel = rel;
     }
 
+    /**
+     *
+     */
     private class RelInputImpl implements RelInputEx {
+        /**
+         *
+         */
         private final Map<String, Object> jsonRel;
 
+        /**
+         *
+         */
         private RelInputImpl(Map<String, Object> jsonRel) {
             this.jsonRel = jsonRel;
         }
@@ -162,7 +194,7 @@ public class RelJsonReader {
         public List<RelNode> getInputs() {
             List<String> jsonInputs = getStringList("inputs");
             if (jsonInputs == null) {
-                return ImmutableList.of(lastRel);
+                return List.of(lastRel);
             }
             List<RelNode> inputs = new ArrayList<>();
             for (String jsonInput : jsonInputs) {
@@ -187,15 +219,18 @@ public class RelJsonReader {
         @Override
         public List<ImmutableBitSet> getBitSetList(String tag) {
             List<List<Integer>> list = getIntegerListList(tag);
+
             if (list == null) {
                 return null;
             }
-            ImmutableList.Builder<ImmutableBitSet> builder =
-                    ImmutableList.builder();
+
+            List<ImmutableBitSet> bitSets = new ArrayList<>();
+
             for (List<Integer> integers : list) {
-                builder.add(ImmutableBitSet.of(integers));
+                bitSets.add(ImmutableBitSet.of(integers));
             }
-            return builder.build();
+
+            return List.copyOf(bitSets);
         }
 
         /** {@inheritDoc} */
@@ -322,12 +357,17 @@ public class RelJsonReader {
             List<List> jsonTuples = (List) get(tag);
             ImmutableList.Builder<ImmutableList<RexLiteral>> builder =
                     ImmutableList.builder();
+
             for (List jsonTuple : jsonTuples) {
                 builder.add(getTuple(jsonTuple));
             }
+
             return builder.build();
         }
 
+        /**
+         *
+         */
         private RelNode lookupInput(String jsonInput) {
             RelNode node = relMap.get(jsonInput);
             if (node == null) {
@@ -337,15 +377,23 @@ public class RelJsonReader {
             return node;
         }
 
+        /**
+         *
+         */
         private ImmutableList<RexLiteral> getTuple(List jsonTuple) {
             ImmutableList.Builder<RexLiteral> builder =
                     ImmutableList.builder();
+
             for (Object jsonValue : jsonTuple) {
                 builder.add((RexLiteral) relJson.toRex(this, jsonValue));
             }
+
             return builder.build();
         }
 
+        /**
+         *
+         */
         private AggregateCall toAggCall(Map<String, Object> jsonAggCall) {
             Map<String, Object> aggMap = (Map) jsonAggCall.get("agg");
             SqlAggFunction aggregation = (SqlAggFunction) relJson.toOp(aggMap);

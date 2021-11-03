@@ -29,6 +29,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.stream.Collectors;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
@@ -43,6 +44,12 @@ import org.jetbrains.annotations.Nullable;
 public class DummyInternalTableImpl implements InternalTable {
     /** In-memory dummy store. */
     private final Map<KeyWrapper, BinaryRow> store = new ConcurrentHashMap<>();
+
+    /** {@inheritDoc} */
+    @Override
+    public void close() throws Exception {
+        // No-op.
+    }
 
     /**
      * Wrapper provides correct byte[] comparison.
@@ -86,6 +93,18 @@ public class DummyInternalTableImpl implements InternalTable {
         public int hashCode() {
             return hash;
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @NotNull TableStorage storage() {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int partitions() {
+        return 1;
     }
 
     /** {@inheritDoc} */

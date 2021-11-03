@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
@@ -98,6 +99,9 @@ public class InternalTableImpl implements InternalTable {
     /** Table schema mode. */
     private volatile SchemaManagementMode schemaMode;
 
+    /** Storage for table data. */
+    private final TableStorage tableStorage;
+
     /**
      * @param tableName  Table name.
      * @param tableId    Table id.
@@ -109,15 +113,29 @@ public class InternalTableImpl implements InternalTable {
             IgniteUuid tableId,
             Map<Integer, RaftGroupService> partMap,
             int partitions,
-            Function<NetworkAddress, String> netAddrResolver
+            Function<NetworkAddress, String> netAddrResolver,
+            TableStorage tableStorage
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
         this.partitionMap = partMap;
         this.partitions = partitions;
         this.netAddrResolver = netAddrResolver;
+        this.tableStorage = tableStorage;
 
         this.schemaMode = SchemaManagementMode.STRICT;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @NotNull TableStorage storage() {
+        return tableStorage;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int partitions() {
+        return partitionMap.size();
     }
 
     /** {@inheritDoc} */
@@ -398,6 +416,20 @@ public class InternalTableImpl implements InternalTable {
                 });
     }
 
+    /**
+     * Updates internal table raft group service for given partition.
+     *
+     * @param p          Partition.
+     * @param raftGrpSvc Raft group service.
+     */
+    public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGrpSvc) {
+        RaftGroupService oldSrvc = partitionMap.put(p, raftGrpSvc);
+
+        if (oldSrvc != null) {
+            oldSrvc.shutdown();
+        }
+    }
+
     /** Partition scan publisher. */
     private class PartitionScanPublisher implements Publisher<BinaryRow> {
         /** {@link Publisher} that relatively notifies about partition rows. */
@@ -559,6 +591,14 @@ public class InternalTableImpl implements InternalTable {
                                     return null;
                                 });
             }
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void close() throws Exception {
+        for (RaftGroupService srv : partitionMap.values()) {
+            srv.shutdown();
         }
     }
 }

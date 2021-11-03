@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel.set;
 
-import com.google.common.collect.ImmutableList;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
@@ -38,7 +37,7 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 public interface IgniteSetOp extends TraitsAwareIgniteRel {
     /** ALL flag of set op. */
     public boolean all();
-
+    
     /** {@inheritDoc} */
     @Override
     public default Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(RelTraitSet nodeTraits,
@@ -47,34 +46,34 @@ public interface IgniteSetOp extends TraitsAwareIgniteRel {
         return Pair.of(nodeTraits.replace(RelCollations.EMPTY),
                 Commons.transform(inputTraits, t -> t.replace(RelCollations.EMPTY)));
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCollation(RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits) {
         // Operation erases collation.
-        return ImmutableList.of(Pair.of(nodeTraits.replace(RelCollations.EMPTY),
+        return List.of(Pair.of(nodeTraits.replace(RelCollations.EMPTY),
                 Commons.transform(inputTraits, t -> t.replace(RelCollations.EMPTY))));
     }
-
+    
     /** Gets count of fields for aggregation for this node. Required for memory consumption calculation. */
     public int aggregateFieldsCount();
-
+    
     /** Compute cost for set op. */
     public default RelOptCost computeSetOpCost(RelOptPlanner planner, RelMetadataQuery mq) {
         IgniteCostFactory costFactory = (IgniteCostFactory) planner.getCostFactory();
-
+        
         double inputRows = 0;
-
+    
         for (RelNode input : getInputs()) {
             inputRows += mq.getRowCount(input);
         }
-
+        
         double mem = 0.5 * inputRows * aggregateFieldsCount() * IgniteCost.AVERAGE_FIELD_SIZE;
-
+        
         return costFactory.makeCost(inputRows, inputRows * IgniteCost.ROW_PASS_THROUGH_COST, 0, mem, 0);
     }
-
+    
     /** Aggregate type. */
     public AggregateType aggregateType();
 }

@@ -44,22 +44,49 @@ import org.jetbrains.annotations.NotNull;
  * Runtime context allowing access to the tables in a database.
  */
 public class ExecutionContext<RowT> implements DataContext {
+    /**
+     *
+     */
     private static final TimeZone TIME_ZONE = TimeZone.getDefault(); // TODO DistributedSqlConfiguration#timeZone
 
+    /**
+     *
+     */
     private final UUID qryId;
 
+    /**
+     *
+     */
     private final PlanningContext ctx;
 
+    /**
+     *
+     */
     private final FragmentDescription fragmentDesc;
 
+    /**
+     *
+     */
     private final Map<String, Object> params;
 
+    /**
+     *
+     */
     private final QueryTaskExecutor executor;
 
+    /**
+     *
+     */
     private final RowHandler<RowT> handler;
 
+    /**
+     *
+     */
     private final ExpressionFactory<RowT> expressionFactory;
 
+    /**
+     *
+     */
     private final AtomicBoolean cancelFlag = new AtomicBoolean();
 
     /**
@@ -68,11 +95,12 @@ public class ExecutionContext<RowT> implements DataContext {
      */
     private final long startTs;
 
+    /**
+     *
+     */
     private Object[] correlations = new Object[16];
 
     /**
-     * Constructor.
-     *
      * @param executor     Task executor.
      * @param ctx          Parent context.
      * @param qryId        Query ID.
@@ -103,37 +131,34 @@ public class ExecutionContext<RowT> implements DataContext {
     }
 
     /**
-     * Get parent context.
+     * @return Parent context.
      */
     public PlanningContext planningContext() {
         return ctx;
     }
 
     /**
-     * Get query ID.
+     * @return Query ID.
      */
     public UUID queryId() {
         return qryId;
     }
 
     /**
-     * Get fragment ID.
+     * @return Fragment ID.
      */
     public long fragmentId() {
         return fragmentDesc.fragmentId();
     }
 
     /**
-     * Get target mapping.
+     * @return Target mapping.
      */
     public ColocationGroup target() {
         return fragmentDesc.target();
     }
 
     /**
-     * Remotes.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
      * @param exchangeId ExchangeId to find remote nodes for.
      * @return Remote nodes for given exchangeId.
      */
@@ -142,8 +167,6 @@ public class ExecutionContext<RowT> implements DataContext {
     }
 
     /**
-     * Get colocation group by source id.
-     *
      * @param sourceId SourceId to find colocation group for.
      * @return Colocation group for given sourceId.
      */
@@ -152,28 +175,28 @@ public class ExecutionContext<RowT> implements DataContext {
     }
 
     /**
-     * Get keep binary flag.
+     * @return Keep binary flag.
      */
     public boolean keepBinary() {
         return true; // TODO
     }
 
     /**
-     * Get handler to access row fields.
+     * @return Handler to access row fields.
      */
     public RowHandler<RowT> rowHandler() {
         return handler;
     }
 
     /**
-     * Get expression factory.
+     * @return Expression factory.
      */
     public ExpressionFactory<RowT> expressionFactory() {
         return expressionFactory;
     }
 
     /**
-     * Get originating node ID.
+     * @return Originating node ID.
      */
     public String originatingNodeId() {
         return planningContext().originatingNodeId();
@@ -286,11 +309,13 @@ public class ExecutionContext<RowT> implements DataContext {
     }
 
     /**
-     * RunnableX interface.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     @FunctionalInterface
     public interface RunnableX {
+        /**
+         *
+         */
         void run() throws Throwable;
     }
 
@@ -303,6 +328,9 @@ public class ExecutionContext<RowT> implements DataContext {
         return !cancelFlag.get() && cancelFlag.compareAndSet(false, true);
     }
 
+    /**
+     *
+     */
     public boolean isCancelled() {
         return cancelFlag.get();
     }

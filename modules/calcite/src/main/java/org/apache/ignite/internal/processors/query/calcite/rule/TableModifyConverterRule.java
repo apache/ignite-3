@@ -32,10 +32,12 @@ import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribut
 import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 
 /**
- * TableModifyConverterRule.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class TableModifyConverterRule extends AbstractIgniteConverterRule<LogicalTableModify> {
+    /**
+     *
+     */
     public static final RelOptRule INSTANCE = new TableModifyConverterRule();
 
     /**

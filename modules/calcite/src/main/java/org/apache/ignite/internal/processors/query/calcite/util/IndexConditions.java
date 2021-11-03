@@ -32,25 +32,35 @@ import org.jetbrains.annotations.Nullable;
  * Index conditions and bounds holder. Conditions are not printed to terms (serialized). They are used only to calculate selectivity.
  */
 public class IndexConditions {
+    /**
+     *
+     */
     private final List<RexNode> lowerCond;
 
+    /**
+     *
+     */
     private final List<RexNode> upperCond;
 
+    /**
+     *
+     */
     private final List<RexNode> lowerBound;
 
+    /**
+     *
+     */
     private final List<RexNode> upperBound;
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public IndexConditions() {
         this(null, null, null, null);
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public IndexConditions(
             @Nullable List<RexNode> lowerCond,
@@ -65,8 +75,7 @@ public class IndexConditions {
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public IndexConditions(RelInput input) {
         lowerCond = null;
@@ -76,36 +85,35 @@ public class IndexConditions {
     }
 
     /**
-     * Get lower index condition.
+     * @return Lower index condition.
      */
     public List<RexNode> lowerCondition() {
         return lowerCond;
     }
 
     /**
-     * GEt upper index condition.
+     * @return Upper index condition.
      */
     public List<RexNode> upperCondition() {
         return upperCond;
     }
 
     /**
-     * Get lower index bounds (a row with values at the index columns).
+     * @return Lower index bounds (a row with values at the index columns).
      */
     public List<RexNode> lowerBound() {
         return lowerBound;
     }
 
     /**
-     * Get upper index bounds (a row with values at the index columns).
+     * @return Upper index bounds (a row with values at the index columns).
      */
     public List<RexNode> upperBound() {
         return upperBound;
     }
 
     /**
-     * Keys.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public Set<Integer> keys() {
         if (upperBound == null && lowerBound == null) {

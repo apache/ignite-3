@@ -19,11 +19,19 @@ package org.apache.ignite.internal.schema;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * A set of columns representing a key or a value chunk in a row. Provides necessary machinery to locate a column value in a concrete row.
+ *
+ * <p><h3>Column ordering.</h3>
+ * Column instances are comparable in lexicographic order, native type first and then column name. Nullability flag is not taken into
+ * account when columns are compared. Native type order guarantees fixed-len columns will prior to varlen columns, column name order
+ * guarantees the same column order (for the same type) on all nodes.
+ *
+ * @see #COLUMN_COMPARATOR
  */
 public class Columns implements Serializable {
     /**
@@ -84,6 +92,11 @@ public class Columns implements Serializable {
             NULL_COLUMNS_LOOKUP[i] = Integer.bitCount(i);
         }
     }
+
+    /**
+     * Column comparator.
+     */
+    public static final Comparator<Column> COLUMN_COMPARATOR = Comparator.comparing(Column::type).thenComparing(Column::name);
 
     /**
      * Gets a number of null columns for the given byte from the nullability map (essentially, the number of non-zero bits in the given
@@ -205,7 +218,7 @@ public class Columns implements Serializable {
     private Column[] sortedCopy(int schemaBaseIdx, Column[] cols) {
         Column[] cp = Arrays.copyOf(cols, cols.length);
 
-        Arrays.sort(cp);
+        Arrays.sort(cp, COLUMN_COMPARATOR);
 
         for (int i = 0; i < cp.length; i++) {
             Column c = cp[i];
@@ -305,7 +318,8 @@ public class Columns implements Serializable {
 
             if (hasVal && idx < numberOfFixsizeColumns()) {
                 assert cols[idx].type().spec().fixedLength() : "Expected fixed-size column [b=" + b
-                        + ", mask=" + mask + ", cols" + Arrays.toString(cols) + ']';
+                        + ", mask=" + mask
+                        + ", cols" + Arrays.toString(cols) + ']';
 
                 size += cols[idx].type().sizeInBytes();
             }

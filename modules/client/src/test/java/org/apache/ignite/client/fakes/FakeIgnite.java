@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.fakes;
 
+import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -52,6 +53,13 @@ public class FakeIgnite implements Ignite {
     @Override
     public IgniteTransactions transactions() {
         return null;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override public void setBaseline(Set<String> baselineNodes) {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */

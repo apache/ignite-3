@@ -27,7 +27,8 @@ import java.sql.Timestamp;
 import java.util.List;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
@@ -49,7 +50,7 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT LENGTH('TEST')").returns(4).check();
         assertQuery("SELECT LENGTH(NULL)").returns(new Object[]{null}).check();
     }
-
+    
     /**
      *
      */
@@ -64,38 +65,38 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
         checkDateTimeQuery("SELECT {fn CURTIME()}", Time::new);
         checkDateTimeQuery("SELECT {fn NOW()}", Timestamp::new);
     }
-
+    
     /**
      *
      */
-    private <T> void checkDateTimeQuery(String sql, LongFunction<T> func) {
+    private static <T> void checkDateTimeQuery(String sql, LongFunction<T> func) {
         while (true) {
             long tsBeg = System.currentTimeMillis();
-
+            
             List<List<?>> res = sql(sql);
-
+            
             long tsEnd = System.currentTimeMillis();
-
+            
             assertEquals(1, res.size());
             assertEquals(1, res.get(0).size());
-
+            
             String strBeg = func.apply(tsBeg).toString();
             String strEnd = func.apply(tsEnd).toString();
-
+            
             // Date changed, time comparison may return wrong result.
             if (strBeg.compareTo(strEnd) > 0) {
                 continue;
             }
-
+            
             String strRes = res.get(0).get(0).toString();
-
+            
             assertTrue(strBeg.compareTo(strRes) <= 0);
             assertTrue(strEnd.compareTo(strRes) >= 0);
-
+            
             return;
         }
     }
-
+    
     /**
      *
      */
@@ -107,34 +108,43 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
                 .returns(3L)
                 .returns(4L)
                 .check();
-
+        
         assertQuery("SELECT * FROM table(system_range(1, 4, 2))")
                 .returns(1L)
                 .returns(3L)
                 .check();
-
+        
         assertQuery("SELECT * FROM table(system_range(4, 1, -1))")
                 .returns(4L)
                 .returns(3L)
                 .returns(2L)
                 .returns(1L)
                 .check();
-
+        
         assertQuery("SELECT * FROM table(system_range(4, 1, -2))")
                 .returns(4L)
                 .returns(2L)
                 .check();
-
+        
         assertEquals(0, sql("SELECT * FROM table(system_range(4, 1))").size());
-
+        
         assertEquals(0, sql("SELECT * FROM table(system_range(null, 1))").size());
-
-        IgniteInternalException ex = assertThrows(IgniteInternalException.class,
+        
+        IgniteException ex = assertThrows(IgniteException.class,
                 () -> sql("SELECT * FROM table(system_range(1, 1, 0))"));
-
-        assertEquals("Increment can't be 0", ex.getMessage());
+        
+        assertTrue(
+                ex.getCause() instanceof IllegalArgumentException,
+                LoggerMessageHelper.format(
+                        "Expected cause is {}, but was {}",
+                        IllegalArgumentException.class.getSimpleName(),
+                        ex.getCause() == null ? null : ex.getCause().getClass().getSimpleName()
+                )
+        );
+        
+        assertEquals("Increment can't be 0", ex.getCause().getMessage());
     }
-
+    
     /**
      *
      */
@@ -147,21 +157,21 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
                 )
                 .withPrimaryKey("ID")
                 .build();
-
+        
         String tblName = tblDef.canonicalName();
-
+        
         RecordView<Tuple> tbl = CLUSTER_NODES.get(0).tables().createTable(tblDef.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(tblDef, tblCh)
                         .changeReplicas(1)
                         .changePartitions(10)
         ).recordView();
-
+        
         try {
-
+    
             for (int i = 0; i < 100; i++) {
                 tbl.insert(Tuple.create().set("ID", i).set("VAL", i));
             }
-
+            
             // Correlated INNER join.
             assertQuery("SELECT t.val FROM test t WHERE t.val < 5 AND "
                     + "t.id in (SELECT x FROM table(system_range(t.val, t.val))) ")
@@ -171,7 +181,7 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
                     .returns(3)
                     .returns(4)
                     .check();
-
+            
             // Correlated LEFT joins.
             assertQuery("SELECT t.val FROM test t WHERE t.val < 5 AND "
                     + "EXISTS (SELECT x FROM table(system_range(t.val, t.val)) WHERE mod(x, 2) = 0) ")
@@ -179,17 +189,17 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
                     .returns(2)
                     .returns(4)
                     .check();
-
+            
             assertQuery("SELECT t.val FROM test t WHERE t.val < 5 AND "
                     + "NOT EXISTS (SELECT x FROM table(system_range(t.val, t.val)) WHERE mod(x, 2) = 0) ")
                     .returns(1)
                     .returns(3)
                     .check();
-
+            
             assertQuery("SELECT t.val FROM test t WHERE "
                     + "EXISTS (SELECT x FROM table(system_range(t.val, null))) ")
                     .check();
-
+            
             // Non-correlated join.
             assertQuery("SELECT t.val FROM test t JOIN table(system_range(1, 50)) as r ON t.id = r.x "
                     + "WHERE mod(r.x, 10) = 0")
@@ -203,7 +213,7 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
             CLUSTER_NODES.get(0).tables().dropTable(tblName);
         }
     }
-
+    
     /**
      *
      */

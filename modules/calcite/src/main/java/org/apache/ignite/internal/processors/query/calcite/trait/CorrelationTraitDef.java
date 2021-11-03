@@ -22,10 +22,12 @@ import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.rel.RelNode;
 
 /**
- * CorrelationTraitDef.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class CorrelationTraitDef extends RelTraitDef<CorrelationTrait> {
+    /**
+     *
+     */
     public static final CorrelationTraitDef INSTANCE = new CorrelationTraitDef();
 
     /** {@inheritDoc} */

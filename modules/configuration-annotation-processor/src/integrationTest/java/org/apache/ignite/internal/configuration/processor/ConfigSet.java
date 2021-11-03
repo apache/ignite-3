@@ -63,6 +63,8 @@ public class ConfigSet {
     }
 
     /**
+     * Returns {@code true} if all required classes were generated.
+     *
      * @return {@code true} if all required classes were generated.
      */
     public boolean allGenerated() {

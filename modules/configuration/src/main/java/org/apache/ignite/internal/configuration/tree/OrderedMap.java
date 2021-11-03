@@ -175,6 +175,8 @@ class OrderedMap<V> {
     }
 
     /**
+     * Returns list of keys.
+     *
      * @return List of keys.
      */
     public List<String> keys() {
@@ -195,6 +197,8 @@ class OrderedMap<V> {
     }
 
     /**
+     * Returns size of the map.
+     *
      * @return Size of the map.
      */
     public int size() {

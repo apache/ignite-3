@@ -25,11 +25,12 @@ import static org.apache.ignite.internal.calcite.util.QueryChecker.containsTable
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -44,10 +45,12 @@ public class ItProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
      *
      */
     public static final String IDX_CAT_ID = "IDX_CAT_ID";
-
-    /** {@inheritDoc} */
-    @Override
-    protected void initTestData() {
+    
+    /**
+     *
+     */
+    @BeforeAll
+    static void initTestData() {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "PRODUCTS").columns(
                         SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
                         SchemaBuilders.column("CATEGORY", ColumnType.string()).asNullable().build(),
@@ -63,13 +66,13 @@ public class ItProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
                                 .build()
                 )
                 .build();
-
+        
         Table tbl = CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl1, tblCh)
                         .changeReplicas(1)
                         .changePartitions(10)
         );
-
+        
         insertData(tbl, new String[]{"ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"}, new Object[][]{
                 {1, "prod1", 1, "cat1", 11, "noname1"},
                 {2, "prod2", 2, "cat1", 11, "noname2"},
@@ -77,7 +80,7 @@ public class ItProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
                 {4, "prod4", 4, "cat1", 13, "noname4"},
         });
     }
-
+    
     /**
      * Tests that the projects exist only for simple expressions without any predicates.
      */
@@ -92,7 +95,7 @@ public class ItProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
                 .returns("noname3")
                 .returns("noname4")
                 .check();
-
+        
         assertQuery("SELECT SUBCAT_ID, NAME FROM products d;")
                 .matches(containsTableScan("PUBLIC", "PRODUCTS"))
                 .matches(containsOneProject("PUBLIC", "PRODUCTS", 2, 4))
@@ -101,7 +104,7 @@ public class ItProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
                 .returns(12, "noname3")
                 .returns(13, "noname4")
                 .check();
-
+        
         assertQuery("SELECT NAME FROM products d WHERE CAT_ID > 1;")
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS"))
                 .matches(containsProject("PUBLIC", "PRODUCTS", 1, 4))
@@ -110,7 +113,7 @@ public class ItProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
                 .returns("noname4")
                 .check();
     }
-
+    
     /**
      * Tests projects with nested requests.
      */
@@ -121,37 +124,37 @@ public class ItProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
                 .returns("noname3")
                 .returns("noname4")
                 .check();
-
+        
         assertQuery("SELECT NAME FROM products WHERE CAT_ID IN (SELECT DISTINCT CAT_ID FROM products WHERE CAT_ID > 1)")
                 .matches(containsAnyProject("PUBLIC", "PRODUCTS"))
                 .returns("noname2")
                 .returns("noname3")
                 .returns("noname4")
                 .check();
-
+        
         assertQuery("SELECT NAME FROM products WHERE CAT_ID IN (SELECT DISTINCT CAT_ID FROM products WHERE SUBCAT_ID > 11)")
                 .matches(containsAnyProject("PUBLIC", "PRODUCTS"))
                 .returns("noname3")
                 .returns("noname4")
                 .check();
-
+        
         assertQuery("SELECT NAME FROM products WHERE CAT_ID = (SELECT CAT_ID FROM products WHERE SUBCAT_ID = 13)")
                 .matches(containsAnyProject("PUBLIC", "PRODUCTS"))
                 .returns("noname4")
                 .check();
-
+        
         assertThrows(
-                IgniteInternalException.class,
+                IgniteException.class,
                 () -> assertQuery("SELECT NAME FROM products WHERE CAT_ID = (SELECT CAT_ID FROM products WHERE SUBCAT_ID = 11)").check()
         );
-
+        
         assertThrows(
-                IgniteInternalException.class,
+                IgniteException.class,
                 () -> assertQuery("SELECT NAME FROM products WHERE CAT_ID = (SELECT 2 UNION ALL SELECT 1)").check()
         );
-
+        
         assertThrows(
-                IgniteInternalException.class,
+                IgniteException.class,
                 () -> assertQuery("SELECT NAME FROM products WHERE CAT_ID = (SELECT null UNION ALL SELECT 1)").check()
         );
     }

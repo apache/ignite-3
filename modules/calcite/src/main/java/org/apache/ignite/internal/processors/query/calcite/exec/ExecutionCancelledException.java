@@ -20,8 +20,7 @@ package org.apache.ignite.internal.processors.query.calcite.exec;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * ExecutionCancelledException.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class ExecutionCancelledException extends IgniteInternalCheckedException {
 }

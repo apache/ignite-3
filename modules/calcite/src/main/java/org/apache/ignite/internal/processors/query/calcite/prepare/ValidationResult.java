@@ -22,19 +22,25 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlNode;
 
 /**
- * ValidationResult.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class ValidationResult {
+    /**
+     *
+     */
     private final SqlNode sqlNode;
 
+    /**
+     *
+     */
     private final RelDataType dataType;
 
+    /**
+     *
+     */
     private final List<List<String>> origins;
 
     /**
-     * Constructor.
-     *
      * @param sqlNode  Validated SQL node.
      * @param dataType Validated type.
      * @param origins  Type fields provenance.
@@ -46,21 +52,21 @@ public class ValidationResult {
     }
 
     /**
-     * Get validated SQL node.
+     * @return Validated SQL node.
      */
     public SqlNode sqlNode() {
         return sqlNode;
     }
 
     /**
-     * Get validated type.
+     * @return Validated type.
      */
     public RelDataType dataType() {
         return dataType;
     }
 
     /**
-     * Get type fields provenance.
+     * @return Type fields provenance.
      */
     public List<List<String>> origins() {
         return origins;

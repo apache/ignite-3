@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel.agg;
 
-import com.google.common.collect.ImmutableList;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
@@ -39,13 +38,11 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteRelVisitor;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
 /**
- * IgniteReduceHashAggregate.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class IgniteReduceHashAggregate extends IgniteReduceAggregateBase implements IgniteHashAggregateBase {
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public IgniteReduceHashAggregate(
             RelOptCluster cluster,
@@ -63,8 +60,7 @@ public class IgniteReduceHashAggregate extends IgniteReduceAggregateBase impleme
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public IgniteReduceHashAggregate(RelInput input) {
         super(input);
@@ -122,7 +118,7 @@ public class IgniteReduceHashAggregate extends IgniteReduceAggregateBase impleme
     @Override
     public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCollation(RelTraitSet nodeTraits,
             List<RelTraitSet> inTraits) {
-        return ImmutableList.of(Pair.of(nodeTraits.replace(RelCollations.EMPTY),
-                ImmutableList.of(inTraits.get(0).replace(RelCollations.EMPTY))));
+        return List.of(Pair.of(nodeTraits.replace(RelCollations.EMPTY),
+                List.of(inTraits.get(0).replace(RelCollations.EMPTY))));
     }
 }

@@ -37,10 +37,12 @@ import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.Util;
 
 /**
- * ConverterUtils.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class ConverterUtils {
+    /**
+     *
+     */
     private ConverterUtils() {
     }
 
@@ -56,10 +58,16 @@ public class ConverterUtils {
         return toInternal(operand, operand.getType(), targetType);
     }
 
+    /**
+     *
+     */
     private static Type toInternal(RelDataType type) {
         return toInternal(type, false);
     }
 
+    /**
+     *
+     */
     private static Expression toInternal(Expression operand,
             Type fromType, Type targetType) {
         if (fromType == java.sql.Date.class) {
@@ -84,6 +92,9 @@ public class ConverterUtils {
         return operand;
     }
 
+    /**
+     *
+     */
     static Type toInternal(RelDataType type, boolean forceNotNull) {
         switch (type.getSqlTypeName()) {
             case DATE:
@@ -104,6 +115,9 @@ public class ConverterUtils {
         return fromInternal(operand, operand.getType(), targetType);
     }
 
+    /**
+     *
+     */
     private static Expression fromInternal(Expression operand,
             Type fromType, Type targetType) {
         if (operand == ConstantUntypedNull.INSTANCE) {
@@ -143,6 +157,9 @@ public class ConverterUtils {
         return operand;
     }
 
+    /**
+     *
+     */
     static List<Expression> fromInternal(Class<?>[] targetTypes,
             List<Expression> expressions) {
         final List<Expression> list = new ArrayList<>();
@@ -167,6 +184,9 @@ public class ConverterUtils {
         return list;
     }
 
+    /**
+     *
+     */
     static List<Type> internalTypes(List<? extends RexNode> operandList) {
         return Util.transform(operandList, node -> toInternal(node.getType()));
     }
@@ -398,11 +418,17 @@ public class ConverterUtils {
         return Expressions.convert_(operand, toType);
     }
 
+    /**
+     *
+     */
     private static boolean isA(Type fromType, Primitive primitive) {
         return Primitive.of(fromType) == primitive
                 || Primitive.ofBox(fromType) == primitive;
     }
 
+    /**
+     *
+     */
     private static boolean representAsInternalType(Type type) {
         return type == java.sql.Date.class
                 || type == java.sql.Time.class

@@ -28,6 +28,7 @@ import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -36,12 +37,14 @@ import org.junit.jupiter.api.Test;
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
-    /** {@inheritDoc} */
-    @Override
-    protected void initTestData() {
+    /**
+     *
+     */
+    @BeforeAll
+    static void initTestData() {
         Table emp1 = createTable("EMP1");
         Table emp2 = createTable("EMP2");
-
+        
         int idx = 0;
         insertData(emp1, new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
                 {idx++, "Igor", 10d},
@@ -52,7 +55,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
                 {idx++, "Igor1", 13d},
                 {idx, "Roman", 14d}
         });
-
+        
         idx = 0;
         insertData(emp2, new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
                 {idx++, "Roman", 10d},
@@ -90,7 +93,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         +----+-------+-------+
          */
     }
-
+    
     /** Tests varchar min\max aggregates. */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15107")
     @Test
@@ -98,11 +101,11 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         sql("CREATE TABLE TEST(val VARCHAR primary key, val1 integer);");
         sql("INSERT INTO test VALUES ('б', 1), ('бб', 2), ('щ', 3), ('щщ', 4), ('Б', 4), ('ББ', 4), ('Я', 4);");
         List<List<?>> rows = sql("SELECT MAX(val), MIN(val) FROM TEST");
-
+        
         assertEquals(1, rows.size());
         assertEquals(Arrays.asList("щщ", "Б"), first(rows));
     }
-
+    
     /**
      *
      */
@@ -116,13 +119,13 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
                 .returns(11d)
                 .returns(10d)
                 .check();
-
+        
         assertQuery("select name, sum(salary) from emp2 group by name order by count(salary)")
                 .returns("Roman", 46d)
                 .returns("Igor1", 26d)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -130,10 +133,10 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     public void testEqConditionWithDistinctSubquery() {
         List<List<?>> rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT DISTINCT(salary) FROM emp2 WHERE name='Igor1')");
-
+        
         assertEquals(3, rows.size());
     }
-
+    
     /**
      *
      */
@@ -141,10 +144,10 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     public void testEqConditionWithAggregateSubqueryMax() {
         List<List<?>> rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT MAX(salary) FROM emp2 WHERE name='Roman')");
-
+        
         assertEquals(3, rows.size());
     }
-
+    
     /**
      *
      */
@@ -152,10 +155,10 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     public void testEqConditionWithAggregateSubqueryMin() {
         List<List<?>> rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT MIN(salary) FROM emp2 WHERE name='Roman')");
-
+        
         assertEquals(1, rows.size());
     }
-
+    
     /**
      *
      */
@@ -163,23 +166,22 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     public void testInConditionWithSubquery() {
         List<List<?>> rows = sql(
                 "SELECT name FROM emp1 WHERE name IN (SELECT name FROM emp2)");
-
+        
         assertEquals(4, rows.size());
     }
-
+    
     /**
      *
      */
     @Test
     public void testDistinctQueryWithInConditionWithSubquery() {
-        List<List<?>> rows = sql(
-                "SELECT distinct(name) FROM emp1 o WHERE name IN ("
-                        + "   SELECT name"
-                        + "   FROM emp2)");
-
+        List<List<?>> rows = sql("SELECT distinct(name) FROM emp1 o WHERE name IN ("
+                + "   SELECT name"
+                + "   FROM emp2)");
+        
         assertEquals(2, rows.size());
     }
-
+    
     /**
      *
      */
@@ -187,54 +189,50 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     public void testNotInConditionWithSubquery() {
         List<List<?>> rows = sql(
                 "SELECT name FROM emp1 WHERE name NOT IN (SELECT name FROM emp2)");
-
+        
         assertEquals(3, rows.size());
     }
-
+    
     /**
      *
      */
     @Test
     public void testExistsConditionWithSubquery() {
-        List<List<?>> rows = sql(
-                "SELECT name FROM emp1 o WHERE EXISTS ("
-                        + "   SELECT 1"
-                        + "   FROM emp2 a"
-                        + "   WHERE o.name = a.name)");
-
+        List<List<?>> rows = sql("SELECT name FROM emp1 o WHERE EXISTS ("
+                + "   SELECT 1"
+                + "   FROM emp2 a"
+                + "   WHERE o.name = a.name)");
+        
         assertEquals(4, rows.size());
     }
-
+    
     /**
      *
      */
     @Test
     public void testNotExistsConditionWithSubquery() {
-        List<List<?>> rows = sql(
-                "SELECT name FROM emp1 o WHERE NOT EXISTS ("
-                        + "   SELECT 1"
-                        + "   FROM emp2 a"
-                        + "   WHERE o.name = a.name)");
-
+        List<List<?>> rows = sql("SELECT name FROM emp1 o WHERE NOT EXISTS ("
+                + "   SELECT 1"
+                + "   FROM emp2 a"
+                + "   WHERE o.name = a.name)");
+        
         assertEquals(3, rows.size());
-
-        rows = sql(
-                "SELECT name FROM emp1 o WHERE NOT EXISTS ("
-                        + "   SELECT name"
-                        + "   FROM emp2 a"
-                        + "   WHERE o.name = a.name)");
-
+    
+        rows = sql("SELECT name FROM emp1 o WHERE NOT EXISTS ("
+                + "   SELECT name"
+                + "   FROM emp2 a"
+                + "   WHERE o.name = a.name)");
+        
         assertEquals(3, rows.size());
-
-        rows = sql(
-                "SELECT distinct(name) FROM emp1 o WHERE NOT EXISTS ("
-                        + "   SELECT name"
-                        + "   FROM emp2 a"
-                        + "   WHERE o.name = a.name)");
-
+    
+        rows = sql("SELECT distinct(name) FROM emp1 o WHERE NOT EXISTS ("
+                + "   SELECT name"
+                + "   FROM emp2 a"
+                + "   WHERE o.name = a.name)");
+        
         assertEquals(1, rows.size());
     }
-
+    
     /**
      *
      */
@@ -242,14 +240,14 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     @Test
     public void testSequentialInserts() {
         sql("CREATE TABLE t(x INTEGER)");
-
+    
         for (int i = 0; i < 10_000; i++) {
             sql("INSERT INTO t VALUES (?)", i);
         }
-
+        
         assertEquals(10_000L, sql("SELECT count(*) FROM t").get(0).get(0));
     }
-
+    
     /**
      * Verifies that table modification events are passed to a calcite schema modification listener.
      */
@@ -257,39 +255,39 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     @Test
     public void testIgniteSchemaAwaresAlterTableCommand() {
         String selectAllQry = "select * from test_tbl";
-
+        
         sql("drop table if exists test_tbl");
         sql("create table test_tbl(id int primary key, val varchar)");
-
+        
         assertQuery(selectAllQry).columnNames("ID", "VAL").check();
-
+        
         sql("alter table test_tbl add column new_col int");
-
+        
         assertQuery(selectAllQry).columnNames("ID", "NEW_COL", "VAL").check();
-
+        
         // column with such name already exists
         assertThrows(Exception.class, () -> sql("alter table test_tbl add column new_col int"));
-
+        
         assertQuery(selectAllQry).columnNames("ID", "NEW_COL", "VAL").check();
-
+        
         sql("alter table test_tbl add column if not exists new_col int");
-
+        
         assertQuery(selectAllQry).columnNames("ID", "NEW_COL", "VAL").check();
-
+        
         sql("alter table test_tbl drop column new_col");
-
+        
         assertQuery(selectAllQry).columnNames("ID", "VAL").check();
-
+        
         // column with such name is not exists
         assertThrows(Exception.class, () -> sql("alter table test_tbl drop column new_col"));
-
+        
         assertQuery(selectAllQry).columnNames("ID", "VAL").check();
-
+        
         sql("alter table test_tbl drop column if exists new_col");
-
+        
         assertQuery(selectAllQry).columnNames("ID", "VAL").check();
     }
-
+    
     /** Quantified predicates test. */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-13159")
     @Test
@@ -301,30 +299,30 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
                 .returns(13d)
                 .returns(13d)
                 .check();
-
+        
         assertQuery("select salary from emp2 where salary < SOME (12, 12) ORDER BY salary")
                 .returns(10d)
                 .returns(11d)
                 .check();
-
+        
         assertQuery("select salary from emp2 where salary < ANY (11, 12) ORDER BY salary")
                 .returns(10d)
                 .returns(11d)
                 .check();
-
+        
         assertQuery("select salary from emp2 where salary > ANY (12, 13) ORDER BY salary")
                 .returns(13d)
                 .returns(13d)
                 .returns(13d)
                 .check();
-
+        
         assertQuery("select salary from emp2 where salary <> ALL (12, 13) ORDER BY salary")
                 .returns(10d)
                 .returns(11d)
                 .check();
     }
-
-    private Table createTable(String tableName) {
+    
+    private static Table createTable(String tableName) {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", tableName)
                 .columns(
                         SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
@@ -333,7 +331,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
                 )
                 .withPrimaryKey("ID")
                 .build();
-
+        
         return CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl1, tblCh)
                         .changeReplicas(2)

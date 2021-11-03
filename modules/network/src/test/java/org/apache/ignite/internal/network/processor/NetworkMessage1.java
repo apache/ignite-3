@@ -27,5 +27,5 @@ interface NetworkMessage1 extends NetworkMessage {
     /**
      *
      */
-    int y();
+    int intY();
 }

@@ -24,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
  * QueryTaskExecutor interface.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public interface QueryTaskExecutor {
+public interface QueryTaskExecutor extends LifecycleAware {
     /**
      * Executes a query task in a thread, responsible for particular query fragment.
      *

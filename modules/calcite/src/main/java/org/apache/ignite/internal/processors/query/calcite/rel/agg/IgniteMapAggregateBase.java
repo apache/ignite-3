@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel.agg;
 
-import com.google.common.collect.ImmutableList;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
@@ -33,8 +32,7 @@ import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitsAwareIgniteRel;
 
 /**
- * IgniteMapAggregateBase.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public abstract class IgniteMapAggregateBase extends IgniteAggregate implements TraitsAwareIgniteRel {
     /** {@inheritDoc} */
@@ -71,7 +69,7 @@ public abstract class IgniteMapAggregateBase extends IgniteAggregate implements 
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
     ) {
-        return ImmutableList.of(Pair.of(nodeTraits, ImmutableList.of(inputTraits.get(0))));
+        return List.of(Pair.of(nodeTraits, List.of(inputTraits.get(0))));
     }
 
     /** {@inheritDoc} */
@@ -83,10 +81,10 @@ public abstract class IgniteMapAggregateBase extends IgniteAggregate implements 
         RelTraitSet in = inputTraits.get(0);
 
         if (TraitUtils.distribution(in).satisfies(IgniteDistributions.single())) {
-            return ImmutableList.of();
+            return List.of();
         }
 
-        return ImmutableList.of(Pair.of(nodeTraits.replace(TraitUtils.distribution(in)), ImmutableList.of(in)));
+        return List.of(Pair.of(nodeTraits.replace(TraitUtils.distribution(in)), List.of(in)));
     }
 
     /** {@inheritDoc} */
@@ -95,7 +93,7 @@ public abstract class IgniteMapAggregateBase extends IgniteAggregate implements 
             RelTraitSet nodeTraits,
             List<RelTraitSet> inTraits
     ) {
-        return ImmutableList.of(Pair.of(nodeTraits.replace(TraitUtils.correlation(inTraits.get(0))),
+        return List.of(Pair.of(nodeTraits.replace(TraitUtils.correlation(inTraits.get(0))),
                 inTraits));
     }
 }

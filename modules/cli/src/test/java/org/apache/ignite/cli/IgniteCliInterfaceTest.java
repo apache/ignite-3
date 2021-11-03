@@ -307,8 +307,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     + "+---------+--------------+------------+\n"
                     + "| module2 | description2 | No         |\n"
                     + "+---------+--------------+------------+\n"
-                    + "\n"
-                    + "@|bold Additional Maven Dependencies|@\n"
+                    + "\n" + "@|bold Additional Maven Dependencies|@\n"
                     + "+-------------------+-------------+---------+\n"
                     + "| @|bold Group ID|@          | @|bold Artifact ID|@ | @|bold Version|@ |\n"
                     + "+-------------------+-------------+---------+\n"
@@ -353,7 +352,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             var node =
                     new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
 
-            when(nodeMgr.start(any(), any(), any(), any(), any()))
+            when(nodeMgr.start(any(), any(), any(), any(), any(), any()))
                     .thenReturn(node);
 
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
@@ -370,6 +369,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     ignitePaths.logDir,
                     ignitePaths.cliPidsDir(),
                     Path.of("conf.json"),
+                    ignitePaths.serverJavaUtilLoggingPros(),
                     cli.getOut());
 
             assertEquals("\nNode is successfully started. To stop, type ignite node stop " + nodeName + "\n\n"
@@ -615,7 +615,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
                     argThat(r -> "http://localhost:8081/management/v1/configuration/node/".equals(r.uri().toString())
-                            && "PUT".equals(r.method()) && r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length
+                            && "PUT".equals(r.method())
+                            && r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length
                             && "application/json".equals(r.headers().firstValue("Content-Type").get())),
                     any());
             assertEquals("Configuration was updated successfully.\n\n"
@@ -629,7 +630,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
         @Test
         @DisplayName(
-                "set --node-endpoint localhost:8081 {\"local\":{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}} --type node"
+                "set --node-endpoint localhost:8081 {\"local\":{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}} "
+                        + "--type node"
         )
         void setJson() throws IOException, InterruptedException {
             when(res.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);

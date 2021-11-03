@@ -19,32 +19,59 @@ package org.apache.ignite.internal.processors.query.calcite.exec;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
- * QueryTaskExecutorImpl.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.UncaughtExceptionHandler {
+    /** Default Ignite thread keep alive time. */
+    public static final long DFLT_THREAD_KEEP_ALIVE_TIME = 60_000L;
+
+    /**
+     *
+     */
     private static final IgniteLogger LOG = IgniteLogger.forClass(QueryTaskExecutorImpl.class);
 
-    private final StripedThreadPoolExecutor stripedThreadPoolExecutor;
+    /**
+     *
+     */
+    private final String nodeName;
 
+    /**
+     *
+     */
+    private volatile StripedThreadPoolExecutor stripedThreadPoolExecutor;
+
+    /**
+     *
+     */
     private Thread.UncaughtExceptionHandler exHnd;
 
     /**
-     * Constructor.
-     *
-     * @param stripedThreadPoolExecutor Executor.
+     * @param nodeName Node name.
      */
-    public QueryTaskExecutorImpl(StripedThreadPoolExecutor stripedThreadPoolExecutor) {
-        this.stripedThreadPoolExecutor = stripedThreadPoolExecutor;
+    public QueryTaskExecutorImpl(String nodeName) {
+        this.nodeName = nodeName;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void start() {
+        this.stripedThreadPoolExecutor = new StripedThreadPoolExecutor(
+                4,
+                NamedThreadFactory.threadPrefix(nodeName, "calciteQry"),
+                null,
+                true,
+                DFLT_THREAD_KEEP_ALIVE_TIME
+        );
     }
 
     /**
-     * Set uncaught exception handler.
+     * @param exHnd Uncaught exception handler.
      */
     public void exceptionHandler(Thread.UncaughtExceptionHandler exHnd) {
         this.exHnd = exHnd;
@@ -78,11 +105,6 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
         return stripedThreadPoolExecutor.submit(qryTask, hash(qryId, fragmentId));
     }
 
-    /** Releases resources. */
-    public void tearDown() {
-        stripedThreadPoolExecutor.shutdownNow();
-    }
-
     /** {@inheritDoc} */
     @Override
     public void uncaughtException(Thread t, Throwable e) {
@@ -91,8 +113,19 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
         }
     }
 
+    /**
+     *
+     */
     private static int hash(UUID qryId, long fragmentId) {
         // inlined Objects.hash(...)
         return IgniteUtils.safeAbs(31 * (31 + (qryId != null ? qryId.hashCode() : 0)) + Long.hashCode(fragmentId));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void stop() {
+        if (stripedThreadPoolExecutor != null) {
+            stripedThreadPoolExecutor.shutdownNow();
+        }
     }
 }

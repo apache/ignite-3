@@ -54,6 +54,9 @@ public class IgniteSqlFunctions {
         return new RangeTable(rangeStart, rangeEnd, increment);
     }
 
+    /**
+     *
+     */
     private static class RangeTable implements ScannableTable {
         /** Start of the range. */
         private final Object rangeStart;
@@ -129,6 +132,9 @@ public class IgniteSqlFunctions {
             };
         }
 
+        /**
+         *
+         */
         private long convertToLongArg(Object val, String name) {
             if (val instanceof Byte || val instanceof Short || val instanceof Integer || val instanceof Long) {
                 return ((Number) val).longValue();

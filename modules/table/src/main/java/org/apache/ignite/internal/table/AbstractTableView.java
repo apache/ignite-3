@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -30,13 +31,13 @@ import org.jetbrains.annotations.Nullable;
 abstract class AbstractTableView {
     /** Internal table. */
     protected final InternalTable tbl;
-
+    
     /** Schema registry. */
     protected final SchemaRegistry schemaReg;
-
+    
     /** The transaction */
     protected final @Nullable Transaction tx;
-
+    
     /**
      * Constructor
      *
@@ -49,7 +50,7 @@ abstract class AbstractTableView {
         this.schemaReg = schemaReg;
         this.tx = tx;
     }
-
+    
     /**
      * Waits for operation completion.
      *
@@ -62,19 +63,30 @@ abstract class AbstractTableView {
             return fut.get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
-
-            //TODO: IGNITE-14500 Replace with public exception with an error code.
-            throw new IgniteInternalException(e);
+            
+            throw convertException(e);
         } catch (ExecutionException e) {
-            //TODO: IGNITE-14500 Replace with public exception with an error code (or unwrap?).
-            throw new IgniteInternalException(e);
+            throw convertException(e.getCause());
+        } catch (IgniteInternalException e) {
+            throw convertException(e);
         }
     }
-
+    
     /**
      * @return Current transaction.
      */
     public @Nullable Transaction transaction() {
         return tx;
+    }
+    
+    /**
+     * Converts an internal exception to a public one.
+     *
+     * @param th Internal exception.
+     * @return Public exception.
+     */
+    protected IgniteException convertException(Throwable th) {
+        //TODO: IGNITE-14500 Replace with public exception with an error code (or unwrap?).
+        return new IgniteException(th);
     }
 }

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.processors.query.calcite.trait;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import com.google.common.collect.ImmutableSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
@@ -42,80 +41,101 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteCorrelatedN
  * correlation variables.
  */
 public class CorrelationTrait implements RelTrait {
+    /**
+     *
+     */
     public static final CorrelationTrait UNCORRELATED = canonize(new CorrelationTrait(Collections.emptyList()));
-
-    private final ImmutableSet<CorrelationId> correlations;
-
+    
+    /**
+     *
+     */
+    private final Set<CorrelationId> correlations;
+    
+    /**
+     *
+     */
     public CorrelationTrait(Collection<CorrelationId> correlationIds) {
-        correlations = ImmutableSet.copyOf(correlationIds);
+        correlations = Set.copyOf(correlationIds);
     }
-
+    
+    /**
+     *
+     */
     public boolean correlated() {
         return !nullOrEmpty(correlations);
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;
         }
-
+    
         if (!(o instanceof CorrelationTrait)) {
             return false;
         }
-
+        
         return correlations.equals(((CorrelationTrait) o).correlations);
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
         return correlations.hashCode();
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public String toString() {
         return correlated() ? "correlated" + correlations : "uncorrelated";
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public RelTraitDef<CorrelationTrait> getTraitDef() {
         return CorrelationTraitDef.INSTANCE;
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public boolean satisfies(RelTrait trait) {
         if (trait == this || this == UNCORRELATED) {
             return true;
         }
-
+    
         if (!(trait instanceof CorrelationTrait)) {
             return false;
         }
-
+        
         CorrelationTrait other = (CorrelationTrait) trait;
-
+        
         return other.correlated() && other.correlationIds().containsAll(correlationIds());
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public void register(RelOptPlanner planner) {
         // no-op
     }
-
+    
+    /**
+     *
+     */
     private static CorrelationTrait canonize(CorrelationTrait trait) {
         return CorrelationTraitDef.INSTANCE.canonize(trait);
     }
-
+    
+    /**
+     *
+     */
     public Set<CorrelationId> correlationIds() {
         return correlations;
     }
-
+    
+    /**
+     *
+     */
     public static CorrelationTrait correlations(Collection<CorrelationId> correlationIds) {
         return canonize(new CorrelationTrait(correlationIds));
     }

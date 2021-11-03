@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.processors.query.calcite;
 
-/** Stubs. */
+/** Stubs */
 public class Stubs {
+    /**
+     *
+     */
     public static int intFoo(Object... args) {
         return args == null ? 0 : args.length;
     }

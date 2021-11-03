@@ -23,7 +23,7 @@ import java.nio.file.Path;
 import java.util.List;
 import javax.inject.Inject;
 import org.apache.ignite.cli.CliPathsConfigLoader;
-import org.apache.ignite.cli.IgniteCLIException;
+import org.apache.ignite.cli.IgniteCliException;
 import org.apache.ignite.cli.IgnitePaths;
 import org.apache.ignite.cli.Table;
 import org.apache.ignite.cli.builtins.node.NodeManager;
@@ -78,6 +78,7 @@ public class NodeCommandSpec extends CategorySpec {
             NodeManager.RunningNode node = nodeMgr.start(nodeName, ignitePaths.logDir,
                     ignitePaths.cliPidsDir(),
                     configPath,
+                    ignitePaths.serverJavaUtilLoggingPros(),
                     out);
 
             out.println();
@@ -204,7 +205,7 @@ public class NodeCommandSpec extends CategorySpec {
                     out.println("    " + item);
                 }
             } catch (IOException e) {
-                throw new IgniteCLIException("Can't get current classpath", e);
+                throw new IgniteCliException("Can't get current classpath", e);
             }
         }
     }

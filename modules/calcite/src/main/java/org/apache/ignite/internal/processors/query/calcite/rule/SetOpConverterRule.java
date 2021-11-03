@@ -43,19 +43,40 @@ import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribut
  * Set op (MINUS, INTERSECT) converter rule.
  */
 public class SetOpConverterRule {
+    /**
+     *
+     */
     public static final RelOptRule SINGLE_MINUS = new SingleMinusConverterRule();
 
+    /**
+     *
+     */
     public static final RelOptRule SINGLE_INTERSECT = new SingleIntersectConverterRule();
 
+    /**
+     *
+     */
     public static final RelOptRule MAP_REDUCE_MINUS = new MapReduceMinusConverterRule();
 
+    /**
+     *
+     */
     public static final RelOptRule MAP_REDUCE_INTERSECT = new MapReduceIntersectConverterRule();
 
+    /**
+     *
+     */
     private SetOpConverterRule() {
         // No-op.
     }
 
+    /**
+     *
+     */
     private abstract static class SingleSetOpConverterRule<T extends SetOp> extends AbstractIgniteConverterRule<T> {
+        /**
+         *
+         */
         SingleSetOpConverterRule(Class<T> cls, String desc) {
             super(cls, desc);
         }
@@ -75,7 +96,13 @@ public class SetOpConverterRule {
         }
     }
 
+    /**
+     *
+     */
     private static class SingleMinusConverterRule extends SingleSetOpConverterRule<LogicalMinus> {
+        /**
+         *
+         */
         SingleMinusConverterRule() {
             super(LogicalMinus.class, "SingleMinusConverterRule");
         }
@@ -88,7 +115,13 @@ public class SetOpConverterRule {
         }
     }
 
+    /**
+     *
+     */
     private static class SingleIntersectConverterRule extends SingleSetOpConverterRule<LogicalIntersect> {
+        /**
+         *
+         */
         SingleIntersectConverterRule() {
             super(LogicalIntersect.class, "SingleIntersectConverterRule");
         }
@@ -101,7 +134,13 @@ public class SetOpConverterRule {
         }
     }
 
+    /**
+     *
+     */
     private abstract static class MapReduceSetOpConverterRule<T extends SetOp> extends AbstractIgniteConverterRule<T> {
+        /**
+         *
+         */
         MapReduceSetOpConverterRule(Class<T> cls, String desc) {
             super(cls, desc);
         }
@@ -134,7 +173,13 @@ public class SetOpConverterRule {
         }
     }
 
+    /**
+     *
+     */
     private static class MapReduceMinusConverterRule extends MapReduceSetOpConverterRule<LogicalMinus> {
+        /**
+         *
+         */
         MapReduceMinusConverterRule() {
             super(LogicalMinus.class, "MapReduceMinusConverterRule");
         }
@@ -154,7 +199,13 @@ public class SetOpConverterRule {
         }
     }
 
+    /**
+     *
+     */
     private static class MapReduceIntersectConverterRule extends MapReduceSetOpConverterRule<LogicalIntersect> {
+        /**
+         *
+         */
         MapReduceIntersectConverterRule() {
             super(LogicalIntersect.class, "MapReduceIntersectConverterRule");
         }

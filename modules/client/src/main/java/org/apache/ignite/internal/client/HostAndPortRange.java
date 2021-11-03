@@ -26,9 +26,7 @@ import org.apache.ignite.lang.IgniteException;
  * Represents address along with port range.
  */
 public class HostAndPortRange implements Serializable {
-    /**
-     *
-     */
+    /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
     /** Host. */

@@ -29,20 +29,20 @@ public interface SerializationOrderMessage extends NetworkMessage {
     /**
      *
      */
-    String b();
+    String strB();
 
     /**
      *
      */
-    String d();
+    String strD();
 
     /**
      *
      */
-    int c();
+    int intC();
 
     /**
      *
      */
-    int a();
+    int intA();
 }

@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.processors.query.calcite;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
+import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.processors.query.calcite.exec.ArrayRowHandler;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionService;
@@ -26,35 +30,43 @@ import org.apache.ignite.internal.processors.query.calcite.exec.QueryTaskExecuto
 import org.apache.ignite.internal.processors.query.calcite.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.processors.query.calcite.message.MessageService;
 import org.apache.ignite.internal.processors.query.calcite.message.MessageServiceImpl;
-import org.apache.ignite.internal.processors.query.calcite.prepare.DummyPlanCache;
+import org.apache.ignite.internal.processors.query.calcite.prepare.QueryPlanCache;
+import org.apache.ignite.internal.processors.query.calcite.prepare.QueryPlanCacheImpl;
 import org.apache.ignite.internal.processors.query.calcite.schema.SchemaHolderImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * SQL QueryProcessor implementation.
- */
 public class SqlQueryProcessor implements QueryProcessor {
-    /** Default Ignite thread keep alive time. */
-    public static final long DFLT_THREAD_KEEP_ALIVE_TIME = 60_000L;
-
+    /** Size of the cache for query plans. */
+    public static final int PLAN_CACHE_SIZE = 1024;
+    
     private volatile ExecutionService executionSrvc;
-
+    
     private volatile MessageService msgSrvc;
-
+    
     private volatile QueryTaskExecutor taskExecutor;
-
+    
     private final ClusterService clusterSrvc;
-
+    
     private final TableManager tableManager;
-
+    
+    /** Busy lock for stop synchronisation. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+    
+    /** Keeps queries plans to avoid expensive planning of the same queries. */
+    private final QueryPlanCache planCache = new QueryPlanCacheImpl(PLAN_CACHE_SIZE);
+    
+    /** Event listeners to close. */
+    private final List<Pair<TableEvent, EventListener>> evtLsnrs = new ArrayList<>();
+    
     public SqlQueryProcessor(
             ClusterService clusterSrvc,
             TableManager tableManager
@@ -62,80 +74,105 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public void start() {
-        String nodeName = clusterSrvc.localConfiguration().getName();
-
-        taskExecutor = new QueryTaskExecutorImpl(
-                new StripedThreadPoolExecutor(
-                        4,
-                        NamedThreadFactory.threadPrefix(nodeName, "calciteQry"),
-                        null,
-                        true,
-                        DFLT_THREAD_KEEP_ALIVE_TIME
-                )
-        );
-
+        taskExecutor = new QueryTaskExecutorImpl(clusterSrvc.localConfiguration().getName());
+        
         msgSrvc = new MessageServiceImpl(
                 clusterSrvc.topologyService(),
                 clusterSrvc.messagingService(),
                 taskExecutor
         );
-
-        SchemaHolderImpl schemaHolder = new SchemaHolderImpl();
-
+        
+        SchemaHolderImpl schemaHolder = new SchemaHolderImpl(planCache::clear);
+        
         executionSrvc = new ExecutionServiceImpl<>(
                 clusterSrvc.topologyService(),
                 msgSrvc,
-                new DummyPlanCache(),
+                planCache,
                 schemaHolder,
                 taskExecutor,
                 ArrayRowHandler.INSTANCE
         );
-
-        tableManager.listen(TableEvent.CREATE, new TableCreatedListener(schemaHolder));
-        tableManager.listen(TableEvent.ALTER, new TableUpdatedListener(schemaHolder));
-        tableManager.listen(TableEvent.DROP, new TableDroppedListener(schemaHolder));
+        
+        registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaHolder));
+        registerTableListener(TableEvent.ALTER, new TableUpdatedListener(schemaHolder));
+        registerTableListener(TableEvent.DROP, new TableDroppedListener(schemaHolder));
+        
+        taskExecutor.start();
+        msgSrvc.start();
+        executionSrvc.start();
+        planCache.start();
     }
-
-
+    
+    /**
+     *
+     */
+    private void registerTableListener(TableEvent evt, AbstractTableEventListener lsnr) {
+        evtLsnrs.add(Pair.of(evt, lsnr));
+        
+        tableManager.listen(evt, lsnr);
+    }
+    
     /** {@inheritDoc} */
+    @SuppressWarnings("unchecked")
     @Override
-    public void stop() throws NodeStoppingException {
-        // TODO: IGNITE-15161 Implement component's stop.
+    public void stop() throws Exception {
+        busyLock.block();
+        
+        List<AutoCloseable> toClose = new ArrayList<>(Arrays.asList(
+                executionSrvc::stop,
+                msgSrvc::stop,
+                taskExecutor::stop,
+                planCache::stop
+        ));
+        
+        toClose.addAll(evtLsnrs.stream()
+                .map((p) -> (AutoCloseable) () -> tableManager.removeListener(p.left, p.right))
+                .collect(Collectors.toList()));
+        
+        IgniteUtils.closeAll(toClose);
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public List<SqlCursor<List<?>>> query(String schemaName, String qry, Object... params) {
-        return executionSrvc.executeQuery(schemaName, qry, params);
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        
+        try {
+            return executionSrvc.executeQuery(schemaName, qry, params);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
-
+    
     private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
         protected final SchemaHolderImpl schemaHolder;
-
+        
         private AbstractTableEventListener(
                 SchemaHolderImpl schemaHolder
         ) {
             this.schemaHolder = schemaHolder;
         }
-
+        
         /** {@inheritDoc} */
         @Override
         public void remove(@NotNull Throwable exception) {
-            throw new IllegalStateException();
+            // No-op.
         }
     }
-
+    
     private static class TableCreatedListener extends AbstractTableEventListener {
         private TableCreatedListener(
                 SchemaHolderImpl schemaHolder
         ) {
             super(schemaHolder);
         }
-
+        
         /** {@inheritDoc} */
         @Override
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
@@ -143,18 +180,18 @@ public class SqlQueryProcessor implements QueryProcessor {
                     "PUBLIC",
                     parameters.table()
             );
-
+            
             return false;
         }
     }
-
+    
     private static class TableUpdatedListener extends AbstractTableEventListener {
         private TableUpdatedListener(
                 SchemaHolderImpl schemaHolder
         ) {
             super(schemaHolder);
         }
-
+        
         /** {@inheritDoc} */
         @Override
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
@@ -162,18 +199,18 @@ public class SqlQueryProcessor implements QueryProcessor {
                     "PUBLIC",
                     parameters.table()
             );
-
+            
             return false;
         }
     }
-
+    
     private static class TableDroppedListener extends AbstractTableEventListener {
         private TableDroppedListener(
                 SchemaHolderImpl schemaHolder
         ) {
             super(schemaHolder);
         }
-
+        
         /** {@inheritDoc} */
         @Override
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
@@ -181,7 +218,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     "PUBLIC",
                     parameters.tableName()
             );
-
+            
             return false;
         }
     }

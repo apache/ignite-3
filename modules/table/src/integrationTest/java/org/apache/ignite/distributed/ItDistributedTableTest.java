@@ -38,7 +38,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
@@ -47,7 +47,8 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.storage.basic.ConcurrentHashMapStorage;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
@@ -63,10 +64,10 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
-import org.apache.ignite.network.LocalPortRangeNodeFinder;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
+import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.Peer;
@@ -84,6 +85,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
 
 /**
  * Distributed internal table tests.
@@ -140,10 +142,12 @@ public class ItDistributedTableTest {
      */
     @BeforeEach
     public void beforeTest(TestInfo testInfo) {
-        var nodeFinder = new LocalPortRangeNodeFinder(NODE_PORT_BASE, NODE_PORT_BASE + NODES);
+        List<NetworkAddress> addresses = ClusterServiceTestUtils.findLocalAddresses(NODE_PORT_BASE, NODE_PORT_BASE + NODES);
 
-        nodeFinder.findNodes().stream()
-                .map(addr -> startClient(testInfo, addr.port(), nodeFinder))
+        var finder = new StaticNodeFinder(addresses);
+
+        addresses.stream()
+                .map(addr -> startClient(testInfo, addr.port(), finder))
                 .forEach(cluster::add);
 
         for (ClusterService node : cluster) {
@@ -152,7 +156,7 @@ public class ItDistributedTableTest {
 
         LOG.info("Cluster started.");
 
-        client = startClient(testInfo, NODE_PORT_BASE + NODES, nodeFinder);
+        client = startClient(testInfo, NODE_PORT_BASE + NODES, finder);
 
         assertTrue(waitForTopology(client, NODES + 1, 1000));
 
@@ -186,7 +190,7 @@ public class ItDistributedTableTest {
     public void partitionListener() throws Exception {
         String grpId = "part";
 
-        RaftServer partSrv = new JRaftServerImpl(cluster.get(0), dataPath);
+        RaftServer partSrv = new JraftServerImpl(cluster.get(0), dataPath);
 
         partSrv.start();
 
@@ -194,7 +198,7 @@ public class ItDistributedTableTest {
 
         partSrv.startRaftGroup(
                 grpId,
-                new PartitionListener(new ConcurrentHashMapStorage()),
+                new PartitionListener(new ConcurrentHashMapPartitionStorage()),
                 conf
         );
 
@@ -216,6 +220,10 @@ public class ItDistributedTableTest {
         assertNotNull(getFut.get().getValue());
 
         assertEquals(testRow.longValue(1), new Row(SCHEMA, getFut.get().getValue()).longValue(1));
+
+        partSrv.stopRaftGroup(grpId);
+
+        partRaftGrp.shutdown();
 
         partSrv.stop();
     }
@@ -259,7 +267,7 @@ public class ItDistributedTableTest {
         HashMap<ClusterNode, RaftServer> raftServers = new HashMap<>(NODES);
 
         for (int i = 0; i < NODES; i++) {
-            var raftSrv = new JRaftServerImpl(cluster.get(i), dataPath);
+            var raftSrv = new JraftServerImpl(cluster.get(i), dataPath);
 
             raftSrv.start();
 
@@ -279,17 +287,19 @@ public class ItDistributedTableTest {
         Map<Integer, RaftGroupService> partMap = new HashMap<>();
 
         for (List<ClusterNode> partNodes : assignment) {
-            RaftServer rs = raftServers.get(partNodes.get(0));
-
             String grpId = "part-" + p;
 
             List<Peer> conf = List.of(new Peer(partNodes.get(0).address()));
 
-            rs.startRaftGroup(
-                    grpId,
-                    new PartitionListener(new ConcurrentHashMapStorage()),
-                    conf
-            );
+            for (ClusterNode node : partNodes) {
+                RaftServer rs = raftServers.get(node);
+
+                rs.startRaftGroup(
+                        grpId,
+                        new PartitionListener(new ConcurrentHashMapPartitionStorage()),
+                        conf
+                );
+            }
 
             RaftGroupService service = RaftGroupServiceImpl.start(grpId,
                     client,
@@ -311,13 +321,14 @@ public class ItDistributedTableTest {
                 new IgniteUuid(UUID.randomUUID(), 0),
                 partMap,
                 PARTS,
-                NetworkAddress::toString
+                NetworkAddress::toString,
+                Mockito.mock(TableStorage.class)
         ), new SchemaRegistry() {
             @Override
             public SchemaDescriptor schema() {
                 return SCHEMA;
             }
-
+    
             @Override
             public SchemaDescriptor schema(int ver) {
                 return SCHEMA;
@@ -337,6 +348,26 @@ public class ItDistributedTableTest {
         partitionedTableRecordView(tbl.recordView(), PARTS * 10);
 
         partitionedTableKeyValueView(tbl.keyValueView(), PARTS * 10);
+
+        p = 0;
+
+        for (List<ClusterNode> partNodes : assignment) {
+            String grpId = "part-" + p;
+
+            for (ClusterNode node : partNodes) {
+                raftServers.get(node).stopRaftGroup(grpId);
+            }
+
+            p++;
+        }
+
+        for (RaftGroupService srvc : partMap.values()) {
+            srvc.shutdown();
+        }
+
+        for (RaftServer rs : raftServers.values()) {
+            rs.stop();
+        }
     }
 
     /**

@@ -22,21 +22,41 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
 import org.apache.ignite.internal.schema.NativeType;
 
 /**
- * ColumnDescriptor.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public interface ColumnDescriptor {
+    /**
+     *
+     */
     boolean key();
 
+    /**
+     *
+     */
     boolean hasDefaultValue();
 
+    /**
+     *
+     */
     String name();
 
+    /**
+     *
+     */
     int fieldIndex();
 
+    /**
+     *
+     */
     RelDataType logicalType(IgniteTypeFactory f);
 
+    /**
+     *
+     */
     NativeType storageType();
 
+    /**
+     *
+     */
     Object defaultValue();
 }

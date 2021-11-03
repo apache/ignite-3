@@ -39,8 +39,7 @@ import org.apache.ignite.internal.processors.query.calcite.rel.set.IgniteSetOp;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * IgniteMdRowCount.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 @SuppressWarnings("unused") // actually all methods are used by runtime generated classes
 public class IgniteMdRowCount extends RelMdRowCount {
@@ -77,8 +76,7 @@ public class IgniteMdRowCount extends RelMdRowCount {
     }
 
     /**
-     * JoinRowCount.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     @Nullable
     public static Double joinRowCount(RelMetadataQuery mq, Join rel) {

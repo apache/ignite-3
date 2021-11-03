@@ -35,12 +35,12 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaException;
@@ -58,7 +58,7 @@ public class SchemaDescriptorConverter {
      * @param colType ColumnType.
      * @return NativeType.
      */
-    private static NativeType convert(ColumnType colType) {
+    public static NativeType convert(ColumnType colType) {
         assert colType != null;
 
         ColumnType.ColumnTypeSpec type = colType.typeSpec();
@@ -146,15 +146,15 @@ public class SchemaDescriptorConverter {
     }
 
     /**
-     * Convert column from public configuration to internal.
+     * Creates a column for given column definition.
      *
-     * @param colCfg Column to confvert.
+     * @param colCfg Column definition.
      * @return Internal Column.
      */
-    private static Column convert(ColumnDefinition colCfg) {
+    private static Column convert(int columnOrder, ColumnDefinition colCfg) {
         NativeType type = convert(colCfg.type());
 
-        return new Column(colCfg.name(), type, colCfg.nullable(),
+        return new Column(columnOrder, colCfg.name(), type, colCfg.nullable(),
                 new ConstantSupplier(convertDefault(type, (String) colCfg.defaultValue())));
     }
 
@@ -166,26 +166,28 @@ public class SchemaDescriptorConverter {
      * @return SchemaDescriptor.
      */
     public static SchemaDescriptor convert(int schemaVer, TableDefinition tblCfg) {
-        List<ColumnDefinition> keyColsCfg = new ArrayList<>(tblCfg.keyColumns());
+        Set<String> keyColumnsNames = tblCfg.keyColumns();
 
-        Column[] keyCols = new Column[keyColsCfg.size()];
+        List<Column> keyCols = new ArrayList<>(keyColumnsNames.size());
+        List<Column> valCols = new ArrayList<>(tblCfg.columns().size() - keyColumnsNames.size());
 
-        for (int i = 0; i < keyCols.length; i++) {
-            keyCols[i] = convert(keyColsCfg.get(i));
+        int idx = 0;
+
+        for (ColumnDefinition col : tblCfg.columns()) {
+            if (keyColumnsNames.contains(col.name())) {
+                keyCols.add(convert(idx, col));
+            } else {
+                valCols.add(convert(idx, col));
+            }
+
+            idx++;
         }
 
-        String[] affCols = tblCfg.affinityColumns().stream().map(ColumnDefinition::name)
-                .toArray(String[]::new);
-
-        List<ColumnDefinition> valColsCfg = new ArrayList<>(tblCfg.valueColumns());
-
-        Column[] valCols = new Column[valColsCfg.size()];
-
-        for (int i = 0; i < valCols.length; i++) {
-            valCols[i] = convert(valColsCfg.get(i));
-        }
-
-        return new SchemaDescriptor(schemaVer, keyCols, affCols, valCols);
+        return new SchemaDescriptor(
+                schemaVer,
+                keyCols.toArray(Column[]::new),
+                tblCfg.affinityColumns().toArray(String[]::new),
+                valCols.toArray(Column[]::new));
     }
 
     /**
@@ -196,11 +198,9 @@ public class SchemaDescriptorConverter {
      * @return Parsed object.
      */
     private static Serializable convertDefault(NativeType type, String dflt) {
-        if (dflt == null || dflt.isEmpty() && type.spec() != NativeTypeSpec.STRING) {
+        if (dflt == null || dflt.isEmpty()) {
             return null;
         }
-
-        assert dflt instanceof String;
 
         switch (type.spec()) {
             case INT8:

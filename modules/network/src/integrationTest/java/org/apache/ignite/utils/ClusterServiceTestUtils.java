@@ -17,20 +17,25 @@
 
 package org.apache.ignite.utils;
 
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.configuration.schemas.network.NodeFinderType;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
+import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.TestInfo;
@@ -46,7 +51,7 @@ public class ClusterServiceTestUtils {
      *
      * @param testInfo                 Test info.
      * @param port                     Local port.
-     * @param nodeFinder               Node finder for discovering the initial cluster members.
+     * @param nodeFinder               Node finder.
      * @param msgSerializationRegistry Message serialization registry.
      * @param clusterSvcFactory        Cluster service factory.
      */
@@ -58,56 +63,82 @@ public class ClusterServiceTestUtils {
             ClusterServiceFactory clusterSvcFactory
     ) {
         var ctx = new ClusterLocalConfiguration(testNodeName(testInfo, port), msgSerializationRegistry);
-
+        
         ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
                 Collections.singleton(NetworkConfiguration.KEY),
                 Map.of(),
                 new TestConfigurationStorage(ConfigurationType.LOCAL),
+                List.of(),
                 List.of()
         );
-
+        
         var clusterSvc = clusterSvcFactory.createClusterService(
                 ctx,
-                nodeConfigurationMgr,
-                () -> nodeFinder
+                nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY)
         );
-
+        
+        assert nodeFinder instanceof StaticNodeFinder : "Only StaticNodeFinder is supported at the moment";
+        
         return new ClusterService() {
             @Override
             public TopologyService topologyService() {
                 return clusterSvc.topologyService();
             }
-
+            
             @Override
             public MessagingService messagingService() {
                 return clusterSvc.messagingService();
             }
-
+            
             @Override
             public ClusterLocalConfiguration localConfiguration() {
                 return clusterSvc.localConfiguration();
             }
-
+            
             @Override
             public boolean isStopped() {
                 return clusterSvc.isStopped();
             }
-
+            
             @Override
             public void start() {
                 nodeConfigurationMgr.start();
-
-                nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY)
-                        .change(netCfg -> netCfg.changePort(port)).join();
-
+                
+                NetworkConfiguration configuration = nodeConfigurationMgr.configurationRegistry()
+                        .getConfiguration(NetworkConfiguration.KEY);
+    
+                configuration.change(netCfg ->
+                        netCfg
+                                .changePort(port)
+                                .changeNodeFinder(c -> c
+                                        .changeType(NodeFinderType.STATIC.toString())
+                                        .changeNetClusterNodes(
+                                                nodeFinder.findNodes().stream().map(NetworkAddress::toString).toArray(String[]::new)
+                                        )
+                                )
+                ).join();
+                
                 clusterSvc.start();
             }
-
+            
             @Override
             public void stop() {
                 clusterSvc.stop();
                 nodeConfigurationMgr.stop();
             }
         };
+    }
+    
+    /**
+     * Creates a list of {@link NetworkAddress}es within a given port range.
+     *
+     * @param startPort Start port (inclusive).
+     * @param endPort   End port (exclusive).
+     * @return Configuration closure.
+     */
+    public static List<NetworkAddress> findLocalAddresses(int startPort, int endPort) {
+        return IntStream.range(startPort, endPort)
+                .mapToObj(port -> new NetworkAddress("localhost", port))
+                .collect(toUnmodifiableList());
     }
 }

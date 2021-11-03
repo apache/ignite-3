@@ -126,11 +126,11 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     /** {@inheritDoc} */
     @Override
     public int size(SchemaDescriptor desc) {
-        return SHORT //Assembler version
-                + INT //Descriptor version
+        return SHORT                      //Assembler version
+                + INT                          //Descriptor version
                 + getColumnsSize(desc.keyColumns())
                 + getColumnsSize(desc.valueColumns())
-                + ARRAY_HEADER_LENGTH //Affinity columns length
+                + ARRAY_HEADER_LENGTH          //Affinity columns length
                 + getStringArraySize(desc.affinityColumns())
                 + getColumnMappingSize(desc.columnMapping(), desc.length());
     }
@@ -196,12 +196,12 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @return Column size in bytes.
      */
     private int getColumnSize(Column col) {
-        return INT //Schema index
-                + BYTE //nullable flag
+        return INT                       //Schema index
+                + INT                       //Column order
+                + BYTE                          //nullable flag
                 + getStringSize(col.name())
                 + getNativeTypeSize(col.type())
-                + BYTE
-                + getDefaultObjectSize(col.type(), col.defaultValue());
+                + BYTE + getDefaultObjectSize(col.type(), col.defaultValue());
     }
 
     /**
@@ -252,12 +252,10 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
             case NUMBER:
                 return INT + ((BigInteger) val).toByteArray().length;
-
+    
             default:
-                break;
+                throw new InvalidTypeException("Unexpected type " + type);
         }
-
-        return 0;
     }
 
     /**
@@ -357,6 +355,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      */
     private void appendColumn(Column col, ByteBuffer buf) {
         buf.putInt(col.schemaIndex());
+        buf.putInt(col.columnOrder());
         buf.put((byte) (col.nullable() ? 1 : 0));
 
         appendString(col.name(), buf);
@@ -451,8 +450,9 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
                 break;
             }
+    
             default:
-                break;
+                throw new InvalidTypeException("Unexpected type " + type);
         }
     }
 
@@ -589,6 +589,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      */
     private Column readColumn(ByteBuffer buf) {
         int schemaIdx = buf.getInt();
+        int columnOrder = buf.getInt();
         boolean nullable = buf.get() == 1;
         String name = readString(buf);
 
@@ -596,7 +597,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
         Object object = readDefaultValue(buf, nativeType);
 
-        return new Column(name, nativeType, nullable, () -> object).copy(schemaIdx);
+        return new Column(columnOrder, name, nativeType, nullable, () -> object).copy(schemaIdx);
     }
 
     /**
@@ -650,15 +651,13 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
             case BITMASK:
                 return BitSet.valueOf(readByteArray(buf));
-
+    
             case NUMBER:
                 return new BigInteger(readByteArray(buf));
-
+    
             default:
-                break;
+                throw new InvalidTypeException("Unexpected type " + type);
         }
-
-        return null;
     }
 
     /**
@@ -734,15 +733,13 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
             case UUID:
                 return NativeTypes.UUID;
-
+    
             case DATE:
                 return NativeTypes.DATE;
-
+    
             default:
-                break;
+                throw new InvalidTypeException("Unexpected type " + spec);
         }
-
-        throw new InvalidTypeException("Unexpected type " + spec);
     }
 
     /**

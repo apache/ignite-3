@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -30,13 +29,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TupleMarshallerImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.schema.definition.SchemaManagementMode;
@@ -54,14 +53,14 @@ import org.mockito.Mockito;
 public class NumericTypesSerializerTest {
     /** Random. */
     private Random rnd = new Random();
-
+    
     /** Schema descriptor. */
     private SchemaDescriptor schema;
-
+    
     /** Mocked table. */
     private InternalTable tbl = Mockito.when(Mockito.mock(InternalTable.class).schemaMode()).thenReturn(SchemaManagementMode.STRICT)
             .getMock();
-
+    
     /**
      * @return List of BigInteger pairs for test.
      */
@@ -76,7 +75,7 @@ public class NumericTypesSerializerTest {
                 new Pair<>(new BigInteger("-999999999"), BigInteger.valueOf(-999999999L))
         );
     }
-
+    
     /**
      * @return List of string decimal representations for test.
      */
@@ -86,7 +85,7 @@ public class NumericTypesSerializerTest {
                 "-1.23E-12", "1234.5E-4", "0E+7", "-0", "123456789.0123", "123456789.1", "123456789.112312315413",
                 "123456789.0123", "123.123456789", "123456789.3210"};
     }
-
+    
     /**
      * @return List of pairs to compare byte representation.
      */
@@ -103,20 +102,20 @@ public class NumericTypesSerializerTest {
                 new Pair<>(new BigDecimal("123.3211"), new BigDecimal("123.321"))
         );
     }
-
+    
     @BeforeEach
     public void setup() {
         long seed = System.currentTimeMillis();
-
+        
         rnd = new Random(seed);
     }
-
+    
     /**
      *
      */
     @ParameterizedTest
     @MethodSource("numbers")
-    public void testNumber(Pair<BigInteger, BigInteger> pair) {
+    public void testNumber(Pair<BigInteger, BigInteger> pair) throws TupleMarshallerException {
         schema = new SchemaDescriptor(
                 42,
                 new Column[]{new Column("key", NativeTypes.INT64, false)},
@@ -125,16 +124,16 @@ public class NumericTypesSerializerTest {
                         new Column("number2", NativeTypes.numberOf(10), false)
                 }
         );
-
+        
         TupleMarshaller marshaller = new TupleMarshallerImpl(null, tbl, new DummySchemaManagerImpl(schema));
-
+        
         final Tuple tup = createTuple().set("key", rnd.nextLong()).set("number1", pair.getFirst()).set("number2", pair.getSecond());
-
+        
         final Row row = marshaller.marshal(tup);
-
+        
         assertEquals(row.numberValue(1), row.numberValue(2));
     }
-
+    
     /**
      *
      */
@@ -145,21 +144,21 @@ public class NumericTypesSerializerTest {
                 new Column[]{new Column("key", NativeTypes.INT64, false)},
                 new Column[]{new Column("number1", NativeTypes.numberOf(5), false)}
         );
-
+        
         TupleMarshaller marshaller = new TupleMarshallerImpl(null, tbl, new DummySchemaManagerImpl(schema));
-
+        
         final Tuple badTup = createTuple().set("key", rnd.nextLong());
-
-        assertThrows(InvalidTypeException.class, () -> marshaller.marshal(badTup.set("number1", BigInteger.valueOf(999991L))),
+        
+        assertThrows(TupleMarshallerException.class, () -> marshaller.marshal(badTup.set("number1", BigInteger.valueOf(999991L))),
                 "Column's type mismatch");
-        assertThrows(InvalidTypeException.class, () -> marshaller.marshal(badTup.set("number1", new BigInteger("111111"))),
+        assertThrows(TupleMarshallerException.class, () -> marshaller.marshal(badTup.set("number1", new BigInteger("111111"))),
                 "Column's type mismatch");
-        assertThrows(InvalidTypeException.class, () -> marshaller.marshal(badTup.set("number1", BigInteger.valueOf(-999991L))),
+        assertThrows(TupleMarshallerException.class, () -> marshaller.marshal(badTup.set("number1", BigInteger.valueOf(-999991L))),
                 "Column's type mismatch");
-        assertThrows(InvalidTypeException.class, () -> marshaller.marshal(badTup.set("number1", new BigInteger("-111111"))),
+        assertThrows(TupleMarshallerException.class, () -> marshaller.marshal(badTup.set("number1", new BigInteger("-111111"))),
                 "Column's type mismatch");
     }
-
+    
     /**
      *
      */
@@ -172,34 +171,34 @@ public class NumericTypesSerializerTest {
                         new Column("decimalCol", NativeTypes.decimalOf(9, 3), false),
                 }
         );
-
+        
         final Tuple badTup = createTuple().set("key", rnd.nextLong());
-
+        
         TupleMarshaller marshaller = new TupleMarshallerImpl(null, tbl, new DummySchemaManagerImpl(schema));
-
-        assertThrows(IllegalArgumentException.class,
+        
+        assertThrows(TupleMarshallerException.class,
                 () -> marshaller.marshal(badTup.set("decimalCol", new BigDecimal("123456789.0123"))),
                 "Failed to set decimal value for column"
         );
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(TupleMarshallerException.class,
                 () -> marshaller.marshal(badTup.set("decimalCol", new BigDecimal("-1234567890123"))),
                 "Failed to set decimal value for column"
         );
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(TupleMarshallerException.class,
                 () -> marshaller.marshal(badTup.set("decimalCol", new BigDecimal("1234567"))),
                 "Failed to set decimal value for column"
         );
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(TupleMarshallerException.class,
                 () -> marshaller.marshal(badTup.set("decimalCol", new BigDecimal("12345678.9"))),
                 "Failed to set decimal value for column"
         );
     }
-
+    
     /**
      *
      */
     @Test
-    public void testStringDecimalSpecialCase() {
+    public void testStringDecimalSpecialCase() throws TupleMarshallerException {
         schema = new SchemaDescriptor(
                 42,
                 new Column[]{new Column("key", NativeTypes.INT64, false)},
@@ -207,23 +206,23 @@ public class NumericTypesSerializerTest {
                         new Column("decimalCol", NativeTypes.decimalOf(1, 0), false),
                 }
         );
-
+        
         //representation of "0000" value.
         final Tuple tup = createTuple().set("key", rnd.nextLong()).set("decimalCol", new BigDecimal("0E+3"));
-
+        
         TupleMarshaller marshaller = new TupleMarshallerImpl(null, tbl, new DummySchemaManagerImpl(schema));
-
+        
         final Row row = marshaller.marshal(tup);
-
+        
         assertEquals(row.decimalValue(1), BigDecimal.ZERO);
     }
-
+    
     /**
      *
      */
     @ParameterizedTest
     @MethodSource("stringDecimalRepresentation")
-    public void testUpscaleForDecimal(String decimalStr) {
+    public void testUpscaleForDecimal(String decimalStr) throws TupleMarshallerException {
         schema = new SchemaDescriptor(
                 42,
                 new Column[]{new Column("key", NativeTypes.INT64, false)},
@@ -231,23 +230,23 @@ public class NumericTypesSerializerTest {
                         new Column("decimalCol1", NativeTypes.decimalOf(9, 0), false)
                 }
         );
-
+        
         final Tuple tup = createTuple()
                 .set("key", rnd.nextLong())
                 .set("decimalCol1", new BigDecimal(decimalStr));
-
+        
         TupleMarshaller marshaller = new TupleMarshallerImpl(null, tbl, new DummySchemaManagerImpl(schema));
-
+        
         final Row row = marshaller.marshal(tup);
-
+        
         assertEquals(row.decimalValue(1), new BigDecimal(decimalStr).setScale(0, RoundingMode.HALF_UP));
     }
-
+    
     /**
      *
      */
     @Test
-    public void testDecimalMaxScale() {
+    public void testDecimalMaxScale() throws TupleMarshallerException {
         schema = new SchemaDescriptor(
                 42,
                 new Column[]{new Column("key", NativeTypes.INT64, false)},
@@ -255,24 +254,24 @@ public class NumericTypesSerializerTest {
                         new Column("decimalCol", NativeTypes.decimalOf(Integer.MAX_VALUE, Integer.MAX_VALUE), false),
                 }
         );
-
+        
         final Tuple tup = createTuple()
                 .set("key", rnd.nextLong())
                 .set("decimalCol", BigDecimal.valueOf(123, Integer.MAX_VALUE));
-
+        
         TupleMarshaller marshaller = new TupleMarshallerImpl(null, tbl, new DummySchemaManagerImpl(schema));
-
+        
         final Row row = marshaller.marshal(tup);
-
+        
         assertEquals(row.decimalValue(1), BigDecimal.valueOf(123, Integer.MAX_VALUE));
     }
-
+    
     /**
      *
      */
     @ParameterizedTest
     @MethodSource("sameDecimals")
-    public void testSameBinaryRepresentation(Pair<BigInteger, BigInteger> pair) throws IOException {
+    public void testSameBinaryRepresentation(Pair<BigInteger, BigInteger> pair) throws Exception {
         schema = new SchemaDescriptor(
                 42,
                 new Column[]{new Column("key", NativeTypes.INT64, false)},
@@ -280,32 +279,32 @@ public class NumericTypesSerializerTest {
                         new Column("decimalCol", NativeTypes.decimalOf(19, 3), false),
                 }
         );
-
+        
         TupleMarshaller marshaller = new TupleMarshallerImpl(null, tbl, new DummySchemaManagerImpl(schema));
-
+        
         long randomKey = rnd.nextLong();
-
+        
         final Tuple firstTup = createTuple().set("key", randomKey).set("decimalCol", pair.getFirst());
         final Tuple secondTup = createTuple().set("key", randomKey).set("decimalCol", pair.getSecond());
-
+        
         final Row firstRow = marshaller.marshal(firstTup);
         final Row secondRow = marshaller.marshal(secondTup);
-
+        
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
-
+        
         firstRow.writeTo(stream);
-
+        
         byte[] firstRowInBytes = stream.toByteArray();
-
+        
         stream.reset();
-
+        
         secondRow.writeTo(stream);
-
+        
         byte[] secondRowInBytes = stream.toByteArray();
-
+        
         assertArrayEquals(firstRowInBytes, secondRowInBytes);
     }
-
+    
     /**
      * @return Tuple.
      */

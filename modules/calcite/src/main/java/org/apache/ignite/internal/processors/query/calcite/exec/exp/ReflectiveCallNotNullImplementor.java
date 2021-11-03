@@ -31,6 +31,9 @@ import org.apache.calcite.rex.RexCall;
  * created.
  */
 public class ReflectiveCallNotNullImplementor implements NotNullImplementor {
+    /**
+     *
+     */
     protected final Method method;
 
     /**
@@ -67,6 +70,9 @@ public class ReflectiveCallNotNullImplementor implements NotNullImplementor {
         return translator.handleMethodCheckedExceptions(callExpr);
     }
 
+    /**
+     *
+     */
     private boolean containsCheckedException(Method method) {
         Class[] exceptions = method.getExceptionTypes();
         if (exceptions == null || exceptions.length == 0) {

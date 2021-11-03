@@ -31,6 +31,7 @@ import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -43,25 +44,27 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
      *
      */
     private static final String PK_IDX = "PK_IDX";
-
+    
     /**
      *
      */
     private static final String DEPID_IDX = "DEPID_IDX";
-
+    
     /**
      *
      */
     private static final String NAME_CITY_IDX = "NAME_CITY_IDX";
-
+    
     /**
      *
      */
     private static final String NAME_DEPID_CITY_IDX = "NAME_DEPID_CITY_IDX";
-
-    /** {@inheritDoc} */
-    @Override
-    protected void initTestData() {
+    
+    /**
+     *
+     */
+    @BeforeAll
+    static void initTestData() {
         TableDefinition schema0 = SchemaBuilders.tableBuilder("PUBLIC", "DEVELOPER")
                 .columns(
                         SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
@@ -88,13 +91,13 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                                 .build()
                 )
                 .build();
-
+    
         Table dev0 = CLUSTER_NODES.get(0).tables().createTable(schema0.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schema0, tblCh)
                         .changeReplicas(2)
                         .changePartitions(10)
         );
-
+    
         insertData(dev0, new String[]{"ID", "NAME", "DEPID", "CITY", "AGE"}, new Object[][]{
                 {1, "Mozart", 3, "Vienna", 33},
                 {2, "Beethoven", 2, "Vienna", 44},
@@ -120,7 +123,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 {22, "Prokofiev", 21, "", -1},
                 {23, "Musorgskii", 22, "", -1}
         });
-
+    
         TableDefinition schema1 = SchemaBuilders.tableBuilder("PUBLIC", "UNWRAP_PK")
                 .columns(
                         SchemaBuilders.column("F1", ColumnType.string()).asNullable().build(),
@@ -138,13 +141,13 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                                 .build()
                 )
                 .build();
-
+    
         Table dev1 = CLUSTER_NODES.get(0).tables().createTable(schema1.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schema1, tblCh)
                         .changeReplicas(2)
                         .changePartitions(10)
         );
-
+    
         insertData(dev1, new String[]{"F1", "F2", "F3", "F4"}, new Object[][]{
                 {"Petr", 1L, 2L, 3L},
                 {"Ivan", 2L, 2L, 4L},
@@ -155,7 +158,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 {"Ivan5", 25L, 2L, 4L},
         });
     }
-
+    
     /**
      *
      */
@@ -166,7 +169,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns("Ivan")
                 .check();
     }
-
+    
     /**
      *
      */
@@ -200,9 +203,9 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns("Zimmer", "Zimmer")
                 .check();
     }
-
+    
     // ===== No filter =====
-
+    
     /**
      *
      */
@@ -235,9 +238,9 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(23, "Musorgskii", 22, "", -1)
                 .check();
     }
-
+    
     // ===== id filter =====
-
+    
     /**
      *
      */
@@ -248,7 +251,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -267,7 +270,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(11, "Glinka", 10, "Smolenskaya gb", 53)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -286,7 +289,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(11, "Glinka", 10, "Smolenskaya gb", 53)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -298,7 +301,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -310,9 +313,9 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
     }
-
+    
     // ===== indexed field filter =====
-
+    
     /**
      *
      */
@@ -324,7 +327,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(4, "Strauss", 2, "Munich", 66)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -336,7 +339,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(23, "Musorgskii", 22, "", -1)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -348,7 +351,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(23, "Musorgskii", 22, "", -1)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -362,7 +365,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(4, "Strauss", 2, "Munich", 66)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -376,9 +379,9 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(4, "Strauss", 2, "Munich", 66)
                 .check();
     }
-
+    
     // ===== non-indexed field filter =====
-
+    
     /**
      *
      */
@@ -390,7 +393,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -409,7 +412,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(11, "Glinka", 10, "Smolenskaya gb", 53)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -429,7 +432,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(11, "Glinka", 10, "Smolenskaya gb", 53)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -458,7 +461,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(23, "Musorgskii", 22, "", -1)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -487,9 +490,9 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(23, "Musorgskii", 22, "", -1)
                 .check();
     }
-
+    
     // ===== various complex conditions =====
-
+    
     /**
      *
      */
@@ -500,7 +503,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -512,7 +515,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -523,7 +526,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -533,7 +536,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_DEPID_CITY_IDX))
                 .check();
     }
-
+    
     /**
      *
      */
@@ -544,7 +547,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -555,7 +558,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -566,7 +569,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -577,7 +580,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -589,7 +592,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(10, "Shubert", 9, "Vienna", 31)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -601,7 +604,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(10, "Shubert", 9, "Vienna", 31)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -612,7 +615,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -623,7 +626,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -634,7 +637,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -645,7 +648,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -656,7 +659,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -667,7 +670,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -677,7 +680,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .matches(containsTableScan("PUBLIC", "DEVELOPER"))
                 .check();
     }
-
+    
     /**
      *
      */
@@ -694,7 +697,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(3, "Bach", 1, "Leipzig", 55)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -707,7 +710,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -720,7 +723,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -733,7 +736,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(3, "Bach", 1, "Leipzig", 55)
                 .check();
     }
-
+    
     /**
      *
      */
@@ -744,9 +747,9 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
                 .check();
     }
-
+    
     // ===== various complex conditions =====
-
+    
     /**
      *
      */
@@ -762,7 +765,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .ordered()
                 .check();
     }
-
+    
     /**
      *
      */
@@ -782,7 +785,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(9, "Rahmaninov", 8, "Starorussky ud", 70)
                 .returns(10, "Shubert", 9, "Vienna", 31)
                 .returns(11, "Glinka", 10, "Smolenskaya gb", 53)
-
+                
                 .returns(12, "Einaudi", 11, "", -1)
                 .returns(13, "Glass", 12, "", -1)
                 .returns(14, "Rihter", 13, "", -1)
@@ -795,11 +798,11 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(21, "Cacciapaglia", 20, "", -1)
                 .returns(22, "Prokofiev", 21, "", -1)
                 .returns(23, "Musorgskii", 22, "", -1)
-
+                
                 .ordered()
                 .check();
     }
-
+    
     /**
      *
      */
@@ -835,7 +838,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .ordered()
                 .check();
     }
-
+    
     /**
      *
      */
@@ -870,7 +873,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .ordered()
                 .check();
     }
-
+    
     /**
      *
      */
@@ -905,7 +908,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .ordered()
                 .check();
     }
-
+    
     /**
      * Test verifies that ranges would be serialized and desirialized without any errors.
      */
@@ -914,7 +917,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         String sql = "select depId from Developer "
                 + "where depId in (1,2,3,5,6,7,9,10,13,14,15,18,19,20,21,22,23,24,25,26,27,28,30,31,32,33) "
                 + "   or depId between 7 and 8 order by depId limit 5";
-
+        
         assertQuery(sql)
                 .returns(1)
                 .returns(2)

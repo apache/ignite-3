@@ -31,13 +31,22 @@ import org.apache.ignite.internal.processors.query.calcite.trait.DistributionTra
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
 
 /**
- * Relational expression that iterates over its input and sends elements to remote {@link IgniteReceiver}.
+ * Relational expression that iterates over its input and sends elements to remote {@link IgniteReceiver}
  */
 public class IgniteSender extends SingleRel implements IgniteRel {
+    /**
+     *
+     */
     private final long exchangeId;
 
+    /**
+     *
+     */
     private final long targetFragmentId;
 
+    /**
+     *
+     */
     private final IgniteDistribution distribution;
 
     /**
@@ -63,8 +72,7 @@ public class IgniteSender extends SingleRel implements IgniteRel {
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public IgniteSender(RelInput input) {
         this(
@@ -78,10 +86,16 @@ public class IgniteSender extends SingleRel implements IgniteRel {
                 (IgniteDistribution) input.getDistribution());
     }
 
+    /**
+     *
+     */
     public long exchangeId() {
         return exchangeId;
     }
 
+    /**
+     *
+     */
     public long targetFragmentId() {
         return targetFragmentId;
     }
@@ -105,7 +119,7 @@ public class IgniteSender extends SingleRel implements IgniteRel {
     }
 
     /**
-     * Get node distribution.
+     * @return Node distribution.
      */
     public IgniteDistribution sourceDistribution() {
         return input.getTraitSet().getTrait(DistributionTraitDef.INSTANCE);

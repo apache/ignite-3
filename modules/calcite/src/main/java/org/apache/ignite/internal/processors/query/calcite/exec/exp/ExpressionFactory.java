@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.processors.query.calcite.exec.exp;
 
-import com.google.common.collect.ImmutableList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
@@ -36,6 +35,9 @@ import org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.Aggregat
  * Expression factory.
  */
 public interface ExpressionFactory<RowT> {
+    /**
+     *
+     */
     Supplier<List<AccumulatorWrapper<RowT>>> accumulatorsFactory(
             AggregateType type,
             List<AggregateCall> calls,
@@ -110,7 +112,7 @@ public interface ExpressionFactory<RowT> {
      * @return Scalar.
      */
     default Scalar scalar(RexNode node, RelDataType type) {
-        return scalar(ImmutableList.of(node), type);
+        return scalar(List.of(node), type);
     }
 
     /**

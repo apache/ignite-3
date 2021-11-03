@@ -35,8 +35,7 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyService;
 
 /**
- * MessageServiceImpl.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class MessageServiceImpl implements MessageService {
     private static final UUID QUERY_ID_STUB = UUID.randomUUID();
@@ -47,15 +46,23 @@ public class MessageServiceImpl implements MessageService {
 
     private final MessagingService messagingSrvc;
 
+    /**
+     *
+     */
     private final String locNodeId;
 
+    /**
+     *
+     */
     private final QueryTaskExecutor taskExecutor;
 
-    private Map<Short, MessageListener> lsnrs;
+    /**
+     *
+     */
+    private volatile Map<Short, MessageListener> lsnrs;
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public MessageServiceImpl(
             TopologyService topSrvc,
@@ -67,7 +74,11 @@ public class MessageServiceImpl implements MessageService {
         this.taskExecutor = taskExecutor;
 
         locNodeId = topSrvc.localMember().id();
+    }
 
+    /** {@inheritDoc} */
+    @Override
+    public void start() {
         messagingSrvc.addMessageHandler(SqlQueryMessageGroup.class, this::onMessage);
     }
 
@@ -114,6 +125,9 @@ public class MessageServiceImpl implements MessageService {
                 .anyMatch(id -> id.equals(nodeId));
     }
 
+    /**
+     *
+     */
     protected void onMessage(String nodeId, NetworkMessage msg) {
         if (msg instanceof ExecutionContextAwareMessage) {
             ExecutionContextAwareMessage msg0 = (ExecutionContextAwareMessage) msg;
@@ -127,6 +141,9 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
+    /**
+     *
+     */
     private void onMessage(NetworkMessage msg, NetworkAddress addr, String correlationId) {
         assert msg.groupType() == GROUP_TYPE : "unexpected message group grpType=" + msg.groupType();
 
@@ -141,6 +158,9 @@ public class MessageServiceImpl implements MessageService {
         onMessage(node.id(), msg);
     }
 
+    /**
+     *
+     */
     private void onMessageInternal(String nodeId, NetworkMessage msg) {
         MessageListener lsnr = Objects.requireNonNull(
                 lsnrs.get(msg.messageType()),
@@ -148,5 +168,13 @@ public class MessageServiceImpl implements MessageService {
         );
 
         lsnr.onMessage(nodeId, msg);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void stop() {
+        if (lsnrs != null) {
+            lsnrs.clear();
+        }
     }
 }

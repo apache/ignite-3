@@ -22,8 +22,8 @@ import static org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.A
 import static org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.AggregateType.SINGLE;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 
-import com.google.common.collect.ImmutableList;
 import java.util.Comparator;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.RelCollation;
@@ -43,7 +43,7 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
     @Override
     protected SingleNode<Object[]> createSingleAggregateNodesChain(
             ExecutionContext<Object[]> ctx,
-            ImmutableList<ImmutableBitSet> grpSets,
+            List<ImmutableBitSet> grpSets,
             AggregateCall call,
             RelDataType inRowType,
             RelDataType aggRowType,
@@ -51,19 +51,19 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             ScanNode<Object[]> scan
     ) {
         assert grpSets.size() == 1;
-
+        
         ImmutableBitSet grpSet = first(grpSets);
-
+        
         assert !grpSet.isEmpty() : "Not applicable for sort aggregate";
-
+        
         RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(grpSet.asList()));
-
+        
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
-
+        
         SortNode<Object[]> sort = new SortNode<>(ctx, inRowType, cmp);
-
+        
         sort.register(scan);
-
+        
         SortAggregateNode<Object[]> agg = new SortAggregateNode<>(
                 ctx,
                 aggRowType,
@@ -73,17 +73,17 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
                 rowFactory,
                 cmp
         );
-
+        
         agg.register(sort);
-
+        
         return agg;
     }
-
+    
     /** {@inheritDoc} */
     @Override
     protected SingleNode<Object[]> createMapReduceAggregateNodesChain(
             ExecutionContext<Object[]> ctx,
-            ImmutableList<ImmutableBitSet> grpSets,
+            List<ImmutableBitSet> grpSets,
             AggregateCall call,
             RelDataType inRowType,
             RelDataType aggRowType,
@@ -91,19 +91,19 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             ScanNode<Object[]> scan
     ) {
         assert grpSets.size() == 1;
-
+        
         ImmutableBitSet grpSet = first(grpSets);
-
+        
         assert !grpSet.isEmpty() : "Not applicable for sort aggregate";
-
+        
         RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(grpSet.asList()));
-
+        
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
-
+        
         SortNode<Object[]> sort = new SortNode<>(ctx, inRowType, cmp);
-
+        
         sort.register(scan);
-
+        
         SortAggregateNode<Object[]> aggMap = new SortAggregateNode<>(
                 ctx,
                 aggRowType,
@@ -113,20 +113,20 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
                 rowFactory,
                 cmp
         );
-
+        
         aggMap.register(sort);
-
+        
         // The group's fields placed on the begin of the output row (planner
         // does this by Projection node for aggregate input).
         // Hash aggregate doesn't use groups set on reducer because send GroupKey as object.
         ImmutableIntList reduceGrpFields = ImmutableIntList.copyOf(
                 IntStream.range(0, grpSet.cardinality()).boxed().collect(Collectors.toList())
         );
-
+        
         RelCollation rdcCollation = RelCollations.of(reduceGrpFields);
-
+        
         Comparator<Object[]> rdcCmp = ctx.expressionFactory().comparator(rdcCollation);
-
+        
         SortAggregateNode<Object[]> aggRdc = new SortAggregateNode<>(
                 ctx,
                 aggRowType,
@@ -136,9 +136,9 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
                 rowFactory,
                 rdcCmp
         );
-
+        
         aggRdc.register(aggMap);
-
+        
         return aggRdc;
     }
 }

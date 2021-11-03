@@ -29,7 +29,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Utility class for {@link RocksDBKeyValueStorage}.
+ * Utility class for {@link RocksDbKeyValueStorage}.
  */
 class RocksStorageUtils {
     /**

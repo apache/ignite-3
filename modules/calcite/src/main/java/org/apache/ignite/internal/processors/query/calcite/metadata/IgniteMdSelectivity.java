@@ -38,17 +38,18 @@ import org.apache.ignite.internal.processors.query.calcite.rel.ProjectableFilter
 import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
 
 /**
- * IgniteMdSelectivity.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class IgniteMdSelectivity extends RelMdSelectivity {
+    /**
+     *
+     */
     public static final RelMetadataProvider SOURCE =
             ReflectiveRelMetadataProvider.reflectiveSource(
                     BuiltInMethod.SELECTIVITY.method, new IgniteMdSelectivity());
 
     /**
-     * GetSelectivity
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public Double getSelectivity(AbstractIndexScan rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate != null) {
@@ -94,8 +95,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
     }
 
     /**
-     * GetSelectivity
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public Double getSelectivity(ProjectableFilterableTableScan rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate == null) {
@@ -112,8 +112,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
     }
 
     /**
-     * GetSelectivity
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public Double getSelectivity(IgniteSortedIndexSpool rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate != null) {
@@ -128,8 +127,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
     }
 
     /**
-     * GetSelectivity
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public Double getSelectivity(IgniteHashIndexSpool rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate != null) {

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.processors.query.calcite.rel;
 
 import static org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils.changeTraits;
 
-import com.google.common.collect.ImmutableList;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -35,8 +34,11 @@ import org.jetbrains.annotations.Nullable;
  * Relational operator that returns the contents of a table.
  */
 public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgniteRel {
+    /**
+     *
+     */
     private final long sourceId;
-
+    
     /**
      * Constructor used for deserialization.
      *
@@ -44,7 +46,7 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
      */
     public IgniteIndexScan(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
-
+        
         Object srcIdObj = input.get("sourceId");
         if (srcIdObj != null) {
             sourceId = ((Number) srcIdObj).longValue();
@@ -52,7 +54,7 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
             sourceId = -1;
         }
     }
-
+    
     /**
      * Creates a TableScan.
      *
@@ -68,7 +70,7 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
             String idxName) {
         this(cluster, traits, tbl, idxName, null, null, null, null);
     }
-
+    
     /**
      * Creates a TableScan.
      *
@@ -92,7 +94,7 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
     ) {
         this(-1L, cluster, traits, tbl, idxName, proj, cond, idxCond, requiredCols);
     }
-
+    
     /**
      * Creates a TableScan.
      *
@@ -115,37 +117,37 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
             @Nullable IndexConditions idxCond,
             @Nullable ImmutableBitSet requiredCols
     ) {
-        super(cluster, traits, ImmutableList.of(), tbl, idxName, proj, cond, idxCond, requiredCols);
-
+        super(cluster, traits, List.of(), tbl, idxName, proj, cond, idxCond, requiredCols);
+        
         this.sourceId = sourceId;
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public long sourceId() {
         return sourceId;
     }
-
+    
     /** {@inheritDoc} */
     @Override
     protected RelWriter explainTerms0(RelWriter pw) {
         return super.explainTerms0(pw)
                 .itemIf("sourceId", sourceId, sourceId != -1);
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public <T> T accept(IgniteRelVisitor<T> visitor) {
         return visitor.visit(this);
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(long sourceId) {
         return new IgniteIndexScan(sourceId, getCluster(), getTraitSet(), getTable(),
                 idxName, projects, condition, idxCond, requiredColumns);
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {

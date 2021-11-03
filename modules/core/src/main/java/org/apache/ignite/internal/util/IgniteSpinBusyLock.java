@@ -69,6 +69,8 @@ public class IgniteSpinBusyLock {
     }
 
     /**
+     * Tries block.
+     *
      * @param millis Timeout.
      * @return {@code True} if lock was acquired.
      * @throws InterruptedException If interrupted.

@@ -52,7 +52,7 @@ public class SerializationOrderTest {
      */
     @Test
     void testSerializationOrder() {
-        final SerializationOrderMessage msg = messageFactory.serializationOrderMessage().a(1).b("2").c(3).d("4").build();
+        final SerializationOrderMessage msg = messageFactory.serializationOrderMessage().intA(1).strB("2").intC(3).strD("4").build();
 
         final MessageSerializer<SerializationOrderMessage> serializer = serializationFactory.createSerializer();
 
@@ -66,10 +66,10 @@ public class SerializationOrderTest {
 
         InOrder inOrder = inOrder(mockWriter);
 
-        inOrder.verify(mockWriter).writeInt(eq("a"), eq(1));
-        inOrder.verify(mockWriter).writeString(eq("b"), eq("2"));
-        inOrder.verify(mockWriter).writeInt(eq("c"), eq(3));
-        inOrder.verify(mockWriter).writeString(eq("d"), eq("4"));
+        inOrder.verify(mockWriter).writeInt(eq("intA"), eq(1));
+        inOrder.verify(mockWriter).writeInt(eq("intC"), eq(3));
+        inOrder.verify(mockWriter).writeString(eq("strB"), eq("2"));
+        inOrder.verify(mockWriter).writeString(eq("strD"), eq("4"));
     }
 
     /**
@@ -89,9 +89,9 @@ public class SerializationOrderTest {
 
         InOrder inOrder = inOrder(mockReader);
 
-        inOrder.verify(mockReader).readInt(eq("a"));
-        inOrder.verify(mockReader).readString(eq("b"));
-        inOrder.verify(mockReader).readInt(eq("c"));
-        inOrder.verify(mockReader).readString(eq("d"));
+        inOrder.verify(mockReader).readInt(eq("intA"));
+        inOrder.verify(mockReader).readInt(eq("intC"));
+        inOrder.verify(mockReader).readString(eq("strB"));
+        inOrder.verify(mockReader).readString(eq("strD"));
     }
 }

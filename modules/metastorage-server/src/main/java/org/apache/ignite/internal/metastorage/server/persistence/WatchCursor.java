@@ -46,7 +46,7 @@ import org.rocksdb.RocksIterator;
  */
 class WatchCursor implements Cursor<WatchEvent> {
     /** Storage. */
-    private final RocksDBKeyValueStorage storage;
+    private final RocksDbKeyValueStorage storage;
 
     /** Key predicate. */
     private final Predicate<byte[]> predicate;
@@ -77,7 +77,7 @@ class WatchCursor implements Cursor<WatchEvent> {
      * @param rev     Starting revision.
      * @param predicate       Key predicate.
      */
-    WatchCursor(RocksDBKeyValueStorage storage, long rev, Predicate<byte[]> predicate) {
+    WatchCursor(RocksDbKeyValueStorage storage, long rev, Predicate<byte[]> predicate) {
         this.storage = storage;
         this.predicate = predicate;
         this.lastRetRev = rev - 1;

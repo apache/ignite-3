@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel;
 
-import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.calcite.plan.RelOptCluster;
@@ -58,10 +57,9 @@ public class IgniteNestedLoopJoin extends AbstractIgniteJoin {
             RexNode condition, Set<CorrelationId> variablesSet, JoinRelType joinType) {
         super(cluster, traitSet, left, right, condition, variablesSet, joinType);
     }
-
+    
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public IgniteNestedLoopJoin(RelInput input) {
         this(input.getCluster(),
@@ -69,48 +67,48 @@ public class IgniteNestedLoopJoin extends AbstractIgniteJoin {
                 input.getInputs().get(0),
                 input.getInputs().get(1),
                 input.getExpression("condition"),
-                ImmutableSet.copyOf(Commons.transform(input.getIntegerList("variablesSet"), CorrelationId::new)),
+                Set.copyOf(Commons.transform(input.getIntegerList("variablesSet"), CorrelationId::new)),
                 input.getEnum("joinType", JoinRelType.class));
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
         IgniteCostFactory costFactory = (IgniteCostFactory) planner.getCostFactory();
-
+        
         double leftCount = mq.getRowCount(getLeft());
-
+    
         if (Double.isInfinite(leftCount)) {
             return costFactory.makeInfiniteCost();
         }
-
+        
         double rightCount = mq.getRowCount(getRight());
-
+    
         if (Double.isInfinite(rightCount)) {
             return costFactory.makeInfiniteCost();
         }
-
+        
         double rows = leftCount * rightCount;
-
+        
         double rightSize = rightCount * getRight().getRowType().getFieldCount() * IgniteCost.AVERAGE_FIELD_SIZE;
-
+        
         return costFactory.makeCost(rows,
                 rows * (IgniteCost.ROW_COMPARISON_COST + IgniteCost.ROW_PASS_THROUGH_COST), 0, rightSize, 0);
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public Join copy(RelTraitSet traitSet, RexNode condition, RelNode left, RelNode right, JoinRelType joinType,
             boolean semiJoinDone) {
         return new IgniteNestedLoopJoin(getCluster(), traitSet, left, right, condition, variablesSet, joinType);
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public <T> T accept(IgniteRelVisitor<T> visitor) {
         return visitor.visit(this);
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {

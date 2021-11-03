@@ -31,38 +31,57 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * FragmentMapping.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class FragmentMapping implements Serializable {
+    /**
+     *
+     */
     private List<ColocationGroup> colocationGroups;
 
+    /**
+     *
+     */
     public FragmentMapping() {
     }
 
+    /**
+     *
+     */
     private FragmentMapping(ColocationGroup colocationGroup) {
         this(asList(colocationGroup));
     }
 
+    /**
+     *
+     */
     private FragmentMapping(List<ColocationGroup> colocationGroups) {
         this.colocationGroups = colocationGroups;
     }
 
+    /**
+     *
+     */
     public static FragmentMapping create() {
         return new FragmentMapping(Collections.emptyList());
     }
 
+    /**
+     *
+     */
     public static FragmentMapping create(String nodeId) {
         return new FragmentMapping(ColocationGroup.forNodes(Collections.singletonList(nodeId)));
     }
 
+    /**
+     *
+     */
     public static FragmentMapping create(long sourceId) {
         return new FragmentMapping(ColocationGroup.forSourceId(sourceId));
     }
 
     /**
-     * Create.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public static FragmentMapping create(long sourceId, ColocationGroup group) {
         try {
@@ -72,13 +91,15 @@ public class FragmentMapping implements Serializable {
         }
     }
 
+    /**
+     *
+     */
     public boolean colocated() {
         return colocationGroups.isEmpty() || colocationGroups.size() == 1;
     }
 
     /**
-     * Prune.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public FragmentMapping prune(IgniteRel rel) {
         if (colocationGroups.size() != 1) {
@@ -88,13 +109,15 @@ public class FragmentMapping implements Serializable {
         return new FragmentMapping(first(colocationGroups).prune(rel));
     }
 
+    /**
+     *
+     */
     public FragmentMapping combine(FragmentMapping other) {
         return new FragmentMapping(Commons.combine(colocationGroups, other.colocationGroups));
     }
 
     /**
-     * Colocate.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public FragmentMapping colocate(FragmentMapping other) throws ColocationMappingException {
         assert colocated() && other.colocated();
@@ -112,8 +135,7 @@ public class FragmentMapping implements Serializable {
     }
 
     /**
-     * nodeIds.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public List<String> nodeIds() {
         return colocationGroups.stream()
@@ -122,8 +144,7 @@ public class FragmentMapping implements Serializable {
     }
 
     /**
-     * finalize.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public FragmentMapping finalize(Supplier<List<String>> nodesSource) {
         if (colocationGroups.isEmpty()) {
@@ -143,8 +164,7 @@ public class FragmentMapping implements Serializable {
     }
 
     /**
-     * FindGroup.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public @NotNull ColocationGroup findGroup(long sourceId) {
         List<ColocationGroup> groups = colocationGroups.stream()

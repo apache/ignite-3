@@ -58,8 +58,7 @@ import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTa
 import org.apache.ignite.lang.IgniteException;
 
 /**
- * DdlSqlToCommandConverter.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class DdlSqlToCommandConverter {
     /** Processor that validates a value is a Sql Identifier. */
@@ -264,6 +263,9 @@ public class DdlSqlToCommandConverter {
         return objId.getSimple();
     }
 
+    /**
+     *
+     */
     private void ensureSchemaExists(PlanningContext ctx, String schemaName) {
         if (ctx.catalogReader().getRootSchema().getSubSchema(schemaName, true) == null) {
             throw new IgniteException("Schema with name " + schemaName + " not found"/*,
@@ -325,16 +327,26 @@ public class DdlSqlToCommandConverter {
                 + "querySql=\"" + qry + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
     }
 
+    /**
+     *
+     */
     private static class TableOptionProcessor<T> {
+        /**
+         *
+         */
         private final IgniteSqlCreateTableOptionEnum key;
 
+        /**
+         *
+         */
         private final BiFunction<IgniteSqlCreateTableOption, PlanningContext, T> validator;
 
+        /**
+         *
+         */
         private final BiConsumer<CreateTableCommand, T> valSetter;
 
         /**
-         * Constructor.
-         *
          * @param key       Option key this processor is supopsed to handle.
          * @param validator Validator that derives a value from a {@link SqlNode}, validates it and then returns if validation passed,
          *                  throws an exeption otherwise.
@@ -365,7 +377,7 @@ public class DdlSqlToCommandConverter {
         }
 
         /**
-         * Get key this processor is supposed to handle.
+         * @return Key this processor is supposed to handle.
          */
         private IgniteSqlCreateTableOptionEnum key() {
             return key;

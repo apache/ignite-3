@@ -33,29 +33,25 @@ import org.jetbrains.annotations.Nullable;
  * Minimal list API to work with primitive ints. This list exists to avoid boxing/unboxing when using standard list from Java.
  */
 public class IgniteIntList implements Externalizable {
-    /**
-     *
-     */
+    /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
-    /**
-     *
-     */
+    /** Array. */
     private int[] arr;
 
-    /**
-     *
-     */
+    /** Index. */
     private int idx;
 
     /**
-     *
+     * Default constructor.
      */
     public IgniteIntList() {
         // No-op.
     }
 
     /**
+     * Constructor.
+     *
      * @param size Size.
      */
     public IgniteIntList(int size) {
@@ -64,6 +60,8 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * Constructor.
+     *
      * @param arr Array.
      */
     public IgniteIntList(int[] arr) {
@@ -73,6 +71,8 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * Returns list from values.
+     *
      * @param vals Values.
      * @return List from values.
      */
@@ -85,6 +85,8 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * Constructor.
+     *
      * @param arr  Array.
      * @param size Size.
      */
@@ -94,6 +96,8 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * Returns copy of this list.
+     *
      * @return Copy of this list.
      */
     public IgniteIntList copy() {
@@ -148,6 +152,8 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * Adds list of elements.
+     *
      * @param l List to add all elements of.
      */
     public void addAll(IgniteIntList l) {
@@ -175,6 +181,8 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * Adds all elements from {@code from} to {@code to}.
+     *
      * @param to   To list.
      * @param from From list.
      * @return To list (passed in or created).
@@ -280,6 +288,8 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * Returns value by index.
+     *
      * @param i Index.
      * @return Value.
      */
@@ -290,6 +300,8 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * Returns size.
+     *
      * @return Size.
      */
     public int size() {
@@ -297,6 +309,8 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * Returns {@code true} if this list has no elements.
+     *
      * @return {@code True} if this list has no elements.
      */
     public boolean isEmpty() {
@@ -304,6 +318,8 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * Checks if there is an element.
+     *
      * @param l Element to find.
      * @return {@code True} if found.
      */
@@ -318,6 +334,8 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * Checks if all the elements are present.
+     *
      * @param l List to check.
      * @return {@code True} if this list contains all the elements of passed in list.
      */
@@ -332,6 +350,8 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * Checks that there are no duplicates.
+     *
      * @return {@code True} if there are no duplicates.
      */
     public boolean distinct() {
@@ -347,6 +367,8 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * Truncate the list.
+     *
      * @param size New size.
      * @param last If {@code true} the last elements will be removed, otherwise the first.
      */
@@ -427,6 +449,8 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * Returns array copy.
+     *
      * @return Array copy.
      */
     public int[] array() {
@@ -478,6 +502,8 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * Reads list form {@code in}.
+     *
      * @param in Input to read list from.
      * @return Grid int list.
      * @throws IOException If failed.
@@ -500,6 +526,8 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * Writes list to {@code out}.
+     *
      * @param out  Output to write to.
      * @param list List.
      * @throws IOException If failed.
@@ -543,6 +571,8 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * Returns iterator.
+     *
      * @return Iterator.
      */
     public IgniteIntIterator iterator() {

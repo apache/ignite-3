@@ -50,6 +50,9 @@ public class IgniteExchange extends Exchange implements IgniteRel {
         super(cluster, traitSet, input, distribution);
     }
 
+    /**
+     *
+     */
     public IgniteExchange(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
     }

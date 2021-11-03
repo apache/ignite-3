@@ -20,14 +20,10 @@ package org.apache.ignite.internal.processors.query.calcite.exec.exp.agg;
 import static org.apache.ignite.internal.processors.query.calcite.util.TypeUtils.createRowType;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Primitives;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import java.lang.reflect.Modifier;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.calcite.DataContext;
@@ -54,26 +50,30 @@ import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.processors.query.calcite.util.Primitives;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * AccumulatorsFactory.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapper<RowT>>> {
+    /**
+     *
+     */
     private static final LoadingCache<Pair<RelDataType, RelDataType>, Function<Object, Object>> CACHE =
-            CacheBuilder.newBuilder().build(CacheLoader.from(AccumulatorsFactory::cast0));
+            Caffeine.newBuilder().build(AccumulatorsFactory::cast0);
 
     /**
-     * CastFunction interface.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
-    public static interface CastFunction extends Function<Object, Object> {
+    public interface CastFunction extends Function<Object, Object> {
         @Override
         Object apply(Object o);
     }
 
+    /**
+     *
+     */
     private static Function<Object, Object> cast(RelDataType from, RelDataType to) {
         assert !from.isStruct();
         assert !to.isStruct();
@@ -81,14 +81,16 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         return cast(Pair.of(from, to));
     }
 
+    /**
+     *
+     */
     private static Function<Object, Object> cast(Pair<RelDataType, RelDataType> types) {
-        try {
-            return CACHE.get(types);
-        } catch (ExecutionException e) {
-            throw new IgniteInternalException(e);
-        }
+        return CACHE.get(types);
     }
 
+    /**
+     *
+     */
     private static Function<Object, Object> cast0(Pair<RelDataType, RelDataType> types) {
         IgniteTypeFactory typeFactory = PlanningContext.empty().typeFactory();
 
@@ -109,6 +111,9 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         return compileCast(typeFactory, from, to);
     }
 
+    /**
+     *
+     */
     private static Function<Object, Object> compileCast(IgniteTypeFactory typeFactory, RelDataType from,
             RelDataType to) {
         RelDataType rowType = createRowType(typeFactory, from);
@@ -116,7 +121,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
         RexToLixTranslator.InputGetter getter =
                 new RexToLixTranslator.InputGetterImpl(
-                        ImmutableList.of(
+                        List.of(
                                 Pair.of(EnumUtils.convert(in, Object.class, typeFactory.getJavaClass(from)),
                                         PhysTypeImpl.of(typeFactory, rowType,
                                                 JavaRowFormat.SCALAR, false))));
@@ -132,27 +137,33 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         list.add(projects.get(0));
 
         MethodDeclaration decl = Expressions.methodDecl(
-                Modifier.PUBLIC, Object.class, "apply", ImmutableList.of(in), list.toBlock());
+                Modifier.PUBLIC, Object.class, "apply", List.of(in), list.toBlock());
 
         return Commons.compile(CastFunction.class, Expressions.toString(List.of(decl), "\n", false));
     }
 
+    /**
+     *
+     */
     private final ExecutionContext<RowT> ctx;
 
+    /**
+     *
+     */
     private final AggregateType type;
 
+    /**
+     *
+     */
     private final RelDataType inputRowType;
 
+    /**
+     *
+     */
     private final List<WrapperPrototype> prototypes;
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
-     * @param ctx          ExecutionContext.
-     * @param type         AggregateType.
-     * @param aggCalls     List of AggregateCalls.
-     * @param inputRowType RelDataType.
      */
     public AccumulatorsFactory(
             ExecutionContext<RowT> ctx,
@@ -173,15 +184,33 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         return Commons.transform(prototypes, WrapperPrototype::get);
     }
 
+    /**
+     *
+     */
     private final class WrapperPrototype implements Supplier<AccumulatorWrapper<RowT>> {
+        /**
+         *
+         */
         private Supplier<Accumulator> accFactory;
 
+        /**
+         *
+         */
         private final AggregateCall call;
 
+        /**
+         *
+         */
         private Function<Object[], Object[]> inAdapter;
 
+        /**
+         *
+         */
         private Function<Object, Object> outAdapter;
 
+        /**
+         *
+         */
         private WrapperPrototype(AggregateCall call) {
             this.call = call;
         }
@@ -194,6 +223,9 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             return new AccumulatorWrapperImpl(accumulator, call, inAdapter, outAdapter);
         }
 
+        /**
+         *
+         */
         @NotNull
         private Accumulator accumulator() {
             if (accFactory != null) {
@@ -210,6 +242,9 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             return accumulator;
         }
 
+        /**
+         *
+         */
         @NotNull
         private Function<Object[], Object[]> createInAdapter(Accumulator accumulator) {
             if (type == AggregateType.REDUCE || nullOrEmpty(call.getArgList())) {
@@ -237,6 +272,9 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             };
         }
 
+        /**
+         *
+         */
         @NotNull
         private Function<Object, Object> createOutAdapter(Accumulator accumulator) {
             if (type == AggregateType.MAP) {
@@ -249,26 +287,56 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             return cast(inType, outType);
         }
 
+        /**
+         *
+         */
         private RelDataType nonNull(RelDataType type) {
             return ctx.getTypeFactory().createTypeWithNullability(type, false);
         }
     }
 
+    /**
+     *
+     */
     private final class AccumulatorWrapperImpl implements AccumulatorWrapper<RowT> {
+        /**
+         *
+         */
         private final Accumulator accumulator;
 
+        /**
+         *
+         */
         private final Function<Object[], Object[]> inAdapter;
 
+        /**
+         *
+         */
         private final Function<Object, Object> outAdapter;
 
+        /**
+         *
+         */
         private final List<Integer> argList;
 
+        /**
+         *
+         */
         private final int filterArg;
 
+        /**
+         *
+         */
         private final boolean ignoreNulls;
 
+        /**
+         *
+         */
         private final RowHandler<RowT> handler;
 
+        /**
+         *
+         */
         AccumulatorWrapperImpl(
                 Accumulator accumulator,
                 AggregateCall call,

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
-import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
@@ -36,15 +35,18 @@ import org.apache.ignite.internal.processors.query.calcite.rel.SourceAwareIgnite
  * Splits a query into a list of query fragments.
  */
 public class Splitter extends IgniteRelShuttle {
+    /**
+     *
+     */
     private final Deque<FragmentProto> stack = new LinkedList<>();
 
+    /**
+     *
+     */
     private FragmentProto curr;
 
     /**
-     * Split rel to list of fragments.
      *
-     * @param root Root relation to split.
-     * @return List of fragments.
      */
     public List<Fragment> go(IgniteRel root) {
         ArrayList<Fragment> res = new ArrayList<>();
@@ -107,20 +109,38 @@ public class Splitter extends IgniteRelShuttle {
         return rel.clone(IdGenerator.nextId());
     }
 
+    /**
+     *
+     */
     private static class FragmentProto {
+        /**
+         *
+         */
         private final long id;
 
+        /**
+         *
+         */
         private IgniteRel root;
 
-        private final ImmutableList.Builder<IgniteReceiver> remotes = ImmutableList.builder();
+        /**
+         *
+         */
+        private final List<IgniteReceiver> remotes = new ArrayList<>();
 
+        /**
+         *
+         */
         private FragmentProto(long id, IgniteRel root) {
             this.id = id;
             this.root = root;
         }
 
+        /**
+         *
+         */
         Fragment build() {
-            return new Fragment(id, root, remotes.build());
+            return new Fragment(id, root, List.copyOf(remotes));
         }
     }
 }

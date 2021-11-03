@@ -40,25 +40,47 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * A part of exchange.
  */
 public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, SingleNode<RowT>, Downstream<RowT> {
+    /**
+     *
+     */
     private final ExchangeService exchange;
 
+    /**
+     *
+     */
     private final MailboxRegistry registry;
 
+    /**
+     *
+     */
     private final long exchangeId;
 
+    /**
+     *
+     */
     private final long targetFragmentId;
 
+    /**
+     *
+     */
     private final Destination<RowT> dest;
 
+    /**
+     *
+     */
     private final Deque<RowT> inBuf = new ArrayDeque<>(inBufSize);
 
+    /**
+     *
+     */
     private final Map<String, Buffer> nodeBuffers = new HashMap<>();
 
+    /**
+     *
+     */
     private int waiting;
 
     /**
-     * Constructor.
-     *
      * @param ctx              Execution context.
      * @param exchange         Exchange service.
      * @param registry         Mailbox registry.
@@ -104,8 +126,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     }
 
     /**
-     * Init.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public void init() {
         try {
@@ -198,14 +219,23 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         return this;
     }
 
+    /**
+     *
+     */
     private void sendBatch(String nodeId, int batchId, boolean last, List<RowT> rows) throws IgniteInternalCheckedException {
         exchange.sendBatch(nodeId, queryId(), targetFragmentId, exchangeId, batchId, last, rows);
     }
 
+    /**
+     *
+     */
     private void sendError(Throwable err) throws IgniteInternalCheckedException {
         exchange.sendError(context().originatingNodeId(), queryId(), fragmentId(), err);
     }
 
+    /**
+     *
+     */
     private void sendInboxClose(String nodeId) {
         try {
             exchange.closeInbox(nodeId, queryId(), targetFragmentId, exchangeId);
@@ -214,14 +244,23 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         }
     }
 
+    /**
+     *
+     */
     private Buffer getOrCreateBuffer(String nodeId) {
         return nodeBuffers.computeIfAbsent(nodeId, this::createBuffer);
     }
 
+    /**
+     *
+     */
     private Buffer createBuffer(String nodeId) {
         return new Buffer(nodeId);
     }
 
+    /**
+     *
+     */
     private void flush() throws Exception {
         while (!inBuf.isEmpty()) {
             checkState();
@@ -255,8 +294,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     }
 
     /**
-     * OnNodeLeft.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public void onNodeLeft(String nodeId) {
         if (nodeId.equals(context().originatingNodeId())) {
@@ -264,15 +302,33 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         }
     }
 
+    /**
+     *
+     */
     private final class Buffer {
+        /**
+         *
+         */
         private final String nodeId;
 
+        /**
+         *
+         */
         private int hwm = -1;
 
+        /**
+         *
+         */
         private int lwm = -1;
 
+        /**
+         *
+         */
         private List<RowT> curr;
 
+        /**
+         *
+         */
         private Buffer(String nodeId) {
             this.nodeId = nodeId;
 
@@ -345,6 +401,9 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
             }
         }
 
+        /**
+         *
+         */
         public void close() {
             final int currBatchId = hwm;
 

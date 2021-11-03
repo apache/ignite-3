@@ -37,15 +37,30 @@ import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribut
  * MINUS (EXCEPT) operation converter rule.
  */
 public class MinusConverterRule {
+    /**
+     *
+     */
     public static final RelOptRule SINGLE = new SingleMinusConverterRule();
 
+    /**
+     *
+     */
     public static final RelOptRule MAP_REDUCE = new MapReduceMinusConverterRule();
 
+    /**
+     *
+     */
     private MinusConverterRule() {
         // No-op.
     }
 
+    /**
+     *
+     */
     private static class SingleMinusConverterRule extends AbstractIgniteConverterRule<LogicalMinus> {
+        /**
+         *
+         */
         SingleMinusConverterRule() {
             super(LogicalMinus.class, "SingleMinusConverterRule");
         }
@@ -62,7 +77,13 @@ public class MinusConverterRule {
         }
     }
 
+    /**
+     *
+     */
     private static class MapReduceMinusConverterRule extends AbstractIgniteConverterRule<LogicalMinus> {
+        /**
+         *
+         */
         MapReduceMinusConverterRule() {
             super(LogicalMinus.class, "MapReduceMinusConverterRule");
         }

@@ -35,31 +35,54 @@ import org.apache.ignite.internal.util.IgniteIntList;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * ColocationGroup.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class ColocationGroup implements Serializable {
+    /**
+     *
+     */
     private static final int SYNTHETIC_PARTITIONS_COUNT = 512;
     // TODO: IgniteSystemProperties.getInteger("IGNITE_CALCITE_SYNTHETIC_PARTITIONS_COUNT", 512);
 
+    /**
+     *
+     */
     private List<Long> sourceIds;
 
+    /**
+     *
+     */
     private List<String> nodeIds;
 
+    /**
+     *
+     */
     private List<List<String>> assignments;
 
+    /**
+     *
+     */
     public static ColocationGroup forNodes(List<String> nodeIds) {
         return new ColocationGroup(null, nodeIds, null);
     }
 
+    /**
+     *
+     */
     public static ColocationGroup forAssignments(List<List<String>> assignments) {
         return new ColocationGroup(null, null, assignments);
     }
 
+    /**
+     *
+     */
     public static ColocationGroup forSourceId(long sourceId) {
         return new ColocationGroup(Collections.singletonList(sourceId), null, null);
     }
 
+    /**
+     *
+     */
     private ColocationGroup(List<Long> sourceIds, List<String> nodeIds, List<List<String>> assignments) {
         this.sourceIds = sourceIds;
         this.nodeIds = nodeIds;
@@ -67,21 +90,21 @@ public class ColocationGroup implements Serializable {
     }
 
     /**
-     * Get lists of colocation group sources.
+     * @return Lists of colocation group sources.
      */
     public List<Long> sourceIds() {
         return sourceIds == null ? Collections.emptyList() : sourceIds;
     }
 
     /**
-     * Get lists of nodes capable to execute a query fragment for what the mapping is calculated.
+     * @return Lists of nodes capable to execute a query fragment for what the mapping is calculated.
      */
     public List<String> nodeIds() {
         return nodeIds == null ? Collections.emptyList() : nodeIds;
     }
 
     /**
-     * Get list of partitions (index) and nodes (items) having an appropriate partition in OWNING state, calculated for distributed
+     * @return List of partitions (index) and nodes (items) having an appropriate partition in OWNING state, calculated for distributed
      *      tables, involved in query execution.
      */
     public List<List<String>> assignments() {
@@ -99,6 +122,9 @@ public class ColocationGroup implements Serializable {
         return this; // TODO https://issues.apache.org/jira/browse/IGNITE-12455
     }
 
+    /**
+     *
+     */
     public boolean belongs(long sourceId) {
         return sourceIds != null && sourceIds.contains(sourceId);
     }
@@ -175,8 +201,7 @@ public class ColocationGroup implements Serializable {
     }
 
     /**
-     * Finalize.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public ColocationGroup finalaze() {
         if (assignments == null && nodeIds == null) {
@@ -200,10 +225,16 @@ public class ColocationGroup implements Serializable {
         return forNodes0(nodeIds);
     }
 
+    /**
+     *
+     */
     public ColocationGroup mapToNodes(List<String> nodeIds) {
         return !nullOrEmpty(this.nodeIds) ? this : forNodes0(nodeIds);
     }
 
+    /**
+     *
+     */
     @NotNull
     private ColocationGroup forNodes0(List<String> nodeIds) {
         List<List<String>> assignments = new ArrayList<>(SYNTHETIC_PARTITIONS_COUNT);

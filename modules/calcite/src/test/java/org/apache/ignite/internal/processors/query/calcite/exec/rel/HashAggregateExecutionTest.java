@@ -22,8 +22,8 @@ import static org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.A
 import static org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.AggregateType.SINGLE;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 
-import com.google.common.collect.ImmutableList;
 import java.util.Comparator;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.RelCollation;
@@ -43,7 +43,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
     @Override
     protected SingleNode<Object[]> createSingleAggregateNodesChain(
             ExecutionContext<Object[]> ctx,
-            ImmutableList<ImmutableBitSet> grpSets,
+            List<ImmutableBitSet> grpSets,
             AggregateCall call,
             RelDataType inRowType,
             RelDataType aggRowType,
@@ -51,7 +51,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
             ScanNode<Object[]> scan
     ) {
         assert grpSets.size() == 1 : "Test checks only simple GROUP BY";
-
+        
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(
                 ctx,
                 aggRowType,
@@ -60,9 +60,9 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
                 accFactory(ctx, call, SINGLE, inRowType),
                 rowFactory
         );
-
+        
         agg.register(scan);
-
+        
         // Collation of the first fields emulates planner behavior:
         // The group's keys placed on the begin of the output row.
         RelCollation collation = RelCollations.of(
@@ -70,22 +70,22 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
                         IntStream.range(0, first(grpSets).cardinality()).boxed().collect(Collectors.toList())
                 )
         );
-
+        
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
-
+        
         // Create sort node on the top to check sorted results
         SortNode<Object[]> sort = new SortNode<>(ctx, inRowType, cmp);
-
+        
         sort.register(agg);
-
+        
         return sort;
     }
-
+    
     /** {@inheritDoc} */
     @Override
     protected SingleNode<Object[]> createMapReduceAggregateNodesChain(
             ExecutionContext<Object[]> ctx,
-            ImmutableList<ImmutableBitSet> grpSets,
+            List<ImmutableBitSet> grpSets,
             AggregateCall call,
             RelDataType inRowType,
             RelDataType aggRowType,
@@ -93,7 +93,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
             ScanNode<Object[]> scan
     ) {
         assert grpSets.size() == 1 : "Test checks only simple GROUP BY";
-
+        
         HashAggregateNode<Object[]> aggMap = new HashAggregateNode<>(
                 ctx,
                 aggRowType,
@@ -102,9 +102,9 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
                 accFactory(ctx, call, MAP, inRowType),
                 rowFactory
         );
-
+        
         aggMap.register(scan);
-
+        
         HashAggregateNode<Object[]> aggRdc = new HashAggregateNode<>(
                 ctx,
                 aggRowType,
@@ -113,9 +113,9 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
                 accFactory(ctx, call, REDUCE, aggRowType),
                 rowFactory
         );
-
+        
         aggRdc.register(aggMap);
-
+        
         // Collation of the first fields emulates planner behavior:
         // The group's keys placed on the begin of the output row.
         RelCollation collation = RelCollations.of(
@@ -123,14 +123,14 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
                         IntStream.range(0, first(grpSets).cardinality()).boxed().collect(Collectors.toList())
                 )
         );
-
+        
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
-
+        
         // Create sort node on the top to check sorted results
         SortNode<Object[]> sort = new SortNode<>(ctx, aggRowType, cmp);
-
+        
         sort.register(aggRdc);
-
+        
         return sort;
     }
 }

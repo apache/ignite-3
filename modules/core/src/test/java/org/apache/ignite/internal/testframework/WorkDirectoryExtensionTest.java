@@ -38,6 +38,7 @@ import java.util.Set;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -55,34 +56,21 @@ import org.junit.platform.testkit.engine.EventType;
  * @see <a href="https://junit.org/junit5/docs/current/user-guide/#testkit">JUnit Platform Test Kit</a>
  */
 public class WorkDirectoryExtensionTest {
-
     /**
      * Test class for the {@link #testStaticFieldInjection()} test.
      */
     @ExtendWith(WorkDirectoryExtension.class)
     static class NormalStaticFieldInjectionTest {
-        /**
-         *
-         */
         @WorkDirectory
         private static Path workDir;
-
-        /**
-         *
-         */
+        
         private static Path testFile;
-
-        /**
-         *
-         */
+        
         @BeforeAll
         static void beforeAll() throws IOException {
             testFile = Files.createFile(workDir.resolve("foo"));
         }
-
-        /**
-         *
-         */
+        
         @RepeatedTest(3)
         public void test() {
             assertTrue(Files.exists(testFile));
@@ -103,20 +91,11 @@ public class WorkDirectoryExtensionTest {
      */
     @ExtendWith(WorkDirectoryExtension.class)
     static class NormalFieldInjectionTest {
-        /**
-         *
-         */
         private static final Set<Path> paths = new HashSet<>();
-
-        /**
-         *
-         */
+        
         @WorkDirectory
         private Path workDir;
-
-        /**
-         *
-         */
+        
         @RepeatedTest(3)
         public void test() {
             assertThat(paths, not(contains(workDir)));
@@ -142,17 +121,11 @@ public class WorkDirectoryExtensionTest {
      */
     @ExtendWith(WorkDirectoryExtension.class)
     static class MultipleMethodsInjectionTest {
-        /**
-         *
-         */
         @BeforeEach
         void setUp(@WorkDirectory Path workDir) throws IOException {
             Files.createFile(workDir.resolve("foo"));
         }
-
-        /**
-         *
-         */
+        
         @Test
         void test(@WorkDirectory Path workDir) {
             assertTrue(Files.exists(workDir.resolve("foo")));
@@ -173,23 +146,14 @@ public class WorkDirectoryExtensionTest {
      */
     @ExtendWith(WorkDirectoryExtension.class)
     static class ErrorParameterResolutionTest {
-        /**
-         *
-         */
         @WorkDirectory
         private static Path workDir;
-
-        /**
-         *
-         */
+        
         @BeforeEach
         void setUp(@WorkDirectory Path anotherWorkDir) {
             fail("Should not reach here");
         }
-
-        /**
-         *
-         */
+        
         @Test
         public void test() {
             fail("Should not reach here");
@@ -217,21 +181,12 @@ public class WorkDirectoryExtensionTest {
      */
     @ExtendWith(WorkDirectoryExtension.class)
     static class ErrorFieldInjectionTest {
-        /**
-         *
-         */
         @WorkDirectory
         private static Path workDir1;
-
-        /**
-         *
-         */
+        
         @WorkDirectory
         private Path workDir2;
-
-        /**
-         *
-         */
+        
         @Test
         public void test() {
             fail("Should not reach here");
@@ -260,19 +215,10 @@ public class WorkDirectoryExtensionTest {
     @ExtendWith(SystemPropertiesExtension.class)
     @ExtendWith(WorkDirectoryExtension.class)
     static class SystemPropertiesTest {
-        /**
-         *
-         */
         private static Path file1;
-
-        /**
-         *
-         */
+        
         private static Path file2;
-
-        /**
-         *
-         */
+        
         @AfterAll
         static void verify() throws IOException {
             assertTrue(Files.exists(file1));
@@ -280,20 +226,14 @@ public class WorkDirectoryExtensionTest {
 
             Files.delete(file1);
         }
-
-        /**
-         *
-         */
+        
         @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
         @WithSystemProperty(key = WorkDirectoryExtension.KEEP_WORK_DIR_PROPERTY, value = "true")
         @Test
         void test1(@WorkDirectory Path workDir) throws IOException {
             file1 = Files.createFile(workDir.resolve("foo"));
         }
-
-        /**
-         *
-         */
+        
         @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
         @Test
         void test2(@WorkDirectory Path workDir) throws IOException {
@@ -307,6 +247,30 @@ public class WorkDirectoryExtensionTest {
     @Test
     void testSystemProperty() {
         assertExecutesSuccessfully(SystemPropertiesTest.class);
+    }
+
+    /**
+     * Test class for the {@link #testEmptyClass()} test.
+     */
+    @ExtendWith(WorkDirectoryExtension.class)
+    static class TestEmptyClass {
+        @WorkDirectory
+        private Path workDir;
+        
+        @Disabled
+        @Test
+        void test() {}
+    }
+
+    /**
+     * Tests {@code WorkDirectoryExtension} lifecycle works correctly on a test class with all test methods being
+     * disabled.
+     *
+     * @see <a href="https://issues.apache.org/jira/browse/IGNITE-15799">IGNITE-15799</a>
+     */
+    @Test
+    void testEmptyClass() {
+        assertExecutesSuccessfully(TestEmptyClass.class);
     }
 
     /**

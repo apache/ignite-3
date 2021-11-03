@@ -19,9 +19,7 @@ package org.apache.ignite.internal.processors.query.calcite.exec.exp;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
-import com.google.common.primitives.Primitives;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -29,6 +27,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -66,27 +65,53 @@ import org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.Aggregat
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.internal.processors.query.calcite.util.IgniteMethod;
+import org.apache.ignite.internal.processors.query.calcite.util.Primitives;
 
 /**
  * Implements rex expression into a function object. Uses JaninoRexCompiler under the hood. Each expression compiles into a class and a
  * wrapper over it is returned.
  */
 public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
-    //    private static final Map<String, Scalar> SCALAR_CACHE = new GridBoundedConcurrentLinkedHashMap<>(1024);
+    /**
+     *
+     */
+    private static final int CACHE_SIZE = 1024;
 
+    /**
+     *
+     */
+    private static final ConcurrentMap<String, Scalar> SCALAR_CACHE = Caffeine.newBuilder()
+            .maximumSize(CACHE_SIZE)
+            .<String, Scalar>build()
+            .asMap();
+
+    /**
+     *
+     */
     private final IgniteTypeFactory typeFactory;
 
+    /**
+     *
+     */
     private final SqlConformance conformance;
 
+    /**
+     *
+     */
     private final RexBuilder rexBuilder;
 
+    /**
+     *
+     */
     private final RelDataType emptyType;
 
+    /**
+     *
+     */
     private final ExecutionContext<RowT> ctx;
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public ExpressionFactoryImpl(ExecutionContext<RowT> ctx, IgniteTypeFactory typeFactory, SqlConformance conformance) {
         this.ctx = ctx;
@@ -119,7 +144,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         } else if (collation.getFieldCollations().size() == 1) {
             return comparator(collation.getFieldCollations().get(0));
         }
-        return Ordering.compound(collation.getFieldCollations()
+
+        return Commons.compoundComparator(collation.getFieldCollations()
                 .stream()
                 .map(this::comparator)
                 .collect(Collectors.toList()));
@@ -139,9 +165,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             comparators.add(comparator(left.get(i), right.get(i)));
         }
 
-        return Ordering.compound(comparators);
+        return Commons.compoundComparator(comparators);
     }
 
+    /**
+     *
+     */
     @SuppressWarnings("rawtypes")
     private Comparator<RowT> comparator(RelFieldCollation fieldCollation) {
         final int nullComparison = fieldCollation.nullDirection.nullComparison;
@@ -163,6 +192,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         };
     }
 
+    /**
+     *
+     */
     @SuppressWarnings("rawtypes")
     private Comparator<RowT> comparator(RelFieldCollation left, RelFieldCollation right) {
         final int nullComparison = left.nullDirection.nullComparison;
@@ -252,9 +284,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /** {@inheritDoc} */
     @Override
     public Scalar scalar(List<RexNode> nodes, RelDataType type) {
-        return compile(nodes, type);
+        return SCALAR_CACHE.computeIfAbsent(digest(nodes, type), k -> compile(nodes, type));
     }
 
+    /**
+     *
+     */
     private Scalar compile(Iterable<RexNode> nodes, RelDataType type) {
         if (type == null) {
             type = emptyType;
@@ -303,11 +338,14 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         MethodDeclaration decl = Expressions.methodDecl(
                 Modifier.PUBLIC, void.class, IgniteMethod.SCALAR_EXECUTE.method().getName(),
-                ImmutableList.of(ctx, in, out), builder.toBlock());
+                List.of(ctx, in, out), builder.toBlock());
 
         return Commons.compile(Scalar.class, Expressions.toString(List.of(decl), "\n", false));
     }
 
+    /**
+     *
+     */
     private String digest(List<RexNode> nodes, RelDataType type) {
         StringBuilder b = new StringBuilder();
 
@@ -330,16 +368,26 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         return b.toString();
     }
 
+    /**
+     *
+     */
     private class PredicateImpl implements Predicate<RowT> {
+        /**
+         *
+         */
         private final Scalar scalar;
 
+        /**
+         *
+         */
         private final RowT out;
 
+        /**
+         *
+         */
         private final RowHandler<RowT> handler;
 
         /**
-         * Constructor.
-         *
          * @param scalar Scalar.
          */
         private PredicateImpl(Scalar scalar) {
@@ -357,14 +405,21 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
+    /**
+     *
+     */
     private class ProjectImpl implements Function<RowT, RowT> {
+        /**
+         *
+         */
         private final Scalar scalar;
 
+        /**
+         *
+         */
         private final RowFactory<RowT> factory;
 
         /**
-         * Constructor.
-         *
          * @param scalar  Scalar.
          * @param factory Row factory.
          */
@@ -383,11 +438,23 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
+    /**
+     *
+     */
     private class ValuesImpl implements Supplier<RowT> {
+        /**
+         *
+         */
         private final Scalar scalar;
 
+        /**
+         *
+         */
         private final RowFactory<RowT> factory;
 
+        /**
+         *
+         */
         private ValuesImpl(Scalar scalar, RowFactory<RowT> factory) {
             this.scalar = scalar;
             this.factory = factory;
@@ -403,11 +470,23 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
+    /**
+     *
+     */
     private class ValueImpl<T> implements Supplier<T> {
+        /**
+         *
+         */
         private final Scalar scalar;
 
+        /**
+         *
+         */
         private final RowFactory<RowT> factory;
 
+        /**
+         *
+         */
         private ValueImpl(Scalar scalar, RowFactory<RowT> factory) {
             this.scalar = scalar;
             this.factory = factory;
@@ -423,13 +502,28 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
+    /**
+     *
+     */
     private class FieldGetter implements InputGetter {
+        /**
+         *
+         */
         private final Expression hnd;
 
+        /**
+         *
+         */
         private final Expression row;
 
+        /**
+         *
+         */
         private final RelDataType rowType;
 
+        /**
+         *
+         */
         private FieldGetter(Expression hnd, Expression row, RelDataType rowType) {
             this.hnd = hnd;
             this.row = row;
@@ -460,21 +554,42 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
+    /**
+     *
+     */
     private class CorrelatesBuilder extends RexShuttle {
+        /**
+         *
+         */
         private final BlockBuilder builder;
 
+        /**
+         *
+         */
         private final Expression ctx;
 
+        /**
+         *
+         */
         private final Expression hnd;
 
+        /**
+         *
+         */
         private Map<String, FieldGetter> correlates;
 
+        /**
+         *
+         */
         private CorrelatesBuilder(BlockBuilder builder, Expression ctx, Expression hnd) {
             this.builder = builder;
             this.hnd = hnd;
             this.ctx = ctx;
         }
 
+        /**
+         *
+         */
         public Function1<String, InputGetter> build(Iterable<RexNode> nodes) {
             try {
                 for (RexNode node : nodes) {

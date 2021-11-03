@@ -19,9 +19,9 @@ package org.apache.ignite.internal.processors.query.calcite.exec;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import com.google.common.collect.ImmutableMap;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Inbox;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Outbox;
@@ -40,26 +40,30 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
- * ExchangeServiceImpl.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class ExchangeServiceImpl implements ExchangeService {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ExchangeServiceImpl.class);
 
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
+    /**
+     *
+     */
     private final QueryTaskExecutor taskExecutor;
 
+    /**
+     *
+     */
     private final MailboxRegistry mailboxRegistry;
 
+    /**
+     *
+     */
     private final MessageService msgSrvc;
 
     /**
-     * Constructor.
      *
-     * @param taskExecutor Query task executor.
-     * @param mailboxRegistry Mailbox registry.
-     * @param msgSrvc Message service.
      */
     public ExchangeServiceImpl(
             QueryTaskExecutor taskExecutor,
@@ -69,8 +73,15 @@ public class ExchangeServiceImpl implements ExchangeService {
         this.taskExecutor = taskExecutor;
         this.mailboxRegistry = mailboxRegistry;
         this.msgSrvc = msgSrvc;
+    }
 
-        init();
+    /** {@inheritDoc} */
+    @Override
+    public void start() {
+        msgSrvc.register((n, m) -> onMessage(n, (InboxCloseMessage) m), SqlQueryMessageGroup.INBOX_CLOSE_MESSAGE);
+        msgSrvc.register((n, m) -> onMessage(n, (OutboxCloseMessage) m), SqlQueryMessageGroup.OUTBOX_CLOSE_MESSAGE);
+        msgSrvc.register((n, m) -> onMessage(n, (QueryBatchAcknowledgeMessage) m), SqlQueryMessageGroup.QUERY_BATCH_ACK);
+        msgSrvc.register((n, m) -> onMessage(n, (QueryBatchMessage) m), SqlQueryMessageGroup.QUERY_BATCH_MESSAGE);
     }
 
     /** {@inheritDoc} */
@@ -144,19 +155,15 @@ public class ExchangeServiceImpl implements ExchangeService {
         );
     }
 
-    private void init() {
-        msgSrvc.register((n, m) -> onMessage(n, (InboxCloseMessage) m), SqlQueryMessageGroup.INBOX_CLOSE_MESSAGE);
-        msgSrvc.register((n, m) -> onMessage(n, (OutboxCloseMessage) m), SqlQueryMessageGroup.OUTBOX_CLOSE_MESSAGE);
-        msgSrvc.register((n, m) -> onMessage(n, (QueryBatchAcknowledgeMessage) m), SqlQueryMessageGroup.QUERY_BATCH_ACK);
-        msgSrvc.register((n, m) -> onMessage(n, (QueryBatchMessage) m), SqlQueryMessageGroup.QUERY_BATCH_MESSAGE);
-    }
-
     /** {@inheritDoc} */
     @Override
     public boolean alive(String nodeId) {
         return msgSrvc.alive(nodeId);
     }
 
+    /**
+     *
+     */
     protected void onMessage(String nodeId, InboxCloseMessage msg) {
         Collection<Inbox<?>> inboxes = mailboxRegistry.inboxes(msg.queryId(), msg.fragmentId(), msg.exchangeId());
 
@@ -173,6 +180,9 @@ public class ExchangeServiceImpl implements ExchangeService {
         }
     }
 
+    /**
+     *
+     */
     protected void onMessage(String nodeId, OutboxCloseMessage msg) {
         Collection<Outbox<?>> outboxes = mailboxRegistry.outboxes(msg.queryId(), msg.fragmentId(), msg.exchangeId());
 
@@ -193,6 +203,9 @@ public class ExchangeServiceImpl implements ExchangeService {
         }
     }
 
+    /**
+     *
+     */
     protected void onMessage(String nodeId, QueryBatchAcknowledgeMessage msg) {
         Outbox<?> outbox = mailboxRegistry.outbox(msg.queryId(), msg.exchangeId());
 
@@ -214,6 +227,9 @@ public class ExchangeServiceImpl implements ExchangeService {
         }
     }
 
+    /**
+     *
+     */
     protected void onMessage(String nodeId, QueryBatchMessage msg) {
         Inbox<?> inbox = mailboxRegistry.inbox(msg.queryId(), msg.exchangeId());
 
@@ -245,9 +261,6 @@ public class ExchangeServiceImpl implements ExchangeService {
     }
 
     /**
-     * BaseInboxContext.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
      * @return Minimal execution context to meet Inbox needs.
      */
     private ExecutionContext<?> baseInboxContext(String nodeId, UUID qryId, long fragmentId) {
@@ -263,6 +276,12 @@ public class ExchangeServiceImpl implements ExchangeService {
                         null,
                         null),
                 null,
-                ImmutableMap.of());
+                Map.of());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void stop() {
+        // No-op.
     }
 }

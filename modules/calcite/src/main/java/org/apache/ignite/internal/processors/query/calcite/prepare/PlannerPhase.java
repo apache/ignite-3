@@ -69,6 +69,9 @@ import org.apache.ignite.internal.processors.query.calcite.rule.logical.ProjectS
  * Represents a planner phase with its description and a used rule set.
  */
 public enum PlannerPhase {
+    /**
+     *
+     */
     HEURISTIC_OPTIMIZATION("Heuristic optimization phase") {
         /** {@inheritDoc} */
         @Override
@@ -86,6 +89,9 @@ public enum PlannerPhase {
         }
     },
 
+    /**
+     *
+     */
     OPTIMIZATION("Main optimization phase") {
         /** {@inheritDoc} */
         @Override
@@ -203,11 +209,12 @@ public enum PlannerPhase {
         }
     };
 
+    /**
+     *
+     */
     public final String description;
 
     /**
-     * Constructor.
-     *
      * @param description Phase description.
      */
     PlannerPhase(String description) {

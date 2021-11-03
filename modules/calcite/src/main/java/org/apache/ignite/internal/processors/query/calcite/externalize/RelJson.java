@@ -21,15 +21,14 @@ import static org.apache.ignite.internal.processors.query.calcite.util.Commons.F
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.igniteClassLoader;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -115,25 +114,37 @@ import org.apache.ignite.lang.IgniteException;
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 class RelJson {
+    /**
+     *
+     */
     private final RelOptCluster cluster;
 
+    /**
+     *
+     */
     @SuppressWarnings("PublicInnerClass")
     @FunctionalInterface
-    public static interface RelFactory extends Function<RelInput, RelNode> {
+    public interface RelFactory extends Function<RelInput, RelNode> {
         /** {@inheritDoc} */
         @Override
         RelNode apply(RelInput input);
     }
 
-    private static final LoadingCache<String, RelFactory> FACTORIES_CACHE = CacheBuilder.newBuilder()
-            .build(CacheLoader.from(RelJson::relFactory));
+    /**
+     *
+     */
+    private static final LoadingCache<String, RelFactory> FACTORIES_CACHE = Caffeine.newBuilder()
+            .build(RelJson::relFactory);
 
+    /**
+     *
+     */
     private static RelFactory relFactory(String typeName) {
         Class<?> clazz = null;
 
         if (!typeName.contains(".")) {
-            for (String package0 : PACKAGES) {
-                if ((clazz = classForName(package0 + typeName, true)) != null) {
+            for (String pckg : PACKAGES) {
+                if ((clazz = classForName(pckg + typeName, true)) != null) {
                     break;
                 }
             }
@@ -162,14 +173,16 @@ class RelJson {
         return Commons.compile(RelFactory.class, Expressions.toString(asList(declaration), "\n", true));
     }
 
-    private static final ImmutableMap<String, Enum<?>> ENUM_BY_NAME;
-
+    /**
+     *
+     */
+    private static final Map<String, Enum<?>> ENUM_BY_NAME;
+    
     static {
         // Build a mapping from enum constants (e.g. LEADING) to the enum
         // that contains them (e.g. SqlTrimFunction.Flag). If there two
         // enum constants have the same name, the builder will throw.
-        final ImmutableMap.Builder<String, Enum<?>> enumByName =
-                ImmutableMap.builder();
+        final Map<String, Enum<?>> enumByName = new HashMap<>();
 
         register(enumByName, JoinConditionType.class);
         register(enumByName, JoinType.class);
@@ -190,16 +203,22 @@ class RelJson {
         register(enumByName, SqlTrimFunction.Flag.class);
         register(enumByName, TimeUnitRange.class);
 
-        ENUM_BY_NAME = enumByName.build();
+        ENUM_BY_NAME = Map.copyOf(enumByName);
     }
 
-    private static void register(ImmutableMap.Builder<String, Enum<?>> builder, Class<? extends Enum> clazz) {
-        String preffix = clazz.getSimpleName() + "#";
-        for (Enum enumConstant : clazz.getEnumConstants()) {
-            builder.put(preffix + enumConstant.name(), enumConstant);
+    /**
+     *
+     */
+    private static void register(Map<String, Enum<?>> map, Class<? extends Enum> aclass) {
+        String preffix = aclass.getSimpleName() + "#";
+        for (Enum enumConstant : aclass.getEnumConstants()) {
+            map.put(preffix + enumConstant.name(), enumConstant);
         }
     }
 
+    /**
+     *
+     */
     private static Class<?> classForName(String typeName, boolean skipNotFound) {
         try {
             return IgniteUtils.forName(typeName, igniteClassLoader());
@@ -212,8 +231,11 @@ class RelJson {
         return null;
     }
 
+    /**
+     *
+     */
     private static final List<String> PACKAGES =
-            ImmutableList.of(
+            List.of(
                     "org.apache.ignite.internal.processors.query.calcite.rel.",
                     "org.apache.ignite.internal.processors.query.calcite.rel.agg.",
                     "org.apache.ignite.internal.processors.query.calcite.rel.set.",
@@ -223,23 +245,32 @@ class RelJson {
                     "org.apache.calcite.adapter.jdbc.",
                     "org.apache.calcite.adapter.jdbc.JdbcRules$");
 
+    /**
+     *
+     */
     RelJson(RelOptCluster cluster) {
         this.cluster = cluster;
     }
 
+    /**
+     *
+     */
     Function<RelInput, RelNode> factory(String type) {
-        return FACTORIES_CACHE.getUnchecked(type);
+        return FACTORIES_CACHE.get(type);
     }
 
-    String classToTypeName(Class<? extends RelNode> clazz) {
-        if (IgniteRel.class.isAssignableFrom(clazz)) {
-            return clazz.getSimpleName();
+    /**
+     *
+     */
+    String classToTypeName(Class<? extends RelNode> cls) {
+        if (IgniteRel.class.isAssignableFrom(cls)) {
+            return cls.getSimpleName();
         }
 
-        String canonicalName = clazz.getName();
-        for (String package0 : PACKAGES) {
-            if (canonicalName.startsWith(package0)) {
-                String remaining = canonicalName.substring(package0.length());
+        String canonicalName = cls.getName();
+        for (String pckg : PACKAGES) {
+            if (canonicalName.startsWith(pckg)) {
+                String remaining = canonicalName.substring(pckg.length());
                 if (remaining.indexOf('.') < 0 && remaining.indexOf('$') < 0) {
                     return remaining;
                 }
@@ -248,6 +279,9 @@ class RelJson {
         return canonicalName;
     }
 
+    /**
+     *
+     */
     Object toJson(Object value) {
         if (value == null
                 || value instanceof Number
@@ -299,20 +333,26 @@ class RelJson {
                     + value + " (type " + value.getClass().getCanonicalName() + ")");
         }
     }
-
+    
+    /**
+     *
+     */
     private Object toJson(Enum<?> enum0) {
         String key = enum0.getDeclaringClass().getSimpleName() + "#" + enum0.name();
-
+        
         if (ENUM_BY_NAME.get(key) == enum0) {
             return key;
         }
-
+        
         Map<String, Object> map = map();
         map.put("class", enum0.getDeclaringClass().getName());
         map.put("name", enum0.name());
         return map;
     }
-
+    
+    /**
+     *
+     */
     private Object toJson(AggregateCall node) {
         Map<String, Object> map = map();
         map.put("agg", toJson(node.getAggregation()));
@@ -323,7 +363,10 @@ class RelJson {
         map.put("name", node.getName());
         return map;
     }
-
+    
+    /**
+     *
+     */
     private Object toJson(RelDataType node) {
         if (node instanceof JavaType) {
             Map<String, Object> map = map();
@@ -331,7 +374,7 @@ class RelJson {
             if (node.isNullable()) {
                 map.put("nullable", true);
             }
-
+            
             return map;
         }
         if (node.isStruct()) {
@@ -360,7 +403,10 @@ class RelJson {
             return map;
         }
     }
-
+    
+    /**
+     *
+     */
     private Object toJson(RelDataTypeField node) {
         Map<String, Object> map;
         if (node.getType().isStruct()) {
@@ -372,15 +418,21 @@ class RelJson {
         map.put("name", node.getName());
         return map;
     }
-
+    
+    /**
+     *
+     */
     private Object toJson(CorrelationId node) {
         return node.getId();
     }
-
+    
+    /**
+     *
+     */
     private Object toJson(RexNode node) {
         // removes calls to SEARCH and the included Sarg and converts them to comparisons
         node = RexUtil.expandSearch(cluster.getRexBuilder(), null, node);
-
+        
         Map<String, Object> map;
         switch (node.getKind()) {
             case FIELD_ACCESS:
@@ -388,7 +440,7 @@ class RelJson {
                 RexFieldAccess fieldAccess = (RexFieldAccess) node;
                 map.put("field", fieldAccess.getField().getName());
                 map.put("expr", toJson(fieldAccess.getReferenceExpr()));
-
+                
                 return map;
             case LITERAL:
                 RexLiteral literal = (RexLiteral) node;
@@ -396,13 +448,13 @@ class RelJson {
                 map = map();
                 map.put("literal", toJson(value));
                 map.put("type", toJson(node.getType()));
-
+                
                 return map;
             case INPUT_REF:
                 map = map();
                 map.put("input", ((RexSlot) node).getIndex());
                 map.put("name", ((RexVariable) node).getName());
-
+                
                 return map;
             case DYNAMIC_PARAM:
                 map = map();
@@ -410,20 +462,20 @@ class RelJson {
                 map.put("name", ((RexVariable) node).getName());
                 map.put("type", toJson(node.getType()));
                 map.put("dynamic", true);
-
+                
                 return map;
             case LOCAL_REF:
                 map = map();
                 map.put("input", ((RexSlot) node).getIndex());
                 map.put("name", ((RexVariable) node).getName());
                 map.put("type", toJson(node.getType()));
-
+                
                 return map;
             case CORREL_VARIABLE:
                 map = map();
                 map.put("correl", ((RexVariable) node).getName());
                 map.put("type", toJson(node.getType()));
-
+                
                 return map;
             default:
                 if (node instanceof RexCall) {
@@ -431,17 +483,17 @@ class RelJson {
                     map = map();
                     map.put("op", toJson(call.getOperator()));
                     List<Object> list = list();
-
+                    
                     for (RexNode operand : call.getOperands()) {
                         list.add(toJson(operand));
                     }
-
+                    
                     map.put("operands", list);
-
+                    
                     if (node.getKind() == SqlKind.CAST) {
                         map.put("type", toJson(node.getType()));
                     }
-
+                    
                     if (call.getOperator() instanceof SqlFunction) {
                         if (((SqlFunction) call.getOperator()).getFunctionType().isUserDefined()) {
                             SqlOperator op = call.getOperator();
@@ -451,20 +503,23 @@ class RelJson {
                             map.put("dynamic", op.isDynamicFunction());
                         }
                     }
-
+                    
                     if (call instanceof RexOver) {
                         RexOver over = (RexOver) call;
                         map.put("distinct", over.isDistinct());
                         map.put("type", toJson(node.getType()));
                         map.put("window", toJson(over.getWindow()));
                     }
-
+                    
                     return map;
                 }
                 throw new UnsupportedOperationException("unknown rex " + node);
         }
     }
-
+    
+    /**
+     *
+     */
     private Object toJson(RexWindow window) {
         Map<String, Object> map = map();
         if (!window.partitionKeys.isEmpty()) {
@@ -490,16 +545,19 @@ class RelJson {
         }
         return map;
     }
-
+    
+    /**
+     *
+     */
     private Object toJson(DistributionTrait distribution) {
         Type type = distribution.getType();
-
+        
         switch (type) {
             case ANY:
             case BROADCAST_DISTRIBUTED:
             case RANDOM_DISTRIBUTED:
             case SINGLETON:
-
+                
                 return type.shortName;
             case HASH_DISTRIBUTED:
                 Map<String, Object> map = map();
@@ -507,15 +565,18 @@ class RelJson {
                 for (Integer key : distribution.getKeys()) {
                     keys.add(toJson(key));
                 }
-
+                
                 map.put("keys", keys);
-
+                
                 return map;
             default:
                 throw new AssertionError("Unexpected distribution type.");
         }
     }
-
+    
+    /**
+     *
+     */
     private Object toJson(RelCollationImpl node) {
         List<Object> list = list();
         for (RelFieldCollation fieldCollation : node.getFieldCollations()) {
@@ -527,7 +588,10 @@ class RelJson {
         }
         return list;
     }
-
+    
+    /**
+     *
+     */
     private Object toJson(RexFieldCollation collation) {
         Map<String, Object> map = map();
         map.put("expr", toJson(collation.left));
@@ -535,7 +599,10 @@ class RelJson {
         map.put("null-direction", toJson(collation.getNullDirection()));
         return map;
     }
-
+    
+    /**
+     *
+     */
     private Object toJson(RexWindowBound windowBound) {
         Map<String, Object> map = map();
         if (windowBound.isCurrentRow()) {
@@ -548,7 +615,10 @@ class RelJson {
         }
         return map;
     }
-
+    
+    /**
+     *
+     */
     private Object toJson(SqlOperator operator) {
         // User-defined operators are not yet handled.
         Map map = map();
@@ -558,6 +628,9 @@ class RelJson {
         return map;
     }
 
+    /**
+     *
+     */
     RelCollation toCollation(List<Map<String, Object>> jsonFieldCollations) {
         if (jsonFieldCollations == null) {
             return RelCollations.EMPTY;
@@ -570,6 +643,9 @@ class RelJson {
         return RelCollations.of(fieldCollations);
     }
 
+    /**
+     *
+     */
     IgniteDistribution toDistribution(Object distribution) {
         if (distribution instanceof String) {
             switch ((String) distribution) {
@@ -582,7 +658,7 @@ class RelJson {
                 case "random":
                     return IgniteDistributions.random();
                 default:
-                    break;
+                    // NO-OP
             }
         }
 
@@ -596,6 +672,9 @@ class RelJson {
         return IgniteDistributions.hash((List<Integer>) map.get("keys"), DistributionFunction.hash());
     }
 
+    /**
+     *
+     */
     RelDataType toType(RelDataTypeFactory typeFactory, Object o) {
         if (o instanceof List) {
             List<Map<String, Object>> jsonList = (List<Map<String, Object>>) o;
@@ -655,6 +734,9 @@ class RelJson {
         }
     }
 
+    /**
+     *
+     */
     RexNode toRex(RelInput relInput, Object o) {
         RelOptCluster cluster = relInput.getCluster();
         RexBuilder rexBuilder = cluster.getRexBuilder();
@@ -675,10 +757,8 @@ class RelJson {
                 if (window != null) {
                     final SqlAggFunction operator = (SqlAggFunction) toOp(opMap);
                     final RelDataType type = toType(typeFactory, jsonType);
-                    List<RexNode> partitionKeys = new ArrayList<>();
-                    if (window.containsKey("partition")) {
-                        partitionKeys = toRexList(relInput, (List) window.get("partition"));
-                    }
+                    final List<RexNode> partitionKeys = window.containsKey("partition")
+                            ? toRexList(relInput, (List) window.get("partition")) : new ArrayList<>();
                     List<RexFieldCollation> orderKeys = new ArrayList<>();
                     if (window.containsKey("order")) {
                         orderKeys = toRexFieldCollationList(relInput, (List) window.get("order"));
@@ -785,6 +865,9 @@ class RelJson {
         }
     }
 
+    /**
+     *
+     */
     SqlOperator toOp(Map<String, Object> map) {
         // in case different operator has the same kind, check with both name and kind.
         String name = map.get("name").toString();
@@ -805,31 +888,43 @@ class RelJson {
                 return operator;
             }
         }
-        String clazz = (String) map.get("class");
-        if (clazz != null) {
-            return AvaticaUtils.instantiatePlugin(SqlOperator.class, clazz);
+        String cls = (String) map.get("class");
+        if (cls != null) {
+            return AvaticaUtils.instantiatePlugin(SqlOperator.class, cls);
         }
         return null;
     }
 
+    /**
+     *
+     */
     <T> List<T> list() {
         return new ArrayList<>();
     }
 
+    /**
+     *
+     */
     <T> Set<T> set() {
         return new LinkedHashSet<>();
     }
 
+    /**
+     *
+     */
     <T> Map<String, T> map() {
         return new LinkedHashMap<>();
     }
 
+    /**
+     *
+     */
     private <T extends Enum<T>> T toEnum(Object o) {
         if (o instanceof Map) {
             Map<String, Object> map = (Map<String, Object>) o;
-            String clazz = (String) map.get("class");
+            String cls = (String) map.get("class");
             String name = map.get("name").toString();
-            return Util.enumVal((Class<T>) classForName(clazz, false), name);
+            return Util.enumVal((Class<T>) classForName(cls, false), name);
         }
 
         assert o instanceof String && ENUM_BY_NAME.containsKey(o);
@@ -838,6 +933,9 @@ class RelJson {
         return (T) ENUM_BY_NAME.get(name);
     }
 
+    /**
+     *
+     */
     private RelFieldCollation toFieldCollation(Map<String, Object> map) {
         Integer field = (Integer) map.get("field");
         Direction direction = toEnum(map.get("direction"));
@@ -845,6 +943,9 @@ class RelJson {
         return new RelFieldCollation(field, direction, nullDirection);
     }
 
+    /**
+     *
+     */
     private List<RexFieldCollation> toRexFieldCollationList(RelInput relInput, List<Map<String, Object>> order) {
         if (order == null) {
             return null;
@@ -867,6 +968,9 @@ class RelJson {
         return list;
     }
 
+    /**
+     *
+     */
     private RexWindowBound toRexWindowBound(RelInput input, Map<String, Object> map) {
         if (map == null) {
             return null;
@@ -898,6 +1002,9 @@ class RelJson {
         }
     }
 
+    /**
+     *
+     */
     private List<RexNode> toRexList(RelInput relInput, List<?> operands) {
         List<RexNode> list = new ArrayList<>();
         for (Object operand : operands) {

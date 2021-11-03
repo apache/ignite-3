@@ -23,7 +23,7 @@ import java.util.Arrays;
  * Basic string builder over circular buffer.
  */
 class CircularStringBuilder {
-    /** Value */
+    /** Value. */
     private final char[] buf;
 
     /** Writer position (0 if empty). */
@@ -32,7 +32,7 @@ class CircularStringBuilder {
     /** Value is full flag. */
     private boolean full;
 
-    /** Number of skipped characters */
+    /** Number of skipped characters. */
     private int skipped;
 
     /**
@@ -50,7 +50,7 @@ class CircularStringBuilder {
     }
 
     /**
-     * Reset internal builder state
+     * Reset internal builder state.
      */
     public void reset() {
         Arrays.fill(buf, (char) 0);
@@ -244,6 +244,8 @@ class CircularStringBuilder {
     }
 
     /**
+     * Appends {@code "null"}.
+     *
      * @return {@code this} for chaining.
      */
     private CircularStringBuilder appendNull() {
@@ -251,6 +253,8 @@ class CircularStringBuilder {
     }
 
     /**
+     * Returns count of skipped elements.
+     *
      * @return Count of skipped elements.
      */
     public int getSkipped() {

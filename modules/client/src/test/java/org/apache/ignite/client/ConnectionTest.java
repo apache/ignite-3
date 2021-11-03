@@ -60,7 +60,7 @@ public class ConnectionTest extends AbstractClientTest {
 
     @Disabled("IPv6 is not enabled by default on some systems.")
     @Test
-    public void testIPv6NodeAddresses() throws Exception {
+    public void testIpv6NodeAddresses() throws Exception {
         testConnection("[::1]:" + serverPort);
     }
 

@@ -30,8 +30,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
 
 /**
- * IgniteValues.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *
  */
 public class IgniteValues extends Values implements IgniteRel {
     /**
@@ -49,6 +48,9 @@ public class IgniteValues extends Values implements IgniteRel {
         super(cluster, rowType, tuples, traits);
     }
 
+    /**
+     *
+     */
     public IgniteValues(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
     }

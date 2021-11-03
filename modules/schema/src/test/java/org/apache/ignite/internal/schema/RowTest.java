@@ -74,7 +74,7 @@ public class RowTest {
     }
 
     /**
-     * Check row serialization for schema with nullable fix-sized columns only.
+     * Check row serialization for a schema with nullable fix-sized columns only.
      */
     @Test
     public void nullableFixSizedColumns() {
@@ -114,7 +114,7 @@ public class RowTest {
     }
 
     /**
-     * Check row serialization for schema with non-nullable fix-sized columns only.
+     * Check row serialization for a schema with non-nullable fix-sized columns only.
      */
     @Test
     public void fixSizedColumns() {
@@ -154,7 +154,7 @@ public class RowTest {
     }
 
     /**
-     * Check row serialization for schema with various columns.
+     * Check row serialization for a schema with various columns.
      */
     @Test
     public void mixedColumns() {
@@ -186,7 +186,7 @@ public class RowTest {
     }
 
     /**
-     * Check row serialization for schema with various columns.
+     * Check row serialization for a schema with various columns.
      */
     @Test
     public void temporalColumns() {
@@ -212,7 +212,7 @@ public class RowTest {
     }
 
     /**
-     * Check row serialization for schema with non-nullable varlen columns only.
+     * Check row serialization for a schema with non-nullable varlen columns only.
      */
     @Test
     public void varlenColumns() {
@@ -234,7 +234,7 @@ public class RowTest {
     }
 
     /**
-     * Check row serialization for schema with nullable varlen columns only.
+     * Check row serialization for a schema with nullable varlen columns only.
      */
     @Test
     public void nullableVarlenColumns() {
@@ -254,7 +254,7 @@ public class RowTest {
     }
 
     /**
-     * Check row serialization for schema with large varlen columns (64Kb+).
+     * Check row serialization for a schema with large varlen columns (64Kb+).
      */
     @Test
     public void largeVarlenColumns() {
@@ -288,6 +288,29 @@ public class RowTest {
 
             checkArr[idx] = prev;
         }
+    }
+
+    /**
+     * Check row serialization for a schema with many empty varlen columns (255+).
+     */
+    @Test
+    public void bigVartable() {
+        Column[] keyCols = new Column[]{
+                new Column("id", INT64, false),
+        };
+
+        int columnCount = 260;
+
+        Column[] valCols = IntStream.range(1, columnCount)
+                .mapToObj(i -> new Column("val" + i, STRING, true))
+                .toArray(Column[]::new);
+
+        SchemaDescriptor sch = new SchemaDescriptor(1, keyCols, valCols);
+
+        Object[] checkArr = IntStream.range(0, columnCount)
+                .mapToObj(i -> i == 0 ? 42L : (i > columnCount - 5) ? "str" : "").toArray();
+
+        checkValues(sch, checkArr);
     }
 
     /**

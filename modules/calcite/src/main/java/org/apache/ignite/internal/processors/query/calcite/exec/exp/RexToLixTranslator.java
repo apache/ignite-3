@@ -20,7 +20,6 @@ package org.apache.ignite.internal.processors.query.calcite.exec.exp;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CASE;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SEARCH;
 
-import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
@@ -77,20 +76,44 @@ import org.apache.calcite.util.Pair;
  * Translates {@link RexNode REX expressions} to {@link Expression linq4j expressions}.
  */
 public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result> {
+    /**
+     *
+     */
     final JavaTypeFactory typeFactory;
 
+    /**
+     *
+     */
     final RexBuilder builder;
 
+    /**
+     *
+     */
     private final RexProgram program;
 
+    /**
+     *
+     */
     final SqlConformance conformance;
 
+    /**
+     *
+     */
     private final Expression root;
 
+    /**
+     *
+     */
     final RexToLixTranslator.InputGetter inputGetter;
 
+    /**
+     *
+     */
     private final BlockBuilder list;
 
+    /**
+     *
+     */
     private final Function1<String, InputGetter> correlates;
 
     /**
@@ -118,8 +141,14 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
      */
     private final Map<RexNode, Result> rexResultMap = new HashMap<>();
 
+    /**
+     *
+     */
     private Type currentStorageType;
 
+    /**
+     *
+     */
     private RexToLixTranslator(RexProgram program,
             JavaTypeFactory typeFactory,
             Expression root,
@@ -169,22 +198,34 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 .translateList(program.getProjectList(), storageTypes);
     }
 
+    /**
+     *
+     */
     Expression translate(RexNode expr) {
         final RexImpTable.NullAs nullAs =
                 RexImpTable.NullAs.of(isNullable(expr));
         return translate(expr, nullAs);
     }
 
+    /**
+     *
+     */
     Expression translate(RexNode expr, RexImpTable.NullAs nullAs) {
         return translate(expr, nullAs, null);
     }
 
+    /**
+     *
+     */
     Expression translate(RexNode expr, Type storageType) {
         final RexImpTable.NullAs nullAs =
                 RexImpTable.NullAs.of(isNullable(expr));
         return translate(expr, nullAs, storageType);
     }
 
+    /**
+     *
+     */
     Expression translate(RexNode expr, RexImpTable.NullAs nullAs,
             Type storageType) {
         currentStorageType = storageType;
@@ -201,6 +242,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
         return nullAs.handle(translated);
     }
 
+    /**
+     *
+     */
     Expression translateCast(
             RelDataType sourceType,
             RelDataType targetType,
@@ -717,6 +761,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
         return Expressions.constant(value2, javaClass);
     }
 
+    /**
+     *
+     */
     public List<Expression> translateList(
             List<RexNode> operandList,
             RexImpTable.NullAs nullAs) {
@@ -725,8 +772,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     }
 
     /**
-     * Translate list.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public List<Expression> translateList(
             List<RexNode> operandList,
@@ -788,16 +834,15 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     /**
      * Returns whether an expression is nullable.
      *
-     * @param e Expression.
-     * @return Whether expression is nullable.
+     * @param e Expression
+     * @return Whether expression is nullable
      */
     public boolean isNullable(RexNode e) {
         return e.getType().isNullable();
     }
 
     /**
-     * SetBlock.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
     public RexToLixTranslator setBlock(BlockBuilder block) {
         if (block == list) {
@@ -809,10 +854,10 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     }
 
     /**
-     * SetCorrelates.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      */
-    public RexToLixTranslator setCorrelates(Function1<String, InputGetter> correlates) {
+    public RexToLixTranslator setCorrelates(
+            Function1<String, InputGetter> correlates) {
         if (this.correlates == correlates) {
             return this;
         }
@@ -821,10 +866,16 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 builder, conformance, correlates);
     }
 
+    /**
+     *
+     */
     public Expression getRoot() {
         return root;
     }
 
+    /**
+     *
+     */
     private static Expression scaleIntervalToNumber(
             RelDataType sourceType,
             RelDataType targetType,
@@ -1025,6 +1076,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
         return result;
     }
 
+    /**
+     *
+     */
     private static Result implementCallOperand(final RexNode operand,
             final Type storageType, final RexToLixTranslator translator) {
         final Type originalStorageType = translator.currentStorageType;
@@ -1037,6 +1091,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
         return operandResult;
     }
 
+    /**
+     *
+     */
     private static Expression implementCallOperand2(final RexNode operand,
             final Type storageType, final RexToLixTranslator translator) {
         final Type originalStorageType = translator.currentStorageType;
@@ -1144,6 +1201,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 Expressions.ifThenElse(tester, ifTrue, ifFalse));
     }
 
+    /**
+     *
+     */
     private Result toInnerStorageType(final Result result, final Type storageType) {
         final Expression valueExpression =
                 ConverterUtils.toInternal(result.valueVariable, storageType);
@@ -1227,7 +1287,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                         builder.makeLiteral(fieldName, typeFactory.createType(String.class), true);
                 RexCall accessCall = (RexCall) builder.makeCall(
                         fieldAccess.getType(), SqlStdOperatorTable.STRUCT_ACCESS,
-                        ImmutableList.of(target, rxIndex, rxName));
+                        List.of(target, rxIndex, rxName));
                 final Result result2 = accessCall.accept(this);
                 rexWithStorageTypeResultMap.put(key, result2);
                 return result2;
@@ -1271,6 +1331,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
         return visitInputRef(fieldRef);
     }
 
+    /**
+     *
+     */
     Expression checkNull(Expression expr) {
         if (Primitive.flavor(expr.getType()) == Primitive.Flavor.PRIMITIVE) {
             return RexImpTable.FALSE_EXPR;
@@ -1279,6 +1342,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
         return Expressions.equal(expr, RexImpTable.NULL_EXPR);
     }
 
+    /**
+     *
+     */
     Expression checkNotNull(Expression expr) {
         if (Primitive.flavor(expr.getType()) == Primitive.Flavor.PRIMITIVE) {
             return RexImpTable.TRUE_EXPR;
@@ -1287,10 +1353,16 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
         return Expressions.notEqual(expr, RexImpTable.NULL_EXPR);
     }
 
+    /**
+     *
+     */
     BlockBuilder getBlockBuilder() {
         return list;
     }
 
+    /**
+     *
+     */
     Expression getLiteral(Expression literalVariable) {
         return literalMap.get(literalVariable);
     }
@@ -1308,21 +1380,36 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
         return null;
     }
 
+    /**
+     *
+     */
     List<Result> getCallOperandResult(RexCall call) {
         return callOperandResultMap.get(call);
     }
 
     /** Translates a field of an input to an expression. */
     public interface InputGetter {
+        /**
+         *
+         */
         Expression field(BlockBuilder list, int index, Type storageType);
     }
 
     /** Result of translating a {@code RexNode}. */
     public static class Result {
+        /**
+         *
+         */
         final ParameterExpression isNullVariable;
 
+        /**
+         *
+         */
         final ParameterExpression valueVariable;
 
+        /**
+         *
+         */
         public Result(ParameterExpression isNullVariable,
                 ParameterExpression valueVariable) {
             this.isNullVariable = isNullVariable;

@@ -25,12 +25,12 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of the {@link ConfigurationNotificationEvent}.
  */
-class ConfigurationNotificationEventImpl<VIEW> implements ConfigurationNotificationEvent<VIEW> {
+class ConfigurationNotificationEventImpl<VIEWT> implements ConfigurationNotificationEvent<VIEWT> {
     /** Previous value of the updated configuration. */
-    private final VIEW oldValue;
+    private final VIEWT oldValue;
 
     /** Updated value of the configuration. */
-    private final VIEW newValue;
+    private final VIEWT newValue;
 
     /** Storage revision. */
     private final long storageRevision;
@@ -47,8 +47,8 @@ class ConfigurationNotificationEventImpl<VIEW> implements ConfigurationNotificat
      * @param configs         Configuration containers.
      */
     ConfigurationNotificationEventImpl(
-            VIEW oldValue,
-            VIEW newValue,
+            VIEWT oldValue,
+            VIEWT newValue,
             long storageRevision,
             Map<Class<? extends ConfigurationProperty>, ConfigurationContainer> configs
     ) {
@@ -60,13 +60,13 @@ class ConfigurationNotificationEventImpl<VIEW> implements ConfigurationNotificat
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable VIEW oldValue() {
+    public @Nullable VIEWT oldValue() {
         return oldValue;
     }
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable VIEW newValue() {
+    public @Nullable VIEWT newValue() {
         return newValue;
     }
 

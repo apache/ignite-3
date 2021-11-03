@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import org.apache.ignite.client.IgniteClient;
@@ -100,6 +101,13 @@ public class TcpIgniteClient implements IgniteClient {
     @Override
     public IgniteTransactions transactions() {
         return null;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override public void setBaseline(Set<String> baselineNodes) {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
