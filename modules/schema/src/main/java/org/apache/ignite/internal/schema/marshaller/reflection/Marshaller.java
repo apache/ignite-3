@@ -75,36 +75,36 @@ public abstract class Marshaller {
     /**
      * Creates a marshaller for class.
      *
-     * @param cols Columns.
-     * @param aClass Type.
+     * @param cols   Columns.
+     * @param cls Type.
      * @return Marshaller.
      */
     @Deprecated // TODO drop method.
-    public static Marshaller createMarshaller(Columns cols, Class<? extends Object> aClass) {
-        final BinaryMode mode = MarshallerUtil.mode(aClass);
-
+    public static Marshaller createMarshaller(Columns cols, Class<? extends Object> cls) {
+        final BinaryMode mode = MarshallerUtil.mode(cls);
+        
         if (mode != null) {
             final Column col = cols.column(0);
-
+            
             assert cols.length() == 1;
             assert mode.typeSpec() == col.type().spec() : "Target type is not compatible.";
-            assert !aClass.isPrimitive() : "Non-nullable types are not allowed.";
-
+            assert !cls.isPrimitive() : "Non-nullable types are not allowed.";
+            
             return new SimpleMarshaller(FieldAccessor.createIdentityAccessor(col, col.schemaIndex(), mode));
         }
-
+        
         FieldAccessor[] fieldAccessors = new FieldAccessor[cols.length()];
-
+        
         // Build accessors
         for (int i = 0; i < cols.length(); i++) {
             final Column col = cols.column(i);
-
-            fieldAccessors[i] = FieldAccessor.create(aClass, col.name(), col, col.schemaIndex());
+            
+            fieldAccessors[i] = FieldAccessor.create(cls, col.name(), col, col.schemaIndex());
         }
-
-        return new PojoMarshaller(new ObjectFactory<>(aClass), fieldAccessors);
+        
+        return new PojoMarshaller(new ObjectFactory<>(cls), fieldAccessors);
     }
-
+    
     /**
      * Reads object field value.
      *

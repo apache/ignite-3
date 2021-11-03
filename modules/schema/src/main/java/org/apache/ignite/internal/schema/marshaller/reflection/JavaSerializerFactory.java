@@ -27,7 +27,8 @@ import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
 @Deprecated(forRemoval = true)
 public class JavaSerializerFactory implements SerializerFactory {
     /** {@inheritDoc} */
-    @Override public Serializer create(SchemaDescriptor schema, Class<?> keyClass, Class<?> valClass) {
+    @Override
+    public Serializer create(SchemaDescriptor schema, Class<?> keyClass, Class<?> valClass) {
         return new JavaSerializer(schema, keyClass, valClass);
     }
 }

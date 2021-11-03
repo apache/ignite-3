@@ -36,7 +36,7 @@ public class MarshallerException extends IgniteInternalCheckedException {
      * Constructor.
      *
      * @param message Message.
-     * @param cause Cause.
+     * @param cause   Cause.
      */
     public MarshallerException(String message, Throwable cause) {
         super(message, cause);
