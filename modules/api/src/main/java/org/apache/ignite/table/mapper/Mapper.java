@@ -31,7 +31,29 @@ public interface Mapper<T> {
      *
      * @return Mapped type.
      */
-    Class<T> getType();
+    Class<T> targetType();
+
+    String fieldForColumn(String name);
+
+    /**
+     * Creates identity mapper which is used for simple types that have native support
+     * or objects with field names that match column names.
+     *
+     * @param tClass Target type class.
+     * @param <T> Target type.
+     * @return Mapper.
+     */
+    static <T> Mapper<T> identityMapper(Class<T> tClass) {
+        return new Mapper<>() {
+            @Override public Class<T> targetType() {
+                return tClass;
+            }
+
+            @Override public String fieldForColumn(String name) {
+                return name;
+            }
+        };
+    }
 
     /**
      * Mapper builder.

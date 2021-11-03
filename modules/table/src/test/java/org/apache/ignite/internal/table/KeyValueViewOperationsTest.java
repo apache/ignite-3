@@ -17,28 +17,19 @@
 
 package org.apache.ignite.internal.table;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
@@ -77,11 +68,11 @@ public class KeyValueViewOperationsTest {
     @Test
     public void put() {
         TestKeyObject key = TestKeyObject.randomObject(rnd);
-        TestValueObject obj = TestValueObject.randomObject(rnd);
-        TestValueObject obj2 = TestValueObject.randomObject(rnd);
-        TestValueObject obj3 = TestValueObject.randomObject(rnd);
+        TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
 
-        KeyValueView<TestKeyObject, TestValueObject> tbl = kvView();
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         assertNull(tbl.get(key));
 
@@ -113,10 +104,10 @@ public class KeyValueViewOperationsTest {
     @Test
     public void putIfAbsent() {
         TestKeyObject key = TestKeyObject.randomObject(rnd);
-        TestValueObject obj = TestValueObject.randomObject(rnd);
-        TestValueObject obj2 = TestValueObject.randomObject(rnd);
+        TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
 
-        KeyValueView<TestKeyObject, TestValueObject> tbl = kvView();
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         assertNull(tbl.get(key));
 
@@ -137,11 +128,11 @@ public class KeyValueViewOperationsTest {
     @Test
     public void getAndPut() {
         TestKeyObject key = TestKeyObject.randomObject(rnd);
-        TestValueObject obj = TestValueObject.randomObject(rnd);
-        TestValueObject obj2 = TestValueObject.randomObject(rnd);
-        TestValueObject obj3 = TestValueObject.randomObject(rnd);
+        TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
 
-        KeyValueView<TestKeyObject, TestValueObject> tbl = kvView();
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         assertNull(tbl.get(key));
 
@@ -163,10 +154,10 @@ public class KeyValueViewOperationsTest {
     public void contains() {
         TestKeyObject key = TestKeyObject.randomObject(rnd);
         TestKeyObject key2 = TestKeyObject.randomObject(rnd);
-        TestValueObject obj = TestValueObject.randomObject(rnd);
-        TestValueObject obj2 = TestValueObject.randomObject(rnd);
+        TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
 
-        KeyValueView<TestKeyObject, TestValueObject> tbl = kvView();
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         // Not-existed value.
         assertFalse(tbl.contains(key));
@@ -195,10 +186,10 @@ public class KeyValueViewOperationsTest {
     public void remove() {
         TestKeyObject key = TestKeyObject.randomObject(rnd);
         TestKeyObject key2 = TestKeyObject.randomObject(rnd);
-        TestValueObject obj = TestValueObject.randomObject(rnd);
-        TestValueObject obj2 = TestValueObject.randomObject(rnd);
+        TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
 
-        KeyValueView<TestKeyObject, TestValueObject> tbl = kvView();
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         // Put KV pair.
         tbl.put(key, obj);
@@ -231,10 +222,10 @@ public class KeyValueViewOperationsTest {
     public void removeExact() {
         TestKeyObject key = TestKeyObject.randomObject(rnd);
         TestKeyObject key2 = TestKeyObject.randomObject(rnd);
-        TestValueObject obj = TestValueObject.randomObject(rnd);
-        TestValueObject obj2 = TestValueObject.randomObject(rnd);
+        TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
 
-        KeyValueView<TestKeyObject, TestValueObject> tbl = kvView();
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         // Put KV pair.
         tbl.put(key, obj);
@@ -279,11 +270,11 @@ public class KeyValueViewOperationsTest {
     public void replace() {
         TestKeyObject key = TestKeyObject.randomObject(rnd);
         TestKeyObject key2 = TestKeyObject.randomObject(rnd);
-        TestValueObject obj = TestValueObject.randomObject(rnd);
-        TestValueObject obj2 = TestValueObject.randomObject(rnd);
-        TestValueObject obj3 = TestValueObject.randomObject(rnd);
+        TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
 
-        KeyValueView<TestKeyObject, TestValueObject> tbl = kvView();
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         // Ignore replace operation for non-existed KV pair.
         assertFalse(tbl.replace(key, obj));
@@ -318,11 +309,11 @@ public class KeyValueViewOperationsTest {
     public void replaceExact() {
         TestKeyObject key = TestKeyObject.randomObject(rnd);
         TestKeyObject key2 = TestKeyObject.randomObject(rnd);
-        TestValueObject obj = TestValueObject.randomObject(rnd);
-        TestValueObject obj2 = TestValueObject.randomObject(rnd);
-        TestValueObject obj3 = TestValueObject.randomObject(rnd);
+        TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
 
-        KeyValueView<TestKeyObject, TestValueObject> tbl = kvView();
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         // Insert KV pair.
         assertTrue(tbl.replace(key, null, obj));
@@ -352,9 +343,9 @@ public class KeyValueViewOperationsTest {
     /**
      * @return Key-value view.
      */
-    private KeyValueViewImpl<TestKeyObject, TestValueObject> kvView() {
-        Mapper<TestKeyObject> keyMapper = () -> TestKeyObject.class;
-        Mapper<TestValueObject> valMapper = () -> TestValueObject.class;
+    private KeyValueViewImpl<TestKeyObject, TestObjectWithAllTypes> kvView() {
+        Mapper<TestKeyObject> keyMapper = Mapper.identityMapper(TestKeyObject.class);
+        Mapper<TestObjectWithAllTypes> valMapper = Mapper.identityMapper(TestObjectWithAllTypes.class);
 
         Column[] valCols = {
             new Column("pByteCol", INT8, false),
@@ -392,10 +383,12 @@ public class KeyValueViewOperationsTest {
             valCols
         );
 
-        Set<NativeTypeSpec> testedTypes = Arrays.stream(valCols).map(c -> c.type().spec()).collect(Collectors.toSet());
-        Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values()).filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
+        { // Validate all types are tested.
+            Set<NativeTypeSpec> testedTypes = Arrays.stream(valCols).map(c -> c.type().spec()).collect(Collectors.toSet());
+            Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values()).filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 
-        assertEquals(Collections.emptySet(), missedTypes);
+            assertEquals(Collections.emptySet(), missedTypes);
+        }
 
         return new KeyValueViewImpl<>(
             new DummyInternalTableImpl(),
@@ -409,7 +402,7 @@ public class KeyValueViewOperationsTest {
     /**
      * Test object.
      */
-    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
+    @SuppressWarnings({"InstanceVariableMayNotBeInitialized", "unused"})
     public static class TestKeyObject {
         public static TestKeyObject randomObject(Random rnd) {
             return new TestKeyObject(rnd.nextLong());
@@ -441,137 +434,4 @@ public class KeyValueViewOperationsTest {
         }
     }
 
-    /**
-     * Test object.
-     */
-    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
-    public static class TestValueObject {
-        /**
-         * @return Random TestObject.
-         */
-        public static TestValueObject randomObject(Random rnd) {
-            final TestValueObject obj = new TestValueObject();
-
-            obj.pByteCol = (byte)rnd.nextInt(255);
-            obj.pShortCol = (short)rnd.nextInt(65535);
-            obj.pIntCol = rnd.nextInt();
-            obj.pLongCol = rnd.nextLong();
-            obj.pFloatCol = rnd.nextFloat();
-            obj.pDoubleCol = rnd.nextDouble();
-
-            obj.byteCol = (byte)rnd.nextInt(255);
-            obj.shortCol = (short)rnd.nextInt(65535);
-            obj.intCol = rnd.nextInt();
-            obj.longCol = rnd.nextLong();
-            obj.floatCol = rnd.nextFloat();
-            obj.doubleCol = rnd.nextDouble();
-            obj.nullLongCol = null;
-
-            obj.nullBytesCol = null;
-            obj.uuidCol = new UUID(rnd.nextLong(), rnd.nextLong());
-            obj.bitmaskCol = IgniteTestUtils.randomBitSet(rnd, 42);
-
-            obj.dateCol = (LocalDate)SchemaTestUtils.generateRandomValue(rnd, DATE);
-            obj.timeCol = (LocalTime)SchemaTestUtils.generateRandomValue(rnd, NativeTypes.time());
-            obj.dateTimeCol = (LocalDateTime)SchemaTestUtils.generateRandomValue(rnd, NativeTypes.datetime());
-            obj.timestampCol = (Instant)SchemaTestUtils.generateRandomValue(rnd, NativeTypes.timestamp());
-
-            obj.stringCol = IgniteTestUtils.randomString(rnd, rnd.nextInt(255));
-            obj.bytesCol = IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));
-            obj.numberCol = (BigInteger)SchemaTestUtils.generateRandomValue(rnd, NativeTypes.numberOf(12));
-            obj.decimalCol = (BigDecimal)SchemaTestUtils.generateRandomValue(rnd, NativeTypes.decimalOf(19, 3));
-
-            return obj;
-        }
-
-        // Primitive typed
-        private byte pByteCol;
-
-        private short pShortCol;
-
-        private int pIntCol;
-
-        private long pLongCol;
-
-        private float pFloatCol;
-
-        private double pDoubleCol;
-
-        // Reference typed
-        private Byte byteCol;
-
-        private Short shortCol;
-
-        private Integer intCol;
-
-        private Long longCol;
-
-        private Long nullLongCol;
-
-        private Float floatCol;
-
-        private Double doubleCol;
-
-        private UUID uuidCol;
-
-        private LocalTime timeCol;
-
-        private LocalDate dateCol;
-
-        private LocalDateTime dateTimeCol;
-
-        private Instant timestampCol;
-
-        private BitSet bitmaskCol;
-
-        private String stringCol;
-
-        private byte[] bytesCol;
-
-        private byte[] nullBytesCol;
-
-        private BigInteger numberCol;
-
-        private BigDecimal decimalCol;
-
-        /** {@inheritDoc} */
-        @Override public boolean equals(Object o) {
-            if (this == o)
-                return true;
-
-            if (o == null || getClass() != o.getClass())
-                return false;
-
-            TestValueObject object = (TestValueObject)o;
-
-            return pByteCol == object.pByteCol &&
-                pShortCol == object.pShortCol &&
-                pIntCol == object.pIntCol &&
-                pLongCol == object.pLongCol &&
-                Float.compare(object.pFloatCol, pFloatCol) == 0 &&
-                Double.compare(object.pDoubleCol, pDoubleCol) == 0 &&
-                Objects.equals(byteCol, object.byteCol) &&
-                Objects.equals(shortCol, object.shortCol) &&
-                Objects.equals(intCol, object.intCol) &&
-                Objects.equals(longCol, object.longCol) &&
-                Objects.equals(nullLongCol, object.nullLongCol) &&
-                Objects.equals(floatCol, object.floatCol) &&
-                Objects.equals(doubleCol, object.doubleCol) &&
-                Objects.equals(dateCol, object.dateCol) &&
-                Objects.equals(timeCol, object.timeCol) &&
-                Objects.equals(timestampCol, object.timestampCol) &&
-                Objects.equals(dateTimeCol, object.dateTimeCol) &&
-                Objects.equals(uuidCol, object.uuidCol) &&
-                Objects.equals(bitmaskCol, object.bitmaskCol) &&
-                Objects.equals(stringCol, object.stringCol) &&
-                Arrays.equals(bytesCol, object.bytesCol) &&
-                Objects.equals(numberCol, object.numberCol) &&
-                Objects.equals(decimalCol, object.decimalCol);
-        }
-
-        /** {@inheritDoc} */
-        @Override public int hashCode() {
-            return 73;
-        }
-    }
 }

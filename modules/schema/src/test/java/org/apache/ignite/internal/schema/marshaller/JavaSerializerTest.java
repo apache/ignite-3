@@ -17,15 +17,9 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.util.Arrays;
-import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Random;
-import java.util.UUID;
 import java.util.stream.Stream;
 import javax.annotation.processing.Generated;
 import com.facebook.presto.bytecode.Access;
@@ -47,7 +41,9 @@ import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.asm.AsmSerializerGenerator;
 import org.apache.ignite.internal.schema.marshaller.reflection.JavaSerializerFactory;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
+import org.apache.ignite.internal.schema.testobjects.TestObjectWithNoDefaultConstructor;
+import org.apache.ignite.internal.schema.testobjects.TestObjectWithPrivateConstructor;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,10 +76,7 @@ public class JavaSerializerTest {
      * @return List of serializers for test.
      */
     private static List<SerializerFactory> serializerFactoryProvider() {
-        return Arrays.asList(
-            new JavaSerializerFactory(),
-            new AsmSerializerGenerator()
-        );
+        return List.of(new JavaSerializerFactory(), new AsmSerializerGenerator());
     }
 
     /** Random. */
@@ -133,11 +126,11 @@ public class JavaSerializerTest {
     }
 
     /**
-     * @throws SerializationException If serialization failed.
+     * @throws MarshallerException If serialization failed.
      */
     @ParameterizedTest
     @MethodSource("serializerFactoryProvider")
-    public void complexType(SerializerFactory factory) throws SerializationException {
+    public void complexType(SerializerFactory factory) throws MarshallerException {
         Column[] cols = new Column[] {
             new Column("pByteCol", INT8, false),
             new Column("pShortCol", INT16, false),
@@ -165,8 +158,8 @@ public class JavaSerializerTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
 
-        final Object key = TestObject.randomObject(rnd);
-        final Object val = TestObject.randomObject(rnd);
+        final Object key = TestObjectWithAllTypes.randomObject(rnd);
+        final Object val = TestObjectWithAllTypes.randomObject(rnd);
 
         Serializer serializer = factory.create(schema, key.getClass(), val.getClass());
 
@@ -196,13 +189,13 @@ public class JavaSerializerTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
 
-        final Object key = TestObject.randomObject(rnd);
-        final Object val = TestObject.randomObject(rnd);
+        final Object key = TestObjectWithAllTypes.randomObject(rnd);
+        final Object val = TestObjectWithAllTypes.randomObject(rnd);
 
         Serializer serializer = factory.create(schema, key.getClass(), val.getClass());
 
         assertThrows(
-            SerializationException.class,
+            MarshallerException.class,
             () -> serializer.serialize(key, val),
             "Failed to write field [name=shortCol]"
         );
@@ -221,13 +214,13 @@ public class JavaSerializerTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
 
-        final Object key = TestObject.randomObject(rnd);
-        final Object val = TestObject.randomObject(rnd);
+        final Object key = TestObjectWithAllTypes.randomObject(rnd);
+        final Object val = TestObjectWithAllTypes.randomObject(rnd);
 
         Serializer serializer = factory.create(schema, key.getClass(), val.getClass());
 
         assertThrows(
-            SerializationException.class,
+            MarshallerException.class,
             () -> serializer.serialize(key, val),
             "Failed to write field [name=bitmaskCol]"
         );
@@ -238,7 +231,7 @@ public class JavaSerializerTest {
      */
     @ParameterizedTest
     @MethodSource("serializerFactoryProvider")
-    public void classWithPrivateConstructor(SerializerFactory factory) throws SerializationException {
+    public void classWithPrivateConstructor(SerializerFactory factory) throws MarshallerException {
         Column[] cols = new Column[] {
             new Column("pLongCol", INT64, false),
         };
@@ -274,8 +267,8 @@ public class JavaSerializerTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
 
-        final Object key = WrongTestObject.randomObject(rnd);
-        final Object val = WrongTestObject.randomObject(rnd);
+        final Object key = TestObjectWithNoDefaultConstructor.randomObject(rnd);
+        final Object val = TestObjectWithNoDefaultConstructor.randomObject(rnd);
 
         assertThrows(IgniteInternalException.class, () -> factory.create(schema, key.getClass(), val.getClass()));
     }
@@ -285,17 +278,17 @@ public class JavaSerializerTest {
      */
     @ParameterizedTest
     @MethodSource("serializerFactoryProvider")
-    public void privateClass(SerializerFactory factory) throws SerializationException {
+    public void privateClass(SerializerFactory factory) throws MarshallerException {
         Column[] cols = new Column[] {
             new Column("pLongCol", INT64, false),
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
 
-        final Object key = PrivateTestObject.randomObject(rnd);
-        final Object val = PrivateTestObject.randomObject(rnd);
+        final Object key = TestObjectWithPrivateConstructor.randomObject(rnd);
+        final Object val = TestObjectWithPrivateConstructor.randomObject(rnd);
 
-        final ObjectFactory<?> objFactory = new ObjectFactory<>(PrivateTestObject.class);
+        final ObjectFactory<?> objFactory = new ObjectFactory<>(TestObjectWithPrivateConstructor.class);
         final Serializer serializer = factory.create(schema, key.getClass(), val.getClass());
 
         BinaryRow row = serializer.serialize(key, objFactory.create());
@@ -312,7 +305,7 @@ public class JavaSerializerTest {
      */
     @ParameterizedTest
     @MethodSource("serializerFactoryProvider")
-    public void classLoader(SerializerFactory factory) throws SerializationException {
+    public void classLoader(SerializerFactory factory) throws MarshallerException {
         final ClassLoader loader = Thread.currentThread().getContextClassLoader();
         try {
             Thread.currentThread().setContextClassLoader(new DynamicClassLoader(getClass().getClassLoader()));
@@ -355,10 +348,10 @@ public class JavaSerializerTest {
      * @param factory Serializer factory.
      * @param keyType Key type.
      * @param valType Value type.
-     * @throws SerializationException If (de)serialization failed.
+     * @throws MarshallerException If (de)serialization failed.
      */
     private void checkBasicType(SerializerFactory factory, NativeType keyType,
-        NativeType valType) throws SerializationException {
+                                NativeType valType) throws MarshallerException {
         final Object key = generateRandomValue(keyType);
         final Object val = generateRandomValue(valType);
 
@@ -444,250 +437,5 @@ public class JavaSerializerTest {
             .runAsmVerifier(true)
             .dumpRawBytecode(true)
             .defineClass(classDef, Object.class);
-    }
-
-    /**
-     * Test object.
-     */
-    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
-    public static class TestObject {
-        /**
-         * @return Random TestObject.
-         */
-        public static TestObject randomObject(Random rnd) {
-            final TestObject obj = new TestObject();
-
-            obj.pByteCol = (byte)rnd.nextInt(255);
-            obj.pShortCol = (short)rnd.nextInt(65535);
-            obj.pIntCol = rnd.nextInt();
-            obj.pLongCol = rnd.nextLong();
-            obj.pFloatCol = rnd.nextFloat();
-            obj.pDoubleCol = rnd.nextDouble();
-
-            obj.byteCol = (byte)rnd.nextInt(255);
-            obj.shortCol = (short)rnd.nextInt(65535);
-            obj.intCol = rnd.nextInt();
-            obj.longCol = rnd.nextLong();
-            obj.floatCol = rnd.nextFloat();
-            obj.doubleCol = rnd.nextDouble();
-            obj.nullLongCol = null;
-
-            obj.nullBytesCol = null;
-            obj.uuidCol = new UUID(rnd.nextLong(), rnd.nextLong());
-            obj.bitmaskCol = IgniteTestUtils.randomBitSet(rnd, 42);
-            obj.stringCol = IgniteTestUtils.randomString(rnd, rnd.nextInt(255));
-            obj.bytesCol = IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));
-            obj.numberCol = (BigInteger)SchemaTestUtils.generateRandomValue(rnd, NativeTypes.numberOf(12));
-            obj.decimalCol = (BigDecimal)SchemaTestUtils.generateRandomValue(rnd, NativeTypes.decimalOf(19, 3));
-
-            return obj;
-        }
-
-        // Primitive typed
-        private byte pByteCol;
-
-        private short pShortCol;
-
-        private int pIntCol;
-
-        private long pLongCol;
-
-        private float pFloatCol;
-
-        private double pDoubleCol;
-
-        // Reference typed
-        private Byte byteCol;
-
-        private Short shortCol;
-
-        private Integer intCol;
-
-        private Long longCol;
-
-        private Long nullLongCol;
-
-        private Float floatCol;
-
-        private Double doubleCol;
-
-        private UUID uuidCol;
-
-        private BitSet bitmaskCol;
-
-        private String stringCol;
-
-        private byte[] bytesCol;
-
-        private byte[] nullBytesCol;
-
-        private BigInteger numberCol;
-
-        private BigDecimal decimalCol;
-
-        /** {@inheritDoc} */
-        @Override public boolean equals(Object o) {
-            if (this == o)
-                return true;
-
-            if (o == null || getClass() != o.getClass())
-                return false;
-
-            TestObject object = (TestObject)o;
-
-            return pByteCol == object.pByteCol &&
-                pShortCol == object.pShortCol &&
-                pIntCol == object.pIntCol &&
-                pLongCol == object.pLongCol &&
-                Float.compare(object.pFloatCol, pFloatCol) == 0 &&
-                Double.compare(object.pDoubleCol, pDoubleCol) == 0 &&
-                Objects.equals(byteCol, object.byteCol) &&
-                Objects.equals(shortCol, object.shortCol) &&
-                Objects.equals(intCol, object.intCol) &&
-                Objects.equals(longCol, object.longCol) &&
-                Objects.equals(nullLongCol, object.nullLongCol) &&
-                Objects.equals(floatCol, object.floatCol) &&
-                Objects.equals(doubleCol, object.doubleCol) &&
-                Objects.equals(uuidCol, object.uuidCol) &&
-                Objects.equals(bitmaskCol, object.bitmaskCol) &&
-                Objects.equals(stringCol, object.stringCol) &&
-                Arrays.equals(bytesCol, object.bytesCol) &&
-                Objects.equals(numberCol, object.numberCol) &&
-                Objects.equals(decimalCol, object.decimalCol);
-        }
-
-        /** {@inheritDoc} */
-        @Override public int hashCode() {
-            return 73;
-        }
-    }
-
-    /**
-     * Test object with private constructor.
-     */
-    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
-    public static class TestObjectWithPrivateConstructor {
-        /**
-         * @return Random TestObject.
-         */
-        static TestObjectWithPrivateConstructor randomObject(Random rnd) {
-            final TestObjectWithPrivateConstructor obj = new TestObjectWithPrivateConstructor();
-
-            obj.pLongCol = rnd.nextLong();
-
-            return obj;
-        }
-
-        /** Value. */
-        private long pLongCol;
-
-        /**
-         * Private constructor.
-         */
-        private TestObjectWithPrivateConstructor() {
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean equals(Object o) {
-            if (this == o)
-                return true;
-
-            if (o == null || getClass() != o.getClass())
-                return false;
-
-            TestObjectWithPrivateConstructor object = (TestObjectWithPrivateConstructor)o;
-
-            return pLongCol == object.pLongCol;
-        }
-
-        /** {@inheritDoc} */
-        @Override public int hashCode() {
-            return Objects.hash(pLongCol);
-        }
-    }
-
-    /**
-     * Test object without default constructor.
-     */
-    public static class WrongTestObject {
-        /**
-         * @return Random TestObject.
-         */
-        static WrongTestObject randomObject(Random rnd) {
-            return new WrongTestObject(rnd.nextLong());
-        }
-
-        /** Value. */
-        private final long pLongCol;
-
-        /**
-         * Private constructor.
-         */
-        public WrongTestObject(long val) {
-            pLongCol = val;
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean equals(Object o) {
-            if (this == o)
-                return true;
-
-            if (o == null || getClass() != o.getClass())
-                return false;
-
-            WrongTestObject object = (WrongTestObject)o;
-
-            return pLongCol == object.pLongCol;
-        }
-
-        /** {@inheritDoc} */
-        @Override public int hashCode() {
-            return Objects.hash(pLongCol);
-        }
-    }
-
-    /**
-     * Test object without default constructor.
-     */
-    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
-    private static class PrivateTestObject {
-        /**
-         * @return Random TestObject.
-         */
-        static PrivateTestObject randomObject(Random rnd) {
-            return new PrivateTestObject(rnd.nextInt());
-        }
-
-        /** Value. */
-        private long pLongCol;
-
-        /** Constructor. */
-        PrivateTestObject() {
-        }
-
-        /**
-         * Private constructor.
-         */
-        PrivateTestObject(long val) {
-            pLongCol = val;
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean equals(Object o) {
-            if (this == o)
-                return true;
-
-            if (o == null || getClass() != o.getClass())
-                return false;
-
-            WrongTestObject object = (WrongTestObject)o;
-
-            return pLongCol == object.pLongCol;
-        }
-
-        /** {@inheritDoc} */
-        @Override public int hashCode() {
-            return Objects.hash(pLongCol);
-        }
     }
 }

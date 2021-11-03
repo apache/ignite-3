@@ -22,25 +22,25 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.AbstractSerializer;
+import org.apache.ignite.internal.schema.marshaller.KVMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
 
 /**
- * Reflection based (de)serializer.
+ * Key-value marshaller for given schema and mappers.
+ *
+ * @param <K> Key type.
+ * @param <V> Value type.
  */
-@Deprecated(forRemoval = true)
-public class JavaSerializer extends AbstractSerializer {
-    /** Key class. */
-    private final Class<?> keyClass;
-
-    /** Value class. */
-    private final Class<?> valClass;
+public class KVMarshallerImpl<K, V> implements KVMarshaller<K, V> {
+    /** Schema. */
+    private final SchemaDescriptor schema;
 
     /** Key marshaller. */
     private final Marshaller keyMarsh;
@@ -48,26 +48,33 @@ public class JavaSerializer extends AbstractSerializer {
     /** Value marshaller. */
     private final Marshaller valMarsh;
 
-    /**
-     * Constructor.
-     *
-     * @param schema Schema.
-     * @param keyClass Key type.
-     * @param valClass Value type.
-     */
-    public JavaSerializer(SchemaDescriptor schema, Class<?> keyClass, Class<?> valClass) {
-        super(schema);
-        this.keyClass = keyClass;
-        this.valClass = valClass;
+    /** Key type. */
+    private final Class<K> kClass;
 
-        keyMarsh = Marshaller.createMarshaller(schema.keyColumns(), keyClass);
-        valMarsh = Marshaller.createMarshaller(schema.valueColumns(), valClass);
+    /** Value type. */
+    private final Class<V> vClass;
+
+    /**
+     * Creates KV marshaller.
+     */
+    public KVMarshallerImpl(SchemaDescriptor schema, Mapper<K> keyMapper, Mapper<V> valueMapper) {
+        this.schema = schema;
+
+        kClass = keyMapper.targetType();
+        vClass = valueMapper.targetType();
+
+        keyMarsh = Marshaller.createMarshaller(schema.keyColumns(), keyMapper);
+        valMarsh = Marshaller.createMarshaller(schema.valueColumns(), valueMapper);
+    }
+
+    public int schemaVersion() {
+        return schema.version();
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryRow serialize(Object key, @Nullable Object val) throws MarshallerException {
-        assert keyClass.isInstance(key);
-        assert val == null || valClass.isInstance(val);
+    @Override public BinaryRow marshal(@NotNull K key, V val) throws MarshallerException {
+        assert kClass.isInstance(key);
+        assert val == null || vClass.isInstance(val);
 
         final RowAssembler asm = createAssembler(Objects.requireNonNull(key), val);
 
@@ -80,29 +87,24 @@ public class JavaSerializer extends AbstractSerializer {
     }
 
     /** {@inheritDoc} */
-    @Override public <K> K deserializeKey(Row row) throws MarshallerException {
+    @NotNull @Override public K unmarshalKey(@NotNull Row row) throws MarshallerException {
         final Object o = keyMarsh.readObject(row);
 
-        assert keyClass.isInstance(o);
+        assert kClass.isInstance(o);
 
         return (K)o;
     }
 
     /** {@inheritDoc} */
-    @Override public <V> V deserializeValue(Row row) throws MarshallerException {
+    @Nullable @Override public V unmarshalValue(@NotNull Row row) throws MarshallerException {
         if (!row.hasValue())
             return null;
 
         final Object o = valMarsh.readObject(row);
 
-        assert o == null || valClass.isInstance(o);
+        assert o == null || vClass.isInstance(o);
 
         return (V)o;
-    }
-
-    /** {@inheritDoc} */
-    @Override public <K, V> Pair<K, V> deserialize(Row row) throws MarshallerException {
-        return new Pair<>(deserializeKey(row), deserializeValue(row));
     }
 
     /**

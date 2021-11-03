@@ -32,8 +32,8 @@ import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.marshaller.BinaryMode;
+import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
-import org.apache.ignite.internal.schema.marshaller.SerializationException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 
@@ -48,23 +48,29 @@ abstract class FieldAccessor {
     protected final BinaryMode mode;
 
     /**
-     * Mapped column position in schema.
+     * Mapped column position in the schema.
      * <p>
-     * NODE: Do not mix up with column index in {@link Columns} container.
+     * NB: Do not mix up with column index in {@link Columns} container.
      */
     protected final int colIdx;
+
+    //TODO: write default value to a row, ignore column on read.
+    static FieldAccessor noopAccessor() {
+        return NoopAccessor.INSTANCE;
+    }
 
     /**
      * Create accessor for the field.
      *
      * @param type Object class.
-     * @param col Mapped column.
-     * @param colIdx Column index in schema.
+     * @param fldName Object field name.
+     * @param col A column the field is mapped to.
+     * @param colIdx Column index in the schema.
      * @return Accessor.
      */
-    static FieldAccessor create(Class<?> type, Column col, int colIdx) {
+    static FieldAccessor create(Class<?> type, String fldName, Column col, int colIdx) {
         try {
-            final Field field = type.getDeclaredField(col.name());
+            final Field field = type.getDeclaredField(fldName);
 
             if (field.getType().isPrimitive() && col.nullable())
                 throw new IllegalArgumentException("Failed to map non-nullable field to nullable column [name=" + field.getName() + ']');
@@ -129,7 +135,7 @@ abstract class FieldAccessor {
      *
      * @param col Column.
      * @param colIdx Column index.
-     * @param mode Binary mode.
+     * @param mode Read/write mode.
      * @return Accessor.
      */
     static FieldAccessor createIdentityAccessor(Column col, int colIdx, BinaryMode mode) {
@@ -373,11 +379,11 @@ abstract class FieldAccessor {
     }
 
     /**
-     * Protected constructor.
+     * Constructor.
      *
-     * @param varHandle Field.
+     * @param varHandle Field var-handle.
      * @param colIdx Column index.
-     * @param mode Binary mode;
+     * @param mode Read/write mode.
      */
     protected FieldAccessor(VarHandle varHandle, int colIdx, BinaryMode mode) {
         assert colIdx >= 0;
@@ -388,14 +394,13 @@ abstract class FieldAccessor {
     }
 
     /**
-     * Protected constructor.
+     * Constructor.
      *
      * @param colIdx Column index.
-     * @param mode Binary mode;
+     * @param mode Read/write mode.
      */
     private FieldAccessor(int colIdx, BinaryMode mode) {
         assert colIdx >= 0;
-        assert mode != null;
 
         this.colIdx = colIdx;
         this.mode = mode;
@@ -407,14 +412,14 @@ abstract class FieldAccessor {
      *
      * @param writer Row writer.
      * @param obj Source object.
-     * @throws SerializationException If failed.
+     * @throws MarshallerException If failed.
      */
-    public void write(RowAssembler writer, Object obj) throws SerializationException {
+    public void write(RowAssembler writer, Object obj) throws MarshallerException {
         try {
             write0(writer, obj);
         }
         catch (Exception ex) {
-            throw new SerializationException("Failed to write field [id=" + colIdx + ']', ex);
+            throw new MarshallerException("Failed to write field [id=" + colIdx + ']', ex);
         }
     }
 
@@ -432,14 +437,14 @@ abstract class FieldAccessor {
      *
      * @param reader Row reader.
      * @param obj Target object.
-     * @throws SerializationException If failed.
+     * @throws MarshallerException If failed.
      */
-    public void read(Row reader, Object obj) throws SerializationException {
+    public void read(Row reader, Object obj) throws MarshallerException {
         try {
             read0(reader, obj);
         }
         catch (Exception ex) {
-            throw new SerializationException("Failed to read field [id=" + colIdx + ']', ex);
+            throw new MarshallerException("Failed to read field [id=" + colIdx + ']', ex);
         }
     }
 
@@ -453,7 +458,7 @@ abstract class FieldAccessor {
     protected abstract void read0(Row reader, Object obj) throws Exception;
 
     /**
-     * Read value.
+     * Read an object from a row.
      *
      * @param reader Row reader.
      * @return Object.
@@ -473,14 +478,45 @@ abstract class FieldAccessor {
     }
 
     /**
-     * Accessor for field of primitive {@code byte} type.
+     * Noop accessor used as a stub for unused columns.
+     */
+    private static class NoopAccessor extends FieldAccessor {
+        /** Singleton instance. */
+        static final FieldAccessor INSTANCE = new NoopAccessor();
+
+        /**
+         * Constructor.
+         */
+        NoopAccessor() {
+            super(0, null);
+        }
+
+        /** {@inheritDoc} */
+        @Override protected void read0(Row reader, Object obj) {
+            // No-op.
+        }
+
+        /** {@inheritDoc} */
+        @Override protected void write0(RowAssembler writer, Object obj) {
+            //TODO: write default value.
+            // No-op.
+        }
+
+        /** {@inheritDoc} */
+        @Override Object value(Object obj) {
+            throw new UnsupportedOperationException("Dummy accessor must never be called.");
+        }
+    }
+
+    /**
+     * Accessor for a field of primitive {@code byte} type.
      */
     private static class IdentityAccessor extends FieldAccessor {
         /**
          * Constructor.
          *
          * @param colIdx Column index.
-         * @param mode Binary mode.
+         * @param mode Read/write mode.
          */
         IdentityAccessor(int colIdx, BinaryMode mode) {
             super(colIdx, mode);
@@ -508,7 +544,7 @@ abstract class FieldAccessor {
     }
 
     /**
-     * Accessor for field of primitive {@code byte} type.
+     * Accessor for a field of primitive {@code byte} type.
      */
     private static class BytePrimitiveAccessor extends FieldAccessor {
         /**
@@ -518,7 +554,7 @@ abstract class FieldAccessor {
          * @param colIdx Column index.
          */
         BytePrimitiveAccessor(VarHandle varHandle, int colIdx) {
-            super(varHandle, colIdx, BinaryMode.P_BYTE);
+            super(Objects.requireNonNull(varHandle), colIdx, BinaryMode.P_BYTE);
         }
 
         /** {@inheritDoc} */
@@ -537,7 +573,7 @@ abstract class FieldAccessor {
     }
 
     /**
-     * Accessor for field of primitive {@code short} type.
+     * Accessor for a field of primitive {@code short} type.
      */
     private static class ShortPrimitiveAccessor extends FieldAccessor {
         /**
@@ -547,7 +583,7 @@ abstract class FieldAccessor {
          * @param colIdx Column index.
          */
         ShortPrimitiveAccessor(VarHandle varHandle, int colIdx) {
-            super(varHandle, colIdx, BinaryMode.P_SHORT);
+            super(Objects.requireNonNull(varHandle), colIdx, BinaryMode.P_SHORT);
         }
 
         /** {@inheritDoc} */
@@ -566,7 +602,7 @@ abstract class FieldAccessor {
     }
 
     /**
-     * Accessor for field of primitive {@code int} type.
+     * Accessor for a field of primitive {@code int} type.
      */
     private static class IntPrimitiveAccessor extends FieldAccessor {
         /**
@@ -576,7 +612,7 @@ abstract class FieldAccessor {
          * @param colIdx Column index.
          */
         IntPrimitiveAccessor(VarHandle varHandle, int colIdx) {
-            super(varHandle, colIdx, BinaryMode.P_INT);
+            super(Objects.requireNonNull(varHandle), colIdx, BinaryMode.P_INT);
         }
 
         /** {@inheritDoc} */
@@ -595,7 +631,7 @@ abstract class FieldAccessor {
     }
 
     /**
-     * Accessor for field of primitive {@code long} type.
+     * Accessor for a field of primitive {@code long} type.
      */
     private static class LongPrimitiveAccessor extends FieldAccessor {
         /**
@@ -605,7 +641,7 @@ abstract class FieldAccessor {
          * @param colIdx Column index.
          */
         LongPrimitiveAccessor(VarHandle varHandle, int colIdx) {
-            super(varHandle, colIdx, BinaryMode.P_LONG);
+            super(Objects.requireNonNull(varHandle), colIdx, BinaryMode.P_LONG);
         }
 
         /** {@inheritDoc} */
@@ -624,7 +660,7 @@ abstract class FieldAccessor {
     }
 
     /**
-     * Accessor for field of primitive {@code float} type.
+     * Accessor for a field of primitive {@code float} type.
      */
     private static class FloatPrimitiveAccessor extends FieldAccessor {
         /**
@@ -634,7 +670,7 @@ abstract class FieldAccessor {
          * @param colIdx Column index.
          */
         FloatPrimitiveAccessor(VarHandle varHandle, int colIdx) {
-            super(varHandle, colIdx, BinaryMode.P_FLOAT);
+            super(Objects.requireNonNull(varHandle), colIdx, BinaryMode.P_FLOAT);
         }
 
         /** {@inheritDoc} */
@@ -653,7 +689,7 @@ abstract class FieldAccessor {
     }
 
     /**
-     * Accessor for field of primitive {@code double} type.
+     * Accessor for a field of primitive {@code double} type.
      */
     private static class DoublePrimitiveAccessor extends FieldAccessor {
         /**
@@ -663,7 +699,7 @@ abstract class FieldAccessor {
          * @param colIdx Column index.
          */
         DoublePrimitiveAccessor(VarHandle varHandle, int colIdx) {
-            super(varHandle, colIdx, BinaryMode.P_DOUBLE);
+            super(Objects.requireNonNull(varHandle), colIdx, BinaryMode.P_DOUBLE);
         }
 
         /** {@inheritDoc} */
@@ -682,7 +718,7 @@ abstract class FieldAccessor {
     }
 
     /**
-     * Accessor for field of reference type.
+     * Accessor for a field of reference type.
      */
     private static class ReferenceFieldAccessor extends FieldAccessor {
         /**
@@ -690,10 +726,10 @@ abstract class FieldAccessor {
          *
          * @param varHandle VarHandle.
          * @param colIdx Column index.
-         * @param mode Binary mode.
+         * @param mode Read/write mode.
          */
         ReferenceFieldAccessor(VarHandle varHandle, int colIdx, BinaryMode mode) {
-            super(varHandle, colIdx, mode);
+            super(Objects.requireNonNull(varHandle), colIdx, mode);
         }
 
         /** {@inheritDoc} */

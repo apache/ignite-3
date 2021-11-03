@@ -36,7 +36,7 @@ public interface KVMarshaller<K, V> {
      * @param val Value object to marshal or {@code null}.
      * @return Table row with columns from given key-value pair.
      */
-    BinaryRow marshal(@NotNull K key, V val);
+    BinaryRow marshal(@NotNull K key, V val) throws MarshallerException;
 
     /**
      * Unmarshal row to a key object.
@@ -44,7 +44,7 @@ public interface KVMarshaller<K, V> {
      * @param row Table row.
      * @return Key object.
      */
-    @NotNull K unmarshalKey(@NotNull Row row);
+    @NotNull K unmarshalKey(@NotNull Row row) throws MarshallerException;
 
     /**
      * Unmarshal row to a value object.
@@ -52,5 +52,5 @@ public interface KVMarshaller<K, V> {
      * @param row Table row.
      * @return Value object.
      */
-    @Nullable V unmarshalValue(@NotNull Row row);
+    @Nullable V unmarshalValue(@NotNull Row row) throws MarshallerException;
 }

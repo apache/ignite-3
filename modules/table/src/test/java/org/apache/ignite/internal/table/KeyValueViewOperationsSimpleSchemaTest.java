@@ -318,6 +318,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
             NativeTypes.BYTES,
             NativeTypes.STRING);
 
+        // Validate all types are tested.
         assertEquals(Set.of(NativeTypeSpec.values()), allTypes.stream().map(NativeType::spec).collect(Collectors.toSet()));
 
         for (NativeType type : allTypes) {
@@ -342,8 +343,8 @@ public class KeyValueViewOperationsSimpleSchemaTest {
      * @return Key-value view for given value type.
      */
     private <T> KeyValueViewImpl<Long, T> kvViewForValueType(NativeType type, Class<T> aClass) {
-        Mapper<Long> keyMapper = () -> Long.class;
-        Mapper<T> valMapper = () -> aClass;
+        Mapper<Long> keyMapper = Mapper.identityMapper(Long.class);
+        Mapper<T> valMapper = Mapper.identityMapper(aClass);
 
         SchemaDescriptor schema = new SchemaDescriptor(
             1,

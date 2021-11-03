@@ -20,15 +20,15 @@ package org.apache.ignite.internal.schema.marshaller;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Serialization exception.
+ * Exception that is thrown during object marshal/unmarshal.
  */
-public class SerializationException extends IgniteInternalCheckedException {
+public class MarshallerException extends IgniteInternalCheckedException {
     /**
      * Constructor.
      *
      * @param cause Cause.
      */
-    public SerializationException(Throwable cause) {
+    public MarshallerException(Throwable cause) {
         super(cause);
     }
 
@@ -38,7 +38,7 @@ public class SerializationException extends IgniteInternalCheckedException {
      * @param message Message.
      * @param cause Cause.
      */
-    public SerializationException(String message, Throwable cause) {
+    public MarshallerException(String message, Throwable cause) {
         super(message, cause);
     }
 }

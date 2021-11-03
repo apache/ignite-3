@@ -41,8 +41,8 @@ import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.AbstractSerializer;
 import org.apache.ignite.internal.schema.marshaller.BinaryMode;
+import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
-import org.apache.ignite.internal.schema.marshaller.SerializationException;
 import org.apache.ignite.internal.schema.marshaller.Serializer;
 import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
 import org.apache.ignite.internal.schema.row.Row;
@@ -308,7 +308,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
             ParameterizedType.type(BinaryRow.class),
             Parameter.arg("key", Object.class),
             Parameter.arg("val", Object.class)
-        ).addException(SerializationException.class);
+        ).addException(MarshallerException.class);
 
         methodDef.declareAnnotation(Override.class);
 
@@ -347,7 +347,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
             block,
             new BytecodeBlock()
                 .putVariable(ex)
-                .append(BytecodeExpressions.newInstance(SerializationException.class, ex))
+                .append(BytecodeExpressions.newInstance(MarshallerException.class, ex))
                 .throwObject(),
             ParameterizedType.type(Throwable.class)
         ));
@@ -366,7 +366,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
             "deserializeKey",
             ParameterizedType.type(Object.class),
             Parameter.arg("row", Row.class)
-        ).addException(SerializationException.class);
+        ).addException(MarshallerException.class);
 
         methodDef.declareAnnotation(Override.class);
 
@@ -394,7 +394,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
             "deserializeValue",
             ParameterizedType.type(Object.class),
             Parameter.arg("row", Row.class)
-        ).addException(SerializationException.class);
+        ).addException(MarshallerException.class);
 
         methodDef.declareAnnotation(Override.class);
 

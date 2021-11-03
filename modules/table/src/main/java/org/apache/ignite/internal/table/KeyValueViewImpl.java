@@ -22,12 +22,13 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.KVMarshaller;
-import org.apache.ignite.internal.schema.marshaller.SerializationException;
-import org.apache.ignite.internal.schema.marshaller.Serializer;
-import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
+import org.apache.ignite.internal.schema.marshaller.MarshallerException;
+import org.apache.ignite.internal.schema.marshaller.reflection.KVMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.InvokeProcessor;
@@ -42,13 +43,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValueView<K, V> {
     /** Marshaller factory. */
-    private final SerializerFactory marshallerFactory;
-
-    /** Key object mapper. */
-    private final Mapper<K> keyMapper;
-
-    /** Value object mapper. */
-    private final Mapper<V> valueMapper;
+    private final Function<SchemaDescriptor, KVMarshallerImpl<K, V>> marshallerFactory;
 
     /** Marshaller. */
     private KVMarshallerImpl<K, V> marsh;
@@ -66,9 +61,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
                             Mapper<V> valueMapper, @Nullable Transaction tx) {
         super(tbl, schemaReg, tx);
 
-        this.keyMapper = keyMapper;
-        this.valueMapper = valueMapper;
-        marshallerFactory = SerializerFactory.createJavaSerializerFactory();
+        marshallerFactory = (schema) -> new KVMarshallerImpl<>(schema, keyMapper, valueMapper);
     }
 
     /** {@inheritDoc} */
@@ -276,89 +269,50 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @return Marshaller.
      */
     private KVMarshaller<K, V> marshaller(int schemaVersion) {
-        if (marsh == null || marsh.schemaVersion == schemaVersion) {
+        if (marsh == null || marsh.schemaVersion() == schemaVersion) {
             // TODO: Cache marshaller for schema version or upgrade row?
-            marsh = new KVMarshallerImpl<>(
-                schemaVersion,
-                marshallerFactory.create(
-                    schemaReg.schema(schemaVersion),
-                    keyMapper.getType(),
-                    valueMapper.getType()
-                )
-            );
+            marsh = marshallerFactory.apply(schemaReg.schema(schemaVersion));
         }
 
         return marsh;
     }
 
-    private V unmarshalValue(BinaryRow v) {
-        if (v == null || !v.hasValue())
+    /**
+     * Unmarshal value object from given binary row.
+     *
+     * @param binaryRow Binary row.
+     * @return Value object.
+     */
+    private V unmarshalValue(BinaryRow binaryRow) {
+        if (binaryRow == null || !binaryRow.hasValue())
             return null;
 
-        Row row = schemaReg.resolve(v);
+        Row row = schemaReg.resolve(binaryRow);
 
         KVMarshaller<K, V> marshaller = marshaller(row.schemaVersion());
 
-        return marshaller.unmarshalValue(row);
-    }
-
-    private BinaryRow marshal(@NotNull K key, V o) {
-        final KVMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
-
-        return marsh.marshal(key, o);
+        try {
+            return marshaller.unmarshalValue(row);
+        } catch (MarshallerException e) {
+            throw new IgniteException(e);
+        }
     }
 
     /**
-     * Marshaller wrapper for KV view.
-     * Note: Serializer must be re-created if schema changed.
+     * Marshal key-value pair to a row.
      *
-     * @param <K> Key type.
-     * @param <V> Value type.
+     * @param key Key object.
+     * @param val Value object.
+     * @return Binary row.
      */
-    private static class KVMarshallerImpl<K, V> implements KVMarshaller<K, V> {
-        /** Schema version. */
-        private final int schemaVersion;
+    private BinaryRow marshal(@NotNull K key, V val) {
+        final KVMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
 
-        /** Serializer. */
-        private Serializer serializer;
-
-        /**
-         * Creates KV marshaller.
-         *
-         * @param schemaVersion Schema version.
-         * @param serializer Serializer.
-         */
-        KVMarshallerImpl(int schemaVersion, Serializer serializer) {
-            this.schemaVersion = schemaVersion;
-
-            this.serializer = serializer;
-        }
-
-        /** {@inheritDoc} */
-        @Override public BinaryRow marshal(@NotNull K key, V val) {
-            try {
-                return serializer.serialize(key, val);
-            } catch (SerializationException e) {
-                throw new IgniteException(e);
-            }
-        }
-
-        /** {@inheritDoc} */
-        @NotNull @Override public K unmarshalKey(@NotNull Row row) {
-            try {
-                return serializer.deserializeKey(row);
-            } catch (SerializationException e) {
-                throw new IgniteException(e);
-            }
-        }
-
-        /** {@inheritDoc} */
-        @Nullable @Override public V unmarshalValue(@NotNull Row row) {
-            try {
-                return serializer.deserializeValue(row);
-            } catch (SerializationException e) {
-                throw new IgniteException(e);
-            }
+        try {
+            return marsh.marshal(key, val);
+        } catch (MarshallerException e) {
+            throw new IgniteException(e);
         }
     }
+
 }

@@ -18,16 +18,16 @@
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.Serializer;
-import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
+import org.apache.ignite.internal.schema.marshaller.KVMarshaller;
+import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
+import org.apache.ignite.table.mapper.Mapper;
 
 /**
- * Factory for reflection-based serializer.
+ * Factory for reflection-based marshaller.
  */
-@Deprecated(forRemoval = true)
-public class JavaSerializerFactory implements SerializerFactory {
+public class ReflectionMarshallerFactory implements MarshallerFactory {
     /** {@inheritDoc} */
-    @Override public Serializer create(SchemaDescriptor schema, Class<?> keyClass, Class<?> valClass) {
-        return new JavaSerializer(schema, keyClass, valClass);
+    @Override public <K, V> KVMarshaller<K, V> create(SchemaDescriptor schema, Mapper<K> keyMapper, Mapper<V> valueMapper) {
+        return new KVMarshallerImpl<>(schema, keyMapper, valueMapper);
     }
 }

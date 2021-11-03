@@ -18,38 +18,33 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.asm.AsmSerializerGenerator;
-import org.apache.ignite.internal.schema.marshaller.reflection.JavaSerializerFactory;
+import org.apache.ignite.table.mapper.Mapper;
 
 /**
- * (De)Serializer factory interface.
- *
- * @deprecated Replaced with {@link MarshallerFactory}
+ * Marshaller factory interface.
  */
 @FunctionalInterface
-@Deprecated(forRemoval = true)
-public interface SerializerFactory {
+public interface MarshallerFactory {
     /**
-     * @return Serializer factory back by code generator.
-     */
-    static SerializerFactory createGeneratedSerializerFactory() {
-        return new AsmSerializerGenerator();
-    }
-
-    /**
-     * @return Reflection-based serializer factory.
-     */
-    static SerializerFactory createJavaSerializerFactory() {
-        return new JavaSerializerFactory();
-    }
-
-    /**
-     * Creates serializer.
+     * Creates key-value marshaller using provided mappers.
      *
      * @param schema Schema descriptor.
-     * @param keyClass Key class.
-     * @param valClass Value class.
-     * @return Serializer.
+     * @param keyMapper Key mapper.
+     * @param valueMapper Value mapper.
+     * @return Key-value marshaller.
      */
-    Serializer create(SchemaDescriptor schema, Class<?> keyClass, Class<?> valClass);
+    <K, V> KVMarshaller<K, V> create(SchemaDescriptor schema, Mapper<K> keyMapper, Mapper<V> valueMapper);
+
+    /**
+     * Shortcut method creates key-value marshaller for classes using identity mappers.
+     *
+     * @param schema Schema descriptor.
+     * @param kClass Key type.
+     * @param vClass Value type.
+     * @return Key-value marshaller.
+     * @see Mapper#identityMapper(Class)
+     */
+    default <K, V> KVMarshaller<K, V> create(SchemaDescriptor schema, Class<K> kClass, Class<V> vClass) {
+        return create(schema, Mapper.identityMapper(kClass), Mapper.identityMapper(vClass));
+    }
 }
