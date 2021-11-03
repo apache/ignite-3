@@ -20,6 +20,8 @@ package org.apache.ignite.internal.processors.query.calcite.metadata;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -32,9 +34,6 @@ import java.util.Objects;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
-import com.google.common.collect.ImmutableList;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.apache.calcite.adapter.enumerable.EnumerableCorrelate;
 import org.apache.calcite.adapter.enumerable.EnumerableHashJoin;
 import org.apache.calcite.adapter.enumerable.EnumerableMergeJoin;
@@ -300,8 +299,9 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
         final SortedSet<RelCollation> collations = new TreeSet<>();
         final List<RelCollation> inputCollations = mq.collations(input);
 
-        if (inputCollations == null || inputCollations.isEmpty())
+        if (inputCollations == null || inputCollations.isEmpty()) {
             return List.of();
+        }
 
         final Int2ObjectOpenHashMap<List<Integer>> targets = new Int2ObjectOpenHashMap<>();
         final Int2ObjectOpenHashMap<SqlMonotonicity> targetsWithMonotonicity = new Int2ObjectOpenHashMap<>();
@@ -352,10 +352,8 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
             collations.add(RelCollations.of(fieldCollations));
         }
 
-        final List<RelFieldCollation> fieldCollationsForRexCalls =
-            new ArrayList<>();
-        for (Int2ObjectMap.Entry<SqlMonotonicity> entry
-            : targetsWithMonotonicity.int2ObjectEntrySet()) {
+        final List<RelFieldCollation> fieldCollationsForRexCalls = new ArrayList<>();
+        for (Int2ObjectMap.Entry<SqlMonotonicity> entry : targetsWithMonotonicity.int2ObjectEntrySet()) {
             final SqlMonotonicity value = entry.getValue();
             switch (value) {
                 case NOT_MONOTONIC:

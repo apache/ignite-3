@@ -24,14 +24,15 @@ import static org.apache.calcite.sql.SqlKind.LESS_THAN;
 import static org.apache.calcite.sql.SqlKind.LESS_THAN_OR_EQUAL;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Set;
-
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPredicateList;
@@ -336,7 +337,7 @@ public class RexUtils {
         while (iterator.hasNext()) {
             List<RexCall> collFldPreds = iterator.next();
 
-            if (nullOrEmpty(collFldPreds))
+            if (nullOrEmpty(collFldPreds)) {
                 break;
             }
 

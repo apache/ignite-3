@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
-import java.util.List;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import java.util.List;
 import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGroup;
 import org.apache.ignite.internal.processors.query.calcite.metadata.FragmentMapping;
 

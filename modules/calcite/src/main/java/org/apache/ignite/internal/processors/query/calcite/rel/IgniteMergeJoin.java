@@ -21,12 +21,12 @@ import static org.apache.ignite.internal.processors.query.calcite.trait.TraitUti
 import static org.apache.ignite.internal.processors.query.calcite.util.Commons.isPrefix;
 import static org.apache.ignite.internal.processors.query.calcite.util.Commons.maxPrefix;
 
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
@@ -124,13 +124,13 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
         return new IgniteMergeJoin(getCluster(), traitSet, left, right, condition, variablesSet, joinType,
                 leftCollation, rightCollation);
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public <T> T accept(IgniteRelVisitor<T> visitor) {
         return visitor.visit(this);
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
@@ -179,8 +179,6 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
             List<RelTraitSet> inputTraits
     ) {
         RelCollation collation = TraitUtils.collation(nodeTraits);
-        RelTraitSet left = inputTraits.get(0);
-        RelTraitSet right = inputTraits.get(1);
 
         int rightOff = this.left.getRowType().getFieldCount();
 
@@ -203,7 +201,8 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
 
         boolean preserveNodeCollation = false;
 
-        List<Integer> newLeftCollation, newRightCollation;
+        List<Integer> newLeftCollation;
+        List<Integer> newRightCollation;
 
         Int2IntOpenHashMap leftToRight = new Int2IntOpenHashMap(pairs.size());
 
@@ -252,7 +251,10 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
 
         RelCollation leftCollation = createCollation(newLeftCollation);
         RelCollation rightCollation = createCollation(newRightCollation);
-
+        
+        RelTraitSet left = inputTraits.get(0);
+        RelTraitSet right = inputTraits.get(1);
+        
         return Pair.of(
                 nodeTraits.replace(preserveNodeCollation ? collation : leftCollation),
                 List.of(
