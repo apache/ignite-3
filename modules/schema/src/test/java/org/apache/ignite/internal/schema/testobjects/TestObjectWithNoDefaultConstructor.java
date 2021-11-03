@@ -30,30 +30,32 @@ public class TestObjectWithNoDefaultConstructor {
     public static TestObjectWithNoDefaultConstructor randomObject(Random rnd) {
         return new TestObjectWithNoDefaultConstructor(rnd.nextLong());
     }
-
+    
     /** Value. */
     private final long pLongCol;
-
+    
     /**
      * Private constructor.
      */
     public TestObjectWithNoDefaultConstructor(long val) {
         pLongCol = val;
     }
-
+    
     /** {@inheritDoc} */
     @Override public boolean equals(Object o) {
-        if (this == o)
+        if (this == o) {
             return true;
-
-        if (o == null || getClass() != o.getClass())
+        }
+    
+        if (o == null || getClass() != o.getClass()) {
             return false;
-
-        TestObjectWithNoDefaultConstructor object = (TestObjectWithNoDefaultConstructor)o;
-
+        }
+        
+        TestObjectWithNoDefaultConstructor object = (TestObjectWithNoDefaultConstructor) o;
+        
         return pLongCol == object.pLongCol;
     }
-
+    
     /** {@inheritDoc} */
     @Override public int hashCode() {
         return Objects.hash(pLongCol);

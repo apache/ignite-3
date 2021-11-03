@@ -66,10 +66,10 @@ public class KeyValueViewOperationsTest {
      */
     @Test
     public void put() {
-        TestKeyObject key = TestKeyObject.randomObject(rnd);
-        TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
-        TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
-        TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
         
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
         
@@ -102,9 +102,9 @@ public class KeyValueViewOperationsTest {
      */
     @Test
     public void putIfAbsent() {
-        TestKeyObject key = TestKeyObject.randomObject(rnd);
-        TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
-        TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
         
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
         
@@ -126,10 +126,10 @@ public class KeyValueViewOperationsTest {
      */
     @Test
     public void getAndPut() {
-        TestKeyObject key = TestKeyObject.randomObject(rnd);
-        TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
-        TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
-        TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
         
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
         
@@ -151,11 +151,11 @@ public class KeyValueViewOperationsTest {
      */
     @Test
     public void contains() {
-        TestKeyObject key = TestKeyObject.randomObject(rnd);
-        TestKeyObject key2 = TestKeyObject.randomObject(rnd);
-        TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
-        TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
-        
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestKeyObject key2 = TestKeyObject.randomObject(rnd);
+        final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+    
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
         
         // Not-existed value.
@@ -183,10 +183,10 @@ public class KeyValueViewOperationsTest {
      */
     @Test
     public void remove() {
-        TestKeyObject key = TestKeyObject.randomObject(rnd);
-        TestKeyObject key2 = TestKeyObject.randomObject(rnd);
-        TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
-        TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestKeyObject key2 = TestKeyObject.randomObject(rnd);
+        final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
         
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
         
@@ -219,10 +219,10 @@ public class KeyValueViewOperationsTest {
      */
     @Test
     public void removeExact() {
-        TestKeyObject key = TestKeyObject.randomObject(rnd);
-        TestKeyObject key2 = TestKeyObject.randomObject(rnd);
-        TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
-        TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestKeyObject key2 = TestKeyObject.randomObject(rnd);
+        final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
         
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
         
@@ -267,11 +267,11 @@ public class KeyValueViewOperationsTest {
      */
     @Test
     public void replace() {
-        TestKeyObject key = TestKeyObject.randomObject(rnd);
-        TestKeyObject key2 = TestKeyObject.randomObject(rnd);
-        TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
-        TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
-        TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestKeyObject key2 = TestKeyObject.randomObject(rnd);
+        final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
         
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
         
@@ -306,11 +306,11 @@ public class KeyValueViewOperationsTest {
      */
     @Test
     public void replaceExact() {
-        TestKeyObject key = TestKeyObject.randomObject(rnd);
-        TestKeyObject key2 = TestKeyObject.randomObject(rnd);
-        TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
-        TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
-        TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestKeyObject key2 = TestKeyObject.randomObject(rnd);
+        final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
         
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
         

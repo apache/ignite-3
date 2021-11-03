@@ -292,7 +292,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         // Remove non-existed KV pair.
         assertTrue(tbl.replace(2L, null, null));
     }
-
+    
     /**
      *
      */
@@ -300,64 +300,67 @@ public class KeyValueViewOperationsSimpleSchemaTest {
     public void putGetAllTypes() {
         Random rnd = new Random();
         Long key = 42L;
-
+        
         List<NativeType> allTypes = List.of(
-            NativeTypes.INT8,
-            NativeTypes.INT16,
-            NativeTypes.INT32,
-            NativeTypes.INT64,
-            NativeTypes.FLOAT,
-            NativeTypes.DOUBLE,
-            NativeTypes.DATE,
-            NativeTypes.numberOf(20),
-            NativeTypes.decimalOf(25, 5),
-            NativeTypes.bitmaskOf(22),
-            NativeTypes.time(),
-            NativeTypes.datetime(),
-            NativeTypes.timestamp(),
-            NativeTypes.BYTES,
-            NativeTypes.STRING);
-
+                NativeTypes.INT8,
+                NativeTypes.INT16,
+                NativeTypes.INT32,
+                NativeTypes.INT64,
+                NativeTypes.FLOAT,
+                NativeTypes.DOUBLE,
+                NativeTypes.DATE,
+                NativeTypes.numberOf(20),
+                NativeTypes.decimalOf(25, 5),
+                NativeTypes.bitmaskOf(22),
+                NativeTypes.time(),
+                NativeTypes.datetime(),
+                NativeTypes.timestamp(),
+                NativeTypes.BYTES,
+                NativeTypes.STRING);
+        
         // Validate all types are tested.
-        assertEquals(Set.of(NativeTypeSpec.values()), allTypes.stream().map(NativeType::spec).collect(Collectors.toSet()));
-
+        assertEquals(Set.of(NativeTypeSpec.values()),
+                allTypes.stream().map(NativeType::spec).collect(Collectors.toSet()));
+        
         for (NativeType type : allTypes) {
             final Object val = SchemaTestUtils.generateRandomValue(rnd, type);
-
+            
             assertFalse(type.mismatch(NativeTypes.fromObject(val)));
-
-            KeyValueViewImpl<Long, Object> kvView = kvViewForValueType(NativeTypes.fromObject(val), (Class<Object>)val.getClass());
-
+            
+            KeyValueViewImpl<Long, Object> kvView = kvViewForValueType(NativeTypes.fromObject(val),
+                    (Class<Object>) val.getClass());
+            
             kvView.put(key, val);
-
-            if (val instanceof byte[])
-                assertArrayEquals((byte[])val, (byte[])kvView.get(key));
-            else
+    
+            if (val instanceof byte[]) {
+                assertArrayEquals((byte[]) val, (byte[]) kvView.get(key));
+            } else {
                 assertEquals(val, kvView.get(key));
+            }
         }
     }
-
+    
     /**
-     * @param type Value column native type.
+     * @param type   Value column native type.
      * @param aClass Value class.
      * @return Key-value view for given value type.
      */
     private <T> KeyValueViewImpl<Long, T> kvViewForValueType(NativeType type, Class<T> aClass) {
         Mapper<Long> keyMapper = Mapper.identityMapper(Long.class);
         Mapper<T> valMapper = Mapper.identityMapper(aClass);
-
+        
         SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("val", type, false)}
+                1,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("val", type, false)}
         );
-
+        
         return new KeyValueViewImpl<>(
-            new DummyInternalTableImpl(),
-            new DummySchemaManagerImpl(schema),
-            keyMapper,
-            valMapper,
-            null
+                new DummyInternalTableImpl(),
+                new DummySchemaManagerImpl(schema),
+                keyMapper,
+                valMapper,
+                null
         );
     }
 }

@@ -30,34 +30,36 @@ public class TestObjectWithPrivateConstructor {
      */
     public static TestObjectWithPrivateConstructor randomObject(Random rnd) {
         final TestObjectWithPrivateConstructor obj = new TestObjectWithPrivateConstructor();
-
+        
         obj.pLongCol = rnd.nextLong();
-
+        
         return obj;
     }
-
+    
     /** Value. */
     private long pLongCol;
-
+    
     /**
      * Private constructor.
      */
     private TestObjectWithPrivateConstructor() {
     }
-
+    
     /** {@inheritDoc} */
     @Override public boolean equals(Object o) {
-        if (this == o)
+        if (this == o) {
             return true;
-
-        if (o == null || getClass() != o.getClass())
+        }
+    
+        if (o == null || getClass() != o.getClass()) {
             return false;
-
-        TestObjectWithPrivateConstructor object = (TestObjectWithPrivateConstructor)o;
-
+        }
+        
+        TestObjectWithPrivateConstructor object = (TestObjectWithPrivateConstructor) o;
+        
         return pLongCol == object.pLongCol;
     }
-
+    
     /** {@inheritDoc} */
     @Override public int hashCode() {
         return Objects.hash(pLongCol);
