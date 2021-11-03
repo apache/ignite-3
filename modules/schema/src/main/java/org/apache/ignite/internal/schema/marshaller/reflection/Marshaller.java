@@ -191,21 +191,24 @@ public abstract class Marshaller {
         @Override public @Nullable Object value(Object obj, int fldIdx) {
             return fieldAccessors[fldIdx].value(obj);
         }
-
+    
         /** {@inheritDoc} */
         @Override public Object readObject(Row reader) throws MarshallerException {
             final Object obj = factory.create();
-
-            for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++)
+    
+            for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
                 fieldAccessors[fldIdx].read(reader, obj);
-
+            }
+        
             return obj;
         }
-
+    
         /** {@inheritDoc} */
-        @Override public void writeObject(Object obj, RowAssembler writer) throws MarshallerException {
-            for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++)
+        @Override public void writeObject(Object obj, RowAssembler writer)
+                throws MarshallerException {
+            for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
                 fieldAccessors[fldIdx].write(writer, obj);
+            }
         }
     }
 }
