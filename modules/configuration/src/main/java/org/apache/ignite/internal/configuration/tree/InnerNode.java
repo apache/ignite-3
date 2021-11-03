@@ -166,6 +166,8 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     public abstract void constructDefault(String fieldName) throws NoSuchElementException;
     
     /**
+     * Returns class of corresponding configuration schema.
+     *
      * @return Class of corresponding configuration schema.
      */
     public abstract Class<?> schemaType();

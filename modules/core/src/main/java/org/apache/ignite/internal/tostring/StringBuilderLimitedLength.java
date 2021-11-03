@@ -43,6 +43,8 @@ class StringBuilderLimitedLength extends IgniteStringBuilder {
     private CircularStringBuilder tail;
 
     /**
+     * Constructor.
+     *
      * @param cap Capacity.
      */
     StringBuilderLimitedLength(int cap) {
@@ -63,13 +65,17 @@ class StringBuilderLimitedLength extends IgniteStringBuilder {
     }
 
     /**
-     * @return tail string builder.
+     * Returns tail string builder.
+     *
+     * @return Tail string builder.
      */
     public @Nullable CircularStringBuilder getTail() {
         return tail;
     }
 
     /**
+     * Callback to write a chars.
+     *
      * @return This builder.
      */
     private StringBuilderLimitedLength onWrite() {
@@ -297,6 +303,8 @@ class StringBuilderLimitedLength extends IgniteStringBuilder {
     }
 
     /**
+     * Checks if the buffer is full.
+     *
      * @return {@code True} - if buffer limit is reached.
      */
     public boolean isOverflowed() {

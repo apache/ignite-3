@@ -107,6 +107,8 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
     }
 
     /**
+     * Returns list of update listeners.
+     *
      * @return List of update listeners.
      */
     public Collection<ConfigurationListener<VIEWT>> listeners() {
@@ -168,6 +170,8 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
     }
 
     /**
+     * Returns exception instance with a proper error message.
+     *
      * @return Exception instance with a proper error message.
      */
     private NoSuchElementException noSuchElementException() {
@@ -185,6 +189,8 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
     }
 
     /**
+     * Returns Exception if there was an attempt to get or update a property value in {@link #listenOnly listen-only} mode.
+     *
      * @return Exception if there was an attempt to get or update a property value in {@link #listenOnly listen-only} mode.
      */
     protected ConfigurationListenOnlyException listenOnlyException() {

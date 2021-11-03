@@ -57,6 +57,8 @@ public class ConfigurationFlattener {
     }
     
     /**
+     * Returns map that contains same keys and their positions as values.
+     *
      * @param node Named list node.
      * @return Map that contains same keys and their positions as values.
      */

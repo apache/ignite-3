@@ -46,9 +46,7 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
     /** Placeholder to add listeners for any configuration. */
     private final T anyConfig;
     
-    /**
-     *
-     */
+    /** Notification cache. */
     private volatile Map<String, T> notificationCache = Collections.emptyMap();
     
     /**
@@ -122,6 +120,8 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
     }
     
     /**
+     * Returns list of listeners that are specific for named configurations.
+     *
      * @return List of listeners that are specific for named configurations.
      */
     public List<ConfigurationNamedListListener<VIEWT>> extendedListeners() {

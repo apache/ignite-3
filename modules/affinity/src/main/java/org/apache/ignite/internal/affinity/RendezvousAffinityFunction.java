@@ -305,9 +305,7 @@ public class RendezvousAffinityFunction {
      *
      */
     private static class HashComparator implements Comparator<IgniteBiTuple<Long, ClusterNode>>, Serializable {
-        /**
-         *
-         */
+        /** Serial version uid. */
         private static final long serialVersionUID = 0L;
 
         /** {@inheritDoc} */

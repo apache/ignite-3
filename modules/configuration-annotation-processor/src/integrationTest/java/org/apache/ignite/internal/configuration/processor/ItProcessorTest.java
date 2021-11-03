@@ -56,9 +56,6 @@ public class ItProcessorTest extends AbstractProcessorTest {
         assertTrue(classSet.allGenerated());
     }
     
-    /**
-     *
-     */
     @Test
     void testSuccessInternalConfigCodeGeneration() {
         String packageName = "org.apache.ignite.internal.configuration.processor.internal";
@@ -80,9 +77,6 @@ public class ItProcessorTest extends AbstractProcessorTest {
         assertTrue(batchCompile.getBySchema(cls3).allGenerated());
     }
     
-    /**
-     *
-     */
     @Test
     void testErrorInternalConfigCodeGeneration() {
         String packageName = "org.apache.ignite.internal.configuration.processor.internal";
@@ -147,9 +141,6 @@ public class ItProcessorTest extends AbstractProcessorTest {
         );
     }
     
-    /**
-     *
-     */
     @Test
     void testErrorPolymorphicConfigCodeGeneration() {
         String packageName = "org.apache.ignite.internal.configuration.processor.polymorphic";
@@ -235,9 +226,6 @@ public class ItProcessorTest extends AbstractProcessorTest {
         );
     }
     
-    /**
-     *
-     */
     @Test
     void testSuccessPolymorphicConfigCodeGeneration() {
         String packageName = "org.apache.ignite.internal.configuration.processor.polymorphic";

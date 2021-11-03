@@ -23,12 +23,9 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
- *
+ * Test class for {@link CircularStringBuilder}.
  */
 public class CircularStringBuilderSelfTest extends IgniteAbstractTest {
-    /**
-     *
-     */
     @Test
     public void testCsbPrimitive() {
         CircularStringBuilder csb = new CircularStringBuilder(1);
@@ -41,10 +38,7 @@ public class CircularStringBuilderSelfTest extends IgniteAbstractTest {
         csb2.append(1);
         assertEquals("1", csb2.toString());
     }
-
-    /**
-     *
-     */
+    
     @Test
     public void testCsbOverflow() {
         testSb(3, "1234", 2, "234");
@@ -56,6 +50,8 @@ public class CircularStringBuilderSelfTest extends IgniteAbstractTest {
     }
 
     /**
+     * Checks {@link CircularStringBuilder}.
+     *
      * @param capacity Capacity.
      * @param pattern  Pattern to add.
      * @param num      How many times pattern should be added.

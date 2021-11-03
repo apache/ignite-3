@@ -44,7 +44,7 @@ public class NamedThreadFactory implements ThreadFactory {
     private final Thread.UncaughtExceptionHandler exHnd;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param prefix Thread name prefix.
      */
@@ -53,7 +53,7 @@ public class NamedThreadFactory implements ThreadFactory {
     }
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param prefix Thread name prefix.
      * @param daemon Daemon flag.
@@ -63,7 +63,7 @@ public class NamedThreadFactory implements ThreadFactory {
     }
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param prefix Thread name prefix.
      * @param daemon Daemon flag.

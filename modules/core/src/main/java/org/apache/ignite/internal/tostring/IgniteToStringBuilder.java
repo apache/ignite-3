@@ -122,9 +122,7 @@ public class IgniteToStringBuilder {
      */
     private static final ThreadLocal<IdentityHashMap<Object, EntryReference>> savedObjects = ThreadLocal.withInitial(IdentityHashMap::new);
 
-    /**
-     *
-     */
+    /** Class cache. */
     private static final Map<String, ClassDescriptor> classCache = new ConcurrentHashMap<>();
 
     /**
@@ -139,6 +137,8 @@ public class IgniteToStringBuilder {
     }
 
     /**
+     * Returns {@link SensitiveDataLoggingPolicy} Log levels for sensitive data.
+     *
      * @return {@link SensitiveDataLoggingPolicy} Log levels for sensitive data
      */
     public static SensitiveDataLoggingPolicy getSensitiveDataLogging() {
@@ -172,6 +172,8 @@ public class IgniteToStringBuilder {
     }
 
     /**
+     * Returns hexed identity hashcode.
+     *
      * @param obj Object.
      * @return Hexed identity hashcode.
      */
@@ -904,7 +906,7 @@ public class IgniteToStringBuilder {
     }
 
     /**
-     * Produces uniformed output of string with context properties
+     * Produces uniformed output of string with context properties.
      *
      * @param str  Output prefix or {@code null} if empty.
      * @param name Property name.
@@ -916,7 +918,7 @@ public class IgniteToStringBuilder {
     }
 
     /**
-     * Produces uniformed output of string with context properties
+     * Produces uniformed output of string with context properties.
      *
      * @param str  Output prefix or {@code null} if empty.
      * @param name Property name.
@@ -949,7 +951,7 @@ public class IgniteToStringBuilder {
     }
 
     /**
-     * Produces uniformed output of string with context properties
+     * Produces uniformed output of string with context properties.
      *
      * @param str   Output prefix or {@code null} if empty.
      * @param name0 Property name.
@@ -964,7 +966,7 @@ public class IgniteToStringBuilder {
     }
 
     /**
-     * Produces uniformed output of string with context properties
+     * Produces uniformed output of string with context properties.
      *
      * @param str   Output prefix or {@code null} if empty.
      * @param name0 Property name.
@@ -981,7 +983,7 @@ public class IgniteToStringBuilder {
     }
 
     /**
-     * Produces uniformed output of string with context properties
+     * Produces uniformed output of string with context properties.
      *
      * @param str   Output prefix or {@code null} if empty.
      * @param name0 Property name.
@@ -1023,7 +1025,7 @@ public class IgniteToStringBuilder {
     }
 
     /**
-     * Produces uniformed output of string with context properties
+     * Produces uniformed output of string with context properties.
      *
      * @param str   Output prefix or {@code null} if empty.
      * @param name0 Property name.
@@ -1073,7 +1075,7 @@ public class IgniteToStringBuilder {
     }
 
     /**
-     * Produces uniformed output of string with context properties
+     * Produces uniformed output of string with context properties.
      *
      * @param str   Output prefix or {@code null} if empty.
      * @param name0 Property name.
@@ -1131,7 +1133,7 @@ public class IgniteToStringBuilder {
     }
 
     /**
-     * Produces uniformed output of string with context properties
+     * Produces uniformed output of string with context properties.
      *
      * @param str   Output prefix or {@code null} if empty.
      * @param name0 Property name.
@@ -1197,7 +1199,7 @@ public class IgniteToStringBuilder {
     }
 
     /**
-     * Produces uniformed output of string with context properties
+     * Produces uniformed output of string with context properties.
      *
      * @param str   Output prefix or {@code null} if empty.
      * @param name0 Property name.
@@ -1271,7 +1273,7 @@ public class IgniteToStringBuilder {
     }
 
     /**
-     * Produces uniformed output of string with context properties
+     * Produces uniformed output of string with context properties.
      *
      * @param str   Output prefix or {@code null} if empty.
      * @param name0 Property name.
@@ -1353,7 +1355,7 @@ public class IgniteToStringBuilder {
     }
 
     /**
-     * Produces uniformed output of string with context properties
+     * Produces uniformed output of string with context properties.
      *
      * @param str      Output prefix or {@code null} if empty.
      * @param triplets Triplets {@code {name, value, sensitivity}}.
@@ -1883,6 +1885,8 @@ public class IgniteToStringBuilder {
     }
 
     /**
+     * Returns descriptor for the class.
+     *
      * @param cls Class.
      * @param <T> Type of the object.
      * @return Descriptor for the class.
@@ -2109,7 +2113,7 @@ public class IgniteToStringBuilder {
     }
 
     /**
-     *
+     * Entry reference.
      */
     private static class EntryReference {
         /** Position. */
@@ -2119,6 +2123,8 @@ public class IgniteToStringBuilder {
         boolean hashNeeded;
 
         /**
+         * Constructor.
+         *
          * @param pos Position.
          */
         private EntryReference(int pos) {

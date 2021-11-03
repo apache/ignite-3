@@ -152,34 +152,34 @@ public class ConfigurationAsmGenerator {
     /** {@link DirectDynamicConfiguration#DirectDynamicConfiguration} constructor. */
     private static final Constructor<?> DIRECT_DYNAMIC_CONFIGURATION_CTOR;
     
-    /** {@link LambdaMetafactory#metafactory(Lookup, String, MethodType, MethodType, MethodHandle, MethodType)} */
+    /** {@link LambdaMetafactory#metafactory(Lookup, String, MethodType, MethodType, MethodHandle, MethodType)}. */
     private static final Method LAMBDA_METAFACTORY;
     
-    /** {@link Consumer#accept(Object)} */
+    /** {@link Consumer#accept(Object)}. */
     private static final Method ACCEPT;
     
-    /** {@link ConfigurationVisitor#visitLeafNode(String, Serializable)} */
+    /** {@link ConfigurationVisitor#visitLeafNode(String, Serializable)}. */
     private static final Method VISIT_LEAF;
     
-    /** {@link ConfigurationVisitor#visitInnerNode(String, InnerNode)} */
+    /** {@link ConfigurationVisitor#visitInnerNode(String, InnerNode)}. */
     private static final Method VISIT_INNER;
     
-    /** {@link ConfigurationVisitor#visitNamedListNode(String, NamedListNode)} */
+    /** {@link ConfigurationVisitor#visitNamedListNode(String, NamedListNode)}. */
     private static final Method VISIT_NAMED;
     
-    /** {@link ConfigurationSource#unwrap(Class)} */
+    /** {@link ConfigurationSource#unwrap(Class)}. */
     private static final Method UNWRAP;
     
-    /** {@link ConfigurationSource#descend(ConstructableTreeNode)} */
+    /** {@link ConfigurationSource#descend(ConstructableTreeNode)}. */
     private static final Method DESCEND;
     
-    /** {@link ConstructableTreeNode#copy()} */
+    /** {@link ConstructableTreeNode#copy()}. */
     private static final Method COPY;
     
     /** {@code DynamicConfiguration#add} method. */
     private static final Method DYNAMIC_CONFIGURATION_ADD_MTD;
     
-    /** {@link Objects#requireNonNull(Object, String)} */
+    /** {@link Objects#requireNonNull(Object, String)}. */
     private static final Method REQUIRE_NON_NULL;
     
     /** {@link Class#getName} method. */
@@ -2657,10 +2657,7 @@ public class ConfigurationAsmGenerator {
     }
     
     /**
-     * Creates the bytecode:
-     * <pre><code>
-     * throw new Exception(msg);
-     * </code></pre>
+     * Creates the bytecode {@code throw new Exception(msg);}.
      *
      * @param throwableClass Exception class.
      * @param parameters     Exception constructor parameters.
@@ -2783,7 +2780,7 @@ public class ConfigurationAsmGenerator {
     }
     
     /**
-     * Creates bytecode like: new NamedListNode<>(key, ValueNode::new, "polymorphicIdFieldName");
+     * Creates bytecode like: {@link new NamedListNode<>(key, ValueNode::new, "polymorphicIdFieldName");}.
      *
      * @param schemaField Schema field with {@link NamedConfigValue}.
      * @return Bytecode like: new NamedListNode<>(key, ValueNode::new, "polymorphicIdFieldName");

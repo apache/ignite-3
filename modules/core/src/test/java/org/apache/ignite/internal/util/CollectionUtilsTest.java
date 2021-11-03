@@ -37,9 +37,6 @@ import org.junit.jupiter.api.Test;
  * Testing the {@link CollectionUtils}.
  */
 public class CollectionUtilsTest {
-    /**
-     *
-     */
     @Test
     void testConcatIterables() {
         assertTrue(collect(concat(null)).isEmpty());
@@ -53,9 +50,6 @@ public class CollectionUtilsTest {
         assertEquals(List.of(1, 2, 3), collect(concat(List.of(1), List.of(2, 3))));
     }
     
-    /**
-     *
-     */
     @Test
     void testSetUnion() {
         assertTrue(union(null, null).isEmpty());
@@ -70,9 +64,6 @@ public class CollectionUtilsTest {
         assertEquals(Set.of(1, 2), union(Set.of(1), 2));
     }
     
-    /**
-     *
-     */
     @Test
     void testViewReadOnly() {
         assertTrue(viewReadOnly(null, null).isEmpty());
@@ -96,9 +87,6 @@ public class CollectionUtilsTest {
         assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).iterator().remove());
     }
     
-    /**
-     *
-     */
     @Test
     void testSetDifference() {
         assertTrue(difference(null, Set.of(1, 2, 3, 4)).isEmpty());
@@ -115,9 +103,6 @@ public class CollectionUtilsTest {
         assertEquals(Set.of(), difference(Set.of(1, 2, 3, 4), Set.of(1, 2, 3, 4)));
     }
     
-    /**
-     *
-     */
     @Test
     void testCollectionUnion() {
         assertTrue(union().isEmpty());

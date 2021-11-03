@@ -291,6 +291,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     }
     
     /**
+     * Returns configuration name for the synthetic key.
+     *
      * @return Configuration name for the synthetic key.
      * @see NamedConfigValue#syntheticKeyName()
      */

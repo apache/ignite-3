@@ -56,8 +56,7 @@ class IgniteSpinReadWriteLockTest {
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 3, TimeUnit.SECONDS);
     }
-
-    /***/
+    
     private void releaseReadLockHeldByCurrentThread() {
         while (true) {
             try {
@@ -68,17 +67,13 @@ class IgniteSpinReadWriteLockTest {
             }
         }
     }
-
-    /***/
+    
     private void releaseWriteLockHeldByCurrentThread() {
         while (lock.writeLockedByCurrentThread()) {
             lock.writeUnlock();
         }
     }
-
-    /**
-     *
-     */
+    
     @Test
     void readLockDoesNotAllowWriteLockToBeAcquired() {
         lock.readLock();
@@ -87,17 +82,13 @@ class IgniteSpinReadWriteLockTest {
 
         lock.readUnlock();
     }
-
-    /***/
+    
     private void assertThatWriteLockAcquireAttemptBlocksForever() {
         Future<?> future = executor.submit(lock::writeLock);
 
         assertThrows(TimeoutException.class, () -> future.get(500, TimeUnit.MILLISECONDS));
     }
-
-    /**
-     *
-     */
+    
     @Test
     void readLockDoesNotAllowWriteLockWithoutSleepsToBeAcquired() {
         lock.readLock();
@@ -106,10 +97,7 @@ class IgniteSpinReadWriteLockTest {
 
         lock.readUnlock();
     }
-
-    /**
-     *
-     */
+    
     @Test
     void readLockDoesNotAllowWriteLockToBeAcquiredWithTimeout() throws Exception {
         lock.readLock();
@@ -119,43 +107,33 @@ class IgniteSpinReadWriteLockTest {
 
         lock.readUnlock();
     }
-
-    /**
-     *
-     */
+    
     @Test
     void readLockAllowsReadLockToBeAcquired() throws Exception {
         lock.readLock();
 
         assertThatReadLockCanBeAcquired();
     }
-
-    /***/
+    
     private void assertThatReadLockCanBeAcquired() throws InterruptedException, ExecutionException, TimeoutException {
         runWithTimeout(lock::readLock);
     }
-
-    /***/
+    
     private <T> T callWithTimeout(Callable<T> call) throws ExecutionException, InterruptedException, TimeoutException {
         Future<T> future = executor.submit(call);
         return getWithTimeout(future);
     }
-
-    /***/
+    
     private void runWithTimeout(Runnable runnable) throws ExecutionException, InterruptedException, TimeoutException {
         Future<?> future = executor.submit(runnable);
         getWithTimeout(future);
     }
-
-    /***/
+    
     private static <T> T getWithTimeout(Future<? extends T> future) throws ExecutionException,
             InterruptedException, TimeoutException {
         return future.get(10, TimeUnit.SECONDS);
     }
-
-    /**
-     *
-     */
+    
     @Test
     void writeLockDoesNotAllowReadLockToBeAcquired() {
         lock.writeLock();
@@ -164,17 +142,13 @@ class IgniteSpinReadWriteLockTest {
 
         lock.writeUnlock();
     }
-
-    /***/
+    
     private void assertThatReadLockAcquireAttemptBlocksForever() {
         Future<?> readLockAttemptFuture = executor.submit(lock::readLock);
 
         assertThrows(TimeoutException.class, () -> readLockAttemptFuture.get(500, TimeUnit.MILLISECONDS));
     }
-
-    /**
-     *
-     */
+    
     @Test
     void writeLockDoesNotAllowWriteLockToBeAcquired() {
         lock.writeLock();
@@ -183,10 +157,7 @@ class IgniteSpinReadWriteLockTest {
 
         lock.writeUnlock();
     }
-
-    /**
-     *
-     */
+    
     @Test
     void writeLockAcquiredWithoutSleepsDoesNotAllowReadLockToBeAcquired() {
         lock.writeLockBusy();
@@ -195,10 +166,7 @@ class IgniteSpinReadWriteLockTest {
 
         lock.writeUnlock();
     }
-
-    /**
-     *
-     */
+    
     @Test
     void writeLockAcquiredWithoutSleepsDoesNotAllowWriteLockToBeAcquired() {
         lock.writeLockBusy();
@@ -207,10 +175,7 @@ class IgniteSpinReadWriteLockTest {
 
         lock.writeUnlock();
     }
-
-    /**
-     *
-     */
+    
     @Test
     void writeLockDoesNotAllowWriteLockWithoutSleepsToBeAcquired() {
         lock.writeLock();
@@ -219,17 +184,13 @@ class IgniteSpinReadWriteLockTest {
 
         lock.writeUnlock();
     }
-
-    /***/
+    
     private void assertThatWriteLockAcquireAttemptWithoutSleepsBlocksForever() {
         Future<?> future = executor.submit(lock::writeLockBusy);
 
         assertThrows(TimeoutException.class, () -> future.get(500, TimeUnit.MILLISECONDS));
     }
-
-    /**
-     *
-     */
+    
     @Test
     void writeLockAcquiredWithoutSleepsDoesNotAllowWriteLockWithoutSleepsToBeAcquired() {
         lock.writeLockBusy();
@@ -238,8 +199,7 @@ class IgniteSpinReadWriteLockTest {
 
         lock.writeUnlock();
     }
-
-    /***/
+    
     @Test
     void readUnlockReleasesTheLock() throws Exception {
         lock.readLock();
@@ -247,8 +207,7 @@ class IgniteSpinReadWriteLockTest {
 
         runWithTimeout(lock::writeLock);
     }
-
-    /***/
+    
     @Test
     void writeUnlockReleasesTheLock() throws Exception {
         lock.writeLock();
@@ -256,8 +215,7 @@ class IgniteSpinReadWriteLockTest {
 
         assertThatReadLockCanBeAcquired();
     }
-
-    /***/
+    
     @Test
     void writeUnlockReleasesTheLockTakenWithoutSleeps() throws Exception {
         lock.writeLockBusy();
@@ -265,10 +223,7 @@ class IgniteSpinReadWriteLockTest {
 
         assertThatReadLockCanBeAcquired();
     }
-
-    /**
-     *
-     */
+    
     @Test
     void testWriteLockReentry() {
         lock.writeLock();
@@ -277,10 +232,7 @@ class IgniteSpinReadWriteLockTest {
 
         assertTrue(lock.tryWriteLock());
     }
-
-    /**
-     *
-     */
+    
     @Test
     void testWriteLockReentryWithoutSleeps() {
         lock.writeLockBusy();
@@ -289,20 +241,14 @@ class IgniteSpinReadWriteLockTest {
 
         assertTrue(lock.tryWriteLock());
     }
-
-    /**
-     *
-     */
+    
     @Test
     void testWriteLockReentryWithTryWriteLock() {
         lock.tryWriteLock();
 
         assertTrue(lock.tryWriteLock());
     }
-
-    /**
-     *
-     */
+    
     @Test
     void testWriteLockReentryWithTimeout() throws Exception {
         lock.tryWriteLock(1, TimeUnit.MILLISECONDS);
@@ -310,10 +256,7 @@ class IgniteSpinReadWriteLockTest {
 
         assertTrue(lock.tryWriteLock());
     }
-
-    /**
-     *
-     */
+    
     @Test
     void testReadLockReentry() {
         lock.readLock();
@@ -322,10 +265,7 @@ class IgniteSpinReadWriteLockTest {
 
         assertTrue(lock.tryReadLock());
     }
-
-    /**
-     * @throws Exception If any error occurs.
-     */
+    
     @Test
     void testReadLockReentryWhenConcurrentAttemptToAcquireWriteLockHappens() throws Exception {
         lock.readLock();
@@ -348,17 +288,13 @@ class IgniteSpinReadWriteLockTest {
 
         future.get(1, TimeUnit.SECONDS);
     }
-
-    /***/
+    
     private void waitTillWriteLockAcquireAttemptIsInitiated() throws InterruptedException {
         boolean sawAnAttempt = IgniteTestUtils.waitForCondition(
                 () -> lock.pendingWriteLocksCount() > 0, TimeUnit.SECONDS.toMillis(10));
         assertTrue(sawAnAttempt, "Did not see any attempt to acquire write lock");
     }
-
-    /**
-     *
-     */
+    
     @Test
     void shouldAllowAcquireAndReleaseReadLockWhileHoldingWriteLock() {
         lock.writeLock();
@@ -368,10 +304,7 @@ class IgniteSpinReadWriteLockTest {
 
         lock.writeUnlock();
     }
-
-    /**
-     *
-     */
+    
     @Test
     void shouldAllowInterleavingHoldingReadAndWriteLocks() {
         lock.writeLock();
@@ -388,10 +321,7 @@ class IgniteSpinReadWriteLockTest {
         lock.writeLock();
         lock.writeUnlock();
     }
-
-    /**
-     *
-     */
+    
     @Test
     void readLockReleasedLessTimesThanAcquiredShouldStillBeTaken() {
         lock.readLock();
@@ -402,10 +332,7 @@ class IgniteSpinReadWriteLockTest {
 
         lock.readUnlock();
     }
-
-    /**
-     *
-     */
+    
     @Test
     void writeLockReleasedLessTimesThanAcquiredShouldStillBeTaken() {
         lock.writeLock();
@@ -416,26 +343,17 @@ class IgniteSpinReadWriteLockTest {
 
         lock.writeUnlock();
     }
-
-    /**
-     *
-     */
+    
     @Test
     void shouldThrowOnReadUnlockingWhenNotHoldingReadLock() {
         assertThrows(IllegalMonitorStateException.class, lock::readUnlock);
     }
-
-    /**
-     *
-     */
+    
     @Test
     void shouldThrowOnWriteUnlockingWhenNotHoldingWriteLock() {
         assertThrows(IllegalMonitorStateException.class, lock::writeUnlock);
     }
-
-    /**
-     *
-     */
+    
     @Test
     void readLockAcquiredWithTryReadLockDoesNotAllowWriteLockToBeAcquired() {
         lock.tryReadLock();
@@ -444,18 +362,12 @@ class IgniteSpinReadWriteLockTest {
 
         lock.readUnlock();
     }
-
-    /**
-     *
-     */
+    
     @Test
     void tryReadLockShouldReturnTrueWhenReadLockWasAcquiredSuccessfully() {
         assertTrue(lock.tryReadLock());
     }
-
-    /**
-     *
-     */
+    
     @Test
     void tryReadLockShouldReturnFalseWhenReadLockCouldNotBeAcquired() throws Exception {
         lock.writeLock();
@@ -464,10 +376,7 @@ class IgniteSpinReadWriteLockTest {
 
         assertThat(acquired, is(false));
     }
-
-    /**
-     *
-     */
+    
     @Test
     void writeLockAcquiredWithTryWriteLockDoesNotAllowWriteLockToBeAcquired() {
         lock.tryWriteLock();
@@ -476,18 +385,12 @@ class IgniteSpinReadWriteLockTest {
 
         lock.writeUnlock();
     }
-
-    /**
-     *
-     */
+    
     @Test
     void tryWriteLockShouldReturnTrueWhenWriteLockWasAcquiredSuccessfully() {
         assertTrue(lock.tryWriteLock());
     }
-
-    /**
-     *
-     */
+    
     @Test
     void tryWriteLockShouldReturnFalseWhenWriteLockCouldNotBeAcquired() throws Exception {
         lock.writeLock();
@@ -496,28 +399,19 @@ class IgniteSpinReadWriteLockTest {
 
         assertThat(acquired, is(false));
     }
-
-    /**
-     *
-     */
+    
     @Test
     void writeLockedByCurrentThreadShouldReturnTrueWhenLockedByCurrentThread() {
         lock.writeLock();
 
         assertTrue(lock.writeLockedByCurrentThread());
     }
-
-    /**
-     *
-     */
+    
     @Test
     void writeLockedByCurrentThreadShouldReturnFalseWhenNotLocked() {
         assertFalse(lock.writeLockedByCurrentThread());
     }
-
-    /**
-     *
-     */
+    
     @Test
     void writeLockedByCurrentThreadShouldReturnFalseWhenLockedByAnotherThread() throws Exception {
         lock.writeLock();

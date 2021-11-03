@@ -84,11 +84,8 @@ public class IgniteUtils {
             "void", void.class
     );
     
-    /**
-     *
-     */
-    private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class<?>>> classCache =
-            new ConcurrentHashMap<>();
+    /** Class cache. */
+    private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class<?>>> classCache = new ConcurrentHashMap<>();
     
     /**
      * Get JDK version.
@@ -254,6 +251,8 @@ public class IgniteUtils {
     }
     
     /**
+     * Appends {@code byte} in hexadecimal format.
+     *
      * @param sb String builder.
      * @param b  Byte to add in hexadecimal format.
      */
@@ -296,6 +295,8 @@ public class IgniteUtils {
     }
     
     /**
+     * Returns class loader used to load Ignite itself.
+     *
      * @return Class loader used to load Ignite itself.
      */
     public static ClassLoader igniteClassLoader() {
@@ -406,6 +407,8 @@ public class IgniteUtils {
     }
     
     /**
+     * Checks if assertions enabled.
+     *
      * @return {@code true} if assertions enabled.
      */
     public static boolean assertionsEnabled() {

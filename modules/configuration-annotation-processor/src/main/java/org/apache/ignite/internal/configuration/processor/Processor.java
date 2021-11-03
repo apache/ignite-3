@@ -231,9 +231,6 @@ public class Processor extends AbstractProcessor {
         return true;
     }
     
-    /**
-     *
-     */
     private static void createRootKeyField(
             ClassName configInterface,
             TypeSpec.Builder configurationClassBuilder,
@@ -482,9 +479,6 @@ public class Processor extends AbstractProcessor {
         buildClass(changeClsName.packageName(), changeCls);
     }
     
-    /**
-     *
-     */
     private void buildClass(String packageName, TypeSpec cls) {
         try {
             JavaFile.builder(packageName, cls)
@@ -496,9 +490,6 @@ public class Processor extends AbstractProcessor {
         }
     }
     
-    /**
-     *
-     */
     private static String capitalize(String name) {
         return name.substring(0, 1).toUpperCase() + name.substring(1);
     }
@@ -655,6 +646,8 @@ public class Processor extends AbstractProcessor {
     }
     
     /**
+     * Returns annotation types supported by this processor.
+     *
      * @return Annotation types supported by this processor.
      */
     private Set<Class<? extends Annotation>> supportedAnnotationTypes() {

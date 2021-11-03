@@ -25,12 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 /**
- *
+ * Test class for {@link IgniteIntList}.
  */
 public class IgniteIntListSelfTest {
-    /**
-     * @throws Exception If failed.
-     */
     @SuppressWarnings("ZeroLengthArrayAllocation")
     @Test
     public void testCopyWithout() throws Exception {
@@ -66,10 +63,7 @@ public class IgniteIntListSelfTest {
                 new IgniteIntList(new int[]{1, 2, 3}),
                 new IgniteIntList(new int[]{1, 1, 2, 2, 3, 3}));
     }
-
-    /**
-     *
-     */
+    
     @Test
     public void testTruncate() {
         IgniteIntList list = asList(1, 2, 3, 4, 5, 6, 7, 8);
@@ -109,10 +103,7 @@ public class IgniteIntListSelfTest {
             }
         }
     }
-
-    /**
-     *
-     */
+    
     @Test
     public void testRemove() {
         IgniteIntList list = asList(1, 2, 3, 4, 5, 6);
@@ -132,10 +123,7 @@ public class IgniteIntListSelfTest {
         assertEquals(1, list.removeIndex(0));
         assertEquals(asList(4, 5), list);
     }
-
-    /**
-     *
-     */
+    
     @Test
     public void testSort() {
         assertEquals(new IgniteIntList(), new IgniteIntList().sort());

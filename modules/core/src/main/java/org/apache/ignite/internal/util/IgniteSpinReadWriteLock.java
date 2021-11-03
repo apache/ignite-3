@@ -156,20 +156,17 @@ public class IgniteSpinReadWriteLock {
     private boolean alreadyHoldingAnyLock(int currentThreadReadLockAcquiredCount) {
         return currentThreadReadLockAcquiredCount > 0 || writeLockedByCurrentThread();
     }
-
-    /***/
+    
     private void incrementCurrentThreadReadLockCount(int cnt) {
         assert state > 0 || state == WRITE_LOCKED;
 
         readLockEntryCnt.set(cnt + 1);
     }
-
-    /***/
+    
     private boolean writeLockedOrGoingToBe(int curState) {
         return curState == WRITE_LOCKED || pendingWriteLocks > 0;
     }
-
-    /***/
+    
     private boolean tryAdvanceStateToReadLocked(int curState) {
         return compareAndSet(STATE_VH, curState, curState + 1);
     }
@@ -270,15 +267,13 @@ public class IgniteSpinReadWriteLock {
 
         finishWriteLockAcquire();
     }
-
-    /***/
+    
     private void incrementWriteLockCount() {
         assert state == WRITE_LOCKED;
 
         writeLockEntryCnt++;
     }
-
-    /***/
+    
     private void incrementPendingWriteLocks() {
         while (true) {
             int curPendingWriteLocks = pendingWriteLocks;
@@ -288,13 +283,11 @@ public class IgniteSpinReadWriteLock {
             }
         }
     }
-
-    /***/
+    
     private boolean trySwitchStateToWriteLocked() {
         return compareAndSet(STATE_VH, AVAILABLE, WRITE_LOCKED);
     }
-
-    /***/
+    
     private void decrementPendingWriteLocks() {
         while (true) {
             int curPendingWriteLocks = pendingWriteLocks;
@@ -306,8 +299,7 @@ public class IgniteSpinReadWriteLock {
             }
         }
     }
-
-    /***/
+    
     private void finishWriteLockAcquire() {
         assert writeLockOwner == NO_OWNER;
 
@@ -339,6 +331,8 @@ public class IgniteSpinReadWriteLock {
     }
 
     /**
+     * Return {@code true} if blocked by current thread.
+     *
      * @return {@code True} if blocked by current thread.
      */
     public boolean writeLockedByCurrentThread() {
@@ -411,7 +405,7 @@ public class IgniteSpinReadWriteLock {
     /**
      * Releases the write lock.
      *
-     * @throws IllegalMonitorStateException thrown if the current thread does not hold the write lock
+     * @throws IllegalMonitorStateException thrown if the current thread does not hold the write lock.
      */
     public void writeUnlock() {
         if (!writeLockedByCurrentThread()) {
@@ -437,6 +431,8 @@ public class IgniteSpinReadWriteLock {
     }
 
     /**
+     * Returns {@code true} on success.
+     *
      * @param varHandle VarHandle.
      * @param expect    Expected.
      * @param update    Update.

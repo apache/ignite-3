@@ -29,18 +29,16 @@ import org.hamcrest.TypeSafeMatcher;
  * {@link Matcher} that awaits for the given future to complete and then forwards the result to the nested {@code matcher}.
  */
 public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFuture<T>> {
-    /**
-     *
-     */
+    /** Timeout in seconds. */
     private static final int TIMEOUT_SECONDS = 1;
 
-    /**
-     *
-     */
+    /** Matcher to forward the result of the completable future. */
     private final Matcher<T> matcher;
 
     /**
-     * @param matcher matcher to forward the result of the completable future.
+     * Constructor.
+     *
+     * @param matcher Matcher to forward the result of the completable future.
      */
     private CompletableFutureMatcher(Matcher<T> matcher) {
         this.matcher = matcher;

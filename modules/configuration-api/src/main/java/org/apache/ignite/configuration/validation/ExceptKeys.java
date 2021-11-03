@@ -31,6 +31,8 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 @Retention(RUNTIME)
 public @interface ExceptKeys {
     /**
+     * Returns list of reserved names.
+     *
      * @return List of reserved names.
      */
     String[] value();

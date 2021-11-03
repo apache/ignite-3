@@ -38,9 +38,7 @@ import org.jetbrains.annotations.NotNull;
  * An {@link ExecutorService} that executes submitted tasks using pooled grid threads.
  */
 public class StripedThreadPoolExecutor implements ExecutorService {
-    /**
-     *
-     */
+    /** Executors. */
     private final ExecutorService[] execs;
 
     /**
@@ -132,6 +130,8 @@ public class StripedThreadPoolExecutor implements ExecutorService {
     }
 
     /**
+     * Sets stripped thread ID.
+     *
      * @param idx Index.
      * @return Stripped thread ID.
      */

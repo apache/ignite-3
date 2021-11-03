@@ -55,9 +55,7 @@ public final class ArrayUtils {
     /** Empty object array. */
     public static final Object[] OBJECT_EMPTY_ARRAY = new Object[0];
     
-    /**
-     *
-     */
+    /** {@code byte} array factory. */
     public static final ArrayFactory<byte[]> BYTE_ARRAY = new ArrayFactory<>() {
         @Override
         public byte[] of(int len) {
@@ -75,9 +73,7 @@ public final class ArrayUtils {
         }
     };
     
-    /**
-     *
-     */
+    /** {@code short} array factory. */
     public static final ArrayFactory<short[]> SHORT_ARRAY = new ArrayFactory<>() {
         @Override
         public short[] of(int len) {
@@ -95,9 +91,7 @@ public final class ArrayUtils {
         }
     };
     
-    /**
-     *
-     */
+    /** {@code int} array factory. */
     public static final ArrayFactory<int[]> INT_ARRAY = new ArrayFactory<>() {
         @Override
         public int[] of(int len) {
@@ -115,9 +109,7 @@ public final class ArrayUtils {
         }
     };
     
-    /**
-     *
-     */
+    /** {@code long} array factory. */
     public static final ArrayFactory<long[]> LONG_ARRAY = new ArrayFactory<>() {
         @Override
         public long[] of(int len) {
@@ -135,9 +127,7 @@ public final class ArrayUtils {
         }
     };
     
-    /**
-     *
-     */
+    /** {@code float} array factory. */
     public static final ArrayFactory<float[]> FLOAT_ARRAY = new ArrayFactory<>() {
         @Override
         public float[] of(int len) {
@@ -155,9 +145,7 @@ public final class ArrayUtils {
         }
     };
     
-    /**
-     *
-     */
+    /** {@code double} array factory. */
     public static final ArrayFactory<double[]> DOUBLE_ARRAY = new ArrayFactory<>() {
         @Override
         public double[] of(int len) {
@@ -175,9 +163,7 @@ public final class ArrayUtils {
         }
     };
     
-    /**
-     *
-     */
+    /** {@code char} array factory. */
     public static final ArrayFactory<char[]> CHAR_ARRAY = new ArrayFactory<>() {
         @Override
         public char[] of(int len) {
@@ -195,9 +181,7 @@ public final class ArrayUtils {
         }
     };
     
-    /**
-     *
-     */
+    /** {@code boolean} array factory. */
     public static final ArrayFactory<boolean[]> BOOLEAN_ARRAY = new ArrayFactory<>() {
         @Override
         public boolean[] of(int len) {
@@ -216,6 +200,8 @@ public final class ArrayUtils {
     };
     
     /**
+     * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
+     *
      * @param arr Array to check.
      * @param <T> Array element type.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
@@ -225,6 +211,8 @@ public final class ArrayUtils {
     }
     
     /**
+     * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
+     *
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
@@ -233,6 +221,8 @@ public final class ArrayUtils {
     }
     
     /**
+     * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
+     *
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
@@ -241,6 +231,8 @@ public final class ArrayUtils {
     }
     
     /**
+     * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
+     *
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
@@ -249,6 +241,8 @@ public final class ArrayUtils {
     }
     
     /**
+     * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
+     *
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
@@ -257,6 +251,8 @@ public final class ArrayUtils {
     }
     
     /**
+     * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
+     *
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
@@ -265,6 +261,8 @@ public final class ArrayUtils {
     }
     
     /**
+     * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
+     *
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
@@ -273,6 +271,8 @@ public final class ArrayUtils {
     }
     
     /**
+     * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
+     *
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */

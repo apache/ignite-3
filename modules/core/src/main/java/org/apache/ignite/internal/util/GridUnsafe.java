@@ -55,9 +55,7 @@ import sun.misc.Unsafe;
  * </ul>
  */
 public abstract class GridUnsafe {
-    /**
-     *
-     */
+    /** Native byte order. */
     public static final ByteOrder NATIVE_BYTE_ORDER = ByteOrder.nativeOrder();
 
     /** Unsafe. */
@@ -75,49 +73,31 @@ public abstract class GridUnsafe {
     /** Address size. */
     public static final int ADDR_SIZE = UNSAFE.addressSize();
 
-    /**
-     *
-     */
+    /** {@code byte} array offset. */
     public static final long BYTE_ARR_OFF = UNSAFE.arrayBaseOffset(byte[].class);
-
-    /**
-     *
-     */
+    
+    /** {@code byte} array offset. */
     public static final int BYTE_ARR_INT_OFF = UNSAFE.arrayBaseOffset(byte[].class);
-
-    /**
-     *
-     */
+    
+    /** {@code short} array offset. */
     public static final long SHORT_ARR_OFF = UNSAFE.arrayBaseOffset(short[].class);
-
-    /**
-     *
-     */
+    
+    /** {@code int} array offset. */
     public static final long INT_ARR_OFF = UNSAFE.arrayBaseOffset(int[].class);
-
-    /**
-     *
-     */
+    
+    /** {@code long} array offset. */
     public static final long LONG_ARR_OFF = UNSAFE.arrayBaseOffset(long[].class);
-
-    /**
-     *
-     */
+    
+    /** {@code float} array offset. */
     public static final long FLOAT_ARR_OFF = UNSAFE.arrayBaseOffset(float[].class);
-
-    /**
-     *
-     */
+    
+    /** {@code double} array offset. */
     public static final long DOUBLE_ARR_OFF = UNSAFE.arrayBaseOffset(double[].class);
-
-    /**
-     *
-     */
+    
+    /** {@code char} array offset. */
     public static final long CHAR_ARR_OFF = UNSAFE.arrayBaseOffset(char[].class);
-
-    /**
-     *
-     */
+    
+    /** {@code boolean} array offset. */
     public static final long BOOLEAN_ARR_OFF = UNSAFE.arrayBaseOffset(boolean[].class);
 
     /** {@link java.nio.Buffer#address} field offset. */
@@ -278,6 +258,8 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Returns allocated direct buffer.
+     *
      * @param len Length.
      * @return Allocated direct buffer.
      */
@@ -288,6 +270,8 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Frees buffer.
+     *
      * @param buf Direct buffer allocated by {@link #allocateBuffer(int)}.
      */
     public static void freeBuffer(ByteBuffer buf) {
@@ -297,6 +281,8 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Returns reallocated direct buffer.
+     *
      * @param buf Buffer.
      * @param len New length.
      * @return Reallocated direct buffer.
@@ -1543,7 +1529,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Cleans direct {@code java.nio.ByteBuffer}
+     * Cleans direct {@code java.nio.ByteBuffer}.
      *
      * @param buf Direct buffer.
      */
@@ -1563,6 +1549,8 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Returns instance of Unsafe class.
+     *
      * @return Instance of Unsafe class.
      */
     private static Unsafe unsafe() {
@@ -1588,7 +1576,9 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Return buffer address offset.
      *
+     * @return Buffer address offset.
      */
     private static long bufferAddressOffset() {
         final ByteBuffer maybeDirectBuf = ByteBuffer.allocateDirect(1);
@@ -1673,7 +1663,9 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Returns misc package name.
      *
+     * @return Misc package name.
      */
     @NotNull
     private static String miscPackage() {
@@ -1742,9 +1734,12 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Returns {@code short} value.
+     *
      * @param obj       Object.
      * @param off       Offset.
      * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
+     * @return {@code short} value.
      */
     private static short getShortByByte(Object obj, long off, boolean bigEndian) {
         if (bigEndian) {
@@ -1755,8 +1750,11 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Returns {@code short} value.
+     *
      * @param addr      Address.
      * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
+     * @return {@code short} value.
      */
     private static short getShortByByte(long addr, boolean bigEndian) {
         if (bigEndian) {
@@ -1767,6 +1765,8 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Sets {@code short} value.
+     *
      * @param obj       Object.
      * @param off       Offset.
      * @param val       Value.
@@ -1783,6 +1783,8 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Sets {@code short} value.
+     *
      * @param addr      Address.
      * @param val       Value.
      * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
@@ -1798,9 +1800,12 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Returns {@code char} value.
+     *
      * @param obj       Object.
      * @param off       Offset.
      * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
+     * @return {@code char} value.
      */
     private static char getCharByByte(Object obj, long off, boolean bigEndian) {
         if (bigEndian) {
@@ -1811,8 +1816,11 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Returns {@code char} value.
+     *
      * @param addr      Address.
      * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
+     * @return {@code char} value.
      */
     private static char getCharByByte(long addr, boolean bigEndian) {
         if (bigEndian) {
@@ -1823,6 +1831,8 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Sets {@code char} value.
+     *
      * @param obj       Object.
      * @param addr      Address.
      * @param val       Value.
@@ -1839,6 +1849,8 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Sets {@code char} value.
+     *
      * @param addr      Address.
      * @param val       Value.
      * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
@@ -1854,9 +1866,12 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Returns {@code int} value.
+     *
      * @param obj       Object.
      * @param addr      Address.
      * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
+     * @return {@code int} value.
      */
     private static int getIntByByte(Object obj, long addr, boolean bigEndian) {
         if (bigEndian) {
@@ -1873,8 +1888,11 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Sets {@code int} value.
+     *
      * @param addr      Address.
      * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
+     * @return {@code int} value.
      */
     private static int getIntByByte(long addr, boolean bigEndian) {
         if (bigEndian) {
@@ -1891,6 +1909,8 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Sets {@code int} value.
+     *
      * @param obj       Object.
      * @param addr      Address.
      * @param val       Value.
@@ -1911,6 +1931,8 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Sets {@code int} value.
+     *
      * @param addr      Address.
      * @param val       Value.
      * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
@@ -1930,9 +1952,12 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Returns {@code long} value.
+     *
      * @param obj       Object.
      * @param addr      Address.
      * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
+     * @return {@code long} value.
      */
     private static long getLongByByte(Object obj, long addr, boolean bigEndian) {
         if (bigEndian) {
@@ -1957,8 +1982,11 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Returns {@code long} value.
+     *
      * @param addr      Address.
      * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
+     * @return {@code long} value.
      */
     private static long getLongByByte(long addr, boolean bigEndian) {
         if (bigEndian) {
@@ -1983,6 +2011,8 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Sets {@code long} value.
+     *
      * @param obj       Object.
      * @param addr      Address.
      * @param val       Value.
@@ -2011,6 +2041,8 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Sets {@code long} value.
+     *
      * @param addr      Address.
      * @param val       Value.
      * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
@@ -2038,6 +2070,8 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Returns {@code True} if equals.
+     *
      * @param ptr1 First pointer.
      * @param ptr2 Second pointer.
      * @param size Memory size.

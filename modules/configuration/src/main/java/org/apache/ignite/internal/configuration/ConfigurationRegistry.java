@@ -74,7 +74,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
- *
+ * Configuration registry.
  */
 public class ConfigurationRegistry implements IgniteComponent {
     /** The logger. */

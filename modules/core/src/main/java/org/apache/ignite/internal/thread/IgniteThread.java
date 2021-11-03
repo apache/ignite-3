@@ -68,6 +68,8 @@ public class IgniteThread extends Thread {
     }
 
     /**
+     * Returns IgniteThread or {@code null} if current thread is not an instance of IgniteThread.
+     *
      * @return IgniteThread or {@code null} if current thread is not an instance of IgniteThread.
      */
     public static IgniteThread current() {

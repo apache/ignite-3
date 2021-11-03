@@ -26,57 +26,37 @@ import org.intellij.lang.annotations.MagicConstant;
  * Simple field descriptor containing field name and its order in the class descriptor.
  */
 class FieldDescriptor {
-    /**
-     *
-     */
+    /** Field type: {@link Object}. */
     public static final int FIELD_TYPE_OBJECT = 0;
-
-    /**
-     *
-     */
+    
+    /** Field type: {@code byte}. */
     public static final int FIELD_TYPE_BYTE = 1;
-
-    /**
-     *
-     */
+    
+    /** Field type: {@code boolean}. */
     public static final int FIELD_TYPE_BOOLEAN = 2;
-
-    /**
-     *
-     */
+    
+    /** Field type: {@code char}. */
     public static final int FIELD_TYPE_CHAR = 3;
-
-    /**
-     *
-     */
+    
+    /** Field type: {@code short}. */
     public static final int FIELD_TYPE_SHORT = 4;
-
-    /**
-     *
-     */
+    
+    /** Field type: {@code int}. */
     public static final int FIELD_TYPE_INT = 5;
-
-    /**
-     *
-     */
+    
+    /** Field type: {@code float}. */
     public static final int FIELD_TYPE_FLOAT = 6;
-
-    /**
-     *
-     */
+    
+    /** Field type: {@code long}. */
     public static final int FIELD_TYPE_LONG = 7;
-
-    /**
-     *
-     */
+    
+    /** Field type: {@code double}. */
     public static final int FIELD_TYPE_DOUBLE = 8;
 
     /** Field name. */
     private final String name;
 
-    /**
-     *
-     */
+    /** Field order. */
     private int order = Integer.MAX_VALUE;
 
     /** Field VarHandle. */
@@ -89,6 +69,8 @@ class FieldDescriptor {
     private final Class<?> cls;
 
     /**
+     * Constructor.
+     *
      * @param field     Field descriptor.
      * @param varHandle Field VarHandle.
      */
@@ -127,6 +109,8 @@ class FieldDescriptor {
     }
 
     /**
+     * Returns field order.
+     *
      * @return Field order.
      */
     int getOrder() {
@@ -134,6 +118,8 @@ class FieldDescriptor {
     }
 
     /**
+     * Sets field order.
+     *
      * @param order Field order.
      */
     void setOrder(int order) {
@@ -141,6 +127,8 @@ class FieldDescriptor {
     }
 
     /**
+     * Returns field VarHandle.
+     *
      * @return Field VarHandle.
      */
     public VarHandle varHandle() {
@@ -148,6 +136,8 @@ class FieldDescriptor {
     }
 
     /**
+     * Returns numeric constant for the field's type. One of {@code FIELD_TYPE_*} constants of current class.
+     *
      * @return Numeric constant for the field's type. One of {@code FIELD_TYPE_*} constants of current class.
      */
     @MagicConstant(valuesFromClass = FieldDescriptor.class)
@@ -156,6 +146,8 @@ class FieldDescriptor {
     }
 
     /**
+     * Returns field class.
+     *
      * @return Field class.
      */
     public Class<?> fieldClass() {
@@ -163,6 +155,8 @@ class FieldDescriptor {
     }
 
     /**
+     * Returns field name.
+     *
      * @return Field name.
      */
     String getName() {

@@ -147,8 +147,8 @@ public class IgniteBiTuple<V1, V2> implements Map<V1, V2>, Map.Entry<V1, V2>,
     /** {@inheritDoc} */
     @Override
     public Iterator<Object> iterator() {
-        return new Iterator<Object>() {
-            /** */
+        return new Iterator<>() {
+            /** Next index. */
             private int nextIdx = 1;
 
             @Override

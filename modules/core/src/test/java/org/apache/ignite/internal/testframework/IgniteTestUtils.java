@@ -218,6 +218,8 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Returns random BitSet.
+     *
      * @param rnd  Random generator.
      * @param bits Amount of bits in bitset.
      * @return Random BitSet.
@@ -235,6 +237,8 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Returns random byte array.
+     *
      * @param rnd Random generator.
      * @param len Byte array length.
      * @return Random byte array.
@@ -247,6 +251,8 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Returns random string.
+     *
      * @param rnd Random generator.
      * @param len String length.
      * @return Random string.

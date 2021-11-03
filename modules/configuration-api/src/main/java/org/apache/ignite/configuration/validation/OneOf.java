@@ -30,12 +30,16 @@ import java.lang.annotation.Target;
 @Retention(RUNTIME)
 public @interface OneOf {
     /**
+     * Returns list of possible values.
+     *
      * @return List of possible values.
      */
     String[] value();
 
     /**
-     * @return {@code true} if list is case sensitive.
+     * Returns {@code true} if list is case-sensitive.
+     *
+     * @return {@code true} if list is case-sensitive.
      */
     boolean caseSensitive() default false;
 }

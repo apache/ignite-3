@@ -26,6 +26,9 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Hocon converter.
+ */
 public class HoconConverter {
     /**
      * Converts configuration subtree to a HOCON {@link ConfigValue} instance.
@@ -45,6 +48,8 @@ public class HoconConverter {
     }
 
     /**
+     * Returns HOCON-based configuration source.
+     *
      * @param hoconCfg HOCON that has to be converted to the configuration source.
      * @return HOCON-based configuration source.
      */
