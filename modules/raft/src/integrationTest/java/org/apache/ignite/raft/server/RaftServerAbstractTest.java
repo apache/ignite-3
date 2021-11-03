@@ -31,7 +31,6 @@ import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
