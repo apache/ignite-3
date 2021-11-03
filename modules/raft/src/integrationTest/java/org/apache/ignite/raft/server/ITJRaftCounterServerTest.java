@@ -24,6 +24,9 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -53,6 +56,8 @@ import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
+import org.apache.ignite.raft.jraft.test.TestUtils;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,7 +73,6 @@ import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForCondition;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -93,11 +97,6 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
      * Counter group name 1.
      */
     private static final String COUNTER_GROUP_1 = "counter1";
-
-    /**
-     * Counter group name 2.
-     */
-    private static final String COUNTER_GROUP_2 = "counter2";
 
     /**
      * The server port offset.
@@ -152,6 +151,8 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     /** */
     @AfterEach
     @Override protected void after() throws Exception {
+        super.after();
+
         LOG.info("Start client shutdown");
 
         Iterator<RaftGroupService> iterClients = clients.iterator();
@@ -173,10 +174,6 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
             iterSrv.remove();
 
-            server.stopRaftGroup(COUNTER_GROUP_0);
-            server.stopRaftGroup(COUNTER_GROUP_1);
-            server.stopRaftGroup(COUNTER_GROUP_2);
-
             server.beforeNodeStop();
 
             server.stop();
@@ -184,7 +181,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
-        super.after();
+        TestUtils.assertAllThreadsStopped();
 
         LOG.info(">>>>>>>>>>>>>>> End test method: {}", testInfo.getTestMethod().orElseThrow().getName());
     }
@@ -209,9 +206,9 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
             @Override public void stop() {
                 servers.remove(this);
 
-                super.stop();
-
                 service.stop();
+
+                super.stop();
             }
         };
 
@@ -589,23 +586,50 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
         waitForTopology(srv0.clusterService(), 3, 5_000);
 
-        srv0.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
-        srv1.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
-        srv2.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
+        ExecutorService svc = Executors.newFixedThreadPool(16);
 
-        assertTrue(waitForCondition(() -> hasLeader(COUNTER_GROUP_0), 30_000));
+        final int groupsCnt = 10;
 
-        srv0.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
-        srv1.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
-        srv2.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
-        assertTrue(waitForCondition(() -> hasLeader(COUNTER_GROUP_1), 30_000));
+        try {
+            List<Future<?>> futs = new ArrayList<>(groupsCnt);
 
-        srv0.startRaftGroup(COUNTER_GROUP_2, listenerFactory.get(), INITIAL_CONF);
-        srv1.startRaftGroup(COUNTER_GROUP_2, listenerFactory.get(), INITIAL_CONF);
-        srv2.startRaftGroup(COUNTER_GROUP_2, listenerFactory.get(), INITIAL_CONF);
-        assertTrue(waitForCondition(() -> hasLeader(COUNTER_GROUP_2), 30_000));
+            for (int i = 0; i < groupsCnt; i++) {
+                int finalI = i;
+                futs.add(svc.submit(new Runnable() {
+                    @Override public void run() {
+                        String grp = "counter" + finalI;
 
-        List<Thread> timerThreads = Thread.getAllStackTraces().keySet().stream().filter(this::isTimer).
+                        srv0.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF);
+                        srv1.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF);
+                        srv2.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF);
+                    }
+                }));
+            }
+
+            for (Future<?> fut : futs) {
+                try {
+                    fut.get();
+                }
+                catch (Exception e) {
+                    fail(e.getMessage());
+                }
+            }
+        }
+        finally {
+            ExecutorServiceHelper.shutdownAndAwaitTermination(svc);
+        }
+
+        for (int i = 0; i < groupsCnt; i++) {
+            String grp = "counter" + i;
+
+            assertTrue(waitForCondition(() -> hasLeader(grp), 30_000));
+        }
+
+        Set<Thread> threads = Thread.getAllStackTraces().keySet();
+
+        LOG.info("RAFT threads count {}", threads.stream().filter(t -> t.getName().contains("JRaft")));
+
+        List<Thread> timerThreads = threads.stream().filter(this::isTimer).
             sorted((o1, o2) -> o1.getName().compareTo(o2.getName())).collect(toList());
 
         assertTrue(timerThreads.size() <= 15, "New timer threads: " + timerThreads.toString());
@@ -632,12 +656,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
             StateMachineAdapter fsm = (StateMachineAdapter) node.getOptions().getFsm();
 
-            boolean ok = node.isLeader() && fsm.getLeaderTerm() == node.getCurrentTerm();
-
-            if (ok)
-                System.out.println();
-
-            return ok;
+            return node.isLeader() && fsm.getLeaderTerm() == node.getCurrentTerm();
         });
     }
 

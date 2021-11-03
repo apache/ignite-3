@@ -779,6 +779,8 @@ public class NodeImpl implements Node, RaftServerService {
         // Create fsmCaller at first as logManager needs it to report error
         this.fsmCaller = new FSMCallerImpl();
 
+        initPools(opts.getNodeOptions());
+
         if (!initLogStorage()) {
             LOG.error("Fail to init log storage.");
             return false;
@@ -2819,7 +2821,6 @@ public class NodeImpl implements Node, RaftServerService {
 
     @Override
     public void shutdown(final Closure done) {
-        List<RepeatedTimer> timers = null;
         this.writeLock.lock();
         try {
             LOG.info("Node {} shutdown, currTerm={} state={}.", getNodeId(), this.currTerm, this.state);
@@ -2832,7 +2833,7 @@ public class NodeImpl implements Node, RaftServerService {
                 }
                 this.state = State.STATE_SHUTTING;
                 // Stop all pending timer callbacks.
-                timers = stopAllTimers();
+                stopAllTimers();
                 if (this.readOnlyService != null) {
                     this.readOnlyService.shutdown();
                 }
@@ -2864,21 +2865,6 @@ public class NodeImpl implements Node, RaftServerService {
                             event.shutdownLatch = latch;
                         }));
                 }
-                // Stop not shared pool mode timers.
-                NodeOptions opts = getOptions();
-
-                if (opts.getScheduler() != null && !opts.isSharedPools()) {
-                    opts.getScheduler().shutdown();
-                }
-                if (opts.getElectionTimer() != null && !opts.isSharedPools()) {
-                    opts.getElectionTimer().stop();
-                }
-                if (opts.getVoteTimer() != null && !opts.isSharedPools()) {
-                    opts.getVoteTimer().stop();
-                }
-                if (opts.getStepDownTimer() != null && !opts.isSharedPools()) {
-                    opts.getStepDownTimer().stop();
-                }
             }
 
             if (this.state != State.STATE_SHUTDOWN) {
@@ -2897,38 +2883,6 @@ public class NodeImpl implements Node, RaftServerService {
         }
         finally {
             this.writeLock.unlock();
-
-            // Destroy all timers out of lock
-            if (timers != null) {
-                destroyAllTimers(timers);
-            }
-
-            NodeOptions opts = getOptions();
-
-            if (opts.getSnapshotTimer() != null && !opts.isSharedPools()) {
-                opts.getSnapshotTimer().stop();
-            }
-            if (opts.getCommonExecutor() != null && !opts.isSharedPools()) {
-                ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getCommonExecutor());
-            }
-            if (opts.getStripedExecutor() != null && !opts.isSharedPools()) {
-                opts.getStripedExecutor().shutdownGracefully();
-            }
-            if (opts.getClientExecutor() != null && !opts.isSharedPools()) {
-                ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getClientExecutor());
-            }
-            if (opts.getfSMCallerExecutorDisruptor() != null && !opts.isSharedPools()) {
-                opts.getfSMCallerExecutorDisruptor().shutdown();
-            }
-            if (opts.getNodeApplyDisruptor() != null && !opts.isSharedPools()) {
-                opts.getNodeApplyDisruptor().shutdown();
-            }
-            if (opts.getReadOnlyServiceDisruptor() != null && !opts.isSharedPools()) {
-                opts.getReadOnlyServiceDisruptor().shutdown();
-            }
-            if (opts.getLogManagerDisruptor() != null && !opts.isSharedPools()) {
-                opts.getLogManagerDisruptor().shutdown();
-            }
         }
     }
 
@@ -2981,6 +2935,58 @@ public class NodeImpl implements Node, RaftServerService {
         }
         if (this.fsmCaller != null) {
             this.fsmCaller.join();
+        }
+
+        // Stop and reset non shared pools.
+        NodeOptions opts = getOptions();
+
+        if (opts.getScheduler() != null && !opts.isSharedPools()) {
+            opts.getScheduler().shutdown();
+            opts.setScheduler(null);
+        }
+        if (opts.getElectionTimer() != null && !opts.isSharedPools()) {
+            opts.getElectionTimer().stop();
+            opts.setElectionTimer(null);
+        }
+        if (opts.getVoteTimer() != null && !opts.isSharedPools()) {
+            opts.getVoteTimer().stop();
+            opts.setVoteTimer(null);
+        }
+        if (opts.getStepDownTimer() != null && !opts.isSharedPools()) {
+            opts.getStepDownTimer().stop();
+            opts.setStepDownTimer(null);
+        }
+        if (opts.getSnapshotTimer() != null && !opts.isSharedPools()) {
+            opts.getSnapshotTimer().stop();
+            opts.setSnapshotTimer(null);
+        }
+        if (opts.getCommonExecutor() != null && !opts.isSharedPools()) {
+            ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getCommonExecutor());
+            opts.setCommonExecutor(null);
+        }
+        if (opts.getStripedExecutor() != null && !opts.isSharedPools()) {
+            opts.getStripedExecutor().shutdownGracefully();
+            opts.setStripedExecutor(null);
+        }
+        if (opts.getClientExecutor() != null && !opts.isSharedPools()) {
+            ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getClientExecutor());
+            opts.setClientExecutor(null);
+        }
+        if (opts.getfSMCallerExecutorDisruptor() != null && !opts.isSharedPools()) {
+            opts.getfSMCallerExecutorDisruptor().shutdown();
+            opts.setfSMCallerExecutorDisruptor(null);
+        }
+        if (opts.getNodeApplyDisruptor() != null && !opts.isSharedPools()) {
+            opts.getNodeApplyDisruptor().shutdown();
+            opts.setNodeApplyDisruptor(null);
+        }
+        if (opts.getReadOnlyServiceDisruptor() != null && !opts.isSharedPools()) {
+            opts.getReadOnlyServiceDisruptor().shutdown();
+            opts.setReadOnlyServiceDisruptor(null);
+        }
+        if (opts.getLogManagerDisruptor() != null && !opts.isSharedPools()) {
+            opts.getLogManagerDisruptor().shutdown();
+            opts.setLogManagerDisruptor(null);
         }
     }
 

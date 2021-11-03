@@ -909,7 +909,7 @@ public class LogManagerImpl implements LogManager {
             this.readLock.unlock();
         }
         try {
-            c.await();
+            c.await(); // TODO FIXME asch this method blocks timer pool IGNITE-14832
         }
         catch (final InterruptedException e) {
             Thread.currentThread().interrupt();

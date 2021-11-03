@@ -154,6 +154,8 @@ public class ITCliServiceTest {
         cluster.stopAll();
         ExecutorServiceHelper.shutdownAndAwaitTermination(clientExecutor);
 
+        TestUtils.assertAllThreadsStopped();
+
         LOG.info(">>>>>>>>>>>>>>> End test method: " + testInfo.getDisplayName());
     }
 
@@ -479,7 +481,7 @@ public class ITCliServiceTest {
         for (Map.Entry<String, PeerId> entry : rebalancedLeaderIds.entrySet())
             ret.compute(entry.getValue(), (ignored, num) -> num == null ? 1 : num + 1);
         for (Map.Entry<PeerId, Integer> entry : ret.entrySet()) {
-            System.out.println(entry);
+            LOG.info(entry.toString());
             assertEquals(new PeerId("host_1", 8080), entry.getKey());
         }
     }

@@ -211,5 +211,6 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
     /** {@inheritDoc} */
     @Override public void shutdown() {
+        // Should deregister listeners.
     }
 }

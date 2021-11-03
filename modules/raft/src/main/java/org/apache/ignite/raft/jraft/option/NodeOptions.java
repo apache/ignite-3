@@ -36,7 +36,6 @@ import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.apache.ignite.raft.jraft.util.timer.Timer;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Node options.
@@ -591,6 +590,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setVoteTimer(this.getVoteTimer());
         nodeOptions.setSnapshotTimer(this.getSnapshotTimer());
         nodeOptions.setStepDownTimer(this.getStepDownTimer());
+        nodeOptions.setSharedPools(this.isSharedPools());
 
         return nodeOptions;
     }

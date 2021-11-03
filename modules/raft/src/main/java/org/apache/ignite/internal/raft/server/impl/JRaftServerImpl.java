@@ -22,6 +22,8 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -30,7 +32,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -112,7 +113,7 @@ public class JRaftServerImpl implements RaftServer {
         this.dataPath = dataPath;
         this.nodeManager = new NodeManager();
         this.opts = opts;
-        opts.setSharedPools(true);
+        this.opts.setSharedPools(true);
 
         if (opts.getServerName() == null)
             opts.setServerName(service.localConfiguration().getName());
@@ -193,11 +194,16 @@ public class JRaftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override public void stop() {
-        assert groups.isEmpty() : LoggerMessageHelper.format("Raft groups are still running {}", groups.keySet());
-
         rpcServer.shutdown();
 
-        // Release resources manually.
+        Collection<RaftGroupService> grps = new ArrayList<>(groups.values());
+        groups.clear();
+
+        // Stop all started groups.
+        for (RaftGroupService grp : grps)
+            grp.shutdown();
+
+        // Release resources manually in shared pools mode.
         if (opts.getfSMCallerExecutorDisruptor() != null)
             opts.getfSMCallerExecutorDisruptor().shutdown();
 

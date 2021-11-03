@@ -61,43 +61,9 @@ public final class JRaftUtils {
 
         nodeOpts.setStripes(1);
 
-        StripedDisruptor<FSMCallerImpl.ApplyTask> fsmCallerDusruptor;
-        StripedDisruptor<NodeImpl.LogEntryAndClosure> nodeDisruptor;
-        StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent> readOnlyServiceDisruptor;
-        StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
-
-        nodeOpts.setfSMCallerExecutorDisruptor(fsmCallerDusruptor = new StripedDisruptor<>(
-            "JRaft-FSMCaller-Disruptor_bootstrap",
-            nodeOpts.getRaftOptions().getDisruptorBufferSize(),
-            () -> new FSMCallerImpl.ApplyTask(),
-            nodeOpts.getStripes()));
-
-        nodeOpts.setNodeApplyDisruptor(nodeDisruptor = new StripedDisruptor<>(
-            "JRaft-NodeImpl-Disruptor_bootstrap",
-            nodeOpts.getRaftOptions().getDisruptorBufferSize(),
-            () -> new NodeImpl.LogEntryAndClosure(),
-            nodeOpts.getStripes()));
-
-        nodeOpts.setReadOnlyServiceDisruptor(readOnlyServiceDisruptor = new StripedDisruptor<>(
-            "JRaft-ReadOnlyService-Disruptor_bootstrap",
-            nodeOpts.getRaftOptions().getDisruptorBufferSize(),
-            () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
-            nodeOpts.getStripes()));
-
-        nodeOpts.setLogManagerDisruptor(logManagerDisruptor = new StripedDisruptor<>(
-            "JRaft-LogManager-Disruptor_bootstrap",
-            nodeOpts.getRaftOptions().getDisruptorBufferSize(),
-            () -> new LogManagerImpl.StableClosureEvent(),
-            nodeOpts.getStripes()));
-
         final boolean ret = node.bootstrap(opts);
         node.shutdown();
         node.join();
-
-        fsmCallerDusruptor.shutdown();
-        nodeDisruptor.shutdown();
-        readOnlyServiceDisruptor.shutdown();
-        logManagerDisruptor.shutdown();
 
         return ret;
     }

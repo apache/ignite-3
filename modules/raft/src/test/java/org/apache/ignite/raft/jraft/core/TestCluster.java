@@ -262,13 +262,14 @@ public class TestCluster {
             RaftGroupService server = new RaftGroupService(this.name, new PeerId(listenAddr, 0, priority),
                 nodeOptions, rpcServer, nodeManager) {
                 @Override public synchronized void shutdown() {
-                    super.shutdown();
-
-                    ExecutorServiceHelper.shutdownAndAwaitTermination(requestExecutor);
+                    // This stop order is consistent with JRaftServerImpl
+                    clusterService.stop();
 
                     rpcServer.shutdown();
 
-                    clusterService.stop();
+                    ExecutorServiceHelper.shutdownAndAwaitTermination(requestExecutor);
+
+                    super.shutdown();
                 }
             };
 
