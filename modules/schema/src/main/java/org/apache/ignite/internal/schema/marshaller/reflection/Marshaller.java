@@ -55,20 +55,18 @@ public abstract class Marshaller {
         }
 
         FieldAccessor[] fieldAccessors = new FieldAccessor[cols.length()];
-
+    
         // Build handlers.
         for (int i = 0; i < cols.length(); i++) {
             final Column col = cols.column(i);
-
+        
             String fieldName = mapper.fieldForColumn(col.name());
-
+        
             // TODO: validate key marshaller has no NoopAccessors.
-            if (fieldName == null)
-                fieldAccessors[i] = FieldAccessor.noopAccessor();
-            else
-                fieldAccessors[i] = FieldAccessor.create(mapper.targetType(), fieldName, col, col.schemaIndex());
+            fieldAccessors[i] = (fieldName == null) ? FieldAccessor.noopAccessor() :
+                    FieldAccessor.create(mapper.targetType(), fieldName, col, col.schemaIndex());
         }
-
+    
         return new PojoMarshaller(new ObjectFactory<>(mapper.targetType()), fieldAccessors);
     }
 

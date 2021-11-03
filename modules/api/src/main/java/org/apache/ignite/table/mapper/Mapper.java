@@ -39,14 +39,14 @@ public interface Mapper<T> {
      * Creates identity mapper which is used for simple types that have native support
      * or objects with field names that match column names.
      *
-     * @param tClass Target type class.
+     * @param targetClass Target type class.
      * @param <T> Target type.
      * @return Mapper.
      */
-    static <T> Mapper<T> identityMapper(Class<T> tClass) {
+    static <T> Mapper<T> identityMapper(Class<T> targetClass) {
         return new Mapper<>() {
             @Override public Class<T> targetType() {
-                return tClass;
+                return targetClass;
             }
 
             @Override public String fieldForColumn(String name) {

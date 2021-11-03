@@ -49,10 +49,10 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     private final Marshaller valMarsh;
     
     /** Key type. */
-    private final Class<K> kClass;
+    private final Class<K> keyClass;
     
     /** Value type. */
-    private final Class<V> vClass;
+    private final Class<V> valClass;
     
     /**
      * Creates KV marshaller.
@@ -60,8 +60,8 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     public KvMarshallerImpl(SchemaDescriptor schema, Mapper<K> keyMapper, Mapper<V> valueMapper) {
         this.schema = schema;
         
-        kClass = keyMapper.targetType();
-        vClass = valueMapper.targetType();
+        keyClass = keyMapper.targetType();
+        valClass = valueMapper.targetType();
         
         keyMarsh = Marshaller.createMarshaller(schema.keyColumns(), keyMapper);
         valMarsh = Marshaller.createMarshaller(schema.valueColumns(), valueMapper);
@@ -74,8 +74,8 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     /** {@inheritDoc} */
     @Override
     public BinaryRow marshal(@NotNull K key, V val) throws MarshallerException {
-        assert kClass.isInstance(key);
-        assert val == null || vClass.isInstance(val);
+        assert keyClass.isInstance(key);
+        assert val == null || valClass.isInstance(val);
         
         final RowAssembler asm = createAssembler(Objects.requireNonNull(key), val);
         
@@ -94,7 +94,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     public K unmarshalKey(@NotNull Row row) throws MarshallerException {
         final Object o = keyMarsh.readObject(row);
         
-        assert kClass.isInstance(o);
+        assert keyClass.isInstance(o);
         
         return (K) o;
     }
@@ -109,7 +109,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         
         final Object o = valMarsh.readObject(row);
         
-        assert o == null || vClass.isInstance(o);
+        assert o == null || valClass.isInstance(o);
         
         return (V) o;
     }

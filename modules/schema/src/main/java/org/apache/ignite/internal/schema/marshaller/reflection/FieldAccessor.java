@@ -354,22 +354,22 @@ abstract class FieldAccessor {
                 break;
 
             case DATE:
-                writer.appendDate((LocalDate)val);
+                writer.appendDate((LocalDate) val);
 
                 break;
 
             case TIME:
-                writer.appendTime((LocalTime)val);
+                writer.appendTime((LocalTime) val);
 
                 break;
 
             case TIMESTAMP:
-                writer.appendTimestamp((Instant)val);
+                writer.appendTimestamp((Instant) val);
 
                 break;
 
             case DATETIME:
-                writer.appendDateTime((LocalDateTime)val);
+                writer.appendDateTime((LocalDateTime) val);
 
                 break;
 
