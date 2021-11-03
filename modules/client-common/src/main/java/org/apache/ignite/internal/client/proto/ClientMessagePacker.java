@@ -879,7 +879,8 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /** {@inheritDoc} */
-    @Override public void close() {
+    @Override
+    public void close() {
         if (closed)
             return;
 
