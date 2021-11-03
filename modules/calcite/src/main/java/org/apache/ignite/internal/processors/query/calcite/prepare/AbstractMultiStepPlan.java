@@ -36,17 +36,17 @@ public abstract class AbstractMultiStepPlan implements MultiStepPlan {
      *
      */
     protected final ResultSetMetadataInternal meta;
-
+    
     /**
      *
      */
     protected final QueryTemplate queryTemplate;
-
+    
     /**
      *
      */
     protected ExecutionPlan executionPlan;
-
+    
     /**
      *
      */
@@ -54,25 +54,25 @@ public abstract class AbstractMultiStepPlan implements MultiStepPlan {
         this.queryTemplate = queryTemplate;
         this.meta = meta;
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public List<Fragment> fragments() {
         return Objects.requireNonNull(executionPlan).fragments();
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public ResultSetMetadataInternal metadata() {
         return meta;
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public FragmentMapping mapping(Fragment fragment) {
         return mapping(fragment.fragmentId());
     }
-
+    
     /**
      *
      */
@@ -84,36 +84,36 @@ public abstract class AbstractMultiStepPlan implements MultiStepPlan {
                         + "fragments=" + fragments() + "]"))
                 .mapping();
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public ColocationGroup target(Fragment fragment) {
         if (fragment.rootFragment()) {
             return null;
         }
-
+        
         IgniteSender sender = (IgniteSender) fragment.root();
         return mapping(sender.targetFragmentId()).findGroup(sender.exchangeId());
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public Long2ObjectOpenHashMap<List<String>> remotes(Fragment fragment) {
         List<IgniteReceiver> remotes = fragment.remotes();
-
+    
         if (nullOrEmpty(remotes)) {
             return null;
         }
-
+        
         Long2ObjectOpenHashMap<List<String>> res = new Long2ObjectOpenHashMap<>(capacity(remotes.size()));
-
+    
         for (IgniteReceiver remote : remotes) {
             res.put(remote.exchangeId(), mapping(remote.sourceFragmentId()).nodeIds());
         }
-
+        
         return res;
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public void init(PlanningContext ctx) {

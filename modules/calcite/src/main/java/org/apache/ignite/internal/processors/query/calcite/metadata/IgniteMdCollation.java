@@ -298,14 +298,12 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
             RelNode input, List<? extends RexNode> projects) {
         final SortedSet<RelCollation> collations = new TreeSet<>();
         final List<RelCollation> inputCollations = mq.collations(input);
-
         if (inputCollations == null || inputCollations.isEmpty()) {
             return List.of();
         }
-
         final Int2ObjectOpenHashMap<List<Integer>> targets = new Int2ObjectOpenHashMap<>();
-        final Int2ObjectOpenHashMap<SqlMonotonicity> targetsWithMonotonicity = new Int2ObjectOpenHashMap<>();
-
+        final Int2ObjectOpenHashMap<SqlMonotonicity> targetsWithMonotonicity =
+                new Int2ObjectOpenHashMap<>();
         for (Ord<RexNode> project : Ord.<RexNode>zip(projects)) {
             if (project.e instanceof RexInputRef) {
                 targets.compute(((RexSlot) project.e).getIndex(), (k, v) -> {
@@ -622,7 +620,7 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
                     }
                 }
                 return leftCollations;
-
+                
             default:
                 return List.of();
         }

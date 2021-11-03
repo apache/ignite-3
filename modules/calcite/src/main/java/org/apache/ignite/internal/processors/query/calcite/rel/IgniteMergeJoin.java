@@ -58,12 +58,12 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
      * Collation of a left child. Keep it here to restore after deserialization.
      */
     private final RelCollation leftCollation;
-
+    
     /**
      * Collation of a right child. Keep it here to restore after deserialization.
      */
     private final RelCollation rightCollation;
-
+    
     /**
      *
      */
@@ -79,7 +79,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
         this(cluster, traitSet, left, right, condition, variablesSet, joinType,
                 left.getTraitSet().getCollation(), right.getTraitSet().getCollation());
     }
-
+    
     /**
      *
      */
@@ -96,7 +96,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
                 ((RelInputEx) input).getCollation("rightCollation")
         );
     }
-
+    
     /**
      *
      */
@@ -112,11 +112,11 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
             RelCollation rightCollation
     ) {
         super(cluster, traitSet, left, right, condition, variablesSet, joinType);
-
+        
         this.leftCollation = leftCollation;
         this.rightCollation = rightCollation;
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public Join copy(RelTraitSet traitSet, RexNode condition, RelNode left, RelNode right,
@@ -137,7 +137,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
         return new IgniteMergeJoin(cluster, getTraitSet(), inputs.get(0), inputs.get(1), getCondition(),
                 getVariablesSet(), getJoinType(), leftCollation, rightCollation);
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCollation(
@@ -148,7 +148,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
         RelTraitSet right = inputTraits.get(1);
         RelCollation leftCollation = TraitUtils.collation(left);
         RelCollation rightCollation = TraitUtils.collation(right);
-
+    
         if (isPrefix(leftCollation.getKeys(), joinInfo.leftKeys)) {
             // preserve left collation
             rightCollation = leftCollation.apply(buildProjectionMapping(true));
@@ -160,7 +160,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
             leftCollation = RelCollations.of(joinInfo.leftKeys);
             rightCollation = RelCollations.of(joinInfo.rightKeys);
         }
-
+        
         return List.of(
                 Pair.of(
                         nodeTraits.replace(leftCollation),
@@ -171,7 +171,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
                 )
         );
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(
@@ -179,28 +179,28 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
             List<RelTraitSet> inputTraits
     ) {
         RelCollation collation = TraitUtils.collation(nodeTraits);
-
+        
         int rightOff = this.left.getRowType().getFieldCount();
-
+        
         List<IntPair> pairs = joinInfo.pairs();
-
+        
         Int2IntOpenHashMap rightToLeft = new Int2IntOpenHashMap(pairs.size());
-
+        
         for (IntPair pair : pairs) {
             rightToLeft.put(pair.target, pair.source);
         }
-
+        
         List<Integer> collationLeftPrj = new ArrayList<>();
-
+        
         for (RelFieldCollation fieldCollation : collation.getFieldCollations()) {
             int c = fieldCollation.getFieldIndex();
             collationLeftPrj.add(
                     c >= rightOff ? rightToLeft.get(c - rightOff) : c
             );
         }
-
+        
         boolean preserveNodeCollation = false;
-
+        
         List<Integer> newLeftCollation;
         List<Integer> newRightCollation;
 
@@ -213,42 +213,42 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
         if (isPrefix(collationLeftPrj, joinInfo.leftKeys)) { // preserve collation
             newLeftCollation = new ArrayList<>();
             newRightCollation = new ArrayList<>();
-
+            
             int ind = 0;
             for (RelFieldCollation fieldCollation : collation.getFieldCollations()) {
                 int c = fieldCollation.getFieldIndex();
 
                 if (c < rightOff) {
                     newLeftCollation.add(c);
-
+    
                     if (ind < joinInfo.leftKeys.size()) {
                         newRightCollation.add(leftToRight.get(c));
                     }
                 } else {
                     c -= rightOff;
                     newRightCollation.add(c);
-
+    
                     if (ind < joinInfo.leftKeys.size()) {
                         newLeftCollation.add(rightToLeft.get(c));
                     }
                 }
-
+                
                 ind++;
             }
-
+            
             preserveNodeCollation = true;
         } else { // generate new collations
             newLeftCollation = maxPrefix(collationLeftPrj, joinInfo.leftKeys);
-
+            
             Set<Integer> tail = new HashSet<>(joinInfo.leftKeys);
-
+            
             tail.removeAll(newLeftCollation);
-
+            
             newLeftCollation.addAll(tail);
-
+            
             newRightCollation = newLeftCollation.stream().map(leftToRight::get).collect(Collectors.toList());
         }
-
+        
         RelCollation leftCollation = createCollation(newLeftCollation);
         RelCollation rightCollation = createCollation(newRightCollation);
         
@@ -263,30 +263,30 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
                 )
         );
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
         IgniteCostFactory costFactory = (IgniteCostFactory) planner.getCostFactory();
-
+        
         double leftCount = mq.getRowCount(getLeft());
-
+    
         if (Double.isInfinite(leftCount)) {
             return costFactory.makeInfiniteCost();
         }
-
+        
         double rightCount = mq.getRowCount(getRight());
-
+    
         if (Double.isInfinite(rightCount)) {
             return costFactory.makeInfiniteCost();
         }
-
+        
         double rows = leftCount + rightCount;
-
+        
         return costFactory.makeCost(rows,
                 rows * (IgniteCost.ROW_COMPARISON_COST + IgniteCost.ROW_PASS_THROUGH_COST), 0);
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public RelWriter explainTerms(RelWriter pw) {
@@ -294,14 +294,14 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
                 .item("leftCollation", leftCollation)
                 .item("rightCollation", rightCollation);
     }
-
+    
     /**
      * @return Collation of a left child.
      */
     public RelCollation leftCollation() {
         return leftCollation;
     }
-
+    
     /**
      * @return Collation of a right child.
      */
