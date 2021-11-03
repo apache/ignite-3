@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
