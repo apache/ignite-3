@@ -627,7 +627,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
         Set<Thread> threads = Thread.getAllStackTraces().keySet();
 
-        LOG.info("RAFT threads count {}", threads.stream().filter(t -> t.getName().contains("JRaft")));
+        LOG.info("RAFT threads count {}", threads.stream().filter(t -> t.getName().contains("JRaft")).count());
 
         List<Thread> timerThreads = threads.stream().filter(this::isTimer).
             sorted((o1, o2) -> o1.getName().compareTo(o2.getName())).collect(toList());
