@@ -33,7 +33,7 @@ public interface MarshallerFactory {
      * @param valueMapper Value mapper.
      * @return Key-value marshaller.
      */
-    <K, V> KVMarshaller<K, V> create(SchemaDescriptor schema, Mapper<K> keyMapper, Mapper<V> valueMapper);
+    <K, V> KvMarshaller<K, V> create(SchemaDescriptor schema, Mapper<K> keyMapper, Mapper<V> valueMapper);
 
     /**
      * Shortcut method creates key-value marshaller for classes using identity mappers.
@@ -44,7 +44,7 @@ public interface MarshallerFactory {
      * @return Key-value marshaller.
      * @see Mapper#identityMapper(Class)
      */
-    default <K, V> KVMarshaller<K, V> create(SchemaDescriptor schema, Class<K> kClass, Class<V> vClass) {
+    default <K, V> KvMarshaller<K, V> create(SchemaDescriptor schema, Class<K> kClass, Class<V> vClass) {
         return create(schema, Mapper.identityMapper(kClass), Mapper.identityMapper(vClass));
     }
 }

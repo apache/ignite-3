@@ -21,8 +21,10 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.row.Row;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
 /**
- * Key-value marshaller interface provides method to marshal/unmarshal key and value objects to/from a row.
+ * Key-value marshaller interface provides method to marshal/unmarshal key and value objects to/from
+ * a row.
  *
  * @param <K> Key type.
  * @param <V> Value type.

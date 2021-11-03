@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.KVMarshaller;
+import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
 import org.apache.ignite.table.mapper.Mapper;
 
@@ -27,7 +27,7 @@ import org.apache.ignite.table.mapper.Mapper;
  */
 public class ReflectionMarshallerFactory implements MarshallerFactory {
     /** {@inheritDoc} */
-    @Override public <K, V> KVMarshaller<K, V> create(SchemaDescriptor schema, Mapper<K> keyMapper, Mapper<V> valueMapper) {
-        return new KVMarshallerImpl<>(schema, keyMapper, valueMapper);
+    @Override public <K, V> KvMarshaller<K, V> create(SchemaDescriptor schema, Mapper<K> keyMapper, Mapper<V> valueMapper) {
+        return new KvMarshallerImpl<>(schema, keyMapper, valueMapper);
     }
 }

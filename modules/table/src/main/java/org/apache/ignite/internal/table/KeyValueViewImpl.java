@@ -28,7 +28,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
-import org.apache.ignite.internal.schema.marshaller.reflection.KVMarshallerImpl;
+import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.InvokeProcessor;
@@ -45,7 +45,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     /**
      * Marshaller factory.
      */
-    private final Function<SchemaDescriptor, KVMarshallerImpl<K, V>> marshallerFactory;
+    private final Function<SchemaDescriptor, KvMarshallerImpl<K, V>> marshallerFactory;
     
     /**
      * Marshaller.
@@ -65,7 +65,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
             Mapper<V> valueMapper, @Nullable Transaction tx) {
         super(tbl, schemaReg, tx);
         
-        marshallerFactory = (schema) -> new KVMarshallerImpl<>(schema, keyMapper, valueMapper);
+        marshallerFactory = (schema) -> new KvMarshallerImpl<>(schema, keyMapper, valueMapper);
     }
     
     /**
@@ -408,7 +408,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         
         Row row = schemaReg.resolve(binaryRow);
         
-        KVMarshaller<K, V> marshaller = marshaller(row.schemaVersion());
+        KvMarshaller<K, V> marshaller = marshaller(row.schemaVersion());
         
         try {
             return marshaller.unmarshalValue(row);
@@ -425,7 +425,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @return Binary row.
      */
     private BinaryRow marshal(@NotNull K key, V val) {
-        final KVMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+        final KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
         
         try {
             return marsh.marshal(key, val);

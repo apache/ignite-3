@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.INT8;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.NativeTypes.UUID;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -56,19 +55,19 @@ import org.mockito.stubbing.Answer;
 public class FieldAccessorTest {
     /** Random. */
     private Random rnd;
-
+    
     /**
      *
      */
     @BeforeEach
     public void initRandom() {
         long seed = System.currentTimeMillis();
-
+        
         System.out.println("Using seed: " + seed + "L;");
-
+        
         rnd = new Random(seed);
     }
-
+    
     /**
      * @throws Exception If failed.
      */
@@ -81,14 +80,14 @@ public class FieldAccessorTest {
                 new Column("primitiveLongCol", INT64, false),
                 new Column("primitiveFloatCol", FLOAT, false),
                 new Column("primitiveDoubleCol", DOUBLE, false),
-
+                
                 new Column("byteCol", INT8, false),
                 new Column("shortCol", INT16, false),
                 new Column("intCol", INT32, false),
                 new Column("longCol", INT64, false),
                 new Column("floatCol", FLOAT, false),
                 new Column("doubleCol", DOUBLE, false),
-
+                
                 new Column("uuidCol", UUID, false),
                 new Column("bitmaskCol", NativeTypes.bitmaskOf(9), false),
                 new Column("stringCol", STRING, false),
@@ -96,31 +95,33 @@ public class FieldAccessorTest {
                 new Column("numberCol", NativeTypes.numberOf(21), false),
                 new Column("decimalCol", NativeTypes.decimalOf(19, 3), false),
         };
-
+        
         final Pair<RowAssembler, Row> mocks = createMocks();
-
+        
         final RowAssembler rowAssembler = mocks.getFirst();
         final Row row = mocks.getSecond();
-
+        
         final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
-
+        
         for (int i = 0; i < cols.length; i++) {
-            FieldAccessor accessor = FieldAccessor.create(TestObjectWithAllTypes.class, cols[i].name(), cols[i], i);
-
+            FieldAccessor accessor = FieldAccessor
+                    .create(TestObjectWithAllTypes.class, cols[i].name(), cols[i], i);
+            
             accessor.write(rowAssembler, obj);
         }
-
+        
         final TestObjectWithAllTypes restoredObj = new TestObjectWithAllTypes();
-
+        
         for (int i = 0; i < cols.length; i++) {
-            FieldAccessor accessor = FieldAccessor.create(TestObjectWithAllTypes.class, cols[i].name(), cols[i], i);
-
+            FieldAccessor accessor = FieldAccessor
+                    .create(TestObjectWithAllTypes.class, cols[i].name(), cols[i], i);
+            
             accessor.read(row, restoredObj);
         }
-
+        
         assertEquals(obj, restoredObj);
     }
-
+    
     /**
      * @throws Exception If failed.
      */
@@ -129,36 +130,37 @@ public class FieldAccessorTest {
         Column[] cols = new Column[]{
                 new Column("intCol", INT32, true),
                 new Column("longCol", INT64, true),
-
+                
                 new Column("stringCol", STRING, true),
                 new Column("bytesCol", BYTES, true),
         };
-
+        
         final Pair<RowAssembler, Row> mocks = createMocks();
-
+        
         final RowAssembler rowAssembler = mocks.getFirst();
         final Row row = mocks.getSecond();
-
+        
         final TestSimpleObject obj = TestSimpleObject.randomObject(rnd);
-
-
+        
         for (int i = 0; i < cols.length; i++) {
-            FieldAccessor accessor = FieldAccessor.create(TestSimpleObject.class, cols[i].name(), cols[i], i);
-
+            FieldAccessor accessor = FieldAccessor
+                    .create(TestSimpleObject.class, cols[i].name(), cols[i], i);
+            
             accessor.write(rowAssembler, obj);
         }
-
+        
         final TestSimpleObject restoredObj = new TestSimpleObject();
-
+        
         for (int i = 0; i < cols.length; i++) {
-            FieldAccessor accessor = FieldAccessor.create(TestSimpleObject.class, cols[i].name(), cols[i], i);
-
+            FieldAccessor accessor = FieldAccessor
+                    .create(TestSimpleObject.class, cols[i].name(), cols[i], i);
+            
             accessor.read(row, restoredObj);
         }
-
+        
         assertEquals(obj, restoredObj);
     }
-
+    
     /**
      * @throws Exception If failed.
      */
@@ -168,15 +170,15 @@ public class FieldAccessorTest {
                 new Column("col0", STRING, true),
                 0,
                 BinaryMode.STRING);
-
+        
         assertEquals("Some string", accessor.value("Some string"));
-
+        
         final Pair<RowAssembler, Row> mocks = createMocks();
-
+        
         accessor.write(mocks.getFirst(), "Other string");
         assertEquals("Other string", accessor.read(mocks.getSecond()));
     }
-
+    
     /**
      *
      */
@@ -186,18 +188,18 @@ public class FieldAccessorTest {
                 new Column("col0", STRING, true),
                 42,
                 BinaryMode.UUID);
-
+        
         assertEquals("Some string", accessor.value("Some string"));
-
+        
         final Pair<RowAssembler, Row> mocks = createMocks();
-
+        
         assertThrows(
                 MarshallerException.class,
                 () -> accessor.write(mocks.getFirst(), "Other string"),
                 "Failed to write field [id=42]"
         );
     }
-
+    
     /**
      * Creates mock pair for {@link Row} and {@link RowAssembler}.
      *
@@ -205,10 +207,10 @@ public class FieldAccessorTest {
      */
     private Pair<RowAssembler, Row> createMocks() {
         final ArrayList<Object> vals = new ArrayList<>();
-
+        
         final RowAssembler mockedAsm = Mockito.mock(RowAssembler.class);
         final Row mockedRow = Mockito.mock(Row.class);
-
+        
         final Answer<Void> asmAnswer = new Answer<>() {
             @Override
             public Void answer(InvocationOnMock invocation) {
@@ -217,20 +219,20 @@ public class FieldAccessorTest {
                 } else {
                     vals.add(invocation.getArguments()[0]);
                 }
-
+                
                 return null;
             }
         };
-
+        
         final Answer<Object> rowAnswer = new Answer<>() {
             @Override
             public Object answer(InvocationOnMock invocation) {
                 final int idx = invocation.getArgument(0, Integer.class);
-
+                
                 return vals.get(idx);
             }
         };
-
+        
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendNull();
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendByte(Mockito.anyByte());
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendShort(Mockito.anyShort());
@@ -238,14 +240,14 @@ public class FieldAccessorTest {
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendLong(Mockito.anyLong());
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendFloat(Mockito.anyFloat());
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendDouble(Mockito.anyDouble());
-
+        
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendUuid(Mockito.any(java.util.UUID.class));
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendBitmask(Mockito.any(BitSet.class));
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendString(Mockito.anyString());
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendBytes(Mockito.any(byte[].class));
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendNumber(Mockito.any(BigInteger.class));
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendDecimal(Mockito.any(BigDecimal.class));
-
+        
         Mockito.doAnswer(rowAnswer).when(mockedRow).byteValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).byteValueBoxed(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).shortValue(Mockito.anyInt());
@@ -258,163 +260,14 @@ public class FieldAccessorTest {
         Mockito.doAnswer(rowAnswer).when(mockedRow).floatValueBoxed(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).doubleValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).doubleValueBoxed(Mockito.anyInt());
-
+        
         Mockito.doAnswer(rowAnswer).when(mockedRow).uuidValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).bitmaskValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).stringValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).bytesValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).numberValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).decimalValue(Mockito.anyInt());
-
+        
         return new Pair<>(mockedAsm, mockedRow);
-    }
-
-    /**
-     * Test object.
-     */
-    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
-    private static class TestObject {
-        /**
-         * @return Random TestObject.
-         */
-        public static TestObject randomObject(Random rnd) {
-            final TestObject obj = new TestObject();
-
-            obj.primitiveByteCol = (byte) rnd.nextInt(255);
-            obj.primitiveShortCol = (short) rnd.nextInt(65535);
-            obj.primitiveIntCol = rnd.nextInt();
-            obj.primitiveLongCol = rnd.nextLong();
-            obj.primitiveFloatCol = rnd.nextFloat();
-            obj.primitiveDoubleCol = rnd.nextDouble();
-
-            obj.byteCol = (byte) rnd.nextInt(255);
-            obj.shortCol = (short) rnd.nextInt(65535);
-            obj.intCol = rnd.nextInt();
-            obj.longCol = rnd.nextLong();
-            obj.floatCol = rnd.nextFloat();
-            obj.doubleCol = rnd.nextDouble();
-
-            obj.uuidCol = new UUID(rnd.nextLong(), rnd.nextLong());
-            obj.bitmaskCol = IgniteTestUtils.randomBitSet(rnd, rnd.nextInt(42));
-            obj.stringCol = IgniteTestUtils.randomString(rnd, rnd.nextInt(255));
-            obj.bytesCol = IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));
-            obj.numberCol = (BigInteger) TestUtils.generateRandomValue(rnd, NativeTypes.numberOf(12));
-            obj.decimalCol = (BigDecimal) TestUtils.generateRandomValue(rnd, NativeTypes.decimalOf(19, 3));
-
-            return obj;
-        }
-
-        // Primitive typed
-        private byte primitiveByteCol;
-
-        private short primitiveShortCol;
-
-        private int primitiveIntCol;
-
-        private long primitiveLongCol;
-
-        private float primitiveFloatCol;
-
-        private double primitiveDoubleCol;
-
-        // Reference typed
-        private Byte byteCol;
-
-        private Short shortCol;
-
-        private Integer intCol;
-
-        private Long longCol;
-
-        private Float floatCol;
-
-        private Double doubleCol;
-
-        private UUID uuidCol;
-
-        private BitSet bitmaskCol;
-
-        private String stringCol;
-
-        private byte[] bytesCol;
-
-        private BigInteger numberCol;
-
-        private BigDecimal decimalCol;
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TestObject object = (TestObject) o;
-            return primitiveByteCol == object.primitiveByteCol
-                    && primitiveShortCol == object.primitiveShortCol
-                    && primitiveIntCol == object.primitiveIntCol
-                    && primitiveLongCol == object.primitiveLongCol
-                    && Float.compare(object.primitiveFloatCol, primitiveFloatCol) == 0
-                    && Double.compare(object.primitiveDoubleCol, primitiveDoubleCol) == 0
-                    && Objects.equals(byteCol, object.byteCol)
-                    && Objects.equals(shortCol, object.shortCol)
-                    && Objects.equals(intCol, object.intCol)
-                    && Objects.equals(longCol, object.longCol)
-                    && Objects.equals(floatCol, object.floatCol)
-                    && Objects.equals(doubleCol, object.doubleCol)
-                    && Objects.equals(uuidCol, object.uuidCol)
-                    && Objects.equals(bitmaskCol, object.bitmaskCol)
-                    && Objects.equals(stringCol, object.stringCol)
-                    && Arrays.equals(bytesCol, object.bytesCol)
-                    && Objects.equals(numberCol, object.numberCol)
-                    && Objects.equals(decimalCol, object.decimalCol);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public int hashCode() {
-            return 73;
-        }
-    }
-
-    /**
-     * Test object.
-     */
-    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
-    private static class TestSimpleObject {
-        Long longCol;
-
-        Integer intCol;
-
-        byte[] bytesCol;
-
-        String stringCol;
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            TestSimpleObject object = (TestSimpleObject) o;
-
-            return Objects.equals(longCol, object.longCol)
-                    && Objects.equals(intCol, object.intCol)
-                    && Arrays.equals(bytesCol, object.bytesCol)
-                    && Objects.equals(stringCol, object.stringCol);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public int hashCode() {
-            return 42;
-        }
     }
 }
