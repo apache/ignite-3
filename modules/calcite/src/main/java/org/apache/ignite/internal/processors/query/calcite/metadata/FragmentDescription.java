@@ -22,54 +22,78 @@ import java.util.List;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
-/** */
+/**
+ *
+ */
 public class FragmentDescription implements Serializable {
-    /** */
+    /**
+     *
+     */
     private long fragmentId;
 
-    /** */
+    /**
+     *
+     */
     private FragmentMapping mapping;
 
-    /** */
+    /**
+     *
+     */
     private ColocationGroup target;
 
-    /** */
+    /**
+     *
+     */
     private Long2ObjectOpenHashMap<List<String>> remoteSources;
 
-    /** */
+    /**
+     *
+     */
     public FragmentDescription() {
     }
 
-    /** */
+    /**
+     *
+     */
     public FragmentDescription(long fragmentId, FragmentMapping mapping, ColocationGroup target,
-                               Long2ObjectOpenHashMap<List<String>> remoteSources) {
+            Long2ObjectOpenHashMap<List<String>> remoteSources) {
         this.fragmentId = fragmentId;
         this.mapping = mapping;
         this.target = target;
         this.remoteSources = remoteSources;
     }
 
-    /** */
+    /**
+     *
+     */
     public long fragmentId() {
         return fragmentId;
     }
 
-    /** */
+    /**
+     *
+     */
     public List<String> nodeIds() {
         return mapping.nodeIds();
     }
 
-    /** */
+    /**
+     *
+     */
     public ColocationGroup target() {
         return target;
     }
 
-    /** */
+    /**
+     *
+     */
     public Long2ObjectOpenHashMap<List<String>> remotes() {
         return remoteSources;
     }
 
-    /** */
+    /**
+     *
+     */
     public FragmentMapping mapping() {
         return mapping;
     }

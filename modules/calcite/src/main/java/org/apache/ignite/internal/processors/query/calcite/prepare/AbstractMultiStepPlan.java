@@ -17,88 +17,107 @@
 
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.IgniteUtils.capacity;
+
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
-
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGroup;
 import org.apache.ignite.internal.processors.query.calcite.metadata.FragmentMapping;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteReceiver;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteSender;
 
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.internal.util.IgniteUtils.capacity;
-
 /**
  *
  */
 public abstract class AbstractMultiStepPlan implements MultiStepPlan {
-    /** */
-    protected final FieldsMetadata fieldsMetadata;
+    /**
+     *
+     */
+    protected final ResultSetMetadataInternal meta;
 
-    /** */
+    /**
+     *
+     */
     protected final QueryTemplate queryTemplate;
 
-    /** */
+    /**
+     *
+     */
     protected ExecutionPlan executionPlan;
 
-    /** */
-    protected AbstractMultiStepPlan(QueryTemplate queryTemplate, FieldsMetadata fieldsMetadata) {
+    /**
+     *
+     */
+    protected AbstractMultiStepPlan(QueryTemplate queryTemplate, ResultSetMetadataInternal meta) {
         this.queryTemplate = queryTemplate;
-        this.fieldsMetadata = fieldsMetadata;
+        this.meta = meta;
     }
 
     /** {@inheritDoc} */
-    @Override public List<Fragment> fragments() {
+    @Override
+    public List<Fragment> fragments() {
         return Objects.requireNonNull(executionPlan).fragments();
     }
 
     /** {@inheritDoc} */
-    @Override public FieldsMetadata fieldsMetadata() {
-        return fieldsMetadata;
+    @Override
+    public ResultSetMetadataInternal metadata() {
+        return meta;
     }
 
     /** {@inheritDoc} */
-    @Override public FragmentMapping mapping(Fragment fragment) {
+    @Override
+    public FragmentMapping mapping(Fragment fragment) {
         return mapping(fragment.fragmentId());
     }
 
-    /** {@inheritDoc} */
-    @Override public ColocationGroup target(Fragment fragment) {
-        if (fragment.rootFragment())
-            return null;
+    /**
+     *
+     */
+    private FragmentMapping mapping(long fragmentId) {
+        return Objects.requireNonNull(executionPlan).fragments().stream()
+                .filter(f -> f.fragmentId() == fragmentId)
+                .findAny().orElseThrow(() -> new IllegalStateException("Cannot find fragment with given ID. ["
+                        + "fragmentId=" + fragmentId + ", "
+                        + "fragments=" + fragments() + "]"))
+                .mapping();
+    }
 
-        IgniteSender sender = (IgniteSender)fragment.root();
+    /** {@inheritDoc} */
+    @Override
+    public ColocationGroup target(Fragment fragment) {
+        if (fragment.rootFragment()) {
+            return null;
+        }
+
+        IgniteSender sender = (IgniteSender) fragment.root();
         return mapping(sender.targetFragmentId()).findGroup(sender.exchangeId());
     }
 
     /** {@inheritDoc} */
-    @Override public Long2ObjectOpenHashMap<List<String>> remotes(Fragment fragment) {
+    @Override
+    public Long2ObjectOpenHashMap<List<String>> remotes(Fragment fragment) {
         List<IgniteReceiver> remotes = fragment.remotes();
 
-        if (nullOrEmpty(remotes))
+        if (nullOrEmpty(remotes)) {
             return null;
+        }
 
         Long2ObjectOpenHashMap<List<String>> res = new Long2ObjectOpenHashMap<>(capacity(remotes.size()));
 
-        for (IgniteReceiver remote : remotes)
+        for (IgniteReceiver remote : remotes) {
             res.put(remote.exchangeId(), mapping(remote.sourceFragmentId()).nodeIds());
+        }
 
         return res;
     }
 
     /** {@inheritDoc} */
-    @Override public void init(PlanningContext ctx) {
+    @Override
+    public void init(PlanningContext ctx) {
         executionPlan = queryTemplate.map(ctx);
-    }
-
-    /** */
-    private FragmentMapping mapping(long fragmentId) {
-        return Objects.requireNonNull(executionPlan).fragments().stream()
-            .filter(f -> f.fragmentId() == fragmentId)
-            .findAny().orElseThrow(() -> new IllegalStateException("Cannot find fragment with given ID. [" +
-                "fragmentId=" + fragmentId + ", " +
-                "fragments=" + fragments() + "]"))
-            .mapping();
     }
 }

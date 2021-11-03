@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel;
 
+import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
+import static org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions.hash;
+import static org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions.single;
+import static org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils.changeTraits;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.RelOptCluster;
@@ -50,46 +54,45 @@ import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitsAwareIgniteRel;
 import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
 
-import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
-import static org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions.hash;
-import static org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions.single;
-import static org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils.changeTraits;
-
 /**
- * Relational expression that computes a set of
- * 'select expressions' from its input relational expression.
+ * Relational expression that computes a set of 'select expressions' from its input relational expression.
  */
 public class IgniteProject extends Project implements TraitsAwareIgniteRel {
     /**
      * Creates a Project.
      *
-     * @param cluster Cluster that this relational expression belongs to.
-     * @param traits Traits of this relational expression.
-     * @param input Input relational expression.
+     * @param cluster  Cluster that this relational expression belongs to.
+     * @param traits   Traits of this relational expression.
+     * @param input    Input relational expression.
      * @param projects List of expressions for the input columns.
-     * @param rowType Output row type.
+     * @param rowType  Output row type.
      */
     public IgniteProject(RelOptCluster cluster, RelTraitSet traits, RelNode input, List<? extends RexNode> projects, RelDataType rowType) {
         super(cluster, traits, input, projects, rowType);
     }
 
-    /** */
+    /**
+     *
+     */
     public IgniteProject(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
     }
 
     /** {@inheritDoc} */
-    @Override public Project copy(RelTraitSet traitSet, RelNode input, List<RexNode> projects, RelDataType rowType) {
+    @Override
+    public Project copy(RelTraitSet traitSet, RelNode input, List<RexNode> projects, RelDataType rowType) {
         return new IgniteProject(getCluster(), traitSet, input, projects, rowType);
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T accept(IgniteRelVisitor<T> visitor) {
+    @Override
+    public <T> T accept(IgniteRelVisitor<T> visitor) {
         return visitor.visit(this);
     }
 
     /** {@inheritDoc} */
-    @Override public Pair<RelTraitSet, List<RelTraitSet>> passThroughDistribution(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
+    @Override
+    public Pair<RelTraitSet, List<RelTraitSet>> passThroughDistribution(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
         // All distribution types except hash distribution are propagated as is.
         // In case of hash distribution we need to project distribution keys.
         // In case one of distribution keys is erased by projection result distribution
@@ -98,11 +101,12 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
         RelTraitSet in = inputTraits.get(0);
         IgniteDistribution distribution = TraitUtils.distribution(nodeTraits);
 
-        if (distribution.getType() != HASH_DISTRIBUTED)
+        if (distribution.getType() != HASH_DISTRIBUTED) {
             return Pair.of(nodeTraits, List.of(in.replace(distribution)));
+        }
 
         Mappings.TargetMapping mapping = getPartialMapping(
-            input.getRowType().getFieldCount(), getProjects());
+                input.getRowType().getFieldCount(), getProjects());
 
         ImmutableIntList keys = distribution.getKeys();
         List<Integer> srcKeys = new ArrayList<>(keys.size());
@@ -110,20 +114,23 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
         for (int key : keys) {
             int src = mapping.getSourceOpt(key);
 
-            if (src == -1)
+            if (src == -1) {
                 break;
+            }
 
             srcKeys.add(src);
         }
 
-        if (srcKeys.size() == keys.size())
+        if (srcKeys.size() == keys.size()) {
             return Pair.of(nodeTraits, List.of(in.replace(hash(srcKeys, distribution.function()))));
+        }
 
         return Pair.of(nodeTraits.replace(single()), List.of(in.replace(single())));
     }
 
     /** {@inheritDoc} */
-    @Override public Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
+    @Override
+    public Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
         // The code below projects required collation. In case we cannot calculate required source collation
         // (e.g. one of required sorted fields is result of a function call), input and output collations are erased.
 
@@ -131,33 +138,38 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
 
         List<RelFieldCollation> fieldCollations = TraitUtils.collation(nodeTraits).getFieldCollations();
 
-        if (fieldCollations.isEmpty())
+        if (fieldCollations.isEmpty()) {
             return Pair.of(nodeTraits, List.of(in.replace(RelCollations.EMPTY)));
+        }
 
         Int2IntOpenHashMap targets = new Int2IntOpenHashMap();
         for (Ord<RexNode> project : Ord.zip(getProjects())) {
-            if (project.e instanceof RexInputRef)
-                targets.putIfAbsent(project.i, ((RexSlot)project.e).getIndex());
+            if (project.e instanceof RexInputRef) {
+                targets.putIfAbsent(project.i, ((RexSlot) project.e).getIndex());
+            }
         }
 
         List<RelFieldCollation> inFieldCollations = new ArrayList<>();
         for (RelFieldCollation inFieldCollation : fieldCollations) {
             int newIndex = targets.getOrDefault(inFieldCollation.getFieldIndex(), Integer.MIN_VALUE);
 
-            if (newIndex == Integer.MIN_VALUE)
+            if (newIndex == Integer.MIN_VALUE) {
                 break;
-
-            inFieldCollations.add(inFieldCollation.withFieldIndex(newIndex));
+            } else {
+                inFieldCollations.add(inFieldCollation.withFieldIndex(newIndex));
+            }
         }
 
-        if (inFieldCollations.size() == fieldCollations.size())
+        if (inFieldCollations.size() == fieldCollations.size()) {
             return Pair.of(nodeTraits, List.of(in.replace(RelCollations.of(inFieldCollations))));
+        }
 
         return Pair.of(nodeTraits.replace(RelCollations.EMPTY), List.of(in.replace(RelCollations.EMPTY)));
     }
 
     /** {@inheritDoc} */
-    @Override public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
+    @Override
+    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
         // The node is rewindable if its input is rewindable.
 
         RelTraitSet in = inputTraits.get(0);
@@ -167,40 +179,49 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
     }
 
     /** {@inheritDoc} */
-    @Override public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
+    @Override
+    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
         RelTraitSet in = inputTraits.get(0);
 
         IgniteDistribution distribution = TraitUtils.projectDistribution(
-            TraitUtils.distribution(in), getProjects(), getInput().getRowType());
+                TraitUtils.distribution(in), getProjects(), getInput().getRowType());
 
         return List.of(Pair.of(nodeTraits.replace(distribution), List.of(in)));
     }
 
     /** {@inheritDoc} */
-    @Override public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCollation(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
+    @Override
+    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCollation(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
         RelTraitSet in = inputTraits.get(0);
 
         RelCollation collation = TraitUtils.projectCollation(
-            TraitUtils.collation(in), getProjects(), getInput().getRowType());
+                TraitUtils.collation(in), getProjects(), getInput().getRowType());
 
         return List.of(Pair.of(nodeTraits.replace(collation), List.of(in)));
     }
 
-    /** */
-    @Override public Pair<RelTraitSet, List<RelTraitSet>> passThroughCorrelation(RelTraitSet nodeTraits,
-        List<RelTraitSet> inTraits) {
+    /**
+     *
+     */
+    @Override
+    public Pair<RelTraitSet, List<RelTraitSet>> passThroughCorrelation(RelTraitSet nodeTraits,
+            List<RelTraitSet> inTraits) {
         Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(getProjects());
         Set<CorrelationId> traitCorrIds = TraitUtils.correlation(nodeTraits).correlationIds();
 
-        if (!traitCorrIds.containsAll(corrIds))
+        if (!traitCorrIds.containsAll(corrIds)) {
             return null;
+        }
 
         return Pair.of(nodeTraits, List.of(inTraits.get(0).replace(TraitUtils.correlation(nodeTraits))));
     }
 
-    /** */
-    @Override public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(RelTraitSet nodeTraits,
-        List<RelTraitSet> inTraits) {
+    /**
+     *
+     */
+    @Override
+    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(RelTraitSet nodeTraits,
+            List<RelTraitSet> inTraits) {
         Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(getProjects());
 
         corrIds.addAll(TraitUtils.correlation(inTraits.get(0)).correlationIds());
@@ -209,14 +230,16 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
     }
 
     /** {@inheritDoc} */
-    @Override public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
+    @Override
+    public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
         double rowCount = mq.getRowCount(getInput());
 
         return planner.getCostFactory().makeCost(rowCount, rowCount * IgniteCost.ROW_PASS_THROUGH_COST, 0);
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
+    @Override
+    public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteProject(cluster, getTraitSet(), sole(inputs), getProjects(), getRowType());
     }
 }

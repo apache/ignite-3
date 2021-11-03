@@ -65,14 +65,15 @@ public class TemporalNativeType extends NativeType {
     /**
      * Creates temporal type.
      *
-     * @param typeSpec Type spec.
+     * @param typeSpec  Type spec.
      * @param precision Fractional seconds precision.
      */
     private TemporalNativeType(NativeTypeSpec typeSpec, int size, int precision) {
         super(typeSpec, size);
 
-        if (precision < 0 || precision > 9)
+        if (precision < 0 || precision > 9) {
             throw new IllegalArgumentException("Unsupported fractional seconds precision: " + precision);
+        }
 
         this.precision = precision;
     }
@@ -80,19 +81,21 @@ public class TemporalNativeType extends NativeType {
     /**
      * Return fractional seconds precision.
      *
-     * @return Precicion;
+     * @return Precision;
      */
     public int precision() {
         return precision;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean mismatch(NativeType type) {
-        return super.mismatch(type) || precision < ((TemporalNativeType)type).precision;
+    @Override
+    public boolean mismatch(NativeType type) {
+        return super.mismatch(type) || precision < ((TemporalNativeType) type).precision;
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return S.toString(TemporalNativeType.class.getSimpleName(), "name", spec(), "precision", precision);
     }
 }
