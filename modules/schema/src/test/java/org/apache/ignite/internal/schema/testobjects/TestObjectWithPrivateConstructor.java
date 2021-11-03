@@ -31,13 +31,13 @@ public class TestObjectWithPrivateConstructor {
     public static TestObjectWithPrivateConstructor randomObject(Random rnd) {
         final TestObjectWithPrivateConstructor obj = new TestObjectWithPrivateConstructor();
         
-        obj.pLongCol = rnd.nextLong();
+        obj.primLongCol = rnd.nextLong();
         
         return obj;
     }
     
     /** Value. */
-    private long pLongCol;
+    private long primLongCol;
     
     /**
      * Private constructor.
@@ -57,11 +57,11 @@ public class TestObjectWithPrivateConstructor {
         
         TestObjectWithPrivateConstructor object = (TestObjectWithPrivateConstructor) o;
         
-        return pLongCol == object.pLongCol;
+        return primLongCol == object.primLongCol;
     }
     
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        return Objects.hash(pLongCol);
+        return Objects.hash(primLongCol);
     }
 }

@@ -32,13 +32,13 @@ public class TestObjectWithNoDefaultConstructor {
     }
     
     /** Value. */
-    private final long pLongCol;
+    private final long primLongCol;
     
     /**
      * Private constructor.
      */
     public TestObjectWithNoDefaultConstructor(long val) {
-        pLongCol = val;
+        primLongCol = val;
     }
     
     /** {@inheritDoc} */
@@ -53,11 +53,11 @@ public class TestObjectWithNoDefaultConstructor {
         
         TestObjectWithNoDefaultConstructor object = (TestObjectWithNoDefaultConstructor) o;
         
-        return pLongCol == object.pLongCol;
+        return primLongCol == object.primLongCol;
     }
     
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        return Objects.hash(pLongCol);
+        return Objects.hash(primLongCol);
     }
 }

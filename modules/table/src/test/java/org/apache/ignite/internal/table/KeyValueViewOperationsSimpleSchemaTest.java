@@ -342,12 +342,12 @@ public class KeyValueViewOperationsSimpleSchemaTest {
     
     /**
      * @param type   Value column native type.
-     * @param aClass Value class.
+     * @param valueClass Value class.
      * @return Key-value view for given value type.
      */
-    private <T> KeyValueViewImpl<Long, T> kvViewForValueType(NativeType type, Class<T> aClass) {
+    private <T> KeyValueViewImpl<Long, T> kvViewForValueType(NativeType type, Class<T> valueClass) {
         Mapper<Long> keyMapper = Mapper.identityMapper(Long.class);
-        Mapper<T> valMapper = Mapper.identityMapper(aClass);
+        Mapper<T> valMapper = Mapper.identityMapper(valueClass);
         
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,

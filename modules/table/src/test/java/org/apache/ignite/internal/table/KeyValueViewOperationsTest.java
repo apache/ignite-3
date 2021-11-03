@@ -382,16 +382,15 @@ public class KeyValueViewOperationsTest {
                 new Column[]{new Column("id", NativeTypes.INT64, false)},
                 valCols
         );
-        
-        { // Validate all types are tested.
-            Set<NativeTypeSpec> testedTypes = Arrays.stream(valCols).map(c -> c.type().spec())
-                    .collect(Collectors.toSet());
-            Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
-                    .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
-            
-            assertEquals(Collections.emptySet(), missedTypes);
-        }
-        
+    
+        // Validate all types are tested.
+        Set<NativeTypeSpec> testedTypes = Arrays.stream(valCols).map(c -> c.type().spec())
+                .collect(Collectors.toSet());
+        Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
+                .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
+    
+        assertEquals(Collections.emptySet(), missedTypes);
+    
         return new KeyValueViewImpl<>(
                 new DummyInternalTableImpl(),
                 new DummySchemaManagerImpl(schema),
