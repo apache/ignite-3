@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER_SIZE;
+import static org.msgpack.core.MessagePack.Code;
+
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Date;
@@ -28,12 +33,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufUtil;
 import org.apache.ignite.lang.IgniteUuid;
-
-import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER_SIZE;
-import static org.msgpack.core.MessagePack.Code;
 
 /**
  * ByteBuf-based MsgPack implementation.
