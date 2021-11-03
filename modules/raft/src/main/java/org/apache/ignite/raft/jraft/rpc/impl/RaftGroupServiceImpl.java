@@ -550,15 +550,21 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 else if (resp instanceof RpcRequests.SMErrorResponse) {
                     SMThrowable th = ((RpcRequests.SMErrorResponse)resp).error();
                     if (th instanceof SMCompactedThrowable) {
+                        SMCompactedThrowable compactedThrowable = (SMCompactedThrowable)th;
+
                         try {
-                            Throwable restoredTh = (Throwable)Class.forName(((SMCompactedThrowable)th).throwableClassName())
+                            Throwable restoredTh = (Throwable)Class.forName(compactedThrowable.throwableClassName())
                                 .getConstructor(String.class)
-                                .newInstance(((SMCompactedThrowable)th).throwableMessage());
+                                .newInstance(compactedThrowable.throwableMessage());
 
                             fut.completeExceptionally(restoredTh);
                         }
                         catch (Exception e) {
-                            fut.completeExceptionally(new IgniteException(((SMCompactedThrowable)th).throwableMessage()));
+                            LOG.warn("Cannot restore throwable from user's state machine. " +
+                                "Check if throwable " + compactedThrowable.throwableClassName() +
+                                " is presented in the classpath.");
+
+                            fut.completeExceptionally(new IgniteException(compactedThrowable.throwableMessage()));
                         }
                     }
                     else if (th instanceof SMFullThrowable)
