@@ -621,13 +621,11 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
             for (Future<?> fut : futs) {
                 try {
                     fut.get();
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     fail(e.getMessage());
                 }
             }
-        }
-        finally {
+        } finally {
             ExecutorServiceHelper.shutdownAndAwaitTermination(svc);
         }
 
@@ -640,9 +638,9 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
         Set<Thread> threads = Thread.getAllStackTraces().keySet();
 
         LOG.info("RAFT threads count {}", threads.stream().filter(t -> t.getName().contains("JRaft")).count());
-
-        List<Thread> timerThreads = threads.stream().filter(this::isTimer).
-            sorted((o1, o2) -> o1.getName().compareTo(o2.getName())).collect(toList());
+    
+        List<Thread> timerThreads = threads.stream().filter(this::isTimer)
+                .sorted((o1, o2) -> o1.getName().compareTo(o2.getName())).collect(toList());
 
         assertTrue(timerThreads.size() <= 15, "New timer threads: " + timerThreads.toString());
     }
@@ -654,8 +652,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     private boolean isTimer(Thread t) {
         String name = t.getName();
 
-        return name.contains("ElectionTimer") || name.contains("VoteTimer") ||
-            name.contains("StepDownTimer") || name.contains("SnapshotTimer") || name.contains("Node-Scheduler");
+        return name.contains("ElectionTimer") || name.contains("VoteTimer")
+                || name.contains("StepDownTimer") || name.contains("SnapshotTimer") || name.contains("Node-Scheduler");
     }
 
     /**

@@ -213,8 +213,9 @@ public class JraftServerImpl implements RaftServer {
         groups.clear();
 
         // Stop all started groups.
-        for (RaftGroupService grp : grps)
+        for (RaftGroupService grp : grps) {
             grp.shutdown();
+        }
 
         // Release resources manually in shared pools mode.
         if (opts.getfSMCallerExecutorDisruptor() != null) {
