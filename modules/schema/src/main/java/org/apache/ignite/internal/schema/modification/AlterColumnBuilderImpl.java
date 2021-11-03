@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.schema.modification;
 
-import org.apache.ignite.schema.ColumnType;
+import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.modification.AlterColumnBuilder;
 import org.apache.ignite.schema.modification.TableModificationBuilder;
 
@@ -38,32 +38,38 @@ class AlterColumnBuilderImpl implements AlterColumnBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public AlterColumnBuilder withNewName(String newName) {
+    @Override
+    public AlterColumnBuilder withNewName(String newName) {
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public AlterColumnBuilder convertTo(ColumnType newType) {
+    @Override
+    public AlterColumnBuilder convertTo(ColumnType newType) {
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public AlterColumnBuilder withNewDefault(Object defaultValue) {
+    @Override
+    public AlterColumnBuilder withNewDefault(Object defaultValue) {
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public AlterColumnBuilder asNullable() {
+    @Override
+    public AlterColumnBuilder asNullable() {
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public AlterColumnBuilder asNonNullable(Object replacement) {
+    @Override
+    public AlterColumnBuilder asNonNullable(Object replacement) {
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public TableModificationBuilder done() {
+    @Override
+    public TableModificationBuilder done() {
         return tableBuilder;
     }
 }

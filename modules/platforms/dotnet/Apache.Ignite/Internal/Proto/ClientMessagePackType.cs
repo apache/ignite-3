@@ -61,5 +61,10 @@ namespace Apache.Ignite.Internal.Proto
         /// Bitmask.
         /// </summary>
         Bitmask = 8,
+
+        /// <summary>
+        /// Ignite UUID.
+        /// </summary>
+        IgniteUuid = 9
     }
 }

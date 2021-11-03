@@ -18,7 +18,7 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
@@ -28,7 +28,7 @@ public class ClientTableDropRequest {
     /**
      * Processes the request.
      *
-     * @param in Unpacker.
+     * @param in     Unpacker.
      * @param tables Ignite tables.
      * @return Future.
      */

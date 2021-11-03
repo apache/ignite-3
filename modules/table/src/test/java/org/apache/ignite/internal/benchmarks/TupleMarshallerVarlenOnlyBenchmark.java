@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.benchmarks;
 
+import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
+import static org.apache.ignite.internal.schema.NativeTypes.INT64;
+import static org.apache.ignite.internal.schema.NativeTypes.STRING;
+
 import java.io.Serializable;
 import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -27,11 +30,11 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.table.TupleMarshallerImpl;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.TupleImpl;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -47,10 +50,6 @@ import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
-
-import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
-import static org.apache.ignite.internal.schema.NativeTypes.INT64;
-import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 
 /**
  * Serializer benchmark.
@@ -78,7 +77,7 @@ public class TupleMarshallerVarlenOnlyBenchmark {
     public int dataSize;
 
     /** Nullable cols. */
-//    @Param({"true", "false"})
+    //    @Param({"true", "false"})
     public boolean nullable = true;
 
     /** Column types. */
@@ -96,9 +95,9 @@ public class TupleMarshallerVarlenOnlyBenchmark {
      */
     public static void main(String[] args) throws RunnerException {
         new Runner(
-            new OptionsBuilder()
-                .include(TupleMarshallerVarlenOnlyBenchmark.class.getSimpleName())
-                .build()
+                new OptionsBuilder()
+                        .include(TupleMarshallerVarlenOnlyBenchmark.class.getSimpleName())
+                        .build()
         ).run();
     }
 
@@ -113,24 +112,26 @@ public class TupleMarshallerVarlenOnlyBenchmark {
         rnd = new Random(seed);
 
         schema = new SchemaDescriptor(
-            UUID.randomUUID(),
-            42,
-            new Column[] {new Column("key", INT64, false, (Supplier<Object> & Serializable)() -> 0L)},
-            IntStream.range(0, fieldsCount).boxed()
-                .map(i -> new Column("col" + i, useString ? STRING : BYTES, nullable))
-                .toArray(Column[]::new)
+                42,
+                new Column[]{new Column("key", INT64, false, (Supplier<Object> & Serializable) () -> 0L)},
+                IntStream.range(0, fieldsCount).boxed()
+                        .map(i -> new Column("col" + i, useString ? STRING : BYTES, nullable))
+                        .toArray(Column[]::new)
         );
 
         marshaller = new TupleMarshallerImpl(null, null, new SchemaRegistryImpl(v -> null) {
-            @Override public SchemaDescriptor schema() {
+            @Override
+            public SchemaDescriptor schema() {
                 return schema;
             }
 
-            @Override public SchemaDescriptor schema(int ver) {
+            @Override
+            public SchemaDescriptor schema(int ver) {
                 return schema;
             }
 
-            @Override public int lastSchemaVersion() {
+            @Override
+            public int lastSchemaVersion() {
                 return schema.version();
             }
         });
@@ -138,13 +139,14 @@ public class TupleMarshallerVarlenOnlyBenchmark {
         if (useString) {
             final byte[] data = new byte[dataSize / fieldsCount];
 
-            for (int i = 0; i < data.length; i++)
-                data[i] = (byte)(rnd.nextInt() & 0x7F);
+            for (int i = 0; i < data.length; i++) {
+                data[i] = (byte) (rnd.nextInt() & 0x7F);
+            }
 
             val = new String(data); // Latin1 string.
+        } else {
+            rnd.nextBytes((byte[]) (val = new byte[dataSize / fieldsCount]));
         }
-        else
-            rnd.nextBytes((byte[])(val = new byte[dataSize / fieldsCount]));
     }
 
     /**
@@ -153,15 +155,16 @@ public class TupleMarshallerVarlenOnlyBenchmark {
      * @param bh Black hole.
      */
     @Benchmark
-    public void measureTupleBuildAndMarshallerCost(Blackhole bh) {
+    public void measureTupleBuildAndMarshallerCost(Blackhole bh) throws TupleMarshallerException {
         final Columns cols = schema.valueColumns();
 
-        final TupleImpl valBld = new TupleImpl();
+        final Tuple valBld = Tuple.create(cols.length());
 
-        for (int i = 0; i < cols.length(); i++)
+        for (int i = 0; i < cols.length(); i++) {
             valBld.set(cols.column(i).name(), val);
+        }
 
-        Tuple keyTuple = new TupleImpl().set("key", rnd.nextLong());
+        Tuple keyTuple = Tuple.create(1).set("key", rnd.nextLong());
 
         final Row row = marshaller.marshal(keyTuple, valBld);
 

@@ -14,32 +14,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.configuration.storage;
 
+import static java.util.stream.Collectors.toUnmodifiableMap;
+
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Test configuration storage.
  */
 public class TestConfigurationStorage implements ConfigurationStorage {
-    /** Configuration type.*/
+    /** Configuration type. */
     private final ConfigurationType configurationType;
 
     /** Map to store values. */
-    private Map<String, Serializable> map = new HashMap<>();
+    private final Map<String, Serializable> map = new HashMap<>();
 
     /** Change listeners. */
-    private List<ConfigurationStorageListener> listeners = new CopyOnWriteArrayList<>();
+    private final List<ConfigurationStorageListener> listeners = new ArrayList<>();
 
     /** Storage version. */
-    private AtomicLong version = new AtomicLong(0);
+    private long version = 0;
 
     /** Should fail on every operation. */
     private boolean fail = false;
@@ -55,49 +58,74 @@ public class TestConfigurationStorage implements ConfigurationStorage {
 
     /**
      * Set fail flag.
+     *
      * @param fail Fail flag.
      */
-    public void fail(boolean fail) {
+    public synchronized void fail(boolean fail) {
         this.fail = fail;
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized Data readAll() throws StorageException {
-        if (fail)
+    @Override
+    public synchronized Map<String, Serializable> readAllLatest(String prefix) throws StorageException {
+        if (fail) {
             throw new StorageException("Failed to read data");
+        }
 
-        return new Data(new HashMap<>(map), version.get());
+        return map.entrySet().stream()
+                .filter(e -> e.getKey().startsWith(prefix))
+                .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized CompletableFuture<Boolean> write(Map<String, Serializable> newValues, long sentVersion) {
-        if (fail)
-            return CompletableFuture.failedFuture(new StorageException("Failed to write data"));
-
-        if (sentVersion != version.get())
-            return CompletableFuture.completedFuture(false);
-
-        for (Map.Entry<String, Serializable> entry : newValues.entrySet()) {
-            if (entry.getValue() != null)
-                map.put(entry.getKey(), entry.getValue());
-            else
-                map.remove(entry.getKey());
+    @Override
+    public synchronized Data readAll() throws StorageException {
+        if (fail) {
+            throw new StorageException("Failed to read data");
         }
 
-        version.incrementAndGet();
+        return new Data(new HashMap<>(map), version);
+    }
 
-        listeners.forEach(listener -> listener.onEntriesChanged(new Data(newValues, version.get())).join());
+    /** {@inheritDoc} */
+    @Override
+    public synchronized CompletableFuture<Boolean> write(
+            Map<String, ? extends Serializable> newValues, long sentVersion
+    ) {
+        if (fail) {
+            return CompletableFuture.failedFuture(new StorageException("Failed to write data"));
+        }
+
+        if (sentVersion != version) {
+            return CompletableFuture.completedFuture(false);
+        }
+
+        for (Map.Entry<String, ? extends Serializable> entry : newValues.entrySet()) {
+            if (entry.getValue() != null) {
+                map.put(entry.getKey(), entry.getValue());
+            } else {
+                map.remove(entry.getKey());
+            }
+        }
+
+        version++;
+
+        var data = new Data(newValues, version);
+
+        listeners.forEach(listener -> listener.onEntriesChanged(data).join());
 
         return CompletableFuture.completedFuture(true);
     }
 
     /** {@inheritDoc} */
-    @Override public void registerConfigurationListener(ConfigurationStorageListener listener) {
+    @Override
+    public synchronized void registerConfigurationListener(@NotNull ConfigurationStorageListener listener) {
         listeners.add(listener);
     }
 
     /** {@inheritDoc} */
-    @Override public ConfigurationType type() {
+    @Override
+    public ConfigurationType type() {
         return configurationType;
     }
 }

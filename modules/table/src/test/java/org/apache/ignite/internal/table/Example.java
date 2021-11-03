@@ -36,30 +36,26 @@ import org.junit.jupiter.params.provider.MethodSource;
  *
  */
 @SuppressWarnings({
-    "PMD.EmptyLineSeparatorCheck", "emptylineseparator",
-    "unused", "UnusedAssignment", "InstanceVariableMayNotBeInitialized", "JoinDeclarationAndAssignmentJava"})
+        "PMD.EmptyLineSeparatorCheck", "emptylineseparator",
+        "unused", "UnusedAssignment", "InstanceVariableMayNotBeInitialized", "JoinDeclarationAndAssignmentJava"})
 public class Example {
     /**
      * @return Table implementation.
      */
     private static List<Table> tableFactory() {
-        return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(), null, null, null));
+        return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(), null, null));
     }
 
     /**
-     * Use case 1: a simple one. The table has the structure
-     * [
-     * [id int, orgId int] // key
-     * [name varchar, lastName varchar, decimal salary, int department] // value
-     * ]
-     * We show how to use the raw TableRow and a mapped class.
+     * Use case 1: a simple one. The table has the structure [ [id int, orgId int] // key [name varchar, lastName varchar, decimal salary,
+     * int department] // value ] We show how to use the raw TableRow and a mapped class.
      */
     @Disabled
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase1(Table t) {
         // Search row will allow nulls even in non-null columns.
-        Tuple res = t.get(Tuple.create().set("id", 1).set("orgId", 1));
+        Tuple res = t.recordView().get(Tuple.create().set("id", 1).set("orgId", 1));
 
         String name = res.value("name");
         String lastName = res.value("latName");
@@ -84,6 +80,7 @@ public class Example {
                 this.orgId = orgId;
             }
         }
+
         RecordView<Employee> employeeView = t.recordView(Employee.class);
 
         Employee e = employeeView.get(new Employee(1, 1));
@@ -109,12 +106,8 @@ public class Example {
     }
 
     /**
-     * Use case 2: using simple KV mappings
-     * The table has structure is
-     * [
-     * [id int, orgId int] // key
-     * [name varchar, lastName varchar, decimal salary, int department] // value
-     * ]
+     * Use case 2: using simple KV mappings The table has structure is [ [id int, orgId int] // key [name varchar, lastName varchar, decimal
+     * salary, int department] // value ]
      */
     @Disabled
     @ParameterizedTest
@@ -137,7 +130,7 @@ public class Example {
             int department;
         }
 
-        KeyValueView<EmployeeKey, Employee> employeeKv = t.kvView(EmployeeKey.class, Employee.class);
+        KeyValueView<EmployeeKey, Employee> employeeKv = t.keyValueView(EmployeeKey.class, Employee.class);
 
         employeeKv.get(new EmployeeKey(1, 1));
 
@@ -147,18 +140,14 @@ public class Example {
             String lastName;
         }
 
-        KeyValueView<EmployeeKey, TruncatedEmployee> truncatedEmployeeKv = t.kvView(EmployeeKey.class, TruncatedEmployee.class);
+        KeyValueView<EmployeeKey, TruncatedEmployee> truncatedEmployeeKv = t.keyValueView(EmployeeKey.class, TruncatedEmployee.class);
 
         TruncatedEmployee te = truncatedEmployeeKv.get(new EmployeeKey(1, 1));
     }
 
     /**
-     * Use case 3: Single table strategy for inherited objects.
-     * The table has structure is
-     * [
-     * [id long] // key
-     * [owner varchar, cardNumber long, expYear int, expMonth int, accountNum long, bankName varchar] // value
-     * ]
+     * Use case 3: Single table strategy for inherited objects. The table has structure is [ [id long] // key [owner varchar, cardNumber
+     * long, expYear int, expMonth int, accountNum long, bankName varchar] // value ]
      */
     @Disabled
     @ParameterizedTest
@@ -179,15 +168,15 @@ public class Example {
             String bankName;
         }
 
-        KeyValueView<Long, CreditCard> credCardKvView = t.kvView(Long.class, CreditCard.class);
+        KeyValueView<Long, CreditCard> credCardKvView = t.keyValueView(Long.class, CreditCard.class);
         CreditCard creditCard = credCardKvView.get(1L);
 
-        KeyValueView<Long, BankAccount> backAccKvView = t.kvView(Long.class, BankAccount.class);
+        KeyValueView<Long, BankAccount> backAccKvView = t.keyValueView(Long.class, BankAccount.class);
         BankAccount bankAccount = backAccKvView.get(2L);
 
         // Truncated view.
-        KeyValueView<Long, BillingDetails> billingDetailsKVView = t.kvView(Long.class, BillingDetails.class);
-        BillingDetails billingDetails = billingDetailsKVView.get(2L);
+        KeyValueView<Long, BillingDetails> billingDetailsKvView = t.keyValueView(Long.class, BillingDetails.class);
+        BillingDetails billingDetails = billingDetailsKvView.get(2L);
 
         // Without discriminator it is impossible to deserialize to correct type automatically.
         assert !(billingDetails instanceof CreditCard);
@@ -217,12 +206,8 @@ public class Example {
     }
 
     /**
-     * Use case 4: Conditional serialization.
-     * The table has structure is
-     * [
-     * [id int, orgId int] // key
-     * [owner varchar, type int, conditionalDetails byte[]] // value
-     * ]
+     * Use case 4: Conditional serialization. The table has structure is [ [id int, orgId int] // key [owner varchar, type int,
+     * conditionalDetails byte[]] // value ]
      */
     @Disabled
     @ParameterizedTest
@@ -255,21 +240,21 @@ public class Example {
             String bankName;
         }
 
-        KeyValueView<OrderKey, OrderValue> orderKvView = t.kvView(Mappers.ofKeyClass(OrderKey.class),
-            Mappers.ofValueClassBuilder(OrderValue.class)
-                .map("billingDetails", (row) -> {
-                    BinaryObject bObj = row.binaryObjectValue("conditionalDetails");
-                    int type = row.intValue("type");
+        KeyValueView<OrderKey, OrderValue> orderKvView = t.keyValueView(Mappers.ofKeyClass(OrderKey.class),
+                Mappers.ofValueClassBuilder(OrderValue.class)
+                        .map("billingDetails", (row) -> {
+                            BinaryObject binObj = row.binaryObjectValue("conditionalDetails");
+                            int type = row.intValue("type");
 
-                    return type == 0 ?
-                        BinaryObjects.deserialize(bObj, CreditCard.class) :
-                        BinaryObjects.deserialize(bObj, BankAccount.class);
-                }).build());
+                            return type == 0
+                                    ? BinaryObjects.deserialize(binObj, CreditCard.class) :
+                                    BinaryObjects.deserialize(binObj, BankAccount.class);
+                        }).build());
 
         OrderValue ov = orderKvView.get(new OrderKey(1, 1));
 
         // Same with direct Row access and BinaryObject wrapper.
-        Tuple res = t.get(Tuple.create().set("id", 1).set("orgId", 1));
+        Tuple res = t.recordView().get(Tuple.create().set("id", 1).set("orgId", 1));
 
         byte[] objData = res.value("billingDetails");
         BinaryObject binObj = BinaryObjects.wrap(objData);
@@ -299,26 +284,21 @@ public class Example {
         binObj = orderRecord.billingDetails;
 
         // Manual deserialization is possible as well.
-        Object billingDetails = orderRecord.type == 0 ?
-            BinaryObjects.deserialize(binObj, CreditCard.class) :
-            BinaryObjects.deserialize(binObj, BankAccount.class);
+        Object billingDetails = orderRecord.type == 0
+                ? BinaryObjects.deserialize(binObj, CreditCard.class) :
+                BinaryObjects.deserialize(binObj, BankAccount.class);
     }
 
     /**
-     * Use case 5: using byte[] and binary objects in columns.
-     * The table has structure
-     * [
-     * [id int, orgId int] // key
-     * [originalObject byte[], upgradedObject byte[], int department] // value
-     * ]
-     * Where {@code originalObject} is some value that was originally put to the column,
+     * Use case 5: using byte[] and binary objects in columns. The table has structure [ [id int, orgId int] // key [originalObject byte[],
+     * upgradedObject byte[], int department] // value ] Where {@code originalObject} is some value that was originally put to the column,
      * {@code upgradedObject} is a version 2 of the object, and department is an extracted field.
      */
     @Disabled
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase5(Table t) {
-        Tuple res = t.get(Tuple.create().set("id", 1).set("orgId", 1));
+        Tuple res = t.recordView().get(Tuple.create().set("id", 1).set("orgId", 1));
 
         byte[] objData = res.value("originalObject");
         BinaryObject binObj = BinaryObjects.wrap(objData);
@@ -373,36 +353,32 @@ public class Example {
         }
 
         RecordView<TruncatedRecord> truncatedView = t.recordView(
-            Mappers.ofRecordClassBuilder(TruncatedRecord.class)
-                .map("upgradedObject", JavaPersonV2.class).build());
+                Mappers.ofRecordClassBuilder(TruncatedRecord.class)
+                        .map("upgradedObject", JavaPersonV2.class).build());
 
         // Or we can have a custom conditional type selection.
         RecordView<TruncatedRecord> truncatedView2 = t.recordView(
-            Mappers.ofRecordClassBuilder(TruncatedRecord.class)
-                .map("upgradedObject", (row) -> {
-                    BinaryObject bObj = row.binaryObjectValue("upgradedObject");
-                    int dept = row.intValue("department");
+                Mappers.ofRecordClassBuilder(TruncatedRecord.class)
+                        .map("upgradedObject", (row) -> {
+                            BinaryObject binObj1 = row.binaryObjectValue("upgradedObject");
+                            int dept = row.intValue("department");
 
-                    return dept == 0 ?
-                        BinaryObjects.deserialize(bObj, JavaPerson.class) :
-                        BinaryObjects.deserialize(bObj, JavaPersonV2.class);
-                }).build());
+                            return dept == 0
+                                    ? BinaryObjects.deserialize(binObj1, JavaPerson.class) :
+                                    BinaryObjects.deserialize(binObj1, JavaPersonV2.class);
+                        }).build());
     }
 
     /**
-     * Use case 1: a simple one. The table has the structure
-     * [
-     * [id long] // key
-     * [name varchar, lastName varchar, decimal salary, int department] // value
-     * ]
-     * We show how to use the raw TableRow and a mapped class.
+     * Use case 1: a simple one. The table has the structure [ [id long] // key [name varchar, lastName varchar, decimal salary, int
+     * department] // value ] We show how to use the raw TableRow and a mapped class.
      */
     @Disabled
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase6(Table t) {
         // Search row will allow nulls even in non-null columns.
-        Tuple res = t.get(Tuple.create().set("id", 1));
+        Tuple res = t.recordView().get(Tuple.create().set("id", 1));
 
         String name = res.value("name");
         String lastName = res.value("latName");
@@ -424,18 +400,14 @@ public class Example {
             long id;
         }
 
-        KeyValueView<Long, Employee> employeeView = t.kvView(Long.class, Employee.class);
+        KeyValueView<Long, Employee> employeeView = t.keyValueView(Long.class, Employee.class);
 
         Employee e = employeeView.get(1L);
     }
 
     /**
-     * Use case 1: a simple one. The table has the structure
-     * [
-     * [byte[]] // key
-     * [name varchar, lastName varchar, decimal salary, int department] // value
-     * ]
-     * We show how to use the raw TableRow and a mapped class.
+     * Use case 1: a simple one. The table has the structure [ [byte[]] // key [name varchar, lastName varchar, decimal salary, int
+     * department] // value ] We show how to use the raw TableRow and a mapped class.
      */
     @Disabled
     @ParameterizedTest
@@ -449,12 +421,12 @@ public class Example {
             int department;
         }
 
-        KeyValueView<Long, BinaryObject> employeeView = t.kvView(Long.class, BinaryObject.class);
+        KeyValueView<Long, BinaryObject> employeeView = t.keyValueView(Long.class, BinaryObject.class);
 
         employeeView.put(1L, BinaryObjects.wrap(new byte[0] /* serialized Employee */));
 
-        t.kvView(
-            Mappers.identity(),
-            Mappers.ofValueClassBuilder(BinaryObject.class).deserializeTo(Employee.class).build());
+        t.keyValueView(
+                Mappers.identity(),
+                Mappers.ofValueClassBuilder(BinaryObject.class).deserializeTo(Employee.class).build());
     }
 }

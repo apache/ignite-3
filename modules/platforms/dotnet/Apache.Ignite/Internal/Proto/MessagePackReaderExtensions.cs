@@ -69,6 +69,17 @@ namespace Apache.Ignite.Internal.Proto
         }
 
         /// <summary>
+        /// Reads nullable integer.
+        /// </summary>
+        /// <param name="reader">Reader.</param>
+        /// <returns>Nullable int.</returns>
+        public static int? ReadInt32Nullable(this ref MessagePackReader reader)
+        {
+            // ReSharper disable RedundantCast (does not build on older SDKs)
+            return reader.IsNil ? (int?)null : reader.ReadInt32();
+        }
+
+        /// <summary>
         /// Skips multiple elements.
         /// </summary>
         /// <param name="reader">Reader.</param>
@@ -114,6 +125,22 @@ namespace Apache.Ignite.Internal.Proto
             var j = jBytes[14];
 
             return new Guid(a, b, c, d, e, f, g, h, i, j, k);
+        }
+
+        /// <summary>
+        /// Reads and <see cref="IgniteUuid"/>.
+        /// </summary>
+        /// <param name="reader">Reader.</param>
+        /// <returns>Ignite UUID.</returns>
+        public static unsafe IgniteUuid ReadIgniteUuid(this ref MessagePackReader reader)
+        {
+            ValidateExtensionType(ref reader, ClientMessagePackType.IgniteUuid, IgniteUuid.Size);
+            var bytes = reader.ReadRaw(IgniteUuid.Size);
+
+            var res = default(IgniteUuid);
+            bytes.CopyTo(new Span<byte>(res.Bytes, IgniteUuid.Size));
+
+            return res;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

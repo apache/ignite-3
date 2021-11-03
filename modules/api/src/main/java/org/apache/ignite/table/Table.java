@@ -17,30 +17,20 @@
 
 package org.apache.ignite.table;
 
-import org.apache.ignite.table.mapper.KeyMapper;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.Mappers;
-import org.apache.ignite.table.mapper.RecordMapper;
-import org.apache.ignite.table.mapper.ValueMapper;
-import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Table view of table provides methods to access table records regarding binary object concept.
- * <p>
- * Provided different views (key-value vs record) and approaches (mapped-object vs binary) to reach the data.
- * <p>
- * Binary table views might be useful in cases (but not limited) if user key-value classes are not in classpath
- * or serialization/deserialization is unwanted due to performance reasons.
+ * Table provides different views (key-value vs record) and approaches (mapped-object vs binary) to reach the data.
  *
- * @apiNote Some methods require a record with the only key columns set. This is not mandatory requirement
- * and value columns will be just ignored.
+ * <p>Binary table views might be useful in cases (but not limited) when user key-value classes are not in classpath and/or when
+ * deserialization of whole table record is unwanted due to performance reasons.
+ *
  * @see RecordView
- * @see Table
  * @see KeyValueView
- * @see KeyValueBinaryView
  */
-public interface Table extends TableView<Tuple> {
+public interface Table {
     /**
      * Gets a name of the table.
      *
@@ -52,44 +42,23 @@ public interface Table extends TableView<Tuple> {
      * Creates record view of table for record class mapper provided.
      *
      * @param recMapper Record class mapper.
-     * @param <R> Record type.
+     * @param <R>       Record type.
      * @return Table record view.
      */
-    <R> RecordView<R> recordView(RecordMapper<R> recMapper);
+    <R> RecordView<R> recordView(Mapper<R> recMapper);
 
     /**
-     * Creates key-value view of table for key-value class mappers provided.
+     * Creates record view of table regarding the binary object concept.
      *
-     * @param keyMapper Key class mapper.
-     * @param valMapper Value class mapper.
-     * @param <K> Key type.
-     * @param <V> Value type.
-     * @return Table key-value view.
+     * @return Table record view.
      */
-    <K, V> KeyValueView<K, V> kvView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper);
-
-    /**
-     * Creates key-value view of table regarding the binary object concept.
-     *
-     * @return Table key-value view.
-     */
-    KeyValueBinaryView kvView();
-
-    /**
-     * Creates a transactional view of the table.
-     *
-     * @param tx The transaction.
-     * @return Transactional table view.
-     * @see Transaction
-     * @see IgniteTransactions
-     */
-    @Override Table withTransaction(Transaction tx);
+    RecordView<Tuple> recordView();
 
     /**
      * Creates record view of table for record class provided.
      *
      * @param recCls Record class.
-     * @param <R> Record type.
+     * @param <R>    Record type.
      * @return Table record view.
      */
     default <R> RecordView<R> recordView(Class<R> recCls) {
@@ -97,16 +66,34 @@ public interface Table extends TableView<Tuple> {
     }
 
     /**
+     * Creates key-value view of table for key-value class mappers provided.
+     *
+     * @param keyMapper Key class mapper.
+     * @param valMapper Value class mapper.
+     * @param <K>       Key type.
+     * @param <V>       Value type.
+     * @return Table key-value view.
+     */
+    <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper);
+
+    /**
+     * Creates key-value view of table regarding the binary object concept.
+     *
+     * @return Table key-value view.
+     */
+    KeyValueView<Tuple, Tuple> keyValueView();
+
+    /**
      * Creates key-value view of table for key and value classes provided.
      *
      * @param keyCls Key class.
      * @param valCls Value class.
-     * @param <K> Key type.
-     * @param <V> Value type.
+     * @param <K>    Key type.
+     * @param <V>    Value type.
      * @return Table key-value view.
      */
-    default <K, V> KeyValueView<K, V> kvView(Class<K> keyCls, Class<V> valCls) {
-        return kvView(Mappers.ofKeyClass(keyCls), Mappers.ofValueClass(valCls));
+    default <K, V> KeyValueView<K, V> keyValueView(Class<K> keyCls, Class<V> valCls) {
+        return keyValueView(Mappers.ofKeyClass(keyCls), Mappers.ofValueClass(valCls));
     }
 
     /**

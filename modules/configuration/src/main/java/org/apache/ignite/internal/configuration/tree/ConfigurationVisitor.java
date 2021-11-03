@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.tree;
 
 import java.io.Serializable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Configuration visitor - callback interface to traverse configuration tree.
@@ -30,30 +31,29 @@ public interface ConfigurationVisitor<T> {
      * @param val Configuration value.
      * @return Anything that implementation decides to return.
      */
-    default T visitLeafNode(String key, Serializable val) {
+    default @Nullable T visitLeafNode(String key, Serializable val) {
         return null;
     }
 
     /**
      * Invoked on visiting regular inner node.
      *
-     * @param key Name of the node retrieved from its holder object.
+     * @param key  Name of the node retrieved from its holder object.
      * @param node Inner configuration node.
      * @return Anything that implementation decides to return.
      */
-    default T visitInnerNode(String key, InnerNode node) {
+    default @Nullable T visitInnerNode(String key, InnerNode node) {
         return null;
     }
 
     /**
      * Invoked on visiting named list nodes.
      *
-     * @param key Name of the node retrieved from its holder object.
+     * @param key  Name of the node retrieved from its holder object.
      * @param node Named list inner configuration node.
-     * @param <N> Type of element nodes in the named list.
      * @return Anything that implementation decides to return.
      */
-    default <N extends InnerNode> T visitNamedListNode(String key, NamedListNode<N> node) {
+    default @Nullable T visitNamedListNode(String key, NamedListNode<?> node) {
         return null;
     }
 }

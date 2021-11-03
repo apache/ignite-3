@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
-import org.apache.ignite.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 
 /**
  * Thin client payload output channel.
@@ -32,7 +32,7 @@ public class PayloadOutputChannel implements AutoCloseable {
     /**
      * Constructor.
      *
-     * @param ch Channel.
+     * @param ch  Channel.
      * @param out Packer.
      */
     PayloadOutputChannel(ClientChannel ch, ClientMessagePacker out) {
@@ -59,7 +59,8 @@ public class PayloadOutputChannel implements AutoCloseable {
     }
 
     /** {@inheritDoc} */
-    @Override public void close() {
+    @Override
+    public void close() {
         out.close();
     }
 }

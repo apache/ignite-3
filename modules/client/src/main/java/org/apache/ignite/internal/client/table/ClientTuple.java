@@ -42,237 +42,339 @@ public final class ClientTuple implements Tuple {
     /** Schema. */
     private final ClientSchema schema;
 
+    /** Offset within schema. */
+    private final int minColumnIndex;
+
+    /** Limit within schema. */
+    private final int maxColumnIndex;
+
     /**
      * Constructor.
      *
      * @param schema Schema.
      */
     public ClientTuple(ClientSchema schema) {
+        this(schema, 0, schema.columns().length - 1);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param schema Schema.
+     */
+    public ClientTuple(ClientSchema schema, int minColumnIndex, int maxColumnIndex) {
         assert schema != null : "Schema can't be null.";
         assert schema.columns().length > 0 : "Schema can't be empty.";
+        assert minColumnIndex >= 0 : "offset >= 0";
+        assert maxColumnIndex >= minColumnIndex : "maxColumnIndex >= minColumnIndex";
+        assert maxColumnIndex < schema.columns().length : "maxColumnIndex < schema.columns().length";
 
         this.schema = schema;
-        this.vals = new Object[schema.columns().length];
+        this.vals = new Object[maxColumnIndex + 1 - minColumnIndex];
+        this.minColumnIndex = minColumnIndex;
+        this.maxColumnIndex = maxColumnIndex;
     }
 
     /** {@inheritDoc} */
-    @Override public Tuple set(String columnName, Object value) {
+    @Override
+    public Tuple set(@NotNull String columnName, Object value) {
         // TODO: Live schema and schema evolution support IGNITE-15194
         var col = schema.column(columnName);
 
-        vals[col.schemaIndex()] = value == null ? NULL_OBJ : value;
+        vals[col.schemaIndex() - minColumnIndex] = value == null ? NULL_OBJ : value;
 
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T valueOrDefault(String columnName, T def) {
+    @Override
+    public <T> T valueOrDefault(@NotNull String columnName, T def) {
         var col = schema.columnSafe(columnName);
 
-        if (col == null)
+        if (col == null) {
             return def;
+        }
 
-        var val = (T)vals[col.schemaIndex()];
+        var val = (T) vals[col.schemaIndex() - minColumnIndex];
 
         return val == null ? def : convertValue(val);
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T value(String columnName) {
+    @Override
+    public <T> T value(@NotNull String columnName) {
         var col = schema.column(columnName);
 
-        return getValue(col.schemaIndex());
+        return getValue(col.schemaIndex() - minColumnIndex);
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T value(int columnIndex) {
+    @Override
+    public <T> T value(int columnIndex) {
         Objects.checkIndex(columnIndex, vals.length);
 
         return getValue(columnIndex);
     }
 
     /** {@inheritDoc} */
-    @Override public int columnCount() {
+    @Override
+    public int columnCount() {
         return vals.length;
     }
 
     /** {@inheritDoc} */
-    @Override public String columnName(int columnIndex) {
+    @Override
+    public String columnName(int columnIndex) {
         Objects.checkIndex(columnIndex, vals.length);
 
-        return schema.columns()[columnIndex].name();
+        return schema.columns()[columnIndex + minColumnIndex].name();
     }
 
     /** {@inheritDoc} */
-    @Override public int columnIndex(String columnName) {
+    @Override
+    public int columnIndex(@NotNull String columnName) {
         var col = schema.columnSafe(columnName);
 
-        return col == null ? -1 : col.schemaIndex();
+        if (col == null || col.schemaIndex() < minColumnIndex || col.schemaIndex() > maxColumnIndex) {
+            return -1;
+        }
+
+        return col.schemaIndex() - minColumnIndex;
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject binaryObjectValue(String columnName) {
-        throw new UnsupportedOperationException();
+    @Override
+    public BinaryObject binaryObjectValue(@NotNull String columnName) {
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject binaryObjectValue(int columnIndex) {
-        throw new UnsupportedOperationException();
+    @Override
+    public BinaryObject binaryObjectValue(int columnIndex) {
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
-    @Override public byte byteValue(String columnName) {
+    @Override
+    public byte byteValue(@NotNull String columnName) {
         return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public byte byteValue(int columnIndex) {
+    @Override
+    public byte byteValue(int columnIndex) {
         return value(columnIndex);
     }
 
     /** {@inheritDoc} */
-    @Override public short shortValue(String columnName) {
+    @Override
+    public short shortValue(@NotNull String columnName) {
         return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public short shortValue(int columnIndex) {
+    @Override
+    public short shortValue(int columnIndex) {
         return value(columnIndex);
     }
 
     /** {@inheritDoc} */
-    @Override public int intValue(String columnName) {
+    @Override
+    public int intValue(@NotNull String columnName) {
         return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public int intValue(int columnIndex) {
+    @Override
+    public int intValue(int columnIndex) {
         return value(columnIndex);
     }
 
     /** {@inheritDoc} */
-    @Override public long longValue(String columnName) {
+    @Override
+    public long longValue(@NotNull String columnName) {
         return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public long longValue(int columnIndex) {
+    @Override
+    public long longValue(int columnIndex) {
         return value(columnIndex);
     }
 
     /** {@inheritDoc} */
-    @Override public float floatValue(String columnName) {
+    @Override
+    public float floatValue(@NotNull String columnName) {
         return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public float floatValue(int columnIndex) {
+    @Override
+    public float floatValue(int columnIndex) {
         return value(columnIndex);
     }
 
     /** {@inheritDoc} */
-    @Override public double doubleValue(String columnName) {
+    @Override
+    public double doubleValue(@NotNull String columnName) {
         return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public double doubleValue(int columnIndex) {
+    @Override
+    public double doubleValue(int columnIndex) {
         return value(columnIndex);
     }
 
     /** {@inheritDoc} */
-    @Override public String stringValue(String columnName) {
+    @Override
+    public String stringValue(@NotNull String columnName) {
         return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public String stringValue(int columnIndex) {
+    @Override
+    public String stringValue(int columnIndex) {
         return value(columnIndex);
     }
 
     /** {@inheritDoc} */
-    @Override public UUID uuidValue(String columnName) {
+    @Override
+    public UUID uuidValue(@NotNull String columnName) {
         return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public UUID uuidValue(int columnIndex) {
+    @Override
+    public UUID uuidValue(int columnIndex) {
         return value(columnIndex);
     }
 
     /** {@inheritDoc} */
-    @Override public BitSet bitmaskValue(String columnName) {
+    @Override
+    public BitSet bitmaskValue(@NotNull String columnName) {
         return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public BitSet bitmaskValue(int columnIndex) {
+    @Override
+    public BitSet bitmaskValue(int columnIndex) {
         return value(columnIndex);
     }
 
     /** {@inheritDoc} */
-    @Override public LocalDate dateValue(String columnName) {
+    @Override
+    public LocalDate dateValue(String columnName) {
         return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public LocalDate dateValue(int columnIndex) {
+    @Override
+    public LocalDate dateValue(int columnIndex) {
         return value(columnIndex);
     }
 
     /** {@inheritDoc} */
-    @Override public LocalTime timeValue(String columnName) {
+    @Override
+    public LocalTime timeValue(String columnName) {
         return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public LocalTime timeValue(int columnIndex) {
+    @Override
+    public LocalTime timeValue(int columnIndex) {
         return value(columnIndex);
     }
 
     /** {@inheritDoc} */
-    @Override public LocalDateTime datetimeValue(String columnName) {
+    @Override
+    public LocalDateTime datetimeValue(String columnName) {
         return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public LocalDateTime datetimeValue(int columnIndex) {
+    @Override
+    public LocalDateTime datetimeValue(int columnIndex) {
         return value(columnIndex);
     }
 
     /** {@inheritDoc} */
-    @Override public Instant timestampValue(String columnName) {
+    @Override
+    public Instant timestampValue(String columnName) {
         return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public Instant timestampValue(int columnIndex) {
+    @Override
+    public Instant timestampValue(int columnIndex) {
         return value(columnIndex);
     }
 
     /** {@inheritDoc} */
-    @NotNull @Override public Iterator<Object> iterator() {
+    @NotNull
+    @Override
+    public Iterator<Object> iterator() {
         return new Iterator<>() {
             /** Current column index. */
             private int cur;
 
             /** {@inheritDoc} */
-            @Override public boolean hasNext() {
+            @Override
+            public boolean hasNext() {
                 return cur < vals.length;
             }
 
             /** {@inheritDoc} */
-            @Override public Object next() {
+            @Override
+            public Object next() {
                 return cur < vals.length ? vals[cur++] : null;
             }
         };
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int hashCode() {
+        return Tuple.hashCode(this);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+
+        if (obj instanceof Tuple) {
+            return Tuple.equals(this, (Tuple) obj);
+        }
+
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        var sb = new StringBuilder("ClientTuple [");
+
+        for (int i = 0; i < columnCount(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+
+            sb.append(columnName(i)).append('=').append((Object) value(i));
+        }
+
+        sb.append(']');
+
+        return sb.toString();
     }
 
     /**
      * Sets column value by index.
      *
      * @param columnIndex Column index.
-     * @param value Value to set.
+     * @param value       Value to set.
      */
     public void setInternal(int columnIndex, Object value) {
         // Do not validate column index for internal needs.
@@ -289,7 +391,7 @@ public final class ClientTuple implements Tuple {
     }
 
     private <T> T getValue(int columnIndex) {
-        return convertValue((T)vals[columnIndex]);
+        return convertValue((T) vals[columnIndex]);
     }
 
     private static <T> T convertValue(T val) {

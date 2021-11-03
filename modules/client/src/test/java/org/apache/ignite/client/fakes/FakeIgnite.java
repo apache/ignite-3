@@ -17,7 +17,9 @@
 
 package org.apache.ignite.client.fakes;
 
-import org.apache.ignite.app.Ignite;
+import java.util.Set;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.query.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -26,16 +28,31 @@ import org.apache.ignite.tx.IgniteTransactions;
  * Fake Ignite.
  */
 public class FakeIgnite implements Ignite {
-    /** */
+    /**
+     * Default constructor.
+     */
+    public FakeIgnite() {
+        super();
+    }
+
+    /**
+     *
+     */
     private final IgniteTables tables = new FakeIgniteTables();
 
     /** {@inheritDoc} */
-    @Override public IgniteTables tables() {
+    @Override
+    public IgniteTables tables() {
         return tables;
     }
 
+    public QueryProcessor queryEngine() {
+        return new FakeIgniteQueryProcessor();
+    }
+
     /** {@inheritDoc} */
-    @Override public IgniteTransactions transactions() {
+    @Override
+    public IgniteTransactions transactions() {
         return null;
     }
 
@@ -44,13 +61,22 @@ public class FakeIgnite implements Ignite {
         return null;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override public void setBaseline(Set<String> baselineNodes) {
+        throw new UnsupportedOperationException();
+    }
+
     /** {@inheritDoc} */
-    @Override public void close() throws Exception {
+    @Override
+    public void close() {
         // No-op.
     }
 
     /** {@inheritDoc} */
-    @Override public String name() {
+    @Override
+    public String name() {
         return null;
     }
 }

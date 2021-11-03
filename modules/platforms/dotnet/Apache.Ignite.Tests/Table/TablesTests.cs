@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Table
 {
+    using System;
     using System.Threading.Tasks;
     using Ignite.Table;
     using NUnit.Framework;
@@ -27,29 +28,29 @@ namespace Apache.Ignite.Tests.Table
     public class TablesTests : IgniteTestsBase
     {
         [Test]
-        public async Task TestGetTablesAsync()
+        public async Task TestGetTables()
         {
-            using var client = await IgniteClient.StartAsync(GetConfig());
-
-            Assert.IsNotNull(client);
-
-            var tables = await client.Tables.GetTablesAsync();
+            var tables = await Client.Tables.GetTablesAsync();
 
             Assert.AreEqual(1, tables.Count);
             Assert.AreEqual("PUB.tbl1", tables[0].Name);
         }
 
         [Test]
-        public async Task TestGetTableAsync()
+        public async Task TestGetExistingTable()
         {
-            using var client = await IgniteClient.StartAsync(GetConfig());
-
-            Assert.IsNotNull(client);
-
-            var table = await client.Tables.GetTableAsync("PUB.tbl1");
+            var table = await Client.Tables.GetTableAsync(TableName);
 
             Assert.IsNotNull(table);
             Assert.AreEqual("PUB.tbl1", table!.Name);
+        }
+
+        [Test]
+        public async Task TestGetNonExistentTableReturnsNull()
+        {
+            var table = await Client.Tables.GetTableAsync(Guid.NewGuid().ToString());
+
+            Assert.IsNull(table);
         }
     }
 }

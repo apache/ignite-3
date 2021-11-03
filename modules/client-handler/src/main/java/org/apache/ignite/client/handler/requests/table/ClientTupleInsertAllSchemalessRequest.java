@@ -17,14 +17,14 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.proto.ClientMessagePacker;
-import org.apache.ignite.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.table.manager.IgniteTables;
-
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuplesSchemaless;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTuples;
+
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.table.manager.IgniteTables;
 
 /**
  * Client tuple insert all schemaless request.
@@ -33,8 +33,8 @@ public class ClientTupleInsertAllSchemalessRequest {
     /**
      * Processes the request.
      *
-     * @param in Unpacker.
-     * @param out Packer.
+     * @param in     Unpacker.
+     * @param out    Packer.
      * @param tables Ignite tables.
      * @return Future.
      */
@@ -44,8 +44,8 @@ public class ClientTupleInsertAllSchemalessRequest {
             IgniteTables tables
     ) {
         var table = readTable(in, tables);
-        var tuples = readTuplesSchemaless(in, table);
+        var tuples = readTuplesSchemaless(in);
 
-        return table.insertAllAsync(tuples).thenAccept(skippedTuples -> writeTuples(out, skippedTuples));
+        return table.recordView().insertAllAsync(tuples).thenAccept(skippedTuples -> writeTuples(out, skippedTuples));
     }
 }

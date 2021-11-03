@@ -18,10 +18,11 @@
 package org.apache.ignite.internal.schema;
 
 import java.util.Map;
-import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaTable;
-import org.apache.ignite.schema.builder.SchemaTableBuilder;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.SchemaObject;
+import org.apache.ignite.schema.definition.TableDefinition;
+import org.apache.ignite.schema.definition.builder.TableDefinitionBuilder;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -33,53 +34,52 @@ public class SchemaConfigurationTest {
      */
     @Test
     public void testInitialSchema() {
-        final SchemaTableBuilder builder = SchemaBuilders.tableBuilder(SchemaTable.DEFAULT_SCHEMA_NAME, "table1");
+        final TableDefinitionBuilder builder = SchemaBuilders.tableBuilder(SchemaObject.DEFAULT_DATABASE_SCHEMA_NAME, "table1");
 
         builder
-            .columns(
-                // Declaring columns in user order.
-                SchemaBuilders.column("id", ColumnType.INT64).build(),
-                SchemaBuilders.column("label", ColumnType.stringOf(2)).withDefaultValue("AI").build(),
-                SchemaBuilders.column("name", ColumnType.string()).asNonNull().build(),
-                SchemaBuilders.column("data", ColumnType.blobOf(255)).asNullable().build(),
-                SchemaBuilders.column("affId", ColumnType.INT32).build()
-            )
+                .columns(
+                        // Declaring columns in user order.
+                        SchemaBuilders.column("id", ColumnType.INT64).build(),
+                        SchemaBuilders.column("label", ColumnType.stringOf(2)).withDefaultValueExpression("AI").build(),
+                        SchemaBuilders.column("name", ColumnType.string()).asNonNull().build(),
+                        SchemaBuilders.column("data", ColumnType.blobOf(255)).asNullable().build(),
+                        SchemaBuilders.column("affId", ColumnType.INT32).build()
+                )
 
-            .withIndex(
-                SchemaBuilders.pkIndex()  // Declare index column in order.
-                    .addIndexColumn("id").desc().done()
-                    .addIndexColumn("affId").asc().done()
-                    .addIndexColumn("name").asc().done()
-                    .withAffinityColumns("affId") // Optional affinity declaration. If not set, all columns will be affinity cols.
-                    .build()
-            )
+                .withPrimaryKey(
+                        SchemaBuilders.primaryKey()  // Declare index column in order.
+                                .withColumns("id", "affId", "name")
+                                .withAffinityColumns(
+                                        "affId") // Optional affinity declaration. If not set, all columns will be affinity cols.
+                                .build()
+                )
 
-            // 'withIndex' single entry point allows extended index support.
-            // E.g. we may want to support Geo-index later with some plugin.
-            .withIndex(
-                SchemaBuilders.sortedIndex("idx_1_sorted")
-                    .addIndexColumn("id").desc().done()
-                    .addIndexColumn("name").asc().done()
-                    .withHints(Map.of("INLINE_SIZE", "42", "INLINE_STRATEGY", "INLINE_HASH")) // In-line key-hash as well.
-                    .build()
-            )
+                // 'withIndex' single entry point allows extended index support.
+                // E.g. we may want to support Geo-index later with some plugin.
+                .withIndex(
+                        SchemaBuilders.sortedIndex("idx_1_sorted")
+                                .addIndexColumn("id").desc().done()
+                                .addIndexColumn("name").asc().done()
+                                .withHints(Map.of("INLINE_SIZE", "42", "INLINE_STRATEGY", "INLINE_HASH")) // In-line key-hash as well.
+                                .build()
+                )
 
-            .withIndex(
-                SchemaBuilders.partialIndex("idx_2_partial")
-                    .addIndexColumn("id").desc().done()
-                    .addIndexColumn("name").asc().done()
-                    .withExpression("id > 0")
-                    .withHints(Map.of("INLINE_COLUMNS", "id"))
-                    .build()
-            )
+                .withIndex(
+                        SchemaBuilders.partialIndex("idx_2_partial")
+                                .addIndexColumn("id").desc().done()
+                                .addIndexColumn("name").asc().done()
+                                .withExpression("id > 0")
+                                .withHints(Map.of("INLINE_COLUMNS", "id"))
+                                .build()
+                )
 
-            .withIndex(
-                SchemaBuilders.hashIndex("idx_3_hash")
-                    .withColumns("id", "affId")
-                    .build()
-            )
+                .withIndex(
+                        SchemaBuilders.hashIndex("idx_3_hash")
+                                .withColumns("id", "affId")
+                                .build()
+                )
 
-            .build();
+                .build();
     }
 
     /**
@@ -87,44 +87,45 @@ public class SchemaConfigurationTest {
      */
     @Test
     public void testSchemaModification() {
-        final SchemaTable table = SchemaBuilders.tableBuilder("PUBLIC", "table1")
-            .columns(
-                // Declaring columns in user order.
-                SchemaBuilders.column("id", ColumnType.INT64).build(),
-                SchemaBuilders.column("name", ColumnType.string()).build()
-            )
-            .withPrimaryKey("id")
-            .build();
+        final TableDefinition table = SchemaBuilders.tableBuilder("PUBLIC", "table1")
+                .columns(
+                        // Declaring columns in user order.
+                        SchemaBuilders.column("id", ColumnType.INT64).build(),
+                        SchemaBuilders.column("name", ColumnType.string()).build()
+                )
+                .withPrimaryKey("id")
+                .build();
 
         table.toBuilder()
-            .addColumn(
-                SchemaBuilders.column("firstName", ColumnType.string())
-                    .asNonNull()
-                    .build()
-            )
-            .addKeyColumn( // It looks safe to add non-affinity column to key.
-                SchemaBuilders.column("subId", ColumnType.string())
-                    .asNonNull()
-                    .build()
-            )
+                .addColumn(
+                        SchemaBuilders.column("firstName", ColumnType.string())
+                                .asNonNull()
+                                .build()
+                )
+                .addKeyColumn(
+                        // It looks safe to add non-affinity column to key.
+                        SchemaBuilders.column("subId", ColumnType.string())
+                                .asNonNull()
+                                .build()
+                )
 
-            .alterColumn("firstName")
-            .withNewName("lastName")
-            .withNewDefault("ivanov")
-            .asNullable()
-            .convertTo(ColumnType.stringOf(100))
-            .done()
+                .alterColumn("firstName")
+                .withNewName("lastName")
+                .withNewDefault("ivanov")
+                .asNullable()
+                .convertTo(ColumnType.stringOf(100))
+                .done()
 
-            .dropColumn("name") // Key column can't be dropped.
+                .dropColumn("name") // Key column can't be dropped.
 
-            .addIndex(
-                SchemaBuilders.sortedIndex("sortedIdx")
-                    .addIndexColumn("subId").done()
-                    .withHints(Map.of("INLINE_SIZE", "73"))
-                    .build()
-            )
+                .addIndex(
+                        SchemaBuilders.sortedIndex("sortedIdx")
+                                .addIndexColumn("subId").done()
+                                .withHints(Map.of("INLINE_SIZE", "73"))
+                                .build()
+                )
 
-            .dropIndex("hash_idx")
-            .apply();
+                .dropIndex("hash_idx")
+                .apply();
     }
 }

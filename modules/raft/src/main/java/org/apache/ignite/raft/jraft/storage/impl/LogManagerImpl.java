@@ -564,6 +564,7 @@ public class LogManagerImpl implements LogManager {
                     done.run(Status.OK());
                 }
             }
+
             if (endOfBatch) {
                 this.lastId = this.ab.flush();
                 setDiskId(this.lastId);

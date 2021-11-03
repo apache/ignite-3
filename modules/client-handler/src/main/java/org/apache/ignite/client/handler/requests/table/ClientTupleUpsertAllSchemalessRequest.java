@@ -17,12 +17,12 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.table.manager.IgniteTables;
-
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuplesSchemaless;
+
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.table.manager.IgniteTables;
 
 /**
  * Client tuple upsert all without schema request.
@@ -31,14 +31,14 @@ public class ClientTupleUpsertAllSchemalessRequest {
     /**
      * Processes the request.
      *
-     * @param in Unpacker.
+     * @param in     Unpacker.
      * @param tables Ignite tables.
      * @return Future.
      */
     public static CompletableFuture<Void> process(ClientMessageUnpacker in, IgniteTables tables) {
         var table = readTable(in, tables);
-        var tuples = readTuplesSchemaless(in, table);
+        var tuples = readTuplesSchemaless(in);
 
-        return table.upsertAllAsync(tuples);
+        return table.recordView().upsertAllAsync(tuples);
     }
 }

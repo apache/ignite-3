@@ -17,15 +17,23 @@
 
 package org.apache.ignite.internal.testframework;
 
+import static org.junit.jupiter.api.extension.ExtensionContext.Namespace;
+
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
+import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
@@ -36,115 +44,189 @@ import org.junit.platform.commons.support.HierarchyTraversalMode;
 
 /**
  * JUnit extension for injecting temporary folders into test classes.
- * <p>
- * This extension supports both field and parameter injection of {@link Path} parameters annotated with the
- * {@link WorkDirectory} annotation.
- * <p>
- * A new temporary folder is created for every test method and will be located relative to the module,
- * where the tests are being run, by the following path:
- * "target/work/{@literal <name-of-the-test-class>/<name-of-the-test-method>_<current_time_millis>}".
- * It is removed after a test has finished running, but this behaviour can be controlled by setting the
+ *
+ * <p>This extension supports both field and parameter injection of {@link Path} parameters annotated with the {@link WorkDirectory}
+ * annotation.
+ *
+ * <p>A new temporary folder can be created for every test method (when used as a test parameter or as a member field) or a single time in
+ * a
+ * test class' lifetime (when used as a parameter in a {@link BeforeAll} hook or as a static field). Temporary folders are located relative
+ * to the module, where the tests are being run, and their paths depends on the lifecycle of the folder:
+ *
+ * <ol>
+ *     <li>For test methods: "target/work/{@literal <name-of-the-test-class>/<name-of-the-test-method>_<current_time_millis>}"</li>
+ *     <li>For test classes: "target/work/{@literal <name-of-the-test-class>/static_<current_time_millis>}"</li>
+ * </ol>
+ *
+ * <p>Temporary folders are removed after tests have finished running, but this behaviour can be controlled by setting the
  * {@link WorkDirectoryExtension#KEEP_WORK_DIR_PROPERTY} property to {@code true}, in which case the created folder can
  * be kept intact for debugging purposes.
  */
-public class WorkDirectoryExtension implements BeforeEachCallback, AfterEachCallback, ParameterResolver {
+public class WorkDirectoryExtension
+        implements BeforeAllCallback, AfterAllCallback, BeforeEachCallback, AfterEachCallback, ParameterResolver {
+    /** JUnit namespace for the extension. */
+    private static final Namespace NAMESPACE = Namespace.create(WorkDirectoryExtension.class);
+
     /**
-     * System property that, when set to {@code true}, will make the extension preserve the created directories.
-     * Default is {@code false}.
+     * System property that, when set to {@code true}, will make the extension preserve the created directories. Default is {@code false}.
      */
     public static final String KEEP_WORK_DIR_PROPERTY = "KEEP_WORK_DIR";
 
     /** Base path for all temporary folders in a module. */
     private static final Path BASE_PATH = Path.of("target", "work");
 
-    /** {@inheritDoc} */
-    @Override public void beforeEach(ExtensionContext context) throws Exception {
-        Object testInstance = context.getRequiredTestInstance();
+    /** Name of the work directory that will be injected into {@link BeforeAll} methods or static members. */
+    private static final String STATIC_FOLDER_NAME = "static";
 
-        Field workDirField = getWorkDirField(testInstance.getClass());
+    /**
+     * Creates and injects a temporary directory into a static field.
+     */
+    @Override
+    public void beforeAll(ExtensionContext context) throws Exception {
+        Field workDirField = getWorkDirField(context);
 
-        if (workDirField == null)
+        if (workDirField == null || !Modifier.isStatic(workDirField.getModifiers())) {
             return;
+        }
 
         workDirField.setAccessible(true);
 
-        workDirField.set(testInstance, createWorkDir(context));
+        workDirField.set(null, createWorkDir(context));
     }
 
     /** {@inheritDoc} */
-    @Override public void afterEach(ExtensionContext context) throws Exception {
-        if (shouldRemoveDir())
+    @Override
+    public void afterAll(ExtensionContext context) throws Exception {
+        removeWorkDir(context);
+
+        Path testClassDir = getTestClassDir(context);
+
+        // remove the folder for the current test class, if empty
+        if (isEmpty(testClassDir)) {
+            IgniteUtils.deleteIfExists(testClassDir);
+        }
+
+        // remove the base folder, if empty
+        if (isEmpty(BASE_PATH)) {
             IgniteUtils.deleteIfExists(BASE_PATH);
+        }
+    }
+
+    /**
+     * Creates and injects a temporary directory into a field.
+     */
+    @Override
+    public void beforeEach(ExtensionContext context) throws Exception {
+        Field workDirField = getWorkDirField(context);
+
+        if (workDirField == null || Modifier.isStatic(workDirField.getModifiers())) {
+            return;
+        }
+
+        workDirField.setAccessible(true);
+
+        workDirField.set(context.getRequiredTestInstance(), createWorkDir(context));
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsParameter(
-        ParameterContext parameterContext, ExtensionContext extensionContext
-    ) throws ParameterResolutionException {
-        return getParameterType(parameterContext).equals(Path.class)
-            && parameterContext.isAnnotated(WorkDirectory.class);
+    @Override
+    public void afterEach(ExtensionContext context) throws Exception {
+        removeWorkDir(context);
     }
 
     /** {@inheritDoc} */
-    @Override public Object resolveParameter(
-        ParameterContext parameterContext, ExtensionContext extensionContext
+    @Override
+    public boolean supportsParameter(
+            ParameterContext parameterContext,
+            ExtensionContext extensionContext
     ) throws ParameterResolutionException {
+        return parameterContext.getParameter().getType().equals(Path.class)
+                && parameterContext.isAnnotated(WorkDirectory.class);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Object resolveParameter(
+            ParameterContext parameterContext, ExtensionContext extensionContext
+    ) throws ParameterResolutionException {
+        if (getWorkDirField(extensionContext) != null) {
+            throw new IllegalStateException(
+                    "Cannot perform parameter injection, because there exists a field annotated with @WorkDirectory"
+            );
+        }
+
         try {
             return createWorkDir(extensionContext);
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new ParameterResolutionException("Error when creating the work directory", e);
         }
     }
 
     /**
-     * Shortcut for extracting the method parameter type from a {@link ParameterContext}.
+     * Creates a temporary folder for the given test method.
      */
-    private static Class<?> getParameterType(ParameterContext parameterContext) {
-        return parameterContext.getParameter().getType();
-    }
+    private static Path createWorkDir(ExtensionContext context) throws IOException {
+        Path existingDir = context.getStore(NAMESPACE).get(context.getUniqueId(), Path.class);
 
-    /**
-     * Creates the temporary folder for the given test method.
-     */
-    private static Path createWorkDir(ExtensionContext extensionContext) throws IOException {
-        if (shouldRemoveDir())
-            IgniteUtils.deleteIfExists(BASE_PATH);
+        if (existingDir != null) {
+            return existingDir;
+        }
 
-        String testClassDir = extensionContext.getRequiredTestClass().getSimpleName();
+        String testMethodDir = context.getTestMethod()
+                .map(Method::getName)
+                .orElse(STATIC_FOLDER_NAME);
 
-        String testMethodDir = extensionContext.getRequiredTestMethod().getName() + '_' + System.currentTimeMillis();
-
-        Path workDir = BASE_PATH.resolve(testClassDir).resolve(testMethodDir);
+        Path workDir = getTestClassDir(context).resolve(testMethodDir + '_' + System.currentTimeMillis());
 
         Files.createDirectories(workDir);
+
+        context.getStore(NAMESPACE).put(context.getUniqueId(), workDir);
 
         return workDir;
     }
 
     /**
+     * Returns a path to the working directory of the test class (identified by the JUnit context).
+     */
+    private static Path getTestClassDir(ExtensionContext context) {
+        return BASE_PATH.resolve(context.getRequiredTestClass().getSimpleName());
+    }
+
+    /**
+     * Removes a previously created work directory.
+     */
+    private static void removeWorkDir(ExtensionContext context) {
+        Path workDir = context.getStore(NAMESPACE).remove(context.getUniqueId(), Path.class);
+
+        if (workDir != null && shouldRemoveDir()) {
+            IgniteUtils.deleteIfExists(workDir);
+        }
+    }
+
+    /**
      * Looks for the annotated field inside the given test class.
      *
-     * @return annotated field or {@code null} if no fields have been found
-     * @throws IllegalStateException if more than one annotated fields have been found
+     * @return Annotated field or {@code null} if no fields have been found
+     * @throws IllegalStateException If more than one annotated fields have been found
      */
     @Nullable
-    private static Field getWorkDirField(Class<?> testClass) {
+    private static Field getWorkDirField(ExtensionContext context) {
         List<Field> fields = AnnotationSupport.findAnnotatedFields(
-            testClass,
-            WorkDirectory.class,
-            field -> field.getType().equals(Path.class),
-            HierarchyTraversalMode.TOP_DOWN
+                context.getRequiredTestClass(),
+                WorkDirectory.class,
+                field -> field.getType().equals(Path.class),
+                HierarchyTraversalMode.TOP_DOWN
         );
 
-        if (fields.isEmpty())
+        if (fields.isEmpty()) {
             return null;
+        }
 
         if (fields.size() != 1) {
             throw new IllegalStateException(String.format(
-                "Test class must have a single field of type 'java.nio.file.Path' annotated with '@WorkDirectory', " +
-                    "but %d fields have been found",
-                fields.size()
+                    "Test class must have a single field of type 'java.nio.file.Path' annotated with '@WorkDirectory', "
+                            + "but %d fields have been found",
+                    fields.size()
             ));
         }
 
@@ -156,5 +238,18 @@ public class WorkDirectoryExtension implements BeforeEachCallback, AfterEachCall
      */
     private static boolean shouldRemoveDir() {
         return !IgniteSystemProperties.getBoolean(KEEP_WORK_DIR_PROPERTY);
+    }
+
+    /**
+     * Returns {@code true} if the given directory is empty or {@code false} if the given directory contains files or does not exist.
+     */
+    private static boolean isEmpty(Path dir) throws IOException {
+        if (!Files.exists(dir)) {
+            return false;
+        }
+
+        try (Stream<Path> list = Files.list(dir)) {
+            return list.findAny().isEmpty();
+        }
     }
 }

@@ -17,12 +17,18 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
-import java.nio.ByteBuffer;
-import java.nio.file.Path;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -32,7 +38,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbStorage;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
@@ -50,41 +56,24 @@ import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /**
  * Tests for the table command listener.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 public class PartitionCommandListenerTest {
     /** Key count. */
     public static final int KEY_COUNT = 100;
 
-    /** Work directory. */
-    @WorkDirectory
-    private Path dataPath;
-
     /** Schema. */
-    public static SchemaDescriptor SCHEMA = new SchemaDescriptor(UUID.randomUUID(),
-        1,
-        new Column[] {new Column("key", NativeTypes.INT32, false)},
-        new Column[] {new Column("value", NativeTypes.INT32, false)}
+    public static SchemaDescriptor SCHEMA = new SchemaDescriptor(
+            1,
+            new Column[]{new Column("key", NativeTypes.INT32, false)},
+            new Column[]{new Column("value", NativeTypes.INT32, false)}
     );
 
     /** Table command listener. */
@@ -95,7 +84,7 @@ public class PartitionCommandListenerTest {
      */
     @BeforeEach
     public void before() {
-        commandListener = new PartitionListener(new RocksDbStorage(dataPath.resolve("db"), ByteBuffer::compareTo));
+        commandListener = new PartitionListener(new ConcurrentHashMapPartitionStorage());
     }
 
     /**
@@ -246,18 +235,20 @@ public class PartitionCommandListenerTest {
      * Prepares a closure iterator for a specific batch operation.
      *
      * @param func The function prepare a closure for the operation.
-     * @param <T> Type of the operation.
+     * @param <T>  Type of the operation.
      * @return Closure iterator.
      */
     private <T extends Command> Iterator<CommandClosure<T>> batchIterator(Consumer<CommandClosure<T>> func) {
         return new Iterator<CommandClosure<T>>() {
             boolean moved;
 
-            @Override public boolean hasNext() {
+            @Override
+            public boolean hasNext() {
                 return !moved;
             }
 
-            @Override public CommandClosure<T> next() {
+            @Override
+            public CommandClosure<T> next() {
                 CommandClosure<T> clo = mock(CommandClosure.class);
 
                 func.accept(clo);
@@ -273,26 +264,28 @@ public class PartitionCommandListenerTest {
      * Prepares a closure iterator for a specific operation.
      *
      * @param func The function prepare a closure for the operation.
-     * @param <T> Type of the operation.
+     * @param <T>  Type of the operation.
      * @return Closure iterator.
      */
     private <T extends Command> Iterator<CommandClosure<T>> iterator(BiConsumer<Integer, CommandClosure<T>> func) {
-        return new Iterator<CommandClosure<T>>() {
+        return new Iterator<>() {
             /** Iteration. */
-            private int i = 0;
+            private int it = 0;
 
             /** {@inheritDoc} */
-            @Override public boolean hasNext() {
-                return i < KEY_COUNT;
+            @Override
+            public boolean hasNext() {
+                return it < KEY_COUNT;
             }
 
             /** {@inheritDoc} */
-            @Override public CommandClosure<T> next() {
+            @Override
+            public CommandClosure<T> next() {
                 CommandClosure<T> clo = mock(CommandClosure.class);
 
-                func.accept(i, clo);
+                func.accept(it, clo);
 
-                i++;
+                it++;
 
                 return clo;
             }
@@ -318,17 +311,18 @@ public class PartitionCommandListenerTest {
                         assertTrue(keyVal < KEY_COUNT);
                         assertEquals(keyVal, row.intValue(1));
                     }
-                }
-                else
+                } else {
                     assertTrue(resp.getValues().isEmpty());
+                }
 
                 return null;
             }).when(clo).result(any(MultiRowsResponse.class));
 
             Set<BinaryRow> rows = new HashSet<>(KEY_COUNT);
 
-            for (int i = 0; i < KEY_COUNT; i++)
+            for (int i = 0; i < KEY_COUNT; i++) {
                 rows.add(getTestRow(i, i));
+            }
 
             when(clo.command()).thenReturn(new InsertAllCommand(rows));
         }));
@@ -347,8 +341,9 @@ public class PartitionCommandListenerTest {
 
             Set<BinaryRow> rows = new HashSet<>(KEY_COUNT);
 
-            for (int i = 0; i < KEY_COUNT; i++)
+            for (int i = 0; i < KEY_COUNT; i++) {
                 rows.add(getTestRow(i, i));
+            }
 
             when(clo.command()).thenReturn(new UpsertAllCommand(rows));
         }));
@@ -362,7 +357,7 @@ public class PartitionCommandListenerTest {
             doAnswer(invocation -> {
                 MultiRowsResponse resp = invocation.getArgument(0);
 
-                if (existed) {
+                if (!existed) {
                     assertEquals(KEY_COUNT, resp.getValues().size());
 
                     for (BinaryRow binaryRow : resp.getValues()) {
@@ -371,19 +366,19 @@ public class PartitionCommandListenerTest {
                         int keyVal = row.intValue(0);
 
                         assertTrue(keyVal < KEY_COUNT);
-                        assertEquals(keyVal, row.intValue(1));
                     }
-                }
-                else
+                } else {
                     assertTrue(resp.getValues().isEmpty());
+                }
 
                 return null;
             }).when(clo).result(any(MultiRowsResponse.class));
 
             Set<BinaryRow> keyRows = new HashSet<>(KEY_COUNT);
 
-            for (int i = 0; i < KEY_COUNT; i++)
+            for (int i = 0; i < KEY_COUNT; i++) {
                 keyRows.add(getTestKey(i));
+            }
 
             when(clo.command()).thenReturn(new DeleteAllCommand(keyRows));
         }));
@@ -408,17 +403,18 @@ public class PartitionCommandListenerTest {
                         assertTrue(keyVal < KEY_COUNT);
                         assertEquals(keyVal, row.intValue(1));
                     }
-                }
-                else
+                } else {
                     assertTrue(resp.getValues().isEmpty());
+                }
 
                 return null;
             }).when(clo).result(any(MultiRowsResponse.class));
 
             Set<BinaryRow> keyRows = new HashSet<>(KEY_COUNT);
 
-            for (int i = 0; i < KEY_COUNT; i++)
+            for (int i = 0; i < KEY_COUNT; i++) {
                 keyRows.add(getTestKey(i));
+            }
 
             when(clo.command()).thenReturn(new GetAllCommand(keyRows));
         }));
@@ -466,7 +462,7 @@ public class PartitionCommandListenerTest {
     /**
      * Reads rows from the listener and checks values as expected by a mapper.
      *
-     * @param existed True if rows are existed, false otherwise.
+     * @param existed        True if rows are existed, false otherwise.
      * @param keyValueMapper Mapper a key to the value which will be expected.
      */
     private void readAndCheck(boolean existed, Function<Integer, Integer> keyValueMapper) {
@@ -485,9 +481,9 @@ public class PartitionCommandListenerTest {
 
                     assertEquals(i, row.intValue(0));
                     assertEquals(keyValueMapper.apply(i), row.intValue(1));
-                }
-                else
+                } else {
                     assertNull(resp.getValue());
+                }
 
                 return null;
             }).when(clo).result(any(SingleRowResponse.class));
@@ -516,15 +512,16 @@ public class PartitionCommandListenerTest {
         commandListener.onWrite(batchIterator(clo -> {
             HashSet rows = new HashSet(KEY_COUNT);
 
-            for (int i = 0; i < KEY_COUNT; i++)
+            for (int i = 0; i < KEY_COUNT; i++) {
                 rows.add(getTestRow(i, i));
+            }
 
             when(clo.command()).thenReturn(new DeleteExactAllCommand(rows));
 
             doAnswer(invocation -> {
                 MultiRowsResponse resp = invocation.getArgument(0);
 
-                if (existed) {
+                if (!existed) {
                     assertEquals(KEY_COUNT, resp.getValues().size());
 
                     for (BinaryRow binaryRow : resp.getValues()) {
@@ -536,9 +533,9 @@ public class PartitionCommandListenerTest {
 
                         assertEquals(keyVal, row.intValue(1));
                     }
-                }
-                else
+                } else {
                     assertTrue(resp.getValues().isEmpty());
+                }
 
                 return null;
             }).when(clo).result(any());
@@ -560,9 +557,9 @@ public class PartitionCommandListenerTest {
 
                     assertEquals(i, row.intValue(0));
                     assertEquals(i, row.intValue(1));
-                }
-                else
+                } else {
                     assertNull(resp.getValue());
+                }
 
                 return null;
             }).when(clo).result(any());
@@ -584,9 +581,9 @@ public class PartitionCommandListenerTest {
 
                     assertEquals(i, row.intValue(0));
                     assertEquals(i + 1, row.intValue(1));
-                }
-                else
+                } else {
                     assertNull(resp.getValue());
+                }
 
                 return null;
             }).when(clo).result(any());
@@ -609,9 +606,9 @@ public class PartitionCommandListenerTest {
 
                     assertEquals(i, row.intValue(0));
                     assertEquals(i + 1, row.intValue(1));
-                }
-                else
+                } else {
                     assertNull(resp.getValue());
+                }
 
                 return null;
             }).when(clo).result(any());
@@ -678,7 +675,8 @@ public class PartitionCommandListenerTest {
      *
      * @return Row.
      */
-    @NotNull private Row getTestKey(int key) {
+    @NotNull
+    private Row getTestKey(int key) {
         RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
 
         rowBuilder.appendInt(key);
@@ -691,7 +689,8 @@ public class PartitionCommandListenerTest {
      *
      * @return Row.
      */
-    @NotNull private Row getTestRow(int key, int val) {
+    @NotNull
+    private Row getTestRow(int key, int val) {
         RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
 
         rowBuilder.appendInt(key);

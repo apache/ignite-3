@@ -27,20 +27,25 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 
 /**
  * Abstract test for raft server.
  */
 abstract class RaftServerAbstractTest {
-    /** */
+    /**
+     *
+     */
     protected static final IgniteLogger LOG = IgniteLogger.forClass(RaftServerAbstractTest.class);
 
-    /** */
-    protected static final RaftClientMessagesFactory FACTORY = new RaftClientMessagesFactory();
+    /**
+     *
+     */
+    protected static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     /** Network factory. */
     protected static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
@@ -50,33 +55,43 @@ abstract class RaftServerAbstractTest {
      */
     protected static final int PORT = 20010;
 
-    /** */
+    /**
+     *
+     */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
+
+    /** Test info. */
+    TestInfo testInfo;
 
     private final List<ClusterService> clusterServices = new ArrayList<>();
 
+    @BeforeEach
+    void initTestInfo(TestInfo testInfo) {
+        this.testInfo = testInfo;
+    }
+
     @AfterEach
-    protected void after(TestInfo testInfo) throws Exception {
+    protected void after() throws Exception {
         clusterServices.forEach(ClusterService::stop);
     }
 
     /**
-     * @param name Node name.
-     * @param port Local port.
+     * @param port    Local port.
      * @param servers Server nodes of the cluster.
      * @return The client cluster view.
      */
-    protected ClusterService clusterService(String name, int port, List<NetworkAddress> servers, boolean start) {
+    protected ClusterService clusterService(int port, List<NetworkAddress> servers, boolean start) {
         var network = ClusterServiceTestUtils.clusterService(
-            name,
-            port,
-            new StaticNodeFinder(servers),
-            SERIALIZATION_REGISTRY,
-            NETWORK_FACTORY
+                testInfo,
+                port,
+                new StaticNodeFinder(servers),
+                SERIALIZATION_REGISTRY,
+                NETWORK_FACTORY
         );
 
-        if (start)
+        if (start) {
             network.start();
+        }
 
         clusterServices.add(network);
 

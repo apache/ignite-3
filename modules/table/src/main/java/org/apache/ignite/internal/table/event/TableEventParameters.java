@@ -17,17 +17,16 @@
 
 package org.apache.ignite.internal.table.event;
 
-import java.util.UUID;
-
 import org.apache.ignite.internal.manager.EventParameters;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.lang.IgniteUuid;
 
 /**
  * Table event parameters. There are properties which associate with a concrete table.
  */
 public class TableEventParameters implements EventParameters {
     /** Table identifier. */
-    private final UUID tableId;
+    private final IgniteUuid tableId;
 
     /** Table name. */
     private final String tableName;
@@ -43,19 +42,19 @@ public class TableEventParameters implements EventParameters {
     }
 
     /**
-     * @param tableId Table identifier.
+     * @param tableId   Table identifier.
      * @param tableName Table name.
      */
-    public TableEventParameters(UUID tableId, String tableName) {
+    public TableEventParameters(IgniteUuid tableId, String tableName) {
         this(tableId, tableName, null);
     }
 
     /**
-     * @param tableId Table identifier.
+     * @param tableId   Table identifier.
      * @param tableName Table name.
-     * @param table Table instance.
+     * @param table     Table instance.
      */
-    public TableEventParameters(UUID tableId, String tableName, TableImpl table) {
+    public TableEventParameters(IgniteUuid tableId, String tableName, TableImpl table) {
         this.tableId = tableId;
         this.tableName = tableName;
         this.table = table;
@@ -66,7 +65,7 @@ public class TableEventParameters implements EventParameters {
      *
      * @return Table id.
      */
-    public UUID tableId() {
+    public IgniteUuid tableId() {
         return tableId;
     }
 

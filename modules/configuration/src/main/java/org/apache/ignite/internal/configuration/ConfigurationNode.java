@@ -17,24 +17,28 @@
 
 package org.apache.ignite.internal.configuration;
 
-import java.util.Collections;
+import static java.util.Collections.unmodifiableCollection;
+
+import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.apache.ignite.configuration.ConfigurationListenOnlyException;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Super class for dynamic configuration tree nodes. Has all common data and value retrieving algorithm in it.
  */
-public abstract class ConfigurationNode<VIEW, CHANGE> implements ConfigurationProperty<VIEW, CHANGE> {
+public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<VIEWT> {
     /** Listeners of property update. */
-    protected final List<ConfigurationListener<VIEW>> updateListeners = new CopyOnWriteArrayList<>();
+    private final List<ConfigurationListener<VIEWT>> updateListeners = new CopyOnWriteArrayList<>();
 
     /** Full path to the current node. */
     protected final List<String> keys;
@@ -48,85 +52,113 @@ public abstract class ConfigurationNode<VIEW, CHANGE> implements ConfigurationPr
     /** Configuration changer instance to get latest value of the root. */
     protected final DynamicConfigurationChanger changer;
 
+    /** Only adding listeners mode, without the ability to get or update the property value. */
+    protected final boolean listenOnly;
+
     /**
      * Cached value of current trees root. Useful to determine whether you have the latest configuration value or not.
      */
     private volatile TraversableTreeNode cachedRootNode;
 
     /** Cached configuration value. Immutable. */
-    private VIEW val;
+    private VIEWT val;
 
     /**
-     * Validity flag. Configuration is declared invalid if it's a part of named list configuration and corresponding
-     * entry is already removed.
+     * Validity flag. Configuration is declared invalid if it's a part of named list configuration and corresponding entry is already
+     * removed.
      */
     private boolean invalid;
 
     /**
      * Constructor.
      *
-     * @param prefix Configuration prefix.
-     * @param key Configuration key.
-     * @param rootKey Root key.
-     * @param changer Configuration changer.
+     * @param prefix     Configuration prefix.
+     * @param key        Configuration key.
+     * @param rootKey    Root key.
+     * @param changer    Configuration changer.
+     * @param listenOnly Only adding listeners mode, without the ability to get or update the property value.
      */
-    protected ConfigurationNode(List<String> prefix, String key, RootKey<?, ?> rootKey, DynamicConfigurationChanger changer) {
+    protected ConfigurationNode(
+            List<String> prefix,
+            String key,
+            RootKey<?, ?> rootKey,
+            DynamicConfigurationChanger changer,
+            boolean listenOnly
+    ) {
         this.keys = ConfigurationUtil.appendKey(prefix, key);
         this.key = key;
         this.rootKey = rootKey;
         this.changer = changer;
+        this.listenOnly = listenOnly;
 
         assert Objects.equals(rootKey.key(), keys.get(0));
     }
 
     /** {@inheritDoc} */
-    @Override public void listen(ConfigurationListener<VIEW> listener) {
+    @Override
+    public void listen(ConfigurationListener<VIEWT> listener) {
         updateListeners.add(listener);
     }
 
-    /** @return List of update listeners. */
-    public List<ConfigurationListener<VIEW>> listeners() {
-        return Collections.unmodifiableList(updateListeners);
+    /** {@inheritDoc} */
+    @Override
+    public void stopListen(ConfigurationListener<VIEWT> listener) {
+        updateListeners.remove(listener);
+    }
+
+    /**
+     * Returns list of update listeners.
+     *
+     * @return List of update listeners.
+     */
+    public Collection<ConfigurationListener<VIEWT>> listeners() {
+        return unmodifiableCollection(updateListeners);
     }
 
     /**
      * Returns latest value of the configuration or throws exception.
      *
      * @return Latest configuration value.
-     * @throws NoSuchElementException If configuration is a part of already deleted named list configuration entry.
+     * @throws NoSuchElementException           If configuration is a part of already deleted named list configuration entry.
+     * @throws ConfigurationListenOnlyException If there was an attempt to get or update a property value in {@link #listenOnly listen-only}
+     *                                          mode.
      */
-    protected final VIEW refreshValue() throws NoSuchElementException {
-        if (invalid)
-            throw noSuchElementException();
-
+    protected final VIEWT refreshValue() throws NoSuchElementException {
         TraversableTreeNode newRootNode = changer.getRootNode(rootKey);
         TraversableTreeNode oldRootNode = cachedRootNode;
 
-        if (oldRootNode == newRootNode)
+        // 'invalid' and 'val' visibility is guaranteed by the 'cachedRootNode' volatile read
+        if (invalid) {
+            throw noSuchElementException();
+        } else if (listenOnly) {
+            throw listenOnlyException();
+        }
+
+        if (oldRootNode == newRootNode) {
             return val;
+        }
 
         try {
-            VIEW newVal = (VIEW)ConfigurationUtil.find(keys.subList(1, keys.size()), newRootNode, true);
+            VIEWT newVal = ConfigurationUtil.find(keys.subList(1, keys.size()), newRootNode, true);
 
             synchronized (this) {
                 if (cachedRootNode == oldRootNode) {
-                    beforeRefreshValue(newVal);
+                    beforeRefreshValue(newVal, val);
 
                     val = newVal;
 
                     cachedRootNode = newRootNode;
 
                     return newVal;
-                }
-                else {
-                    if (invalid)
+                } else {
+                    if (invalid) {
                         throw noSuchElementException();
+                    }
 
                     return val;
                 }
             }
-        }
-        catch (KeyNotFoundException e) {
+        } catch (KeyNotFoundException e) {
             synchronized (this) {
                 invalid = true;
 
@@ -138,6 +170,8 @@ public abstract class ConfigurationNode<VIEW, CHANGE> implements ConfigurationPr
     }
 
     /**
+     * Returns exception instance with a proper error message.
+     *
      * @return Exception instance with a proper error message.
      */
     private NoSuchElementException noSuchElementException() {
@@ -148,8 +182,18 @@ public abstract class ConfigurationNode<VIEW, CHANGE> implements ConfigurationPr
      * Callback from {@link #refreshValue()} that's called right before the update. Synchronized.
      *
      * @param newValue New configuration value.
+     * @param oldValue Old configuration value.
      */
-    protected void beforeRefreshValue(VIEW newValue) {
+    protected void beforeRefreshValue(VIEWT newValue, @Nullable VIEWT oldValue) {
         // No-op.
+    }
+
+    /**
+     * Returns Exception if there was an attempt to get or update a property value in {@link #listenOnly listen-only} mode.
+     *
+     * @return Exception if there was an attempt to get or update a property value in {@link #listenOnly listen-only} mode.
+     */
+    protected ConfigurationListenOnlyException listenOnlyException() {
+        throw new ConfigurationListenOnlyException("Adding only listeners mode: " + keys);
     }
 }
