@@ -36,13 +36,13 @@ import org.apache.ignite.tx.IgniteTransactions;
 public class TcpIgniteClient implements IgniteClient {
     /** Configuration. */
     private final IgniteClientConfiguration cfg;
-
+    
     /** Channel. */
     private final ReliableChannel ch;
-
+    
     /** Tables. */
     private final ClientTables tables;
-
+    
     /**
      * Constructor.
      *
@@ -51,7 +51,7 @@ public class TcpIgniteClient implements IgniteClient {
     private TcpIgniteClient(IgniteClientConfiguration cfg) {
         this(TcpClientChannel::new, cfg);
     }
-
+    
     /**
      * Constructor with custom channel factory.
      *
@@ -64,13 +64,13 @@ public class TcpIgniteClient implements IgniteClient {
     ) {
         assert chFactory != null;
         assert cfg != null;
-
+        
         this.cfg = cfg;
-
+        
         ch = new ReliableChannel(chFactory, cfg);
         tables = new ClientTables(ch);
     }
-
+    
     /**
      * Initializes the connection.
      *
@@ -88,52 +88,52 @@ public class TcpIgniteClient implements IgniteClient {
      */
     public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) throws IgniteClientException {
         var client = new TcpIgniteClient(cfg);
-
+        
         return client.initAsync().thenApply(x -> client);
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public IgniteTables tables() {
         return tables;
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {
         return null;
     }
-
+    
     /** {@inheritDoc} */
-    @Override public IgniteSql sql() {
+    @Override
+    public IgniteSql sql() {
         return null;
     }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override public void setBaseline(Set<String> baselineNodes) {
+    
+    /** {@inheritDoc} */
+    @Override
+    public void setBaseline(Set<String> baselineNodes) {
         throw new UnsupportedOperationException();
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
         ch.close();
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public String name() {
         return "thin-client";
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public IgniteClientConfiguration configuration() {
         return cfg;
     }
-
+    
     /**
      * Send ClientMessage request to server size and reads ClientMessage result.
      *

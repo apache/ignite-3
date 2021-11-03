@@ -34,7 +34,7 @@ public class FakeIgnite implements Ignite {
     public FakeIgnite() {
         super();
     }
-
+    
     /**
      *
      */
@@ -45,35 +45,34 @@ public class FakeIgnite implements Ignite {
     public IgniteTables tables() {
         return tables;
     }
-
+    
     public QueryProcessor queryEngine() {
         return new FakeIgniteQueryProcessor();
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {
         return null;
     }
-
+    
     /** {@inheritDoc} */
-    @Override public IgniteSql sql() {
+    @Override
+    public IgniteSql sql() {
         return null;
     }
-
-    /**
-     * {@inheritDoc}
-     */
+    
+    /** {@inheritDoc} */
     @Override public void setBaseline(Set<String> baselineNodes) {
         throw new UnsupportedOperationException();
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public void close() {
         // No-op.
     }
-
+    
     /** {@inheritDoc} */
     @Override
     public String name() {

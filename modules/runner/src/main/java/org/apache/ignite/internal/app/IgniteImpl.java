@@ -282,14 +282,14 @@ public class IgniteImpl implements Ignite {
                     restModule,
                     clientHandlerModule
             );
-    
+            
             for (IgniteComponent component : otherComponents) {
                 doStartComponent(name, startedComponents, component);
             }
             
             // Deploy all registered watches because all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
-    
+            
             if (!status.compareAndSet(Status.STARTING, Status.STARTED)) {
                 throw new NodeStoppingException();
             }
@@ -331,8 +331,7 @@ public class IgniteImpl implements Ignite {
     public IgniteTables tables() {
         return distributedTblMgr;
     }
-
-    // TODO: To be replaced with IgniteImpl#sql().
+    
     public QueryProcessor queryEngine() {
         return qryEngine;
     }
@@ -342,11 +341,13 @@ public class IgniteImpl implements Ignite {
     public IgniteTransactions transactions() {
         return null;
     }
-
+    
     /** {@inheritDoc} */
-    @Override public IgniteSql sql() {
+    @Override
+    public IgniteSql sql() {
         return null;
     }
+    
     /** {@inheritDoc} */
     @Override
     public void close() {
@@ -409,7 +410,7 @@ public class IgniteImpl implements Ignite {
             throw new NodeStoppingException("Node=[" + nodeName + "] was stopped.");
         } else {
             startedComponents.add(component);
-    
+            
             component.start();
         }
     }
@@ -459,10 +460,10 @@ public class IgniteImpl implements Ignite {
             Files.createDirectories(vaultPath);
         } catch (IOException e) {
             throw new IgniteInternalException(e);
-        }
+            }
         
         return new VaultManager(new PersistentVaultService(vaultPath));
-    }
+        }
     
     /**
      * Returns a path to the partitions store directory. Creates a directory if it doesn't exist.

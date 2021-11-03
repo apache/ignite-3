@@ -27,13 +27,13 @@ public interface ReactiveSession {
     /**
      * Executes SQL query in reactive way.
      *
-     * @param sql SQL query template.
+     * @param sql  SQL query template.
      * @param args Arguments for the template (optional).
      * @return Reactive result.
      * @throws SQLException If failed.
      */
     ReactiveResultSet executeReactive(String sql, Object... args);
-
+    
     /**
      * Executes SQL query in reactive way.
      *
@@ -42,16 +42,16 @@ public interface ReactiveSession {
      * @throws SQLException If failed.
      */
     ReactiveResultSet executeReactive(Statement statement);
-
+    
     /**
      * Executes multi-statement SQL query in reactive way.
      *
-     * @param sql SQL query template.
+     * @param sql  SQL query template.
      * @param args Arguments for the template (optional).
      * @return Reactive result.
      * @throws SQLException If failed.
      */
     //TODO: Do we want to support multi-statements in reactive way?
     ReactiveMultiResultSet executeMultiStatementReactive(String sql, Object... args);
-
+    
 }

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.query.sql;
 
-import org.apache.ignite.schema.ColumnType;
+import org.apache.ignite.schema.definition.ColumnType;
 
 /**
  * Column metadata.
@@ -25,27 +25,27 @@ import org.apache.ignite.schema.ColumnType;
 public interface ColumnMetadata {
     /**
      * Return column name in resultset.
-     *
-     * Note: If row column doess not represents any table column, then generated name will be used.
+     * <p>
+     * Note: If row column does not represent any table column, then generated name will be used.
      *
      * @return Column name.
      */
     String name();
-
+    
     /**
      * Returns column type.
      *
      * @return Column type.
      */
     ColumnType columnType();
-
+    
     /**
      * Returns column value type.
      *
      * @return Value type.
      */
     Class<?> valueClass();
-
+    
     /**
      * Row column nullability.
      *

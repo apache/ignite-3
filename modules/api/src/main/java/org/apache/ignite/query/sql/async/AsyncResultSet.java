@@ -31,38 +31,38 @@ public interface AsyncResultSet {
      * @return ResultSet metadata.
      */
     ResultSetMetadata metadata();
-
+    
     /**
      * @return {@code True} if result set contains rows, {@code false} otherwise.
      */
     boolean hasRowSet();
-
+    
     /**
      * Returns number of row affected by DML query.
      *
      * @return Number of rows.
      */
     int updateCount();
-
+    
     /**
      * Returns result for the conditional query.
      *
      * @return {@code True} if conditional query applied, {@code false} otherwise.
      */
     boolean wasApplied();
-
+    
     /**
      * @return Current page rows.
      */
     Iterable<SqlRow> currentPage();
-
+    
     /**
      * Fetch the next page of results asynchronously.
      *
      * @return Operation future.
      */
     CompletionStage<? extends AsyncResultSet> fetchNextPageAsync();
-
+    
     /**
      * @return Whether there are more pages of results.
      */

@@ -29,19 +29,22 @@ public interface AsyncMultiResultSet extends AsyncResultSet {
      * @return Statement result index.
      */
     int currentResultAsync();
-
+    
     /**
      * Skip current statement result and fetch first page of the next statement.
      *
      * @return Operation future.
      */
     CompletionStage<AsyncMultiResultSet> skipResultAsync();
-
+    
     /**
      * @return Whether there are more statement results.
      */
     boolean hasMoreResults();
-
-    /** {@inheritDoc} */
-    @Override CompletionStage<AsyncMultiResultSet> fetchNextPageAsync();
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    CompletionStage<AsyncMultiResultSet> fetchNextPageAsync();
 }

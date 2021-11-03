@@ -33,200 +33,314 @@ import org.jetbrains.annotations.NotNull;
  * Dummy table storage implementation.
  */
 public class TestRow implements SqlRow {
-    /** Columns values. */
+    /**
+     * Columns values.
+     */
     private final Map<String, Object> map = new HashMap<>();
-
-    /** {@inheritDoc} */
-    @Override public TestRow set(String columnName, Object value) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public TestRow set(String columnName, Object value) {
         map.put(columnName, value);
-
+        
         return this;
     }
-
+    
     /**
      * @return Row.
      */
     public SqlRow build() {
         return this;
     }
-
-    /** {@inheritDoc} */
-    @Override public <T> T valueOrDefault(String columnName, T def) {
-        return (T)map.getOrDefault(columnName, def);
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public <T> T valueOrDefault(String columnName, T def) {
+        return (T) map.getOrDefault(columnName, def);
     }
-
-    /** {@inheritDoc} */
-    @Override public <T> T value(String columnName) {
-        return (T)map.get(columnName);
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public <T> T value(String columnName) {
+        return (T) map.get(columnName);
     }
-
-    /** {@inheritDoc} */
-    @Override public <T> T value(int columnIndex) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public <T> T value(int columnIndex) {
         throw new UnsupportedOperationException();
     }
-
-    /** {@inheritDoc} */
-    @Override public int columnCount() {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int columnCount() {
         return map.size();
     }
-
-    /** {@inheritDoc} */
-    @Override public String columnName(int columnIndex) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String columnName(int columnIndex) {
         throw new UnsupportedOperationException();
     }
-
-    /** {@inheritDoc} */
-    @Override public int columnIndex(String columnName) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int columnIndex(String columnName) {
         throw new UnsupportedOperationException();
     }
-
-    /** {@inheritDoc} */
-    @Override public BinaryObject binaryObjectValue(String columnName) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public BinaryObject binaryObjectValue(String columnName) {
         throw new UnsupportedOperationException();
     }
-
-    /** {@inheritDoc} */
-    @Override public BinaryObject binaryObjectValue(int columnIndex) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public BinaryObject binaryObjectValue(int columnIndex) {
         return null;
     }
-
-    /** {@inheritDoc} */
-    @Override public byte byteValue(String columnName) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public byte byteValue(String columnName) {
         return value(columnName);
     }
-
-    /** {@inheritDoc} */
-    @Override public byte byteValue(int columnIndex) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public byte byteValue(int columnIndex) {
         return 0;
     }
-
-    /** {@inheritDoc} */
-    @Override public short shortValue(String columnName) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public short shortValue(String columnName) {
         return value(columnName);
     }
-
-    /** {@inheritDoc} */
-    @Override public short shortValue(int columnIndex) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public short shortValue(int columnIndex) {
         return 0;
     }
-
-    /** {@inheritDoc} */
-    @Override public int intValue(String columnName) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int intValue(String columnName) {
         return value(columnName);
     }
-
-    /** {@inheritDoc} */
-    @Override public int intValue(int columnIndex) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int intValue(int columnIndex) {
         return 0;
     }
-
-    /** {@inheritDoc} */
-    @Override public long longValue(String columnName) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public long longValue(String columnName) {
         return value(columnName);
     }
-
-    /** {@inheritDoc} */
-    @Override public long longValue(int columnIndex) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public long longValue(int columnIndex) {
         return 0;
     }
-
-    /** {@inheritDoc} */
-    @Override public float floatValue(String columnName) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public float floatValue(String columnName) {
         return value(columnName);
     }
-
-    /** {@inheritDoc} */
-    @Override public float floatValue(int columnIndex) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public float floatValue(int columnIndex) {
         return 0;
     }
-
-    /** {@inheritDoc} */
-    @Override public double doubleValue(String columnName) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public double doubleValue(String columnName) {
         return value(columnName);
     }
-
-    /** {@inheritDoc} */
-    @Override public double doubleValue(int columnIndex) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public double doubleValue(int columnIndex) {
         return 0;
     }
-
-    /** {@inheritDoc} */
-    @Override public String stringValue(String columnName) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String stringValue(String columnName) {
         return value(columnName);
     }
-
-    /** {@inheritDoc} */
-    @Override public String stringValue(int columnIndex) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String stringValue(int columnIndex) {
         return null;
     }
-
-    /** {@inheritDoc} */
-    @Override public UUID uuidValue(String columnName) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public UUID uuidValue(String columnName) {
         return value(columnName);
     }
-
-    /** {@inheritDoc} */
-    @Override public UUID uuidValue(int columnIndex) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public UUID uuidValue(int columnIndex) {
         return null;
     }
-
-    /** {@inheritDoc} */
-    @Override public BitSet bitmaskValue(String columnName) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public BitSet bitmaskValue(String columnName) {
         return value(columnName);
     }
-
-    /** {@inheritDoc} */
-    @Override public BitSet bitmaskValue(int columnIndex) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public BitSet bitmaskValue(int columnIndex) {
         return null;
     }
-
-    /** {@inheritDoc} */
-    @Override public LocalDate dateValue(String columnName) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public LocalDate dateValue(String columnName) {
         return null;
     }
-
-    /** {@inheritDoc} */
-    @Override public LocalDate dateValue(int columnIndex) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public LocalDate dateValue(int columnIndex) {
         return null;
     }
-
-    /** {@inheritDoc} */
-    @Override public LocalTime timeValue(String columnName) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public LocalTime timeValue(String columnName) {
         return null;
     }
-
-    /** {@inheritDoc} */
-    @Override public LocalTime timeValue(int columnIndex) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public LocalTime timeValue(int columnIndex) {
         return null;
     }
-
-    /** {@inheritDoc} */
-    @Override public LocalDateTime datetimeValue(String columnName) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public LocalDateTime datetimeValue(String columnName) {
         return null;
     }
-
-    /** {@inheritDoc} */
-    @Override public LocalDateTime datetimeValue(int columnIndex) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public LocalDateTime datetimeValue(int columnIndex) {
         return null;
     }
-
-    /** {@inheritDoc} */
-    @Override public Instant timestampValue(String columnName) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Instant timestampValue(String columnName) {
         return null;
     }
-
-    /** {@inheritDoc} */
-    @Override public Instant timestampValue(int columnIndex) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Instant timestampValue(int columnIndex) {
         return null;
     }
-
-    /** {@inheritDoc} */
-    @NotNull @Override public Iterator<Object> iterator() {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @NotNull
+    @Override
+    public Iterator<Object> iterator() {
         throw new UnsupportedOperationException();
     }
-
-    /** {@inheritDoc} */
-    @Override public ResultSetMetadata metadata() {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ResultSetMetadata metadata() {
         throw new UnsupportedOperationException();
     }
 }

@@ -33,15 +33,16 @@ public interface IgniteTableStatistics {
      * @return Statistics names for the table.
      */
     Collection<String> statisticNames();
-
+    
     /**
      * Get statistics info for the table.
      *
      * @param statisticName Statistic name.
      * @return Statistics info.
      */
-    StatisticInfo statistic(String statisticName); //TODO: Local or global? Ready or in-progress? TBD.
-
+    StatisticInfo statistic(
+            String statisticName); //TODO: Local or global? Ready or in-progress? TBD.
+    
     /**
      * Creates statistics for the table and initiate it gathering on the nodes.
      *
@@ -53,31 +54,33 @@ public interface IgniteTableStatistics {
     //TODO: Should the existed one be refreshed? or fail with exception?
     //TODO: What if existed statistics has different configuration?
     //TODO: Can future be cancelled?
-
+    
     /**
-     * Refresh a global statistic by given name or all existed statistics if no statistic name specified.
+     * Refresh a global statistic by given name or all existed statistics if no statistic name
+     * specified.
      *
      * @param statisticNames Statistic names (optional).
      * @return Operation future.
      */
     CompletableFuture<StatisticInfo> refresh(String... statisticNames);
     //TODO: What if statistics with name is not exists? one of names?
-
+    
     /**
      * Drop table statistic.
      *
      * @param statisticNames Statistic names.
      */
     void drop(String... statisticNames);
-
+    
     /**
      * Refresh local statistics.
      *
      * @param statisticNames Statistic names.
      * @return Operation future.
      */
-    CompletableFuture<StatisticInfo> refreshLocal(String... statisticNames); //TODO: Actually, drops local statistics to be automatically refreshed.
-
+    CompletableFuture<StatisticInfo> refreshLocal(
+            String... statisticNames); //TODO: Actually, drops local statistics to be automatically refreshed.
+    
     /**
      * Statistic info.
      */
@@ -87,13 +90,13 @@ public interface IgniteTableStatistics {
          * @return Statistic name.
          */
         String name();
-
+        
         /**
          * @return Statistic configuration.
          */
         StatisticConfiguration config();
     }
-
+    
     /**
      * Statistic configuration.
      */

@@ -29,13 +29,13 @@ public interface AsyncSession {
     /**
      * Executes SQL query in async way.
      *
-     * @param query SQL query template.
+     * @param query     SQL query template.
      * @param arguments Arguments for the template (optional).
      * @return Operation future.
      * @throws SQLException If failed.
      */
     CompletableFuture<AsyncResultSet> executeAsync(String query, Object... arguments);
-
+    
     /**
      * Executes SQL statement in async way.
      *
@@ -44,14 +44,15 @@ public interface AsyncSession {
      * @throws SQLException If failed.
      */
     CompletableFuture<AsyncResultSet> executeAsync(Statement statement);
-
+    
     /**
      * Executes multi-statement SQL query in async way.
      *
-     * @param query SQL query template.
+     * @param query     SQL query template.
      * @param arguments Arguments for the template (optional).
      * @return Operation future.
      * @throws SQLException If failed.
      */
-    CompletableFuture<AsyncMultiResultSet> executeMultiAsync(@NotNull String query, Object... arguments);
+    CompletableFuture<AsyncMultiResultSet> executeMultiAsync(@NotNull String query,
+            Object... arguments);
 }

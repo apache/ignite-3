@@ -28,47 +28,47 @@ public interface Statement {
      * @return Statement SQL query.
      */
     String query();
-
+    
     /**
      * @return Query parameters.
      */
     Object[] parameters();
-
+    
     /**
      * @param parameters Query parameters.
      * @return {@code this} for chaining.
      */
     Statement parameters(Object... parameters);
-
+    
     /**
      * @param parameterIndex Query parameter index.
      * @param parameterValue Query parameter value.
      * @return {@code this} for chaining.
      */
     Statement parameter(int parameterIndex, Object parameterValue);
-
+    
     /**
      * Clears batch and query parameters.
      *
      * @return {@code this} for chaining.
      */
     Statement resetState();
-
+    
     /**
      * Adds a set of parameters to this statement object's batch of commands.
      *
      * @return {@code this} for chaining.
      */
     Statement addBatch() throws SQLException;
-
+    
     /**
      * Sets query timeout.
      *
-     * @param timeout Query timeout value.
+     * @param timeout  Query timeout value.
      * @param timeUnit Timeunit.
      */
     void queryTimeout(int timeout, TimeUnit timeUnit);
-
+    
     /**
      * Gets query timeout.
      *
@@ -76,11 +76,11 @@ public interface Statement {
      * @return Query timeout.
      */
     long queryTimeout(TimeUnit timeUnit);
-
+    
     /**
      * Sets statement property.
      *
-     * @param name Property name.
+     * @param name  Property name.
      * @param value Property value.
      * @return {@code this} for chaining.
      */

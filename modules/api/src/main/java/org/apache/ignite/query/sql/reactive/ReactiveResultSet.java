@@ -23,34 +23,34 @@ import org.apache.ignite.query.sql.SqlRow;
 
 /**
  * Reactive result set provides methods to subscribe to the query results in reactive way.
- *
+ * <p>
  * Note: It implies to be used with the reactive framework such as ProjectReactor or R2DBC.
  */
 public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
-
+    
     /**
      * Return publisher for the ResultSet's metadata.
      *
      * @return Metadata publisher.
      */
     Flow.Publisher<ResultSetMetadata> metadata();
-
+    
     /**
      * @return {@code True} if result set contains rows, {@code false} otherwise.
      */
     Flow.Publisher<Boolean> hasRowSet();
-
+    
     /**
      * Returns number of row affected by DML query.
      *
      * @return Number of rows.
      */
     Flow.Publisher<Integer> updateCount();
-
+    
     /**
      * Returns result for the conditional query.
      *
      * @return {@code True} if conditional query applied, {@code false} otherwise.
      */
-    Flow.Publisher<Boolean>  wasApplied();
+    Flow.Publisher<Boolean> wasApplied();
 }

@@ -29,7 +29,7 @@ public interface IgniteSql {
      * @return Session.
      */
     Session newSession();
-
+    
     /**
      * Creates statement.
      *

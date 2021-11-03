@@ -29,14 +29,14 @@ public interface ResultSetMetadata {
      * @return Number of columns.
      */
     int columnsCount();
-
+    
     /**
      * Returns metadata with description for every column in result set.
      *
      * @return Columns metadata.
      */
     List<ColumnMetadata> columns();
-
+    
     /**
      * Returns metadata for the requested column.
      *
@@ -44,7 +44,7 @@ public interface ResultSetMetadata {
      * @return Column metadata.
      */
     ColumnMetadata column(int columnId);
-
+    
     /**
      * Returns metadata for the requested column.
      *
@@ -52,7 +52,7 @@ public interface ResultSetMetadata {
      * @return Column metadata.
      */
     ColumnMetadata column(String columnName);
-
+    
     /**
      * Returns column id in ResultSet by column name.
      *

@@ -35,7 +35,7 @@ public interface Session extends AsyncSession, ReactiveSession {
      */
 //TODO: Drop this and add "Session Transaction.wrap(Session)" method.
     Session withTransaction(@NotNull Transaction tx);
-
+    
     /**
      * Creates transactional SQL session projection with a new transaction.
      *
@@ -43,15 +43,15 @@ public interface Session extends AsyncSession, ReactiveSession {
      */
 //TODO: Drop this and add "Session Transaction.wrap(Session)" method.
     Session withNewTransaction();
-
+    
     /**
      * Sets default query timeout.
      *
-     * @param timeout Query timeout value.
+     * @param timeout  Query timeout value.
      * @param timeUnit Timeunit.
      */
     void defaultTimeout(int timeout, TimeUnit timeUnit);
-
+    
     /**
      * Gets default query timeout.
      *
@@ -59,31 +59,31 @@ public interface Session extends AsyncSession, ReactiveSession {
      * @return Default query timeout.
      */
     long defaultTimeout(TimeUnit timeUnit);
-
+    
     /**
      * Sets default query schema.
      *
      * @param schema Default schema.
      */
     void defaultSchema(@NotNull String schema);
-
+    
     /**
      * Gets default query schema.
      *
      * @return Default query schema.
      */
     String defaultSchema();
-
+    
     /**
      * Executes single SQL query.
      *
-     * @param query SQL query template.
+     * @param query     SQL query template.
      * @param arguments Arguments for the template (optional).
      * @return SQL query results set.
      * @throws SQLException If failed.
      */
     ResultSet execute(@NotNull String query, Object... arguments);
-
+    
     /**
      * Executes single SQL statement.
      *
@@ -91,26 +91,26 @@ public interface Session extends AsyncSession, ReactiveSession {
      * @return SQL query results set.
      */
     ResultSet execute(@NotNull Statement statement);
-
+    
     /**
      * Executes multi-statement SQL query.
      *
-     * @param query SQL query template.
+     * @param query     SQL query template.
      * @param arguments Arguments for the template (optional).
      * @return SQL query results set.
      * @throws SQLException If failed.
      */
     MultiResultSet executeMulti(@NotNull String query, Object... arguments);
-
+    
     /**
      * Sets session property.
      *
-     * @param name Property name.
+     * @param name  Property name.
      * @param value Property value.
      * @return {@code this} for chaining.
      */
     Session property(@NotNull String name, Object value);
-
+    
     /**
      * Returns current transaction.
      *

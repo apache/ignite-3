@@ -22,5 +22,6 @@ package org.apache.ignite.query.sql;
  */
 public interface MultiResultSet extends Iterable<ResultSet>, AutoCloseable {
     /** {@inheritDoc} */
-    @Override void close();
+    @Override
+    void close();
 }
