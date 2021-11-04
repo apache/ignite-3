@@ -38,8 +38,8 @@ import org.apache.ignite.lang.IgniteUuid;
 /**
  * ByteBuf-based MsgPack implementation. Replaces {@link org.msgpack.core.MessagePacker} to avoid
  * extra buffers and indirection.
- * <p>
- * Releases wrapped buffer on {@link #close()} .
+ *
+ * <p>Releases wrapped buffer on {@link #close()} .
  */
 public class ClientMessagePacker implements AutoCloseable {
     /**
@@ -350,8 +350,8 @@ public class ClientMessagePacker implements AutoCloseable {
     
     /**
      * Writes Extension value header.
-     * <p>
-     * Should be followed by {@link #writePayload(byte[])} method to write the extension body.
+     *
+     * <p>Should be followed by {@link #writePayload(byte[])} method to write the extension body.
      *
      * @param extType    the extension type tag to be written.
      * @param payloadLen number of bytes of a payload binary to be written.
@@ -442,8 +442,8 @@ public class ClientMessagePacker implements AutoCloseable {
     
     /**
      * Writes a byte array to the output.
-     * <p>
-     * This method is used with {@link #packRawStringHeader(int)} or {@link #packBinaryHeader(int)}
+     *
+     * <p>This method is used with {@link #packRawStringHeader(int)} or {@link #packBinaryHeader(int)}
      * methods.
      *
      * @param src the data to add.
@@ -456,8 +456,8 @@ public class ClientMessagePacker implements AutoCloseable {
     
     /**
      * Writes a byte array to the output.
-     * <p>
-     * This method is used with {@link #packRawStringHeader(int)} or {@link #packBinaryHeader(int)}
+     *
+     * <p>This method is used with {@link #packRawStringHeader(int)} or {@link #packBinaryHeader(int)}
      * methods.
      *
      * @param src the data to add.
