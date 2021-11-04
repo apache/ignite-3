@@ -44,20 +44,23 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 public class ClientMessageUnpackerTest {
     @Test
-    public void testPackNil() {
-        testPacker(ClientMessagePacker::packNil, MessagePacker::packNil);
+    public void testUnpackNil() {
+        testUnpacker(ClientMessagePacker::packNil, u -> {
+            u.unpackNil();
+            return null;
+        }, null);
     }
 
     @ParameterizedTest
     @ValueSource(bytes = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE})
-    public void testPackByte(byte b) {
-        testPacker(p -> p.packByte(b), p -> p.packByte(b));
+    public void testUnpackByte(byte b) {
+        testUnpacker(p -> p.packByte(b), ClientMessageUnpacker::unpackByte, b);
     }
 
     @ParameterizedTest
     @ValueSource(shorts = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE})
-    public void testPackShort(short s) {
-        testPacker(p -> p.packShort(s), p -> p.packShort(s));
+    public void testUnpackShort(short s) {
+        testUnpacker(p -> p.packShort(s), p -> p.unpackShort(), s);
     }
 
     @ParameterizedTest
