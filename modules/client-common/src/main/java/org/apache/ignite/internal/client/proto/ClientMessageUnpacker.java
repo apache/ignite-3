@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import io.netty.buffer.ByteBufUtil;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -88,6 +90,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      */
     public ClientMessageUnpacker(ByteBuf buf) {
         // TODO: Remove intermediate classes and buffers IGNITE-15234.
+        // TODO: Remove overrides
+        // TODO: Remove extends
         this(new InputStreamBufferInput(new ByteBufInputStream(buf)), buf);
     }
 
@@ -164,23 +168,87 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     /** {@inheritDoc} */
     @Override public String unpackString() {
         assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            return super.unpackString();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    
+        int len = unpackRawStringHeader();
+        int pos = buf.readerIndex();
+    
+        String res = buf.toString(pos, len, StandardCharsets.UTF_8);
+        
+        buf.readerIndex(pos + len);
+        
+        return res;
+    }
+    
+    public int unpackRawStringHeader()
+    {
+        byte b = readByte();
+        
+        if (Code.isFixedRaw(b)) {
+            return b & 0x1f;
+        }
+        
+        int len = tryReadStringHeader(b);
+        
+        if (len >= 0) {
+            return len;
+        }
+        
+        throw unexpected("String", b);
+    }
+    
+    private int tryReadStringHeader(byte b)
+    {
+        switch (b) {
+            case Code.STR8:
+                return readNextLength8();
+                
+            case Code.STR16:
+                return readNextLength16();
+                
+            case Code.STR32:
+                return readNextLength32();
+                
+            default:
+                return -1;
         }
     }
-
-    /** {@inheritDoc} */
+    
+    private int readNextLength8()
+    {
+        byte u8 = readByte();
+        return u8 & 0xff;
+    }
+    
+    private int readNextLength16()
+    {
+        short u16 = readShort();
+        return u16 & 0xffff;
+    }
+    
+    private int readNextLength32()
+    {
+        int u32 = readInt();
+        if (u32 < 0) {
+            throw overflowU32Size(u32);
+        }
+        return u32;
+    }
+    
+    /**
+     * Reads a Nil byte.
+     *
+     * @throws MessageTypeException when value is not MessagePack Nil type
+     */
     @Override public void unpackNil() {
         assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            super.unpackNil();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    
+        byte b = readByte();
+        
+        if (b == Code.NIL) {
+            return;
         }
+        
+        throw unexpected("Nil", b);
     }
 
     /** {@inheritDoc} */
