@@ -179,61 +179,6 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         return res;
     }
     
-    public int unpackRawStringHeader()
-    {
-        byte b = readByte();
-        
-        if (Code.isFixedRaw(b)) {
-            return b & 0x1f;
-        }
-        
-        int len = tryReadStringHeader(b);
-        
-        if (len >= 0) {
-            return len;
-        }
-        
-        throw unexpected("String", b);
-    }
-    
-    private int tryReadStringHeader(byte b)
-    {
-        switch (b) {
-            case Code.STR8:
-                return readNextLength8();
-                
-            case Code.STR16:
-                return readNextLength16();
-                
-            case Code.STR32:
-                return readNextLength32();
-                
-            default:
-                return -1;
-        }
-    }
-    
-    private int readNextLength8()
-    {
-        byte u8 = readByte();
-        return u8 & 0xff;
-    }
-    
-    private int readNextLength16()
-    {
-        short u16 = readShort();
-        return u16 & 0xffff;
-    }
-    
-    private int readNextLength32()
-    {
-        int u32 = readInt();
-        if (u32 < 0) {
-            throw overflowU32Size(u32);
-        }
-        return u32;
-    }
-    
     /**
      * Reads a Nil byte.
      *
@@ -887,14 +832,14 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     /**
      * Create an exception for the case when an unexpected byte value is read
      *
-     * @param expected
-     * @param b
-     * @return
-     * @throws MessageFormatException
+     * @param expected Expected format.
+     * @param b Actual format.
+     * @return Exception to throw.
      */
     private static MessagePackException unexpected(String expected, byte b)
     {
         MessageFormat format = MessageFormat.valueOf(b);
+        
         if (format == MessageFormat.NEVER_USED) {
             return new MessageNeverUsedFormatException(String.format("Expected %s, but encountered 0xC1 \"NEVER_USED\" byte", expected));
         }
@@ -904,7 +849,62 @@ public class ClientMessageUnpacker extends MessageUnpacker {
             return new MessageTypeException(String.format("Expected %s, but got %s (%02x)", expected, typeName, b));
         }
     }
-
+    
+    public int unpackRawStringHeader()
+    {
+        byte b = readByte();
+        
+        if (Code.isFixedRaw(b)) {
+            return b & 0x1f;
+        }
+        
+        int len = tryReadStringHeader(b);
+        
+        if (len >= 0) {
+            return len;
+        }
+        
+        throw unexpected("String", b);
+    }
+    
+    private int tryReadStringHeader(byte b)
+    {
+        switch (b) {
+            case Code.STR8:
+                return readNextLength8();
+            
+            case Code.STR16:
+                return readNextLength16();
+            
+            case Code.STR32:
+                return readNextLength32();
+            
+            default:
+                return -1;
+        }
+    }
+    
+    private int readNextLength8()
+    {
+        byte u8 = readByte();
+        return u8 & 0xff;
+    }
+    
+    private int readNextLength16()
+    {
+        short u16 = readShort();
+        return u16 & 0xffff;
+    }
+    
+    private int readNextLength32()
+    {
+        int u32 = readInt();
+        if (u32 < 0) {
+            throw overflowU32Size(u32);
+        }
+        return u32;
+    }
+    
     private byte readByte() {
         // TODO: Inline this and below?
         assert refCnt > 0 : "Unpacker is closed";
