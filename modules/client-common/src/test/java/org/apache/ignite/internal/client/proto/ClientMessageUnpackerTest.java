@@ -109,8 +109,8 @@ public class ClientMessageUnpackerTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"", "Abc", "Абв", "\uD83D\uDD25", "\uD808\uDC16\uD834\uDD1E"})
-    public void testPackString(String s) {
-        testPacker(p -> p.packString(s), p -> p.packString(s));
+    public void testUnpackString(String s) {
+        testUnpacker(p -> p.packString(s), ClientMessageUnpacker::unpackString, s);
     }
 
     @ParameterizedTest
