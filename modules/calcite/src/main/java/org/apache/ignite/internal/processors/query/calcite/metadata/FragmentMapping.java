@@ -92,7 +92,7 @@ public class FragmentMapping implements Serializable {
      * Get colocated flag.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public boolean colocted() {
+    public boolean colocated() {
         return colocationGroups.isEmpty() || colocationGroups.size() == 1;
     }
 

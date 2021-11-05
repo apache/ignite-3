@@ -105,25 +105,6 @@ public class ClientMessagePackerUnpackerTest {
         }
     }
 
-    private void testUUID(UUID u) {
-        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
-            packer.packUuid(u);
-
-            var buf = packer.getBuffer();
-            var len = buf.readInt();
-
-            byte[] data = new byte[buf.readableBytes()];
-            buf.readBytes(data);
-
-            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
-                var res = unpacker.unpackUuid();
-
-                assertEquals(18, len); // 1 ext + 1 ext type + 16 UUID data
-                assertEquals(u, res);
-            }
-        }
-    }
-
     @Test
     public void testNumber() {
         testNumber(BigInteger.ZERO);
