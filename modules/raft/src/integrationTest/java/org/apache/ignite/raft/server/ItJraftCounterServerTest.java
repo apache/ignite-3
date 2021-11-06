@@ -547,15 +547,18 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
 
     /** Tests that users related exceptions from SM are propagated to the client. */
     @Test
-    public void testClientCatchExceptionFromSM() throws Exception {
+    public void testClientCatchExceptionFromSm() throws Exception {
         listenerFactory = () -> new CounterListener() {
-            @Override public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
+            @Override
+            public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
                 Iterator<CommandClosure<WriteCommand>> wrapper = new Iterator<>() {
-                    @Override public boolean hasNext() {
+                    @Override
+                    public boolean hasNext() {
                         return iterator.hasNext();
                     }
 
-                    @Override public CommandClosure<WriteCommand> next() {
+                    @Override
+                    public CommandClosure<WriteCommand> next() {
                         CommandClosure<WriteCommand> cmd = iterator.next();
 
                         cmd.result(new RuntimeException("Expected message"));
@@ -594,8 +597,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
         client1.refreshLeader().get();
         client2.refreshLeader().get();
 
-        NodeImpl leader = servers.stream().map(s -> ((NodeImpl)s.raftGroupService(COUNTER_GROUP_0).getRaftNode())).
-            filter(n -> n.getState() == STATE_LEADER).findFirst().orElse(null);
+        NodeImpl leader = servers.stream().map(s -> ((NodeImpl) s.raftGroupService(COUNTER_GROUP_0).getRaftNode()))
+                .filter(n -> n.getState() == STATE_LEADER).findFirst().orElse(null);
 
         assertNotNull(leader);
 
@@ -603,8 +606,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
             client1.<Long>run(new IncrementAndGetCommand(0)).get();
 
             fail();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             // Expected.
             Throwable cause = e.getCause();
 
@@ -617,8 +619,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
             client1.<Long>run(new GetValueCommand()).get();
 
             fail();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             // Expected.
             Throwable cause = e.getCause();
 

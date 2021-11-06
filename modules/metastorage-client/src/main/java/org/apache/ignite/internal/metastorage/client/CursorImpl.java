@@ -134,15 +134,18 @@ public class CursorImpl<T> implements Cursor<T> {
                         cursorId -> metaStorageRaftGrpSvc.run(new CursorNextCommand(cursorId))).get();
 
                 return fn.apply(res);
-            }
-            catch (InterruptedException | ExecutionException e) {
+            } catch (InterruptedException | ExecutionException e) {
                 Throwable cause = e.getCause();
 
-                if (cause != null)
-                    if (cause.getClass().equals(NodeStoppingException.class))
+                if (cause != null) {
+                    if (cause.getClass().equals(NodeStoppingException.class)) {
                         throw new NoSuchElementException();
-                    else if (cause.getClass().equals(NoSuchElementException.class))
-                        throw (NoSuchElementException)cause;
+                    } else {
+                        if (cause.getClass().equals(NoSuchElementException.class)) {
+                            throw (NoSuchElementException) cause;
+                        }
+                    }
+                }
 
                 LOG.debug("Unable to evaluate cursor hasNext command", e);
 

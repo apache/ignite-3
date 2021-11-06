@@ -247,7 +247,7 @@ public class MetaStorageListener implements RaftGroupListener {
 
                 try {
                     if (cursorDesc.type() == CursorType.RANGE) {
-                        Entry e = (Entry)cursorDesc.cursor().next();
+                        Entry e = (Entry) cursorDesc.cursor().next();
 
                         clo.result(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
                     } else if (cursorDesc.type() == CursorType.WATCH) {

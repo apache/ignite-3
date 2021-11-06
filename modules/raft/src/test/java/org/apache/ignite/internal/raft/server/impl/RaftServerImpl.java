@@ -246,7 +246,7 @@ public class RaftServerImpl implements RaftServer {
                 NetworkMessage msg;
                 if (res instanceof Throwable) {
                     msg = clientMsgFactory.sMErrorResponse()
-                        .error(new SMCompactedThrowable((Throwable)res))
+                        .error(new SMCompactedThrowable((Throwable) res))
                         .build();
                 } else {
                     msg = clientMsgFactory.actionResponse().result(res).build();
