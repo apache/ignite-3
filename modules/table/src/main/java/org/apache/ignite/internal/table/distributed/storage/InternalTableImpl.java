@@ -579,11 +579,6 @@ public class InternalTableImpl implements InternalTable {
                                 })
                         .exceptionally(
                                 t -> {
-                                    if (t instanceof NoSuchElementException
-                                            || t instanceof CompletionException && t.getCause() instanceof NoSuchElementException) {
-                                        return null;
-                                    }
-
                                     cancel(!scanInitOp.isCompletedExceptionally());
 
                                     subscriber.onError(t);
