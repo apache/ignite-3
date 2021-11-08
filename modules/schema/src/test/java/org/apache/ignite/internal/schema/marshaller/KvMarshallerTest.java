@@ -146,16 +146,17 @@ public class KvMarshallerTest {
         
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
         
-        final Object key = TestObjectWithAllTypes.randomObject(rnd);
-        final Object val = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes key = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
         
-        KvMarshaller marshaller = factory.create(schema, key.getClass(), val.getClass());
+        KvMarshaller<TestObjectWithAllTypes, TestObjectWithAllTypes> marshaller =
+                factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class);
         
         BinaryRow row = marshaller.marshal(key, val);
         
         // Try different order.
-        Object restoredVal = marshaller.unmarshalValue(new Row(schema, row));
-        Object restoredKey = marshaller.unmarshalKey(new Row(schema, row));
+        TestObjectWithAllTypes restoredVal = marshaller.unmarshalValue(new Row(schema, row));
+        TestObjectWithAllTypes restoredKey = marshaller.unmarshalKey(new Row(schema, row));
         
         assertTrue(key.getClass().isInstance(restoredKey));
         assertTrue(val.getClass().isInstance(restoredVal));
@@ -174,10 +175,11 @@ public class KvMarshallerTest {
         
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
         
-        final Object key = TestTruncatedObject.randomObject(rnd);
-        final Object val = TestTruncatedObject.randomObject(rnd);
+        KvMarshaller<TestTruncatedObject, TestTruncatedObject> marshaller =
+                factory.create(schema, TestTruncatedObject.class, TestTruncatedObject.class);
         
-        KvMarshaller marshaller = factory.create(schema, key.getClass(), val.getClass());
+        final TestTruncatedObject key = TestTruncatedObject.randomObject(rnd);
+        final TestTruncatedObject val = TestTruncatedObject.randomObject(rnd);
         
         BinaryRow row = marshaller.marshal(key, val);
         
@@ -206,27 +208,27 @@ public class KvMarshallerTest {
         
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
         
+        KvMarshaller<TestObjectWithAllTypes, TestObjectWithAllTypes> marshaller =
+                factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class);
+        
         final TestObjectWithAllTypes key = TestObjectWithAllTypes.randomObject(rnd);
         final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
-        
-        KvMarshaller marshaller = factory.create(schema, key.getClass(), val.getClass());
         
         BinaryRow row = marshaller.marshal(key, val);
         
         // Try different order.
-        TestObjectWithAllTypes restoredVal = (TestObjectWithAllTypes) marshaller.unmarshalValue(new Row(schema, row));
-        TestObjectWithAllTypes restoredKey = (TestObjectWithAllTypes) marshaller.unmarshalKey(new Row(schema, row));
+        TestObjectWithAllTypes restoredVal = marshaller.unmarshalValue(new Row(schema, row));
+        TestObjectWithAllTypes restoredKey = marshaller.unmarshalKey(new Row(schema, row));
         
         assertTrue(key.getClass().isInstance(restoredKey));
         assertTrue(val.getClass().isInstance(restoredVal));
         
         TestObjectWithAllTypes expectedKey = new TestObjectWithAllTypes();
-        TestObjectWithAllTypes expectedVal = new TestObjectWithAllTypes();
-        
         expectedKey.setPrimitiveLongCol(key.getPrimitiveLongCol());
         expectedKey.setPrimitiveDoubleCol(key.getPrimitiveDoubleCol());
         expectedKey.setStringCol(key.getStringCol());
-        
+    
+        TestObjectWithAllTypes expectedVal = new TestObjectWithAllTypes();
         expectedVal.setPrimitiveLongCol(val.getPrimitiveLongCol());
         expectedVal.setPrimitiveDoubleCol(val.getPrimitiveDoubleCol());
         expectedVal.setStringCol(val.getStringCol());
@@ -253,9 +255,6 @@ public class KvMarshallerTest {
                         new Column("longCol2", INT64, true),
                         new Column("stringCol", STRING, false)
                 });
-        
-        final TestKeyObject key = TestKeyObject.randomObject(rnd);
-        final TestObject val = TestObject.randomObject(rnd);
         
         Mapper<TestKeyObject> keyMapper = new Mapper<>() {
             @Override
@@ -289,7 +288,10 @@ public class KvMarshallerTest {
             }
         };
         
-        KvMarshaller marshaller = factory.create(schema, keyMapper, valMapper);
+        KvMarshaller<TestKeyObject, TestObject> marshaller = factory.create(schema, keyMapper, valMapper);
+        
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestObject val = TestObject.randomObject(rnd);
         
         BinaryRow row = marshaller.marshal(key, val);
         
@@ -319,10 +321,11 @@ public class KvMarshallerTest {
         
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
         
-        final Object key = TestObjectWithAllTypes.randomObject(rnd);
-        final Object val = TestObjectWithAllTypes.randomObject(rnd);
+        KvMarshaller<TestObjectWithAllTypes, TestObjectWithAllTypes> marshaller =
+                factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class);
         
-        KvMarshaller marshaller = factory.create(schema, key.getClass(), val.getClass());
+        final TestObjectWithAllTypes key = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
         
         assertThrows(
                 MarshallerException.class,
@@ -344,10 +347,11 @@ public class KvMarshallerTest {
         
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
         
-        final Object key = TestObjectWithAllTypes.randomObject(rnd);
-        final Object val = TestObjectWithAllTypes.randomObject(rnd);
+        KvMarshaller<TestObjectWithAllTypes, TestObjectWithAllTypes> marshaller =
+                factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class);
         
-        KvMarshaller marshaller = factory.create(schema, key.getClass(), val.getClass());
+        final TestObjectWithAllTypes key = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
         
         assertThrows(
                 MarshallerException.class,
@@ -368,10 +372,11 @@ public class KvMarshallerTest {
         
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
         
-        final Object key = TestObjectWithPrivateConstructor.randomObject(rnd);
-        final Object val = TestObjectWithPrivateConstructor.randomObject(rnd);
+        KvMarshaller<TestObjectWithPrivateConstructor, TestObjectWithPrivateConstructor> marshaller =
+                factory.create(schema, TestObjectWithPrivateConstructor.class, TestObjectWithPrivateConstructor.class);
         
-        KvMarshaller marshaller = factory.create(schema, key.getClass(), val.getClass());
+        final TestObjectWithPrivateConstructor key = TestObjectWithPrivateConstructor.randomObject(rnd);
+        final TestObjectWithPrivateConstructor val = TestObjectWithPrivateConstructor.randomObject(rnd);
         
         BinaryRow row = marshaller.marshal(key, val);
         
@@ -415,11 +420,12 @@ public class KvMarshallerTest {
         
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
         
-        final Object key = TestObjectWithPrivateConstructor.randomObject(rnd);
-        final Object val = TestObjectWithPrivateConstructor.randomObject(rnd);
-        
         final ObjectFactory<TestObjectWithPrivateConstructor> objFactory = new ObjectFactory<>(TestObjectWithPrivateConstructor.class);
-        final KvMarshaller marshaller = factory.create(schema, key.getClass(), val.getClass());
+        final KvMarshaller<TestObjectWithPrivateConstructor, TestObjectWithPrivateConstructor> marshaller =
+                factory.create(schema, TestObjectWithPrivateConstructor.class, TestObjectWithPrivateConstructor.class);
+        
+        final TestObjectWithPrivateConstructor key = TestObjectWithPrivateConstructor.randomObject(rnd);
+        final TestObjectWithPrivateConstructor val = TestObjectWithPrivateConstructor.randomObject(rnd);
         
         BinaryRow row = marshaller.marshal(key, objFactory.create());
         
@@ -455,17 +461,19 @@ public class KvMarshallerTest {
             final Class<?> valClass = createGeneratedObjectClass();
             final ObjectFactory<?> objFactory = new ObjectFactory<>(valClass);
             
-            final Long key = rnd.nextLong();
+            KvMarshaller<Long, Object> marshaller = factory.create(schema, Long.class, (Class<Object>) valClass);
             
-            KvMarshaller marshaller = factory.create(schema, key.getClass(), valClass);
+            final Long key = rnd.nextLong();
             
             BinaryRow row = marshaller.marshal(key, objFactory.create());
             
-            Object key1 = marshaller.unmarshalKey(new Row(schema, row));
+            Long key1 = marshaller.unmarshalKey(new Row(schema, row));
             Object val1 = marshaller.unmarshalValue(new Row(schema, row));
             
-            assertTrue(key.getClass().isInstance(key1));
             assertTrue(valClass.isInstance(val1));
+            
+            //TODO: add equals method for generated object.
+            assertEquals(key, key1);
         } finally {
             Thread.currentThread().setContextClassLoader(loader);
         }
@@ -489,7 +497,7 @@ public class KvMarshallerTest {
         
         SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
         
-        KvMarshaller marshaller = factory.create(schema, key.getClass(), val.getClass());
+        KvMarshaller<Object, Object> marshaller = factory.create(schema, (Class<Object>) key.getClass(), (Class<Object>) val.getClass());
         
         BinaryRow row = marshaller.marshal(key, val);
         
@@ -635,13 +643,16 @@ public class KvMarshallerTest {
             if (this == o) {
                 return true;
             }
+            
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
+            
             TestObject that = (TestObject) o;
-            return col1 == that.col1 &&
-                    col2 == that.col2 &&
-                    Objects.equals(col3, that.col3);
+            
+            return col1 == that.col1
+                    && Objects.equals(col2, that.col2)
+                    && Objects.equals(col3, that.col3);
         }
         
         @Override
@@ -660,11 +671,11 @@ public class KvMarshallerTest {
          */
         public static TestTruncatedObject randomObject(Random rnd) {
             final TestTruncatedObject obj = new TestTruncatedObject();
-            
+    
             obj.primitiveIntCol = rnd.nextInt();
             obj.primitiveLongCol = rnd.nextLong();
-            obj.primitiveFloatCol = rnd.nextFloat();
             obj.primitiveDoubleCol = rnd.nextDouble();
+            
             obj.uuidCol = java.util.UUID.randomUUID();
             obj.stringCol = IgniteTestUtils.randomString(rnd, 100);
             
@@ -675,9 +686,9 @@ public class KvMarshallerTest {
         private int primitiveIntCol;
         
         private long primitiveLongCol;
-        
+    
         private float primitiveFloatCol;
-        
+    
         private double primitiveDoubleCol;
         
         private String stringCol;
@@ -713,9 +724,9 @@ public class KvMarshallerTest {
     
     private Column[] columnsAllTypes() {
         Column[] cols = new Column[]{
-                new Column("primitiveByteCol", INT8, false),
-                new Column("primitiveShortCol", INT16, false),
-                new Column("primitiveIntCol", INT32, false),
+                new Column("primitiveByteCol", INT8, false, () -> Byte.valueOf((byte) 0x42)),
+                new Column("primitiveShortCol", INT16, false,() -> Short.valueOf((short)0x4242)),
+                new Column("primitiveIntCol", INT32, false, () -> Integer.valueOf(0x42424242)),
                 new Column("primitiveLongCol", INT64, false),
                 new Column("primitiveFloatCol", FLOAT, false),
                 new Column("primitiveDoubleCol", DOUBLE, false),
