@@ -63,6 +63,7 @@ import org.msgpack.core.MessageSizeException;
 import org.msgpack.core.MessageTypeException;
 import org.msgpack.core.MessageUnpacker;
 import org.msgpack.core.buffer.InputStreamBufferInput;
+import org.msgpack.core.buffer.MessageBuffer;
 import org.msgpack.value.ImmutableValue;
 
 /**
@@ -387,12 +388,53 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     /** {@inheritDoc} */
     @Override public ExtensionTypeHeader unpackExtensionTypeHeader() {
         assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            return super.unpackExtensionTypeHeader();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    
+        byte b = readByte();
+        
+        switch (b) {
+            case Code.FIXEXT1: {
+                return new ExtensionTypeHeader(readByte(), 1);
+            }
+            
+            case Code.FIXEXT2: {
+                return new ExtensionTypeHeader(readByte(), 2);
+            }
+            
+            case Code.FIXEXT4: {
+                return new ExtensionTypeHeader(readByte(), 4);
+            }
+            
+            case Code.FIXEXT8: {
+                return new ExtensionTypeHeader(readByte(), 8);
+            }
+    
+            case Code.FIXEXT16: {
+                return new ExtensionTypeHeader(readByte(), 16);
+            }
+    
+            case Code.EXT8: {
+                int length = readNextLength8();
+                byte type = buf.readByte();
+        
+                return new ExtensionTypeHeader(type, length);
+            }
+    
+            case Code.EXT16: {
+                int length = readNextLength16();
+                byte type = buf.readByte();
+    
+                return new ExtensionTypeHeader(type, length);
+            }
+            
+            case Code.EXT32: {
+                int length = readNextLength32();
+                byte type = buf.readByte();
+    
+                return new ExtensionTypeHeader(type, length);
+            }
         }
+    
+        throw unexpected("Ext", b);
     }
 
     /** {@inheritDoc} */
