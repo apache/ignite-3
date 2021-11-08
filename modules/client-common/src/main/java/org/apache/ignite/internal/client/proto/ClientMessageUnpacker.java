@@ -533,6 +533,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     @Override public ImmutableValue unpackValue() {
         assert refCnt > 0 : "Unpacker is closed";
 
+        // TODO: Remove this method.
         try {
             return super.unpackValue();
         } catch (IOException e) {
