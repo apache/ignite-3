@@ -311,23 +311,35 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     /** {@inheritDoc} */
     @Override public float unpackFloat() {
         assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            return super.unpackFloat();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    
+        byte b = readByte();
+        
+        switch (b) {
+            case Code.FLOAT32:
+                return buf.readFloat();
+                
+            case Code.FLOAT64:
+                return (float) buf.readDouble();
         }
+        
+        throw unexpected("Float", b);
     }
 
     /** {@inheritDoc} */
     @Override public double unpackDouble() {
         assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            return super.unpackDouble();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    
+        byte b = readByte();
+    
+        switch (b) {
+            case Code.FLOAT32:
+                return buf.readFloat();
+        
+            case Code.FLOAT64:
+                return buf.readDouble();
         }
+    
+        throw unexpected("Float", b);
     }
 
     /** {@inheritDoc} */
