@@ -90,8 +90,8 @@ public class ClientMessageUnpacker implements AutoCloseable {
      */
     public int unpackInt() {
         assert refCnt > 0 : "Unpacker is closed";
-        
-        byte code = readByte();
+    
+        byte code = buf.readByte();
 
         if (Code.isFixInt(code))
             return code;
@@ -99,15 +99,15 @@ public class ClientMessageUnpacker implements AutoCloseable {
         switch (code) {
             case Code.UINT8:
             case Code.INT8:
-                return readByte();
-
+                return buf.readByte();
+    
             case Code.UINT16:
             case Code.INT16:
-                return readShort();
+                return buf.readShort();
     
             case Code.UINT32:
             case Code.INT32:
-                return readInt();
+                return buf.readInt();
         }
 
         throw unexpected("Integer", code);
@@ -135,7 +135,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     public void unpackNil() {
         assert refCnt > 0 : "Unpacker is closed";
     
-        byte b = readByte();
+        byte b = buf.readByte();
         
         if (b == Code.NIL) {
             return;
@@ -148,7 +148,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     public boolean unpackBoolean() {
         assert refCnt > 0 : "Unpacker is closed";
     
-        byte b = readByte();
+        byte b = buf.readByte();
         
         if (b == Code.FALSE) {
             return false;
@@ -163,7 +163,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     public byte unpackByte() {
         assert refCnt > 0 : "Unpacker is closed";
     
-        byte b = readByte();
+        byte b = buf.readByte();
     
         if (Code.isFixInt(b)) {
             return b;
@@ -172,7 +172,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
         switch (b) {
             case Code.UINT8:
             case Code.INT8:
-                return readByte();
+                return buf.readByte();
         }
     
         throw unexpected("Integer", b);
@@ -182,7 +182,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     public short unpackShort() {
         assert refCnt > 0 : "Unpacker is closed";
     
-        byte code = readByte();
+        byte code = buf.readByte();
     
         if (Code.isFixInt(code))
             return code;
@@ -209,7 +209,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     public long unpackLong() {
         assert refCnt > 0 : "Unpacker is closed";
     
-        byte code = readByte();
+        byte code = buf.readByte();
     
         if (Code.isFixInt(code))
             return code;
@@ -225,17 +225,17 @@ public class ClientMessageUnpacker implements AutoCloseable {
                 return buf.readUnsignedShort();
                 
             case Code.INT16:
-                return readShort();
-        
+                return buf.readShort();
+    
             case Code.UINT32:
                 return buf.readUnsignedInt();
                 
             case Code.INT32:
-                return readInt();
-                
+                return buf.readInt();
+    
             case Code.UINT64: // TODO: Throw overflow or not?
             case Code.INT64:
-                return readLong();
+                return buf.readLong();
         }
         
         throw unexpected("Integer", code);
@@ -245,7 +245,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     public BigInteger unpackBigInteger() {
         assert refCnt > 0 : "Unpacker is closed";
     
-        byte b = readByte();
+        byte b = buf.readByte();
         
         if (Code.isFixInt(b)) {
             return BigInteger.valueOf(b);
@@ -270,16 +270,16 @@ public class ClientMessageUnpacker implements AutoCloseable {
                 }
                 
             case Code.INT8:
-                return BigInteger.valueOf(readByte());
+                return BigInteger.valueOf(buf.readByte());
                 
             case Code.INT16:
-                return BigInteger.valueOf(readShort());
+                return BigInteger.valueOf(buf.readShort());
                 
             case Code.INT32:
-                return BigInteger.valueOf(readInt());
+                return BigInteger.valueOf(buf.readInt());
                 
             case Code.INT64:
-                return BigInteger.valueOf(readLong());
+                return BigInteger.valueOf(buf.readLong());
         }
         
         throw unexpected("Integer", b);
@@ -289,7 +289,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     public float unpackFloat() {
         assert refCnt > 0 : "Unpacker is closed";
     
-        byte b = readByte();
+        byte b = buf.readByte();
         
         switch (b) {
             case Code.FLOAT32:
@@ -306,7 +306,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     public double unpackDouble() {
         assert refCnt > 0 : "Unpacker is closed";
     
-        byte b = readByte();
+        byte b = buf.readByte();
     
         switch (b) {
             case Code.FLOAT32:
@@ -323,7 +323,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     public int unpackArrayHeader() {
         assert refCnt > 0 : "Unpacker is closed";
     
-        byte b = readByte();
+        byte b = buf.readByte();
         
         if (Code.isFixedArray(b)) { // fixarray
             return b & 0x0f;
@@ -331,10 +331,10 @@ public class ClientMessageUnpacker implements AutoCloseable {
         
         switch (b) {
             case Code.ARRAY16:
-                return readNextLength16();
+                return readLength16();
 
             case Code.ARRAY32:
-                return readNextLength32();
+                return readLength32();
         }
         
         throw unexpected("Array", b);
@@ -344,7 +344,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     public int unpackMapHeader() {
         assert refCnt > 0 : "Unpacker is closed";
     
-        byte b = readByte();
+        byte b = buf.readByte();
         
         if (Code.isFixedMap(b)) { // fixmap
             return b & 0x0f;
@@ -352,10 +352,10 @@ public class ClientMessageUnpacker implements AutoCloseable {
         
         switch (b) {
             case Code.MAP16:
-                return readNextLength16();
+                return readLength16();
                 
             case Code.MAP32:
-                return readNextLength32();
+                return readLength32();
         }
         
         throw unexpected("Map", b);
@@ -365,45 +365,45 @@ public class ClientMessageUnpacker implements AutoCloseable {
     public ExtensionTypeHeader unpackExtensionTypeHeader() {
         assert refCnt > 0 : "Unpacker is closed";
     
-        byte b = readByte();
+        byte b = buf.readByte();
         
         switch (b) {
             case Code.FIXEXT1: {
-                return new ExtensionTypeHeader(readByte(), 1);
+                return new ExtensionTypeHeader(buf.readByte(), 1);
             }
             
             case Code.FIXEXT2: {
-                return new ExtensionTypeHeader(readByte(), 2);
+                return new ExtensionTypeHeader(buf.readByte(), 2);
             }
             
             case Code.FIXEXT4: {
-                return new ExtensionTypeHeader(readByte(), 4);
+                return new ExtensionTypeHeader(buf.readByte(), 4);
             }
             
             case Code.FIXEXT8: {
-                return new ExtensionTypeHeader(readByte(), 8);
+                return new ExtensionTypeHeader(buf.readByte(), 8);
             }
     
             case Code.FIXEXT16: {
-                return new ExtensionTypeHeader(readByte(), 16);
+                return new ExtensionTypeHeader(buf.readByte(), 16);
             }
     
             case Code.EXT8: {
-                int length = readNextLength8();
+                int length = readLength8();
                 byte type = buf.readByte();
         
                 return new ExtensionTypeHeader(type, length);
             }
     
             case Code.EXT16: {
-                int length = readNextLength16();
+                int length = readLength16();
                 byte type = buf.readByte();
     
                 return new ExtensionTypeHeader(type, length);
             }
             
             case Code.EXT32: {
-                int length = readNextLength32();
+                int length = readLength32();
                 byte type = buf.readByte();
     
                 return new ExtensionTypeHeader(type, length);
@@ -417,7 +417,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     public int unpackBinaryHeader() {
         assert refCnt > 0 : "Unpacker is closed";
     
-        byte b = readByte();
+        byte b = buf.readByte();
         
         if (Code.isFixedRaw(b)) { // FixRaw
             return b & 0x1f;
@@ -425,13 +425,13 @@ public class ClientMessageUnpacker implements AutoCloseable {
     
         switch (b) {
             case Code.BIN8:
-                return readNextLength8();
+                return readLength8();
                 
             case Code.BIN16:
-                return readNextLength16();
+                return readLength16();
                 
             case Code.BIN32:
-                return readNextLength32();
+                return readLength32();
         }
     
         throw unexpected("Binary", b);
@@ -467,7 +467,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
         assert refCnt > 0 : "Unpacker is closed";
     
         while (count > 0) {
-            byte b = readByte();
+            byte b = buf.readByte();
             MessageFormat f = MessageFormat.valueOf(b);
             switch (f) {
                 case POSFIXINT:
@@ -510,15 +510,15 @@ public class ClientMessageUnpacker implements AutoCloseable {
                     break;
                 case BIN8:
                 case STR8:
-                    skipBytes(readNextLength8());
+                    skipBytes(readLength8());
                     break;
                 case BIN16:
                 case STR16:
-                    skipBytes(readNextLength16());
+                    skipBytes(readLength16());
                     break;
                 case BIN32:
                 case STR32:
-                    skipBytes(readNextLength32());
+                    skipBytes(readLength32());
                     break;
                 case FIXEXT1:
                     skipBytes(2);
@@ -536,25 +536,25 @@ public class ClientMessageUnpacker implements AutoCloseable {
                     skipBytes(17);
                     break;
                 case EXT8:
-                    skipBytes(readNextLength8() + 1);
+                    skipBytes(readLength8() + 1);
                     break;
                 case EXT16:
-                    skipBytes(readNextLength16() + 1);
+                    skipBytes(readLength16() + 1);
                     break;
                 case EXT32:
-                    skipBytes(readNextLength32() + 1);
+                    skipBytes(readLength32() + 1);
                     break;
                 case ARRAY16:
-                    count += readNextLength16();
+                    count += readLength16();
                     break;
                 case ARRAY32:
-                    count += readNextLength32();
+                    count += readLength32();
                     break;
                 case MAP16:
-                    count += readNextLength16() * 2;
+                    count += readLength16() * 2;
                     break;
                 case MAP32:
-                    count += readNextLength32() * 2;
+                    count += readLength32() * 2;
                     break;
                 case NEVER_USED:
                     throw new MessageNeverUsedFormatException("Encountered 0xC1 \"NEVER_USED\" byte");
@@ -1007,7 +1007,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     
     public int unpackRawStringHeader()
     {
-        byte b = readByte();
+        byte b = buf.readByte();
     
         if (Code.isFixedRaw(b)) {
             return b & 0x1f;
@@ -1015,29 +1015,29 @@ public class ClientMessageUnpacker implements AutoCloseable {
     
         switch (b) {
             case Code.STR8:
-                return readNextLength8();
+                return readLength8();
         
             case Code.STR16:
-                return readNextLength16();
+                return readLength16();
         
             case Code.STR32:
-                return readNextLength32();
+                return readLength32();
         }
     
         throw unexpected("String", b);
     }
     
-    private int readNextLength8()
+    private int readLength8()
     {
         return buf.readUnsignedByte();
     }
     
-    private int readNextLength16()
+    private int readLength16()
     {
         return buf.readUnsignedShort();
     }
     
-    private int readNextLength32()
+    private int readLength32()
     {
         int u32 = buf.readInt();
         
@@ -1046,23 +1046,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
         }
         
         return u32;
-    }
-    
-    private byte readByte() {
-        // TODO: Inline this and below?
-        return buf.readByte();
-    }
-
-    private short readShort() {
-        return buf.readShort();
-    }
-
-    private int readInt() {
-        return buf.readInt();
-    }
-
-    private long readLong() {
-        return buf.readLong();
     }
     
     private void skipBytes(int bytes) {
