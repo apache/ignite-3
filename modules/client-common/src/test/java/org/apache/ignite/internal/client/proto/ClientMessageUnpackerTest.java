@@ -21,8 +21,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigInteger;
 import java.util.Arrays;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import io.netty.buffer.ByteBuf;
@@ -36,7 +34,6 @@ import org.msgpack.core.MessagePacker;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
@@ -55,6 +52,12 @@ public class ClientMessageUnpackerTest {
     @ValueSource(bytes = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE})
     public void testUnpackByte(byte b) {
         testUnpacker(p -> p.packByte(b), ClientMessageUnpacker::unpackByte, b);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testUnpackBoolean(boolean b) {
+        testUnpacker(p -> p.packBoolean(b), ClientMessageUnpacker::unpackBoolean, b);
     }
 
     @ParameterizedTest

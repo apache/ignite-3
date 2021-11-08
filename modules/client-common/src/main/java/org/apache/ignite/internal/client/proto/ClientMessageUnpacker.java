@@ -17,37 +17,6 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import io.netty.buffer.ByteBufUtil;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.BitSet;
-import java.util.UUID;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufInputStream;
-import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteUuid;
-import org.msgpack.core.ExtensionTypeHeader;
-import org.msgpack.core.MessageFormat;
-import org.msgpack.core.MessageFormatException;
-import org.msgpack.core.MessageIntegerOverflowException;
-import org.msgpack.core.MessageNeverUsedFormatException;
-import org.msgpack.core.MessagePack;
-import org.msgpack.core.MessagePackException;
-import org.msgpack.core.MessageSizeException;
-import org.msgpack.core.MessageTypeException;
-import org.msgpack.core.MessageUnpacker;
-import org.msgpack.core.buffer.InputStreamBufferInput;
-import org.msgpack.value.ImmutableValue;
-
 import static org.apache.ignite.internal.client.proto.ClientDataType.BIGINTEGER;
 import static org.apache.ignite.internal.client.proto.ClientDataType.BITMASK;
 import static org.apache.ignite.internal.client.proto.ClientDataType.BOOLEAN;
@@ -66,6 +35,35 @@ import static org.apache.ignite.internal.client.proto.ClientDataType.STRING;
 import static org.apache.ignite.internal.client.proto.ClientDataType.TIME;
 import static org.apache.ignite.internal.client.proto.ClientDataType.TIMESTAMP;
 import static org.msgpack.core.MessagePack.Code;
+
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufInputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.BitSet;
+import java.util.UUID;
+import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteUuid;
+import org.msgpack.core.ExtensionTypeHeader;
+import org.msgpack.core.MessageFormat;
+import org.msgpack.core.MessageIntegerOverflowException;
+import org.msgpack.core.MessageNeverUsedFormatException;
+import org.msgpack.core.MessagePack;
+import org.msgpack.core.MessagePackException;
+import org.msgpack.core.MessageSizeException;
+import org.msgpack.core.MessageTypeException;
+import org.msgpack.core.MessageUnpacker;
+import org.msgpack.core.buffer.InputStreamBufferInput;
+import org.msgpack.value.ImmutableValue;
 
 /**
  * ByteBuf-based MsgPack implementation.
@@ -199,12 +197,16 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     /** {@inheritDoc} */
     @Override public boolean unpackBoolean() {
         assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            return super.unpackBoolean();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    
+        byte b = readByte();
+        
+        if (b == Code.FALSE) {
+            return false;
+        } else if (b == Code.TRUE) {
+            return true;
         }
+        
+        throw unexpected("boolean", b);
     }
 
     /** {@inheritDoc} */
@@ -907,8 +909,6 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     
     private byte readByte() {
         // TODO: Inline this and below?
-        assert refCnt > 0 : "Unpacker is closed";
-
         return buf.readByte();
     }
 
