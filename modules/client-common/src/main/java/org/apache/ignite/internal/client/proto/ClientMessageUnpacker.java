@@ -866,55 +866,43 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     public int unpackRawStringHeader()
     {
         byte b = readByte();
-        
+    
         if (Code.isFixedRaw(b)) {
             return b & 0x1f;
         }
-        
-        int len = tryReadStringHeader(b);
-        
-        if (len >= 0) {
-            return len;
-        }
-        
-        throw unexpected("String", b);
-    }
     
-    private int tryReadStringHeader(byte b)
-    {
         switch (b) {
             case Code.STR8:
                 return readNextLength8();
-            
+        
             case Code.STR16:
                 return readNextLength16();
-            
+        
             case Code.STR32:
                 return readNextLength32();
-            
-            default:
-                return -1;
         }
+    
+        throw unexpected("String", b);
     }
     
     private int readNextLength8()
     {
-        byte u8 = readByte();
-        return u8 & 0xff;
+        return buf.readUnsignedByte();
     }
     
     private int readNextLength16()
     {
-        short u16 = readShort();
-        return u16 & 0xffff;
+        return buf.readUnsignedShort();
     }
     
     private int readNextLength32()
     {
-        int u32 = readInt();
+        int u32 = buf.readInt();
+        
         if (u32 < 0) {
             throw overflowU32Size(u32);
         }
+        
         return u32;
     }
     
