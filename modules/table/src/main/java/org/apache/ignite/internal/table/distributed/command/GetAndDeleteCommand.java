@@ -41,8 +41,8 @@ public class GetAndDeleteCommand implements SingleKeyCommand, WriteCommand {
     private final Timestamp timestamp;
 
     /**
-     * Creates a new instance of GetAndDeleteCommand with the given key to be got and deleted.
-     * The {@code keyRow} should not be {@code null}.
+     * Creates a new instance of GetAndDeleteCommand with the given key to be got and deleted. The {@code keyRow} should not be {@code
+     * null}.
      *
      * @param keyRow Binary key row.
      * @param ts The timestamp.
@@ -61,9 +61,11 @@ public class GetAndDeleteCommand implements SingleKeyCommand, WriteCommand {
      *
      * @return Binary key.
      */
-    @Override public BinaryRow getRow() {
-        if (keyRow == null)
+    @Override
+    public BinaryRow getRow() {
+        if (keyRow == null) {
             keyRow = new ByteBufferRow(keyRowBytes);
+        }
 
         return keyRow;
     }

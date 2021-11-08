@@ -41,8 +41,7 @@ public class InsertCommand implements SingleKeyCommand, WriteCommand {
     private byte[] rowBytes;
 
     /**
-     * Creates a new instance of InsertCommand with the given row to be inserted.
-     * The {@code row} should not be {@code null}.
+     * Creates a new instance of InsertCommand with the given row to be inserted. The {@code row} should not be {@code null}.
      *
      * @param row Binary row.
      * @param timestamp
@@ -61,9 +60,11 @@ public class InsertCommand implements SingleKeyCommand, WriteCommand {
      *
      * @return Binary row.
      */
-    @Override public BinaryRow getRow() {
-        if (row == null)
+    @Override
+    public BinaryRow getRow() {
+        if (row == null) {
             row = new ByteBufferRow(rowBytes);
+        }
 
         return row;
     }

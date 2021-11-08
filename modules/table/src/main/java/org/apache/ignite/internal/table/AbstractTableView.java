@@ -22,6 +22,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,25 +32,26 @@ import org.jetbrains.annotations.Nullable;
 abstract class AbstractTableView {
     /** Internal table. */
     protected final InternalTable tbl;
-
+    
     /** Schema registry. */
     protected final SchemaRegistry schemaReg;
-
+    
     /** The transaction */
     protected final @Nullable InternalTransaction tx;
 
     /**
      * Constructor
-     * @param tbl Internal table.
+     *
+     * @param tbl       Internal table.
      * @param schemaReg Schema registry.
-     * @param tx The transaction.
+     * @param tx        The transaction.
      */
     protected AbstractTableView(InternalTable tbl, SchemaRegistry schemaReg, @Nullable Transaction tx) {
         this.tbl = tbl;
         this.schemaReg = schemaReg;
         this.tx = (InternalTransaction) tx;
     }
-
+    
     /**
      * Waits for operation completion.
      *
@@ -60,19 +62,17 @@ abstract class AbstractTableView {
     protected <T> T sync(CompletableFuture<T> fut) {
         try {
             return fut.get();
-        }
-        catch (InterruptedException e) {
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
-
-            //TODO: IGNITE-14500 Replace with public exception with an error code.
-            throw new IgniteException(e);
-        }
-        catch (ExecutionException e) {
-            //TODO: IGNITE-14500 Replace with public exception with an error code (or unwrap?).
-            throw new IgniteException(e.getCause());
+            
+            throw convertException(e);
+        } catch (ExecutionException e) {
+            throw convertException(e.getCause());
+        } catch (IgniteInternalException e) {
+            throw convertException(e);
         }
     }
-
+    
     /**
      * @return Current transaction.
      */
@@ -86,4 +86,15 @@ abstract class AbstractTableView {
      * @deprecated TODO asch remove and replace with expicit TX argument in table API calls.
      */
     public abstract AbstractTableView withTransaction(Transaction tx);
+    
+    /**
+     * Converts an internal exception to a public one.
+     *
+     * @param th Internal exception.
+     * @return Public exception.
+     */
+    protected IgniteException convertException(Throwable th) {
+        //TODO: IGNITE-14500 Replace with public exception with an error code (or unwrap?).
+        return new IgniteException(th);
+    }
 }

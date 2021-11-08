@@ -41,8 +41,7 @@ public class UpsertAllCommand implements MultiKeyCommand, WriteCommand {
     private final Timestamp timestamp;
 
     /**
-     * Creates a new instance of UpsertAllCommand with the given rows to be upserted.
-     * The {@code rows} should not be {@code null} or empty.
+     * Creates a new instance of UpsertAllCommand with the given rows to be upserted. The {@code rows} should not be {@code null} or empty.
      *
      * @param rows Binary rows.
      */

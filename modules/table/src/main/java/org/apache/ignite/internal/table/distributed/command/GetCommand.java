@@ -41,8 +41,7 @@ public class GetCommand implements SingleKeyCommand, ReadCommand {
     private byte[] keyRowBytes;
 
     /**
-     * Creates a new instance of GetCommand with the given key to be got.
-     * The {@code keyRow} should not be {@code null}.
+     * Creates a new instance of GetCommand with the given key to be got. The {@code keyRow} should not be {@code null}.
      *
      * @param keyRow Binary key row.
      * @param timestamp The timestamp.
@@ -61,9 +60,11 @@ public class GetCommand implements SingleKeyCommand, ReadCommand {
      *
      * @return Binary key.
      */
-    @Override public BinaryRow getRow() {
-        if (keyRow == null)
+    @Override
+    public BinaryRow getRow() {
+        if (keyRow == null) {
             keyRow = new ByteBufferRow(keyRowBytes);
+        }
 
         return keyRow;
     }

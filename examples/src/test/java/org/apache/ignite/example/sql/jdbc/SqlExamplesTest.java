@@ -17,18 +17,23 @@
 
 package org.apache.ignite.example.sql.jdbc;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
+import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.example.ExampleTestUtils;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * These tests check that all SQL JDBC examples pass correctly.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 public class SqlExamplesTest {
     /** Empty argument to invoke an example. */
     protected static final String[] EMPTY_ARGS = new String[0];
@@ -41,21 +46,35 @@ public class SqlExamplesTest {
     @Test
     public void testSqlJdbcExample() throws Exception {
         ExampleTestUtils.assertConsoleOutputContains(SqlJdbcExample::main, EMPTY_ARGS,
-            "\nAll accounts:\n" +
-            "    John, Doe, Forest Hill\n" +
-            "    Jane, Roe, Forest Hill\n" +
-            "    Mary, Major, Denver\n" +
-            "    Richard, Miles, St. Petersburg\n",
+                "\nAll accounts:\n"
+                        + "    John, Doe, Forest Hill\n"
+                        + "    Jane, Roe, Forest Hill\n"
+                        + "    Mary, Major, Denver\n"
+                        + "    Richard, Miles, St. Petersburg\n",
 
-            "\nAccounts with balance lower than 1,500:\n" +
-            "    John, Doe, 1000.0\n" +
-            "    Richard, Miles, 1450.0\n",
+                "\nAccounts with balance lower than 1,500:\n"
+                        + "    John, Doe, 1000.0\n"
+                        + "    Richard, Miles, 1450.0\n",
 
-            "\nAll accounts:\n" +
-            "    Jane, Roe, Forest Hill\n" +
-            "    Mary, Major, Denver\n" +
-            "    Richard, Miles, St. Petersburg\n"
+                "\nAll accounts:\n"
+                        + "    Jane, Roe, Forest Hill\n"
+                        + "    Mary, Major, Denver\n"
+                        + "    Richard, Miles, St. Petersburg\n"
         );
+    }
+
+    @BeforeEach
+    public void startNode(@WorkDirectory Path workDir) throws IOException {
+        IgnitionManager.start(
+                "my-first-node",
+                Files.readString(Path.of("config", "ignite-config.json")),
+                workDir
+        );
+    }
+
+    @AfterEach
+    public void stopNode() {
+        IgnitionManager.stop("my-first-node");
     }
 
     /**
@@ -63,10 +82,11 @@ public class SqlExamplesTest {
      */
     @BeforeEach
     @AfterEach
-    private void removeWorkDir() {
+    public void removeWorkDir() {
         Path workDir = Path.of("work");
 
-        if (Files.exists(workDir))
+        if (Files.exists(workDir)) {
             IgniteUtils.deleteIfExists(workDir);
+        }
     }
 }

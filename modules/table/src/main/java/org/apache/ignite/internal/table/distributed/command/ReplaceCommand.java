@@ -52,9 +52,9 @@ public class ReplaceCommand implements SingleKeyCommand, WriteCommand {
     /**
      * Creates a new instance of ReplaceCommand with the given two rows to be replaced each other.
      * Both rows should not be {@code null}.
-     *  @param oldRow Old Binary row.
+     * @param oldRow Old Binary row.
      * @param row Binary row.
-     * @param ts
+     * @param ts The timestamp.
      */
     public ReplaceCommand(@NotNull BinaryRow oldRow, @NotNull BinaryRow row, Timestamp ts) {
         assert oldRow != null;
@@ -75,8 +75,9 @@ public class ReplaceCommand implements SingleKeyCommand, WriteCommand {
      */
     @Override @NotNull
     public BinaryRow getRow() {
-        if (row == null)
+        if (row == null) {
             row = new ByteBufferRow(rowBytes);
+        }
 
         return row;
     }
@@ -88,8 +89,9 @@ public class ReplaceCommand implements SingleKeyCommand, WriteCommand {
      */
     @NotNull
     public BinaryRow getOldRow() {
-        if (oldRow == null)
+        if (oldRow == null) {
             oldRow = new ByteBufferRow(oldRowBytes);
+        }
 
         return oldRow;
     }

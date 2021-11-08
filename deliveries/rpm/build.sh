@@ -20,12 +20,12 @@ set -o nounset; set -o errexit; set -o pipefail; set -o errtrace; set -o functra
 
 ## VARS ##
 PACKAGE_VERSION="${1}"
-
 RPM_WORK_DIR="/tmp/apache-ignite-rpm"
-
+SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 
 ## START ##
+cd ${SCRIPT_DIR}
 mkdir -pv ${RPM_WORK_DIR}/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 cp -rfv ignite ${RPM_WORK_DIR}/BUILD/
 cp -rfv apache-ignite.spec ${RPM_WORK_DIR}/SPECS/

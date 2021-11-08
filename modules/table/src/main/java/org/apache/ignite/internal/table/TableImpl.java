@@ -19,9 +19,12 @@ package org.apache.ignite.internal.table;
 
 import java.util.Objects;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.definition.SchemaManagementMode;
@@ -29,9 +32,7 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.mapper.KeyMapper;
-import org.apache.ignite.table.mapper.RecordMapper;
-import org.apache.ignite.table.mapper.ValueMapper;
+import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.TestOnly;
 
@@ -90,7 +91,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public <R> RecordView<R> recordView(RecordMapper<R> recMapper) {
+    @Override public <R> RecordView<R> recordView(Mapper<R> recMapper) {
         return new RecordViewImpl<>(tbl, schemaReg, recMapper, null);
     }
 
@@ -100,7 +101,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public <K, V> KeyValueView<K, V> keyValueView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper) {
+    @Override public <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper) {
         return new KeyValueViewImpl<>(tbl, schemaReg, keyMapper, valMapper, null);
     }
 
@@ -133,9 +134,13 @@ public class TableImpl implements Table {
     @TestOnly
     public int partition(Tuple t) {
         Objects.requireNonNull(t);
-
-        final Row keyRow = new TupleMarshallerImpl(tblMgr, internalTable(), schemaReg).marshalKey(t); // TODO asch Convert to portable format to pass TX/storage layer.
-
-        return tbl.partition(keyRow);
+    
+        try {
+            final Row keyRow = new TupleMarshallerImpl(tblMgr, internalTable(), schemaReg).marshalKey(t); // TODO asch Convert to portable format to pass TX/storage layer.
+        
+            return tbl.partition(keyRow);
+        } catch (TupleMarshallerException e) {
+            throw new IgniteInternalException(e);
+        }
     }
 }

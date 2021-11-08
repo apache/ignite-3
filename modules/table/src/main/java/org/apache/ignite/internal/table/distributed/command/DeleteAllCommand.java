@@ -42,8 +42,8 @@ public class DeleteAllCommand implements MultiKeyCommand, WriteCommand {
     private final Timestamp timestamp;
 
     /**
-     * Creates a new instance of DeleteAllCommand with the given set of keys to be deleted.
-     * The {@code keyRows} should not be {@code null} or empty.
+     * Creates a new instance of DeleteAllCommand with the given set of keys to be deleted. The {@code keyRows} should not be {@code null}
+     * or empty.
      *
      * @param keyRows Collection of binary row keys to be deleted.
      * @param ts

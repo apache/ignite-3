@@ -41,8 +41,7 @@ public class GetAndUpsertCommand implements SingleKeyCommand, WriteCommand {
     private final Timestamp timestamp;
 
     /**
-     * Creates a new instance of GetAndUpsertCommand with the given row to be got and upserted.
-     * The {@code row} should not be {@code null}.
+     * Creates a new instance of GetAndUpsertCommand with the given row to be got and upserted. The {@code row} should not be {@code null}.
      *
      * @param row Binary row.
      * @param ts
@@ -61,9 +60,11 @@ public class GetAndUpsertCommand implements SingleKeyCommand, WriteCommand {
      *
      * @return Binary key.
      */
-    @Override public BinaryRow getRow() {
-        if (keyRow == null)
+    @Override
+    public BinaryRow getRow() {
+        if (keyRow == null) {
             keyRow = new ByteBufferRow(keyRowBytes);
+        }
 
         return keyRow;
     }

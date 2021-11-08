@@ -46,7 +46,9 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
     /** */
     private static long localTime;
 
-    /** */
+    /**
+     *
+     */
     private static long cntr;
 
     /** */
@@ -67,10 +69,6 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         this.nodeId = nodeId;
     }
 
-    /**
-     * @param other Other version.
-     * @return Comparison result.
-     */
     /** {@inheritDoc} */
     @Override public int compareTo(@NotNull Timestamp other) {
         return (this.timestamp < other.timestamp ? -1 :
@@ -109,6 +107,7 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
 
     /**
      * TODO https://issues.apache.org/jira/browse/IGNITE-15129
+     *
      * @return Next timestamp (monotonically increasing).
      */
     public static synchronized Timestamp nextVersion() {
@@ -121,9 +120,9 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
 
             if (cntr == 0)
                 newTime = waitForNextMillisecond(newTime);
-        }
-        else
+        } else {
             cntr = 0;
+        }
 
         localTime = newTime;
 
@@ -171,8 +170,7 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
             buffer.flip();
 
             return buffer.getLong();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new IgniteException("Failed to get local node id", e);
         }
     }

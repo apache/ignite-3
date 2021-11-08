@@ -17,6 +17,7 @@
 
 package org.apache.ignite.configuration.schemas.network;
 
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
@@ -34,7 +35,24 @@ public class NetworkConfigurationSchema {
     @Value(hasDefault = true)
     public final int port = 47500;
 
-    /** Cluster nodes. */
+    /** Network port range. */
+    @Min(0)
     @Value(hasDefault = true)
-    public final String[] netClusterNodes = new String[0];
+    public final int portRange = 0;
+
+    /** Server configuration. */
+    @ConfigValue
+    public InboundConfigurationSchema inbound;
+
+    /** Client configuration. */
+    @ConfigValue
+    public OutboundConfigurationSchema outbound;
+
+    /** Membership configuration. */
+    @ConfigValue
+    public ClusterMembershipConfigurationSchema membership;
+
+    /** NodeFinder configuration. */
+    @ConfigValue
+    public NodeFinderConfigurationSchema nodeFinder;
 }

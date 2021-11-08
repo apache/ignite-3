@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
-import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -59,46 +59,52 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     }
 
     /** {@inheritDoc} */
-    @Override public void handleRequest(RpcContext rpcCtx, ActionRequest request) {
-        Node node = rpcCtx.getNodeManager().get(request.groupId(), new PeerId(rpcCtx.getLocalAddress()));
-
+    @Override
+    public void handleRequest(RpcContext rpcCtx, ActionRequest request) {
+        Node node = rpcCtx.getNodeManager()
+                .get(request.groupId(), new PeerId(rpcCtx.getLocalAddress()));
+    
         if (node == null) {
-            rpcCtx.sendResponse(factory.errorResponse().errorCode(RaftError.UNKNOWN.getNumber()).build());
-
+            rpcCtx.sendResponse(
+                    factory.errorResponse().errorCode(RaftError.UNKNOWN.getNumber()).build());
+        
             return;
         }
-
-        JRaftServerImpl.DelegatingStateMachine fsm = (JRaftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
-
+    
+        JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) node
+                .getOptions().getFsm();
+    
         // Apply a filter before commiting to STM.
         CompletableFuture<Void> fut = fsm.getListener().onBeforeApply(request.command());
-
+    
         if (fut != null) {
             fut.handle(new BiFunction<Void, Throwable, Void>() {
-                @Override public Void apply(Void ignored, Throwable err) {
+                @Override
+                public Void apply(Void ignored, Throwable err) {
                     if (err == null) {
-                        if (request.command() instanceof WriteCommand)
+                        if (request.command() instanceof WriteCommand) {
                             applyWrite(node, request, rpcCtx);
-                        else
+                        } else {
                             applyRead(node, request, rpcCtx);
-                    }
-                    else {
+                        }
+                    } else {
                         // TODO asch add support for transaction specific error codes
                         ErrorResponseBuilder resp =
-                            factory.errorResponse().errorCode(RaftError.ETX.getNumber()).errorMsg(err.getMessage());
-
+                                factory.errorResponse().errorCode(RaftError.ETX.getNumber())
+                                        .errorMsg(err.getMessage());
+                    
                         rpcCtx.sendResponse(resp.build());
                     }
-
+                
                     return null;
                 }
             });
-        }
-        else {
-            if (request.command() instanceof WriteCommand)
+        } else {
+            if (request.command() instanceof WriteCommand) {
                 applyWrite(node, request, rpcCtx);
-            else
+            } else {
                 applyRead(node, request, rpcCtx);
+            }
         }
     }
 
@@ -110,17 +116,19 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     private void applyWrite(Node node, ActionRequest request, RpcContext rpcCtx) {
         // TODO asch get rid of JDK marshaller IGNITE-14832
         node.apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(request.command())),
-            new CommandClosureImpl<>(request.command()) {
-                @Override public void result(Serializable res) {
-                    rpcCtx.sendResponse(factory.actionResponse().result(res).build());
-                }
-
-                @Override public void run(Status status) {
-                    assert !status.isOk() : status;
-
-                    sendError(rpcCtx, status, node);
-                }
-            }));
+                new CommandClosureImpl<>(request.command()) {
+                    @Override
+                    public void result(Serializable res) {
+                        rpcCtx.sendResponse(factory.actionResponse().result(res).build());
+                    }
+                
+                    @Override
+                    public void run(Status status) {
+                        assert !status.isOk() : status;
+                    
+                        sendError(rpcCtx, status, node);
+                    }
+                }));
     }
 
     /**
@@ -131,48 +139,53 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     private void applyRead(Node node, ActionRequest request, RpcContext rpcCtx) {
         if (request.readOnlySafe()) {
             node.readIndex(BytesUtil.EMPTY_BYTES, new ReadIndexClosure() {
-                @Override public void run(Status status, long index, byte[] reqCtx) {
+                @Override
+                public void run(Status status, long index, byte[] reqCtx) {
                     if (status.isOk()) {
-                        JRaftServerImpl.DelegatingStateMachine fsm =
-                            (JRaftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
-
+                        JraftServerImpl.DelegatingStateMachine fsm =
+                                (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
+    
                         try {
-                            fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
-                                @Override public ReadCommand command() {
-                                    return (ReadCommand) request.command();
-                                }
-
-                                @Override public void result(Serializable res) {
-                                    rpcCtx.sendResponse(factory.actionResponse().result(res).build());
-                                }
-                            }).iterator());
-                        }
-                        catch (Exception e) {
+                            fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(
+                                    new CommandClosure<>() {
+                                        @Override
+                                        public ReadCommand command() {
+                                            return (ReadCommand) request.command();
+                                        }
+    
+                                        @Override
+                                        public void result(Serializable res) {
+                                            rpcCtx.sendResponse(
+                                                    factory.actionResponse().result(res).build());
+                                        }
+                                    }).iterator());
+                        } catch (Exception e) {
                             sendError(rpcCtx, RaftError.ESTATEMACHINE, e.getMessage());
                         }
-                    }
-                    else
+                    } else {
                         sendError(rpcCtx, status, node);
+                    }
                 }
             });
-        }
-        else {
+        } else {
             // TODO asch remove copy paste, batching https://issues.apache.org/jira/browse/IGNITE-14832
-            JRaftServerImpl.DelegatingStateMachine fsm =
-                (JRaftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
-
+            JraftServerImpl.DelegatingStateMachine fsm =
+                    (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
+        
             try {
-                fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
-                    @Override public ReadCommand command() {
-                        return (ReadCommand)request.command();
-                    }
-
-                    @Override public void result(Serializable res) {
-                        rpcCtx.sendResponse(factory.actionResponse().result(res).build());
-                    }
-                }).iterator());
-            }
-            catch (Exception e) {
+                fsm.getListener()
+                        .onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
+                            @Override
+                            public ReadCommand command() {
+                                return (ReadCommand) request.command();
+                            }
+                        
+                            @Override
+                            public void result(Serializable res) {
+                                rpcCtx.sendResponse(factory.actionResponse().result(res).build());
+                            }
+                        }).iterator());
+            } catch (Exception e) {
                 sendError(rpcCtx, RaftError.ESTATEMACHINE, e.getMessage());
             }
         }

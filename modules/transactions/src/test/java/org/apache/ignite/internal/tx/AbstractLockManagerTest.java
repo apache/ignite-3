@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.util.Collection;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
@@ -30,11 +35,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests a LockManager implementation. TODO asch document deadlock prevention algorythm (wait-die)
@@ -182,8 +182,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
             lockManager.tryAcquire(key, ts0).join();
 
             fail();
-        }
-        catch (CompletionException e) {
+        } catch (CompletionException e) {
             // Expected.
         }
     }
@@ -238,7 +237,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testSingleKeyReadWriteConflict4() throws LockException {
         Timestamp ts0 = Timestamp.nextVersion();
         Timestamp ts1 = Timestamp.nextVersion();
-        Timestamp ts2 = Timestamp.nextVersion();
+        final Timestamp ts2 = Timestamp.nextVersion();
         Timestamp ts3 = Timestamp.nextVersion();
         Object key = new String("test");
 
@@ -304,8 +303,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
             lockManager.tryAcquire(key, ts0).join();
 
             fail();
-        }
-        catch (CompletionException e) {
+        } catch (CompletionException e) {
             // Expected.
         }
     }
@@ -330,34 +328,34 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testSingleKeyMultithreadedRead() throws InterruptedException {
-        LongAdder rLocks = new LongAdder();
-        LongAdder wLocks = new LongAdder();
-        LongAdder fLocks = new LongAdder();
+        LongAdder readLocks = new LongAdder();
+        LongAdder writeLocks = new LongAdder();
+        LongAdder failedLocks = new LongAdder();
 
-        doTestSingleKeyMultithreaded(5_000, rLocks, wLocks, fLocks, 0);
+        doTestSingleKeyMultithreaded(5_000, readLocks, writeLocks, failedLocks, 0);
 
-        assertTrue(wLocks.sum() == 0);
-        assertTrue(fLocks.sum() == 0);
+        assertTrue(writeLocks.sum() == 0);
+        assertTrue(failedLocks.sum() == 0);
     }
 
     @Test
     public void testSingleKeyMultithreadedWrite() throws InterruptedException {
-        LongAdder rLocks = new LongAdder();
-        LongAdder wLocks = new LongAdder();
-        LongAdder fLocks = new LongAdder();
+        LongAdder readLocks = new LongAdder();
+        LongAdder writeLocks = new LongAdder();
+        LongAdder failedLocks = new LongAdder();
 
-        doTestSingleKeyMultithreaded(5_000, rLocks, wLocks, fLocks, 1);
+        doTestSingleKeyMultithreaded(5_000, readLocks, writeLocks, failedLocks, 1);
 
-        assertTrue(rLocks.sum() == 0);
+        assertTrue(readLocks.sum() == 0);
     }
 
     @Test
     public void testSingleKeyMultithreadedRandom() throws InterruptedException {
-        LongAdder rLocks = new LongAdder();
-        LongAdder wLocks = new LongAdder();
-        LongAdder fLocks = new LongAdder();
+        LongAdder readLocks = new LongAdder();
+        LongAdder writeLocks = new LongAdder();
+        LongAdder failedLocks = new LongAdder();
 
-        doTestSingleKeyMultithreaded(5_000, rLocks, wLocks, fLocks, 2);
+        doTestSingleKeyMultithreaded(5_000, readLocks, writeLocks, failedLocks, 2);
     }
 
     /**
@@ -413,8 +411,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         try {
             lockManager.tryAcquire(key, ts1).join();
-        }
-        catch (CompletionException e) {
+        } catch (CompletionException e) {
             // Expected.
         }
     }
@@ -472,23 +469,22 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     /**
      * @param duration The duration.
-     * @param rLocks Read lock accumulator.
-     * @param wLocks Write lock accumulator.
-     * @param fLocks Failed lock accumulator.
-     * @param mode Mode: 0 - read only, 1 - write only, 2 - mixed random.
+     * @param rLocks   Read lock accumulator.
+     * @param wLocks   Write lock accumulator.
+     * @param fLocks   Failed lock accumulator.
+     * @param mode     Mode: 0 - read only, 1 - write only, 2 - mixed random.
      * @throws InterruptedException If interrupted while waiting.
      */
     private void doTestSingleKeyMultithreaded(
-        long duration,
-        LongAdder rLocks,
-        LongAdder wLocks,
-        LongAdder fLocks,
-        int mode
+            long duration,
+            LongAdder rLocks,
+            LongAdder wLocks,
+            LongAdder fLocks,
+            int mode
     ) throws InterruptedException {
         Object key = new String("test");
 
         Thread[] threads = new Thread[Runtime.getRuntime().availableProcessors() * 2];
-        ;
 
         CyclicBarrier startBar = new CyclicBarrier(threads.length, () -> log.info("Before test"));
 
@@ -503,8 +499,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
                 threads[i] = new Thread(() -> {
                     try {
                         startBar.await();
-                    }
-                    catch (Exception e) {
+                    } catch (Exception e) {
                         fail();
                     }
 
@@ -516,26 +511,22 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
                                 lockManager.tryAcquire(key, timestamp).join();
 
                                 wLocks.increment();
-                            }
-                            catch (CompletionException e) {
+                            } catch (CompletionException e) {
                                 fLocks.increment();
                                 continue;
                             }
 
                             try {
                                 lockManager.tryRelease(key, timestamp);
-                            }
-                            catch (LockException e) {
+                            } catch (LockException e) {
                                 fail(e.getMessage());
                             }
-                        }
-                        else {
+                        } else {
                             try {
                                 lockManager.tryAcquireShared(key, timestamp).join();
 
                                 rLocks.increment();
-                            }
-                            catch (CompletionException e) {
+                            } catch (CompletionException e) {
                                 if (mode == 0)
                                     fail("Unexpected exception for read only locking mode");
 
@@ -546,8 +537,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
                             try {
                                 lockManager.tryReleaseShared(key, timestamp);
-                            }
-                            catch (LockException e) {
+                            } catch (LockException e) {
                                 fail(e.getMessage());
                             }
                         }
@@ -568,10 +558,10 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
             Thread.sleep(duration);
 
             stop.set(true);
-        }
-        finally {
-            for (Thread thread : threads)
+        } finally {
+            for (Thread thread : threads) {
                 thread.join();
+            }
         }
 
         if (firstErr.get() != null)
@@ -585,11 +575,13 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     private Timestamp[] generate(int num) {
         Timestamp[] tmp = new Timestamp[num];
 
-        for (int i = 0; i < tmp.length; i++)
+        for (int i = 0; i < tmp.length; i++) {
             tmp[i] = Timestamp.nextVersion();
+        }
 
-        for (int i = 1; i < tmp.length; i++)
+        for (int i = 1; i < tmp.length; i++) {
             assertTrue(tmp[i - 1].compareTo(tmp[i]) < 0);
+        }
 
         return tmp;
     }

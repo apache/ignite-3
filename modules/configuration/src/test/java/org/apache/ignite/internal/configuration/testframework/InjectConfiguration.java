@@ -22,19 +22,22 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.intellij.lang.annotations.Language;
 
 /**
  * Annotation for injecting configuration instances into tests.
  * <p/>
  * This annotation should be used on either fields or method parameters of the {@code *Configuration} type.
  * <p/>
- * Injected instance is initialized with values passed in {@link #value()}, with schema defaults where explicit initial
- * values are not found.
+ * Injected instance is initialized with values passed in {@link #value()}, with schema defaults where explicit initial values are not
+ * found.
  * <p/>
- * Although configuration instance is mutable, there's no {@link ConfigurationRegistry} and {@link ConfigurationChanger}
- * underneath. Main point of the extension is to provide mocks.
+ * Although configuration instance is mutable, there's no {@link ConfigurationRegistry} and {@link ConfigurationChanger} underneath. Main
+ * point of the extension is to provide mocks.
  *
  * @see ConfigurationExtension
  */
@@ -54,13 +57,22 @@ public @interface InjectConfiguration {
      *
      * @return Initial configuration values in HOCON format.
      */
+    @Language("HOCON")
     String value() default "mock : {}";
 
     /**
-     * Array of configuration schema extensions. Every class in the array must be annotated with
-     * {@link InternalConfiguration} and extend some public configuration.
+     * Array of configuration schema extensions. Every class in the array must be annotated with {@link InternalConfiguration} and extend
+     * some public configuration.
      *
      * @return Array of configuration schema extensions.
      */
-    Class<?>[] extensions() default {};
+    Class<?>[] internalExtensions() default {};
+
+    /**
+     * Array of configuration schema extensions. Every class in the array must be annotated with
+     * {@link PolymorphicConfigInstance} and extend some {@link PolymorphicConfig} schema.
+     *
+     * @return Array of configuration schema extensions.
+     */
+    Class<?>[] polymorphicExtensions() default {};
 }

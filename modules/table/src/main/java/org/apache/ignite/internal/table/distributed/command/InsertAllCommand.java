@@ -42,8 +42,7 @@ public class InsertAllCommand implements MultiKeyCommand, WriteCommand {
     private Timestamp timestamp;
 
     /**
-     * Creates a new instance of InsertAllCommand with the given rows to be inserted.
-     * The {@code rows} should not be {@code null} or empty.
+     * Creates a new instance of InsertAllCommand with the given rows to be inserted. The {@code rows} should not be {@code null} or empty.
      *
      * @param rows Binary rows.
      * @param ts The timestamp.

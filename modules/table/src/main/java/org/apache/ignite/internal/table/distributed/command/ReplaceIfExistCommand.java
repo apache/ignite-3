@@ -31,8 +31,7 @@ public class ReplaceIfExistCommand implements SingleKeyCommand, WriteCommand {
     private transient BinaryRow row;
 
     /**
-     * Row bytes.
-     * It is a temporary solution, before network have not implement correct serialization BinaryRow.
+     * Row bytes. It is a temporary solution, before network have not implement correct serialization BinaryRow.
      * TODO: Remove the field after (IGNITE-14793).
      */
     private byte[] rowBytes;
@@ -41,8 +40,7 @@ public class ReplaceIfExistCommand implements SingleKeyCommand, WriteCommand {
     private final Timestamp timestamp;
 
     /**
-     * Creates a new instance of ReplaceIfExistCommand with the given row to be replaced.
-     * The {@code row} should not be {@code null}.
+     * Creates a new instance of ReplaceIfExistCommand with the given row to be replaced. The {@code row} should not be {@code null}.
      *
      * @param row Binary row.
      * @param ts The timestamp.
@@ -61,9 +59,11 @@ public class ReplaceIfExistCommand implements SingleKeyCommand, WriteCommand {
      *
      * @return Binary row.
      */
-    @Override public BinaryRow getRow() {
-        if (row == null)
+    @Override
+    public BinaryRow getRow() {
+        if (row == null) {
             row = new ByteBufferRow(rowBytes);
+        }
 
         return row;
     }

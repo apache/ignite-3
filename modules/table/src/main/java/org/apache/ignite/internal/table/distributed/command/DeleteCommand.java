@@ -41,8 +41,7 @@ public class DeleteCommand implements SingleKeyCommand, WriteCommand {
     private byte[] keyRowBytes;
 
     /**
-     * Creates a new instance of DeleteCommand with the given key to be deleted.
-     * The {@code keyRow} should not be {@code null}.
+     * Creates a new instance of DeleteCommand with the given key to be deleted. The {@code keyRow} should not be {@code null}.
      *
      * @param keyRow Binary key row.
      */
@@ -60,9 +59,11 @@ public class DeleteCommand implements SingleKeyCommand, WriteCommand {
      *
      * @return Binary key.
      */
-    @Override public BinaryRow getRow() {
-        if (keyRow == null)
+    @Override
+    public BinaryRow getRow() {
+        if (keyRow == null) {
             keyRow = new ByteBufferRow(keyRowBytes);
+        }
 
         return keyRow;
     }
@@ -70,11 +71,13 @@ public class DeleteCommand implements SingleKeyCommand, WriteCommand {
     /**
      * @return The timestamp.
      */
-    @Override public Timestamp getTimestamp() {
+    @Override
+    public Timestamp getTimestamp() {
         return timestamp;
     }
 
-    @Override public boolean read() {
+    @Override
+    public boolean read() {
         return false;
     }
 }

@@ -42,8 +42,8 @@ public class DeleteExactAllCommand implements MultiKeyCommand, WriteCommand {
     private final Timestamp timestamp;
 
     /**
-     * Creates a new instance of DeleteExactAllCommand with the given set of rows to be deleted.
-     * The {@code rows} should not be {@code null} or empty.
+     * Creates a new instance of DeleteExactAllCommand with the given set of rows to be deleted. The {@code rows} should not be {@code null}
+     * or empty.
      *
      * @param rows Binary rows.
      * @param ts

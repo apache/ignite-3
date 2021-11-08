@@ -26,6 +26,7 @@ import java.util.concurrent.Flow;
 import java.util.function.BiFunction;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.distributed.command.GetAllCommand;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -50,6 +51,7 @@ import org.mockito.Mockito;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 
 /**
  * Dummy table storage implementation.
@@ -67,7 +69,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param txManager Transaction manager.
      */
     public DummyInternalTableImpl(VersionedRowStore store, TxManager txManager) {
-        super("test", new IgniteUuid(UUID.randomUUID(), 0), Map.of(0, Mockito.mock(RaftGroupService.class)), 1, null, txManager);
+        super("test", new IgniteUuid(UUID.randomUUID(), 0), Map.of(0, mock(RaftGroupService.class)),
+                1, null, txManager, mock(TableStorage.class));
 
         RaftGroupService svc = partitionMap.get(0);
 

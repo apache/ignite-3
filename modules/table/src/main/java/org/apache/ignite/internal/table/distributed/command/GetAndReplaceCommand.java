@@ -41,8 +41,8 @@ public class GetAndReplaceCommand implements SingleKeyCommand, WriteCommand {
     private final Timestamp timestamp;
 
     /**
-     * Creates a new instance of GetAndReplaceCommand with the given row to be got and replaced.
-     * The {@code row} should not be {@code null}.
+     * Creates a new instance of GetAndReplaceCommand with the given row to be got and replaced. The {@code row} should not be {@code
+     * null}.
      *
      * @param row Binary row.
      * @param ts The timestamp.
@@ -61,9 +61,11 @@ public class GetAndReplaceCommand implements SingleKeyCommand, WriteCommand {
      *
      * @return Binary row.
      */
-    @Override public BinaryRow getRow() {
-        if (row == null)
+    @Override
+    public BinaryRow getRow() {
+        if (row == null) {
             row = new ByteBufferRow(rowBytes);
+        }
 
         return row;
     }

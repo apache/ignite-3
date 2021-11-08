@@ -21,17 +21,22 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.validation.ExceptKeys;
 
 /**
  * Root configuration for data storages.
  */
 @ConfigurationRoot(rootName = "db", type = ConfigurationType.DISTRIBUTED)
 public class DataStorageConfigurationSchema {
+    /** Name of the default data region. */
+    public static final String DEFAULT_DATA_REGION_NAME = "default";
+
     /** Default data region. */
     @ConfigValue
     public DataRegionConfigurationSchema defaultRegion;
 
     /** Other data regions. */
+    @ExceptKeys(DEFAULT_DATA_REGION_NAME)
     @NamedConfigValue
     public DataRegionConfigurationSchema regions;
 }

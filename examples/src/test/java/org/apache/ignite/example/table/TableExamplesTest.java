@@ -17,18 +17,23 @@
 
 package org.apache.ignite.example.table;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
+import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.example.ExampleTestUtils;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * These tests check that all table examples pass correctly.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 public class TableExamplesTest {
     /** Empty argument to invoke an example. */
     protected static final String[] EMPTY_ARGS = new String[0];
@@ -41,10 +46,10 @@ public class TableExamplesTest {
     @Test
     public void testRecordViewExample() throws Exception {
         ExampleTestUtils.assertConsoleOutputContains(RecordViewExample::main, EMPTY_ARGS,
-            "\nRetrieved record:\n" +
-            "    Account Number: 123456\n" +
-            "    Owner: Val Kulichenko\n" +
-            "    Balance: $100.0\n");
+                "\nRetrieved record:\n"
+                        + "    Account Number: 123456\n"
+                        + "    Owner: Val Kulichenko\n"
+                        + "    Balance: $100.0\n");
     }
 
     /**
@@ -55,10 +60,24 @@ public class TableExamplesTest {
     @Test
     public void testKeyValueViewExample() throws Exception {
         ExampleTestUtils.assertConsoleOutputContains(KeyValueViewExample::main, EMPTY_ARGS,
-            "\nRetrieved value:\n" +
-            "    Account Number: 123456\n" +
-            "    Owner: Val Kulichenko\n" +
-            "    Balance: $100.0\n");
+                "\nRetrieved value:\n"
+                        + "    Account Number: 123456\n"
+                        + "    Owner: Val Kulichenko\n"
+                        + "    Balance: $100.0\n");
+    }
+
+    @BeforeEach
+    public void startNode(@WorkDirectory Path workDir) throws IOException {
+        IgnitionManager.start(
+                "my-first-node",
+                Files.readString(Path.of("config", "ignite-config.json")),
+                workDir
+        );
+    }
+
+    @AfterEach
+    public void stopNode() {
+        IgnitionManager.stop("my-first-node");
     }
 
     /**
@@ -66,10 +85,11 @@ public class TableExamplesTest {
      */
     @BeforeEach
     @AfterEach
-    private void removeWorkDir() {
+    public void removeWorkDir() {
         Path workDir = Path.of("work");
 
-        if (Files.exists(workDir))
+        if (Files.exists(workDir)) {
             IgniteUtils.deleteIfExists(workDir);
+        }
     }
 }
