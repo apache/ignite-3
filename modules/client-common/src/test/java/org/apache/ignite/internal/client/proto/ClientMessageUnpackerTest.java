@@ -17,24 +17,16 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.math.BigInteger;
-import java.util.Arrays;
-import java.util.function.Consumer;
-import java.util.function.Function;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import java.math.BigInteger;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.msgpack.core.MessagePack;
-import org.msgpack.core.MessagePacker;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests Ignite ByteBuf-based unpacker.
@@ -80,27 +72,19 @@ public class ClientMessageUnpackerTest {
         testUnpacker(p -> p.packLong(l), ClientMessageUnpacker::unpackLong, l);
     }
 
-    /*
     @ParameterizedTest
     @ValueSource(longs = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE})
-    public void testPackBigInteger(long l) {
+    public void testUnpackBigInteger(long l) {
         var bi = BigInteger.valueOf(l);
-        testPacker(p -> p.packBigInteger(bi), p -> p.packBigInteger(bi));
-    }
-
-    @Test
-    public void testPackBigIntegerThrowsOnTooLargeValues() {
-        var bi = BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.TEN);
-
-        assertThrows(IllegalArgumentException.class, () -> packIgnite(p -> p.packBigInteger(bi)));
+        testUnpacker(p -> p.packBigInteger(bi), ClientMessageUnpacker::unpackBigInteger, bi);
     }
 
     @ParameterizedTest
     @ValueSource(floats = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE, Float.MIN_VALUE, Float.MAX_VALUE})
     public void testPackFloat(float f) {
-        testPacker(p -> p.packFloat(f), p -> p.packFloat(f));
+        testUnpacker(p -> p.packFloat(f), ClientMessageUnpacker::unpackFloat, f);
     }
 
     @ParameterizedTest
@@ -108,7 +92,7 @@ public class ClientMessageUnpackerTest {
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE, Float.MIN_VALUE, Float.MAX_VALUE,
             Double.MIN_VALUE, Double.MAX_VALUE})
     public void testPackDouble(double d) {
-        testPacker(p -> p.packDouble(d), p -> p.packDouble(d));
+        testUnpacker(p -> p.packDouble(d), ClientMessageUnpacker::unpackDouble, d);
     }
 
     @ParameterizedTest
@@ -120,48 +104,40 @@ public class ClientMessageUnpackerTest {
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
     public void testPackArrayHeader(int i) {
-        testPacker(p -> p.packArrayHeader(i), p -> p.packArrayHeader(i));
+        testUnpacker(p -> p.packArrayHeader(i), ClientMessageUnpacker::unpackArrayHeader, i);
     }
 
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
     public void testPackMapHeader(int i) {
-        testPacker(p -> p.packMapHeader(i), p -> p.packMapHeader(i));
+        testUnpacker(p -> p.packMapHeader(i), ClientMessageUnpacker::unpackMapHeader, i);
     }
 
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
     public void testPackExtensionTypeHeader(int i) {
-        testPacker(p -> p.packExtensionTypeHeader((byte) 33, i), p -> p.packExtensionTypeHeader((byte) 33, i));
+        testUnpacker(p -> p.packExtensionTypeHeader((byte) 33, i), ClientMessageUnpacker::unpackExtensionTypeHeader, i);
     }
 
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
     public void testPackBinaryHeader(int i) {
-        testPacker(p -> p.packBinaryHeader(i), p -> p.packBinaryHeader(i));
+        testUnpacker(p -> p.packBinaryHeader(i), ClientMessageUnpacker::unpackBinaryHeader, i);
     }
 
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
     public void testPackRawStringHeader(int i) {
-        testPacker(p -> p.packRawStringHeader(i), p -> p.packRawStringHeader(i));
+        testUnpacker(p -> p.packRawStringHeader(i), ClientMessageUnpacker::unpackRawStringHeader, i);
     }
 
     @Test
     public void testWritePayload() {
         var b = new byte[] {1, 5, 120};
 
-        testPacker(p -> p.writePayload(b), p -> p.writePayload(b));
-        testPacker(p -> p.writePayload(b, 1, 1), p -> p.writePayload(b, 1, 1));
+        testUnpacker(p -> p.writePayload(b), p -> p.readPayload(b.length), b);
+        testUnpacker(p -> p.writePayload(b, 1, 1), p -> p.readPayload(1), new byte[] {5});
     }
-
-    private static void testPacker(Consumer<ClientMessagePacker> pack1, MessagePackerConsumer pack2) {
-        var bytesIgnite = packIgnite(pack1);
-        var bytesLibrary = packLibrary(pack2);
-
-        assertArrayEquals(bytesLibrary, bytesIgnite);
-        fail("TODO: Remove this method");
-    }*/
 
     private static void testUnpacker(
             Consumer<ClientMessagePacker> pack,
@@ -178,33 +154,5 @@ public class ClientMessageUnpackerTest {
 
             assertEquals(value, res);
         }
-    }
-
-    private static byte[] packIgnite(Consumer<ClientMessagePacker> pack) {
-        try (var packer = new ClientMessagePacker(Unpooled.buffer())) {
-            pack.accept(packer);
-
-            ByteBuf buf = packer.getBuffer();
-
-            byte[] arr = buf.array();
-            var offset = buf.arrayOffset() + ClientMessageCommon.HEADER_SIZE;
-            var size = buf.writerIndex() - ClientMessageCommon.HEADER_SIZE;
-
-            return Arrays.copyOfRange(arr, offset, offset + size);
-        }
-    }
-
-    private static byte[] packLibrary(MessagePackerConsumer pack) {
-        try (var packer = MessagePack.newDefaultBufferPacker()) {
-            pack.accept(packer);
-
-            return packer.toByteArray();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    private interface MessagePackerConsumer {
-        void accept(MessagePacker p) throws IOException;
     }
 }
