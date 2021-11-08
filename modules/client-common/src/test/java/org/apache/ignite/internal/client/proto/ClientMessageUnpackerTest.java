@@ -63,6 +63,12 @@ public class ClientMessageUnpackerTest {
         }, null);
     }
     
+    @Test
+    public void testTryUnpackNil() {
+        testUnpacker(ClientMessagePacker::packNil, ClientMessageUnpacker::tryUnpackNil, true);
+        testUnpacker(clientMessagePacker -> clientMessagePacker.packInt(1), ClientMessageUnpacker::tryUnpackNil, false);
+    }
+    
     @ParameterizedTest
     @ValueSource(bytes = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE})
     public void testUnpackByte(byte b) {
