@@ -63,7 +63,7 @@ public class ClientMessageUnpackerTest {
     @ParameterizedTest
     @ValueSource(shorts = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE})
     public void testUnpackShort(short s) {
-        testUnpacker(p -> p.packShort(s), p -> p.unpackShort(), s);
+        testUnpacker(p -> p.packShort(s), ClientMessageUnpacker::unpackShort, s);
     }
 
     @ParameterizedTest
@@ -73,14 +73,14 @@ public class ClientMessageUnpackerTest {
         testUnpacker(p -> p.packInt(i), ClientMessageUnpacker::unpackInt, i);
     }
 
-    /*
     @ParameterizedTest
     @ValueSource(longs = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE})
-    public void testPackLong(long l) {
-        testPacker(p -> p.packLong(l), p -> p.packLong(l));
+    public void testUnpackLong(long l) {
+        testUnpacker(p -> p.packLong(l), ClientMessageUnpacker::unpackLong, l);
     }
 
+    /*
     @ParameterizedTest
     @ValueSource(longs = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE})
