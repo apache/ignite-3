@@ -60,7 +60,7 @@ public abstract class Marshaller {
         for (int i = 0; i < cols.length(); i++) {
             final Column col = cols.column(i);
         
-            String fieldName = mapper.fieldForColumn(col.name());
+            String fieldName = mapper.columnToField(col.name());
         
             // TODO: validate key marshaller has no NoopAccessors.
             fieldAccessors[i] = (fieldName == null) ? FieldAccessor.noopAccessor(col) :

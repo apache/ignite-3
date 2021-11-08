@@ -33,7 +33,7 @@ public interface Mapper<T> {
      */
     Class<T> targetType();
     
-    String fieldForColumn(String name);
+    String columnToField(String columnName);
     
     /**
      * Creates identity mapper which is used for simple types that have native support or objects with field names that match column names.
@@ -50,11 +50,11 @@ public interface Mapper<T> {
             }
             
             @Override
-            public String fieldForColumn(String name) {
+            public String columnToField(String columnName) {
                 try {
-                    targetClass.getDeclaredField(name);
+                    targetClass.getDeclaredField(columnName);
                     
-                    return name;
+                    return columnName;
                 } catch (NoSuchFieldException e) {
                     return null;
                 }

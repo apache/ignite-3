@@ -72,6 +72,7 @@ import org.apache.ignite.internal.schema.testobjects.TestObjectWithPrivateConstr
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.TestFactory;
@@ -218,14 +219,14 @@ public class KvMarshallerTest {
         
         assertTrue(key.getClass().isInstance(restoredKey));
         assertTrue(val.getClass().isInstance(restoredVal));
-    
+        
         TestObjectWithAllTypes expectedKey = new TestObjectWithAllTypes();
         TestObjectWithAllTypes expectedVal = new TestObjectWithAllTypes();
         
         expectedKey.setPrimitiveLongCol(key.getPrimitiveLongCol());
         expectedKey.setPrimitiveDoubleCol(key.getPrimitiveDoubleCol());
         expectedKey.setStringCol(key.getStringCol());
-    
+        
         expectedVal.setPrimitiveLongCol(val.getPrimitiveLongCol());
         expectedVal.setPrimitiveDoubleCol(val.getPrimitiveDoubleCol());
         expectedVal.setStringCol(val.getStringCol());
@@ -237,6 +238,72 @@ public class KvMarshallerTest {
         assertNull(restoredVal.getUuidCol());
         assertEquals(0, restoredKey.getPrimitiveIntCol());
         assertEquals(0, restoredVal.getPrimitiveIntCol());
+    }
+    
+    /**
+     * @throws MarshallerException If serialization failed.
+     */
+    @ParameterizedTest
+    @MethodSource("marshallerFactoryProvider")
+    public void mapping(MarshallerFactory factory) throws MarshallerException {
+        SchemaDescriptor schema = new SchemaDescriptor(1,
+                new Column[]{new Column("key", INT64, false)},
+                new Column[]{
+                        new Column("longCol", INT64, false),
+                        new Column("longCol2", INT64, true),
+                        new Column("stringCol", STRING, false)
+                });
+        
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestObject val = TestObject.randomObject(rnd);
+        
+        Mapper<TestKeyObject> keyMapper = new Mapper<>() {
+            @Override
+            public Class<TestKeyObject> targetType() {
+                return TestKeyObject.class;
+            }
+            
+            @Override
+            public String columnToField(String columnName) {
+                return "key".equals(columnName) ? "id" : null;
+            }
+        };
+        
+        Mapper<TestObject> valMapper = new Mapper<>() {
+            @Override
+            public Class<TestObject> targetType() {
+                return TestObject.class;
+            }
+            
+            @Override
+            public String columnToField(String columnName) {
+                switch (columnName) {
+                    case "longCol":
+                        return "col1";
+                    case "stringCol":
+                        return "col3";
+                    
+                    default:
+                        return null;
+                }
+            }
+        };
+        
+        KvMarshaller marshaller = factory.create(schema, keyMapper, valMapper);
+        
+        BinaryRow row = marshaller.marshal(key, val);
+        
+        // Try different order.
+        Object restoredVal = marshaller.unmarshalValue(new Row(schema, row));
+        Object restoredKey = marshaller.unmarshalKey(new Row(schema, row));
+        
+        assertTrue(key.getClass().isInstance(restoredKey));
+        assertTrue(val.getClass().isInstance(restoredVal));
+        
+        val.col2 = null;
+        
+        assertEquals(key, restoredKey);
+        assertEquals(val, restoredVal);
     }
     
     /**
@@ -385,7 +452,7 @@ public class KvMarshallerTest {
             
             SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
             
-            final Class<?> valClass = createGeneratedObjectClass(long.class);
+            final Class<?> valClass = createGeneratedObjectClass();
             final ObjectFactory<?> objFactory = new ObjectFactory<>(valClass);
             
             final Long key = rnd.nextLong();
@@ -463,10 +530,9 @@ public class KvMarshallerTest {
     /**
      * Generate class for test objects.
      *
-     * @param fieldType Field type.
      * @return Generated test object class.
      */
-    private Class<?> createGeneratedObjectClass(Class<?> fieldType) {
+    private Class<?> createGeneratedObjectClass() {
         final String packageName = getClass().getPackageName();
         final String className = "GeneratedTestObject";
         
@@ -478,7 +544,7 @@ public class KvMarshallerTest {
         classDef.declareAnnotation(Generated.class).setValue("value", getClass().getCanonicalName());
         
         for (int i = 0; i < 3; i++) {
-            classDef.declareField(EnumSet.of(Access.PRIVATE), "col" + i, ParameterizedType.type(fieldType));
+            classDef.declareField(EnumSet.of(Access.PRIVATE), "col" + i, ParameterizedType.type(long.class));
         }
         
         // Build constructor.
@@ -491,7 +557,7 @@ public class KvMarshallerTest {
                 .append(rnd.set(BytecodeExpressions.newInstance(Random.class)));
         
         for (int i = 0; i < 3; i++) {
-            body.append(methodDef.getThis().setField("col" + i, rnd.invoke("nextLong", long.class).cast(fieldType)));
+            body.append(methodDef.getThis().setField("col" + i, rnd.invoke("nextLong", long.class).cast(long.class)));
         }
         
         body.ret();
@@ -501,6 +567,87 @@ public class KvMarshallerTest {
                 .runAsmVerifier(true)
                 .dumpRawBytecode(true)
                 .defineClass(classDef, Object.class);
+    }
+    
+    /**
+     * Test object.
+     */
+    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
+    public static class TestKeyObject {
+        /**
+         * @return Random TestObject.
+         */
+        public static TestKeyObject randomObject(Random rnd) {
+            final TestKeyObject obj = new TestKeyObject();
+            
+            obj.id = rnd.nextLong();
+            
+            return obj;
+        }
+        
+        private long id;
+        
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TestKeyObject that = (TestKeyObject) o;
+            return id == that.id;
+        }
+        
+        @Override
+        public int hashCode() {
+            return Objects.hash(id);
+        }
+    }
+    
+    
+    /**
+     * Test object.
+     */
+    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
+    public static class TestObject {
+        /**
+         * @return Random TestObject.
+         */
+        public static TestObject randomObject(Random rnd) {
+            final TestObject obj = new TestObject();
+            
+            obj.col1 = rnd.nextLong();
+            obj.col2 = rnd.nextLong();
+            obj.col3 = IgniteTestUtils.randomString(rnd, 100);
+            
+            return obj;
+        }
+        
+        private long col1;
+        
+        private Long col2;
+        
+        private String col3;
+        
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TestObject that = (TestObject) o;
+            return col1 == that.col1 &&
+                    col2 == that.col2 &&
+                    Objects.equals(col3, that.col3);
+        }
+        
+        @Override
+        public int hashCode() {
+            return Objects.hash(col1, col2, col3);
+        }
     }
     
     /**
@@ -549,11 +696,11 @@ public class KvMarshallerTest {
             
             TestTruncatedObject object = (TestTruncatedObject) o;
             
-            return  primitiveIntCol == object.primitiveIntCol
+            return primitiveIntCol == object.primitiveIntCol
                     && primitiveLongCol == object.primitiveLongCol
                     && Float.compare(object.primitiveFloatCol, primitiveFloatCol) == 0
                     && Double.compare(object.primitiveDoubleCol, primitiveDoubleCol) == 0
-                    && Objects.equals(stringCol, ((TestTruncatedObject) o) .stringCol)
+                    && Objects.equals(stringCol, ((TestTruncatedObject) o).stringCol)
                     && Objects.equals(uuidCol, ((TestTruncatedObject) o).uuidCol);
         }
         
