@@ -14,13 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.rpc.impl;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.util.concurrent.CancellationException;
@@ -29,6 +23,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class FutureTest {
     private static final IgniteLogger log = IgniteLogger.forClass(FutureImpl.class);
@@ -51,10 +50,12 @@ public class FutureTest {
                 Thread.sleep(this.sleepTime);
                 if (this.throwable != null) {
                     this.future.completeExceptionally(this.throwable);
-                } else {
+                }
+                else {
                     this.future.complete(true);
                 }
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
@@ -94,7 +95,8 @@ public class FutureTest {
             try {
                 future.get();
                 fail();
-            } catch (ExecutionException e) {
+            }
+            catch (ExecutionException e) {
                 assertEquals("hello", e.getCause().getMessage());
 
             }
@@ -112,7 +114,8 @@ public class FutureTest {
             try {
                 Thread.sleep(3000);
                 future.cancel(true);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 log.error(e.getMessage(), e);
             }
         });
@@ -121,7 +124,8 @@ public class FutureTest {
             try {
                 future.get();
                 fail();
-            } catch (CancellationException e) {
+            }
+            catch (CancellationException e) {
                 assertTrue(true);
 
             }
@@ -138,7 +142,8 @@ public class FutureTest {
         try {
             future.get(1000, TimeUnit.MILLISECONDS);
             fail();
-        } catch (TimeoutException e) {
+        }
+        catch (TimeoutException e) {
             assertTrue(true);
         }
     }

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.util.concurrent;
 
 import java.util.AbstractSet;
@@ -23,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Concurrent hash set.
- * <p>
+ *
  * Fork from bolt
  */
 public class ConcurrentHashSet<E> extends AbstractSet<E> {

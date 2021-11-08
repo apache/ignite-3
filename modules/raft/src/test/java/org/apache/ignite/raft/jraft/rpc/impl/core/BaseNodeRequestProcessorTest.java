@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
 import java.util.concurrent.ExecutorService;
@@ -64,9 +63,8 @@ public abstract class BaseNodeRequestProcessorTest<T extends Message> {
     @AfterEach
     public void teardown() {
         ExecutorServiceHelper.shutdownAndAwaitTermination(executor);
-        if (appendEntriesExecutor != null) {
+        if (appendEntriesExecutor != null)
             appendEntriesExecutor.shutdownGracefully();
-        }
     }
 
     @Test
@@ -92,9 +90,8 @@ public abstract class BaseNodeRequestProcessorTest<T extends Message> {
         nodeOptions.setStripedExecutor(appendEntriesExecutor);
 
         Mockito.lenient().when(node.getOptions()).thenReturn(nodeOptions);
-        if (asyncContext != null) {
+        if (asyncContext != null)
             asyncContext.getNodeManager().add(node);
-        }
         return peerId;
     }
 }

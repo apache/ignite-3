@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.storage.io;
 
 import java.io.BufferedInputStream;
@@ -52,7 +51,7 @@ public class MessageFile {
 
         final byte[] lenBytes = new byte[4];
         try (final FileInputStream fin = new FileInputStream(file);
-                final BufferedInputStream input = new BufferedInputStream(fin)) {
+             final BufferedInputStream input = new BufferedInputStream(fin)) {
             readBytes(lenBytes, input);
             final int len = Bits.getInt(lenBytes, 0); // TODO asch endianess ?
             if (len <= 0) {
@@ -74,7 +73,7 @@ public class MessageFile {
     /**
      * Save a message to file.
      *
-     * @param msg  protobuf message
+     * @param msg protobuf message
      * @param sync if sync flush data to disk
      * @return true if save success
      */
@@ -82,7 +81,7 @@ public class MessageFile {
         // Write message into temp file
         final File file = new File(this.path + ".tmp");
         try (final FileOutputStream fOut = new FileOutputStream(file);
-                final BufferedOutputStream output = new BufferedOutputStream(fOut)) {
+             final BufferedOutputStream output = new BufferedOutputStream(fOut)) {
             byte[] bytes = Marshaller.DEFAULT.marshall(msg);
 
             final byte[] lenBytes = new byte[4];

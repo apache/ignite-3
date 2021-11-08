@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.util;
 
 import java.util.concurrent.TimeUnit;
@@ -79,7 +78,8 @@ public abstract class RepeatedTimer implements Describer {
         this.invoking = true;
         try {
             onTrigger();
-        } catch (final Throwable t) {
+        }
+        catch (final Throwable t) {
             LOG.error("Run timer failed.", t);
         }
         boolean invokeDestroyed = false;
@@ -89,11 +89,13 @@ public abstract class RepeatedTimer implements Describer {
             if (this.stopped) {
                 this.running = false;
                 invokeDestroyed = this.destroyed;
-            } else {
+            }
+            else {
                 this.timeout = null;
                 schedule();
             }
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
         if (invokeDestroyed) {
@@ -111,7 +113,8 @@ public abstract class RepeatedTimer implements Describer {
                 this.timeout = null;
                 run();
             }
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -141,7 +144,8 @@ public abstract class RepeatedTimer implements Describer {
             }
             this.running = true;
             schedule();
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -158,7 +162,8 @@ public abstract class RepeatedTimer implements Describer {
             this.stopped = false;
             this.running = true;
             schedule();
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -170,7 +175,8 @@ public abstract class RepeatedTimer implements Describer {
         final TimerTask timerTask = timeout -> {
             try {
                 RepeatedTimer.this.run();
-            } catch (final Throwable t) {
+            }
+            catch (final Throwable t) {
                 LOG.error("Run timer task failed, taskName={}.", t, RepeatedTimer.this.name);
             }
         };
@@ -192,7 +198,8 @@ public abstract class RepeatedTimer implements Describer {
             if (this.running) {
                 schedule();
             }
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -204,7 +211,8 @@ public abstract class RepeatedTimer implements Describer {
         this.lock.lock();
         try {
             reset(this.timeoutMs);
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -234,7 +242,8 @@ public abstract class RepeatedTimer implements Describer {
                 }
                 this.timeout = null;
             }
-        } finally {
+        }
+        finally {
             this.lock.unlock();
             this.timer.stop();
             if (invokeDestroyed) {
@@ -258,7 +267,8 @@ public abstract class RepeatedTimer implements Describer {
                 this.running = false;
                 this.timeout = null;
             }
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -269,17 +279,18 @@ public abstract class RepeatedTimer implements Describer {
         this.lock.lock();
         try {
             _describeString = toString();
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
         out.print("  ") //
-                .println(_describeString);
+            .println(_describeString);
     }
 
     @Override
     public String toString() {
         return "RepeatedTimer{" + "timeout=" + this.timeout + ", stopped=" + this.stopped + ", running=" + this.running
-                + ", destroyed=" + this.destroyed + ", invoking=" + this.invoking + ", timeoutMs=" + this.timeoutMs
-                + ", name='" + this.name + '\'' + '}';
+            + ", destroyed=" + this.destroyed + ", invoking=" + this.invoking + ", timeoutMs=" + this.timeoutMs
+            + ", name='" + this.name + '\'' + '}';
     }
 }

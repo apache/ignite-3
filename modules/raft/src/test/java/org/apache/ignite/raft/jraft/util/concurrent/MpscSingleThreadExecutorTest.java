@@ -14,12 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.util.concurrent;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
@@ -30,6 +25,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  *
@@ -60,7 +59,8 @@ public class MpscSingleThreadExecutorTest {
                     Thread.sleep(100);
                     ret.incrementAndGet();
                     latch.countDown();
-                } catch (final InterruptedException e) {
+                }
+                catch (final InterruptedException e) {
                     LOG.info("Thread was interrupted", e);
                 }
             });
@@ -105,7 +105,8 @@ public class MpscSingleThreadExecutorTest {
                     Thread.sleep(100);
                     ret.incrementAndGet();
                     latch.countDown();
-                } catch (final InterruptedException e) {
+                }
+                catch (final InterruptedException e) {
                     LOG.info("Thread was interrupted", e);
                 }
             });
@@ -129,7 +130,8 @@ public class MpscSingleThreadExecutorTest {
         executor.execute(() -> {
             try {
                 latch1.await();
-            } catch (final InterruptedException e) {
+            }
+            catch (final InterruptedException e) {
                 LOG.info("Thread was interrupted", e);
             }
             latch2.countDown();
@@ -159,7 +161,8 @@ public class MpscSingleThreadExecutorTest {
                 // Noop.
             });
             fail();
-        } catch (final RejectedExecutionException expected) {
+        }
+        catch (final RejectedExecutionException expected) {
             // expected
         }
     }

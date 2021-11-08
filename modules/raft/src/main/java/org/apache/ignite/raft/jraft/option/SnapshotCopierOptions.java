@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.option;
 
 import org.apache.ignite.raft.jraft.core.Scheduler;
@@ -35,7 +34,7 @@ public class SnapshotCopierOptions {
     }
 
     public SnapshotCopierOptions(RaftClientService raftClientService, Scheduler timerManager, RaftOptions raftOptions,
-            NodeOptions nodeOptions) {
+        NodeOptions nodeOptions) {
         super();
         this.raftClientService = raftClientService;
         this.timerManager = timerManager;

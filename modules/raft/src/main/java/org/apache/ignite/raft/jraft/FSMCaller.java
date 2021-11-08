@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft;
 
 import org.apache.ignite.raft.jraft.closure.LoadSnapshotClosure;

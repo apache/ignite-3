@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.util.concurrent;
 
 import java.io.Serializable;
@@ -23,7 +22,7 @@ import org.apache.ignite.raft.jraft.util.Requires;
 
 /**
  * An implementation of adjustable semaphore.
- * <p>
+ *
  * Written by Marshall Pierce and released to the public domain See: http://blog.teamlazerbeez.com/2009/04/20/javas-semaphore-resizing/
  */
 public final class AdjustableSemaphore implements Serializable {
@@ -56,9 +55,11 @@ public final class AdjustableSemaphore implements Serializable {
 
         if (delta == 0) {
             return;
-        } else if (delta > 0) {
+        }
+        else if (delta > 0) {
             this.semaphore.release(delta);
-        } else {
+        }
+        else {
             this.semaphore.reducePermits(-delta);
         }
 
@@ -73,7 +74,8 @@ public final class AdjustableSemaphore implements Serializable {
     }
 
     /**
-     * Acquires a permit from this semaphore, blocking until one is available, or the thread is {@linkplain Thread#interrupt interrupted}.
+     * Acquires a permit from this semaphore, blocking until one is available, or the thread is {@linkplain
+     * Thread#interrupt interrupted}.
      *
      * @throws InterruptedException if the current thread is interrupted
      */

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.closure;
 
 import java.util.List;
@@ -44,8 +43,8 @@ public interface ClosureQueue {
     void appendPendingClosure(final Closure closure);
 
     /**
-     * Pop closure from queue until index(inclusion), returns the first popped out index, returns -1 when out of range, returns index+1 when
-     * not found.
+     * Pop closure from queue until index(inclusion), returns the first popped out index, returns -1 when out of range,
+     * returns index+1 when not found.
      *
      * @param endIndex the index of queue
      * @param closures closure list
@@ -54,11 +53,11 @@ public interface ClosureQueue {
     long popClosureUntil(final long endIndex, final List<Closure> closures);
 
     /**
-     * Pop closure from queue until index(inclusion), returns the first popped out index, returns -1 when out of range, returns index+1 when
-     * not found.
+     * Pop closure from queue until index(inclusion), returns the first popped out index, returns -1 when out of range,
+     * returns index+1 when not found.
      *
-     * @param endIndex     the index of queue
-     * @param closures     closure list
+     * @param endIndex the index of queue
+     * @param closures closure list
      * @param taskClosures task closure list
      * @return returns the first popped out index, returns -1 when out of range, returns index+1 when not found.
      */

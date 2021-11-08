@@ -14,14 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.util;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +22,12 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class SegmentListTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(SegmentListTest.class);
@@ -84,7 +83,8 @@ public class SegmentListTest {
         for (int i = 0; i < 1900; i++) {
             if (i < 900) {
                 assertEquals(i + 100, (int) this.list.get(i));
-            } else {
+            }
+            else {
                 assertEquals(i - 900, (int) this.list.get(i));
             }
         }
@@ -157,7 +157,8 @@ public class SegmentListTest {
         try {
             this.list.get(151);
             fail();
-        } catch (IndexOutOfBoundsException e) {
+        }
+        catch (IndexOutOfBoundsException e) {
             // No-op.
         }
         assertEquals(150 / SegmentList.SEGMENT_SIZE + 1, this.list.segmentSize());
@@ -172,7 +173,8 @@ public class SegmentListTest {
         try {
             this.list.get(32);
             fail();
-        } catch (IndexOutOfBoundsException e) {
+        }
+        catch (IndexOutOfBoundsException e) {
             // No-op.
         }
         assertEquals(1, this.list.segmentSize());
@@ -183,7 +185,8 @@ public class SegmentListTest {
         for (int i = 0; i < 1032; i++) {
             if (i < 32) {
                 assertEquals(i, (int) this.list.get(i));
-            } else {
+            }
+            else {
                 assertEquals(i - 32, (int) this.list.get(i));
             }
         }

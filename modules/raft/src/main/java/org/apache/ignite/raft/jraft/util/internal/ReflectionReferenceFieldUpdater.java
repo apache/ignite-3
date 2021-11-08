@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.util.internal;
 
 import java.lang.reflect.Field;
@@ -34,7 +33,8 @@ final class ReflectionReferenceFieldUpdater<U, W> implements ReferenceFieldUpdat
     public void set(final U obj, final W newValue) {
         try {
             this.field.set(obj, newValue);
-        } catch (final IllegalAccessException e) {
+        }
+        catch (final IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }
@@ -43,7 +43,8 @@ final class ReflectionReferenceFieldUpdater<U, W> implements ReferenceFieldUpdat
     public W get(final U obj) {
         try {
             return (W) this.field.get(obj);
-        } catch (final IllegalAccessException e) {
+        }
+        catch (final IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }
