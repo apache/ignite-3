@@ -899,12 +899,14 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     
     private int readNextLength8()
     {
-        return readByte();
+        byte u8 = readByte();
+        return u8 & 0xff;
     }
     
     private int readNextLength16()
     {
-        return readShort();
+        short u16 = readShort();
+        return u16 & 0xffff;
     }
     
     private int readNextLength32()
