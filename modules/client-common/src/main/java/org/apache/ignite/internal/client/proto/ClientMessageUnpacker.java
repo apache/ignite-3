@@ -478,12 +478,11 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     /** {@inheritDoc} */
     @Override public byte[] readPayload(int length) {
         assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            return super.readPayload(length);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        
+        byte[] res = new byte[length];
+        buf.readBytes(res);
+        
+        return res;
     }
 
     /** {@inheritDoc} */
