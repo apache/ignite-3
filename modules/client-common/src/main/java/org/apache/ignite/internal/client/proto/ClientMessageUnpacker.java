@@ -345,23 +345,43 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     /** {@inheritDoc} */
     @Override public int unpackArrayHeader() {
         assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            return super.unpackArrayHeader();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    
+        byte b = readByte();
+        
+        if (Code.isFixedArray(b)) { // fixarray
+            return b & 0x0f;
         }
+        
+        switch (b) {
+            case Code.ARRAY16:
+                return readNextLength16();
+
+            case Code.ARRAY32:
+                return readNextLength32();
+        }
+        
+        throw unexpected("Array", b);
     }
 
     /** {@inheritDoc} */
     @Override public int unpackMapHeader() {
         assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            return super.unpackMapHeader();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    
+        byte b = readByte();
+        
+        if (Code.isFixedMap(b)) { // fixmap
+            return b & 0x0f;
         }
+        
+        switch (b) {
+            case Code.MAP16:
+                return readNextLength16();
+                
+            case Code.MAP32:
+                return readNextLength32();
+        }
+        
+        throw unexpected("Map", b);
     }
 
     /** {@inheritDoc} */
