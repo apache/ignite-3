@@ -14,9 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.util;
 
-import org.junit.jupiter.api.Test;
+package org.apache.ignite.raft.jraft.util;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,12 +23,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.junit.jupiter.api.Test;
+
 public class BytesUtilTest {
 
     @Test
     public void testNullToEmpty() {
-        assertArrayEquals(new byte[] {}, BytesUtil.nullToEmpty(null));
-        assertArrayEquals(new byte[] {1, 2}, BytesUtil.nullToEmpty(new byte[] {1, 2}));
+        assertArrayEquals(new byte[]{}, BytesUtil.nullToEmpty(null));
+        assertArrayEquals(new byte[]{1, 2}, BytesUtil.nullToEmpty(new byte[]{1, 2}));
     }
 
     @SuppressWarnings("ConstantConditions")
@@ -37,7 +38,7 @@ public class BytesUtilTest {
     public void testIsEmpty() {
         assertTrue(BytesUtil.isEmpty(null));
 
-        assertFalse(BytesUtil.isEmpty(new byte[] {1, 2}));
+        assertFalse(BytesUtil.isEmpty(new byte[]{1, 2}));
     }
 
 //    @Test
@@ -56,32 +57,32 @@ public class BytesUtilTest {
 
     @Test
     public void testNextBytes() {
-        assertArrayEquals(new byte[] {0}, BytesUtil.nextBytes(new byte[] {}));
-        assertArrayEquals(new byte[] {1, 2, 0}, BytesUtil.nextBytes(new byte[] {1, 2}));
+        assertArrayEquals(new byte[]{0}, BytesUtil.nextBytes(new byte[]{}));
+        assertArrayEquals(new byte[]{1, 2, 0}, BytesUtil.nextBytes(new byte[]{1, 2}));
     }
 
     @Test
     public void testCompare() {
-        byte[] array = new byte[] {1, 2};
+        byte[] array = new byte[]{1, 2};
 
         assertEquals(0, BytesUtil.compare(array, array));
-        assertEquals(-2, BytesUtil.compare(new byte[] {1, 2}, new byte[] {3, 4}));
-        assertEquals(0, BytesUtil.compare(new byte[] {3, 4}, new byte[] {3, 4}));
+        assertEquals(-2, BytesUtil.compare(new byte[]{1, 2}, new byte[]{3, 4}));
+        assertEquals(0, BytesUtil.compare(new byte[]{3, 4}, new byte[]{3, 4}));
     }
 
     @Test
     public void testMax() {
-        byte[] array = new byte[] {3, 4};
+        byte[] array = new byte[]{3, 4};
 
         assertArrayEquals(array, BytesUtil.max(array, array));
-        assertArrayEquals(array, BytesUtil.max(new byte[] {1, 2}, array));
+        assertArrayEquals(array, BytesUtil.max(new byte[]{1, 2}, array));
     }
 
     @Test
     public void testMin() {
-        byte[] array = new byte[] {1, 2};
+        byte[] array = new byte[]{1, 2};
         assertArrayEquals(array, BytesUtil.min(array, array));
-        assertArrayEquals(array, BytesUtil.min(array, new byte[] {3, 4}));
+        assertArrayEquals(array, BytesUtil.min(array, new byte[]{3, 4}));
     }
 
     @SuppressWarnings("ConstantConditions")
@@ -89,14 +90,14 @@ public class BytesUtilTest {
     public void testToHex() {
         assertNull(BytesUtil.toHex(null));
 
-        assertEquals("0102", BytesUtil.toHex(new byte[] {1, 2}));
+        assertEquals("0102", BytesUtil.toHex(new byte[]{1, 2}));
     }
 
     @Test
     public void testHexStringToByteArray() {
         assertNull(BytesUtil.hexStringToByteArray(null));
 
-        assertArrayEquals(new byte[] {-17, -5}, BytesUtil.hexStringToByteArray("foob"));
+        assertArrayEquals(new byte[]{-17, -5}, BytesUtil.hexStringToByteArray("foob"));
     }
 
 //    @Test

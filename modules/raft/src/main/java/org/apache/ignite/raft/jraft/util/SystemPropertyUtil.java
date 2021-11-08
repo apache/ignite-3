@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.security.AccessController;
@@ -35,8 +36,8 @@ public final class SystemPropertyUtil {
     }
 
     /**
-     * Returns the value of the Java system property with the specified {@code key}, while falling back to {@code null}
-     * if the property access fails.
+     * Returns the value of the Java system property with the specified {@code key}, while falling back to {@code null} if the property
+     * access fails.
      *
      * @return the property value or {@code null}
      */
@@ -45,11 +46,10 @@ public final class SystemPropertyUtil {
     }
 
     /**
-     * Returns the value of the Java system property with the specified {@code key}, while falling back to the specified
-     * default value if the property access fails.
+     * Returns the value of the Java system property with the specified {@code key}, while falling back to the specified default value if
+     * the property access fails.
      *
-     * @return the property value. {@code def} if there's no such property or if an access to the specified property is
-     * not allowed.
+     * @return the property value. {@code def} if there's no such property or if an access to the specified property is not allowed.
      */
     public static String get(final String key, String def) {
         if (key == null) {
@@ -63,14 +63,12 @@ public final class SystemPropertyUtil {
         try {
             if (System.getSecurityManager() == null) {
                 value = System.getProperty(key);
-            }
-            else {
+            } else {
                 value = AccessController.doPrivileged((PrivilegedAction<String>) () -> System.getProperty(key));
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             if (LOG.isWarnEnabled()) {
-                LOG.warn("Unable to retrieve a system property '{}'; default values will be used, {}.", key, (Object)e);
+                LOG.warn("Unable to retrieve a system property '{}'; default values will be used, {}.", key, (Object) e);
             }
         }
 
@@ -82,11 +80,10 @@ public final class SystemPropertyUtil {
     }
 
     /**
-     * Returns the value of the Java system property with the specified {@code key}, while falling back to the specified
-     * default value if the property access fails.
+     * Returns the value of the Java system property with the specified {@code key}, while falling back to the specified default value if
+     * the property access fails.
      *
-     * @return the property value. {@code def} if there's no such property or if an access to the specified property is
-     * not allowed.
+     * @return the property value. {@code def} if there's no such property or if an access to the specified property is not allowed.
      */
     public static boolean getBoolean(String key, boolean def) {
         String value = get(key);
@@ -113,11 +110,10 @@ public final class SystemPropertyUtil {
     }
 
     /**
-     * Returns the value of the Java system property with the specified {@code key}, while falling back to the specified
-     * default value if the property access fails.
+     * Returns the value of the Java system property with the specified {@code key}, while falling back to the specified default value if
+     * the property access fails.
      *
-     * @return the property value. {@code def} if there's no such property or if an access to the specified property is
-     * not allowed.
+     * @return the property value. {@code def} if there's no such property or if an access to the specified property is not allowed.
      */
     public static int getInt(String key, int def) {
         String value = get(key);
@@ -128,8 +124,7 @@ public final class SystemPropertyUtil {
         value = value.trim().toLowerCase();
         try {
             return Integer.parseInt(value);
-        }
-        catch (Exception ignored) {
+        } catch (Exception ignored) {
             // ignored
         }
 
@@ -139,11 +134,10 @@ public final class SystemPropertyUtil {
     }
 
     /**
-     * Returns the value of the Java system property with the specified {@code key}, while falling back to the specified
-     * default value if the property access fails.
+     * Returns the value of the Java system property with the specified {@code key}, while falling back to the specified default value if
+     * the property access fails.
      *
-     * @return the property value. {@code def} if there's no such property or if an access to the specified property is
-     * not allowed.
+     * @return the property value. {@code def} if there's no such property or if an access to the specified property is not allowed.
      */
     public static long getLong(String key, long def) {
         String value = get(key);
@@ -154,13 +148,12 @@ public final class SystemPropertyUtil {
         value = value.trim().toLowerCase();
         try {
             return Long.parseLong(value);
-        }
-        catch (Exception ignored) {
+        } catch (Exception ignored) {
             // ignored
         }
 
         LOG.warn("Unable to parse the long integer system property '{}':{} - using the default value: {}.", key, value,
-            def);
+                def);
 
         return def;
     }

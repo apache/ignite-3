@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.util.ArrayList;
@@ -44,8 +45,8 @@ public class ThreadId {
         /**
          * Error callback, it will be called in lock, but should take care of unlocking it.
          *
-         * @param id the thread id
-         * @param data the data
+         * @param id        the thread id
+         * @param data      the data
          * @param errorCode the error code
          */
         void onError(final ThreadId id, final Object data, final int errorCode);
@@ -77,8 +78,7 @@ public class ThreadId {
                     return null;
                 }
             }
-        }
-        catch (final InterruptedException e) {
+        } catch (final InterruptedException e) {
             Thread.currentThread().interrupt(); // reset
             return null;
         }
@@ -94,7 +94,7 @@ public class ThreadId {
     public void unlock() {
         if (!this.lock.isHeldByCurrentThread()) {
             LOG.warn("Fail to unlock with {}, the lock is held by {} and current thread is {}.", this.data,
-                this.lock.getOwner(), Thread.currentThread());
+                    this.lock.getOwner(), Thread.currentThread());
             return;
         }
         // calls all pending errors before unlock
@@ -112,8 +112,7 @@ public class ThreadId {
                     this.onError.onError(this, this.data, code);
                 }
             }
-        }
-        finally {
+        } finally {
             if (doUnlock) {
                 this.lock.unlock();
             }
@@ -138,15 +137,15 @@ public class ThreadId {
         this.destroyed = true;
         if (!this.lock.isHeldByCurrentThread()) {
             LOG.warn("Fail to unlockAndDestroy with {}, the lock is held by {} and current thread is {}.", this.data,
-                this.lock.getOwner(), Thread.currentThread());
+                    this.lock.getOwner(), Thread.currentThread());
             return;
         }
         this.lock.unlock();
     }
 
     /**
-     * Set error code, if it tryLock success, run the onError callback with code immediately, else add it into pending
-     * errors and will be called before unlock.
+     * Set error code, if it tryLock success, run the onError callback with code immediately, else add it into pending errors and will be
+     * called before unlock.
      *
      * @param errorCode error code
      */
@@ -164,8 +163,7 @@ public class ThreadId {
                     // The lock will be unlocked in onError.
                     this.onError.onError(this, this.data, errorCode);
                 }
-            }
-            else {
+            } else {
                 this.pendingErrors.add(errorCode);
             }
         }

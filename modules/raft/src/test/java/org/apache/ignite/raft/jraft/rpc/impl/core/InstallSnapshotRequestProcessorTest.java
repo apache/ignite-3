@@ -14,15 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.core;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
 
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
 import org.mockito.Mockito;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.eq;
 
 public class InstallSnapshotRequestProcessorTest extends BaseNodeRequestProcessorTest<InstallSnapshotRequest> {
     private InstallSnapshotRequest request;
@@ -30,13 +31,13 @@ public class InstallSnapshotRequestProcessorTest extends BaseNodeRequestProcesso
     @Override
     public InstallSnapshotRequest createRequest(String groupId, PeerId peerId) {
         request = msgFactory.installSnapshotRequest()
-            .groupId(groupId)
-            .serverId("localhost:8082")
-            .peerId(peerId.toString())
-            .term(0)
-            .meta(msgFactory.snapshotMeta().lastIncludedIndex(1).lastIncludedTerm(1).build())
-            .uri("test")
-            .build();
+                .groupId(groupId)
+                .serverId("localhost:8082")
+                .peerId(peerId.toString())
+                .term(0)
+                .meta(msgFactory.snapshotMeta().lastIncludedIndex(1).lastIncludedTerm(1).build())
+                .uri("test")
+                .build();
         return request;
     }
 
@@ -47,7 +48,7 @@ public class InstallSnapshotRequestProcessorTest extends BaseNodeRequestProcesso
 
     @Override
     public void verify(String interest, RaftServerService service,
-        NodeRequestProcessor<InstallSnapshotRequest> processor) {
+            NodeRequestProcessor<InstallSnapshotRequest> processor) {
         assertEquals(interest, InstallSnapshotRequest.class.getName());
         Mockito.verify(service).handleInstallSnapshot(eq(request), Mockito.any());
     }

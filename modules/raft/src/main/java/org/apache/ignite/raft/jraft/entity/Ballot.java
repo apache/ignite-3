@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.entity;
 
 import java.util.ArrayList;
@@ -50,7 +51,7 @@ public class Ballot {
     /**
      * Init the ballot with current conf and old conf.
      *
-     * @param conf current configuration
+     * @param conf    current configuration
      * @param oldConf old configuration
      */
     public void init(final Configuration conf, final Configuration oldConf) {
@@ -97,8 +98,7 @@ public class Ballot {
                 this.quorum--;
             }
             hint.pos0 = peer.index;
-        }
-        else {
+        } else {
             hint.pos0 = -1;
         }
         if (this.oldPeers.isEmpty()) {
@@ -112,8 +112,7 @@ public class Ballot {
                 this.oldQuorum--;
             }
             hint.pos1 = peer.index;
-        }
-        else {
+        } else {
             hint.pos1 = -1;
         }
 

@@ -14,7 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.FileNotFoundException;
 import java.nio.ByteBuffer;
@@ -25,9 +29,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
 
 public class SnapshotFileReaderTest extends BaseStorageTest {
     private SnapshotFileReader reader;
@@ -57,10 +58,10 @@ public class SnapshotFileReaderTest extends BaseStorageTest {
 
     private LocalFileMetaOutter.LocalFileMeta addDataMeta() {
         final LocalFileMetaOutter.LocalFileMeta meta = opts.getRaftMessagesFactory()
-            .localFileMeta()
-            .checksum("test")
-            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
-            .build();
+                .localFileMeta()
+                .checksum("test")
+                .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
+                .build();
         this.metaTable.addFile("data", meta);
         return meta;
     }
@@ -71,8 +72,7 @@ public class SnapshotFileReaderTest extends BaseStorageTest {
         try {
             this.reader.readFile(bufRef, "unfound", 0, 1024);
             fail();
-        }
-        catch (final FileNotFoundException e) {
+        } catch (final FileNotFoundException e) {
             // No-op.
         }
 

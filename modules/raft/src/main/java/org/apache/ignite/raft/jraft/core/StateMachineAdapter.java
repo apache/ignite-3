@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.core;
 
 import org.apache.ignite.lang.IgniteLogger;
@@ -64,8 +65,8 @@ public abstract class StateMachineAdapter implements StateMachine {
     @Override
     public void onError(final RaftException e) {
         LOG.error(
-            "Encountered an error={} on StateMachine {}, it's highly recommended to implement this method as raft stops working since some error occurs, you should figure out the cause and repair or remove this node.",
-            e, e.getStatus(), getClassName());
+                "Encountered an error={} on StateMachine {}, it's highly recommended to implement this method as raft stops working since some error occurs, you should figure out the cause and repair or remove this node.",
+                e, e.getStatus(), getClassName());
     }
 
     @Override

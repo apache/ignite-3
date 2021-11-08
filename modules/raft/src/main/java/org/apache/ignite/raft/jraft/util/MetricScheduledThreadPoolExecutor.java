@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import com.codahale.metrics.Timer;
@@ -21,8 +22,8 @@ import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadFactory;
 
 /**
- * A {@link java.util.concurrent.ThreadPoolExecutor} that can additionally schedule commands to run after a given delay
- * with a timer metric which aggregates timing durations and provides duration statistics.
+ * A {@link java.util.concurrent.ThreadPoolExecutor} that can additionally schedule commands to run after a given delay with a timer metric
+ * which aggregates timing durations and provides duration statistics.
  */
 public class MetricScheduledThreadPoolExecutor extends LogScheduledThreadPoolExecutor {
     public MetricScheduledThreadPoolExecutor(int corePoolSize, String name) {
@@ -38,7 +39,7 @@ public class MetricScheduledThreadPoolExecutor extends LogScheduledThreadPoolExe
     }
 
     public MetricScheduledThreadPoolExecutor(int corePoolSize, ThreadFactory threadFactory,
-        RejectedExecutionHandler handler, String name) {
+            RejectedExecutionHandler handler, String name) {
         super(corePoolSize, threadFactory, handler, name);
     }
 
@@ -47,9 +48,8 @@ public class MetricScheduledThreadPoolExecutor extends LogScheduledThreadPoolExe
         super.beforeExecute(t, r);
         try {
             ThreadPoolMetricRegistry.timerThreadLocal() //
-                .set(ThreadPoolMetricRegistry.metricRegistry().timer("scheduledThreadPool." + getName()).time());
-        }
-        catch (final Throwable ignored) {
+                    .set(ThreadPoolMetricRegistry.metricRegistry().timer("scheduledThreadPool." + getName()).time());
+        } catch (final Throwable ignored) {
             // ignored
         }
     }
@@ -64,8 +64,7 @@ public class MetricScheduledThreadPoolExecutor extends LogScheduledThreadPoolExe
                 ctx.stop();
                 tl.remove();
             }
-        }
-        catch (final Throwable ignored) {
+        } catch (final Throwable ignored) {
             // ignored
         }
     }

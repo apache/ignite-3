@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft;
 
 import java.util.concurrent.ArrayBlockingQueue;
@@ -65,28 +66,28 @@ public final class JRaftUtils {
         StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
 
         nodeOpts.setfSMCallerExecutorDisruptor(fsmCallerDusruptor = new StripedDisruptor<>(
-            "JRaft-FSMCaller-Disruptor_bootstrap",
-            nodeOpts.getRaftOptions().getDisruptorBufferSize(),
-            () -> new FSMCallerImpl.ApplyTask(),
-            nodeOpts.getStripes()));
+                "JRaft-FSMCaller-Disruptor_bootstrap",
+                nodeOpts.getRaftOptions().getDisruptorBufferSize(),
+                () -> new FSMCallerImpl.ApplyTask(),
+                nodeOpts.getStripes()));
 
         nodeOpts.setNodeApplyDisruptor(nodeDisruptor = new StripedDisruptor<>(
-            "JRaft-NodeImpl-Disruptor_bootstrap",
-            nodeOpts.getRaftOptions().getDisruptorBufferSize(),
-            () -> new NodeImpl.LogEntryAndClosure(),
-            nodeOpts.getStripes()));
+                "JRaft-NodeImpl-Disruptor_bootstrap",
+                nodeOpts.getRaftOptions().getDisruptorBufferSize(),
+                () -> new NodeImpl.LogEntryAndClosure(),
+                nodeOpts.getStripes()));
 
         nodeOpts.setReadOnlyServiceDisruptor(readOnlyServiceDisruptor = new StripedDisruptor<>(
-            "JRaft-ReadOnlyService-Disruptor_bootstrap",
-            nodeOpts.getRaftOptions().getDisruptorBufferSize(),
-            () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
-            nodeOpts.getStripes()));
+                "JRaft-ReadOnlyService-Disruptor_bootstrap",
+                nodeOpts.getRaftOptions().getDisruptorBufferSize(),
+                () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
+                nodeOpts.getStripes()));
 
         nodeOpts.setLogManagerDisruptor(logManagerDisruptor = new StripedDisruptor<>(
-            "JRaft-LogManager-Disruptor_bootstrap",
-            nodeOpts.getRaftOptions().getDisruptorBufferSize(),
-            () -> new LogManagerImpl.StableClosureEvent(),
-            nodeOpts.getStripes()));
+                "JRaft-LogManager-Disruptor_bootstrap",
+                nodeOpts.getRaftOptions().getDisruptorBufferSize(),
+                () -> new LogManagerImpl.StableClosureEvent(),
+                nodeOpts.getStripes()));
 
         final boolean ret = node.bootstrap(opts);
         node.shutdown();
@@ -113,14 +114,14 @@ public final class JRaftUtils {
             throw new IllegalArgumentException();
         }
         return ThreadPoolUtil.newBuilder() //
-            .poolName(prefix) //
-            .enableMetric(true) //
-            .coreThreads(number) //
-            .maximumThreads(number) //
-            .keepAliveSeconds(60L) //
-            .workQueue(new LinkedBlockingQueue<>()) //
-            .threadFactory(createThreadFactory(prefix)) //
-            .build();
+                .poolName(prefix) //
+                .enableMetric(true) //
+                .coreThreads(number) //
+                .maximumThreads(number) //
+                .keepAliveSeconds(60L) //
+                .workQueue(new LinkedBlockingQueue<>()) //
+                .threadFactory(createThreadFactory(prefix)) //
+                .build();
     }
 
     /**
@@ -129,8 +130,8 @@ public final class JRaftUtils {
      */
     public static ExecutorService createCommonExecutor(NodeOptions opts) {
         return createExecutor(
-            NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-Common-Executor"),
-            opts.getCommonThreadPollSize()
+                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-Common-Executor"),
+                opts.getCommonThreadPollSize()
         );
     }
 
@@ -140,8 +141,8 @@ public final class JRaftUtils {
      */
     public static FixedThreadsExecutorGroup createAppendEntriesExecutor(NodeOptions opts) {
         return createStripedExecutor(
-            NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-AppendEntries-Processor"),
-            Utils.APPEND_ENTRIES_THREADS_POOL_SIZE, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD
+                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-AppendEntries-Processor"),
+                Utils.APPEND_ENTRIES_THREADS_POOL_SIZE, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD
         );
     }
 
@@ -151,8 +152,8 @@ public final class JRaftUtils {
      */
     public static ExecutorService createRequestExecutor(NodeOptions opts) {
         return createExecutor(
-            NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-Request-Processor"),
-            opts.getRaftRpcThreadPoolSize()
+                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-Request-Processor"),
+                opts.getRaftRpcThreadPoolSize()
         );
     }
 
@@ -165,14 +166,14 @@ public final class JRaftUtils {
         String prefix = NamedThreadFactory.threadPrefix(name, "JRaft-Response-Processor");
 
         return ThreadPoolUtil.newBuilder()
-            .poolName(prefix) //
-            .enableMetric(true) //
-            .coreThreads(opts.getRpcProcessorThreadPoolSize() / 3) //
-            .maximumThreads(opts.getRpcProcessorThreadPoolSize()) //
-            .keepAliveSeconds(60L) //
-            .workQueue(new ArrayBlockingQueue<>(10000)) //
-            .threadFactory(new NamedThreadFactory(prefix, true)) //
-            .build();
+                .poolName(prefix) //
+                .enableMetric(true) //
+                .coreThreads(opts.getRpcProcessorThreadPoolSize() / 3) //
+                .maximumThreads(opts.getRpcProcessorThreadPoolSize()) //
+                .keepAliveSeconds(60L) //
+                .workQueue(new ArrayBlockingQueue<>(10000)) //
+                .threadFactory(new NamedThreadFactory(prefix, true)) //
+                .build();
     }
 
     /**
@@ -181,27 +182,27 @@ public final class JRaftUtils {
      */
     public static Scheduler createScheduler(NodeOptions opts) {
         return new TimerManager(
-            opts.getTimerPoolSize(),
-            NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-Node-Scheduler")
+                opts.getTimerPoolSize(),
+                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-Node-Scheduler")
         );
     }
 
     /**
      * Create a striped executor.
      *
-     * @param prefix Thread name prefix.
-     * @param number Thread number.
+     * @param prefix         Thread name prefix.
+     * @param number         Thread number.
      * @param tasksPerThread Max tasks per thread.
      * @return The executor.
      */
     public static FixedThreadsExecutorGroup createStripedExecutor(final String prefix, final int number,
-        final int tasksPerThread) {
+            final int tasksPerThread) {
         return DefaultFixedThreadsExecutorGroupFactory.INSTANCE
-            .newExecutorGroup(
-                number,
-                prefix,
-                tasksPerThread,
-                true);
+                .newExecutorGroup(
+                        number,
+                        prefix,
+                        tasksPerThread,
+                        true);
     }
 
     /**
@@ -215,8 +216,8 @@ public final class JRaftUtils {
     }
 
     /**
-     * Create a configuration from a string in the form of "host1:port1[:idx],host2:port2[:idx]......", returns a empty
-     * configuration when string is blank.
+     * Create a configuration from a string in the form of "host1:port1[:idx],host2:port2[:idx]......", returns a empty configuration when
+     * string is blank.
      */
     public static Configuration getConfiguration(final String s) {
         final Configuration conf = new Configuration();

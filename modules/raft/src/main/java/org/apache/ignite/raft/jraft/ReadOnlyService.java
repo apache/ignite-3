@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft;
 
 import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
@@ -28,7 +29,7 @@ public interface ReadOnlyService extends Lifecycle<ReadOnlyServiceOptions> {
     /**
      * Adds a ReadIndex request.
      *
-     * @param reqCtx request context of readIndex
+     * @param reqCtx  request context of readIndex
      * @param closure callback
      */
     void addRequest(final byte[] reqCtx, final ReadIndexClosure closure);

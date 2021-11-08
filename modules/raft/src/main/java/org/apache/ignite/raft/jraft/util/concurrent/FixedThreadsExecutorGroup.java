@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util.concurrent;
 
 import java.util.concurrent.TimeUnit;
@@ -29,11 +30,10 @@ public interface FixedThreadsExecutorGroup extends Iterable<SingleThreadExecutor
     SingleThreadExecutor next();
 
     /**
-     * Executes the given task at some time in the future.  The task execute by a specified thread, which is selected by
-     * index.
+     * Executes the given task at some time in the future.  The task execute by a specified thread, which is selected by index.
      *
      * @param index index for thread chooser
-     * @param task the runnable task
+     * @param task  the runnable task
      */
     void execute(final int index, final Runnable task);
 
@@ -56,7 +56,7 @@ public interface FixedThreadsExecutorGroup extends Iterable<SingleThreadExecutor
      * Signals all executors that the caller wants them to be shutdown.
      *
      * @param timeout the maximum amount of time to wait until the executor is shutdown
-     * @param unit the unit of {@code timeout}
+     * @param unit    the unit of {@code timeout}
      * @return true if success to shutdown
      */
     boolean shutdownGracefully(final long timeout, final TimeUnit unit);

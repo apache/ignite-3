@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util.concurrent;
 
 import java.util.concurrent.ExecutorService;
@@ -30,13 +31,13 @@ public final class DefaultFixedThreadsExecutorGroupFactory implements FixedThrea
 
     @Override
     public FixedThreadsExecutorGroup newExecutorGroup(final int nThreads, final String poolName,
-        final int maxPendingTasksPerThread) {
+            final int maxPendingTasksPerThread) {
         return newExecutorGroup(nThreads, poolName, maxPendingTasksPerThread, false);
     }
 
     @Override
     public FixedThreadsExecutorGroup newExecutorGroup(final int nThreads, final String poolName,
-        final int maxPendingTasksPerThread, final boolean useMpscQueue) {
+            final int maxPendingTasksPerThread, final boolean useMpscQueue) {
         Requires.requireTrue(nThreads > 0, "nThreads must > 0");
         final boolean mpsc = useMpscQueue && Utils.USE_MPSC_SINGLE_THREAD_EXECUTOR;
         final SingleThreadExecutor[] children = new SingleThreadExecutor[nThreads];
@@ -44,8 +45,7 @@ public final class DefaultFixedThreadsExecutorGroupFactory implements FixedThrea
         for (int i = 0; i < nThreads; i++) {
             if (mpsc) {
                 children[i] = new MpscSingleThreadExecutor(maxPendingTasksPerThread, threadFactory);
-            }
-            else {
+            } else {
                 children[i] = new DefaultSingleThreadExecutor(poolName, maxPendingTasksPerThread);
             }
         }
@@ -59,7 +59,7 @@ public final class DefaultFixedThreadsExecutorGroupFactory implements FixedThrea
 
     @Override
     public FixedThreadsExecutorGroup newExecutorGroup(final SingleThreadExecutor[] children,
-        final ExecutorChooserFactory.ExecutorChooser chooser) {
+            final ExecutorChooserFactory.ExecutorChooser chooser) {
         return new DefaultFixedThreadsExecutorGroup(children, chooser);
     }
 
@@ -70,7 +70,7 @@ public final class DefaultFixedThreadsExecutorGroupFactory implements FixedThrea
 
     @Override
     public FixedThreadsExecutorGroup newExecutorGroup(final ExecutorService[] children,
-        final ExecutorChooserFactory.ExecutorChooser chooser) {
+            final ExecutorChooserFactory.ExecutorChooser chooser) {
         return new DefaultFixedThreadsExecutorGroup(children, chooser);
     }
 

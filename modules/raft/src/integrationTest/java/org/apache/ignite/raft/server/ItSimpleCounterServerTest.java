@@ -17,6 +17,12 @@
 
 package org.apache.ignite.raft.server;
 
+import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
@@ -24,7 +30,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -40,17 +46,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 /**
  * Single node raft server.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-class ITSimpleCounterServerTest extends RaftServerAbstractTest {
+class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     /**
      * The server implementation.
      */
@@ -76,7 +76,9 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
      */
     private RaftGroupService client2;
 
-    /** */
+    /**
+     *
+     */
     @WorkDirectory
     private Path dataPath;
 
@@ -92,10 +94,11 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
 
         var addr = new NetworkAddress("localhost", PORT);
 
-        ClusterService service = clusterService(PORT, List.of(), true);
+        ClusterService service = clusterService(PORT, List.of(addr), true);
 
-        server = new JRaftServerImpl(service, dataPath) {
-            @Override public synchronized void stop() {
+        server = new JraftServerImpl(service, dataPath) {
+            @Override
+            public synchronized void stop() {
                 super.stop();
 
                 service.stop();
@@ -106,32 +109,37 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
 
         ClusterNode serverNode = server.clusterService().topologyService().localMember();
 
-        server.startRaftGroup(COUNTER_GROUP_ID_0, new CounterListener(), List.of(new Peer(serverNode.address())));
-        server.startRaftGroup(COUNTER_GROUP_ID_1, new CounterListener(), List.of(new Peer(serverNode.address())));
+        assertTrue(server.startRaftGroup(COUNTER_GROUP_ID_0, new CounterListener(), List.of(new Peer(serverNode.address()))));
+        assertTrue(server.startRaftGroup(COUNTER_GROUP_ID_1, new CounterListener(), List.of(new Peer(serverNode.address()))));
 
         ClusterService clientNode1 = clusterService(PORT + 1, List.of(addr), true);
 
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
 
         client1 = RaftGroupServiceImpl.start(COUNTER_GROUP_ID_0, clientNode1, FACTORY, 1000,
-            List.of(new Peer(serverNode.address())), false, 200, executor).get(3, TimeUnit.SECONDS);
+                List.of(new Peer(serverNode.address())), false, 200, executor).get(3, TimeUnit.SECONDS);
 
         ClusterService clientNode2 = clusterService(PORT + 2, List.of(addr), true);
 
         client2 = RaftGroupServiceImpl.start(COUNTER_GROUP_ID_1, clientNode2, FACTORY, 1000,
-            List.of(new Peer(serverNode.address())), false, 200, executor).get(3, TimeUnit.SECONDS);
+                List.of(new Peer(serverNode.address())), false, 200, executor).get(3, TimeUnit.SECONDS);
 
-        assertTrue(waitForTopology(service, 2, 1000));
-        assertTrue(waitForTopology(clientNode1, 2, 1000));
-        assertTrue(waitForTopology(clientNode2, 2, 1000));
+        assertTrue(waitForTopology(service, 3, 1000));
+        assertTrue(waitForTopology(clientNode1, 3, 1000));
+        assertTrue(waitForTopology(clientNode2, 3, 1000));
     }
 
     /**
      * @throws Exception If failed.
      */
     @AfterEach
-    @Override public void after() throws Exception {
+    @Override
+    public void after() throws Exception {
+        server.stopRaftGroup(COUNTER_GROUP_ID_0);
+        server.stopRaftGroup(COUNTER_GROUP_ID_1);
+
         server.stop();
+
         client1.shutdown();
         client2.shutdown();
 

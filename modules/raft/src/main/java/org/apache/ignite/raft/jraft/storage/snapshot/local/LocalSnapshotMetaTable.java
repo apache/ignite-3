@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
 import java.io.IOException;
@@ -60,13 +61,13 @@ public class LocalSnapshotMetaTable {
         }
 
         List<File> files = fileMap.entrySet().stream()
-            .map(e -> raftOptions.getRaftMessagesFactory()
-                .file()
-                .name(e.getKey())
-                .meta(e.getValue())
-                .build()
-            )
-            .collect(Collectors.toList());
+                .map(e -> raftOptions.getRaftMessagesFactory()
+                        .file()
+                        .name(e.getKey())
+                        .meta(e.getValue())
+                        .build()
+                )
+                .collect(Collectors.toList());
 
         pbMetaBuilder.filesList(files);
 
@@ -88,8 +89,7 @@ public class LocalSnapshotMetaTable {
                 return false;
             }
             return loadFromPbMeta(pbMeta);
-        }
-        catch (final Exception e) {
+        } catch (final Exception e) {
             LOG.error("Fail to parse LocalSnapshotPbMeta from byte buffer", e);
             return false;
         }
@@ -119,13 +119,13 @@ public class LocalSnapshotMetaTable {
         }
 
         List<File> files = fileMap.entrySet().stream()
-            .map(e -> raftOptions.getRaftMessagesFactory()
-                .file()
-                .name(e.getKey())
-                .meta(e.getValue())
-                .build()
-            )
-            .collect(Collectors.toList());
+                .map(e -> raftOptions.getRaftMessagesFactory()
+                        .file()
+                        .name(e.getKey())
+                        .meta(e.getValue())
+                        .build()
+                )
+                .collect(Collectors.toList());
 
         pbMeta.filesList(files);
 
@@ -184,8 +184,7 @@ public class LocalSnapshotMetaTable {
     private boolean loadFromPbMeta(final LocalSnapshotPbMeta pbMeta) {
         if (pbMeta.meta() != null) {
             this.meta = pbMeta.meta();
-        }
-        else {
+        } else {
             this.meta = null;
         }
         this.fileMap.clear();

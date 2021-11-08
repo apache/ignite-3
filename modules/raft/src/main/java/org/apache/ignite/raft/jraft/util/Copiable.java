@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 /**
  * Copiable mark interface.
- *
- *
+ * <p>
+ * <p>
  * 2018-Apr-03 11:15:34 AM
  *
  * @param <T>

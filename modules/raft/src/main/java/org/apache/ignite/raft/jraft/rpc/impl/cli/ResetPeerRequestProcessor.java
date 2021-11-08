@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
 import java.util.concurrent.Executor;
@@ -47,23 +48,22 @@ public class ResetPeerRequestProcessor extends BaseCliRequestProcessor<ResetPeer
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final ResetPeerRequest request,
-        final IgniteCliRpcRequestClosure done) {
+            final IgniteCliRpcRequestClosure done) {
         final Configuration newConf = new Configuration();
         for (final String peerIdStr : request.newPeersList()) {
             final PeerId peer = new PeerId();
             if (peer.parse(peerIdStr)) {
                 newConf.addPeer(peer);
-            }
-            else {
+            } else {
                 return RaftRpcFactory.DEFAULT //
-                    .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
+                        .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
             }
         }
         LOG.info("Receive ResetPeerRequest to {} from {}, new conf is {}", ctx.node.getNodeId(), done.getRpcCtx()
-            .getRemoteAddress(), newConf);
+                .getRemoteAddress(), newConf);
         final Status st = ctx.node.resetPeers(newConf);
         return RaftRpcFactory.DEFAULT //
-            .newResponse(msgFactory(), st);
+                .newResponse(msgFactory(), st);
     }
 
     @Override

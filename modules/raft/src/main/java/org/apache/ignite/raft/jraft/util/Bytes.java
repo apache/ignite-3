@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.util.Arrays;
@@ -24,8 +25,8 @@ import java.util.Arrays;
 public class Bytes implements Comparable<Bytes> {
 
     private static final char[] HEX_CHARS_UPPER = {
-        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C',
-        'D', 'E', 'F'};
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C',
+            'D', 'E', 'F'};
 
     private final byte[] bytes;
 
@@ -58,8 +59,7 @@ public class Bytes implements Comparable<Bytes> {
     }
 
     /**
-     * The hashcode is cached except for the case where it is computed as 0, in which case we compute the hashcode on
-     * every call.
+     * The hashcode is cached except for the case where it is computed as 0, in which case we compute the hashcode on every call.
      *
      * @return the hashcode
      */
@@ -83,7 +83,7 @@ public class Bytes implements Comparable<Bytes> {
 
         // we intentionally use the function to compute hashcode here
         return this.hashCode() == other.hashCode() && other instanceof Bytes
-            && Arrays.equals(this.bytes, ((Bytes) other).get());
+                && Arrays.equals(this.bytes, ((Bytes) other).get());
     }
 
     @Override
@@ -97,12 +97,11 @@ public class Bytes implements Comparable<Bytes> {
     }
 
     /**
-     * Write a printable representation of a byte array. Non-printable characters are hex escaped in the format \\x%02X,
-     * eg: \x00 \x05 etc.
-     *
+     * Write a printable representation of a byte array. Non-printable characters are hex escaped in the format \\x%02X, eg: \x00 \x05 etc.
+     * <p>
      * This function is brought from org.apache.hadoop.hbase.util.Bytes
      *
-     * @param b array to write out
+     * @param b   array to write out
      * @param off offset to start at
      * @param len length to write
      * @return string output
@@ -128,8 +127,7 @@ public class Bytes implements Comparable<Bytes> {
             final int ch = b[i] & 0xFF;
             if (ch >= ' ' && ch <= '~' && ch != '\\') {
                 result.append((char) ch);
-            }
-            else {
+            } else {
                 result.append("\\x");
                 result.append(HEX_CHARS_UPPER[ch / 0x10]);
                 result.append(HEX_CHARS_UPPER[ch % 0x10]);

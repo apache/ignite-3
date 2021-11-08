@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.core;
 
 import java.util.concurrent.locks.StampedLock;
@@ -64,8 +65,7 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
         stamp = this.stampedLock.readLock();
         try {
             return this.lastCommittedIndex;
-        }
-        finally {
+        } finally {
             this.stampedLock.unlockRead(stamp);
         }
     }
@@ -82,8 +82,7 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
     }
 
     /**
-     * Called by leader, otherwise the behavior is undefined Set logs in [first_log_index, last_log_index] are stable at
-     * |peer|.
+     * Called by leader, otherwise the behavior is undefined Set logs in [first_log_index, last_log_index] are stable at |peer|.
      */
     public boolean commitAt(final long firstLogIndex, final long lastLogIndex, final PeerId peer) {
         // TODO use lock-free algorithm here? https://issues.apache.org/jira/browse/IGNITE-14832
@@ -128,8 +127,7 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
             LOG.debug("Committed log fromIndex={}, toIndex={}.", this.pendingIndex, lastCommittedIndex);
             this.pendingIndex = lastCommittedIndex + 1;
             this.lastCommittedIndex = lastCommittedIndex;
-        }
-        finally {
+        } finally {
             this.stampedLock.unlockWrite(stamp);
         }
         this.waiter.onCommitted(lastCommittedIndex);
@@ -137,8 +135,8 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
     }
 
     /**
-     * Called when the leader steps down, otherwise the behavior is undefined When a leader steps down, the uncommitted
-     * user applications should fail immediately, which the new leader will deal whether to commit or truncate.
+     * Called when the leader steps down, otherwise the behavior is undefined When a leader steps down, the uncommitted user applications
+     * should fail immediately, which the new leader will deal whether to commit or truncate.
      */
     public void clearPendingTasks() {
         final long stamp = this.stampedLock.writeLock();
@@ -146,16 +144,15 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
             this.pendingMetaQueue.clear();
             this.pendingIndex = 0;
             this.closureQueue.clear();
-        }
-        finally {
+        } finally {
             this.stampedLock.unlockWrite(stamp);
         }
     }
 
     /**
-     * Called when a candidate becomes the new leader, otherwise the behavior is undefined. According the the raft
-     * algorithm, the logs from previous terms can't be committed until a log at the new term becomes committed, so
-     * |newPendingIndex| should be |last_log_index| + 1.
+     * Called when a candidate becomes the new leader, otherwise the behavior is undefined. According the the raft algorithm, the logs from
+     * previous terms can't be committed until a log at the new term becomes committed, so |newPendingIndex| should be |last_log_index| +
+     * 1.
      *
      * @param newPendingIndex pending index of new leader
      * @return returns true if reset success
@@ -165,19 +162,18 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
         try {
             if (!(this.pendingIndex == 0 && this.pendingMetaQueue.isEmpty())) {
                 LOG.error("resetPendingIndex fail, pendingIndex={}, pendingMetaQueueSize={}.", this.pendingIndex,
-                    this.pendingMetaQueue.size());
+                        this.pendingMetaQueue.size());
                 return false;
             }
             if (newPendingIndex <= this.lastCommittedIndex) {
                 LOG.error("resetPendingIndex fail, newPendingIndex={}, lastCommittedIndex={}.", newPendingIndex,
-                    this.lastCommittedIndex);
+                        this.lastCommittedIndex);
                 return false;
             }
             this.pendingIndex = newPendingIndex;
             this.closureQueue.resetFirstIndex(newPendingIndex);
             return true;
-        }
-        finally {
+        } finally {
             this.stampedLock.unlockWrite(stamp);
         }
     }
@@ -185,9 +181,9 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
     /**
      * Called by leader, otherwise the behavior is undefined Store application context before replication.
      *
-     * @param conf current configuration
+     * @param conf    current configuration
      * @param oldConf old configuration
-     * @param done callback
+     * @param done    callback
      * @return returns true on success
      */
     public boolean appendPendingTask(final Configuration conf, final Configuration oldConf, final Closure done) {
@@ -203,8 +199,7 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
             this.pendingMetaQueue.add(bl);
             this.closureQueue.appendPendingClosure(done);
             return true;
-        }
-        finally {
+        } finally {
             this.stampedLock.unlockWrite(stamp);
         }
     }
@@ -221,8 +216,8 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
         try {
             if (this.pendingIndex != 0 || !this.pendingMetaQueue.isEmpty()) {
                 Requires.requireTrue(lastCommittedIndex < this.pendingIndex,
-                    "Node changes to leader, pendingIndex=%d, param lastCommittedIndex=%d", this.pendingIndex,
-                    lastCommittedIndex);
+                        "Node changes to leader, pendingIndex=%d, param lastCommittedIndex=%d", this.pendingIndex,
+                        lastCommittedIndex);
                 return false;
             }
             if (lastCommittedIndex < this.lastCommittedIndex) {
@@ -234,8 +229,7 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
                 doUnlock = false;
                 this.waiter.onCommitted(lastCommittedIndex);
             }
-        }
-        finally {
+        } finally {
             if (doUnlock) {
                 this.stampedLock.unlockWrite(stamp);
             }
@@ -258,23 +252,21 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
             _lastCommittedIndex = this.lastCommittedIndex;
             _pendingIndex = this.pendingIndex;
             _pendingMetaQueueSize = this.pendingMetaQueue.size();
-        }
-        else {
+        } else {
             stamp = this.stampedLock.readLock();
             try {
                 _lastCommittedIndex = this.lastCommittedIndex;
                 _pendingIndex = this.pendingIndex;
                 _pendingMetaQueueSize = this.pendingMetaQueue.size();
-            }
-            finally {
+            } finally {
                 this.stampedLock.unlockRead(stamp);
             }
         }
         out.print("  lastCommittedIndex: ") //
-            .println(_lastCommittedIndex);
+                .println(_lastCommittedIndex);
         out.print("  pendingIndex: ") //
-            .println(_pendingIndex);
+                .println(_pendingIndex);
         out.print("  pendingMetaQueueSize: ") //
-            .println(_pendingMetaQueueSize);
+                .println(_pendingMetaQueueSize);
     }
 }

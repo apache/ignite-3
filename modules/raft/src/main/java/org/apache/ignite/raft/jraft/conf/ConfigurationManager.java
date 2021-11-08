@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.conf;
 
 import java.util.LinkedList;
@@ -73,8 +74,7 @@ public class ConfigurationManager {
     public ConfigurationEntry getLastConfiguration() {
         if (this.configurations.isEmpty()) {
             return snapshot;
-        }
-        else {
+        } else {
             return this.configurations.peekLast();
         }
     }
@@ -82,8 +82,8 @@ public class ConfigurationManager {
     public ConfigurationEntry get(final long lastIncludedIndex) {
         if (this.configurations.isEmpty()) {
             Requires.requireTrue(lastIncludedIndex >= this.snapshot.getId().getIndex(),
-                "lastIncludedIndex %d is less than snapshot index %d", lastIncludedIndex, this.snapshot.getId()
-                    .getIndex());
+                    "lastIncludedIndex %d is less than snapshot index %d", lastIncludedIndex, this.snapshot.getId()
+                            .getIndex());
             return this.snapshot;
         }
         ListIterator<ConfigurationEntry> it = this.configurations.listIterator();
@@ -96,8 +96,7 @@ public class ConfigurationManager {
         if (it.hasPrevious()) {
             // find the first position that is less than or equal to lastIncludedIndex.
             return it.previous();
-        }
-        else {
+        } else {
             // position not found position, return snapshot.
             return this.snapshot;
         }

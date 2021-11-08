@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.entity;
 
 import java.nio.ByteBuffer;
@@ -71,7 +72,7 @@ public class LogEntry implements Checksum {
 
     public boolean hasLearners() {
         return (this.learners != null && !this.learners.isEmpty())
-            || (this.oldLearners != null && !this.oldLearners.isEmpty());
+                || (this.oldLearners != null && !this.oldLearners.isEmpty());
     }
 
     @Override
@@ -171,8 +172,8 @@ public class LogEntry implements Checksum {
     @Override
     public String toString() {
         return "LogEntry [type=" + this.type + ", id=" + this.id + ", peers=" + this.peers + ", oldPeers="
-            + this.oldPeers + ", learners=" + this.learners + ", oldLearners=" + this.oldLearners + ", data="
-            + (this.data != null ? this.data.remaining() : 0) + "]";
+                + this.oldPeers + ", learners=" + this.learners + ", oldLearners=" + this.oldLearners + ", data="
+                + (this.data != null ? this.data.remaining() : 0) + "]";
     }
 
     @Override
@@ -205,48 +206,42 @@ public class LogEntry implements Checksum {
             if (other.data != null) {
                 return false;
             }
-        }
-        else if (!this.data.equals(other.data)) {
+        } else if (!this.data.equals(other.data)) {
             return false;
         }
         if (this.id == null) {
             if (other.id != null) {
                 return false;
             }
-        }
-        else if (!this.id.equals(other.id)) {
+        } else if (!this.id.equals(other.id)) {
             return false;
         }
         if (this.learners == null) {
             if (other.learners != null) {
                 return false;
             }
-        }
-        else if (!this.learners.equals(other.learners)) {
+        } else if (!this.learners.equals(other.learners)) {
             return false;
         }
         if (this.oldLearners == null) {
             if (other.oldLearners != null) {
                 return false;
             }
-        }
-        else if (!this.oldLearners.equals(other.oldLearners)) {
+        } else if (!this.oldLearners.equals(other.oldLearners)) {
             return false;
         }
         if (this.oldPeers == null) {
             if (other.oldPeers != null) {
                 return false;
             }
-        }
-        else if (!this.oldPeers.equals(other.oldPeers)) {
+        } else if (!this.oldPeers.equals(other.oldPeers)) {
             return false;
         }
         if (this.peers == null) {
             if (other.peers != null) {
                 return false;
             }
-        }
-        else if (!this.peers.equals(other.peers)) {
+        } else if (!this.peers.equals(other.peers)) {
             return false;
         }
         return this.type == other.type;

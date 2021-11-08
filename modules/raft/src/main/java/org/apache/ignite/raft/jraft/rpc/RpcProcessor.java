@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.Executor;
@@ -27,7 +28,7 @@ public interface RpcProcessor<T> {
     /**
      * Async to handle request with {@link RpcContext}.
      *
-     * @param rpcCtx the rpc context
+     * @param rpcCtx  the rpc context
      * @param request the request
      */
     void handleRequest(final RpcContext rpcCtx, final T request);
@@ -62,8 +63,8 @@ public interface RpcProcessor<T> {
         /**
          * Select a executor.
          *
-         * @param reqClass request class name
-         * @param req request
+         * @param reqClass    request class name
+         * @param req         request
          * @param nodeManager
          * @return a executor
          */

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
 import java.util.HashMap;
@@ -39,7 +40,7 @@ import org.apache.ignite.raft.jraft.util.concurrent.SingleThreadExecutor;
  * Append entries request processor.
  */
 public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEntriesRequest> implements
-    ConnectionClosedEventListener {
+        ConnectionClosedEventListener {
     /**
      * Peer executor selector.
      */
@@ -86,8 +87,8 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         private final boolean isHeartbeat;
 
         SequenceRpcRequestClosure(final RpcRequestClosure parent,
-            final String groupId, final PeerPair pair, final int sequence,
-            final boolean isHeartbeat) {
+                final String groupId, final PeerPair pair, final int sequence,
+                final boolean isHeartbeat) {
             super(parent.getRpcCtx(), parent.getMsgFactory());
             this.reqSequence = sequence;
             this.groupId = groupId;
@@ -99,8 +100,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         public void sendResponse(final Message msg) {
             if (this.isHeartbeat) {
                 super.sendResponse(msg);
-            }
-            else {
+            } else {
                 sendSequenceResponse(this.groupId, this.pair, this.reqSequence, getRpcCtx(), msg);
             }
         }
@@ -194,16 +194,14 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
                 if (other.local != null) {
                     return false;
                 }
-            }
-            else if (!this.local.equals(other.local)) {
+            } else if (!this.local.equals(other.local)) {
                 return false;
             }
             if (this.remote == null) {
                 if (other.remote != null) {
                     return false;
                 }
-            }
-            else if (!this.remote.equals(other.remote)) {
+            } else if (!this.remote.equals(other.remote)) {
                 return false;
             }
             return true;
@@ -278,7 +276,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
      * Send response in pipeline mode.
      */
     void sendSequenceResponse(final String groupId, final PeerPair pair, final int seq, final RpcContext rpcCtx,
-        final Message msg) {
+            final Message msg) {
         final PeerRequestContext ctx = getPeerRequestContext(groupId, pair);
 
         if (ctx == null) {
@@ -307,15 +305,13 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
 
                     try {
                         queuedPipelinedResponse.sendResponse();
-                    }
-                    finally {
+                    } finally {
                         ctx.getAndIncrementNextRequiredSequence();
                     }
                 }
-            }
-            else {
+            } else {
                 LOG.warn("Dropping pipelined responses to peer {}/{}, because of too many pending responses, queued={}, max={}",
-                    ctx.groupId, pair, respQueue.size(), ctx.maxPendingResponses);
+                        ctx.groupId, pair, respQueue.size(), ctx.maxPendingResponses);
 
                 removePeerRequestContext(groupId, pair);
             }
@@ -323,12 +319,12 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
     }
 
     PeerRequestContext getOrCreatePeerRequestContext(final String groupId, final PeerPair pair,
-        NodeManager nodeManager) {
+            NodeManager nodeManager) {
         ConcurrentMap<PeerPair, PeerRequestContext> groupContexts = this.peerRequestContexts.get(groupId);
         if (groupContexts == null) {
             groupContexts = new ConcurrentHashMap<>();
             final ConcurrentMap<PeerPair, PeerRequestContext> existsCtxs = this.peerRequestContexts.putIfAbsent(
-                groupId, groupContexts);
+                    groupId, groupContexts);
             if (existsCtxs != null) {
                 groupContexts = existsCtxs;
             }
@@ -406,7 +402,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
 
     @Override
     public Message processRequest0(final RaftServerService service, final AppendEntriesRequest request,
-        final RpcRequestClosure done) {
+            final RpcRequestClosure done) {
 
         final Node node = (Node) service;
 
@@ -422,21 +418,19 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
             }
 
             final Message response = service.handleAppendEntriesRequest(request, new SequenceRpcRequestClosure(done,
-                groupId, pair, reqSequence, isHeartbeat));
+                    groupId, pair, reqSequence, isHeartbeat));
 
             if (response != null) {
                 // heartbeat or probe request
                 if (isHeartbeat) {
                     done.getRpcCtx().sendResponse(response);
-                }
-                else {
+                } else {
                     sendSequenceResponse(groupId, pair, reqSequence, done.getRpcCtx(), response);
                 }
             }
 
             return null;
-        }
-        else {
+        } else {
             return service.handleAppendEntriesRequest(request, done);
         }
     }
@@ -457,14 +451,15 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
     }
 
     /**
-     * @param local Local peer.
+     * @param local  Local peer.
      * @param remote Remote peer.
      */
-    @Override public void onClosed(String local, String remote) {
+    @Override
+    public void onClosed(String local, String remote) {
         PeerPair pair = new PeerPair(local, remote);
 
         for (final Map.Entry<String, ConcurrentMap<PeerPair, PeerRequestContext>> entry : this.peerRequestContexts
-            .entrySet()) {
+                .entrySet()) {
             final ConcurrentMap<PeerPair, PeerRequestContext> groupCtxs = entry.getValue();
             groupCtxs.remove(pair);
         }

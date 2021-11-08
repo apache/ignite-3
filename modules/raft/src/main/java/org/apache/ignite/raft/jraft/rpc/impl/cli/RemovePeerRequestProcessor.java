@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
 import java.util.ArrayList;
@@ -48,18 +49,17 @@ public class RemovePeerRequestProcessor extends BaseCliRequestProcessor<RemovePe
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final RemovePeerRequest request,
-        final IgniteCliRpcRequestClosure done) {
+            final IgniteCliRpcRequestClosure done) {
         final List<PeerId> oldPeers = ctx.node.listPeers();
         final String removingPeerIdStr = request.peerId();
         final PeerId removingPeer = new PeerId();
         if (removingPeer.parse(removingPeerIdStr)) {
             LOG.info("Receive RemovePeerRequest to {} from {}, removing {}", ctx.node.getNodeId(), done.getRpcCtx()
-                .getRemoteAddress(), removingPeerIdStr);
+                    .getRemoteAddress(), removingPeerIdStr);
             ctx.node.removePeer(removingPeer, status -> {
                 if (!status.isOk()) {
                     done.run(status);
-                }
-                else {
+                } else {
                     List<String> oldPeersList = new ArrayList<>();
                     List<String> newPeersList = new ArrayList<>();
 
@@ -71,17 +71,16 @@ public class RemovePeerRequestProcessor extends BaseCliRequestProcessor<RemovePe
                     }
 
                     RemovePeerResponse rb = msgFactory().removePeerResponse()
-                        .newPeersList(newPeersList)
-                        .oldPeersList(oldPeersList)
-                        .build();
+                            .newPeersList(newPeersList)
+                            .oldPeersList(oldPeersList)
+                            .build();
 
                     done.sendResponse(rb);
                 }
             });
-        }
-        else {
+        } else {
             return RaftRpcFactory.DEFAULT //
-                .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", removingPeerIdStr);
+                    .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", removingPeerIdStr);
         }
 
         return null;

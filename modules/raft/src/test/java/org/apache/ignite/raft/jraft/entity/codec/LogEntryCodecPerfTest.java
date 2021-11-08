@@ -14,7 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.entity.codec;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -35,10 +40,6 @@ import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
 
 public class LogEntryCodecPerfTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(LogEntryCodecPerfTest.class);
@@ -62,7 +63,7 @@ public class LogEntryCodecPerfTest {
     }
 
     private void testEncodeDecode(final LogEntryEncoder encoder, final LogEntryDecoder decoder,
-        final CyclicBarrier barrier) throws Exception {
+            final CyclicBarrier barrier) throws Exception {
         ByteBuffer buf = ByteBuffer.wrap(DATA);
         LogEntry entry = new LogEntry(EnumOutter.EntryType.ENTRY_TYPE_NO_OP);
         entry.setData(buf);
@@ -99,16 +100,15 @@ public class LogEntryCodecPerfTest {
     }
 
     private void concurrentTest(final String version, final LogEntryEncoder encoder, final LogEntryDecoder decoder)
-        throws InterruptedException,
-        BrokenBarrierException {
+            throws InterruptedException,
+            BrokenBarrierException {
         final CyclicBarrier barrier = new CyclicBarrier(THREADS + 1);
         ExecutorService executor = Executors.newFixedThreadPool(THREADS);
         for (int i = 0; i < THREADS; i++) {
             executor.execute(() -> {
                 try {
                     testEncodeDecode(encoder, decoder, barrier);
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     LOG.error("Failed to run test", e); // NOPMD
                     fail();
                 }

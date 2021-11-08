@@ -14,15 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -84,8 +85,9 @@ public abstract class AbstractCliRequestProcessorTest<T extends Message> {
         peerId.parse(this.peerIdStr);
         Mockito.when(this.node.getOptions()).thenReturn(new NodeOptions());
         Mockito.when(this.node.getNodeId()).thenReturn(new NodeId("test", peerId));
-        if (asyncContext != null)
+        if (asyncContext != null) {
             asyncContext.getNodeManager().add(node);
+        }
 
         BaseCliRequestProcessor<T> processor = newProcessor();
         processor.handleRequest(this.asyncContext, createRequest(this.groupId, peerId));

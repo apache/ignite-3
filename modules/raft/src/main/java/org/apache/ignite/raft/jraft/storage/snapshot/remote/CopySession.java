@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.snapshot.remote;
 
 import java.io.IOException;
@@ -108,15 +109,14 @@ public class CopySession implements Session {
             if (!this.finished) {
                 Utils.closeQuietly(this.outputStream);
             }
-        }
-        finally {
+        } finally {
             this.lock.unlock();
         }
     }
 
     public CopySession(final RaftClientService rpcService, final Scheduler timerManager,
-        final SnapshotThrottle snapshotThrottle, final RaftOptions raftOptions,
-        NodeOptions nodeOptions, final GetFileRequestBuilder rb, final Endpoint ep) {
+            final SnapshotThrottle snapshotThrottle, final RaftOptions raftOptions,
+            NodeOptions nodeOptions, final GetFileRequestBuilder rb, final Endpoint ep) {
         super();
         this.snapshotThrottle = snapshotThrottle;
         this.raftOptions = raftOptions;
@@ -156,8 +156,7 @@ public class CopySession implements Session {
                 this.st.setError(RaftError.ECANCELED, RaftError.ECANCELED.name());
             }
             onFinished();
-        }
-        finally {
+        } finally {
             this.lock.unlock();
         }
     }
@@ -176,8 +175,8 @@ public class CopySession implements Session {
         if (!this.finished) {
             if (!this.st.isOk()) {
                 LOG.error("Fail to copy data, readerId={} fileName={} offset={} status={}",
-                    this.requestBuilder.readerId(), this.requestBuilder.filename(),
-                    this.requestBuilder.offset(), this.st);
+                        this.requestBuilder.readerId(), this.requestBuilder.filename(),
+                        this.requestBuilder.offset(), this.st);
             }
             if (this.outputStream != null) {
                 Utils.closeQuietly(this.outputStream);
@@ -218,7 +217,7 @@ public class CopySession implements Session {
 
                 // Throttled reading failure does not increase _retry_times
                 if (status.getCode() != RaftError.EAGAIN.getNumber()
-                    && ++this.retryTimes >= this.copyOptions.getMaxRetry()) {
+                        && ++this.retryTimes >= this.copyOptions.getMaxRetry()) {
                     if (this.st.isOk()) {
                         this.st.setError(status.getCode(), status.getErrorMsg());
                         onFinished();
@@ -226,7 +225,7 @@ public class CopySession implements Session {
                     }
                 }
                 this.timer = this.timerManager.schedule(this::onTimer, this.copyOptions.getRetryIntervalMs(),
-                    TimeUnit.MILLISECONDS);
+                        TimeUnit.MILLISECONDS);
                 return;
             }
             this.retryTimes = 0;
@@ -238,23 +237,20 @@ public class CopySession implements Session {
             if (this.outputStream != null) {
                 try {
                     response.data().writeTo(this.outputStream);
-                }
-                catch (final IOException e) {
+                } catch (final IOException e) {
                     LOG.error("Fail to write into file {}", this.destPath);
                     this.st.setError(RaftError.EIO, RaftError.EIO.name());
                     onFinished();
                     return;
                 }
-            }
-            else {
+            } else {
                 this.destBuf.put(response.data().asReadOnlyByteBuffer());
             }
             if (response.eof()) {
                 onFinished();
                 return;
             }
-        }
-        finally {
+        } finally {
             this.lock.unlock();
         }
         sendNextRpc();
@@ -283,7 +279,7 @@ public class CopySession implements Session {
                     // Reset count to make next rpc retry the previous one
                     this.requestBuilder.count(0);
                     this.timer = this.timerManager.schedule(this::onTimer, this.copyOptions.getRetryIntervalMs(),
-                        TimeUnit.MILLISECONDS);
+                            TimeUnit.MILLISECONDS);
                     return;
                 }
             }
@@ -291,8 +287,7 @@ public class CopySession implements Session {
             final GetFileRequest request = this.requestBuilder.build();
             LOG.debug("Send get file request {} to peer {}", request, this.endpoint);
             this.rpcCall = this.rpcService.getFile(this.endpoint, request, this.copyOptions.getTimeoutMs(), this.done);
-        }
-        finally {
+        } finally {
             this.lock.unlock();
         }
     }

@@ -14,7 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
+
+import static java.util.stream.Collectors.toList;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,8 +29,6 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
-
-import static java.util.stream.Collectors.toList;
 
 /**
  * ResetLearners request processor.
@@ -50,7 +51,7 @@ public class ResetLearnersRequestProcessor extends BaseCliRequestProcessor<Reset
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final ResetLearnersRequest request,
-        final IgniteCliRpcRequestClosure done) {
+            final IgniteCliRpcRequestClosure done) {
         final List<PeerId> oldLearners = ctx.node.listLearners();
         final List<PeerId> newLearners = new ArrayList<>(request.learnersList().size());
 
@@ -58,22 +59,21 @@ public class ResetLearnersRequestProcessor extends BaseCliRequestProcessor<Reset
             final PeerId peer = new PeerId();
             if (!peer.parse(peerStr)) {
                 return RaftRpcFactory.DEFAULT
-                    .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", peerStr);
+                        .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", peerStr);
             }
             newLearners.add(peer);
         }
 
         LOG.info("Receive ResetLearnersRequest to {} from {}, resetting into {}.", ctx.node.getNodeId(),
-            done.getRpcCtx().getRemoteAddress(), newLearners);
+                done.getRpcCtx().getRemoteAddress(), newLearners);
         ctx.node.resetLearners(newLearners, status -> {
             if (!status.isOk()) {
                 done.run(status);
-            }
-            else {
+            } else {
                 LearnersOpResponse response = msgFactory().learnersOpResponse()
-                    .oldLearnersList(oldLearners.stream().map(Object::toString).collect(toList()))
-                    .newLearnersList(newLearners.stream().map(Object::toString).collect(toList()))
-                    .build();
+                        .oldLearnersList(oldLearners.stream().map(Object::toString).collect(toList()))
+                        .newLearnersList(newLearners.stream().map(Object::toString).collect(toList()))
+                        .build();
 
                 done.sendResponse(response);
             }

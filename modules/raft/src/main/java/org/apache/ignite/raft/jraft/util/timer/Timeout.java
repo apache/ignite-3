@@ -12,11 +12,12 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
+
 package org.apache.ignite.raft.jraft.util.timer;
 
 /**
  * A handle associated with a {@link TimerTask} that is returned by a {@link Timer}.
- *
+ * <p>
  * Forked from <a href="https://github.com/netty/netty">Netty</a>.
  */
 public interface Timeout {
@@ -42,8 +43,8 @@ public interface Timeout {
     boolean isCancelled();
 
     /**
-     * Attempts to cancel the {@link TimerTask} associated with this handle. If the task has been executed or cancelled
-     * already, it will return with no side effect.
+     * Attempts to cancel the {@link TimerTask} associated with this handle. If the task has been executed or cancelled already, it will
+     * return with no side effect.
      *
      * @return True if the cancellation completed successfully, otherwise false
      */

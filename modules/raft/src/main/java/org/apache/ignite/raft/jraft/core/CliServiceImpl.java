@@ -14,7 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.core;
+
+import static java.util.stream.Collectors.toList;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -58,8 +61,6 @@ import org.apache.ignite.raft.jraft.rpc.impl.cli.CliClientServiceImpl;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
-
-import static java.util.stream.Collectors.toList;
 
 /**
  * Cli service implementation.
@@ -109,11 +110,11 @@ public class CliServiceImpl implements CliService {
         }
 
         AddPeerRequest req = cliOptions.getRaftMessagesFactory()
-            .addPeerRequest()
-            .groupId(groupId)
-            .leaderId(leaderId.toString())
-            .peerId(peer.toString())
-            .build();
+                .addPeerRequest()
+                .groupId(groupId)
+                .leaderId(leaderId.toString())
+                .peerId(peer.toString())
+                .build();
 
         try {
             final Message result = this.cliClientService.addPeer(leaderId.getEndpoint(), req, null).get();
@@ -134,13 +135,11 @@ public class CliServiceImpl implements CliService {
 
                 LOG.info("Configuration of replication group {} changed from {} to {}.", groupId, oldConf, newConf);
                 return Status.OK();
-            }
-            else {
+            } else {
                 return statusFromResponse(result);
             }
 
-        }
-        catch (final Exception e) {
+        } catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -168,11 +167,11 @@ public class CliServiceImpl implements CliService {
         }
 
         RemovePeerRequest req = cliOptions.getRaftMessagesFactory()
-            .removePeerRequest()
-            .groupId(groupId)
-            .leaderId(leaderId.toString())
-            .peerId(peer.toString())
-            .build();
+                .removePeerRequest()
+                .groupId(groupId)
+                .leaderId(leaderId.toString())
+                .peerId(peer.toString())
+                .build();
 
         try {
             final Message result = this.cliClientService.removePeer(leaderId.getEndpoint(), req, null).get();
@@ -193,13 +192,11 @@ public class CliServiceImpl implements CliService {
 
                 LOG.info("Configuration of replication group {} changed from {} to {}", groupId, oldConf, newConf);
                 return Status.OK();
-            }
-            else {
+            } else {
                 return statusFromResponse(result);
 
             }
-        }
-        catch (final Exception e) {
+        } catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -222,11 +219,11 @@ public class CliServiceImpl implements CliService {
         }
 
         ChangePeersRequest req = cliOptions.getRaftMessagesFactory()
-            .changePeersRequest()
-            .groupId(groupId)
-            .leaderId(leaderId.toString())
-            .newPeersList(newPeers.getPeers().stream().map(Object::toString).collect(toList()))
-            .build();
+                .changePeersRequest()
+                .groupId(groupId)
+                .leaderId(leaderId.toString())
+                .newPeersList(newPeers.getPeers().stream().map(Object::toString).collect(toList()))
+                .build();
 
         try {
             final Message result = this.cliClientService.changePeers(leaderId.getEndpoint(), req, null).get();
@@ -247,13 +244,11 @@ public class CliServiceImpl implements CliService {
 
                 LOG.info("Configuration of replication group {} changed from {} to {}", groupId, oldConf, newConf);
                 return Status.OK();
-            }
-            else {
+            } else {
                 return statusFromResponse(result);
 
             }
-        }
-        catch (final Exception e) {
+        } catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -269,17 +264,16 @@ public class CliServiceImpl implements CliService {
         }
 
         ResetPeerRequest req = cliOptions.getRaftMessagesFactory()
-            .resetPeerRequest()
-            .groupId(groupId)
-            .peerId(peerId.toString())
-            .newPeersList(newPeers.getPeers().stream().map(Object::toString).collect(toList()))
-            .build();
+                .resetPeerRequest()
+                .groupId(groupId)
+                .peerId(peerId.toString())
+                .newPeersList(newPeers.getPeers().stream().map(Object::toString).collect(toList()))
+                .build();
 
         try {
             final Message result = this.cliClientService.resetPeer(peerId.getEndpoint(), req, null).get();
             return statusFromResponse(result);
-        }
-        catch (final Exception e) {
+        } catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -305,18 +299,17 @@ public class CliServiceImpl implements CliService {
         }
 
         AddLearnersRequest rb = cliOptions.getRaftMessagesFactory()
-            .addLearnersRequest()
-            .groupId(groupId)
-            .leaderId(leaderId.toString())
-            .learnersList(learners.stream().map(Object::toString).collect(toList()))
-            .build();
+                .addLearnersRequest()
+                .groupId(groupId)
+                .leaderId(leaderId.toString())
+                .learnersList(learners.stream().map(Object::toString).collect(toList()))
+                .build();
 
         try {
             final Message result = this.cliClientService.addLearners(leaderId.getEndpoint(), rb, null).get();
             return processLearnersOpResponse(groupId, result, "adding learners: %s", learners);
 
-        }
-        catch (final Exception e) {
+        } catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -329,7 +322,7 @@ public class CliServiceImpl implements CliService {
     }
 
     private Status processLearnersOpResponse(final String groupId, final Message result, final String fmt,
-        final Object... formatArgs) {
+            final Object... formatArgs) {
         if (result instanceof LearnersOpResponse) {
             final LearnersOpResponse resp = (LearnersOpResponse) result;
             final Configuration oldConf = new Configuration();
@@ -346,10 +339,9 @@ public class CliServiceImpl implements CliService {
             }
 
             LOG.info("Learners of replication group {} changed from {} to {} after {}.", groupId, oldConf, newConf,
-                String.format(fmt, formatArgs));
+                    String.format(fmt, formatArgs));
             return Status.OK();
-        }
-        else {
+        } else {
             return statusFromResponse(result);
         }
     }
@@ -369,18 +361,17 @@ public class CliServiceImpl implements CliService {
         }
 
         RemoveLearnersRequest req = cliOptions.getRaftMessagesFactory()
-            .removeLearnersRequest()
-            .groupId(groupId)
-            .leaderId(leaderId.toString())
-            .learnersList(learners.stream().map(Object::toString).collect(toList()))
-            .build();
+                .removeLearnersRequest()
+                .groupId(groupId)
+                .leaderId(leaderId.toString())
+                .learnersList(learners.stream().map(Object::toString).collect(toList()))
+                .build();
 
         try {
             final Message result = this.cliClientService.removeLearners(leaderId.getEndpoint(), req, null).get();
             return processLearnersOpResponse(groupId, result, "removing learners: %s", learners);
 
-        }
-        catch (final Exception e) {
+        } catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -400,18 +391,17 @@ public class CliServiceImpl implements CliService {
         }
 
         ResetLearnersRequest req = cliOptions.getRaftMessagesFactory()
-            .resetLearnersRequest()
-            .groupId(groupId)
-            .leaderId(leaderId.toString())
-            .learnersList(learners.stream().map(Object::toString).collect(toList()))
-            .build();
+                .resetLearnersRequest()
+                .groupId(groupId)
+                .leaderId(leaderId.toString())
+                .learnersList(learners.stream().map(Object::toString).collect(toList()))
+                .build();
 
         try {
             final Message result = this.cliClientService.resetLearners(leaderId.getEndpoint(), req, null).get();
             return processLearnersOpResponse(groupId, result, "resetting learners: %s", learners);
 
-        }
-        catch (final Exception e) {
+        } catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -433,17 +423,16 @@ public class CliServiceImpl implements CliService {
         }
 
         TransferLeaderRequest rb = cliOptions.getRaftMessagesFactory()
-            .transferLeaderRequest()
-            .groupId(groupId)
-            .leaderId(leaderId.toString())
-            .peerId(peer.isEmpty() ? null : peer.toString())
-            .build();
+                .transferLeaderRequest()
+                .groupId(groupId)
+                .leaderId(leaderId.toString())
+                .peerId(peer.isEmpty() ? null : peer.toString())
+                .build();
 
         try {
             final Message result = this.cliClientService.transferLeader(leaderId.getEndpoint(), rb, null).get();
             return statusFromResponse(result);
-        }
-        catch (final Exception e) {
+        } catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -458,16 +447,15 @@ public class CliServiceImpl implements CliService {
         }
 
         SnapshotRequest req = cliOptions.getRaftMessagesFactory()
-            .snapshotRequest()
-            .groupId(groupId)
-            .peerId(peer.toString())
-            .build();
+                .snapshotRequest()
+                .groupId(groupId)
+                .peerId(peer.toString())
+                .build();
 
         try {
             final Message result = this.cliClientService.snapshot(peer.getEndpoint(), req, null).get();
             return statusFromResponse(result);
-        }
-        catch (final Exception e) {
+        } catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -489,38 +477,34 @@ public class CliServiceImpl implements CliService {
             }
 
             GetLeaderRequest rb = cliOptions.getRaftMessagesFactory()
-                .getLeaderRequest()
-                .groupId(groupId)
-                .peerId(peer.toString())
-                .build();
+                    .getLeaderRequest()
+                    .groupId(groupId)
+                    .peerId(peer.toString())
+                    .build();
 
             final Future<Message> result = this.cliClientService.getLeader(peer.getEndpoint(), rb, null);
             try {
 
                 final Message msg = result.get(
-                    this.cliOptions.getTimeoutMs() <= 0 ? this.cliOptions.getRpcDefaultTimeout() : this.cliOptions
-                        .getTimeoutMs(), TimeUnit.MILLISECONDS);
+                        this.cliOptions.getTimeoutMs() <= 0 ? this.cliOptions.getRpcDefaultTimeout() : this.cliOptions
+                                .getTimeoutMs(), TimeUnit.MILLISECONDS);
                 if (msg instanceof ErrorResponse) {
                     if (st.isOk()) {
                         st.setError(-1, ((ErrorResponse) msg).errorMsg());
-                    }
-                    else {
+                    } else {
                         final String savedMsg = st.getErrorMsg();
                         st.setError(-1, "%s, %s", savedMsg, ((ErrorResponse) msg).errorMsg());
                     }
-                }
-                else {
+                } else {
                     final GetLeaderResponse response = (GetLeaderResponse) msg;
                     if (leaderId.parse(response.leaderId())) {
                         break;
                     }
                 }
-            }
-            catch (final Exception e) {
+            } catch (final Exception e) {
                 if (st.isOk()) {
                     st.setError(-1, e.getMessage());
-                }
-                else {
+                } else {
                     final String savedMsg = st.getErrorMsg();
 
                     st.setError(-1, "%s, %s", savedMsg, e.getMessage());
@@ -556,7 +540,7 @@ public class CliServiceImpl implements CliService {
 
     @Override
     public Status rebalance(final Set<String> balanceGroupIds, final Configuration conf,
-        final Map<String, PeerId> rebalancedLeaderIds) {
+            final Map<String, PeerId> rebalancedLeaderIds) {
         Requires.requireNonNull(balanceGroupIds, "Null balance group ids");
         Requires.requireTrue(!balanceGroupIds.isEmpty(), "Empty balance group ids");
         Requires.requireNonNull(conf, "Null configuration");
@@ -615,14 +599,14 @@ public class CliServiceImpl implements CliService {
         final Status status = failedStatus != null ? failedStatus : Status.OK();
         if (LOG.isInfoEnabled()) {
             LOG.info(
-                "Rebalanced raft groups={}, status={}, number of transfers={}, elapsed time={} ms, rebalanced result={}.",
-                balanceGroupIds, status, transfers, Utils.monotonicMs() - start, rebalancedLeaderIds);
+                    "Rebalanced raft groups={}, status={}, number of transfers={}, elapsed time={} ms, rebalanced result={}.",
+                    balanceGroupIds, status, transfers, Utils.monotonicMs() - start, rebalancedLeaderIds);
         }
         return status;
     }
 
     private PeerId findTargetPeer(final PeerId self, final String groupId, final Configuration conf,
-        final LeaderCounter leaderCounter) {
+            final LeaderCounter leaderCounter) {
         for (final PeerId peerId : getAlivePeers(groupId, conf)) {
             if (peerId.equals(self)) {
                 continue;
@@ -636,7 +620,7 @@ public class CliServiceImpl implements CliService {
     }
 
     private List<PeerId> getPeers(final String groupId, final Configuration conf, final boolean returnLearners,
-        final boolean onlyGetAlive) {
+            final boolean onlyGetAlive) {
         Requires.requireTrue(!StringUtils.isBlank(groupId), "Blank group id");
         Requires.requireNonNull(conf, "Null conf");
 
@@ -651,16 +635,16 @@ public class CliServiceImpl implements CliService {
         }
 
         GetPeersRequest req = cliOptions.getRaftMessagesFactory()
-            .getPeersRequest()
-            .groupId(groupId)
-            .leaderId(leaderId.toString())
-            .onlyAlive(onlyGetAlive)
-            .build();
+                .getPeersRequest()
+                .groupId(groupId)
+                .leaderId(leaderId.toString())
+                .onlyAlive(onlyGetAlive)
+                .build();
 
         try {
             final Message result = this.cliClientService.getPeers(leaderId.getEndpoint(), req, null).get(
-                this.cliOptions.getTimeoutMs() <= 0 ? this.cliOptions.getRpcDefaultTimeout()
-                    : this.cliOptions.getTimeoutMs(), TimeUnit.MILLISECONDS);
+                    this.cliOptions.getTimeoutMs() <= 0 ? this.cliOptions.getRpcDefaultTimeout()
+                            : this.cliOptions.getTimeoutMs(), TimeUnit.MILLISECONDS);
             if (result instanceof GetPeersResponse) {
                 final GetPeersResponse resp = (GetPeersResponse) result;
                 final List<PeerId> peerIdList = new ArrayList<>();
@@ -671,16 +655,13 @@ public class CliServiceImpl implements CliService {
                     peerIdList.add(newPeer);
                 }
                 return peerIdList;
-            }
-            else {
+            } else {
                 final ErrorResponse resp = (ErrorResponse) result;
                 throw new JRaftException(resp.errorMsg());
             }
-        }
-        catch (final JRaftException e) {
+        } catch (final JRaftException e) {
             throw e;
-        }
-        catch (final Exception e) {
+        } catch (final Exception e) {
             throw new JRaftException(e);
         }
     }

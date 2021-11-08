@@ -14,7 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.io;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -24,9 +28,6 @@ import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
 
 public class LocalFileReaderTest extends BaseStorageTest {
     private LocalDirReader fileReader;
@@ -42,8 +43,7 @@ public class LocalFileReaderTest extends BaseStorageTest {
         try {
             this.fileReader.readFile(bufRef, "unfound", 0, 1024);
             fail();
-        }
-        catch (final FileNotFoundException e) {
+        } catch (final FileNotFoundException e) {
             // Ignored.
         }
 

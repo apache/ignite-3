@@ -14,7 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.impl;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,12 +42,6 @@ import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public abstract class BaseLogStorageTest extends BaseStorageTest {
     protected LogStorage logStorage;
@@ -169,8 +170,7 @@ public abstract class BaseLogStorageTest extends BaseStorageTest {
         for (int i = 0; i < 10; i++) {
             if (i < 5) {
                 assertNull(this.logStorage.getEntry(i));
-            }
-            else {
+            } else {
                 assertEquals(entries.get(i), this.logStorage.getEntry(i));
             }
         }
@@ -228,8 +228,7 @@ public abstract class BaseLogStorageTest extends BaseStorageTest {
         for (int i = 0; i < 10; i++) {
             if (i <= 5) {
                 assertEquals(entries.get(i), this.logStorage.getEntry(i));
-            }
-            else {
+            } else {
                 assertNull(this.logStorage.getEntry(i));
             }
         }

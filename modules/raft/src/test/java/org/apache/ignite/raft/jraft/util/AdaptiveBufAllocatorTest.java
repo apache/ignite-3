@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  *
@@ -68,7 +69,7 @@ public class AdaptiveBufAllocatorTest {
     }
 
     private static void allocRead(final AdaptiveBufAllocator.Handle handle, final int expectedSize,
-        final int lastRead) {
+            final int lastRead) {
         assertEquals(expectedSize, handle.allocate().capacity());
         handle.record(lastRead);
     }

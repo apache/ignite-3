@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
 import java.util.concurrent.Executor;
@@ -46,17 +47,17 @@ public class TransferLeaderRequestProcessor extends BaseCliRequestProcessor<Tran
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final TransferLeaderRequest request,
-        final IgniteCliRpcRequestClosure done) {
+            final IgniteCliRpcRequestClosure done) {
         final PeerId peer = new PeerId();
         if (request.peerId() != null && !peer.parse(request.peerId())) {
             return RaftRpcFactory.DEFAULT //
-                .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", request.peerId());
+                    .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", request.peerId());
         }
         LOG.info("Receive TransferLeaderRequest to {} from {}, newLeader will be {}.", ctx.node.getNodeId(), done
-            .getRpcCtx().getRemoteAddress(), peer);
+                .getRpcCtx().getRemoteAddress(), peer);
         final Status st = ctx.node.transferLeadershipTo(peer);
         return RaftRpcFactory.DEFAULT //
-            .newResponse(msgFactory(), st);
+                .newResponse(msgFactory(), st);
     }
 
     @Override

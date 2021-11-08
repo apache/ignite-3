@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage;
 
 import org.apache.ignite.raft.jraft.Lifecycle;
@@ -44,7 +45,7 @@ public interface SnapshotStorage extends Lifecycle<Void>, Storage {
     /**
      * Copy data from remote uri.
      *
-     * @param uri remote uri
+     * @param uri  remote uri
      * @param opts copy options
      * @return a SnapshotReader instance
      */
@@ -53,7 +54,7 @@ public interface SnapshotStorage extends Lifecycle<Void>, Storage {
     /**
      * Starts a copy job to copy data from remote uri.
      *
-     * @param uri remote uri
+     * @param uri  remote uri
      * @param opts copy options
      * @return a SnapshotCopier instance
      */

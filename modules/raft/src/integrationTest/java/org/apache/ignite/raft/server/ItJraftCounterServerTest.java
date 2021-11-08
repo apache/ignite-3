@@ -17,6 +17,17 @@
 
 package org.apache.ignite.raft.server;
 
+import static org.apache.ignite.raft.jraft.core.State.STATE_ERROR;
+import static org.apache.ignite.raft.jraft.core.State.STATE_LEADER;
+import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
+import static org.apache.ignite.raft.jraft.test.TestUtils.waitForCondition;
+import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,7 +46,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -59,26 +70,15 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static org.apache.ignite.raft.jraft.core.State.STATE_ERROR;
-import static org.apache.ignite.raft.jraft.core.State.STATE_LEADER;
-import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
-import static org.apache.ignite.raft.jraft.test.TestUtils.waitForCondition;
-import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-
 /**
  * Jraft server.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-class ITJRaftCounterServerTest extends RaftServerAbstractTest {
+class ItJraftCounterServerTest extends RaftServerAbstractTest {
     /**
      * The logger.
      */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ITJRaftCounterServerTest.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ItJraftCounterServerTest.class);
 
     /**
      * Counter group name 0.
@@ -104,9 +104,9 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
      * Initial configuration.
      */
     private static final List<Peer> INITIAL_CONF = IntStream.rangeClosed(0, 2)
-        .mapToObj(i -> new NetworkAddress(getLocalAddress(), PORT + i))
-        .map(Peer::new)
-        .collect(Collectors.toUnmodifiableList());
+            .mapToObj(i -> new NetworkAddress(getLocalAddress(), PORT + i))
+            .map(Peer::new)
+            .collect(Collectors.toUnmodifiableList());
 
     /**
      * Listener factory.
@@ -116,7 +116,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     /**
      * Servers list.
      */
-    private final List<JRaftServerImpl> servers = new ArrayList<>();
+    private final List<JraftServerImpl> servers = new ArrayList<>();
 
     /**
      * Clients list.
@@ -132,7 +132,9 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     /** Executor for raft group services. */
     private ScheduledExecutorService executor;
 
-    /** */
+    /**
+     *
+     */
     @BeforeEach
     void before() {
         LOG.info(">>>>>>>>>>>>>>> Start test method: {}", testInfo.getTestMethod().orElseThrow().getName());
@@ -140,9 +142,12 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
     }
 
-    /** */
+    /**
+     *
+     */
     @AfterEach
-    @Override protected void after() throws Exception {
+    @Override
+    protected void after() throws Exception {
         LOG.info("Start client shutdown");
 
         Iterator<RaftGroupService> iterClients = clients.iterator();
@@ -157,12 +162,17 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
         LOG.info("Start server shutdown servers={}", servers.size());
 
-        Iterator<JRaftServerImpl> iterSrv = servers.iterator();
+        Iterator<JraftServerImpl> iterSrv = servers.iterator();
 
         while (iterSrv.hasNext()) {
-            JRaftServerImpl server = iterSrv.next();
+            JraftServerImpl server = iterSrv.next();
 
             iterSrv.remove();
+
+            server.stopRaftGroup(COUNTER_GROUP_0);
+            server.stopRaftGroup(COUNTER_GROUP_1);
+
+            server.beforeNodeStop();
 
             server.stop();
         }
@@ -178,13 +188,14 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
      * @param idx The index.
      * @return Raft server instance.
      */
-    private JRaftServerImpl startServer(int idx, Consumer<RaftServer> clo) {
+    private JraftServerImpl startServer(int idx, Consumer<RaftServer> clo) {
         var addr = new NetworkAddress(getLocalAddress(), PORT);
 
         ClusterService service = clusterService(PORT + idx, List.of(addr), true);
 
-        JRaftServerImpl server = new JRaftServerImpl(service, dataPath) {
-            @Override public void stop() {
+        JraftServerImpl server = new JraftServerImpl(service, dataPath) {
+            @Override
+            public void stop() {
                 servers.remove(this);
 
                 super.stop();
@@ -215,7 +226,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         ClusterService clientNode = clusterService(CLIENT_PORT + clients.size(), List.of(addr), true);
 
         RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
-            List.of(new Peer(addr)), false, 200, executor).get(3, TimeUnit.SECONDS);
+                List.of(new Peer(addr)), false, 200, executor).get(3, TimeUnit.SECONDS);
 
         clients.add(client);
 
@@ -257,8 +268,9 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         assertEquals(NodeOptions.DEFAULT_STRIPES * 4/*services*/, threadsBefore, "Started thread names: " + threadNamesBefore);
 
         servers.forEach(srv -> {
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < 10; i++) {
                 srv.startRaftGroup("test_raft_group_" + i, listenerFactory.get(), INITIAL_CONF);
+            }
         });
 
         threads = getAllDisruptorCurrentThreads();
@@ -270,6 +282,14 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         threadNamesAfter.removeAll(threadNamesBefore);
 
         assertEquals(threadsBefore, threadsAfter, "Difference: " + threadNamesAfter);
+
+        servers.forEach(srv -> {
+            srv.stopRaftGroup("test_raft_group");
+
+            for (int i = 0; i < 10; i++) {
+                srv.stopRaftGroup("test_raft_group_" + i);
+            }
+        });
     }
 
     /**
@@ -277,13 +297,14 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
      *
      * @return Set of Disruptor threads.
      */
-    @NotNull private Set<Thread> getAllDisruptorCurrentThreads() {
+    @NotNull
+    private Set<Thread> getAllDisruptorCurrentThreads() {
         return Thread.getAllStackTraces().keySet().stream().filter(t ->
-            t.getName().contains("JRaft-FSMCaller-Disruptor") ||
-                t.getName().contains("JRaft-NodeImpl-Disruptor") ||
-                t.getName().contains("JRaft-ReadOnlyService-Disruptor") ||
-                t.getName().contains("JRaft-LogManager-Disruptor"))
-            .collect(Collectors.toSet());
+                        t.getName().contains("JRaft-FSMCaller-Disruptor")
+                                || t.getName().contains("JRaft-NodeImpl-Disruptor")
+                                || t.getName().contains("JRaft-ReadOnlyService-Disruptor")
+                                || t.getName().contains("JRaft-LogManager-Disruptor"))
+                .collect(Collectors.toSet());
     }
 
     /**
@@ -311,7 +332,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     }
 
     /**
-     * @throws Exception
+     * @throws Exception If failed.
      */
     @Test
     public void testCounterCommandListener() throws Exception {
@@ -347,7 +368,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         client1.refreshLeader().get();
         client2.refreshLeader().get();
 
-        JRaftServerImpl server = servers.get(0);
+        JraftServerImpl server = servers.get(0);
 
         long val = applyIncrements(client1, 1, 10);
 
@@ -380,7 +401,8 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     @Test
     public void testCreateSnapshotGracefulFailure() throws Exception {
         listenerFactory = () -> new CounterListener() {
-            @Override public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
+            @Override
+            public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
                 doneClo.accept(new IgniteInternalException("Very bad"));
             }
         };
@@ -405,8 +427,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
             client1.snapshot(peer).get();
 
             fail();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             assertTrue(e.getCause() instanceof RaftException);
         }
     }
@@ -414,7 +435,8 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     @Test
     public void testCreateSnapshotAbnormalFailure() throws Exception {
         listenerFactory = () -> new CounterListener() {
-            @Override public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
+            @Override
+            public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
                 doneClo.accept(new IgniteInternalException("Very bad"));
             }
         };
@@ -437,8 +459,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
             client1.snapshot(peer).get();
 
             fail();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             assertTrue(e.getCause() instanceof RaftException);
         }
     }
@@ -447,19 +468,23 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     @Test
     public void testApplyWithFailure() throws Exception {
         listenerFactory = () -> new CounterListener() {
-            @Override public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
+            @Override
+            public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
                 Iterator<CommandClosure<WriteCommand>> wrapper = new Iterator<>() {
-                    @Override public boolean hasNext() {
+                    @Override
+                    public boolean hasNext() {
                         return iterator.hasNext();
                     }
 
-                    @Override public CommandClosure<WriteCommand> next() {
+                    @Override
+                    public CommandClosure<WriteCommand> next() {
                         CommandClosure<WriteCommand> cmd = iterator.next();
 
-                        IncrementAndGetCommand command = (IncrementAndGetCommand)cmd.command();
+                        IncrementAndGetCommand command = (IncrementAndGetCommand) cmd.command();
 
-                        if (command.delta() == 10)
+                        if (command.delta() == 10) {
                             throw new IgniteInternalException("Very bad");
+                        }
 
                         return cmd;
                     }
@@ -477,8 +502,8 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         client1.refreshLeader().get();
         client2.refreshLeader().get();
 
-        NodeImpl leader = servers.stream().map(s -> ((NodeImpl)s.raftGroupService(COUNTER_GROUP_0).getRaftNode())).
-            filter(n -> n.getState() == STATE_LEADER).findFirst().orElse(null);
+        NodeImpl leader = servers.stream().map(s -> ((NodeImpl) s.raftGroupService(COUNTER_GROUP_0).getRaftNode()))
+                .filter(n -> n.getState() == STATE_LEADER).findFirst().orElse(null);
 
         assertNotNull(leader);
 
@@ -495,8 +520,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
             client1.<Long>run(new IncrementAndGetCommand(10)).get();
 
             fail();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             // Expected.
             Throwable cause = e.getCause();
 
@@ -509,12 +533,12 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         // Client can't switch to new leader, because only one peer in the list.
         try {
             client1.<Long>run(new IncrementAndGetCommand(11)).get();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             boolean isValid = e.getCause() instanceof TimeoutException;
 
-            if (!isValid)
+            if (!isValid) {
                 LOG.error("Got unexpected exception", e);
+            }
 
             assertTrue(isValid, "Expecting the timeout");
         }
@@ -578,10 +602,10 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         client1.snapshot(leader1).get();
         client2.snapshot(leader2).get();
 
-        JRaftServerImpl toStop = null;
+        JraftServerImpl toStop = null;
 
         // Find the follower for both groups.
-        for (JRaftServerImpl server : servers) {
+        for (JraftServerImpl server : servers) {
             Peer peer = server.localPeer(COUNTER_GROUP_0);
 
             if (!peer.equals(leader1) && !peer.equals(leader2)) {
@@ -593,7 +617,12 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         Path serverDataPath0 = toStop.getServerDataPath(COUNTER_GROUP_0);
         Path serverDataPath1 = toStop.getServerDataPath(COUNTER_GROUP_1);
 
-        int stopIdx = servers.indexOf(toStop);
+        final int stopIdx = servers.indexOf(toStop);
+
+        toStop.stopRaftGroup(COUNTER_GROUP_0);
+        toStop.stopRaftGroup(COUNTER_GROUP_1);
+
+        toStop.beforeNodeStop();
 
         toStop.stop();
 
@@ -618,6 +647,11 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         waitForCondition(() -> validateStateMachine(sum(20), svc2, COUNTER_GROUP_0), 5_000);
         waitForCondition(() -> validateStateMachine(sum(30), svc2, COUNTER_GROUP_1), 5_000);
 
+        svc2.stopRaftGroup(COUNTER_GROUP_0);
+        svc2.stopRaftGroup(COUNTER_GROUP_1);
+
+        svc2.beforeNodeStop();
+
         svc2.stop();
 
         var svc3 = startServer(stopIdx, r -> {
@@ -631,8 +665,8 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
     /**
      * @param client The client
-     * @param start Start element.
-     * @param stop Stop element.
+     * @param start  Start element.
+     * @param stop   Stop element.
      * @return The counter value.
      * @throws Exception If failed.
      */
@@ -660,16 +694,16 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
     /**
      * @param expected Expected value.
-     * @param server The server.
-     * @param groupId Group id.
+     * @param server   The server.
+     * @param groupId  Group id.
      * @return Validation result.
      */
-    private static boolean validateStateMachine(long expected, JRaftServerImpl server, String groupId) {
+    private static boolean validateStateMachine(long expected, JraftServerImpl server, String groupId) {
         org.apache.ignite.raft.jraft.RaftGroupService svc = server.raftGroupService(groupId);
 
-        JRaftServerImpl.DelegatingStateMachine fsm0 =
-            (JRaftServerImpl.DelegatingStateMachine)svc.getRaftNode().getOptions().getFsm();
+        JraftServerImpl.DelegatingStateMachine fsm0 =
+                (JraftServerImpl.DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
 
-        return expected == ((CounterListener)fsm0.getListener()).value();
+        return expected == ((CounterListener) fsm0.getListener()).value();
     }
 }

@@ -14,17 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.util;
 
-import java.util.Random;
-import java.util.concurrent.atomic.AtomicReference;
-import org.junit.jupiter.api.Test;
+package org.apache.ignite.raft.jraft.util;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
 
 /**
  *
@@ -78,8 +79,7 @@ public class RecyclersTest {
         final Thread thread2 = new Thread(() -> {
             try {
                 recyclers.recycle(object, object.handle);
-            }
-            catch (IllegalStateException e) {
+            } catch (IllegalStateException e) {
                 exceptionStore.set(e);
             }
         });
@@ -134,9 +134,9 @@ public class RecyclersTest {
         }
 
         assertTrue(
-            maxCapacity >= recyclers.threadLocalCapacity(),
-            "The threadLocalCapacity (" + recyclers.threadLocalCapacity() + ") must be <= maxCapacity ("
-                + maxCapacity + ") as we not pool all new handles internally"
+                maxCapacity >= recyclers.threadLocalCapacity(),
+                "The threadLocalCapacity (" + recyclers.threadLocalCapacity() + ") must be <= maxCapacity ("
+                        + maxCapacity + ") as we not pool all new handles internally"
         );
     }
 

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
 import java.util.concurrent.Executor;
@@ -46,7 +47,7 @@ public class TimeoutNowRequestProcessor extends NodeRequestProcessor<TimeoutNowR
 
     @Override
     public Message processRequest0(final RaftServerService service, final TimeoutNowRequest request,
-        final RpcRequestClosure done) {
+            final RpcRequestClosure done) {
         return service.handleTimeoutNowRequest(request, done);
     }
 

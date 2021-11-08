@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.lang.annotation.Documented;
@@ -23,8 +24,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * The type/method/field etc. to which this annotation is applied is only for unit test. It means that user should not
- * use them in business code except test code.
+ * The type/method/field etc. to which this annotation is applied is only for unit test. It means that user should not use them in business
+ * code except test code.
  */
 @Documented
 @Target({ElementType.TYPE, ElementType.METHOD, ElementType.FIELD, ElementType.CONSTRUCTOR})

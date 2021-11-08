@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util.timer;
 
 import java.util.Collections;
@@ -34,11 +35,11 @@ public class DefaultTimer implements Timer {
 
     public DefaultTimer(int workerNum, String name) {
         this.scheduledExecutorService = ThreadPoolUtil.newScheduledBuilder() //
-            .coreThreads(workerNum) //
-            .poolName(name) //
-            .enableMetric(true) //
-            .threadFactory(new NamedThreadFactory(name, true)) //
-            .build();
+                .coreThreads(workerNum) //
+                .poolName(name) //
+                .enableMetric(true) //
+                .threadFactory(new NamedThreadFactory(name, true)) //
+                .build();
     }
 
     @Override
@@ -112,8 +113,7 @@ public class DefaultTimer implements Timer {
         public void run() {
             try {
                 this.task.run(this.timeout);
-            }
-            catch (final Throwable ignored) {
+            } catch (final Throwable ignored) {
                 // never get here
             }
         }

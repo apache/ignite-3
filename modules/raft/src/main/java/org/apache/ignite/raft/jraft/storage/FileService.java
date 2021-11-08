@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage;
 
 import java.io.IOException;
@@ -78,31 +79,31 @@ public final class FileService {
     public Message handleGetFile(final GetFileRequest request, final RpcRequestClosure done) {
         if (request.count() <= 0 || request.offset() < 0) {
             return RaftRpcFactory.DEFAULT //
-                .newResponse(msgFactory, RaftError.EREQUEST, "Invalid request: %s", request);
+                    .newResponse(msgFactory, RaftError.EREQUEST, "Invalid request: %s", request);
         }
         final FileReader reader = this.fileReaderMap.get(request.readerId());
 
         if (LOG.isDebugEnabled()) {
             LOG.info("handleGetFile id={}, name={}, offset={}, cnt={}",
-                request.readerId(), request.filename(), request.offset(), request.count());
+                    request.readerId(), request.filename(), request.offset(), request.count());
         }
 
         if (reader == null) {
             return RaftRpcFactory.DEFAULT //
-                .newResponse(msgFactory, RaftError.ENOENT, "Fail to find reader=%d",
-                    request.readerId());
+                    .newResponse(msgFactory, RaftError.ENOENT, "Fail to find reader=%d",
+                            request.readerId());
         }
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("GetFile from {} path={} filename={} offset={} count={}", done.getRpcCtx().getRemoteAddress(),
-                reader.getPath(), request.filename(), request.offset(), request.count());
+                    reader.getPath(), request.filename(), request.offset(), request.count());
         }
 
         final ByteBufferCollector dataBuffer = ByteBufferCollector.allocate();
         final GetFileResponseBuilder responseBuilder = msgFactory.getFileResponse();
         try {
             final int read = reader
-                .readFile(dataBuffer, request.filename(), request.offset(), request.count());
+                    .readFile(dataBuffer, request.filename(), request.offset(), request.count());
             responseBuilder.readSize(read);
             responseBuilder.eof(read == FileReader.EOF);
             final ByteBuffer buf = dataBuffer.getBuffer();
@@ -110,24 +111,21 @@ public final class FileService {
             if (!buf.hasRemaining()) {
                 // skip empty data
                 responseBuilder.data(ByteString.EMPTY);
-            }
-            else {
+            } else {
                 // TODO check hole https://issues.apache.org/jira/browse/IGNITE-14832
                 responseBuilder.data(new ByteString(buf));
             }
             return responseBuilder.build();
-        }
-        catch (final RetryAgainException e) {
+        } catch (final RetryAgainException e) {
             return RaftRpcFactory.DEFAULT //
-                .newResponse(msgFactory, RaftError.EAGAIN,
-                    "Fail to read from path=%s filename=%s with error: %s", reader.getPath(), request.filename(),
-                    e.getMessage());
-        }
-        catch (final IOException e) {
+                    .newResponse(msgFactory, RaftError.EAGAIN,
+                            "Fail to read from path=%s filename=%s with error: %s", reader.getPath(), request.filename(),
+                            e.getMessage());
+        } catch (final IOException e) {
             LOG.error("Fail to read file path={} filename={}", e, reader.getPath(), request.filename());
             return RaftRpcFactory.DEFAULT //
-                .newResponse(msgFactory, RaftError.EIO,
-                    "Fail to read from path=%s filename=%s", reader.getPath(), request.filename());
+                    .newResponse(msgFactory, RaftError.EIO,
+                            "Fail to read from path=%s filename=%s", reader.getPath(), request.filename());
         }
     }
 
@@ -138,8 +136,7 @@ public final class FileService {
         final long readerId = this.nextId.getAndIncrement();
         if (this.fileReaderMap.putIfAbsent(readerId, reader) == null) {
             return readerId;
-        }
-        else {
+        } else {
             return -1L;
         }
     }

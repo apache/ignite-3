@@ -14,15 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.core;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
 
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.RequestVoteRequest;
 import org.mockito.Mockito;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.eq;
 
 public class PreVoteRequestProcessorTest extends BaseNodeRequestProcessorTest<RequestVoteRequest> {
     private RequestVoteRequest request;
@@ -30,14 +31,14 @@ public class PreVoteRequestProcessorTest extends BaseNodeRequestProcessorTest<Re
     @Override
     public RequestVoteRequest createRequest(String groupId, PeerId peerId) {
         request = msgFactory.requestVoteRequest()
-            .groupId(groupId)
-            .serverId("localhostL8082")
-            .peerId(peerId.toString())
-            .term(0)
-            .lastLogIndex(0)
-            .lastLogTerm(0)
-            .preVote(false)
-            .build();
+                .groupId(groupId)
+                .serverId("localhostL8082")
+                .peerId(peerId.toString())
+                .term(0)
+                .lastLogIndex(0)
+                .lastLogTerm(0)
+                .preVote(false)
+                .build();
         return request;
     }
 

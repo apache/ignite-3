@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage;
 
 import java.util.List;
@@ -61,8 +62,7 @@ public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
             this.entries = entries;
             if (entries != null) {
                 this.nEntries = entries.size();
-            }
-            else {
+            } else {
                 this.nEntries = 0;
             }
         }
@@ -75,8 +75,8 @@ public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
     }
 
     /**
-     * Listen on last log index change event, but it's not reliable, the user should not count on this listener to
-     * receive all changed events.
+     * Listen on last log index change event, but it's not reliable, the user should not count on this listener to receive all changed
+     * events.
      */
     interface LastLogIndexListener {
 
@@ -109,7 +109,7 @@ public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
      * Append log entry vector and wait until it's stable (NOT COMMITTED!)
      *
      * @param entries log entries
-     * @param done callback
+     * @param done    callback
      */
     void appendEntries(final List<LogEntry> entries, StableClosure done);
 
@@ -121,8 +121,8 @@ public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
     void setSnapshot(final SnapshotMeta meta);
 
     /**
-     * We don't delete all the logs before last snapshot to avoid installing snapshot on slow replica. Call this method
-     * to drop all the logs before last snapshot immediately.
+     * We don't delete all the logs before last snapshot to avoid installing snapshot on slow replica. Call this method to drop all the logs
+     * before last snapshot immediately.
      */
     void clearBufferedLogs();
 
@@ -172,8 +172,7 @@ public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
     ConfigurationEntry getConfiguration(final long index);
 
     /**
-     * Check if |current| should be updated to the latest configuration Returns the latest configuration, otherwise
-     * null.
+     * Check if |current| should be updated to the latest configuration Returns the latest configuration, otherwise null.
      */
     ConfigurationEntry checkAndSetConfiguration(final ConfigurationEntry current);
 
@@ -185,19 +184,19 @@ public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
         /**
          * Called while new log come in.
          *
-         * @param arg the waiter pass-in argument
+         * @param arg       the waiter pass-in argument
          * @param errorCode error code
          */
         boolean onNewLog(final Object arg, final int errorCode);
     }
 
     /**
-     * Wait until there are more logs since |last_log_index| and |on_new_log| would be called after there are new logs
-     * or error occurs, return the waiter id.
+     * Wait until there are more logs since |last_log_index| and |on_new_log| would be called after there are new logs or error occurs,
+     * return the waiter id.
      *
      * @param expectedLastLogIndex expected last index of log
-     * @param cb callback
-     * @param arg the waiter pass-in argument
+     * @param cb                   callback
+     * @param arg                  the waiter pass-in argument
      */
     long wait(final long expectedLastLogIndex, final NewLogCallback cb, final Object arg);
 

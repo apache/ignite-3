@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.util.concurrent.TimeUnit;
@@ -79,13 +80,13 @@ public class AsciiCodecBenchmark {
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder() //
-            .include(AsciiCodecBenchmark.class.getSimpleName()) //
-            .warmupIterations(3) //
-            .warmupTime(TimeValue.seconds(10)) //
-            .measurementIterations(3) //
-            .measurementTime(TimeValue.seconds(10)) //
-            .forks(1) //
-            .build();
+                .include(AsciiCodecBenchmark.class.getSimpleName()) //
+                .warmupIterations(3) //
+                .warmupTime(TimeValue.seconds(10)) //
+                .measurementIterations(3) //
+                .measurementTime(TimeValue.seconds(10)) //
+                .forks(1) //
+                .build();
 
         new Runner(opt).run();
     }

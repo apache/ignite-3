@@ -14,15 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.core;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
 
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
 import org.mockito.Mockito;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.eq;
 
 public class ReadIndexRequestProcessorTest extends BaseNodeRequestProcessorTest<ReadIndexRequest> {
     private ReadIndexRequest request;
@@ -30,10 +31,10 @@ public class ReadIndexRequestProcessorTest extends BaseNodeRequestProcessorTest<
     @Override
     public ReadIndexRequest createRequest(String groupId, PeerId peerId) {
         request = msgFactory.readIndexRequest()
-            .groupId(groupId)
-            .serverId("localhostL8082")
-            .peerId(peerId.toString())
-            .build();
+                .groupId(groupId)
+                .serverId("localhostL8082")
+                .peerId(peerId.toString())
+                .build();
         return request;
     }
 

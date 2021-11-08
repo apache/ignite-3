@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.error;
 
 /**
@@ -39,7 +40,7 @@ public class InvokeTimeoutException extends RemotingException {
     }
 
     public InvokeTimeoutException(String message, Throwable cause, boolean enableSuppression,
-        boolean writableStackTrace) {
+            boolean writableStackTrace) {
         super(message, cause, enableSuppression, writableStackTrace);
     }
 }

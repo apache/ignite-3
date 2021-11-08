@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl;
 
 import java.util.List;
@@ -21,15 +22,15 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
-import org.apache.ignite.network.NetworkMessageHandler;
-import org.apache.ignite.raft.jraft.RaftMessageGroup;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.NodeManager;
+import org.apache.ignite.raft.jraft.RaftMessageGroup;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
@@ -66,16 +67,16 @@ public class IgniteRpcServer implements RpcServer<Void> {
     private final Map<String, RpcProcessor> processors = new ConcurrentHashMap<>();
 
     /**
-     * @param service The cluster service.
-     * @param nodeManager The node manager.
+     * @param service             The cluster service.
+     * @param nodeManager         The node manager.
      * @param raftMessagesFactory Message factory.
-     * @param rpcExecutor The executor for RPC requests.
+     * @param rpcExecutor         The executor for RPC requests.
      */
     public IgniteRpcServer(
-        ClusterService service,
-        NodeManager nodeManager,
-        RaftMessagesFactory raftMessagesFactory,
-        Executor rpcExecutor
+            ClusterService service,
+            NodeManager nodeManager,
+            RaftMessagesFactory raftMessagesFactory,
+            Executor rpcExecutor
     ) {
         this.service = service;
         this.nodeManager = nodeManager;
@@ -83,7 +84,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
         // raft server RPC
         AppendEntriesRequestProcessor appendEntriesRequestProcessor =
-            new AppendEntriesRequestProcessor(rpcExecutor, raftMessagesFactory);
+                new AppendEntriesRequestProcessor(rpcExecutor, raftMessagesFactory);
         registerConnectionClosedEventListener(appendEntriesRequestProcessor);
         registerProcessor(appendEntriesRequestProcessor);
         registerProcessor(new GetFileRequestProcessor(rpcExecutor, raftMessagesFactory));
@@ -112,13 +113,16 @@ public class IgniteRpcServer implements RpcServer<Void> {
         service.messagingService().addMessageHandler(RaftMessageGroup.class, messageHandler);
 
         service.topologyService().addEventHandler(new TopologyEventHandler() {
-            @Override public void onAppeared(ClusterNode member) {
+            @Override
+            public void onAppeared(ClusterNode member) {
                 // TODO asch optimize start replicator https://issues.apache.org/jira/browse/IGNITE-14843
             }
 
-            @Override public void onDisappeared(ClusterNode member) {
-                for (ConnectionClosedEventListener listener : listeners)
+            @Override
+            public void onDisappeared(ClusterNode member) {
+                for (ConnectionClosedEventListener listener : listeners) {
                     listener.onClosed(service.topologyService().localMember().name(), member.name());
+                }
             }
         });
     }
@@ -128,7 +132,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
      */
     public class RpcMessageHandler implements NetworkMessageHandler {
         /** {@inheritDoc} */
-        @Override public void onReceived(NetworkMessage message, NetworkAddress senderAddr, String correlationId) {
+        @Override
+        public void onReceived(NetworkMessage message, NetworkAddress senderAddr, String correlationId) {
             Class<? extends NetworkMessage> cls = message.getClass();
             RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
 
@@ -137,44 +142,53 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 for (Class<?> iface : cls.getInterfaces()) {
                     prc = processors.get(iface.getName());
 
-                    if (prc != null)
+                    if (prc != null) {
                         break;
+                    }
                 }
             }
 
-            if (prc == null)
+            if (prc == null) {
                 return;
+            }
 
             RpcProcessor.ExecutorSelector selector = prc.executorSelector();
 
             Executor executor = null;
 
-            if (selector != null)
+            if (selector != null) {
                 executor = selector.select(prc.getClass().getName(), message, nodeManager);
+            }
 
-            if (executor == null)
+            if (executor == null) {
                 executor = prc.executor();
+            }
 
-            if (executor == null)
+            if (executor == null) {
                 executor = rpcExecutor;
+            }
 
             RpcProcessor<NetworkMessage> finalPrc = prc;
 
             executor.execute(() -> {
                 var context = new RpcContext() {
-                    @Override public NodeManager getNodeManager() {
+                    @Override
+                    public NodeManager getNodeManager() {
                         return nodeManager;
                     }
 
-                    @Override public void sendResponse(Object responseObj) {
+                    @Override
+                    public void sendResponse(Object responseObj) {
                         service.messagingService().send(senderAddr, (NetworkMessage) responseObj, correlationId);
                     }
 
-                    @Override public NetworkAddress getRemoteAddress() {
+                    @Override
+                    public NetworkAddress getRemoteAddress() {
                         return senderAddr;
                     }
 
-                    @Override public NetworkAddress getLocalAddress() {
+                    @Override
+                    public NetworkAddress getLocalAddress() {
                         return service.topologyService().localMember().address();
                     }
                 };
@@ -185,23 +199,28 @@ public class IgniteRpcServer implements RpcServer<Void> {
     }
 
     /** {@inheritDoc} */
-    @Override public void registerConnectionClosedEventListener(ConnectionClosedEventListener listener) {
-        if (!listeners.contains(listener))
+    @Override
+    public void registerConnectionClosedEventListener(ConnectionClosedEventListener listener) {
+        if (!listeners.contains(listener)) {
             listeners.add(listener);
+        }
     }
 
     /** {@inheritDoc} */
-    @Override public void registerProcessor(RpcProcessor<?> processor) {
+    @Override
+    public void registerProcessor(RpcProcessor<?> processor) {
         processors.put(processor.interest(), processor);
     }
 
     /** {@inheritDoc} */
-    @Override public int boundPort() {
+    @Override
+    public int boundPort() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean init(Void opts) {
+    @Override
+    public boolean init(Void opts) {
         return true;
     }
 
@@ -210,6 +229,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
     }
 
     /** {@inheritDoc} */
-    @Override public void shutdown() {
+    @Override
+    public void shutdown() {
     }
 }

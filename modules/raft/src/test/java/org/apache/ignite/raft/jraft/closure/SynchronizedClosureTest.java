@@ -14,7 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.closure;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
@@ -22,10 +27,6 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SynchronizedClosureTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(SynchronizedClosureTest.class);
@@ -46,8 +47,7 @@ public class SynchronizedClosureTest {
                 long start = System.currentTimeMillis();
                 done.await();
                 cost.set(System.currentTimeMillis() - start);
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
                 LOG.error("Thread was interrupted", e);
             }
             latch.countDown();

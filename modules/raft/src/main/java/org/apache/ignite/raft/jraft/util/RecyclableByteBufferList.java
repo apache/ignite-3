@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.nio.Buffer;
@@ -23,8 +24,7 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * A simple {@link ByteBuffer} list which is recyclable. This implementation does not allow {@code null} elements to be
- * added.
+ * A simple {@link ByteBuffer} list which is recyclable. This implementation does not allow {@code null} elements to be added.
  */
 public final class RecyclableByteBufferList extends ArrayList<ByteBuffer> implements Recyclable {
 
@@ -143,7 +143,7 @@ public final class RecyclableByteBufferList extends ArrayList<ByteBuffer> implem
         @Override
         protected RecyclableByteBufferList newObject(final Handle handle) {
             return new RecyclableByteBufferList(
-                handle);
+                    handle);
         }
     };
 }

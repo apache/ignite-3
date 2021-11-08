@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
 import java.io.File;
@@ -55,7 +56,7 @@ public class SnapshotFileReader extends LocalDirReader {
 
     @Override
     public int readFile(final ByteBufferCollector metaBufferCollector, final String fileName, final long offset,
-        final long maxCount) throws IOException, RetryAgainException {
+            final long maxCount) throws IOException, RetryAgainException {
         // read the whole meta file.
         if (fileName.equals(Snapshot.JRAFT_SNAPSHOT_META_FILE)) {
             final ByteBuffer metaBuf = this.metaTable.saveToByteBufferAsRemote();

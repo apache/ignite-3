@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.util.concurrent.BlockingQueue;
@@ -35,26 +36,26 @@ public class LogThreadPoolExecutor extends ThreadPoolExecutor {
     private final String name;
 
     public LogThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit,
-        BlockingQueue<Runnable> workQueue, String name) {
+            BlockingQueue<Runnable> workQueue, String name) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue);
         this.name = name;
     }
 
     public LogThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit,
-        BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory, String name) {
+            BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory, String name) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory);
         this.name = name;
     }
 
     public LogThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit,
-        BlockingQueue<Runnable> workQueue, RejectedExecutionHandler handler, String name) {
+            BlockingQueue<Runnable> workQueue, RejectedExecutionHandler handler, String name) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, handler);
         this.name = name;
     }
 
     public LogThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit,
-        BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory,
-        RejectedExecutionHandler handler, String name) {
+            BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory,
+            RejectedExecutionHandler handler, String name) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
         this.name = name;
     }
@@ -72,14 +73,11 @@ public class LogThreadPoolExecutor extends ThreadPoolExecutor {
                 if (f.isDone()) {
                     f.get();
                 }
-            }
-            catch (final CancellationException ce) {
+            } catch (final CancellationException ce) {
                 // ignored
-            }
-            catch (final ExecutionException ee) {
+            } catch (final ExecutionException ee) {
                 t = ee.getCause();
-            }
-            catch (final InterruptedException ie) {
+            } catch (final InterruptedException ie) {
                 Thread.currentThread().interrupt(); // ignore/reset
             }
         }

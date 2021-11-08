@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
 import java.util.concurrent.Executor;
@@ -39,7 +40,7 @@ public abstract class NodeRequestProcessor<T extends Message> extends RpcRequest
     }
 
     protected abstract Message processRequest0(final RaftServerService serviceService, final T request,
-        final RpcRequestClosure done);
+            final RpcRequestClosure done);
 
     protected abstract String getPeerId(final T request);
 
@@ -54,16 +55,14 @@ public abstract class NodeRequestProcessor<T extends Message> extends RpcRequest
             final Node node = done.getRpcCtx().getNodeManager().get(groupId, peer);
             if (node != null) {
                 return processRequest0((RaftServerService) node, request, done);
-            }
-            else {
+            } else {
                 return RaftRpcFactory.DEFAULT //
-                    .newResponse(msgFactory(), RaftError.ENOENT, "Peer id not found: %s, group: %s", peerIdStr,
-                        groupId);
+                        .newResponse(msgFactory(), RaftError.ENOENT, "Peer id not found: %s, group: %s", peerIdStr,
+                                groupId);
             }
-        }
-        else {
+        } else {
             return RaftRpcFactory.DEFAULT //
-                .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peerId: %s", peerIdStr);
+                    .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peerId: %s", peerIdStr);
         }
     }
 }

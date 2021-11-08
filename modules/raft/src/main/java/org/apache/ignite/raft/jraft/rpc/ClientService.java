@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.Future;
@@ -36,12 +37,12 @@ public interface ClientService extends Lifecycle<RpcOptions> {
     /**
      * Send a requests and waits for response with callback, returns the request future.
      *
-     * @param endpoint server address
-     * @param request request data
-     * @param done callback
+     * @param endpoint  server address
+     * @param request   request data
+     * @param done      callback
      * @param timeoutMs timeout millis
      * @return a future with operation result
      */
     <T extends Message> Future<Message> invokeWithDone(final Endpoint endpoint, final Message request,
-        final RpcResponseClosure<T> done, final int timeoutMs);
+            final RpcResponseClosure<T> done, final int timeoutMs);
 }

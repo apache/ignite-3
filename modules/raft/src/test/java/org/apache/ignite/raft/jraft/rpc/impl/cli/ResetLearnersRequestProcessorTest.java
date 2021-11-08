@@ -14,7 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.eq;
 
 import java.util.Arrays;
 import java.util.List;
@@ -27,19 +32,15 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.eq;
-
 public class ResetLearnersRequestProcessorTest extends AbstractCliRequestProcessorTest<ResetLearnersRequest> {
 
     @Override
     public ResetLearnersRequest createRequest(final String groupId, final PeerId peerId) {
         return msgFactory.resetLearnersRequest()
-            .groupId(groupId)
-            .leaderId(peerId.toString())
-            .learnersList(List.of("learner:8082", "test:8182", "test:8183"))
-            .build();
+                .groupId(groupId)
+                .leaderId(peerId.toString())
+                .learnersList(List.of("learner:8082", "test:8182", "test:8183"))
+                .build();
     }
 
     @Override
@@ -51,16 +52,16 @@ public class ResetLearnersRequestProcessorTest extends AbstractCliRequestProcess
     public void verify(final String interest, final Node node, final ArgumentCaptor<Closure> doneArg) {
         assertEquals(interest, ResetLearnersRequest.class.getName());
         Mockito.verify(node).resetLearners(
-            eq(Arrays.asList(new PeerId("learner", 8082), new PeerId("test", 8182), new PeerId("test", 8183))),
-            doneArg.capture());
+                eq(Arrays.asList(new PeerId("learner", 8082), new PeerId("test", 8182), new PeerId("test", 8183))),
+                doneArg.capture());
         Closure done = doneArg.getValue();
         assertNotNull(done);
         done.run(Status.OK());
         assertNotNull(this.asyncContext.getResponseObject());
         assertEquals("[learner:8081, learner:8082, learner:8083]", this.asyncContext.as(LearnersOpResponse.class)
-            .oldLearnersList().toString());
+                .oldLearnersList().toString());
         assertEquals("[learner:8082, test:8182, test:8183]", this.asyncContext.as(LearnersOpResponse.class)
-            .newLearnersList().toString());
+                .newLearnersList().toString());
     }
 
 }

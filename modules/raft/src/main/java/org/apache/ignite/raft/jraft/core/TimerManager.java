@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.core;
 
 import java.util.concurrent.ScheduledExecutorService;
@@ -34,11 +35,11 @@ public class TimerManager implements Scheduler {
 
     public TimerManager(int workerNum, String name) {
         this.executor = ThreadPoolUtil.newScheduledBuilder() //
-            .poolName(name) //
-            .coreThreads(workerNum) //
-            .enableMetric(true) //
-            .threadFactory(new NamedThreadFactory(name, true)) //
-            .build();
+                .poolName(name) //
+                .coreThreads(workerNum) //
+                .enableMetric(true) //
+                .threadFactory(new NamedThreadFactory(name, true)) //
+                .build();
     }
 
     @Override
@@ -48,13 +49,13 @@ public class TimerManager implements Scheduler {
 
     @Override
     public ScheduledFuture<?> scheduleAtFixedRate(final Runnable command, final long initialDelay, final long period,
-        final TimeUnit unit) {
+            final TimeUnit unit) {
         return this.executor.scheduleAtFixedRate(command, initialDelay, period, unit);
     }
 
     @Override
     public ScheduledFuture<?> scheduleWithFixedDelay(final Runnable command, final long initialDelay, final long delay,
-        final TimeUnit unit) {
+            final TimeUnit unit) {
         return this.executor.scheduleWithFixedDelay(command, initialDelay, delay, unit);
     }
 

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util.concurrent;
 
 import java.util.Collection;
@@ -44,8 +45,7 @@ public abstract class LongHeldDetectingReadWriteLock implements ReadWriteLock {
         if (maxBlockingNanos > 0) {
             this.rLock = new LongHeldDetectingLock(AcquireMode.Read, rwLock, maxBlockingNanos);
             this.wLock = new LongHeldDetectingLock(AcquireMode.Write, rwLock, maxBlockingNanos);
-        }
-        else {
+        } else {
             this.rLock = rwLock.readLock();
             this.wLock = rwLock.writeLock();
         }
@@ -62,7 +62,7 @@ public abstract class LongHeldDetectingReadWriteLock implements ReadWriteLock {
     }
 
     public abstract void report(final AcquireMode acquireMode, final Thread heldThread,
-        final Collection<Thread> queuedThreads, final long blockedNanos);
+            final Collection<Thread> queuedThreads, final long blockedNanos);
 
     static class RwLock extends ReentrantReadWriteLock {
         private static final long serialVersionUID = -1783358548846940445L;
@@ -102,8 +102,7 @@ public abstract class LongHeldDetectingReadWriteLock implements ReadWriteLock {
             final Thread owner = this.parent.getOwner();
             try {
                 this.delegate.lock();
-            }
-            finally {
+            } finally {
                 final long elapsed = System.nanoTime() - start;
                 if (elapsed > this.maxBlockingNanos) {
                     report(this.mode, owner, this.parent.getQueuedThreads(), elapsed);
@@ -117,8 +116,7 @@ public abstract class LongHeldDetectingReadWriteLock implements ReadWriteLock {
             final Thread owner = this.parent.getOwner();
             try {
                 this.delegate.lockInterruptibly();
-            }
-            finally {
+            } finally {
                 final long elapsed = System.nanoTime() - start;
                 if (elapsed > this.maxBlockingNanos) {
                     report(this.mode, owner, this.parent.getQueuedThreads(), elapsed);

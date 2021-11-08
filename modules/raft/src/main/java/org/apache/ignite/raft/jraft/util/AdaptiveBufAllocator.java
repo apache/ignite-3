@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.util.ArrayList;
@@ -65,14 +66,11 @@ public class AdaptiveBufAllocator {
             final int b = SIZE_TABLE[mid + 1];
             if (size > b) {
                 low = mid + 1;
-            }
-            else if (size < a) {
+            } else if (size < a) {
                 high = mid - 1;
-            }
-            else if (size == a) {
+            } else if (size == a) {
                 return mid;
-            }
-            else {
+            } else {
                 return mid + 1;
             }
         }
@@ -81,14 +79,13 @@ public class AdaptiveBufAllocator {
     public interface Handle {
 
         /**
-         * Creates a new buffer whose capacity is probably large enough to write all outbound data and small enough not
-         * to waste its space.
+         * Creates a new buffer whose capacity is probably large enough to write all outbound data and small enough not to waste its space.
          */
         ByteBufferCollector allocate();
 
         /**
-         * Gets a buffer from recyclers whose capacity is probably large enough to write all outbound data and small
-         * enough not to waste its space, recycling is needed.
+         * Gets a buffer from recyclers whose capacity is probably large enough to write all outbound data and small enough not to waste its
+         * space, recycling is needed.
          */
         ByteBufferCollector allocateByRecyclers();
 
@@ -98,8 +95,8 @@ public class AdaptiveBufAllocator {
         int guess();
 
         /**
-         * Records the the actual number of wrote bytes in the previous write operation so that the allocator allocates
-         * the buffer with potentially more correct capacity.
+         * Records the the actual number of wrote bytes in the previous write operation so that the allocator allocates the buffer with
+         * potentially more correct capacity.
          *
          * @param actualWroteBytes the actual number of wrote bytes in the previous allocate operation
          */
@@ -144,12 +141,10 @@ public class AdaptiveBufAllocator {
                     this.index = Math.max(this.index - INDEX_DECREMENT, this.minIndex);
                     this.nextAllocateBufSize = SIZE_TABLE[this.index];
                     this.decreaseNow = false;
-                }
-                else {
+                } else {
                     this.decreaseNow = true;
                 }
-            }
-            else if (actualWroteBytes >= this.nextAllocateBufSize) {
+            } else if (actualWroteBytes >= this.nextAllocateBufSize) {
                 this.index = Math.min(this.index + INDEX_INCREMENT, this.maxIndex);
                 this.nextAllocateBufSize = SIZE_TABLE[this.index];
                 this.decreaseNow = false;
@@ -162,8 +157,8 @@ public class AdaptiveBufAllocator {
     private final int initial;
 
     /**
-     * Creates a new predictor with the default parameters.  With the default parameters, the expected buffer size
-     * starts from {@code 512}, does not go down below {@code 64}, and does not go up above {@code 524288}.
+     * Creates a new predictor with the default parameters.  With the default parameters, the expected buffer size starts from {@code 512},
+     * does not go down below {@code 64}, and does not go up above {@code 524288}.
      */
     private AdaptiveBufAllocator() {
         this(DEFAULT_MINIMUM, DEFAULT_INITIAL, DEFAULT_MAXIMUM);
@@ -184,16 +179,14 @@ public class AdaptiveBufAllocator {
         final int minIndex = getSizeTableIndex(minimum);
         if (SIZE_TABLE[minIndex] < minimum) {
             this.minIndex = minIndex + 1;
-        }
-        else {
+        } else {
             this.minIndex = minIndex;
         }
 
         final int maxIndex = getSizeTableIndex(maximum);
         if (SIZE_TABLE[maxIndex] > maximum) {
             this.maxIndex = maxIndex - 1;
-        }
-        else {
+        } else {
             this.maxIndex = maxIndex;
         }
 

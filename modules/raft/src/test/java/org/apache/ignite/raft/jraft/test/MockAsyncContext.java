@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.test;
 
 import org.apache.ignite.network.NetworkAddress;
@@ -40,19 +41,23 @@ public class MockAsyncContext implements RpcContext {
         this.responseObject = responseObject;
     }
 
-    @Override public NodeManager getNodeManager() {
+    @Override
+    public NodeManager getNodeManager() {
         return nodeManager;
     }
 
-    @Override public void sendResponse(Object responseObject) {
+    @Override
+    public void sendResponse(Object responseObject) {
         this.responseObject = responseObject;
     }
 
-    @Override public NetworkAddress getRemoteAddress() {
+    @Override
+    public NetworkAddress getRemoteAddress() {
         return new NetworkAddress("localhost", 12345);
     }
 
-    @Override public NetworkAddress getLocalAddress() {
+    @Override
+    public NetworkAddress getLocalAddress() {
         return new NetworkAddress("localhost", 8081);
     }
 }

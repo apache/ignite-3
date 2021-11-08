@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.io.Serializable;
@@ -85,8 +86,7 @@ public class Endpoint implements Copiable<Endpoint>, Serializable {
             if (other.ip != null) {
                 return false;
             }
-        }
-        else if (!this.ip.equals(other.ip)) {
+        } else if (!this.ip.equals(other.ip)) {
             return false;
         }
         return this.port == other.port;

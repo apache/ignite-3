@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.snapshot.remote;
 
 import java.io.BufferedOutputStream;
@@ -82,8 +83,7 @@ public class RemoteFileCopier {
             this.readId = Long.parseLong(uri);
             final String[] ipAndPortStrs = ipAndPort.split(":");
             this.endpoint = new Endpoint(ipAndPortStrs[0], Integer.parseInt(ipAndPortStrs[1]));
-        }
-        catch (final Exception e) {
+        } catch (final Exception e) {
             LOG.error("Fail to parse readerId or endpoint.", e);
             return false;
         }
@@ -98,13 +98,13 @@ public class RemoteFileCopier {
     /**
      * Copy `source` from remote to local dest.
      *
-     * @param source source from remote
+     * @param source   source from remote
      * @param destPath local path
-     * @param opts options of copy
+     * @param opts     options of copy
      * @return true if copy success
      */
     public boolean copyToFile(final String source, final String destPath, final CopyOptions opts) throws IOException,
-        InterruptedException {
+            InterruptedException {
         final Session session = startCopyToFile(source, destPath, opts);
         if (session == null) {
             return false;
@@ -112,14 +112,13 @@ public class RemoteFileCopier {
         try {
             session.join();
             return session.status().isOk();
-        }
-        finally {
+        } finally {
             Utils.closeQuietly(session);
         }
     }
 
     public Session startCopyToFile(final String source, final String destPath, final CopyOptions opts)
-        throws IOException {
+            throws IOException {
         final File file = new File(destPath);
 
         // delete exists file.
@@ -151,23 +150,23 @@ public class RemoteFileCopier {
 
     private CopySession newCopySession(final String source) {
         final GetFileRequestBuilder reqBuilder = raftOptions.getRaftMessagesFactory()
-            .getFileRequest()
-            .filename(source)
-            .readerId(this.readId);
+                .getFileRequest()
+                .filename(source)
+                .readerId(this.readId);
         return new CopySession(this.rpcService, this.timerManager, this.snapshotThrottle, this.raftOptions, this.nodeOptions, reqBuilder,
-            this.endpoint);
+                this.endpoint);
     }
 
     /**
      * Copy `source` from remote to  buffer.
      *
-     * @param source source from remote
+     * @param source  source from remote
      * @param destBuf buffer of dest
-     * @param opt options of copy
+     * @param opt     options of copy
      * @return true if copy success
      */
     public boolean copy2IoBuffer(final String source, final ByteBufferCollector destBuf, final CopyOptions opt)
-        throws InterruptedException {
+            throws InterruptedException {
         final Session session = startCopy2IoBuffer(source, destBuf, opt);
         if (session == null) {
             return false;
@@ -175,8 +174,7 @@ public class RemoteFileCopier {
         try {
             session.join();
             return session.status().isOk();
-        }
-        finally {
+        } finally {
             Utils.closeQuietly(session);
         }
     }

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.util.Arrays;
@@ -21,11 +22,11 @@ import java.util.Collection;
 import java.util.function.Predicate;
 
 /**
- * A list implementation based on segments.Only supports removing elements from start or end. The list keep the elements
- * in a segment list, every segment contains at most 128 elements.
- *
- * [segment, segment, segment ...] /                 |                    \ segment             segment
- * segment [0, 1 ...  127]    [128, 129 ... 255]    [256, 1 ... 383]
+ * A list implementation based on segments.Only supports removing elements from start or end. The list keep the elements in a segment list,
+ * every segment contains at most 128 elements.
+ * <p>
+ * [segment, segment, segment ...] /                 |                    \ segment             segment segment [0, 1 ...  127]    [128, 129
+ * ... 255]    [256, 1 ... 383]
  */
 public class SegmentList<T> {
     private static final int SEGMENT_SHIFT = 7;
@@ -69,8 +70,7 @@ public class SegmentList<T> {
         public static Segment<?> newInstance(final boolean recycleSegment) {
             if (recycleSegment) {
                 return recyclers.get();
-            }
-            else {
+            } else {
                 return new Segment<>();
             }
         }
@@ -150,8 +150,7 @@ public class SegmentList<T> {
                 if (predicate.test(e)) {
                     this.elements[i] = null;
                     removed++;
-                }
-                else {
+                } else {
                     break;
                 }
             }
@@ -166,8 +165,7 @@ public class SegmentList<T> {
                 if (predicate.test(e)) {
                     this.elements[i] = null;
                     removed++;
-                }
-                else {
+                } else {
                     break;
                 }
             }
@@ -308,8 +306,8 @@ public class SegmentList<T> {
     }
 
     /**
-     * Removes from this list all of the elements whose index is between 0, inclusive, and {@code toIndex}, exclusive.
-     * Shifts any succeeding elements to the left (reduces their index).
+     * Removes from this list all of the elements whose index is between 0, inclusive, and {@code toIndex}, exclusive. Shifts any succeeding
+     * elements to the left (reduces their index).
      */
     public void removeFromFirst(final int toIndex) {
         int alignedIndex = toIndex + this.firstOffset;
@@ -330,8 +328,7 @@ public class SegmentList<T> {
                 RecycleUtil.recycle(this.segments.pollFirst());
                 this.firstOffset = 0;
             }
-        }
-        else {
+        } else {
             this.firstOffset = this.size = 0;
         }
     }
@@ -365,7 +362,7 @@ public class SegmentList<T> {
     @Override
     public String toString() {
         return "SegmentList [segments=" + this.segments + ", size=" + this.size + ", firstOffset=" + this.firstOffset
-            + "]";
+                + "]";
     }
 
 }

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.snapshot;
 
 import java.util.concurrent.locks.Lock;
@@ -59,22 +60,19 @@ public class ThroughputSnapshotThrottle implements SnapshotThrottle {
                     // to make full use of the throughput of current cycle.
                     availableSize = limitPerCycle - this.currThroughputBytes;
                     this.currThroughputBytes = limitPerCycle;
-                }
-                else {
+                } else {
                     // otherwise, read the data in the next cycle.
                     availableSize = bytes > limitPerCycle ? limitPerCycle : bytes;
                     this.currThroughputBytes = availableSize;
                     this.lastThroughputCheckTimeUs = calculateCheckTimeUs(nowUs);
                 }
-            }
-            else {
+            } else {
                 // reading another |bytes| doesn't exceed limit(less than or equal to),
                 // put it in current cycle
                 availableSize = bytes;
                 this.currThroughputBytes += availableSize;
             }
-        }
-        finally {
+        } finally {
             this.lock.unlock();
         }
         return availableSize;

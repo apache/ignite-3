@@ -14,16 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft;
 
-import org.apache.ignite.raft.jraft.error.RaftError;
-import org.junit.jupiter.api.Test;
+package org.apache.ignite.raft.jraft;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.apache.ignite.raft.jraft.error.RaftError;
+import org.junit.jupiter.api.Test;
 
 public class StatusTest {
 

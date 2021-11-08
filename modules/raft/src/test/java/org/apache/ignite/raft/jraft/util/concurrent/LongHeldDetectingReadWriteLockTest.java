@@ -14,7 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util.concurrent;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collection;
 import java.util.concurrent.CountDownLatch;
@@ -22,11 +28,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  *
@@ -40,12 +41,12 @@ public class LongHeldDetectingReadWriteLockTest {
 
             @Override
             public void report(AcquireMode acquireMode, Thread owner, Collection<Thread> queuedThreads,
-                long blockedNanos) {
+                    long blockedNanos) {
                 System.out.println("currentThread=" + Thread.currentThread() +
-                    " acquireMode=" + acquireMode +
-                    " lockOwner=" + owner +
-                    " queuedThreads= " + queuedThreads +
-                    " blockedMs=" + TimeUnit.NANOSECONDS.toMillis(blockedNanos));
+                        " acquireMode=" + acquireMode +
+                        " lockOwner=" + owner +
+                        " queuedThreads= " + queuedThreads +
+                        " blockedMs=" + TimeUnit.NANOSECONDS.toMillis(blockedNanos));
 
                 assertTrue(Thread.currentThread().getName().contains("read-lock-thread"));
                 assertSame(AcquireMode.Read, acquireMode);
@@ -64,11 +65,9 @@ public class LongHeldDetectingReadWriteLockTest {
                 latch.countDown();
                 try {
                     Thread.sleep(2000);
-                }
-                catch (final InterruptedException e) {
+                } catch (final InterruptedException e) {
                     LOG.error("Thread was interrupted", e);
-                }
-                finally {
+                } finally {
                     readWriteLock.writeLock().unlock();
                 }
             }, "write-lock-thread");
@@ -96,14 +95,17 @@ public class LongHeldDetectingReadWriteLockTest {
 
             latch1.await();
         } finally {
-            if (t1 != null)
+            if (t1 != null) {
                 t1.join();
+            }
 
-            if (t2 != null)
+            if (t2 != null) {
                 t2.join();
+            }
 
-            if (t3 != null)
+            if (t3 != null) {
                 t3.join();
+            }
         }
     }
 
@@ -113,12 +115,12 @@ public class LongHeldDetectingReadWriteLockTest {
 
             @Override
             public void report(AcquireMode acquireMode, Thread owner, Collection<Thread> queuedThreads,
-                long blockedNanos) {
+                    long blockedNanos) {
                 System.out.println("currentThread=" + Thread.currentThread() +
-                    " acquireMode=" + acquireMode +
-                    " lockOwner=" + owner +
-                    " queuedThreads= " + queuedThreads +
-                    " blockedMs=" + TimeUnit.NANOSECONDS.toMillis(blockedNanos));
+                        " acquireMode=" + acquireMode +
+                        " lockOwner=" + owner +
+                        " queuedThreads= " + queuedThreads +
+                        " blockedMs=" + TimeUnit.NANOSECONDS.toMillis(blockedNanos));
 
                 assertTrue(Thread.currentThread().getName().contains("write-lock-thread"));
                 assertSame(AcquireMode.Write, acquireMode);
@@ -137,11 +139,9 @@ public class LongHeldDetectingReadWriteLockTest {
                 latch.countDown();
                 try {
                     Thread.sleep(2000);
-                }
-                catch (final InterruptedException e) {
+                } catch (final InterruptedException e) {
                     LOG.error("Thread was interrupted", e);
-                }
-                finally {
+                } finally {
                     readWriteLock.readLock().unlock();
                 }
             }, "read-lock-thread");
@@ -169,14 +169,17 @@ public class LongHeldDetectingReadWriteLockTest {
 
             latch1.await();
         } finally {
-            if (t1 != null)
+            if (t1 != null) {
                 t1.join();
+            }
 
-            if (t2 != null)
+            if (t2 != null) {
                 t2.join();
+            }
 
-            if (t3 != null)
+            if (t3 != null) {
                 t3.join();
+            }
         }
     }
 }

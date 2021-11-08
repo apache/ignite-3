@@ -14,7 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
@@ -23,17 +27,14 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersResponse;
 import org.mockito.ArgumentCaptor;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 public class GetPeersRequestProcessorTest extends AbstractCliRequestProcessorTest<GetPeersRequest> {
 
     @Override
     public GetPeersRequest createRequest(final String groupId, final PeerId peerId) {
         return msgFactory
-            .getPeersRequest()
-            .groupId(groupId)
-            .build();
+                .getPeersRequest()
+                .groupId(groupId)
+                .build();
     }
 
     @Override
@@ -46,9 +47,9 @@ public class GetPeersRequestProcessorTest extends AbstractCliRequestProcessorTes
         assertEquals(interest, GetPeersRequest.class.getName());
         assertNotNull(this.asyncContext.getResponseObject());
         assertEquals("[localhost:8081, localhost:8082, localhost:8083]", this.asyncContext.as(GetPeersResponse.class)
-            .peersList().toString());
+                .peersList().toString());
         assertEquals("[learner:8081, learner:8082, learner:8083]", this.asyncContext.as(GetPeersResponse.class)
-            .learnersList().toString());
+                .learnersList().toString());
     }
 
 }

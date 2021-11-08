@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.entity;
 
 import java.io.Serializable;
@@ -91,8 +92,7 @@ public class LogId implements Comparable<LogId>, Copiable<LogId>, Serializable, 
         final int c = Long.compare(getTerm(), o.getTerm());
         if (c == 0) {
             return Long.compare(getIndex(), o.getIndex());
-        }
-        else {
+        } else {
             return c;
         }
     }

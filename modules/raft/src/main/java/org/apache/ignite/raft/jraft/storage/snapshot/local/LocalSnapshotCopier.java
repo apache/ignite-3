@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
 import java.io.File;
@@ -98,11 +99,9 @@ public class LocalSnapshotCopier extends SnapshotCopier {
     private void startCopy() {
         try {
             internalCopy();
-        }
-        catch (final InterruptedException e) {
+        } catch (final InterruptedException e) {
             Thread.currentThread().interrupt(); //reset/ignore
-        }
-        catch (final IOException e) {
+        } catch (final IOException e) {
             LOG.error("Fail to start copy job", e);
         }
     }
@@ -174,16 +173,14 @@ public class LocalSnapshotCopier extends SnapshotCopier {
                 }
                 this.curSession = session;
 
-            }
-            finally {
+            } finally {
                 this.lock.unlock();
             }
             session.join(); // join out of lock
             this.lock.lock();
             try {
                 this.curSession = null;
-            }
-            finally {
+            } finally {
                 this.lock.unlock();
             }
             if (!session.status().isOk() && isOk()) {
@@ -197,8 +194,7 @@ public class LocalSnapshotCopier extends SnapshotCopier {
             if (!this.writer.sync()) {
                 setError(RaftError.EIO, "Fail to sync writer");
             }
-        }
-        finally {
+        } finally {
             if (session != null) {
                 Utils.closeQuietly(session);
             }
@@ -214,13 +210,12 @@ public class LocalSnapshotCopier extends SnapshotCopier {
             final String fileCanonicalPath = file.getCanonicalPath();
             if (!fileAbsolutePath.equals(fileCanonicalPath)) {
                 LOG.error("File[{}] are not allowed to be created outside of directory[{}].", fileAbsolutePath,
-                    fileCanonicalPath);
+                        fileCanonicalPath);
                 setError(RaftError.EIO, "File[%s] are not allowed to be created outside of directory.",
-                    fileAbsolutePath, fileCanonicalPath);
+                        fileAbsolutePath, fileCanonicalPath);
                 return false;
             }
-        }
-        catch (final IOException e) {
+        } catch (final IOException e) {
             LOG.error("Failed to check file: {}, writer path: {}.", e, fileName, this.writer.getPath());
             setError(RaftError.EIO, "Failed to check file: {}, writer path: {}.", fileName, this.writer.getPath());
             return false;
@@ -242,16 +237,14 @@ public class LocalSnapshotCopier extends SnapshotCopier {
                 }
                 session = this.copier.startCopy2IoBuffer(Snapshot.JRAFT_SNAPSHOT_META_FILE, metaBuf, null);
                 this.curSession = session;
-            }
-            finally {
+            } finally {
                 this.lock.unlock();
             }
             session.join(); //join out of lock.
             this.lock.lock();
             try {
                 this.curSession = null;
-            }
-            finally {
+            } finally {
                 this.lock.unlock();
             }
             if (!session.status().isOk() && isOk()) {
@@ -265,9 +258,8 @@ public class LocalSnapshotCopier extends SnapshotCopier {
                 return;
             }
             Requires.requireTrue(this.remoteSnapshot.getMetaTable().hasMeta(), "Invalid remote snapshot meta:%s",
-                this.remoteSnapshot.getMetaTable().getMeta());
-        }
-        finally {
+                    this.remoteSnapshot.getMetaTable().getMeta());
+        } finally {
             if (session != null) {
                 Utils.closeQuietly(session);
             }
@@ -319,15 +311,14 @@ public class LocalSnapshotCopier extends SnapshotCopier {
             }
 
             LOG.info("Found the same file ={} checksum={} in lastSnapshot={}", fileName, remoteMeta.checksum(),
-                lastSnapshot.getPath());
+                    lastSnapshot.getPath());
             if (localMeta.source() == FileSource.FILE_SOURCE_LOCAL) {
                 final Path sourcePath = Paths.get(lastSnapshot.getPath(), fileName);
                 final Path destPath = Paths.get(writer.getPath(), fileName);
                 IgniteUtils.deleteIfExists(destPath);
                 try {
                     Files.createLink(destPath, sourcePath);
-                }
-                catch (final IOException e) {
+                } catch (final IOException e) {
                     LOG.error("Fail to link {} to {}", e, sourcePath, destPath);
                     continue;
                 }
@@ -411,8 +402,7 @@ public class LocalSnapshotCopier extends SnapshotCopier {
         cancel();
         try {
             join();
-        }
-        catch (final InterruptedException e) {
+        } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
         }
     }
@@ -439,8 +429,7 @@ public class LocalSnapshotCopier extends SnapshotCopier {
             if (this.future != null) {
                 this.future.cancel(true);
             }
-        }
-        finally {
+        } finally {
             this.lock.unlock();
         }
 
@@ -451,14 +440,11 @@ public class LocalSnapshotCopier extends SnapshotCopier {
         if (this.future != null) {
             try {
                 this.future.get();
-            }
-            catch (final InterruptedException e) {
+            } catch (final InterruptedException e) {
                 throw e;
-            }
-            catch (final CancellationException ignored) {
+            } catch (final CancellationException ignored) {
                 // ignored
-            }
-            catch (final Exception e) {
+            } catch (final Exception e) {
                 LOG.error("Fail to join on copier", e);
                 throw new IllegalStateException(e);
             }

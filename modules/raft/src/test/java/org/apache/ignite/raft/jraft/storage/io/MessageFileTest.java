@@ -14,17 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.storage.io;
 
-import java.io.File;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter;
-import org.junit.jupiter.api.Test;
+package org.apache.ignite.raft.jraft.storage.io;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.File;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter;
+import org.junit.jupiter.api.Test;
 
 public class MessageFileTest {
     @Test
@@ -35,10 +36,10 @@ public class MessageFileTest {
         MessageFile file = new MessageFile(path);
         assertNull(file.load());
         LocalFileMetaOutter.LocalFileMeta msg = new RaftMessagesFactory()
-            .localFileMeta()
-            .checksum("test")
-            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_REFERENCE)
-            .build();
+                .localFileMeta()
+                .checksum("test")
+                .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_REFERENCE)
+                .build();
         assertTrue(file.save(msg, true));
 
         MessageFile newFile = new MessageFile(path);

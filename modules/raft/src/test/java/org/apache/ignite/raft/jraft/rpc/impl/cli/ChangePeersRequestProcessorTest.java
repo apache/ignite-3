@@ -14,7 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.eq;
 
 import java.util.List;
 import org.apache.ignite.raft.jraft.Closure;
@@ -27,19 +32,15 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersResponse;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.eq;
-
 public class ChangePeersRequestProcessorTest extends AbstractCliRequestProcessorTest<ChangePeersRequest> {
 
     @Override
     public ChangePeersRequest createRequest(String groupId, PeerId peerId) {
         return msgFactory.changePeersRequest()
-            .groupId(groupId)
-            .leaderId(peerId.toString())
-            .newPeersList(List.of("localhost:8084", "localhost:8085"))
-            .build();
+                .groupId(groupId)
+                .leaderId(peerId.toString())
+                .newPeersList(List.of("localhost:8084", "localhost:8085"))
+                .build();
     }
 
     @Override
@@ -51,15 +52,15 @@ public class ChangePeersRequestProcessorTest extends AbstractCliRequestProcessor
     public void verify(String interest, Node node, ArgumentCaptor<Closure> doneArg) {
         assertEquals(ChangePeersRequest.class.getName(), interest);
         Mockito.verify(node).changePeers(eq(JRaftUtils.getConfiguration("localhost:8084,localhost:8085")),
-            doneArg.capture());
+                doneArg.capture());
         Closure done = doneArg.getValue();
         assertNotNull(done);
         done.run(Status.OK());
         assertNotNull(this.asyncContext.getResponseObject());
         assertEquals("[localhost:8081, localhost:8082, localhost:8083]", this.asyncContext
-            .as(ChangePeersResponse.class).oldPeersList().toString());
+                .as(ChangePeersResponse.class).oldPeersList().toString());
         assertEquals("[localhost:8084, localhost:8085]", this.asyncContext.as(ChangePeersResponse.class)
-            .newPeersList().toString());
+                .newPeersList().toString());
     }
 
 }

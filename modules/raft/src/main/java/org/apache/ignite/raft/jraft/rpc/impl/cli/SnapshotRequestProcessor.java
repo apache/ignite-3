@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
 import java.util.concurrent.Executor;
@@ -42,7 +43,7 @@ public class SnapshotRequestProcessor extends BaseCliRequestProcessor<SnapshotRe
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final SnapshotRequest request,
-        final IgniteCliRpcRequestClosure done) {
+            final IgniteCliRpcRequestClosure done) {
         LOG.info("Receive SnapshotRequest to {} from {}", ctx.node.getNodeId(), request.peerId());
         ctx.node.snapshot(done);
         return null;
