@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.netty.buffer.ByteBuf;
@@ -154,7 +155,11 @@ public class ClientMessageUnpackerTest {
 
             Object res = unpack.apply(new ClientMessageUnpacker(buf));
 
-            assertEquals(value, res);
+            if (value != null && value.getClass().isArray()) {
+                assertArrayEquals((byte[])value, (byte[])res);
+            } else {
+                assertEquals(value, res);
+            }
         }
     }
 }
