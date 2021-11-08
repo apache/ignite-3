@@ -348,12 +348,12 @@ public class KeyValueViewOperationsTest {
                 .identityMapper(TestObjectWithAllTypes.class);
         
         Column[] valCols = {
-                new Column("pByteCol", INT8, false),
-                new Column("pShortCol", INT16, false),
-                new Column("pIntCol", INT32, false),
-                new Column("pLongCol", INT64, false),
-                new Column("pFloatCol", FLOAT, false),
-                new Column("pDoubleCol", DOUBLE, false),
+                new Column("primitiveByteCol", INT8, false),
+                new Column("primitiveShortCol", INT16, false),
+                new Column("primitiveIntCol", INT32, false),
+                new Column("primitiveLongCol", INT64, false),
+                new Column("primitiveFloatCol", FLOAT, false),
+                new Column("primitiveDoubleCol", DOUBLE, false),
                 
                 new Column("byteCol", INT8, true),
                 new Column("shortCol", INT16, true),

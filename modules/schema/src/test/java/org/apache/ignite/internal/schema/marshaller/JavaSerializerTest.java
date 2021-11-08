@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
+import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
 import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
 import static org.apache.ignite.internal.schema.NativeTypes.INT16;
@@ -26,6 +27,9 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.INT8;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.NativeTypes.UUID;
+import static org.apache.ignite.internal.schema.NativeTypes.datetime;
+import static org.apache.ignite.internal.schema.NativeTypes.time;
+import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -132,12 +136,12 @@ public class JavaSerializerTest {
     @MethodSource("serializerFactoryProvider")
     public void complexType(SerializerFactory factory) throws MarshallerException {
         Column[] cols = new Column[]{
-                new Column("primByteCol", INT8, false),
-                new Column("primShortCol", INT16, false),
-                new Column("primIntCol", INT32, false),
-                new Column("primLongCol", INT64, false),
-                new Column("primFloatCol", FLOAT, false),
-                new Column("primDoubleCol", DOUBLE, false),
+                new Column("primitiveByteCol", INT8, false),
+                new Column("primitiveShortCol", INT16, false),
+                new Column("primitiveIntCol", INT32, false),
+                new Column("primitiveLongCol", INT64, false),
+                new Column("primitiveFloatCol", FLOAT, false),
+                new Column("primitiveDoubleCol", DOUBLE, false),
                 
                 new Column("byteCol", INT8, true),
                 new Column("shortCol", INT16, true),
@@ -146,7 +150,12 @@ public class JavaSerializerTest {
                 new Column("nullLongCol", INT64, true),
                 new Column("floatCol", FLOAT, true),
                 new Column("doubleCol", DOUBLE, true),
-                
+        
+                new Column("dateCol", DATE, false),
+                new Column("timeCol", time(), false),
+                new Column("dateTimeCol", datetime(), false),
+                new Column("timestampCol", timestamp(), false),
+        
                 new Column("uuidCol", UUID, true),
                 new Column("bitmaskCol", NativeTypes.bitmaskOf(42), true),
                 new Column("stringCol", STRING, true),
@@ -208,7 +217,7 @@ public class JavaSerializerTest {
     @MethodSource("serializerFactoryProvider")
     public void classWithIncorrectBitmaskSize(SerializerFactory factory) {
         Column[] cols = new Column[]{
-                new Column("primLongCol", INT64, false),
+                new Column("primitiveLongCol", INT64, false),
                 new Column("bitmaskCol", NativeTypes.bitmaskOf(9), true),
         };
         

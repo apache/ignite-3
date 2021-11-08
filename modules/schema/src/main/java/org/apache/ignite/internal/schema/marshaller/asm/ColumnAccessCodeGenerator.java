@@ -19,6 +19,10 @@ package org.apache.ignite.internal.schema.marshaller.asm;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.marshaller.BinaryMode;
@@ -29,8 +33,8 @@ import org.apache.ignite.lang.IgniteInternalException;
  */
 public class ColumnAccessCodeGenerator {
     /**
-     * @param mode   Binary mode.
-     * @param colIdx Column index in schema.
+     * @param mode   Read-write mode.
+     * @param colIdx Column index in the schema.
      * @return Row column access code generator.
      */
     public static ColumnAccessCodeGenerator createAccessor(BinaryMode mode, int colIdx) {
@@ -71,8 +75,14 @@ public class ColumnAccessCodeGenerator {
                 return new ColumnAccessCodeGenerator("numberValue", "appendNumber", BigInteger.class, colIdx);
             case DECIMAL:
                 return new ColumnAccessCodeGenerator("decimalValue", "appendDecimal", BigDecimal.class, colIdx);
-            default:
-                break;
+            case DATE:
+                return new ColumnAccessCodeGenerator("dateValue", "appendDate", LocalDate.class, colIdx);
+            case TIME:
+                return new ColumnAccessCodeGenerator("timeValue", "appendTime", LocalTime.class, colIdx);
+            case DATETIME:
+                return new ColumnAccessCodeGenerator("dateTimeValue", "appendDateTime", LocalDateTime.class, colIdx);
+            case TIMESTAMP:
+                return new ColumnAccessCodeGenerator("timestampValue", "appendTimestamp", Instant.class, colIdx);
         }
 
         throw new IgniteInternalException("Unsupported binary mode: " + mode);
@@ -90,7 +100,7 @@ public class ColumnAccessCodeGenerator {
     /** Write method argument type. */
     private final Class<?> writeArgType;
 
-    /** Column index in schema. */
+    /** Column index in the schema. */
     private final int colIdx;
 
     /**
@@ -99,7 +109,7 @@ public class ColumnAccessCodeGenerator {
      * @param readMethodName  Reader handle name.
      * @param writeMethodName Writer handle name.
      * @param mappedType      Mapped value type.
-     * @param colIdx          Column index in schema.
+     * @param colIdx          Column index in the schema.
      */
     ColumnAccessCodeGenerator(String readMethodName, String writeMethodName, Class<?> mappedType, int colIdx) {
         this(readMethodName, writeMethodName, mappedType, mappedType, colIdx);
@@ -112,7 +122,7 @@ public class ColumnAccessCodeGenerator {
      * @param writeMethodName Writer handle name.
      * @param mappedType      Mapped value type.
      * @param writeArgType    Write method argument type.
-     * @param colIdx          Column index in schema.
+     * @param colIdx          Column index in the schema.
      */
     ColumnAccessCodeGenerator(String readMethodName, String writeMethodName, Class<?> mappedType,
             Class<?> writeArgType, int colIdx) {
@@ -124,7 +134,7 @@ public class ColumnAccessCodeGenerator {
     }
 
     /**
-     * @return Column index in schema.
+     * @return Column index in the schema.
      */
     public int columnIdx() {
         return colIdx;

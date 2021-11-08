@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
+import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
 import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
 import static org.apache.ignite.internal.schema.NativeTypes.INT16;
@@ -26,15 +27,23 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.INT8;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.NativeTypes.UUID;
+import static org.apache.ignite.internal.schema.NativeTypes.datetime;
+import static org.apache.ignite.internal.schema.NativeTypes.time;
+import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Random;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.marshaller.BinaryMode;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
@@ -87,7 +96,12 @@ public class FieldAccessorTest {
                 new Column("longCol", INT64, false),
                 new Column("floatCol", FLOAT, false),
                 new Column("doubleCol", DOUBLE, false),
-                
+        
+                new Column("dateCol", DATE, false),
+                new Column("timeCol", time(), false),
+                new Column("dateTimeCol", datetime(), false),
+                new Column("timestampCol", timestamp(), false),
+        
                 new Column("uuidCol", UUID, false),
                 new Column("bitmaskCol", NativeTypes.bitmaskOf(9), false),
                 new Column("stringCol", STRING, false),
@@ -95,7 +109,7 @@ public class FieldAccessorTest {
                 new Column("numberCol", NativeTypes.numberOf(21), false),
                 new Column("decimalCol", NativeTypes.decimalOf(19, 3), false),
         };
-        
+    
         final Pair<RowAssembler, Row> mocks = createMocks();
         
         final RowAssembler rowAssembler = mocks.getFirst();
@@ -247,6 +261,11 @@ public class FieldAccessorTest {
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendBytes(Mockito.any(byte[].class));
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendNumber(Mockito.any(BigInteger.class));
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendDecimal(Mockito.any(BigDecimal.class));
+    
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendDate(Mockito.any(LocalDate.class));
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendDateTime(Mockito.any(LocalDateTime.class));
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendTime(Mockito.any(LocalTime.class));
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendTimestamp(Mockito.any(Instant.class));
         
         Mockito.doAnswer(rowAnswer).when(mockedRow).byteValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).byteValueBoxed(Mockito.anyInt());
@@ -260,6 +279,11 @@ public class FieldAccessorTest {
         Mockito.doAnswer(rowAnswer).when(mockedRow).floatValueBoxed(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).doubleValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).doubleValueBoxed(Mockito.anyInt());
+        
+        Mockito.doAnswer(rowAnswer).when(mockedRow).dateValue(Mockito.anyInt());
+        Mockito.doAnswer(rowAnswer).when(mockedRow).timeValue(Mockito.anyInt());
+        Mockito.doAnswer(rowAnswer).when(mockedRow).dateTimeValue(Mockito.anyInt());
+        Mockito.doAnswer(rowAnswer).when(mockedRow).timestampValue(Mockito.anyInt());
         
         Mockito.doAnswer(rowAnswer).when(mockedRow).uuidValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).bitmaskValue(Mockito.anyInt());

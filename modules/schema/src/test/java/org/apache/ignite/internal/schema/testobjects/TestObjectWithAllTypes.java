@@ -175,4 +175,35 @@ public class TestObjectWithAllTypes {
     public int hashCode() {
         return 73;
     }
+    
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return "TestObjectWithAllTypes{" +
+                "primitiveByteCol=" + primitiveByteCol +
+                ", primitiveShortCol=" + primitiveShortCol +
+                ", primitiveIntCol=" + primitiveIntCol +
+                ", primitiveLongCol=" + primitiveLongCol +
+                ", primitiveFloatCol=" + primitiveFloatCol +
+                ", primitiveDoubleCol=" + primitiveDoubleCol +
+                ", byteCol=" + byteCol +
+                ", shortCol=" + shortCol +
+                ", intCol=" + intCol +
+                ", longCol=" + longCol +
+                ", nullLongCol=" + nullLongCol +
+                ", floatCol=" + floatCol +
+                ", doubleCol=" + doubleCol +
+                ", uuidCol=" + uuidCol +
+                ", timeCol=" + timeCol +
+                ", dateCol=" + dateCol +
+                ", dateTimeCol=" + dateTimeCol +
+                ", timestampCol=" + timestampCol +
+                ", bitmaskCol=" + bitmaskCol +
+                ", stringCol='" + stringCol + '\'' +
+                ", bytesCol=" + Arrays.toString(bytesCol) +
+                ", nullBytesCol=" + Arrays.toString(nullBytesCol) +
+                ", numberCol=" + numberCol +
+                ", decimalCol=" + decimalCol +
+                '}';
+    }
 }
