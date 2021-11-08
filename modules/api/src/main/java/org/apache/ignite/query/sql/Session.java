@@ -33,7 +33,7 @@ public interface Session extends AsyncSession, ReactiveSession {
      * @param tx Transaction.
      * @return Transactional projection for the session.
      */
-//TODO: Drop this and add "Session Transaction.wrap(Session)" method.
+    //TODO: Drop this and add "Session Transaction.wrap(Session)" method.
     Session withTransaction(@NotNull Transaction tx);
     
     /**
@@ -41,7 +41,7 @@ public interface Session extends AsyncSession, ReactiveSession {
      *
      * @return Transactional projection for the session.
      */
-//TODO: Drop this and add "Session Transaction.wrap(Session)" method.
+    //TODO: Drop this and add "Session Transaction.wrap(Session)" method.
     Session withNewTransaction();
     
     /**
