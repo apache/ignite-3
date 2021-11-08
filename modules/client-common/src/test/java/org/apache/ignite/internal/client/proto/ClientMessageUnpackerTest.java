@@ -106,7 +106,7 @@ public class ClientMessageUnpackerTest {
     @ParameterizedTest
     @ValueSource(floats = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE, Float.MIN_VALUE, Float.MAX_VALUE})
-    public void testPackFloat(float f) {
+    public void testUnpackFloat(float f) {
         testUnpacker(p -> p.packFloat(f), ClientMessageUnpacker::unpackFloat, f);
     }
     
@@ -114,7 +114,7 @@ public class ClientMessageUnpackerTest {
     @ValueSource(doubles = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE, Float.MIN_VALUE, Float.MAX_VALUE,
             Double.MIN_VALUE, Double.MAX_VALUE})
-    public void testPackDouble(double d) {
+    public void testUnpackDouble(double d) {
         testUnpacker(p -> p.packDouble(d), ClientMessageUnpacker::unpackDouble, d);
     }
     
@@ -126,32 +126,32 @@ public class ClientMessageUnpackerTest {
     
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
-    public void testPackArrayHeader(int i) {
+    public void testUnpackArrayHeader(int i) {
         testUnpacker(p -> p.packArrayHeader(i), ClientMessageUnpacker::unpackArrayHeader, i);
     }
     
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
-    public void testPackMapHeader(int i) {
+    public void testUnpackMapHeader(int i) {
         testUnpacker(p -> p.packMapHeader(i), ClientMessageUnpacker::unpackMapHeader, i);
     }
     
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
-    public void testPackExtensionTypeHeader(int i) {
+    public void testUnpackExtensionTypeHeader(int i) {
         testUnpacker(p -> p.packExtensionTypeHeader((byte) 33, i), ClientMessageUnpacker::unpackExtensionTypeHeader,
                 new ExtensionTypeHeader((byte) 33, i));
     }
     
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
-    public void testPackBinaryHeader(int i) {
+    public void testUnpackBinaryHeader(int i) {
         testUnpacker(p -> p.packBinaryHeader(i), ClientMessageUnpacker::unpackBinaryHeader, i);
     }
     
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
-    public void testPackRawStringHeader(int i) {
+    public void testUnpackRawStringHeader(int i) {
         testUnpacker(p -> p.packRawStringHeader(i), ClientMessageUnpacker::unpackRawStringHeader, i);
     }
     
