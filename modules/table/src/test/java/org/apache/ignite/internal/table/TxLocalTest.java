@@ -37,10 +37,10 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 /** */
 public class TxLocalTest extends TxAbstractTest {
     /** */
-    private HeapLockManager lockManager;
+    private HeapLockManager lockMgr;
 
     /** */
-    private TxManagerImpl txManager;
+    private TxManagerImpl txMgr;
 
     /**
      * Initialize the test state.
@@ -50,32 +50,32 @@ public class TxLocalTest extends TxAbstractTest {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        lockManager = new HeapLockManager();
+        lockMgr = new HeapLockManager();
 
-        txManager = new TxManagerImpl(clusterService, lockManager);
+        txMgr = new TxManagerImpl(clusterService, lockMgr);
 
-        igniteTransactions = new IgniteTransactionsImpl(txManager);
+        igniteTransactions = new IgniteTransactionsImpl(txMgr);
 
-        InternalTable table = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
+        InternalTable table = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txMgr), txMgr);
 
         accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), null);
 
-        InternalTable table2 = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
+        InternalTable table2 = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txMgr), txMgr);
 
         customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), null);
     }
 
     @Disabled
     @Override public void testScan() throws InterruptedException {
-        // Not applicable in this mode.
+        // TODO asch implement local scan
     }
 
     @Override protected TxManager txManager(Table t) {
-        return txManager;
+        return txMgr;
     }
 
     @Override protected LockManager lockManager(Table t) {
-        return lockManager;
+        return lockMgr;
     }
 
     @Override protected boolean assertPartitionsSame(Table t, int partId) {
