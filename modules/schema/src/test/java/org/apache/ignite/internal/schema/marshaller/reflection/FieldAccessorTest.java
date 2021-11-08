@@ -43,7 +43,6 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Random;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.marshaller.BinaryMode;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
