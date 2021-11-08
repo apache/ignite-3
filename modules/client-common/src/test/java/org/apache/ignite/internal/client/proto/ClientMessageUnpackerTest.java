@@ -34,6 +34,27 @@ import org.msgpack.core.ExtensionTypeHeader;
  * Tests Ignite ByteBuf-based unpacker.
  */
 public class ClientMessageUnpackerTest {
+    private static void testUnpacker(
+            Consumer<ClientMessagePacker> pack,
+            Function<ClientMessageUnpacker, Object> unpack,
+            Object value
+    ) {
+        try (var packer = new ClientMessagePacker(Unpooled.buffer())) {
+            pack.accept(packer);
+            
+            ByteBuf buf = packer.getBuffer().copy();
+            buf.readerIndex(ClientMessageCommon.HEADER_SIZE);
+            
+            Object res = unpack.apply(new ClientMessageUnpacker(buf));
+            
+            if (value != null && value.getClass().isArray()) {
+                assertArrayEquals((byte[]) value, (byte[]) res);
+            } else {
+                assertEquals(value, res);
+            }
+        }
+    }
+    
     @Test
     public void testUnpackNil() {
         testUnpacker(ClientMessagePacker::packNil, u -> {
@@ -41,39 +62,39 @@ public class ClientMessageUnpackerTest {
             return null;
         }, null);
     }
-
+    
     @ParameterizedTest
     @ValueSource(bytes = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE})
     public void testUnpackByte(byte b) {
         testUnpacker(p -> p.packByte(b), ClientMessageUnpacker::unpackByte, b);
     }
-
+    
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void testUnpackBoolean(boolean b) {
         testUnpacker(p -> p.packBoolean(b), ClientMessageUnpacker::unpackBoolean, b);
     }
-
+    
     @ParameterizedTest
     @ValueSource(shorts = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE})
     public void testUnpackShort(short s) {
         testUnpacker(p -> p.packShort(s), ClientMessageUnpacker::unpackShort, s);
     }
-
+    
     @ParameterizedTest
     @ValueSource(ints = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
             Integer.MAX_VALUE})
     public void testUnpackInt(int i) {
         testUnpacker(p -> p.packInt(i), ClientMessageUnpacker::unpackInt, i);
     }
-
+    
     @ParameterizedTest
     @ValueSource(longs = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE})
     public void testUnpackLong(long l) {
         testUnpacker(p -> p.packLong(l), ClientMessageUnpacker::unpackLong, l);
     }
-
+    
     @ParameterizedTest
     @ValueSource(longs = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE})
@@ -81,14 +102,14 @@ public class ClientMessageUnpackerTest {
         var bi = BigInteger.valueOf(l);
         testUnpacker(p -> p.packBigInteger(bi), ClientMessageUnpacker::unpackBigInteger, bi);
     }
-
+    
     @ParameterizedTest
     @ValueSource(floats = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE, Float.MIN_VALUE, Float.MAX_VALUE})
     public void testPackFloat(float f) {
         testUnpacker(p -> p.packFloat(f), ClientMessageUnpacker::unpackFloat, f);
     }
-
+    
     @ParameterizedTest
     @ValueSource(doubles = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE, Float.MIN_VALUE, Float.MAX_VALUE,
@@ -96,25 +117,25 @@ public class ClientMessageUnpackerTest {
     public void testPackDouble(double d) {
         testUnpacker(p -> p.packDouble(d), ClientMessageUnpacker::unpackDouble, d);
     }
-
+    
     @ParameterizedTest
     @ValueSource(strings = {"", "Abc", "Абв", "\uD83D\uDD25", "\uD808\uDC16\uD834\uDD1E"})
     public void testUnpackString(String s) {
         testUnpacker(p -> p.packString(s), ClientMessageUnpacker::unpackString, s);
     }
-
+    
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
     public void testPackArrayHeader(int i) {
         testUnpacker(p -> p.packArrayHeader(i), ClientMessageUnpacker::unpackArrayHeader, i);
     }
-
+    
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
     public void testPackMapHeader(int i) {
         testUnpacker(p -> p.packMapHeader(i), ClientMessageUnpacker::unpackMapHeader, i);
     }
-
+    
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
     public void testPackExtensionTypeHeader(int i) {
@@ -127,39 +148,18 @@ public class ClientMessageUnpackerTest {
     public void testPackBinaryHeader(int i) {
         testUnpacker(p -> p.packBinaryHeader(i), ClientMessageUnpacker::unpackBinaryHeader, i);
     }
-
+    
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
     public void testPackRawStringHeader(int i) {
         testUnpacker(p -> p.packRawStringHeader(i), ClientMessageUnpacker::unpackRawStringHeader, i);
     }
-
+    
     @Test
     public void testWritePayload() {
-        var b = new byte[] {1, 5, 120};
-
+        var b = new byte[]{1, 5, 120};
+        
         testUnpacker(p -> p.writePayload(b), p -> p.readPayload(b.length), b);
-        testUnpacker(p -> p.writePayload(b, 1, 1), p -> p.readPayload(1), new byte[] {5});
-    }
-
-    private static void testUnpacker(
-            Consumer<ClientMessagePacker> pack,
-            Function<ClientMessageUnpacker, Object> unpack,
-            Object value
-    ) {
-        try (var packer = new ClientMessagePacker(Unpooled.buffer())) {
-            pack.accept(packer);
-
-            ByteBuf buf = packer.getBuffer().copy();
-            buf.readerIndex(ClientMessageCommon.HEADER_SIZE);
-
-            Object res = unpack.apply(new ClientMessageUnpacker(buf));
-
-            if (value != null && value.getClass().isArray()) {
-                assertArrayEquals((byte[])value, (byte[])res);
-            } else {
-                assertEquals(value, res);
-            }
-        }
+        testUnpacker(p -> p.writePayload(b, 1, 1), p -> p.readPayload(1), new byte[]{5});
     }
 }
