@@ -59,7 +59,7 @@ public interface Statement {
      *
      * @return {@code this} for chaining.
      */
-    Statement addBatch() throws SQLException;
+    Statement addBatch() throws SqlException;
     
     /**
      * Sets query timeout.

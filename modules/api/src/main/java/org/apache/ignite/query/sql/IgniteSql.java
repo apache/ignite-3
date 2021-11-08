@@ -35,7 +35,7 @@ public interface IgniteSql {
      *
      * @param sql SQL query template.
      * @return Prepared statement.
-     * @throws SQLException If parsing failed.
+     * @throws SqlException If parsing failed.
      */
     Statement newStatement(@NotNull String sql);
 }

@@ -455,15 +455,15 @@ public class IgniteImpl implements Ignite {
      */
     private static VaultManager createVault(Path workDir) {
         Path vaultPath = workDir.resolve(VAULT_DB_PATH);
-        
+    
         try {
             Files.createDirectories(vaultPath);
         } catch (IOException e) {
             throw new IgniteInternalException(e);
-            }
-        
-        return new VaultManager(new PersistentVaultService(vaultPath));
         }
+    
+        return new VaultManager(new PersistentVaultService(vaultPath));
+    }
     
     /**
      * Returns a path to the partitions store directory. Creates a directory if it doesn't exist.

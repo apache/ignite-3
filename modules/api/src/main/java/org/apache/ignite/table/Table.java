@@ -98,8 +98,8 @@ public interface Table {
     
     /**
      * Returns statistics facade for table statistics management.
-     * <p>
-     * Note: SQL engine uses table statistics for SQL queries planning.
+     *
+     * <p>Note: SQL engine uses table statistics for SQL queries planning.
      *
      * @return Statistics facade.
      */

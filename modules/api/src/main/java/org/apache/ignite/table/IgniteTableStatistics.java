@@ -22,8 +22,8 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Table statistics facade provides methods for managing table statistics.
- * <p>
- * Table statistics are used by SQL engine for SQL queries planning.
+ *
+ * <p>Table statistics are used by SQL engine for SQL queries planning.
  */
 // TODO: drop this class and move all the methods to Table interface?
 public interface IgniteTableStatistics {

@@ -80,7 +80,7 @@ public interface Session extends AsyncSession, ReactiveSession {
      * @param query     SQL query template.
      * @param arguments Arguments for the template (optional).
      * @return SQL query results set.
-     * @throws SQLException If failed.
+     * @throws SqlException If failed.
      */
     ResultSet execute(@NotNull String query, Object... arguments);
     
@@ -98,7 +98,7 @@ public interface Session extends AsyncSession, ReactiveSession {
      * @param query     SQL query template.
      * @param arguments Arguments for the template (optional).
      * @return SQL query results set.
-     * @throws SQLException If failed.
+     * @throws SqlException If failed.
      */
     MultiResultSet executeMulti(@NotNull String query, Object... arguments);
     

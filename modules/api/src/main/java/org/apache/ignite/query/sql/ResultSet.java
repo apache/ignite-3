@@ -20,8 +20,8 @@ package org.apache.ignite.query.sql;
 /**
  * SQL result set provides methods to access SQL query result represented as collection of {@link
  * SqlRow}.
- * <p>
- * All the rows in result set have the same structure described in {@link ResultSetMetadata}.
+ *
+ * <p>All the rows in result set have the same structure described in {@link ResultSetMetadata}.
  * ResultSet must be closed after usage to free resources.
  */
 public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {

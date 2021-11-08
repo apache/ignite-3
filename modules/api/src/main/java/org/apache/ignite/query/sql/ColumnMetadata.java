@@ -25,8 +25,9 @@ import org.apache.ignite.schema.definition.ColumnType;
 public interface ColumnMetadata {
     /**
      * Return column name in resultset.
-     * <p>
-     * Note: If row column does not represent any table column, then generated name will be used.
+     *
+     * <p>Note: If row column does not represent any table column, then generated name will be
+     * used.
      *
      * @return Column name.
      */

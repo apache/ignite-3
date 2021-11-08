@@ -23,8 +23,8 @@ import org.apache.ignite.query.sql.SqlRow;
 
 /**
  * Reactive result set provides methods to subscribe to the query results in reactive way.
- * <p>
- * Note: It implies to be used with the reactive framework such as ProjectReactor or R2DBC.
+ *
+ * <p>Note: It implies to be used with the reactive framework such as ProjectReactor or R2DBC.
  */
 public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
     

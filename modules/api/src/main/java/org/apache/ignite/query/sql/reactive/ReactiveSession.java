@@ -17,7 +17,7 @@
 
 package org.apache.ignite.query.sql.reactive;
 
-import org.apache.ignite.query.sql.SQLException;
+import org.apache.ignite.query.sql.SqlException;
 import org.apache.ignite.query.sql.Statement;
 
 /**
@@ -30,7 +30,7 @@ public interface ReactiveSession {
      * @param sql  SQL query template.
      * @param args Arguments for the template (optional).
      * @return Reactive result.
-     * @throws SQLException If failed.
+     * @throws SqlException If failed.
      */
     ReactiveResultSet executeReactive(String sql, Object... args);
     
@@ -39,7 +39,7 @@ public interface ReactiveSession {
      *
      * @param statement SQL statement.
      * @return Reactive result.
-     * @throws SQLException If failed.
+     * @throws SqlException If failed.
      */
     ReactiveResultSet executeReactive(Statement statement);
     
@@ -49,7 +49,7 @@ public interface ReactiveSession {
      * @param sql  SQL query template.
      * @param args Arguments for the template (optional).
      * @return Reactive result.
-     * @throws SQLException If failed.
+     * @throws SqlException If failed.
      */
     //TODO: Do we want to support multi-statements in reactive way?
     ReactiveMultiResultSet executeMultiStatementReactive(String sql, Object... args);

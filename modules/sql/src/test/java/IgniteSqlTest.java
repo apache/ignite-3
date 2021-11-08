@@ -130,10 +130,10 @@ public class IgniteSqlTest {
         Session sess = queryMgr.newSession().withTransaction(tx);
         
         MultiResultSet multiRs = sess.executeMulti(
-                "CREATE TABLE tbl(id INTEGER PRIMARY KEY, val VARCHAR);" +
-                        "INSERT INTO tbl VALUES (1, 2);" +
-                        "SELECT id, val FROM tbl WHERE id == {};" +
-                        "DROP TABLE tbl", 10);
+                "CREATE TABLE tbl(id INTEGER PRIMARY KEY, val VARCHAR);"
+                        + "INSERT INTO tbl VALUES (1, 2);"
+                        + "SELECT id, val FROM tbl WHERE id == {};"
+                        + "DROP TABLE tbl", 10);
         
         Iterator<ResultSet> iterator = multiRs.iterator();
         //TODO: Can iterator return null??
@@ -208,10 +208,10 @@ public class IgniteSqlTest {
             Session sess = queryMgr.newSession().withTransaction(tx0);
             
             return sess.executeMultiAsync(
-                    "\"CREATE TABLE tbl(id INTEGER PRIMARY KEY, val VARCHAR);\" +\n" +
-                            "                \"INSERT INTO tbl VALUES (1, 2);\" +\n" +
-                            "                \"SELECT id, val FROM tbl WHERE id == {};\" +\n" +
-                            "                \"DROP TABLE tbl\"", 10)
+                    "\"CREATE TABLE tbl(id INTEGER PRIMARY KEY, val VARCHAR);\" +\n"
+                            + "                \"INSERT INTO tbl VALUES (1, 2);\" +\n"
+                            + "                \"SELECT id, val FROM tbl WHERE id == {};\" +\n"
+                            + "                \"DROP TABLE tbl\"", 10)
                     .thenCompose(new AsyncPageProcessor())
                     .thenApply(ignore -> tx0);
         }).thenAccept(Transaction::commitAsync).get();
