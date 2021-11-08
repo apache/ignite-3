@@ -126,38 +126,15 @@ public class ClientMessageUnpacker extends MessageUnpacker {
                 short u16 = readShort();
                 return u16 & 0xffff;
 
-            case Code.UINT32:
-                int u32 = readInt();
-
-                if (u32 < 0)
-                    throw overflowU32(u32);
-
-                return u32;
-
-            case Code.UINT64:
-                long u64 = readLong();
-
-                if (u64 < 0L || u64 > (long) Integer.MAX_VALUE)
-                    throw overflowU64(u64);
-
-                return (int) u64;
-
             case Code.INT8:
                 return readByte();
 
             case Code.INT16:
                 return readShort();
-
+    
+            case Code.UINT32:
             case Code.INT32:
                 return readInt();
-
-            case Code.INT64:
-                long i64 = readLong();
-
-                if (i64 < (long) Integer.MIN_VALUE || i64 > (long) Integer.MAX_VALUE)
-                    throw overflowI64(i64);
-
-                return (int) i64;
         }
 
         throw unexpected("Integer", code);
@@ -212,12 +189,28 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     /** {@inheritDoc} */
     @Override public byte unpackByte() {
         assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            return super.unpackByte();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    
+        byte b = readByte();
+    
+        if (Code.isFixInt(b)) {
+            return b;
         }
+    
+        switch (b) {
+            case Code.UINT8:
+                byte u8 = readByte();
+                
+                if (u8 < (byte) 0) {
+                    throw overflowU8(u8);
+                }
+                
+                return u8;
+                
+            case Code.INT8:
+                return readByte();
+        }
+    
+        throw unexpected("Integer", b);
     }
 
     /** {@inheritDoc} */
@@ -852,6 +845,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         }
     }
     
+    @Override
     public int unpackRawStringHeader()
     {
         byte b = readByte();
