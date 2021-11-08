@@ -212,15 +212,21 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     
         switch (code) {
             case Code.UINT8:
+                return buf.readUnsignedByte();
+                
             case Code.INT8:
-                return readByte();
+                return buf.readByte();
         
             case Code.UINT16:
+                // TODO: Test those cases - use C# to generate data.
+                return (short) buf.readUnsignedShort();
+                
             case Code.INT16:
-                return readShort();
+                return buf.readShort();
         }
     
-        throw unexpected("Integer", code);    }
+        throw unexpected("Integer", code);
+    }
 
     /** {@inheritDoc} */
     @Override public long unpackLong() {
@@ -233,18 +239,24 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     
         switch (code) {
             case Code.UINT8:
+                return buf.readUnsignedByte();
+                
             case Code.INT8:
-                return readByte();
+                return buf.readByte();
         
             case Code.UINT16:
+                return buf.readUnsignedShort();
+                
             case Code.INT16:
                 return readShort();
         
             case Code.UINT32:
+                return buf.readUnsignedInt();
+                
             case Code.INT32:
                 return readInt();
                 
-            case Code.UINT64:
+            case Code.UINT64: // TODO: Throw overflow or not?
             case Code.INT64:
                 return readLong();
         }
