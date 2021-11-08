@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.bytecode.expression;
+
+import org.junit.jupiter.api.Test;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
@@ -23,16 +24,12 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.inlineIf;
 
-import org.junit.jupiter.api.Test;
-
 public class TestInlineIfBytecodeExpression {
     @Test
     @SuppressWarnings("ConstantConditionalExpression")
     public void testInlineIf()
-            throws Exception {
-        assertBytecodeExpression(inlineIf(constantTrue(), constantString("T"), constantString("F")), true ? "T" : "F",
-                "(true ? \"T\" : \"F\")");
-        assertBytecodeExpression(inlineIf(constantFalse(), constantString("T"), constantString("F")), false ? "T" : "F",
-                "(false ? \"T\" : \"F\")");
+        throws Exception {
+        assertBytecodeExpression(inlineIf(constantTrue(), constantString("T"), constantString("F")), true ? "T" : "F", "(true ? \"T\" : \"F\")");
+        assertBytecodeExpression(inlineIf(constantFalse(), constantString("T"), constantString("F")), false ? "T" : "F", "(false ? \"T\" : \"F\")");
     }
 }

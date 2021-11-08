@@ -14,19 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.bytecode.expression;
+
+import java.util.List;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.MethodGenerationContext;
 
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static java.util.Objects.requireNonNull;
 
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import java.util.List;
-
 class PopBytecodeExpression
-        extends BytecodeExpression {
+    extends BytecodeExpression {
     private final BytecodeExpression instance;
 
     PopBytecodeExpression(BytecodeExpression instance) {
@@ -37,8 +36,8 @@ class PopBytecodeExpression
     @Override
     public BytecodeNode getBytecode(MethodGenerationContext generationContext) {
         return new BytecodeBlock()
-                .append(instance.getBytecode(generationContext))
-                .pop(instance.getType());
+            .append(instance.getBytecode(generationContext))
+            .pop(instance.getType());
     }
 
     @Override
