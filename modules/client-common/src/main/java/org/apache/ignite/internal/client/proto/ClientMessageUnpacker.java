@@ -112,6 +112,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * @throws MessageTypeException when value is not MessagePack Integer type.
      */
     @Override public int unpackInt() {
+        assert refCnt > 0 : "Unpacker is closed";
+        
         byte code = readByte();
 
         if (Code.isFixInt(code))
@@ -119,14 +121,10 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
         switch (code) {
             case Code.UINT8:
-                return readByte();
-
-            case Code.UINT16:
-                return readShort();
-
             case Code.INT8:
                 return readByte();
 
+            case Code.UINT16:
             case Code.INT16:
                 return readShort();
     
@@ -196,14 +194,6 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     
         switch (b) {
             case Code.UINT8:
-                byte u8 = readByte();
-                
-                if (u8 < (byte) 0) {
-                    throw overflowU8(u8);
-                }
-                
-                return u8;
-                
             case Code.INT8:
                 return readByte();
         }
@@ -214,23 +204,52 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     /** {@inheritDoc} */
     @Override public short unpackShort() {
         assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            return super.unpackShort();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    
+        byte code = readByte();
+    
+        if (Code.isFixInt(code))
+            return code;
+    
+        switch (code) {
+            case Code.UINT8:
+            case Code.INT8:
+                return readByte();
+        
+            case Code.UINT16:
+            case Code.INT16:
+                return readShort();
         }
-    }
+    
+        throw unexpected("Integer", code);    }
 
     /** {@inheritDoc} */
     @Override public long unpackLong() {
         assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            return super.unpackLong();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    
+        byte code = readByte();
+    
+        if (Code.isFixInt(code))
+            return code;
+    
+        switch (code) {
+            case Code.UINT8:
+            case Code.INT8:
+                return readByte();
+        
+            case Code.UINT16:
+            case Code.INT16:
+                return readShort();
+        
+            case Code.UINT32:
+            case Code.INT32:
+                return readInt();
+                
+            case Code.UINT64:
+            case Code.INT64:
+                return readLong();
         }
+        
+        throw unexpected("Integer", code);
     }
 
     /** {@inheritDoc} */
