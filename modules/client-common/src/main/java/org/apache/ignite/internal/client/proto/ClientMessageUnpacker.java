@@ -119,12 +119,10 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
         switch (code) {
             case Code.UINT8:
-                byte u8 = readByte();
-                return u8 & 0xff;
+                return readByte();
 
             case Code.UINT16:
-                short u16 = readShort();
-                return u16 & 0xffff;
+                return readShort();
 
             case Code.INT8:
                 return readByte();
@@ -778,13 +776,13 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     private static MessageIntegerOverflowException overflowU8(byte u8)
     {
-        BigInteger bi = BigInteger.valueOf((long) (u8 & 0xff));
+        BigInteger bi = BigInteger.valueOf(u8);
         return new MessageIntegerOverflowException(bi);
     }
 
     private static MessageIntegerOverflowException overflowU16(short u16)
     {
-        BigInteger bi = BigInteger.valueOf((long) (u16 & 0xffff));
+        BigInteger bi = BigInteger.valueOf(u16);
         return new MessageIntegerOverflowException(bi);
     }
 
@@ -808,7 +806,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     private static MessageIntegerOverflowException overflowI32(int i32)
     {
-        BigInteger bi = BigInteger.valueOf((long) i32);
+        BigInteger bi = BigInteger.valueOf(i32);
         return new MessageIntegerOverflowException(bi);
     }
 
@@ -882,14 +880,12 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     
     private int readNextLength8()
     {
-        byte u8 = readByte();
-        return u8 & 0xff;
+        return readByte();
     }
     
     private int readNextLength16()
     {
-        short u16 = readShort();
-        return u16 & 0xffff;
+        return readShort();
     }
     
     private int readNextLength32()
