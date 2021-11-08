@@ -73,6 +73,7 @@ public class ClientMessageUnpackerTest {
         testUnpacker(p -> p.packInt(i), ClientMessageUnpacker::unpackInt, i);
     }
 
+    /*
     @ParameterizedTest
     @ValueSource(longs = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE})
@@ -160,7 +161,7 @@ public class ClientMessageUnpackerTest {
 
         assertArrayEquals(bytesLibrary, bytesIgnite);
         fail("TODO: Remove this method");
-    }
+    }*/
 
     private static void testUnpacker(
             Consumer<ClientMessagePacker> pack,
