@@ -37,9 +37,6 @@ import static org.apache.ignite.internal.client.proto.ClientDataType.TIMESTAMP;
 import static org.msgpack.core.MessagePack.Code;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufInputStream;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -57,13 +54,9 @@ import org.msgpack.core.ExtensionTypeHeader;
 import org.msgpack.core.MessageFormat;
 import org.msgpack.core.MessageIntegerOverflowException;
 import org.msgpack.core.MessageNeverUsedFormatException;
-import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessagePackException;
 import org.msgpack.core.MessageSizeException;
 import org.msgpack.core.MessageTypeException;
-import org.msgpack.core.MessageUnpacker;
-import org.msgpack.core.buffer.InputStreamBufferInput;
-import org.msgpack.value.ImmutableValue;
 
 /**
  * ByteBuf-based MsgPack implementation.
@@ -71,12 +64,9 @@ import org.msgpack.value.ImmutableValue;
  * <p>
  * Releases wrapped buffer on {@link #close()} .
  */
-public class ClientMessageUnpacker extends MessageUnpacker {
+public class ClientMessageUnpacker implements AutoCloseable {
     /** Underlying buffer. */
     private final ByteBuf buf;
-
-    /** Underlying input. */
-    private final InputStreamBufferInput in;
 
     /** Ref count. */
     private int refCnt = 1;
@@ -87,31 +77,18 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * @param buf Input.
      */
     public ClientMessageUnpacker(ByteBuf buf) {
-        // TODO: Remove intermediate classes and buffers IGNITE-15234.
-        // TODO: Remove overrides
-        // TODO: Remove extends
-        this(new InputStreamBufferInput(new ByteBufInputStream(buf)), buf);
-    }
-
-    private ClientMessageUnpacker(InputStreamBufferInput in, ByteBuf buf) {
-        super(in, MessagePack.DEFAULT_UNPACKER_CONFIG);
-
-        this.in = in;
+        assert buf != null;
+        
         this.buf = buf;
     }
-
 
     /**
      * Reads an int.
      *
-     * This method throws {@link MessageIntegerOverflowException} if the value doesn't fit in the range of int.
-     * This may happen when {@link #getNextFormat()} returns UINT32, INT64, or larger integer formats.
-     *
      * @return the int value.
-     * @throws MessageIntegerOverflowException when value doesn't fit in the range of int.
      * @throws MessageTypeException when value is not MessagePack Integer type.
      */
-    @Override public int unpackInt() {
+    public int unpackInt() {
         assert refCnt > 0 : "Unpacker is closed";
         
         byte code = readByte();
@@ -137,7 +114,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /** {@inheritDoc} */
-    @Override public String unpackString() {
+    public String unpackString() {
         assert refCnt > 0 : "Unpacker is closed";
     
         int len = unpackRawStringHeader();
@@ -155,7 +132,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      *
      * @throws MessageTypeException when value is not MessagePack Nil type
      */
-    @Override public void unpackNil() {
+    public void unpackNil() {
         assert refCnt > 0 : "Unpacker is closed";
     
         byte b = readByte();
@@ -168,7 +145,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean unpackBoolean() {
+    public boolean unpackBoolean() {
         assert refCnt > 0 : "Unpacker is closed";
     
         byte b = readByte();
@@ -183,7 +160,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /** {@inheritDoc} */
-    @Override public byte unpackByte() {
+    public byte unpackByte() {
         assert refCnt > 0 : "Unpacker is closed";
     
         byte b = readByte();
@@ -202,7 +179,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /** {@inheritDoc} */
-    @Override public short unpackShort() {
+    public short unpackShort() {
         assert refCnt > 0 : "Unpacker is closed";
     
         byte code = readByte();
@@ -229,7 +206,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /** {@inheritDoc} */
-    @Override public long unpackLong() {
+    public long unpackLong() {
         assert refCnt > 0 : "Unpacker is closed";
     
         byte code = readByte();
@@ -265,7 +242,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /** {@inheritDoc} */
-    @Override public BigInteger unpackBigInteger() {
+    public BigInteger unpackBigInteger() {
         assert refCnt > 0 : "Unpacker is closed";
     
         byte b = readByte();
@@ -309,7 +286,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /** {@inheritDoc} */
-    @Override public float unpackFloat() {
+    public float unpackFloat() {
         assert refCnt > 0 : "Unpacker is closed";
     
         byte b = readByte();
@@ -326,7 +303,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /** {@inheritDoc} */
-    @Override public double unpackDouble() {
+    public double unpackDouble() {
         assert refCnt > 0 : "Unpacker is closed";
     
         byte b = readByte();
@@ -343,7 +320,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /** {@inheritDoc} */
-    @Override public int unpackArrayHeader() {
+    public int unpackArrayHeader() {
         assert refCnt > 0 : "Unpacker is closed";
     
         byte b = readByte();
@@ -364,7 +341,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /** {@inheritDoc} */
-    @Override public int unpackMapHeader() {
+    public int unpackMapHeader() {
         assert refCnt > 0 : "Unpacker is closed";
     
         byte b = readByte();
@@ -385,7 +362,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /** {@inheritDoc} */
-    @Override public ExtensionTypeHeader unpackExtensionTypeHeader() {
+    public ExtensionTypeHeader unpackExtensionTypeHeader() {
         assert refCnt > 0 : "Unpacker is closed";
     
         byte b = readByte();
@@ -437,7 +414,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /** {@inheritDoc} */
-    @Override public int unpackBinaryHeader() {
+    public int unpackBinaryHeader() {
         assert refCnt > 0 : "Unpacker is closed";
     
         byte b = readByte();
@@ -461,7 +438,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean tryUnpackNil() {
+    public boolean tryUnpackNil() {
         assert refCnt > 0 : "Unpacker is closed";
     
         int idx = buf.readerIndex();
@@ -476,7 +453,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /** {@inheritDoc} */
-    @Override public byte[] readPayload(int length) {
+    public byte[] readPayload(int length) {
         assert refCnt > 0 : "Unpacker is closed";
         
         byte[] res = new byte[length];
@@ -486,58 +463,104 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /** {@inheritDoc} */
-    @Override public MessageFormat getNextFormat() {
+    public void skipValue(int count) {
         assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            return super.getNextFormat();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override public void skipValue(int count) {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            super.skipValue(count);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override public void skipValue() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            super.skipValue();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean hasNext() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            return super.hasNext();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override public ImmutableValue unpackValue() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        // TODO: Remove this method.
-        try {
-            return super.unpackValue();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    
+        while (count > 0) {
+            byte b = readByte();
+            MessageFormat f = MessageFormat.valueOf(b);
+            switch (f) {
+                case POSFIXINT:
+                case NEGFIXINT:
+                case BOOLEAN:
+                case NIL:
+                    break;
+                case FIXMAP: {
+                    int mapLen = b & 0x0f;
+                    count += mapLen * 2;
+                    break;
+                }
+                case FIXARRAY: {
+                    int arrayLen = b & 0x0f;
+                    count += arrayLen;
+                    break;
+                }
+                case FIXSTR: {
+                    int strLen = b & 0x1f;
+                    skipBytes(strLen);
+                    break;
+                }
+                case INT8:
+                case UINT8:
+                    skipBytes(1);
+                    break;
+                case INT16:
+                case UINT16:
+                    skipBytes(2);
+                    break;
+                case INT32:
+                case UINT32:
+                case FLOAT32:
+                    skipBytes(4);
+                    break;
+                case INT64:
+                case UINT64:
+                case FLOAT64:
+                    skipBytes(8);
+                    break;
+                case BIN8:
+                case STR8:
+                    skipBytes(readNextLength8());
+                    break;
+                case BIN16:
+                case STR16:
+                    skipBytes(readNextLength16());
+                    break;
+                case BIN32:
+                case STR32:
+                    skipBytes(readNextLength32());
+                    break;
+                case FIXEXT1:
+                    skipBytes(2);
+                    break;
+                case FIXEXT2:
+                    skipBytes(3);
+                    break;
+                case FIXEXT4:
+                    skipBytes(5);
+                    break;
+                case FIXEXT8:
+                    skipBytes(9);
+                    break;
+                case FIXEXT16:
+                    skipBytes(17);
+                    break;
+                case EXT8:
+                    skipBytes(readNextLength8() + 1);
+                    break;
+                case EXT16:
+                    skipBytes(readNextLength16() + 1);
+                    break;
+                case EXT32:
+                    skipBytes(readNextLength32() + 1);
+                    break;
+                case ARRAY16:
+                    count += readNextLength16();
+                    break;
+                case ARRAY32:
+                    count += readNextLength32();
+                    break;
+                case MAP16:
+                    count += readNextLength16() * 2;
+                    break;
+                case MAP32:
+                    count += readNextLength32() * 2;
+                    break;
+                case NEVER_USED:
+                    throw new MessageNeverUsedFormatException("Encountered 0xC1 \"NEVER_USED\" byte");
+            }
+        
+            count--;
         }
     }
 
@@ -889,22 +912,6 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /**
-     * Creates a copy of this unpacker and the underlying buffer.
-     *
-     * @return Copied unpacker.
-     * @throws UncheckedIOException When buffer operation fails.
-     */
-    public ClientMessageUnpacker copy() {
-        try {
-            in.reset(new ByteBufInputStream(buf.copy()));
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-
-        return this;
-    }
-
-    /**
      * Increases the reference count by {@code 1}.
      *
      * @return This instance.
@@ -918,7 +925,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /** {@inheritDoc} */
-    @Override public void close() {
+    @Override
+    public void close() {
         if (refCnt == 0)
             return;
 
@@ -992,12 +1000,11 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         }
         else {
             String name = format.getValueType().name();
-            String typeName = name.substring(0, 1) + name.substring(1).toLowerCase();
+            String typeName = name.charAt(0) + name.substring(1).toLowerCase();
             return new MessageTypeException(String.format("Expected %s, but got %s (%02x)", expected, typeName, b));
         }
     }
     
-    @Override
     public int unpackRawStringHeader()
     {
         byte b = readByte();
@@ -1056,5 +1063,9 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     private long readLong() {
         return buf.readLong();
+    }
+    
+    private void skipBytes(int bytes) {
+        buf.readerIndex(buf.readerIndex() + bytes);
     }
 }

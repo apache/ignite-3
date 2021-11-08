@@ -468,7 +468,7 @@ public class ClientTable implements Table {
             BiFunction<ClientSchema, ClientMessageUnpacker, T> fn,
             T defaultValue
     ) {
-        if (in.getNextFormat() == MessageFormat.NIL) {
+        if (in.tryUnpackNil()) {
             return defaultValue;
         }
         

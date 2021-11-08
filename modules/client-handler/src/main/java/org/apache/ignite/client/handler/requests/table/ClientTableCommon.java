@@ -263,8 +263,7 @@ class ClientTableCommon {
         var tuple = Tuple.create(cnt);
         
         for (int i = 0; i < cnt; i++) {
-            if (unpacker.getNextFormat() == MessageFormat.NIL) {
-                unpacker.skipValue();
+            if (unpacker.tryUnpackNil()) {
                 continue;
             }
             
