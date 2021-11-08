@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.DynamicContainer.dynamicContainer;
@@ -50,6 +51,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -67,7 +69,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithNoDefaultConstructor;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithPrivateConstructor;
-import org.apache.ignite.internal.schema.testobjects.TestSimpleObject;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.BeforeEach;
@@ -140,7 +142,7 @@ public class KvMarshallerTest {
     @MethodSource("marshallerFactoryProvider")
     public void complexType(MarshallerFactory factory) throws MarshallerException {
         Column[] cols = columnsAllTypes();
-    
+        
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
         
         final Object key = TestObjectWithAllTypes.randomObject(rnd);
@@ -168,7 +170,7 @@ public class KvMarshallerTest {
     @MethodSource("marshallerFactoryProvider")
     public void truncatedType(MarshallerFactory factory) throws MarshallerException {
         Column[] cols = columnsAllTypes();
-    
+        
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
         
         final Object key = TestTruncatedObject.randomObject(rnd);
@@ -187,6 +189,54 @@ public class KvMarshallerTest {
         
         assertEquals(key, restoredKey);
         assertEquals(val, restoredVal);
+    }
+    
+    /**
+     * @throws MarshallerException If serialization failed.
+     */
+    @ParameterizedTest
+    @MethodSource("marshallerFactoryProvider")
+    public void widerType(MarshallerFactory factory) throws MarshallerException {
+        Column[] cols = new Column[]{
+                new Column("primitiveLongCol", INT64, false),
+                new Column("primitiveDoubleCol", DOUBLE, false),
+                new Column("stringCol", STRING, true),
+        };
+        
+        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
+        
+        final TestObjectWithAllTypes key = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
+        
+        KvMarshaller marshaller = factory.create(schema, key.getClass(), val.getClass());
+        
+        BinaryRow row = marshaller.marshal(key, val);
+        
+        // Try different order.
+        TestObjectWithAllTypes restoredVal = (TestObjectWithAllTypes) marshaller.unmarshalValue(new Row(schema, row));
+        TestObjectWithAllTypes restoredKey = (TestObjectWithAllTypes) marshaller.unmarshalKey(new Row(schema, row));
+        
+        assertTrue(key.getClass().isInstance(restoredKey));
+        assertTrue(val.getClass().isInstance(restoredVal));
+    
+        TestObjectWithAllTypes expectedKey = new TestObjectWithAllTypes();
+        TestObjectWithAllTypes expectedVal = new TestObjectWithAllTypes();
+        
+        expectedKey.setPrimitiveLongCol(key.getPrimitiveLongCol());
+        expectedKey.setPrimitiveDoubleCol(key.getPrimitiveDoubleCol());
+        expectedKey.setStringCol(key.getStringCol());
+    
+        expectedVal.setPrimitiveLongCol(val.getPrimitiveLongCol());
+        expectedVal.setPrimitiveDoubleCol(val.getPrimitiveDoubleCol());
+        expectedVal.setStringCol(val.getStringCol());
+        
+        assertEquals(expectedKey, restoredKey);
+        assertEquals(expectedVal, restoredVal);
+        
+        assertNull(restoredKey.getUuidCol());
+        assertNull(restoredVal.getUuidCol());
+        assertEquals(0, restoredKey.getPrimitiveIntCol());
+        assertEquals(0, restoredVal.getPrimitiveIntCol());
     }
     
     /**
@@ -363,7 +413,7 @@ public class KvMarshallerTest {
      * @throws MarshallerException If (de)serialization failed.
      */
     private void checkBasicType(MarshallerFactory factory, NativeType keyType,
-                                NativeType valType) throws MarshallerException {
+            NativeType valType) throws MarshallerException {
         final Object key = generateRandomValue(keyType);
         final Object val = generateRandomValue(valType);
         
@@ -426,24 +476,24 @@ public class KvMarshallerTest {
                 ParameterizedType.type(Object.class)
         );
         classDef.declareAnnotation(Generated.class).setValue("value", getClass().getCanonicalName());
-    
+        
         for (int i = 0; i < 3; i++) {
             classDef.declareField(EnumSet.of(Access.PRIVATE), "col" + i, ParameterizedType.type(fieldType));
         }
-    
+        
         // Build constructor.
         final MethodDefinition methodDef = classDef.declareConstructor(EnumSet.of(Access.PUBLIC));
         final Variable rnd = methodDef.getScope().declareVariable(Random.class, "rnd");
-    
+        
         BytecodeBlock body = methodDef.getBody()
                 .append(methodDef.getThis())
                 .invokeConstructor(classDef.getSuperClass())
                 .append(rnd.set(BytecodeExpressions.newInstance(Random.class)));
-    
+        
         for (int i = 0; i < 3; i++) {
             body.append(methodDef.getThis().setField("col" + i, rnd.invoke("nextLong", long.class).cast(fieldType)));
         }
-    
+        
         body.ret();
         
         return ClassGenerator.classGenerator(Thread.currentThread().getContextClassLoader())
@@ -452,7 +502,6 @@ public class KvMarshallerTest {
                 .dumpRawBytecode(true)
                 .defineClass(classDef, Object.class);
     }
-    
     
     /**
      * Test object.
@@ -464,29 +513,29 @@ public class KvMarshallerTest {
          */
         public static TestTruncatedObject randomObject(Random rnd) {
             final TestTruncatedObject obj = new TestTruncatedObject();
-    
-            obj.primitiveByteCol = (byte) rnd.nextInt(255);
-            obj.primitiveShortCol = (short) rnd.nextInt(65535);
+            
             obj.primitiveIntCol = rnd.nextInt();
             obj.primitiveLongCol = rnd.nextLong();
             obj.primitiveFloatCol = rnd.nextFloat();
             obj.primitiveDoubleCol = rnd.nextDouble();
+            obj.uuidCol = java.util.UUID.randomUUID();
+            obj.stringCol = IgniteTestUtils.randomString(rnd, 100);
             
             return obj;
         }
         
         // Primitive typed
-        private byte primitiveByteCol;
-    
-        private short primitiveShortCol;
-    
         private int primitiveIntCol;
-    
+        
         private long primitiveLongCol;
-    
+        
         private float primitiveFloatCol;
-    
+        
         private double primitiveDoubleCol;
+        
+        private String stringCol;
+        
+        private java.util.UUID uuidCol;
         
         /** {@inheritDoc} */
         @Override
@@ -497,15 +546,15 @@ public class KvMarshallerTest {
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-    
+            
             TestTruncatedObject object = (TestTruncatedObject) o;
-    
-            return primitiveByteCol == object.primitiveByteCol
-                    && primitiveShortCol == object.primitiveShortCol
-                    && primitiveIntCol == object.primitiveIntCol
+            
+            return  primitiveIntCol == object.primitiveIntCol
                     && primitiveLongCol == object.primitiveLongCol
                     && Float.compare(object.primitiveFloatCol, primitiveFloatCol) == 0
-                    && Double.compare(object.primitiveDoubleCol, primitiveDoubleCol) == 0;
+                    && Double.compare(object.primitiveDoubleCol, primitiveDoubleCol) == 0
+                    && Objects.equals(stringCol, ((TestTruncatedObject) o) .stringCol)
+                    && Objects.equals(uuidCol, ((TestTruncatedObject) o).uuidCol);
         }
         
         /** {@inheritDoc} */

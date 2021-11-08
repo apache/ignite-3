@@ -175,4 +175,196 @@ public class TestObjectWithAllTypes {
     public int hashCode() {
         return 73;
     }
+    
+    public byte getPrimitiveByteCol() {
+        return primitiveByteCol;
+    }
+    
+    public void setPrimitiveByteCol(byte primitiveByteCol) {
+        this.primitiveByteCol = primitiveByteCol;
+    }
+    
+    public short getPrimitiveShortCol() {
+        return primitiveShortCol;
+    }
+    
+    public void setPrimitiveShortCol(short primitiveShortCol) {
+        this.primitiveShortCol = primitiveShortCol;
+    }
+    
+    public int getPrimitiveIntCol() {
+        return primitiveIntCol;
+    }
+    
+    public void setPrimitiveIntCol(int primitiveIntCol) {
+        this.primitiveIntCol = primitiveIntCol;
+    }
+    
+    public long getPrimitiveLongCol() {
+        return primitiveLongCol;
+    }
+    
+    public void setPrimitiveLongCol(long primitiveLongCol) {
+        this.primitiveLongCol = primitiveLongCol;
+    }
+    
+    public float getPrimitiveFloatCol() {
+        return primitiveFloatCol;
+    }
+    
+    public void setPrimitiveFloatCol(float primitiveFloatCol) {
+        this.primitiveFloatCol = primitiveFloatCol;
+    }
+    
+    public double getPrimitiveDoubleCol() {
+        return primitiveDoubleCol;
+    }
+    
+    public void setPrimitiveDoubleCol(double primitiveDoubleCol) {
+        this.primitiveDoubleCol = primitiveDoubleCol;
+    }
+    
+    public Byte getByteCol() {
+        return byteCol;
+    }
+    
+    public void setByteCol(Byte byteCol) {
+        this.byteCol = byteCol;
+    }
+    
+    public Short getShortCol() {
+        return shortCol;
+    }
+    
+    public void setShortCol(Short shortCol) {
+        this.shortCol = shortCol;
+    }
+    
+    public Integer getIntCol() {
+        return intCol;
+    }
+    
+    public void setIntCol(Integer intCol) {
+        this.intCol = intCol;
+    }
+    
+    public Long getLongCol() {
+        return longCol;
+    }
+    
+    public void setLongCol(Long longCol) {
+        this.longCol = longCol;
+    }
+    
+    public Long getNullLongCol() {
+        return nullLongCol;
+    }
+    
+    public void setNullLongCol(Long nullLongCol) {
+        this.nullLongCol = nullLongCol;
+    }
+    
+    public Float getFloatCol() {
+        return floatCol;
+    }
+    
+    public void setFloatCol(Float floatCol) {
+        this.floatCol = floatCol;
+    }
+    
+    public Double getDoubleCol() {
+        return doubleCol;
+    }
+    
+    public void setDoubleCol(Double doubleCol) {
+        this.doubleCol = doubleCol;
+    }
+    
+    public UUID getUuidCol() {
+        return uuidCol;
+    }
+    
+    public void setUuidCol(UUID uuidCol) {
+        this.uuidCol = uuidCol;
+    }
+    
+    public LocalTime getTimeCol() {
+        return timeCol;
+    }
+    
+    public void setTimeCol(LocalTime timeCol) {
+        this.timeCol = timeCol;
+    }
+    
+    public LocalDate getDateCol() {
+        return dateCol;
+    }
+    
+    public void setDateCol(LocalDate dateCol) {
+        this.dateCol = dateCol;
+    }
+    
+    public LocalDateTime getDateTimeCol() {
+        return dateTimeCol;
+    }
+    
+    public void setDateTimeCol(LocalDateTime dateTimeCol) {
+        this.dateTimeCol = dateTimeCol;
+    }
+    
+    public Instant getTimestampCol() {
+        return timestampCol;
+    }
+    
+    public void setTimestampCol(Instant timestampCol) {
+        this.timestampCol = timestampCol;
+    }
+    
+    public BitSet getBitmaskCol() {
+        return bitmaskCol;
+    }
+    
+    public void setBitmaskCol(BitSet bitmaskCol) {
+        this.bitmaskCol = bitmaskCol;
+    }
+    
+    public String getStringCol() {
+        return stringCol;
+    }
+    
+    public void setStringCol(String stringCol) {
+        this.stringCol = stringCol;
+    }
+    
+    public byte[] getBytesCol() {
+        return bytesCol;
+    }
+    
+    public void setBytesCol(byte[] bytesCol) {
+        this.bytesCol = bytesCol;
+    }
+    
+    public byte[] getNullBytesCol() {
+        return nullBytesCol;
+    }
+    
+    public void setNullBytesCol(byte[] nullBytesCol) {
+        this.nullBytesCol = nullBytesCol;
+    }
+    
+    public BigInteger getNumberCol() {
+        return numberCol;
+    }
+    
+    public void setNumberCol(BigInteger numberCol) {
+        this.numberCol = numberCol;
+    }
+    
+    public BigDecimal getDecimalCol() {
+        return decimalCol;
+    }
+    
+    public void setDecimalCol(BigDecimal decimalCol) {
+        this.decimalCol = decimalCol;
+    }
 }
