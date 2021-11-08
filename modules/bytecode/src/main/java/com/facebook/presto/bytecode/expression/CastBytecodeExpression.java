@@ -17,26 +17,28 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
-
+import java.util.List;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.BytecodeUtils;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.OpCode;
 import com.facebook.presto.bytecode.ParameterizedType;
-import java.util.List;
+
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 class CastBytecodeExpression
-        extends BytecodeExpression {
+        extends BytecodeExpression
+{
     private static final ParameterizedType OBJECT_TYPE = type(Object.class);
 
     private final BytecodeExpression instance;
 
-    CastBytecodeExpression(BytecodeExpression instance, ParameterizedType type) {
+    CastBytecodeExpression(BytecodeExpression instance, ParameterizedType type)
+    {
         super(type);
 
         this.instance = requireNonNull(instance, "instance is null");
@@ -49,13 +51,15 @@ class CastBytecodeExpression
     }
 
     @Override
-    public BytecodeNode getBytecode(MethodGenerationContext generationContext) {
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
+    {
         return new BytecodeBlock()
                 .append(instance.getBytecode(generationContext))
                 .append(generateBytecode(instance.getType(), getType()));
     }
 
-    private static BytecodeBlock generateBytecode(ParameterizedType sourceType, ParameterizedType targetType) {
+    private static BytecodeBlock generateBytecode(ParameterizedType sourceType, ParameterizedType targetType)
+    {
         BytecodeBlock block = new BytecodeBlock();
 
         switch (getTypeKind(sourceType)) {
@@ -65,8 +69,7 @@ class CastBytecodeExpression
                         castPrimitiveToPrimitive(block, sourceType.getPrimitiveType(), targetType.getPrimitiveType());
                         return block;
                     case BOXED_PRIMITVE:
-                        checkArgument(sourceType.getPrimitiveType() == unwrapPrimitiveType(targetType), "Type %s can not be cast to %s",
-                                sourceType, targetType);
+                        checkArgument(sourceType.getPrimitiveType() == unwrapPrimitiveType(targetType), "Type %s can not be cast to %s", sourceType, targetType);
                         return block.invokeStatic(targetType, "valueOf", targetType, sourceType);
                     case OTHER:
                         checkArgument(OBJECT_TYPE.equals(targetType), "Type %s can not be cast to %s", sourceType, targetType);
@@ -78,8 +81,7 @@ class CastBytecodeExpression
             case BOXED_PRIMITVE:
                 switch (getTypeKind(targetType)) {
                     case PRIMITIVE:
-                        checkArgument(unwrapPrimitiveType(sourceType) == targetType.getPrimitiveType(), "Type %s can not be cast to %s",
-                                sourceType, targetType);
+                        checkArgument(unwrapPrimitiveType(sourceType) == targetType.getPrimitiveType(), "Type %s can not be cast to %s", sourceType, targetType);
                         return block.invokeVirtual(sourceType, targetType.getPrimitiveType().getSimpleName() + "Value", targetType);
                     case BOXED_PRIMITVE:
                         checkArgument(sourceType.equals(targetType), "Type %s can not be cast to %s", sourceType, targetType);
@@ -93,8 +95,7 @@ class CastBytecodeExpression
                         checkArgument(OBJECT_TYPE.equals(sourceType), "Type %s can not be cast to %s", sourceType, targetType);
                         return block
                                 .checkCast(BytecodeUtils.wrap(targetType.getPrimitiveType()))
-                                .invokeVirtual(BytecodeUtils.wrap(targetType.getPrimitiveType()),
-                                        targetType.getPrimitiveType().getSimpleName() + "Value", targetType.getPrimitiveType());
+                                .invokeVirtual(BytecodeUtils.wrap(targetType.getPrimitiveType()), targetType.getPrimitiveType().getSimpleName() + "Value", targetType.getPrimitiveType());
                     case BOXED_PRIMITVE:
                     case OTHER:
                         return block.checkCast(targetType);
@@ -103,7 +104,8 @@ class CastBytecodeExpression
         throw new UnsupportedOperationException("unexpected enum value");
     }
 
-    private static BytecodeBlock castPrimitiveToPrimitive(BytecodeBlock block, Class<?> sourceType, Class<?> targetType) {
+    private static BytecodeBlock castPrimitiveToPrimitive(BytecodeBlock block, Class<?> sourceType, Class<?> targetType)
+    {
         if (sourceType == boolean.class) {
             if (targetType == boolean.class) {
                 return block;
@@ -276,7 +278,8 @@ class CastBytecodeExpression
         throw new IllegalArgumentException(format("Type %s can not be cast to %s", sourceType, targetType));
     }
 
-    private static TypeKind getTypeKind(ParameterizedType type) {
+    private static TypeKind getTypeKind(ParameterizedType type)
+    {
         if (type.isPrimitive()) {
             return TypeKind.PRIMITIVE;
         }
@@ -286,7 +289,8 @@ class CastBytecodeExpression
         return TypeKind.OTHER;
     }
 
-    private static Class<?> unwrapPrimitiveType(ParameterizedType boxedPrimitiveType) {
+    private static Class<?> unwrapPrimitiveType(ParameterizedType boxedPrimitiveType)
+    {
         switch (boxedPrimitiveType.getJavaClassName()) {
             case "java.lang.Boolean":
                 return boolean.class;
@@ -310,16 +314,19 @@ class CastBytecodeExpression
     }
 
     @Override
-    protected String formatOneLine() {
+    protected String formatOneLine()
+    {
         return "((" + getType().getSimpleName() + ") " + instance + ")";
     }
 
     @Override
-    public List<BytecodeNode> getChildNodes() {
+    public List<BytecodeNode> getChildNodes()
+    {
         return List.of(instance);
     }
 
-    private enum TypeKind {
+    private enum TypeKind
+    {
         PRIMITIVE, BOXED_PRIMITVE, OTHER
     }
 }

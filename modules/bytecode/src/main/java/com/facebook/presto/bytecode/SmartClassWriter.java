@@ -14,24 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.bytecode;
-
-import static com.facebook.presto.bytecode.ParameterizedType.typeFromPathName;
 
 import org.objectweb.asm.ClassWriter;
 
+import static com.facebook.presto.bytecode.ParameterizedType.typeFromPathName;
+
 public class SmartClassWriter
-        extends ClassWriter {
+        extends ClassWriter
+{
     private final ClassInfoLoader classInfoLoader;
 
-    public SmartClassWriter(ClassInfoLoader classInfoLoader) {
+    public SmartClassWriter(ClassInfoLoader classInfoLoader)
+    {
         super(ClassWriter.COMPUTE_FRAMES);
         this.classInfoLoader = classInfoLoader;
     }
 
     @Override
-    protected String getCommonSuperClass(String aType, String bType) {
+    protected String getCommonSuperClass(String aType, String bType)
+    {
         ClassInfo aClassInfo = classInfoLoader.loadClassInfo(typeFromPathName(aType));
         ClassInfo bClassInfo = classInfoLoader.loadClassInfo(typeFromPathName(bType));
 
@@ -43,7 +45,8 @@ public class SmartClassWriter
         }
         if (aClassInfo.isInterface() || bClassInfo.isInterface()) {
             return "java/lang/Object";
-        } else {
+        }
+        else {
             do {
                 aClassInfo = aClassInfo.getSuperclass();
             }

@@ -18,8 +18,10 @@
 package com.facebook.presto.bytecode;
 
 public class CompilationException
-        extends RuntimeException {
-    public CompilationException(String message, RuntimeException cause) {
+        extends RuntimeException
+{
+    public CompilationException(String message, RuntimeException cause)
+    {
         super(message, cause);
     }
 }

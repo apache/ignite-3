@@ -17,22 +17,24 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
-import static com.facebook.presto.bytecode.expression.ArithmeticBytecodeExpression.getNumericOpCode;
-import static java.util.Objects.requireNonNull;
-
+import java.util.List;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.OpCode;
-import java.util.List;
+
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
+import static com.facebook.presto.bytecode.expression.ArithmeticBytecodeExpression.getNumericOpCode;
+import static java.util.Objects.requireNonNull;
 
 class NegateBytecodeExpression
-        extends BytecodeExpression {
+        extends BytecodeExpression
+{
     private final BytecodeExpression value;
     private final OpCode negateOpCode;
 
-    NegateBytecodeExpression(BytecodeExpression value) {
+    NegateBytecodeExpression(BytecodeExpression value)
+    {
         super(requireNonNull(value, "value is null").getType());
         this.value = value;
 
@@ -47,19 +49,22 @@ class NegateBytecodeExpression
     }
 
     @Override
-    public BytecodeNode getBytecode(MethodGenerationContext generationContext) {
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
+    {
         return new BytecodeBlock()
                 .append(value)
                 .append(negateOpCode);
     }
 
     @Override
-    public List<BytecodeNode> getChildNodes() {
+    public List<BytecodeNode> getChildNodes()
+    {
         return List.of(value);
     }
 
     @Override
-    protected String formatOneLine() {
+    protected String formatOneLine()
+    {
         return "-(" + value + ")";
     }
 }
