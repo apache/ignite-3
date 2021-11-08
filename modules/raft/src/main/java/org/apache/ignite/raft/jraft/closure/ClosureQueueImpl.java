@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.closure;
 
 import java.util.LinkedList;
@@ -68,7 +67,8 @@ public class ClosureQueueImpl implements ClosureQueue {
             this.firstIndex = 0;
             savedQueue = this.queue;
             this.queue = new LinkedList<>();
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
 
@@ -88,7 +88,8 @@ public class ClosureQueueImpl implements ClosureQueue {
         try {
             Requires.requireTrue(this.queue.isEmpty(), "Queue is not empty.");
             this.firstIndex = firstIndex;
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -98,7 +99,8 @@ public class ClosureQueueImpl implements ClosureQueue {
         this.lock.lock();
         try {
             this.queue.add(closure);
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -110,7 +112,7 @@ public class ClosureQueueImpl implements ClosureQueue {
 
     @Override
     public long popClosureUntil(final long endIndex, final List<Closure> closures,
-            final List<TaskClosure> taskClosures) {
+        final List<TaskClosure> taskClosures) {
         closures.clear();
         if (taskClosures != null) {
             taskClosures.clear();
@@ -123,7 +125,7 @@ public class ClosureQueueImpl implements ClosureQueue {
             }
             if (endIndex > this.firstIndex + queueSize - 1) {
                 LOG.error("Invalid endIndex={}, firstIndex={}, closureQueueSize={}", endIndex, this.firstIndex,
-                        queueSize);
+                    queueSize);
                 return -1;
             }
             final long outFirstIndex = this.firstIndex;
@@ -136,7 +138,8 @@ public class ClosureQueueImpl implements ClosureQueue {
             }
             this.firstIndex = endIndex + 1;
             return outFirstIndex;
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }

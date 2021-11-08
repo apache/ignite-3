@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.CompletableFuture;
@@ -48,18 +47,19 @@ public interface RpcClient extends Lifecycle<RpcOptions> {
     /**
      * Asynchronous invocation with a callback.
      *
-     * @param endpoint  target address
-     * @param request   request object
-     * @param ctx       invoke context
-     * @param callback  invoke callback
+     * @param endpoint target address
+     * @param request request object
+     * @param ctx invoke context
+     * @param callback invoke callback
      * @param timeoutMs timeout millisecond
+     *
      * @return The future.
      */
     CompletableFuture<Message> invokeAsync(
-            Endpoint endpoint,
-            Object request,
-            @Nullable InvokeContext ctx,
-            InvokeCallback callback,
-            long timeoutMs
+        Endpoint endpoint,
+        Object request,
+        @Nullable InvokeContext ctx,
+        InvokeCallback callback,
+        long timeoutMs
     ) throws InterruptedException, RemotingException;
 }

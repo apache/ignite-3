@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.option;
 
 import org.apache.ignite.raft.jraft.core.BallotBox;
@@ -114,8 +113,8 @@ public class ReplicatorGroupOptions {
     @Override
     public String toString() {
         return "ReplicatorGroupOptions{" + "heartbeatTimeoutMs=" + heartbeatTimeoutMs + ", electionTimeoutMs="
-                + electionTimeoutMs + ", logManager=" + logManager + ", ballotBox=" + ballotBox + ", node=" + node
-                + ", snapshotStorage=" + snapshotStorage + ", raftRpcClientService=" + raftRpcClientService
-                + ", raftOptions=" + raftOptions + ", timerManager=" + timerManager + '}';
+            + electionTimeoutMs + ", logManager=" + logManager + ", ballotBox=" + ballotBox + ", node=" + node
+            + ", snapshotStorage=" + snapshotStorage + ", raftRpcClientService=" + raftRpcClientService
+            + ", raftOptions=" + raftOptions + ", timerManager=" + timerManager + '}';
     }
 }

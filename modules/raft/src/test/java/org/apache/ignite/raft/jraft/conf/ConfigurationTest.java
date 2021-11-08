@@ -14,17 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.conf;
+
+import org.apache.ignite.raft.jraft.JRaftUtils;
+import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import org.apache.ignite.raft.jraft.JRaftUtils;
-import org.apache.ignite.raft.jraft.entity.PeerId;
-import org.junit.jupiter.api.Test;
 
 public class ConfigurationTest {
     @Test
@@ -161,7 +160,7 @@ public class ConfigurationTest {
     public void testDiff() {
         final Configuration conf1 = JRaftUtils.getConfiguration("localhost:8081,localhost:8082,localhost:8083");
         final Configuration conf2 = JRaftUtils
-                .getConfiguration("localhost:8081,localhost:8083,localhost:8085,localhost:8086");
+            .getConfiguration("localhost:8081,localhost:8083,localhost:8085,localhost:8086");
         final Configuration included = new Configuration();
         final Configuration excluded = new Configuration();
         conf1.diff(conf2, included, excluded);

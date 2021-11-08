@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.util;
 
 /**
@@ -41,14 +40,14 @@ public final class Ints {
      */
     public static int saturatedCast(final long value) {
         return value > Integer.MAX_VALUE ? Integer.MAX_VALUE : value < Integer.MIN_VALUE ? Integer.MIN_VALUE
-                : (int) value;
+            : (int) value;
     }
 
     /**
      * Fast method of finding the next power of 2 greater than or equal to the supplied value.
-     * <p>
-     * If the value is {@code <= 0} then 1 will be returned. This method is not suitable for {@link Integer#MIN_VALUE} or numbers greater
-     * than 2^30.
+     *
+     * If the value is {@code <= 0} then 1 will be returned. This method is not suitable for {@link Integer#MIN_VALUE}
+     * or numbers greater than 2^30.
      *
      * @param value from which to search for next power of 2
      * @return The next power of 2 or the value itself if it is a power of 2
@@ -58,8 +57,8 @@ public final class Ints {
     }
 
     /**
-     * Find the next larger positive power of two value up from the given value. If value is a power of two then this value will be
-     * returned.
+     * Find the next larger positive power of two value up from the given value. If value is a power of two then this
+     * value will be returned.
      *
      * @param value from which next positive power of two will be found
      * @return the next positive power of 2 or this value if it is a power of 2

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.raft.jraft.entity;
 
 import java.io.Serializable;
@@ -87,12 +86,14 @@ public final class NodeId implements Serializable {
             if (other.groupId != null) {
                 return false;
             }
-        } else if (!this.groupId.equals(other.groupId)) {
+        }
+        else if (!this.groupId.equals(other.groupId)) {
             return false;
         }
         if (this.peerId == null) {
             return other.peerId == null;
-        } else {
+        }
+        else {
             return this.peerId.equals(other.peerId);
         }
     }

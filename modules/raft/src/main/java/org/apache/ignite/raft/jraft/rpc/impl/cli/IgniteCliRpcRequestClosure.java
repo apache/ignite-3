@@ -31,13 +31,14 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 
 /**
  * Ignite wrapper for {@link RpcRequestClosure}.
- * <p>
- * The main purpose: provide current leader id in error response if any {@link RaftError#EPERM} issues with the current node.
+ * 
+ * The main purpose: provide current leader id in error response
+ * if any {@link RaftError#EPERM} issues with the current node.
  */
 public class IgniteCliRpcRequestClosure implements Closure {
     /** Node, which call this closure. */
     private final Node node;
-
+    
     /** Original closure. */
     private final RpcRequestClosure delegate;
 
@@ -48,7 +49,7 @@ public class IgniteCliRpcRequestClosure implements Closure {
     }
 
     /**
-     * @see RpcRequestClosure#getRpcCtx()
+     * @see RpcRequestClosure#getRpcCtx() 
      */
     public RpcContext getRpcCtx() {
         return delegate.getRpcCtx();
@@ -60,7 +61,7 @@ public class IgniteCliRpcRequestClosure implements Closure {
     public RaftMessagesFactory getMsgFactory() {
         return delegate.getMsgFactory();
     }
-
+    
     /**
      * @see RpcRequestClosure#sendResponse(Message)
      */
@@ -74,20 +75,19 @@ public class IgniteCliRpcRequestClosure implements Closure {
                 newLeader = node.getLeaderId();
 
                 delegate.sendResponse(
-                        RaftRpcFactory.DEFAULT
-                                .newResponse(newLeader.toString(), getMsgFactory(), RaftError.EPERM, err.errorMsg()));
+                    RaftRpcFactory.DEFAULT
+                        .newResponse(newLeader.toString(), getMsgFactory(), RaftError.EPERM, err.errorMsg()));
                 return;
             }
         }
 
         delegate.sendResponse(msg);
     }
-
+    
     /**
-     * @see RpcRequestClosure#run(Status)
+     * @see RpcRequestClosure#run(Status) 
      */
-    @Override
-    public void run(Status status) {
+    @Override public void run(Status status) {
         sendResponse(RaftRpcFactory.DEFAULT.newResponse(getMsgFactory(), status));
     }
 }
