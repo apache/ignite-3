@@ -63,7 +63,6 @@ import org.msgpack.core.MessageSizeException;
 import org.msgpack.core.MessageTypeException;
 import org.msgpack.core.MessageUnpacker;
 import org.msgpack.core.buffer.InputStreamBufferInput;
-import org.msgpack.core.buffer.MessageBuffer;
 import org.msgpack.value.ImmutableValue;
 
 /**
@@ -440,12 +439,25 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     /** {@inheritDoc} */
     @Override public int unpackBinaryHeader() {
         assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            return super.unpackBinaryHeader();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    
+        byte b = readByte();
+        
+        if (Code.isFixedRaw(b)) { // FixRaw
+            return b & 0x1f;
         }
+    
+        switch (b) {
+            case Code.BIN8:
+                return readNextLength8();
+                
+            case Code.BIN16:
+                return readNextLength16();
+                
+            case Code.BIN32:
+                return readNextLength32();
+        }
+    
+        throw unexpected("Binary", b);
     }
 
     /** {@inheritDoc} */
