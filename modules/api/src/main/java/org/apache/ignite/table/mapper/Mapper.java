@@ -32,29 +32,36 @@ public interface Mapper<T> {
      * @return Mapped type.
      */
     Class<T> targetType();
-
+    
     String fieldForColumn(String name);
-
+    
     /**
-     * Creates identity mapper which is used for simple types that have native support
-     * or objects with field names that match column names.
+     * Creates identity mapper which is used for simple types that have native support or objects with field names that match column names.
      *
      * @param targetClass Target type class.
-     * @param <T> Target type.
+     * @param <T>         Target type.
      * @return Mapper.
      */
     static <T> Mapper<T> identityMapper(Class<T> targetClass) {
         return new Mapper<>() {
-            @Override public Class<T> targetType() {
+            @Override
+            public Class<T> targetType() {
                 return targetClass;
             }
-
-            @Override public String fieldForColumn(String name) {
-                return name;
+            
+            @Override
+            public String fieldForColumn(String name) {
+                try {
+                    targetClass.getDeclaredField(name);
+                    
+                    return name;
+                } catch (NoSuchFieldException e) {
+                    return null;
+                }
             }
         };
     }
-
+    
     /**
      * Mapper builder.
      *
@@ -64,22 +71,21 @@ public interface Mapper<T> {
         /**
          * Map a field to a type of given class.
          *
-         * @param fieldName Field name.
+         * @param fieldName   Field name.
          * @param targetClass Target class.
          * @return {@code this} for chaining.
          */
         Builder<T> map(String fieldName, Class<?> targetClass);
-
+        
         /**
-         * Adds a functional mapping for a field,
-         * the result depends on function call for every particular row.
+         * Adds a functional mapping for a field, the result depends on function call for every particular row.
          *
-         * @param fieldName Field name.
+         * @param fieldName       Field name.
          * @param mappingFunction Mapper function.
          * @return {@code this} for chaining.
          */
         Builder<T> map(String fieldName, Function<Tuple, Object> mappingFunction);
-
+        
         /**
          * Sets a target class to deserialize to.
          *
@@ -87,7 +93,7 @@ public interface Mapper<T> {
          * @return {@code this} for chaining.
          */
         Builder<T> deserializeTo(Class<?> targetClass);
-
+        
         /**
          * Builds mapper.
          *
