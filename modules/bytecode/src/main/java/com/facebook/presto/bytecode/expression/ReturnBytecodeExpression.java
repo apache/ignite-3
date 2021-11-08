@@ -14,20 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.bytecode.expression;
 
-import java.util.List;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static java.util.Objects.requireNonNull;
+
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.OpCode;
 import com.facebook.presto.bytecode.ParameterizedType;
-
-import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static java.util.Objects.requireNonNull;
+import java.util.List;
 
 class ReturnBytecodeExpression
-    extends BytecodeExpression {
+        extends BytecodeExpression {
     private final BytecodeExpression instance;
     private final OpCode returnOpCode;
 
@@ -40,8 +41,8 @@ class ReturnBytecodeExpression
     @Override
     public BytecodeNode getBytecode(MethodGenerationContext generationContext) {
         return new BytecodeBlock()
-            .append(instance.getBytecode(generationContext))
-            .append(returnOpCode);
+                .append(instance.getBytecode(generationContext))
+                .append(returnOpCode);
     }
 
     @Override
@@ -58,10 +59,10 @@ class ReturnBytecodeExpression
         Class<?> primitiveType = componentType.getPrimitiveType();
         if (primitiveType != null) {
             if (primitiveType == byte.class ||
-                primitiveType == boolean.class ||
-                primitiveType == char.class ||
-                primitiveType == short.class ||
-                primitiveType == int.class) {
+                    primitiveType == boolean.class ||
+                    primitiveType == char.class ||
+                    primitiveType == short.class ||
+                    primitiveType == int.class) {
                 return OpCode.IRETURN;
             }
             if (primitiveType == long.class) {
@@ -77,8 +78,7 @@ class ReturnBytecodeExpression
                 return OpCode.RETURN;
             }
             throw new IllegalArgumentException("Unsupported array type: " + primitiveType);
-        }
-        else {
+        } else {
             return OpCode.ARETURN;
         }
     }

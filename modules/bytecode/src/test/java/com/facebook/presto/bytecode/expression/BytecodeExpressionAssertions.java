@@ -17,17 +17,6 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import java.lang.reflect.Array;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.ClassDefinition;
-import com.facebook.presto.bytecode.MethodDefinition;
-import com.facebook.presto.bytecode.ParameterizedType;
-import com.facebook.presto.bytecode.Scope;
-
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.STATIC;
@@ -38,6 +27,17 @@ import static com.facebook.presto.bytecode.ClassGenerator.classGenerator;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
+
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.ParameterizedType;
+import com.facebook.presto.bytecode.Scope;
+import java.lang.reflect.Array;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 public final class BytecodeExpressionAssertions {
     private BytecodeExpressionAssertions() {
@@ -50,61 +50,61 @@ public final class BytecodeExpressionAssertions {
     }
 
     public static void assertBytecodeExpression(BytecodeExpression expression, Object expected,
-        String expectedRendering)
-        throws Exception {
+            String expectedRendering)
+            throws Exception {
         assertBytecodeExpression(expression, expected, expectedRendering, Optional.empty());
     }
 
     public static void assertBytecodeExpression(BytecodeExpression expression, Object expected,
-        String expectedRendering, Optional<ClassLoader> parentClassLoader)
-        throws Exception {
+            String expectedRendering, Optional<ClassLoader> parentClassLoader)
+            throws Exception {
         assertEquals(expression.toString(), expectedRendering);
 
         assertBytecodeNode(expression.ret(), expression.getType(), expected, parentClassLoader);
     }
 
     public static void assertBytecodeExpression(BytecodeExpression expression, Object expected,
-        ClassLoader parentClassLoader)
-        throws Exception {
+            ClassLoader parentClassLoader)
+            throws Exception {
         assertBytecodeExpression(expression, expected, Optional.of(parentClassLoader));
     }
 
     public static void assertBytecodeExpression(BytecodeExpression expression, Object expected,
-        Optional<ClassLoader> parentClassLoader)
-        throws Exception {
+            Optional<ClassLoader> parentClassLoader)
+            throws Exception {
         assertBytecodeNode(expression.ret(), expression.getType(), expected, parentClassLoader);
     }
 
     public static void assertBytecodeNode(BytecodeNode node, ParameterizedType returnType, Object expected)
-        throws Exception {
+            throws Exception {
         assertBytecodeNode(node, returnType, expected, Optional.empty());
     }
 
     public static void assertBytecodeNode(BytecodeNode node, ParameterizedType returnType, Object expected,
-        Optional<ClassLoader> parentClassLoader)
-        throws Exception {
+            Optional<ClassLoader> parentClassLoader)
+            throws Exception {
         assertValueEquals(execute(context -> node, returnType, parentClassLoader), expected);
     }
 
     public static void assertBytecodeNode(Function<Scope, BytecodeNode> nodeGenerator, ParameterizedType returnType,
-        Object expected)
-        throws Exception {
+            Object expected)
+            throws Exception {
         assertBytecodeNode(nodeGenerator, returnType, expected, Optional.empty());
     }
 
     public static void assertBytecodeNode(Function<Scope, BytecodeNode> nodeGenerator, ParameterizedType returnType,
-        Object expected, Optional<ClassLoader> parentClassLoader)
-        throws Exception {
+            Object expected, Optional<ClassLoader> parentClassLoader)
+            throws Exception {
         assertValueEquals(execute(nodeGenerator, returnType, parentClassLoader), expected);
     }
 
     public static Object execute(Function<Scope, BytecodeNode> nodeGenerator, ParameterizedType returnType,
-        Optional<ClassLoader> parentClassLoader)
-        throws Exception {
+            Optional<ClassLoader> parentClassLoader)
+            throws Exception {
         ClassDefinition classDefinition = new ClassDefinition(
-            a(PUBLIC, FINAL),
-            makeClassName("Test"),
-            type(Object.class));
+                a(PUBLIC, FINAL),
+                makeClassName("Test"),
+                type(Object.class));
 
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC, STATIC), "test", returnType);
         BytecodeNode node = nodeGenerator.apply(method.getScope());
@@ -118,9 +118,9 @@ public final class BytecodeExpressionAssertions {
         ClassLoader classLoader = parentClassLoader.orElse(BytecodeExpressionAssertions.class.getClassLoader());
 
         return classGenerator(classLoader)
-            .defineClass(classDefinition, Object.class)
-            .getMethod("test")
-            .invoke(null);
+                .defineClass(classDefinition, Object.class)
+                .getMethod("test")
+                .invoke(null);
     }
 
     /**
@@ -145,8 +145,9 @@ public final class BytecodeExpressionAssertions {
             Object _actual = Array.get(actual, i);
             Object _expected = Array.get(expected, i);
 
-            if (!Objects.equals(_expected, _actual))
+            if (!Objects.equals(_expected, _actual)) {
                 fail("(values at index " + i + " are not the same)");
+            }
         }
     }
 }

@@ -17,35 +17,35 @@
 
 package com.facebook.presto.bytecode.expression;
 
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
+import static java.util.Objects.requireNonNull;
+
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.ParameterizedType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.ParameterizedType;
 import org.jetbrains.annotations.Nullable;
 
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
-import static java.util.Objects.requireNonNull;
-
 class InvokeBytecodeExpression
-    extends BytecodeExpression {
+        extends BytecodeExpression {
     public static InvokeBytecodeExpression createInvoke(
-        BytecodeExpression instance,
-        String methodName,
-        ParameterizedType returnType,
-        Collection<ParameterizedType> parameterTypes,
-        Collection<? extends BytecodeExpression> parameters) {
+            BytecodeExpression instance,
+            String methodName,
+            ParameterizedType returnType,
+            Collection<ParameterizedType> parameterTypes,
+            Collection<? extends BytecodeExpression> parameters) {
         return new InvokeBytecodeExpression(
-            requireNonNull(instance, "instance is null"),
-            instance.getType(),
-            requireNonNull(methodName, "methodName is null"),
-            requireNonNull(returnType, "returnType is null"),
-            requireNonNull(parameterTypes, "parameterTypes is null"),
-            requireNonNull(parameters, "parameters is null"));
+                requireNonNull(instance, "instance is null"),
+                instance.getType(),
+                requireNonNull(methodName, "methodName is null"),
+                requireNonNull(returnType, "returnType is null"),
+                requireNonNull(parameterTypes, "parameterTypes is null"),
+                requireNonNull(parameters, "parameters is null"));
     }
 
     @Nullable
@@ -57,12 +57,12 @@ class InvokeBytecodeExpression
     private final List<ParameterizedType> parameterTypes;
 
     InvokeBytecodeExpression(
-        @Nullable BytecodeExpression instance,
-        ParameterizedType methodTargetType,
-        String methodName,
-        ParameterizedType returnType,
-        Collection<ParameterizedType> parameterTypes,
-        Collection<? extends BytecodeExpression> parameters) {
+            @Nullable BytecodeExpression instance,
+            ParameterizedType methodTargetType,
+            String methodName,
+            ParameterizedType returnType,
+            Collection<ParameterizedType> parameterTypes,
+            Collection<? extends BytecodeExpression> parameters) {
         super(requireNonNull(returnType, "returnType is null"));
         checkArgument(instance == null || !instance.getType().isPrimitive(), "Type %s does not have methods", getType());
         this.instance = instance;
@@ -86,11 +86,9 @@ class InvokeBytecodeExpression
 
         if (instance == null) {
             return block.invokeStatic(methodTargetType, methodName, returnType, parameterTypes);
-        }
-        else if (instance.getType().isInterface()) {
+        } else if (instance.getType().isInterface()) {
             return block.invokeInterface(methodTargetType, methodName, returnType, parameterTypes);
-        }
-        else {
+        } else {
             return block.invokeVirtual(methodTargetType, methodName, returnType, parameterTypes);
         }
     }
@@ -99,17 +97,18 @@ class InvokeBytecodeExpression
     protected String formatOneLine() {
         if (instance == null) {
             return methodTargetType.getSimpleName() + "." + methodName + "(" +
-                parameters.stream().map(BytecodeExpression::toString).collect(Collectors.joining(", ")) + ")";
+                    parameters.stream().map(BytecodeExpression::toString).collect(Collectors.joining(", ")) + ")";
         }
 
         return instance + "." + methodName + "(" +
-            parameters.stream().map(BytecodeExpression::toString).collect(Collectors.joining(", ")) + ")";
+                parameters.stream().map(BytecodeExpression::toString).collect(Collectors.joining(", ")) + ")";
     }
 
     @Override
     public List<BytecodeNode> getChildNodes() {
-        if (instance == null)
+        if (instance == null) {
             return List.copyOf(parameters);
+        }
 
         final ArrayList<BytecodeNode> children = new ArrayList<>(parameters.size() + 1);
         children.add(instance);

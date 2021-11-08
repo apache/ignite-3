@@ -17,23 +17,6 @@
 
 package com.facebook.presto.bytecode.instruction;
 
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.BytecodeVisitor;
-import com.facebook.presto.bytecode.MethodDefinition;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.OpCode;
-import com.facebook.presto.bytecode.ParameterizedType;
-import org.objectweb.asm.Handle;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-
 import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
 import static com.facebook.presto.bytecode.MethodDefinition.methodDescription;
 import static com.facebook.presto.bytecode.OpCode.INVOKEDYNAMIC;
@@ -44,9 +27,26 @@ import static com.facebook.presto.bytecode.OpCode.INVOKEVIRTUAL;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static java.util.Objects.requireNonNull;
 
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.BytecodeVisitor;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.OpCode;
+import com.facebook.presto.bytecode.ParameterizedType;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.objectweb.asm.Handle;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+
 @SuppressWarnings("UnusedDeclaration")
 public class InvokeInstruction
-    implements InstructionNode {
+        implements InstructionNode {
     //
     // Invoke Static
     //
@@ -60,22 +60,22 @@ public class InvokeInstruction
     }
 
     public static InstructionNode invokeStatic(Class<?> target, String name, Class<?> returnType,
-        Class<?>... parameterTypes) {
+            Class<?>... parameterTypes) {
         return invoke(INVOKESTATIC, target, name, returnType, List.of(parameterTypes));
     }
 
     public static InstructionNode invokeStatic(Class<?> target, String name, Class<?> returnType,
-        Collection<Class<?>> parameterTypes) {
+            Collection<Class<?>> parameterTypes) {
         return invoke(INVOKESTATIC, target, name, returnType, parameterTypes);
     }
 
     public static InstructionNode invokeStatic(ParameterizedType target, String name, ParameterizedType returnType,
-        ParameterizedType... parameterTypes) {
+            ParameterizedType... parameterTypes) {
         return invoke(INVOKESTATIC, target, name, returnType, List.of(parameterTypes));
     }
 
     public static InstructionNode invokeStatic(ParameterizedType target, String name, ParameterizedType returnType,
-        Collection<ParameterizedType> parameterTypes) {
+            Collection<ParameterizedType> parameterTypes) {
         return invoke(INVOKESTATIC, target, name, returnType, parameterTypes);
     }
 
@@ -92,22 +92,22 @@ public class InvokeInstruction
     }
 
     public static InstructionNode invokeVirtual(Class<?> target, String name, Class<?> returnType,
-        Class<?>... parameterTypes) {
+            Class<?>... parameterTypes) {
         return invoke(INVOKEVIRTUAL, target, name, returnType, List.of(parameterTypes));
     }
 
     public static InstructionNode invokeVirtual(Class<?> target, String name, Class<?> returnType,
-        Collection<Class<?>> parameterTypes) {
+            Collection<Class<?>> parameterTypes) {
         return invoke(INVOKEVIRTUAL, target, name, returnType, parameterTypes);
     }
 
     public static InstructionNode invokeVirtual(ParameterizedType target, String name, ParameterizedType returnType,
-        ParameterizedType... parameterTypes) {
+            ParameterizedType... parameterTypes) {
         return invoke(INVOKEVIRTUAL, target, name, returnType, List.of(parameterTypes));
     }
 
     public static InstructionNode invokeVirtual(ParameterizedType target, String name, ParameterizedType returnType,
-        Collection<ParameterizedType> parameterTypes) {
+            Collection<ParameterizedType> parameterTypes) {
         return invoke(INVOKEVIRTUAL, target, name, returnType, parameterTypes);
     }
 
@@ -124,22 +124,22 @@ public class InvokeInstruction
     }
 
     public static InstructionNode invokeInterface(Class<?> target, String name, Class<?> returnType,
-        Class<?>... parameterTypes) {
+            Class<?>... parameterTypes) {
         return invoke(INVOKEINTERFACE, target, name, returnType, List.of(parameterTypes));
     }
 
     public static InstructionNode invokeInterface(Class<?> target, String name, Class<?> returnType,
-        Collection<Class<?>> parameterTypes) {
+            Collection<Class<?>> parameterTypes) {
         return invoke(INVOKEINTERFACE, target, name, returnType, parameterTypes);
     }
 
     public static InstructionNode invokeInterface(ParameterizedType target, String name, ParameterizedType returnType,
-        ParameterizedType... parameterTypes) {
+            ParameterizedType... parameterTypes) {
         return invoke(INVOKEINTERFACE, target, name, returnType, List.of(parameterTypes));
     }
 
     public static InstructionNode invokeInterface(ParameterizedType target, String name, ParameterizedType returnType,
-        Collection<ParameterizedType> parameterTypes) {
+            Collection<ParameterizedType> parameterTypes) {
         return invoke(INVOKEINTERFACE, target, name, returnType, parameterTypes);
     }
 
@@ -164,7 +164,7 @@ public class InvokeInstruction
     }
 
     public static InstructionNode invokeConstructor(ParameterizedType target,
-        Collection<ParameterizedType> parameterTypes) {
+            Collection<ParameterizedType> parameterTypes) {
         return invokeSpecial(target, "<init>", type(void.class), parameterTypes);
     }
 
@@ -181,22 +181,22 @@ public class InvokeInstruction
     }
 
     public static InstructionNode invokeSpecial(Class<?> target, String name, Class<?> returnType,
-        Class<?>... parameterTypes) {
+            Class<?>... parameterTypes) {
         return invoke(INVOKESPECIAL, target, name, returnType, List.of(parameterTypes));
     }
 
     public static InstructionNode invokeSpecial(Class<?> target, String name, Class<?> returnType,
-        Collection<Class<?>> parameterTypes) {
+            Collection<Class<?>> parameterTypes) {
         return invoke(INVOKESPECIAL, target, name, returnType, parameterTypes);
     }
 
     public static InstructionNode invokeSpecial(ParameterizedType target, String name, ParameterizedType returnType,
-        ParameterizedType... parameterTypes) {
+            ParameterizedType... parameterTypes) {
         return invoke(INVOKESPECIAL, target, name, returnType, List.of(parameterTypes));
     }
 
     public static InstructionNode invokeSpecial(ParameterizedType target, String name, ParameterizedType returnType,
-        Collection<ParameterizedType> parameterTypes) {
+            Collection<ParameterizedType> parameterTypes) {
         return invoke(INVOKESPECIAL, target, name, returnType, parameterTypes);
     }
 
@@ -206,36 +206,36 @@ public class InvokeInstruction
 
     private static InstructionNode invoke(OpCode invocationType, Method method) {
         return new InvokeInstruction(invocationType,
-            type(method.getDeclaringClass()),
-            method.getName(),
-            type(method.getReturnType()),
-            Arrays.stream(method.getParameterTypes()).map(ParameterizedType::type).collect(Collectors.toList()));
+                type(method.getDeclaringClass()),
+                method.getName(),
+                type(method.getReturnType()),
+                Arrays.stream(method.getParameterTypes()).map(ParameterizedType::type).collect(Collectors.toList()));
     }
 
     private static InstructionNode invoke(OpCode invocationType, MethodDefinition method) {
         return new InvokeInstruction(invocationType,
-            method.getDeclaringClass().getType(),
-            method.getName(),
-            method.getReturnType(),
-            method.getParameterTypes());
+                method.getDeclaringClass().getType(),
+                method.getName(),
+                method.getReturnType(),
+                method.getParameterTypes());
     }
 
     private static InstructionNode invoke(OpCode invocationType, ParameterizedType target, String name,
-        ParameterizedType returnType, Collection<ParameterizedType> parameterTypes) {
+            ParameterizedType returnType, Collection<ParameterizedType> parameterTypes) {
         return new InvokeInstruction(invocationType,
-            target,
-            name,
-            returnType,
-            parameterTypes);
+                target,
+                name,
+                returnType,
+                parameterTypes);
     }
 
     private static InstructionNode invoke(OpCode invocationType, Class<?> target, String name, Class<?> returnType,
-        Collection<Class<?>> parameterTypes) {
+            Collection<Class<?>> parameterTypes) {
         return new InvokeInstruction(invocationType,
-            type(target),
-            name,
-            type(returnType),
-            parameterTypes.stream().map(ParameterizedType::type).collect(Collectors.toList()));
+                type(target),
+                name,
+                type(returnType),
+                parameterTypes.stream().map(ParameterizedType::type).collect(Collectors.toList()));
     }
 
     //
@@ -243,49 +243,49 @@ public class InvokeInstruction
     //
 
     public static InstructionNode invokeDynamic(String name,
-        ParameterizedType returnType,
-        Collection<ParameterizedType> parameterTypes,
-        Method bootstrapMethod,
-        Collection<Object> bootstrapArguments) {
+            ParameterizedType returnType,
+            Collection<ParameterizedType> parameterTypes,
+            Method bootstrapMethod,
+            Collection<Object> bootstrapArguments) {
         return new InvokeDynamicInstruction(name,
-            returnType,
-            parameterTypes,
-            bootstrapMethod,
-            List.copyOf(bootstrapArguments));
+                returnType,
+                parameterTypes,
+                bootstrapMethod,
+                List.copyOf(bootstrapArguments));
     }
 
     public static InstructionNode invokeDynamic(String name,
-        ParameterizedType returnType,
-        Collection<ParameterizedType> parameterTypes,
-        Method bootstrapMethod,
-        Object... bootstrapArguments) {
+            ParameterizedType returnType,
+            Collection<ParameterizedType> parameterTypes,
+            Method bootstrapMethod,
+            Object... bootstrapArguments) {
         return new InvokeDynamicInstruction(name,
-            returnType,
-            parameterTypes,
-            bootstrapMethod,
-            List.of(bootstrapArguments));
+                returnType,
+                parameterTypes,
+                bootstrapMethod,
+                List.of(bootstrapArguments));
     }
 
     public static InstructionNode invokeDynamic(String name,
-        MethodType methodType,
-        Method bootstrapMethod,
-        Collection<Object> bootstrapArguments) {
+            MethodType methodType,
+            Method bootstrapMethod,
+            Collection<Object> bootstrapArguments) {
         return new InvokeDynamicInstruction(name,
-            type(methodType.returnType()),
-            methodType.parameterList().stream().map(ParameterizedType::type).collect(Collectors.toList()),
-            bootstrapMethod,
-            List.copyOf(bootstrapArguments));
+                type(methodType.returnType()),
+                methodType.parameterList().stream().map(ParameterizedType::type).collect(Collectors.toList()),
+                bootstrapMethod,
+                List.copyOf(bootstrapArguments));
     }
 
     public static InstructionNode invokeDynamic(String name,
-        MethodType methodType,
-        Method bootstrapMethod,
-        Object... bootstrapArguments) {
+            MethodType methodType,
+            Method bootstrapMethod,
+            Object... bootstrapArguments) {
         return new InvokeDynamicInstruction(name,
-            type(methodType.returnType()),
-            methodType.parameterList().stream().map(ParameterizedType::type).collect(Collectors.toList()),
-            bootstrapMethod,
-            List.of(bootstrapArguments));
+                type(methodType.returnType()),
+                methodType.parameterList().stream().map(ParameterizedType::type).collect(Collectors.toList()),
+                bootstrapMethod,
+                List.of(bootstrapArguments));
     }
 
     private final OpCode opCode;
@@ -295,10 +295,10 @@ public class InvokeInstruction
     private final List<ParameterizedType> parameterTypes;
 
     public InvokeInstruction(OpCode opCode,
-        ParameterizedType target,
-        String name,
-        ParameterizedType returnType,
-        Collection<ParameterizedType> parameterTypes) {
+            ParameterizedType target,
+            String name,
+            ParameterizedType returnType,
+            Collection<ParameterizedType> parameterTypes) {
         checkUnqualifiedName(name);
         this.opCode = opCode;
         this.target = target;
@@ -347,15 +347,15 @@ public class InvokeInstruction
     }
 
     public static class InvokeDynamicInstruction
-        extends InvokeInstruction {
+            extends InvokeInstruction {
         private final Method bootstrapMethod;
         private final List<Object> bootstrapArguments;
 
         public InvokeDynamicInstruction(String name,
-            ParameterizedType returnType,
-            Collection<ParameterizedType> parameterTypes,
-            Method bootstrapMethod,
-            List<Object> bootstrapArguments) {
+                ParameterizedType returnType,
+                Collection<ParameterizedType> parameterTypes,
+                Method bootstrapMethod,
+                List<Object> bootstrapArguments) {
             super(INVOKEDYNAMIC, null, name, returnType, parameterTypes);
             this.bootstrapMethod = bootstrapMethod;
             this.bootstrapArguments = List.copyOf(bootstrapArguments);
@@ -364,17 +364,17 @@ public class InvokeInstruction
         @Override
         public void accept(MethodVisitor visitor, MethodGenerationContext generationContext) {
             Handle bootstrapMethodHandle = new Handle(Opcodes.H_INVOKESTATIC,
-                type(bootstrapMethod.getDeclaringClass()).getClassName(),
-                bootstrapMethod.getName(),
-                methodDescription(
-                    bootstrapMethod.getReturnType(),
-                    bootstrapMethod.getParameterTypes()),
-                false);
+                    type(bootstrapMethod.getDeclaringClass()).getClassName(),
+                    bootstrapMethod.getName(),
+                    methodDescription(
+                            bootstrapMethod.getReturnType(),
+                            bootstrapMethod.getParameterTypes()),
+                    false);
 
             visitor.visitInvokeDynamicInsn(getName(),
-                getMethodDescription(),
-                bootstrapMethodHandle,
-                bootstrapArguments.toArray());
+                    getMethodDescription(),
+                    bootstrapMethodHandle,
+                    bootstrapArguments.toArray());
         }
 
         public Method getBootstrapMethod() {

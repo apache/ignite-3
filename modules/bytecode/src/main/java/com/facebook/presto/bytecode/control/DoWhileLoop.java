@@ -17,18 +17,18 @@
 
 package com.facebook.presto.bytecode.control;
 
-import java.util.List;
+import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
+
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.instruction.LabelNode;
+import java.util.List;
 import org.objectweb.asm.MethodVisitor;
 
-import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
-
 public class DoWhileLoop
-    implements FlowControl {
+        implements FlowControl {
     private final String comment;
     private final BytecodeBlock body = new BytecodeBlock();
     private final BytecodeBlock condition = new BytecodeBlock();
@@ -83,17 +83,17 @@ public class DoWhileLoop
         checkState(!condition.isEmpty(), "DoWhileLoop does not have a condition set");
 
         BytecodeBlock block = new BytecodeBlock()
-            .visitLabel(beginLabel)
-            .append(new BytecodeBlock()
-                .setDescription("body")
-                .append(body))
-            .visitLabel(continueLabel)
-            .append(new BytecodeBlock()
-                .setDescription("condition")
-                .append(condition))
-            .ifFalseGoto(endLabel)
-            .gotoLabel(beginLabel)
-            .visitLabel(endLabel);
+                .visitLabel(beginLabel)
+                .append(new BytecodeBlock()
+                        .setDescription("body")
+                        .append(body))
+                .visitLabel(continueLabel)
+                .append(new BytecodeBlock()
+                        .setDescription("condition")
+                        .append(condition))
+                .ifFalseGoto(endLabel)
+                .gotoLabel(beginLabel)
+                .visitLabel(endLabel);
 
         block.accept(visitor, generationContext);
     }

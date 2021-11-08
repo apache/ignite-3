@@ -14,20 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.bytecode.control;
 
-import java.util.List;
+import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
+
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.instruction.LabelNode;
+import java.util.List;
 import org.objectweb.asm.MethodVisitor;
 
-import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
-
 public class WhileLoop
-    implements FlowControl {
+        implements FlowControl {
     private final String comment;
     private final BytecodeBlock condition = new BytecodeBlock();
     private final BytecodeBlock body = new BytecodeBlock();
@@ -81,12 +82,12 @@ public class WhileLoop
         checkState(!condition.isEmpty(), "WhileLoop does not have a condition set");
 
         BytecodeBlock block = new BytecodeBlock()
-            .visitLabel(continueLabel)
-            .append(condition)
-            .ifZeroGoto(endLabel)
-            .append(body)
-            .gotoLabel(continueLabel)
-            .visitLabel(endLabel);
+                .visitLabel(continueLabel)
+                .append(condition)
+                .ifZeroGoto(endLabel)
+                .append(body)
+                .gotoLabel(continueLabel)
+                .visitLabel(endLabel);
 
         block.accept(visitor, generationContext);
     }

@@ -17,50 +17,44 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import java.util.List;
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static java.util.Objects.requireNonNull;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import java.util.List;
+
 class InstanceOfBytecodeExpression
-        extends BytecodeExpression
-{
+        extends BytecodeExpression {
     private final BytecodeExpression instance;
     private final Class<?> type;
 
-    InstanceOfBytecodeExpression(BytecodeExpression instance, Class<?> type)
-    {
+    InstanceOfBytecodeExpression(BytecodeExpression instance, Class<?> type) {
         super(type(boolean.class));
 
         this.instance = requireNonNull(instance, "instance is null");
         this.type = requireNonNull(type, "type is null");
     }
 
-    public static BytecodeExpression instanceOf(BytecodeExpression instance, Class<?> type)
-    {
+    public static BytecodeExpression instanceOf(BytecodeExpression instance, Class<?> type) {
         return new InstanceOfBytecodeExpression(instance, type);
     }
 
     @Override
-    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
-    {
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext) {
         return new BytecodeBlock()
                 .append(instance)
                 .isInstanceOf(type);
     }
 
     @Override
-    protected String formatOneLine()
-    {
+    protected String formatOneLine() {
         return instance + " instanceof " + type;
     }
 
     @Override
-    public List<BytecodeNode> getChildNodes()
-    {
+    public List<BytecodeNode> getChildNodes() {
         return List.of();
     }
 }

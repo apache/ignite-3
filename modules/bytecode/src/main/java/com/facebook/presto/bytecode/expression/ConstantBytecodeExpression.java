@@ -17,16 +17,16 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import java.util.List;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.instruction.Constant;
-
-import static com.facebook.presto.bytecode.ParameterizedType.type;
+import java.util.List;
 
 class ConstantBytecodeExpression
-    extends BytecodeExpression {
+        extends BytecodeExpression {
     private final Constant value;
 
     ConstantBytecodeExpression(Class<?> type, Constant value) {
@@ -56,7 +56,7 @@ class ConstantBytecodeExpression
             return value + "f";
         }
         if (value instanceof ParameterizedType) {
-            return ((ParameterizedType)value).getSimpleName() + ".class";
+            return ((ParameterizedType) value).getSimpleName() + ".class";
         }
         // escape string
         if (value instanceof String) {

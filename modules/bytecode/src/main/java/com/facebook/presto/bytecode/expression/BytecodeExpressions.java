@@ -17,18 +17,6 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
-import com.facebook.presto.bytecode.FieldDefinition;
-import com.facebook.presto.bytecode.MethodDefinition;
-import com.facebook.presto.bytecode.OpCode;
-import com.facebook.presto.bytecode.ParameterizedType;
-
 import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.ArithmeticBytecodeExpression.createArithmeticBytecodeExpression;
@@ -42,6 +30,18 @@ import static com.facebook.presto.bytecode.instruction.Constant.loadNull;
 import static com.facebook.presto.bytecode.instruction.Constant.loadString;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
+
+import com.facebook.presto.bytecode.FieldDefinition;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.OpCode;
+import com.facebook.presto.bytecode.ParameterizedType;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public final class BytecodeExpressions {
     private BytecodeExpressions() {
@@ -95,16 +95,16 @@ public final class BytecodeExpressions {
             return constantInt((value).intValue()).cast(short.class);
         }
         if (value instanceof Integer) {
-            return constantInt((Integer)value);
+            return constantInt((Integer) value);
         }
         if (value instanceof Long) {
-            return constantLong((Long)value);
+            return constantLong((Long) value);
         }
         if (value instanceof Float) {
-            return constantFloat((Float)value);
+            return constantFloat((Float) value);
         }
         if (value instanceof Double) {
-            return constantDouble((Double)value);
+            return constantDouble((Double) value);
         }
         throw new IllegalStateException("Unsupported number type " + value.getClass().getSimpleName());
     }
@@ -192,7 +192,7 @@ public final class BytecodeExpressions {
     }
 
     public static BytecodeExpression setStatic(ParameterizedType declaringClass, String name,
-        BytecodeExpression value) {
+            BytecodeExpression value) {
         return new SetFieldBytecodeExpression(null, declaringClass, name, value);
     }
 
@@ -205,13 +205,13 @@ public final class BytecodeExpressions {
     }
 
     public static BytecodeExpression newInstance(Constructor<?> constructor,
-        Collection<? extends BytecodeExpression> parameters) {
+            Collection<? extends BytecodeExpression> parameters) {
         return newInstance(
-            type(constructor.getDeclaringClass()),
-            stream(constructor.getParameterTypes())
-                .map(ParameterizedType::type)
-                .collect(Collectors.toUnmodifiableList()),
-            parameters);
+                type(constructor.getDeclaringClass()),
+                stream(constructor.getParameterTypes())
+                        .map(ParameterizedType::type)
+                        .collect(Collectors.toUnmodifiableList()),
+                parameters);
     }
 
     public static BytecodeExpression newInstance(Class<?> returnType, BytecodeExpression... parameters) {
@@ -219,7 +219,7 @@ public final class BytecodeExpressions {
     }
 
     public static BytecodeExpression newInstance(Class<?> returnType,
-        Collection<? extends BytecodeExpression> parameters) {
+            Collection<? extends BytecodeExpression> parameters) {
         return newInstance(type(returnType), parameters);
     }
 
@@ -230,30 +230,30 @@ public final class BytecodeExpressions {
     }
 
     public static BytecodeExpression newInstance(ParameterizedType returnType,
-        Collection<? extends BytecodeExpression> parameters) {
+            Collection<? extends BytecodeExpression> parameters) {
         requireNonNull(parameters, "parameters is null");
 
         return newInstance(
-            returnType,
-            parameters.stream().map(BytecodeExpression::getType).collect(Collectors.toList()),
-            parameters);
+                returnType,
+                parameters.stream().map(BytecodeExpression::getType).collect(Collectors.toList()),
+                parameters);
     }
 
     public static BytecodeExpression newInstance(Class<?> returnType, Collection<? extends Class<?>> parameterTypes,
-        BytecodeExpression... parameters) {
+            BytecodeExpression... parameters) {
         return newInstance(type(returnType), parameterTypes.stream().map(ParameterizedType::type).collect(Collectors.toList()),
-            List.of(requireNonNull(parameters, "parameters is null")));
+                List.of(requireNonNull(parameters, "parameters is null")));
     }
 
     public static BytecodeExpression newInstance(ParameterizedType returnType,
-        Collection<ParameterizedType> parameterTypes, BytecodeExpression... parameters) {
+            Collection<ParameterizedType> parameterTypes, BytecodeExpression... parameters) {
         return newInstance(returnType, parameterTypes, List.of(requireNonNull(parameters, "parameters is null")));
     }
 
     public static BytecodeExpression newInstance(
-        ParameterizedType type,
-        Collection<ParameterizedType> parameterTypes,
-        Collection<? extends BytecodeExpression> parameters) {
+            ParameterizedType type,
+            Collection<ParameterizedType> parameterTypes,
+            Collection<? extends BytecodeExpression> parameters) {
         return new NewInstanceBytecodeExpression(type, parameterTypes, parameters);
     }
 
@@ -273,7 +273,7 @@ public final class BytecodeExpressions {
     }
 
     public static BytecodeExpression newArray(ParameterizedType type,
-        Collection<? extends BytecodeExpression> elements) {
+            Collection<? extends BytecodeExpression> elements) {
         return new NewArrayBytecodeExpression(type, List.copyOf(elements));
     }
 
@@ -286,7 +286,7 @@ public final class BytecodeExpressions {
     }
 
     public static BytecodeExpression set(BytecodeExpression instance, BytecodeExpression index,
-        BytecodeExpression value) {
+            BytecodeExpression value) {
         return new SetArrayElementBytecodeExpression(instance, index, value);
     }
 
@@ -296,11 +296,11 @@ public final class BytecodeExpressions {
 
     public static BytecodeExpression invokeStatic(MethodDefinition method, BytecodeExpression... parameters) {
         return invokeStatic(
-            method.getDeclaringClass().getType(),
-            method.getName(),
-            method.getReturnType(),
-            method.getParameterTypes(),
-            List.of(parameters));
+                method.getDeclaringClass().getType(),
+                method.getName(),
+                method.getReturnType(),
+                method.getParameterTypes(),
+                List.of(parameters));
     }
 
     public static BytecodeExpression invokeStatic(Method method, BytecodeExpression... parameters) {
@@ -309,90 +309,91 @@ public final class BytecodeExpressions {
 
     public static BytecodeExpression invokeStatic(Method method, Collection<? extends BytecodeExpression> parameters) {
         return invokeStatic(
-            type(method.getDeclaringClass()),
-            method.getName(),
-            type(method.getReturnType()),
-            stream(method.getParameterTypes())
-                .map(ParameterizedType::type)
-                .collect(Collectors.toUnmodifiableList()),
-            parameters);
+                type(method.getDeclaringClass()),
+                method.getName(),
+                type(method.getReturnType()),
+                stream(method.getParameterTypes())
+                        .map(ParameterizedType::type)
+                        .collect(Collectors.toUnmodifiableList()),
+                parameters);
     }
 
     public static BytecodeExpression invokeStatic(Class<?> methodTargetType, String methodName, Class<?> returnType,
-        BytecodeExpression... parameters) {
+            BytecodeExpression... parameters) {
         return invokeStatic(methodTargetType, methodName, returnType, List.of(requireNonNull(parameters, "parameters is null")));
     }
 
     public static BytecodeExpression invokeStatic(
-        Class<?> methodTargetType,
-        String methodName,
-        Class<?> returnType,
-        Collection<? extends BytecodeExpression> parameters) {
+            Class<?> methodTargetType,
+            String methodName,
+            Class<?> returnType,
+            Collection<? extends BytecodeExpression> parameters) {
         return invokeStatic(type(methodTargetType), methodName, type(returnType), parameters);
     }
 
     public static BytecodeExpression invokeStatic(
-        ParameterizedType methodTargetType,
-        String methodName,
-        ParameterizedType returnType,
-        Collection<? extends BytecodeExpression> parameters) {
+            ParameterizedType methodTargetType,
+            String methodName,
+            ParameterizedType returnType,
+            Collection<? extends BytecodeExpression> parameters) {
         requireNonNull(methodTargetType, "methodTargetType is null");
         requireNonNull(returnType, "returnType is null");
         requireNonNull(parameters, "parameters is null");
 
         return invokeStatic(
-            methodTargetType,
-            methodName,
-            returnType,
-            parameters.stream()
-                .map(BytecodeExpression::getType)
-                .collect(Collectors.toUnmodifiableList()),
-            parameters);
+                methodTargetType,
+                methodName,
+                returnType,
+                parameters.stream()
+                        .map(BytecodeExpression::getType)
+                        .collect(Collectors.toUnmodifiableList()),
+                parameters);
     }
 
     public static BytecodeExpression invokeStatic(
-        Class<?> methodTargetType,
-        String methodName,
-        Class<?> returnType,
-        Collection<? extends Class<?>> parameterTypes,
-        BytecodeExpression... parameters) {
+            Class<?> methodTargetType,
+            String methodName,
+            Class<?> returnType,
+            Collection<? extends Class<?>> parameterTypes,
+            BytecodeExpression... parameters) {
         requireNonNull(methodTargetType, "methodTargetType is null");
         requireNonNull(returnType, "returnType is null");
         requireNonNull(parameterTypes, "parameterTypes is null");
         requireNonNull(parameters, "parameters is null");
 
         return invokeStatic(
-            type(methodTargetType),
-            methodName,
-            type(returnType),
-            parameterTypes.stream()
-                .map(ParameterizedType::type)
-                .collect(Collectors.toUnmodifiableList()),
-            List.of(parameters));
+                type(methodTargetType),
+                methodName,
+                type(returnType),
+                parameterTypes.stream()
+                        .map(ParameterizedType::type)
+                        .collect(Collectors.toUnmodifiableList()),
+                List.of(parameters));
     }
 
     public static BytecodeExpression invokeStatic(
-        ParameterizedType methodTargetType,
-        String methodName,
-        ParameterizedType returnType,
-        Collection<ParameterizedType> parameterTypes,
-        BytecodeExpression... parameters) {
-        return invokeStatic(methodTargetType, methodName, returnType, parameterTypes, List.of(requireNonNull(parameters, "parameters is null")));
+            ParameterizedType methodTargetType,
+            String methodName,
+            ParameterizedType returnType,
+            Collection<ParameterizedType> parameterTypes,
+            BytecodeExpression... parameters) {
+        return invokeStatic(methodTargetType, methodName, returnType, parameterTypes,
+                List.of(requireNonNull(parameters, "parameters is null")));
     }
 
     public static BytecodeExpression invokeStatic(
-        ParameterizedType methodTargetType,
-        String methodName,
-        ParameterizedType returnType,
-        Collection<ParameterizedType> parameterTypes,
-        Collection<? extends BytecodeExpression> parameters) {
+            ParameterizedType methodTargetType,
+            String methodName,
+            ParameterizedType returnType,
+            Collection<ParameterizedType> parameterTypes,
+            Collection<? extends BytecodeExpression> parameters) {
         return new InvokeBytecodeExpression(
-            null,
-            methodTargetType,
-            methodName,
-            returnType,
-            parameterTypes,
-            parameters);
+                null,
+                methodTargetType,
+                methodName,
+                returnType,
+                parameterTypes,
+                parameters);
     }
 
     //
@@ -400,69 +401,71 @@ public final class BytecodeExpressions {
     //
 
     public static BytecodeExpression invokeDynamic(
-        Method bootstrapMethod,
-        Collection<? extends Object> bootstrapArgs,
-        String methodName,
-        Class<?> returnType,
-        BytecodeExpression... parameters) {
-        return invokeDynamic(bootstrapMethod, bootstrapArgs, methodName, returnType, List.of(requireNonNull(parameters, "parameters is null")));
+            Method bootstrapMethod,
+            Collection<? extends Object> bootstrapArgs,
+            String methodName,
+            Class<?> returnType,
+            BytecodeExpression... parameters) {
+        return invokeDynamic(bootstrapMethod, bootstrapArgs, methodName, returnType,
+                List.of(requireNonNull(parameters, "parameters is null")));
     }
 
     public static BytecodeExpression invokeDynamic(
-        Method bootstrapMethod,
-        Collection<? extends Object> bootstrapArgs,
-        String methodName,
-        Class<?> returnType,
-        Collection<? extends BytecodeExpression> parameters) {
+            Method bootstrapMethod,
+            Collection<? extends Object> bootstrapArgs,
+            String methodName,
+            Class<?> returnType,
+            Collection<? extends BytecodeExpression> parameters) {
         requireNonNull(returnType, "returnType is null");
         requireNonNull(parameters, "parameters is null");
 
         return invokeDynamic(
-            bootstrapMethod,
-            bootstrapArgs,
-            methodName,
-            type(returnType),
-            parameters.stream()
-                .map(BytecodeExpression::getType)
-                .collect(Collectors.toUnmodifiableList()),
-            parameters);
+                bootstrapMethod,
+                bootstrapArgs,
+                methodName,
+                type(returnType),
+                parameters.stream()
+                        .map(BytecodeExpression::getType)
+                        .collect(Collectors.toUnmodifiableList()),
+                parameters);
     }
 
     public static BytecodeExpression invokeDynamic(
-        Method bootstrapMethod,
-        Collection<? extends Object> bootstrapArgs,
-        String methodName,
-        ParameterizedType returnType,
-        BytecodeExpression... parameters) {
-        return invokeDynamic(bootstrapMethod, bootstrapArgs, methodName, returnType, List.of(requireNonNull(parameters, "parameters is null")));
+            Method bootstrapMethod,
+            Collection<? extends Object> bootstrapArgs,
+            String methodName,
+            ParameterizedType returnType,
+            BytecodeExpression... parameters) {
+        return invokeDynamic(bootstrapMethod, bootstrapArgs, methodName, returnType,
+                List.of(requireNonNull(parameters, "parameters is null")));
     }
 
     public static BytecodeExpression invokeDynamic(
-        Method bootstrapMethod,
-        Collection<? extends Object> bootstrapArgs,
-        String methodName,
-        ParameterizedType returnType,
-        Collection<? extends BytecodeExpression> parameters) {
+            Method bootstrapMethod,
+            Collection<? extends Object> bootstrapArgs,
+            String methodName,
+            ParameterizedType returnType,
+            Collection<? extends BytecodeExpression> parameters) {
         requireNonNull(returnType, "returnType is null");
         requireNonNull(parameters, "parameters is null");
 
         return invokeDynamic(
-            bootstrapMethod,
-            bootstrapArgs,
-            methodName,
-            returnType,
-            parameters.stream()
-                .map(BytecodeExpression::getType)
-                .collect(Collectors.toUnmodifiableList()),
-            parameters);
+                bootstrapMethod,
+                bootstrapArgs,
+                methodName,
+                returnType,
+                parameters.stream()
+                        .map(BytecodeExpression::getType)
+                        .collect(Collectors.toUnmodifiableList()),
+                parameters);
     }
 
     public static BytecodeExpression invokeDynamic(
-        Method bootstrapMethod,
-        Collection<? extends Object> bootstrapArgs,
-        String methodName,
-        MethodType methodType,
-        BytecodeExpression... parameters) {
+            Method bootstrapMethod,
+            Collection<? extends Object> bootstrapArgs,
+            String methodName,
+            MethodType methodType,
+            BytecodeExpression... parameters) {
         requireNonNull(methodType, "methodType is null");
         requireNonNull(parameters, "parameters is null");
 
@@ -470,34 +473,34 @@ public final class BytecodeExpressions {
     }
 
     public static BytecodeExpression invokeDynamic(
-        Method bootstrapMethod,
-        Collection<? extends Object> bootstrapArgs,
-        String methodName,
-        MethodType methodType,
-        Collection<? extends BytecodeExpression> parameters) {
+            Method bootstrapMethod,
+            Collection<? extends Object> bootstrapArgs,
+            String methodName,
+            MethodType methodType,
+            Collection<? extends BytecodeExpression> parameters) {
         return invokeDynamic(
-            bootstrapMethod,
-            bootstrapArgs,
-            methodName,
-            type(methodType.returnType()),
-            methodType.parameterList().stream().map(ParameterizedType::type).collect(Collectors.toList()),
-            List.copyOf(requireNonNull(parameters, "parameters is null")));
+                bootstrapMethod,
+                bootstrapArgs,
+                methodName,
+                type(methodType.returnType()),
+                methodType.parameterList().stream().map(ParameterizedType::type).collect(Collectors.toList()),
+                List.copyOf(requireNonNull(parameters, "parameters is null")));
     }
 
     public static BytecodeExpression invokeDynamic(
-        Method bootstrapMethod,
-        Collection<? extends Object> bootstrapArgs,
-        String methodName,
-        ParameterizedType returnType,
-        Collection<ParameterizedType> parameterTypes,
-        Collection<? extends BytecodeExpression> parameters) {
+            Method bootstrapMethod,
+            Collection<? extends Object> bootstrapArgs,
+            String methodName,
+            ParameterizedType returnType,
+            Collection<ParameterizedType> parameterTypes,
+            Collection<? extends BytecodeExpression> parameters) {
         return new InvokeDynamicBytecodeExpression(
-            bootstrapMethod,
-            bootstrapArgs,
-            methodName,
-            returnType,
-            parameters,
-            parameterTypes);
+                bootstrapMethod,
+                bootstrapArgs,
+                methodName,
+                returnType,
+                parameters,
+                parameterTypes);
     }
 
     //
@@ -613,7 +616,7 @@ public final class BytecodeExpressions {
     //
 
     public static BytecodeExpression inlineIf(BytecodeExpression condition, BytecodeExpression ifTrue,
-        BytecodeExpression ifFalse) {
+            BytecodeExpression ifFalse) {
         return new InlineIfBytecodeExpression(condition, ifTrue, ifFalse);
     }
 

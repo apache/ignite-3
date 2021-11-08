@@ -14,22 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode.instruction;
 
-import java.util.List;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.BytecodeVisitor;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.Variable;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Type;
+package com.facebook.presto.bytecode.instruction;
 
 import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
 import static com.facebook.presto.bytecode.OpCode.ILOAD;
 import static com.facebook.presto.bytecode.OpCode.ISTORE;
 
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.BytecodeVisitor;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.Variable;
+import java.util.List;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Type;
+
 public abstract class VariableInstruction
-    implements InstructionNode {
+        implements InstructionNode {
     public static InstructionNode loadVariable(Variable variable) {
         return new LoadVariableInstruction(variable);
     }
@@ -68,14 +69,15 @@ public abstract class VariableInstruction
     }
 
     public static class LoadVariableInstruction
-        extends VariableInstruction {
+            extends VariableInstruction {
         public LoadVariableInstruction(Variable variable) {
             super(variable);
         }
 
         @Override
         public void accept(MethodVisitor visitor, MethodGenerationContext generationContext) {
-            visitor.visitVarInsn(Type.getType(getVariable().getType().getType()).getOpcode(ILOAD.getOpCode()), generationContext.getVariableSlot(getVariable()));
+            visitor.visitVarInsn(Type.getType(getVariable().getType().getType()).getOpcode(ILOAD.getOpCode()),
+                    generationContext.getVariableSlot(getVariable()));
         }
 
         @Override
@@ -85,14 +87,15 @@ public abstract class VariableInstruction
     }
 
     public static class StoreVariableInstruction
-        extends VariableInstruction {
+            extends VariableInstruction {
         public StoreVariableInstruction(Variable variable) {
             super(variable);
         }
 
         @Override
         public void accept(MethodVisitor visitor, MethodGenerationContext generationContext) {
-            visitor.visitVarInsn(Type.getType(getVariable().getType().getType()).getOpcode(ISTORE.getOpCode()), generationContext.getVariableSlot(getVariable()));
+            visitor.visitVarInsn(Type.getType(getVariable().getType().getType()).getOpcode(ISTORE.getOpCode()),
+                    generationContext.getVariableSlot(getVariable()));
         }
 
         @Override
@@ -102,7 +105,7 @@ public abstract class VariableInstruction
     }
 
     public static class IncrementVariableInstruction
-        extends VariableInstruction {
+            extends VariableInstruction {
         private final byte increment;
 
         public IncrementVariableInstruction(Variable variable, byte increment) {

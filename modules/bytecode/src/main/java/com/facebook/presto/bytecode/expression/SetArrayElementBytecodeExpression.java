@@ -14,29 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode.expression;
 
-import java.util.List;
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.ParameterizedType;
-import com.facebook.presto.bytecode.instruction.InstructionNode;
+package com.facebook.presto.bytecode.expression;
 
 import static com.facebook.presto.bytecode.ArrayOpCode.getArrayOpCode;
 import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static java.util.Objects.requireNonNull;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.ParameterizedType;
+import com.facebook.presto.bytecode.instruction.InstructionNode;
+import java.util.List;
+
 class SetArrayElementBytecodeExpression
-    extends BytecodeExpression {
+        extends BytecodeExpression {
     private final BytecodeExpression instance;
     private final BytecodeExpression index;
     private final BytecodeExpression value;
     private final InstructionNode arrayStoreInstruction;
 
     SetArrayElementBytecodeExpression(BytecodeExpression instance, BytecodeExpression index,
-        BytecodeExpression value) {
+            BytecodeExpression value) {
         super(type(void.class));
 
         this.instance = requireNonNull(instance, "instance is null");
@@ -53,10 +54,10 @@ class SetArrayElementBytecodeExpression
     @Override
     public BytecodeNode getBytecode(MethodGenerationContext generationContext) {
         return new BytecodeBlock()
-            .append(instance.getBytecode(generationContext))
-            .append(index)
-            .append(value)
-            .append(arrayStoreInstruction);
+                .append(instance.getBytecode(generationContext))
+                .append(index)
+                .append(value)
+                .append(arrayStoreInstruction);
     }
 
     @Override

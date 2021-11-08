@@ -14,17 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode.expression;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.List;
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.FieldDefinition;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.ParameterizedType;
-import org.jetbrains.annotations.Nullable;
+package com.facebook.presto.bytecode.expression;
 
 import static com.facebook.presto.bytecode.Access.STATIC;
 import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
@@ -32,8 +23,18 @@ import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.FieldDefinition;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.ParameterizedType;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.List;
+import org.jetbrains.annotations.Nullable;
+
 class SetFieldBytecodeExpression
-    extends BytecodeExpression {
+        extends BytecodeExpression {
     private final BytecodeExpression instance;
     private final ParameterizedType declaringClass;
     private final String name;
@@ -41,7 +42,7 @@ class SetFieldBytecodeExpression
     private final ParameterizedType fieldType;
 
     SetFieldBytecodeExpression(@Nullable BytecodeExpression instance, Class<?> declaringClass, String name,
-        BytecodeExpression value) {
+            BytecodeExpression value) {
         this(instance, getDeclaredField(declaringClass, name), value);
     }
 
@@ -51,33 +52,31 @@ class SetFieldBytecodeExpression
         boolean isStatic = Modifier.isStatic(field.getModifiers());
         if (instance == null) {
             checkArgument(isStatic, "Field is not static: %s", field);
-        }
-        else {
+        } else {
             checkArgument(!isStatic, "Field is static: %s", field);
         }
     }
 
     SetFieldBytecodeExpression(@Nullable BytecodeExpression instance, FieldDefinition field,
-        BytecodeExpression value) {
+            BytecodeExpression value) {
         this(instance, requireNonNull(field, "field is null").getDeclaringClass().getType(), field.getName(), value, field.getType());
         if (instance == null) {
             checkArgument(field.getAccess().contains(STATIC), "Field is not static: %s", field);
-        }
-        else {
+        } else {
             checkArgument(!field.getAccess().contains(STATIC), "Field is static: %s", field);
         }
     }
 
     SetFieldBytecodeExpression(@Nullable BytecodeExpression instance, ParameterizedType declaringClass,
-        String name, BytecodeExpression value) {
+            String name, BytecodeExpression value) {
         this(instance, declaringClass, name, value, value.getType());
     }
 
     SetFieldBytecodeExpression(@Nullable BytecodeExpression instance,
-        ParameterizedType declaringClass,
-        String name,
-        BytecodeExpression value,
-        ParameterizedType fieldType) {
+            ParameterizedType declaringClass,
+            String name,
+            BytecodeExpression value,
+            ParameterizedType fieldType) {
         super(type(void.class));
         if (instance != null) {
             checkArgument(!instance.getType().isPrimitive(), "Type %s does not have fields", instance.getType());
@@ -93,22 +92,21 @@ class SetFieldBytecodeExpression
     public BytecodeNode getBytecode(MethodGenerationContext generationContext) {
         if (instance == null) {
             return new BytecodeBlock()
-                .append(value.getBytecode(generationContext))
-                .putStaticField(declaringClass, name, fieldType);
+                    .append(value.getBytecode(generationContext))
+                    .putStaticField(declaringClass, name, fieldType);
         }
 
         return new BytecodeBlock()
-            .append(instance.getBytecode(generationContext))
-            .append(value.getBytecode(generationContext))
-            .putField(declaringClass, name, fieldType);
+                .append(instance.getBytecode(generationContext))
+                .append(value.getBytecode(generationContext))
+                .putField(declaringClass, name, fieldType);
     }
 
     @Override
     protected String formatOneLine() {
         if (instance == null) {
             return declaringClass.getSimpleName() + "." + name + " = " + value;
-        }
-        else {
+        } else {
             return instance + "." + name + " = " + value;
         }
     }
@@ -124,8 +122,7 @@ class SetFieldBytecodeExpression
 
         try {
             return declaringClass.getField(name);
-        }
-        catch (NoSuchFieldException e) {
+        } catch (NoSuchFieldException e) {
             throw new IllegalArgumentException(format("Class %s does not have a '%s' field", declaringClass.getName(), name));
         }
     }

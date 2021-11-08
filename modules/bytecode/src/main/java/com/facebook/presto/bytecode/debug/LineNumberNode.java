@@ -17,15 +17,15 @@
 
 package com.facebook.presto.bytecode.debug;
 
-import java.util.List;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.instruction.LabelNode;
+import java.util.List;
 import org.objectweb.asm.MethodVisitor;
 
 public class LineNumberNode
-    implements DebugNode {
+        implements DebugNode {
     private final int lineNumber;
     private final LabelNode label = new LabelNode();
 
@@ -48,7 +48,7 @@ public class LineNumberNode
     @Override
     public String toString() {
         return getClass().getSimpleName() +
-            "{line=" + lineNumber + '}';
+                "{line=" + lineNumber + '}';
     }
 
     @Override

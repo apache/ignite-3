@@ -14,10 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode.expression;
 
-import java.util.List;
-import org.junit.jupiter.api.Test;
+package com.facebook.presto.bytecode.expression;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
@@ -31,10 +29,13 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
 public class TestConstantBytecodeExpression {
     @Test
     public void test()
-        throws Exception {
+            throws Exception {
         assertBytecodeExpression(constantNull(List.class), null, "null");
 
         assertBytecodeExpression(constantTrue(), true, "true");

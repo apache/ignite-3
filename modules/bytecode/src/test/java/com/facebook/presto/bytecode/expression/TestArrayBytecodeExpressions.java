@@ -14,17 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode.expression;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import com.facebook.presto.bytecode.ClassDefinition;
-import com.facebook.presto.bytecode.DynamicClassLoader;
-import com.facebook.presto.bytecode.MethodDefinition;
-import com.facebook.presto.bytecode.Parameter;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+package com.facebook.presto.bytecode.expression;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
@@ -46,6 +37,16 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
 
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.Parameter;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
 public class TestArrayBytecodeExpressions {
     private static final DynamicClassLoader classLoader = new DynamicClassLoader(TestArrayBytecodeExpressions.class.getClassLoader());
     private static final ClassDefinition classDefinition = new ClassDefinition(a(PUBLIC, FINAL), "DummyClass", type(Object.class));
@@ -53,7 +54,8 @@ public class TestArrayBytecodeExpressions {
 
     @BeforeAll
     public static void setUp() {
-        for (Class<?> aClass : List.of(boolean[].class, char[].class, float[].class, double[].class, byte[].class, short[].class, int[].class, long[].class, String[].class)) {
+        for (Class<?> aClass : List.of(boolean[].class, char[].class, float[].class, double[].class, byte[].class, short[].class,
+                int[].class, long[].class, String[].class)) {
             MethodDefinition methodDefinition = defineSetAndGetMethod(aClass);
             typeMethodMap.put(aClass, methodDefinition);
         }
@@ -62,7 +64,7 @@ public class TestArrayBytecodeExpressions {
 
     @Test
     public void testNewArray()
-        throws Exception {
+            throws Exception {
         assertBytecodeExpressionType(newArray(type(boolean[].class), 5), type(boolean[].class));
         assertBytecodeExpression(newArray(type(boolean[].class), 5).length(), 5, "new boolean[5].length");
 
@@ -87,41 +89,50 @@ public class TestArrayBytecodeExpressions {
         assertBytecodeExpressionType(newArray(type(long[].class), 5), type(long[].class));
         assertBytecodeExpression(newArray(type(long[].class), 5).length(), 5, "new long[5].length");
 
-        assertBytecodeExpressionType(constantString("foo bar baz").invoke("split", String[].class, constantString(" ")), type(String[].class));
-        assertBytecodeExpression(constantString("foo bar baz").invoke("split", String[].class, constantString(" ")).length(), 3, "\"foo bar baz\".split(\" \").length");
+        assertBytecodeExpressionType(constantString("foo bar baz").invoke("split", String[].class, constantString(" ")),
+                type(String[].class));
+        assertBytecodeExpression(constantString("foo bar baz").invoke("split", String[].class, constantString(" ")).length(), 3,
+                "\"foo bar baz\".split(\" \").length");
     }
 
     @Test
     public void testNewArrayPrefilled()
-        throws Exception {
-        assertBytecodeExpressionType(newArray(type(boolean[].class), List.of(constantTrue(), constantFalse(), constantTrue())), type(boolean[].class));
+            throws Exception {
+        assertBytecodeExpressionType(newArray(type(boolean[].class), List.of(constantTrue(), constantFalse(), constantTrue())),
+                type(boolean[].class));
         assertBytecodeExpression(
-            newArray(type(boolean[].class), List.of(constantTrue(), constantFalse(), constantTrue())),
-            new boolean[] {true, false, true},
-            "new boolean[] {true, false, true}");
+                newArray(type(boolean[].class), List.of(constantTrue(), constantFalse(), constantTrue())),
+                new boolean[]{true, false, true},
+                "new boolean[] {true, false, true}");
 
-        assertBytecodeExpressionType(newArray(type(int[].class), List.of(constantInt(65), constantInt(66), constantInt(99))), type(int[].class));
+        assertBytecodeExpressionType(newArray(type(int[].class), List.of(constantInt(65), constantInt(66), constantInt(99))),
+                type(int[].class));
         assertBytecodeExpression(
-            newArray(type(int[].class), List.of(constantInt(65), constantInt(66), constantInt(99))),
-            new int[] {65, 66, 99},
-            "new int[] {65, 66, 99}");
+                newArray(type(int[].class), List.of(constantInt(65), constantInt(66), constantInt(99))),
+                new int[]{65, 66, 99},
+                "new int[] {65, 66, 99}");
 
-        assertBytecodeExpressionType(newArray(type(long[].class), List.of(constantLong(1234L), constantLong(12345L), constantLong(9876543210L))), type(long[].class));
+        assertBytecodeExpressionType(
+                newArray(type(long[].class), List.of(constantLong(1234L), constantLong(12345L), constantLong(9876543210L))),
+                type(long[].class));
         assertBytecodeExpression(
-            newArray(type(long[].class), List.of(constantLong(1234L), constantLong(12345L), constantLong(9876543210L))),
-            new long[] {1234L, 12345L, 9876543210L},
-            "new long[] {1234L, 12345L, 9876543210L}");
+                newArray(type(long[].class), List.of(constantLong(1234L), constantLong(12345L), constantLong(9876543210L))),
+                new long[]{1234L, 12345L, 9876543210L},
+                "new long[] {1234L, 12345L, 9876543210L}");
 
-        assertBytecodeExpressionType(newArray(type(String[].class), List.of(constantString("presto"), constantNull(String.class), constantString("new"), constantString("array"))), type(String[].class));
+        assertBytecodeExpressionType(newArray(type(String[].class),
+                        List.of(constantString("presto"), constantNull(String.class), constantString("new"), constantString("array"))),
+                type(String[].class));
         assertBytecodeExpression(
-            newArray(type(String[].class), List.of(constantString("presto"), constantNull(String.class), constantString("new"), constantString("array"))),
-            new String[] {"presto", null, "new", "array"},
-            "new String[] {\"presto\", null, \"new\", \"array\"}");
+                newArray(type(String[].class),
+                        List.of(constantString("presto"), constantNull(String.class), constantString("new"), constantString("array"))),
+                new String[]{"presto", null, "new", "array"},
+                "new String[] {\"presto\", null, \"new\", \"array\"}");
     }
 
     @Test
     public void testSetElement()
-        throws Exception {
+            throws Exception {
         BytecodeExpression stringArray = constantString("foo bar baz").invoke("split", String[].class, constantString(" "));
 
         assertBytecodeExpressionType(stringArray, type(String[].class));
@@ -130,18 +141,29 @@ public class TestArrayBytecodeExpressions {
         assertBytecodeExpression(stringArray.getElement(1), "bar", "\"foo bar baz\".split(\" \")[1]");
         assertBytecodeExpression(stringArray.getElement(2), "baz", "\"foo bar baz\".split(\" \")[2]");
 
-        assertBytecodeExpression(invokeStatic(typeMethodMap.get(boolean[].class), newArray(type(boolean[].class), 5), constantInt(0), constantTrue()), true, classLoader);
-        assertBytecodeExpression(invokeStatic(typeMethodMap.get(int[].class), newArray(type(int[].class), 5), constantInt(0), constantInt(999)), 999, classLoader);
-        assertBytecodeExpression(invokeStatic(typeMethodMap.get(float[].class), newArray(type(float[].class), 5), constantInt(0), constantFloat(0.777f)), 0.777f, classLoader);
-        assertBytecodeExpression(invokeStatic(typeMethodMap.get(double[].class), newArray(type(double[].class), 5), constantInt(0), constantDouble(0.888d)), 0.888d, classLoader);
-        assertBytecodeExpression(invokeStatic(typeMethodMap.get(String[].class), stringArray, constantInt(0), constantString("hello")), "hello", classLoader);
+        assertBytecodeExpression(
+                invokeStatic(typeMethodMap.get(boolean[].class), newArray(type(boolean[].class), 5), constantInt(0), constantTrue()), true,
+                classLoader);
+        assertBytecodeExpression(
+                invokeStatic(typeMethodMap.get(int[].class), newArray(type(int[].class), 5), constantInt(0), constantInt(999)), 999,
+                classLoader);
+        assertBytecodeExpression(
+                invokeStatic(typeMethodMap.get(float[].class), newArray(type(float[].class), 5), constantInt(0), constantFloat(0.777f)),
+                0.777f, classLoader);
+        assertBytecodeExpression(
+                invokeStatic(typeMethodMap.get(double[].class), newArray(type(double[].class), 5), constantInt(0), constantDouble(0.888d)),
+                0.888d, classLoader);
+        assertBytecodeExpression(invokeStatic(typeMethodMap.get(String[].class), stringArray, constantInt(0), constantString("hello")),
+                "hello", classLoader);
     }
 
     @Test
     public void testGetElement()
-        throws Exception {
-        assertBytecodeExpression(constantString("abc").invoke("getBytes", byte[].class).getElement(1), "abc".getBytes()[1], "\"abc\".getBytes()[1]");
-        assertBytecodeExpression(constantString("abc").invoke("getBytes", byte[].class).getElement(constantInt(1)), "abc".getBytes()[1], "\"abc\".getBytes()[1]");
+            throws Exception {
+        assertBytecodeExpression(constantString("abc").invoke("getBytes", byte[].class).getElement(1), "abc".getBytes()[1],
+                "\"abc\".getBytes()[1]");
+        assertBytecodeExpression(constantString("abc").invoke("getBytes", byte[].class).getElement(constantInt(1)), "abc".getBytes()[1],
+                "\"abc\".getBytes()[1]");
     }
 
     private static MethodDefinition defineSetAndGetMethod(Class<?> aClass) {
@@ -149,10 +171,11 @@ public class TestArrayBytecodeExpressions {
         Parameter index = arg("index", type(int.class));
         Class<?> componentType = aClass.getComponentType();
         Parameter value = arg("value", type(componentType));
-        MethodDefinition methodDefinition = classDefinition.declareMethod(a(PUBLIC, STATIC), "setAndGetMethod_" + componentType.getSimpleName(), type(componentType), arr, index, value);
+        MethodDefinition methodDefinition = classDefinition.declareMethod(a(PUBLIC, STATIC),
+                "setAndGetMethod_" + componentType.getSimpleName(), type(componentType), arr, index, value);
         methodDefinition.getBody()
-            .append(arr.setElement(index, value))
-            .append(arr.getElement(index).ret());
+                .append(arr.setElement(index, value))
+                .append(arr.getElement(index).ret());
         return methodDefinition;
     }
 }

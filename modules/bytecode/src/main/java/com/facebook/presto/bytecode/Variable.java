@@ -14,19 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode;
 
-import java.util.List;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
-import com.facebook.presto.bytecode.instruction.VariableInstruction;
+package com.facebook.presto.bytecode;
 
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static java.util.Objects.requireNonNull;
 
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import com.facebook.presto.bytecode.instruction.VariableInstruction;
+import java.util.List;
+
 public class Variable
-    extends BytecodeExpression {
+        extends BytecodeExpression {
     private final String name;
 
     public Variable(String name, ParameterizedType type) {
@@ -62,7 +63,7 @@ public class Variable
     }
 
     private static final class SetVariableBytecodeExpression
-        extends BytecodeExpression {
+            extends BytecodeExpression {
         private final Variable variable;
         private final BytecodeExpression value;
 
@@ -75,8 +76,8 @@ public class Variable
         @Override
         public BytecodeNode getBytecode(MethodGenerationContext generationContext) {
             return new BytecodeBlock()
-                .append(value)
-                .putVariable(variable);
+                    .append(value)
+                    .putVariable(variable);
         }
 
         @Override

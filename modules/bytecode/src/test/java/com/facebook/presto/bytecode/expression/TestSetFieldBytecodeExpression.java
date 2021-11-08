@@ -14,16 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode.expression;
 
-import java.awt.Point;
-import java.lang.reflect.Field;
-import java.util.function.Function;
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
-import org.junit.jupiter.api.Test;
+package com.facebook.presto.bytecode.expression;
 
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
@@ -34,18 +26,27 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newIns
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.setStatic;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
+import java.awt.Point;
+import java.lang.reflect.Field;
+import java.util.function.Function;
+import org.junit.jupiter.api.Test;
+
 public class TestSetFieldBytecodeExpression {
     public static String testField;
 
     @Test
     public void testSetField()
-        throws Exception {
+            throws Exception {
         assertSetPoint(point -> point.setField("x", constantInt(42)));
         assertSetPoint(point -> point.setField(field(Point.class, "x"), constantInt(42)));
     }
 
     public static void assertSetPoint(Function<BytecodeExpression, BytecodeExpression> setX)
-        throws Exception {
+            throws Exception {
         Function<Scope, BytecodeNode> nodeGenerator = scope -> {
             Variable point = scope.declareVariable(Point.class, "point");
 
@@ -53,9 +54,9 @@ public class TestSetFieldBytecodeExpression {
             assertEquals(setExpression.toString(), "point.x = 42;");
 
             return new BytecodeBlock()
-                .append(point.set(newInstance(Point.class, constantInt(3), constantInt(7))))
-                .append(setExpression)
-                .append(point.ret());
+                    .append(point.set(newInstance(Point.class, constantInt(3), constantInt(7))))
+                    .append(setExpression)
+                    .append(point.ret());
         };
 
         assertBytecodeNode(nodeGenerator, type(Point.class), new Point(42, 7));
@@ -63,7 +64,7 @@ public class TestSetFieldBytecodeExpression {
 
     @Test
     public void testSetStaticField()
-        throws Exception {
+            throws Exception {
         assertSetStaticField(setStatic(getClass(), "testField", constantString("testValue")));
         assertSetStaticField(setStatic(getClass().getField("testField"), constantString("testValue")));
         assertSetStaticField(setStatic(type(getClass()), "testField", constantString("testValue")));
@@ -71,7 +72,7 @@ public class TestSetFieldBytecodeExpression {
 
     @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     public void assertSetStaticField(BytecodeExpression setStaticField)
-        throws Exception {
+            throws Exception {
         testField = "fail";
         assertBytecodeExpression(setStaticField, null, getClass().getSimpleName() + ".testField = \"testValue\";");
         assertEquals(testField, "testValue");
@@ -80,8 +81,7 @@ public class TestSetFieldBytecodeExpression {
     private static Field field(Class<?> clazz, String name) {
         try {
             return clazz.getField(name);
-        }
-        catch (NoSuchFieldException e) {
+        } catch (NoSuchFieldException e) {
             throw new RuntimeException(e);
         }
     }

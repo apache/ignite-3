@@ -17,14 +17,14 @@
 
 package com.facebook.presto.bytecode;
 
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
+import static java.util.Objects.requireNonNull;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
-
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
-import static java.util.Objects.requireNonNull;
 
 public class ParameterizedType {
     public static ParameterizedType typeFromJavaClassName(String className) {
@@ -189,7 +189,7 @@ public class ParameterizedType {
             return false;
         }
 
-        ParameterizedType that = (ParameterizedType)o;
+        ParameterizedType that = (ParameterizedType) o;
 
         if (!type.equals(that.type)) {
             return false;
@@ -218,70 +218,50 @@ public class ParameterizedType {
             if (n.isPrimitive()) {
                 if (n == Byte.TYPE) {
                     return "[B";
-                }
-                else if (n == Boolean.TYPE) {
+                } else if (n == Boolean.TYPE) {
                     return "[Z";
-                }
-                else if (n == Short.TYPE) {
+                } else if (n == Short.TYPE) {
                     return "[S";
-                }
-                else if (n == Character.TYPE) {
+                } else if (n == Character.TYPE) {
                     return "[C";
-                }
-                else if (n == Integer.TYPE) {
+                } else if (n == Integer.TYPE) {
                     return "[I";
-                }
-                else if (n == Float.TYPE) {
+                } else if (n == Float.TYPE) {
                     return "[F";
-                }
-                else if (n == Double.TYPE) {
+                } else if (n == Double.TYPE) {
                     return "[D";
-                }
-                else if (n == Long.TYPE) {
+                } else if (n == Long.TYPE) {
                     return "[J";
-                }
-                else {
+                } else {
                     throw new RuntimeException("Unrecognized type in compiler: " + n.getName());
                 }
-            }
-            else {
+            } else {
                 return "[" + toInternalIdentifier(n);
             }
-        }
-        else {
+        } else {
             if (n.isPrimitive()) {
                 if (n == Byte.TYPE) {
                     return "B";
-                }
-                else if (n == Boolean.TYPE) {
+                } else if (n == Boolean.TYPE) {
                     return "Z";
-                }
-                else if (n == Short.TYPE) {
+                } else if (n == Short.TYPE) {
                     return "S";
-                }
-                else if (n == Character.TYPE) {
+                } else if (n == Character.TYPE) {
                     return "C";
-                }
-                else if (n == Integer.TYPE) {
+                } else if (n == Integer.TYPE) {
                     return "I";
-                }
-                else if (n == Float.TYPE) {
+                } else if (n == Float.TYPE) {
                     return "F";
-                }
-                else if (n == Double.TYPE) {
+                } else if (n == Double.TYPE) {
                     return "D";
-                }
-                else if (n == Long.TYPE) {
+                } else if (n == Long.TYPE) {
                     return "J";
-                }
-                else if (n == Void.TYPE) {
+                } else if (n == Void.TYPE) {
                     return "V";
-                }
-                else {
+                } else {
                     throw new RuntimeException("Unrecognized type in compiler: " + n.getName());
                 }
-            }
-            else {
+            } else {
                 return "L" + getPathName(n) + ";";
             }
         }

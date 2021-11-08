@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode;
 
-import org.junit.jupiter.api.Test;
+package com.facebook.presto.bytecode;
 
 import static com.facebook.presto.bytecode.BytecodeUtils.toJavaIdentifierString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
 
 public class TestBytecodeUtils {
     @Test

@@ -17,6 +17,9 @@
 
 package com.facebook.presto.bytecode;
 
+import static com.facebook.presto.bytecode.Access.toAccessModifier;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -24,9 +27,6 @@ import java.util.List;
 import java.util.Set;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
-
-import static com.facebook.presto.bytecode.Access.toAccessModifier;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
 
 public class FieldDefinition {
     private final ClassDefinition declaringClass;
@@ -36,7 +36,7 @@ public class FieldDefinition {
     private final List<AnnotationDefinition> annotations = new ArrayList<>();
 
     public FieldDefinition(ClassDefinition declaringClass, EnumSet<Access> access, String name,
-        ParameterizedType type) {
+            ParameterizedType type) {
         this.declaringClass = declaringClass;
         this.access = Collections.unmodifiableSet(access);
         this.name = name;
@@ -81,10 +81,10 @@ public class FieldDefinition {
 
     public void visit(ClassVisitor visitor) {
         FieldVisitor fieldVisitor = visitor.visitField(toAccessModifier(access),
-            name,
-            type.getType(),
-            type.isPrimitive() ? null : type.getGenericSignature(),
-            null);
+                name,
+                type.getType(),
+                type.isPrimitive() ? null : type.getGenericSignature(),
+                null);
 
         if (fieldVisitor == null) {
             return;

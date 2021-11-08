@@ -20,8 +20,7 @@ package com.facebook.presto.bytecode;
 import java.util.List;
 import org.objectweb.asm.MethodVisitor;
 
-public interface BytecodeNode
-{
+public interface BytecodeNode {
     List<BytecodeNode> getChildNodes();
 
     void accept(MethodVisitor visitor, MethodGenerationContext generationContext);

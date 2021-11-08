@@ -17,143 +17,123 @@
 
 package com.facebook.presto.bytecode;
 
+import static org.objectweb.asm.Opcodes.ASM5;
+
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 
-import static org.objectweb.asm.Opcodes.ASM5;
-
 class AddFakeLineNumberClassVisitor
-        extends ClassVisitor
-{
+        extends ClassVisitor {
     int methodCount;
 
-    AddFakeLineNumberClassVisitor(ClassVisitor cv)
-    {
+    AddFakeLineNumberClassVisitor(ClassVisitor cv) {
         super(ASM5, cv);
         super.visitSource("FakeSource.java", null);
     }
 
     @Override
-    public void visitSource(String source, String debug)
-    {
+    public void visitSource(String source, String debug) {
         super.visitSource(source, debug);
     }
 
     @Override
-    public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions)
-    {
+    public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
         MethodVisitor methodVisitor = cv.visitMethod(access, name, desc, signature, exceptions);
         methodCount++;
         return new AddFakeLineNumberMethodVisitor(methodVisitor, 1000 * methodCount);
     }
 
     private static class AddFakeLineNumberMethodVisitor
-            extends MethodVisitor
-    {
+            extends MethodVisitor {
         private int count;
 
-        AddFakeLineNumberMethodVisitor(MethodVisitor mv, int startLineNumber)
-        {
+        AddFakeLineNumberMethodVisitor(MethodVisitor mv, int startLineNumber) {
             super(ASM5, mv);
             this.count = startLineNumber;
         }
 
-        private void addFakeLineNumber()
-        {
+        private void addFakeLineNumber() {
             Label label = new Label();
             mv.visitLabel(label);
             mv.visitLineNumber(++count, label);
         }
 
         @Override
-        public void visitInsn(int opcode)
-        {
+        public void visitInsn(int opcode) {
             addFakeLineNumber();
             super.visitInsn(opcode);
         }
 
         @Override
-        public void visitIntInsn(int opcode, int operand)
-        {
+        public void visitIntInsn(int opcode, int operand) {
             addFakeLineNumber();
             super.visitIntInsn(opcode, operand);
         }
 
         @Override
-        public void visitVarInsn(int opcode, int var)
-        {
+        public void visitVarInsn(int opcode, int var) {
             addFakeLineNumber();
             super.visitVarInsn(opcode, var);
         }
 
         @Override
-        public void visitTypeInsn(int opcode, String type)
-        {
+        public void visitTypeInsn(int opcode, String type) {
             addFakeLineNumber();
             super.visitTypeInsn(opcode, type);
         }
 
         @Override
-        public void visitFieldInsn(int opcode, String owner, String name, String desc)
-        {
+        public void visitFieldInsn(int opcode, String owner, String name, String desc) {
             addFakeLineNumber();
             super.visitFieldInsn(opcode, owner, name, desc);
         }
 
         @Override
-        public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf)
-        {
+        public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
             addFakeLineNumber();
             super.visitMethodInsn(opcode, owner, name, desc, itf);
         }
 
         @Override
-        public void visitInvokeDynamicInsn(String name, String desc, Handle bsm, Object... bsmArgs)
-        {
+        public void visitInvokeDynamicInsn(String name, String desc, Handle bsm, Object... bsmArgs) {
             addFakeLineNumber();
             super.visitInvokeDynamicInsn(name, desc, bsm, bsmArgs);
         }
 
         @Override
-        public void visitJumpInsn(int opcode, Label label)
-        {
+        public void visitJumpInsn(int opcode, Label label) {
             addFakeLineNumber();
             super.visitJumpInsn(opcode, label);
         }
 
         @Override
-        public void visitLdcInsn(Object cst)
-        {
+        public void visitLdcInsn(Object cst) {
             addFakeLineNumber();
             super.visitLdcInsn(cst);
         }
 
         @Override
-        public void visitIincInsn(int var, int increment)
-        {
+        public void visitIincInsn(int var, int increment) {
             addFakeLineNumber();
             super.visitIincInsn(var, increment);
         }
 
         @Override
-        public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels)
-        {
+        public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
             addFakeLineNumber();
             super.visitTableSwitchInsn(min, max, dflt, labels);
         }
 
         @Override
-        public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels)
-        {
+        public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
             addFakeLineNumber();
             super.visitLookupSwitchInsn(dflt, keys, labels);
         }
 
         @Override
-        public void visitMultiANewArrayInsn(String desc, int dims)
-        {
+        public void visitMultiANewArrayInsn(String desc, int dims) {
             addFakeLineNumber();
             super.visitMultiANewArrayInsn(desc, dims);
         }

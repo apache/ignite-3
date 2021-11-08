@@ -14,10 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode.expression;
 
-import java.util.List;
-import org.junit.jupiter.api.Test;
+package com.facebook.presto.bytecode.expression;
 
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
@@ -25,34 +23,39 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
 public class TestInvokeBytecodeExpression {
     @Test
     public void testInvokeMethod()
-        throws Exception {
+            throws Exception {
         assertBytecodeExpression(constantString("foo").invoke("length", int.class), "foo".length(), "\"foo\".length()");
-        assertBytecodeExpression(constantString("foo").invoke("concat", String.class, constantString("bar")), "foo".concat("bar"), "\"foo\".concat(\"bar\")");
+        assertBytecodeExpression(constantString("foo").invoke("concat", String.class, constantString("bar")), "foo".concat("bar"),
+                "\"foo\".concat(\"bar\")");
         assertBytecodeExpression(
-            constantString("foo").invoke("concat", String.class, List.of(String.class), constantString("bar")),
-            "foo".concat("bar"),
-            "\"foo\".concat(\"bar\")");
+                constantString("foo").invoke("concat", String.class, List.of(String.class), constantString("bar")),
+                "foo".concat("bar"),
+                "\"foo\".concat(\"bar\")");
         assertBytecodeExpression(
-            constantString("foo").invoke("concat", type(String.class), List.of(type(String.class)), constantString("bar")),
-            "foo".concat("bar"),
-            "\"foo\".concat(\"bar\")");
+                constantString("foo").invoke("concat", type(String.class), List.of(type(String.class)), constantString("bar")),
+                "foo".concat("bar"),
+                "\"foo\".concat(\"bar\")");
     }
 
     @Test
     public void testInvokeStaticMethod()
-        throws Exception {
-        assertBytecodeExpression(invokeStatic(System.class, "lineSeparator", String.class), System.lineSeparator(), "System.lineSeparator()");
+            throws Exception {
+        assertBytecodeExpression(invokeStatic(System.class, "lineSeparator", String.class), System.lineSeparator(),
+                "System.lineSeparator()");
         assertBytecodeExpression(invokeStatic(Math.class, "cos", double.class, constantDouble(33.3)), Math.cos(33.3), "Math.cos(33.3)");
         assertBytecodeExpression(
-            invokeStatic(Math.class, "cos", double.class, List.of(double.class), constantDouble(33.3)),
-            Math.cos(33.3),
-            "Math.cos(33.3)");
+                invokeStatic(Math.class, "cos", double.class, List.of(double.class), constantDouble(33.3)),
+                Math.cos(33.3),
+                "Math.cos(33.3)");
         assertBytecodeExpression(
-            invokeStatic(type(Math.class), "cos", type(double.class), List.of(type(double.class)), List.of(constantDouble(33.3))),
-            Math.cos(33.3),
-            "Math.cos(33.3)");
+                invokeStatic(type(Math.class), "cos", type(double.class), List.of(type(double.class)), List.of(constantDouble(33.3))),
+                Math.cos(33.3),
+                "Math.cos(33.3)");
     }
 }

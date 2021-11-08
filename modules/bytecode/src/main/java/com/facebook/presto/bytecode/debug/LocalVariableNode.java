@@ -17,16 +17,16 @@
 
 package com.facebook.presto.bytecode.debug;
 
-import java.util.List;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.instruction.LabelNode;
+import java.util.List;
 import org.objectweb.asm.MethodVisitor;
 
 public class LocalVariableNode
-    implements DebugNode {
+        implements DebugNode {
     private final Variable variable;
     private final LabelNode start;
     private final LabelNode end;
@@ -40,18 +40,18 @@ public class LocalVariableNode
     @Override
     public void accept(MethodVisitor visitor, MethodGenerationContext generationContext) {
         visitor.visitLocalVariable(variable.getName(),
-            variable.getType().getType(),
-            variable.getType().getGenericSignature(),
-            start.getLabel(),
-            end.getLabel(),
-            generationContext.getVariableSlot(variable));
+                variable.getType().getType(),
+                variable.getType().getGenericSignature(),
+                start.getLabel(),
+                end.getLabel(),
+                generationContext.getVariableSlot(variable));
     }
 
     @Override
     public String toString() {
         return getClass().getSimpleName() + "{variable=" + variable +
-            ", start=" + start +
-            ", end=" + end + '}';
+                ", start=" + start +
+                ", end=" + end + '}';
     }
 
     @Override

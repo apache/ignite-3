@@ -14,15 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode.instruction;
 
-import java.util.List;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.BytecodeVisitor;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.OpCode;
-import com.facebook.presto.bytecode.ParameterizedType;
-import org.objectweb.asm.MethodVisitor;
+package com.facebook.presto.bytecode.instruction;
 
 import static com.facebook.presto.bytecode.ArrayOpCode.getArrayOpCode;
 import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
@@ -33,9 +26,17 @@ import static com.facebook.presto.bytecode.OpCode.NEW;
 import static com.facebook.presto.bytecode.OpCode.NEWARRAY;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.BytecodeVisitor;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.OpCode;
+import com.facebook.presto.bytecode.ParameterizedType;
+import java.util.List;
+import org.objectweb.asm.MethodVisitor;
+
 @SuppressWarnings("UnusedDeclaration")
 public class TypeInstruction
-    implements InstructionNode {
+        implements InstructionNode {
     public static InstructionNode newObject(Class<?> type) {
         return new TypeInstruction(NEW, type(type));
     }
@@ -85,8 +86,7 @@ public class TypeInstruction
         if (opCode == NEWARRAY) {
             checkState(type.isPrimitive(), "need primitive type for NEWARRAY");
             visitor.visitIntInsn(opCode.getOpCode(), getPrimitiveArrayType(type));
-        }
-        else {
+        } else {
             visitor.visitTypeInsn(opCode.getOpCode(), type.getClassName());
         }
     }

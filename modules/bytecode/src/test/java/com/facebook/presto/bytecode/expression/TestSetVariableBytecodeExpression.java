@@ -14,15 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode.expression;
 
-import java.awt.Point;
-import java.util.function.Function;
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
-import org.junit.jupiter.api.Test;
+package com.facebook.presto.bytecode.expression;
 
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeNode;
@@ -30,10 +23,18 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
+import java.awt.Point;
+import java.util.function.Function;
+import org.junit.jupiter.api.Test;
+
 public class TestSetVariableBytecodeExpression {
     @Test
     public void testGetField()
-        throws Exception {
+            throws Exception {
         Function<Scope, BytecodeNode> nodeGenerator = scope -> {
             Variable point = scope.declareVariable(Point.class, "point");
             BytecodeExpression setPoint = point.set(newInstance(Point.class, constantInt(3), constantInt(7)));
@@ -41,8 +42,8 @@ public class TestSetVariableBytecodeExpression {
             assertEquals(setPoint.toString(), "point = new Point(3, 7);");
 
             return new BytecodeBlock()
-                .append(setPoint)
-                .append(point.ret());
+                    .append(setPoint)
+                    .append(point.ret());
         };
 
         assertBytecodeNode(nodeGenerator, type(Point.class), new Point(3, 7));

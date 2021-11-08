@@ -17,15 +17,6 @@
 
 package com.facebook.presto.bytecode.instruction;
 
-import java.util.List;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.BytecodeUtils;
-import com.facebook.presto.bytecode.BytecodeVisitor;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.ParameterizedType;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Type;
-
 import static com.facebook.presto.bytecode.OpCode.ACONST_NULL;
 import static com.facebook.presto.bytecode.OpCode.BIPUSH;
 import static com.facebook.presto.bytecode.OpCode.DCONST_0;
@@ -48,9 +39,18 @@ import static com.facebook.presto.bytecode.instruction.FieldInstruction.getStati
 import static com.facebook.presto.bytecode.instruction.InvokeInstruction.invokeStatic;
 import static java.util.Objects.requireNonNull;
 
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.BytecodeUtils;
+import com.facebook.presto.bytecode.BytecodeVisitor;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.ParameterizedType;
+import java.util.List;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Type;
+
 @SuppressWarnings("UnusedDeclaration")
 public abstract class Constant
-    implements InstructionNode {
+        implements InstructionNode {
     public static Constant loadNull() {
         return new NullConstant();
     }
@@ -104,16 +104,16 @@ public abstract class Constant
             return loadInt((value).intValue());
         }
         if (value instanceof Integer) {
-            return loadInt((Integer)value);
+            return loadInt((Integer) value);
         }
         if (value instanceof Long) {
-            return loadLong((Long)value);
+            return loadLong((Long) value);
         }
         if (value instanceof Float) {
-            return loadFloat((Float)value);
+            return loadFloat((Float) value);
         }
         if (value instanceof Double) {
-            return loadDouble((Double)value);
+            return loadDouble((Double) value);
         }
         throw new IllegalStateException("Unsupported number type " + value.getClass().getSimpleName());
     }
@@ -151,7 +151,7 @@ public abstract class Constant
     }
 
     public static class NullConstant
-        extends Constant {
+            extends Constant {
         @Override
         public Object getValue() {
             return null;
@@ -169,7 +169,7 @@ public abstract class Constant
     }
 
     public static class BooleanConstant
-        extends Constant {
+            extends Constant {
         private final boolean value;
 
         private BooleanConstant(boolean value) {
@@ -185,8 +185,7 @@ public abstract class Constant
         public void accept(MethodVisitor visitor, MethodGenerationContext generationContext) {
             if (value) {
                 visitor.visitInsn(ICONST_1.getOpCode());
-            }
-            else {
+            } else {
                 visitor.visitInsn(ICONST_0.getOpCode());
             }
         }
@@ -198,7 +197,7 @@ public abstract class Constant
     }
 
     public static class BoxedBooleanConstant
-        extends Constant {
+            extends Constant {
         private final boolean value;
 
         private BoxedBooleanConstant(boolean value) {
@@ -214,8 +213,7 @@ public abstract class Constant
         public void accept(MethodVisitor visitor, MethodGenerationContext generationContext) {
             if (value) {
                 getStaticInstruction(Boolean.class, "TRUE", Boolean.class).accept(visitor, generationContext);
-            }
-            else {
+            } else {
                 getStaticInstruction(Boolean.class, "FALSE", Boolean.class).accept(visitor, generationContext);
             }
         }
@@ -227,7 +225,7 @@ public abstract class Constant
     }
 
     public static class IntConstant
-        extends Constant {
+            extends Constant {
         private final int value;
 
         private IntConstant(int value) {
@@ -268,11 +266,9 @@ public abstract class Constant
                         visitor.visitIntInsn(BIPUSH.getOpCode(), value);
                         break;
                 }
-            }
-            else if (value <= Short.MAX_VALUE && value >= Short.MIN_VALUE) {
+            } else if (value <= Short.MAX_VALUE && value >= Short.MIN_VALUE) {
                 visitor.visitIntInsn(SIPUSH.getOpCode(), value);
-            }
-            else {
+            } else {
                 visitor.visitLdcInsn(value);
             }
         }
@@ -284,7 +280,7 @@ public abstract class Constant
     }
 
     public static class BoxedIntegerConstant
-        extends Constant {
+            extends Constant {
         private final int value;
 
         private BoxedIntegerConstant(int value) {
@@ -309,7 +305,7 @@ public abstract class Constant
     }
 
     public static class FloatConstant
-        extends Constant {
+            extends Constant {
         private final float value;
 
         private FloatConstant(float value) {
@@ -329,14 +325,11 @@ public abstract class Constant
             // not the same value
             if (Float.floatToIntBits(value) == Float.floatToIntBits(0.0f)) {
                 visitor.visitInsn(FCONST_0.getOpCode());
-            }
-            else if (value == 1.0f) {
+            } else if (value == 1.0f) {
                 visitor.visitInsn(FCONST_1.getOpCode());
-            }
-            else if (value == 2.0f) {
+            } else if (value == 2.0f) {
                 visitor.visitInsn(FCONST_2.getOpCode());
-            }
-            else {
+            } else {
                 visitor.visitLdcInsn(value);
             }
         }
@@ -348,7 +341,7 @@ public abstract class Constant
     }
 
     public static class BoxedFloatConstant
-        extends Constant {
+            extends Constant {
         private final float value;
 
         private BoxedFloatConstant(float value) {
@@ -373,7 +366,7 @@ public abstract class Constant
     }
 
     public static class LongConstant
-        extends Constant {
+            extends Constant {
         private final long value;
 
         private LongConstant(long value) {
@@ -389,11 +382,9 @@ public abstract class Constant
         public void accept(MethodVisitor visitor, MethodGenerationContext generationContext) {
             if (value == 0) {
                 visitor.visitInsn(LCONST_0.getOpCode());
-            }
-            else if (value == 1) {
+            } else if (value == 1) {
                 visitor.visitInsn(LCONST_1.getOpCode());
-            }
-            else {
+            } else {
                 visitor.visitLdcInsn(value);
             }
         }
@@ -405,7 +396,7 @@ public abstract class Constant
     }
 
     public static class BoxedLongConstant
-        extends Constant {
+            extends Constant {
         private final long value;
 
         private BoxedLongConstant(long value) {
@@ -430,7 +421,7 @@ public abstract class Constant
     }
 
     public static class DoubleConstant
-        extends Constant {
+            extends Constant {
         private final double value;
 
         private DoubleConstant(double value) {
@@ -450,11 +441,9 @@ public abstract class Constant
             // not the same value
             if (Double.doubleToLongBits(value) == Double.doubleToLongBits(0.0)) {
                 visitor.visitInsn(DCONST_0.getOpCode());
-            }
-            else if (value == 1.0) {
+            } else if (value == 1.0) {
                 visitor.visitInsn(DCONST_1.getOpCode());
-            }
-            else {
+            } else {
                 visitor.visitLdcInsn(value);
             }
         }
@@ -466,7 +455,7 @@ public abstract class Constant
     }
 
     public static class BoxedDoubleConstant
-        extends Constant {
+            extends Constant {
         private final double value;
 
         private BoxedDoubleConstant(double value) {
@@ -491,7 +480,7 @@ public abstract class Constant
     }
 
     public static class StringConstant
-        extends Constant {
+            extends Constant {
         private final String value;
 
         private StringConstant(String value) {
@@ -515,7 +504,7 @@ public abstract class Constant
     }
 
     public static class ClassConstant
-        extends Constant {
+            extends Constant {
         private final ParameterizedType value;
 
         private ClassConstant(ParameterizedType value) {
@@ -532,8 +521,7 @@ public abstract class Constant
             if (value.isPrimitive()) {
                 Class<?> wrapper = BytecodeUtils.wrap(value.getPrimitiveType());
                 getStaticInstruction(wrapper, "TYPE", Class.class).accept(visitor, generationContext);
-            }
-            else {
+            } else {
                 visitor.visitLdcInsn(Type.getType(value.getType()));
             }
         }

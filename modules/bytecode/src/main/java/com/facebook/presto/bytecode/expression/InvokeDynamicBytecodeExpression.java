@@ -17,19 +17,19 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import java.lang.reflect.Method;
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
+import static java.util.Objects.requireNonNull;
+
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.ParameterizedType;
-
-import static java.util.Objects.requireNonNull;
+import java.lang.reflect.Method;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 
 class InvokeDynamicBytecodeExpression
-    extends BytecodeExpression {
+        extends BytecodeExpression {
     private final Method bootstrapMethod;
     private final List<Object> bootstrapArgs;
     private final String methodName;
@@ -38,12 +38,12 @@ class InvokeDynamicBytecodeExpression
     private final List<ParameterizedType> parameterTypes;
 
     InvokeDynamicBytecodeExpression(
-        Method bootstrapMethod,
-        Collection<?> bootstrapArgs,
-        String methodName,
-        ParameterizedType returnType,
-        Collection<? extends BytecodeExpression> parameters,
-        Collection<ParameterizedType> parameterTypes
+            Method bootstrapMethod,
+            Collection<?> bootstrapArgs,
+            String methodName,
+            ParameterizedType returnType,
+            Collection<? extends BytecodeExpression> parameters,
+            Collection<ParameterizedType> parameterTypes
     ) {
         super(returnType);
         this.bootstrapMethod = requireNonNull(bootstrapMethod, "bootstrapMethod is null");
@@ -74,14 +74,14 @@ class InvokeDynamicBytecodeExpression
         builder.append("[").append(bootstrapMethod.getName());
         if (!bootstrapArgs.isEmpty()) {
             builder.append("(").append(bootstrapArgs.stream().map(ConstantBytecodeExpression::renderConstant)
-                .collect(Collectors.joining(", "))).append(")");
+                    .collect(Collectors.joining(", "))).append(")");
         }
         builder.append("]=>");
 
         builder.append(methodName)
-            .append("(")
-            .append(parameters.stream().map(BytecodeExpression::toString).collect(Collectors.joining(", ")))
-            .append(")");
+                .append("(")
+                .append(parameters.stream().map(BytecodeExpression::toString).collect(Collectors.joining(", ")))
+                .append(")");
 
         return builder.toString();
     }

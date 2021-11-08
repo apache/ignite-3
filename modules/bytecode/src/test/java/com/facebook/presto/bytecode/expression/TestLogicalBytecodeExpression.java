@@ -14,9 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode.expression;
 
-import org.junit.jupiter.api.Test;
+package com.facebook.presto.bytecode.expression;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.and;
@@ -25,11 +24,13 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.or;
 
+import org.junit.jupiter.api.Test;
+
 @SuppressWarnings({"PointlessBooleanExpression", "DuplicateCondition"})
 public class TestLogicalBytecodeExpression {
     @Test
     public void testAnd()
-        throws Exception {
+            throws Exception {
         assertBytecodeExpression(and(constantTrue(), constantTrue()), true && true, "(true && true)");
         assertBytecodeExpression(and(constantTrue(), constantFalse()), true && false, "(true && false)");
         assertBytecodeExpression(and(constantFalse(), constantTrue()), false && true, "(false && true)");
@@ -38,7 +39,7 @@ public class TestLogicalBytecodeExpression {
 
     @Test
     public void testOr()
-        throws Exception {
+            throws Exception {
         assertBytecodeExpression(or(constantTrue(), constantTrue()), true || true, "(true || true)");
         assertBytecodeExpression(or(constantTrue(), constantFalse()), true || false, "(true || false)");
         assertBytecodeExpression(or(constantFalse(), constantTrue()), false || true, "(false || true)");
@@ -47,7 +48,7 @@ public class TestLogicalBytecodeExpression {
 
     @Test
     public void testNot()
-        throws Exception {
+            throws Exception {
         assertBytecodeExpression(not(constantTrue()), !true, "(!true)");
         assertBytecodeExpression(not(constantFalse()), !false, "(!false)");
     }
