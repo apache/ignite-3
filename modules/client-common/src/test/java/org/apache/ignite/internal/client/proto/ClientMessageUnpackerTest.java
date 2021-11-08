@@ -27,6 +27,7 @@ import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.msgpack.core.ExtensionTypeHeader;
 
 /**
  * Tests Ignite ByteBuf-based unpacker.
@@ -116,9 +117,10 @@ public class ClientMessageUnpackerTest {
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
     public void testPackExtensionTypeHeader(int i) {
-        testUnpacker(p -> p.packExtensionTypeHeader((byte) 33, i), ClientMessageUnpacker::unpackExtensionTypeHeader, i);
+        testUnpacker(p -> p.packExtensionTypeHeader((byte) 33, i), ClientMessageUnpacker::unpackExtensionTypeHeader,
+                new ExtensionTypeHeader((byte) 33, i));
     }
-
+    
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
     public void testPackBinaryHeader(int i) {
