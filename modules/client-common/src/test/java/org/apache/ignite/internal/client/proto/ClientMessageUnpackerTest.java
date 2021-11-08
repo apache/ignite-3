@@ -162,7 +162,7 @@ public class ClientMessageUnpackerTest {
     }
     
     @Test
-    public void testWritePayload() {
+    public void testReadPayload() {
         var b = new byte[]{1, 5, 120};
         
         testUnpacker(p -> p.writePayload(b), p -> p.readPayload(b.length), b);
