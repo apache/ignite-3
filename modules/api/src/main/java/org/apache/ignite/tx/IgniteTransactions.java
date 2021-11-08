@@ -27,46 +27,42 @@ import java.util.function.Function;
 public interface IgniteTransactions {
     /**
      * @param timeout The timeout.
+     *
      * @return A facade using a new timeout.
      */
     IgniteTransactions withTimeout(long timeout);
 
     /**
      * Begins a transaction.
-     * <p>
-     * Transaction logic is allowed for execute in any thread of control.
+     *
      * @return The started transaction.
      */
     Transaction begin();
 
     /**
      * Begins an async transaction.
-     * <p>
-     * Transaction logic is allowed for execute in any thread of control.
+     *
      * @return The future holding the started transaction.
      */
     CompletableFuture<Transaction> beginAsync();
 
     /**
      * Executes a closure within a transaction.
-     * <p>
-     * If the closure is executed normally (no exceptions), the transaction is automatically committed.
-     * <p>
-     * This method will automatically enlist tables into the transaction, but the execution of
-     * the transaction shouldn't leave starting thread or an exception will be thrown.
+     * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed.
+     *
      * @param clo The closure.
      */
     void runInTransaction(Consumer<Transaction> clo);
 
     /**
      * Executes a closure within a transaction and returns a result.
-     * <p>
-     * If the closure is executed normally (no exceptions), the transaction is automatically committed.
-     * <p>
-     * This method will automatically enlist all tables into the transaction, but the execution of
+     * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed.
+     * <p>This method will automatically enlist all tables into the transaction, but the execution of
      * the transaction shouldn't leave starting thread or an exception will be thrown.
+     *
      * @param clo The closure.
      * @return The result.
+     *
      * <T> Closure result type.
      */
     <T> T runInTransaction(Function<Transaction, T> clo);

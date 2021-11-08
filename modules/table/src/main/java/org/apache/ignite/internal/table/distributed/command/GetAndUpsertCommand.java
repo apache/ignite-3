@@ -27,34 +27,38 @@ import org.jetbrains.annotations.NotNull;
  * This is a command to get a value before upsert it.
  */
 public class GetAndUpsertCommand implements SingleKeyCommand, WriteCommand {
-    /** Binary key row. */
+    /**
+     * Binary key row.
+     */
     private transient BinaryRow keyRow;
-
+    
     /*
      * Row bytes.
      * It is a temporary solution, before network have not implement correct serialization BinaryRow.
      * TODO: Remove the field after (IGNITE-14793).
      */
     private byte[] keyRowBytes;
-
-    /** The timestamp. */
-    private final Timestamp timestamp;
-
+    
     /**
-     * Creates a new instance of GetAndUpsertCommand with the given row to be got and upserted. The {@code row} should not be {@code null}.
+     * The timestamp.
+     */
+    private final Timestamp timestamp;
+    
+    /**
+     * Creates a new instance of GetAndUpsertCommand with the given row to be got and upserted. The
+     * {@code row} should not be {@code null}.
      *
      * @param row Binary row.
-     * @param ts
      */
     public GetAndUpsertCommand(@NotNull BinaryRow row, Timestamp ts) {
         assert row != null;
-
+        
         this.keyRow = row;
         this.timestamp = ts;
-
+        
         CommandUtils.rowToBytes(row, bytes -> keyRowBytes = bytes);
     }
-
+    
     /**
      * Gets a binary key row to be got and upserted.
      *
@@ -65,16 +69,20 @@ public class GetAndUpsertCommand implements SingleKeyCommand, WriteCommand {
         if (keyRow == null) {
             keyRow = new ByteBufferRow(keyRowBytes);
         }
-
+        
         return keyRow;
     }
-
-    @Override public Timestamp getTimestamp() {
+    
+    @Override
+    public Timestamp getTimestamp() {
         return timestamp;
     }
-
-    /** {@inheritDoc} */
-    @Override public boolean read() {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean read() {
         return false;
     }
 }

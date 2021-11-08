@@ -32,26 +32,40 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
-/** */
+/**
+ *
+ */
 public class TransactionImpl implements InternalTransaction {
-    /** The logger. */
+    /**
+     * The logger.
+     */
     private static final IgniteLogger LOG = IgniteLogger.forClass(TransactionImpl.class);
-
-    /** The timestamp. */
+    
+    /**
+     * The timestamp.
+     */
     private final Timestamp timestamp;
-
-    /** TX manager. */
+    
+    /**
+     * TX manager.
+     */
     private final TxManager txManager;
-
-    /** Originator. */
+    
+    /**
+     * Originator.
+     */
     private final NetworkAddress address;
-
-    /** */
+    
+    /**
+     *
+     */
     private Map<NetworkAddress, Set<String>> map = new ConcurrentHashMap<>();
-
-    /** */
+    
+    /**
+     *
+     */
     private Thread t;
-
+    
     /**
      * @param txManager The tx managert.
      * @param timestamp The timestamp.
@@ -62,103 +76,130 @@ public class TransactionImpl implements InternalTransaction {
         this.timestamp = timestamp;
         this.address = address;
     }
-
-    /** {@inheritDoc} */
-    @Override public Timestamp timestamp() {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Timestamp timestamp() {
         return timestamp;
     }
-
-    @Override public Map<NetworkAddress, Set<String>> map() {
+    
+    @Override
+    public Map<NetworkAddress, Set<String>> map() {
         return map;
     }
-
-    /** {@inheritDoc} */
-    @Override public TxState state() {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public TxState state() {
         return txManager.state(timestamp);
     }
-
-    /** {@inheritDoc} */
-    @Override public synchronized boolean enlist(NetworkAddress node, String groupId) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public synchronized boolean enlist(NetworkAddress node, String groupId) {
         // TODO asch remove synchronized
         return map.computeIfAbsent(node, k -> new HashSet<>()).add(groupId);
     }
-
-    /** {@inheritDoc} */
-    @Override public void commit() throws TransactionException {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void commit() throws TransactionException {
         try {
             commitAsync().get();
-        }
-        catch (ExecutionException e) {
-            if (e.getCause() instanceof TransactionException)
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof TransactionException) {
                 throw (TransactionException) e.getCause();
-            else
+            } else {
                 throw new TransactionException(e.getCause());
-        }
-        catch (Exception e) {
+            }
+        } catch (Exception e) {
             throw new TransactionException(e);
         }
     }
-
-    /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> commitAsync() {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public CompletableFuture<Void> commitAsync() {
         return finish(true);
     }
-
-    /** {@inheritDoc} */
-    @Override public void rollback() throws TransactionException {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void rollback() throws TransactionException {
         try {
             rollbackAsync().get();
-        }
-        catch (ExecutionException e) {
-            if (e.getCause() instanceof TransactionException)
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof TransactionException) {
                 throw (TransactionException) e.getCause();
-            else
+            } else {
                 throw new TransactionException(e.getCause());
-        }
-        catch (Exception e) {
+            }
+        } catch (Exception e) {
             throw new TransactionException(e);
         }
     }
-
-    /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> rollbackAsync() {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public CompletableFuture<Void> rollbackAsync() {
         return finish(false);
     }
-
+    
     /**
      * @param commit {@code True} to commit.
      * @return The future.
      */
     private CompletableFuture<Void> finish(boolean commit) {
         CompletableFuture[] futs = new CompletableFuture[map.size() + 1];
-
+        
         int i = 0;
-
+        
         for (Map.Entry<NetworkAddress, Set<String>> entry : map.entrySet()) {
             boolean local = address.equals(entry.getKey());
-
+            
             futs[i++] = local ?
-                commit ? txManager.commitAsync(timestamp) : txManager.rollbackAsync(timestamp) // Collocated.
-                : txManager.finishRemote(entry.getKey(), timestamp, commit, entry.getValue());
-
+                    commit ? txManager.commitAsync(timestamp) : txManager.rollbackAsync(timestamp)
+                    // Collocated.
+                    : txManager.finishRemote(entry.getKey(), timestamp, commit, entry.getValue());
+            
             LOG.debug("finish [addr={}, commit={}, ts={}, local={}, groupIds={}",
-                address, commit, timestamp, local, entry.getValue());
+                    address, commit, timestamp, local, entry.getValue());
         }
-
+        
         // Handle coordinator's tx.
         futs[i] = map.containsKey(address) ? CompletableFuture.completedFuture(null) :
-            commit ? txManager.commitAsync(timestamp) : txManager.rollbackAsync(timestamp);
-
+                commit ? txManager.commitAsync(timestamp) : txManager.rollbackAsync(timestamp);
+        
         return CompletableFuture.allOf(futs);
     }
-
-    /** {@inheritDoc} */
-    @Override public void thread(Thread t) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void thread(Thread t) {
         this.t = t;
     }
-
-    /** {@inheritDoc} */
-    @Override public @Nullable Thread thread() {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public @Nullable Thread thread() {
         return t;
     }
 }

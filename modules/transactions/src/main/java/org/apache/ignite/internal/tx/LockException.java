@@ -29,7 +29,7 @@ public class LockException extends IgniteInternalCheckedException {
     public LockException(String msg) {
         super(msg);
     }
-
+    
     /**
      * @param waiter Conflicting waiter.
      */

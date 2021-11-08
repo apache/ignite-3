@@ -19,7 +19,9 @@ package org.apache.ignite.internal.tx;
 
 import java.util.concurrent.CompletableFuture;
 
-/** */
+/**
+ *
+ */
 public interface Lockable {
     /**
      * @param mgr Transaction manager.

@@ -38,6 +38,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -48,7 +49,9 @@ import org.mockito.Mockito;
  * TODO: IGNITE-14487 Add async operations tests.
  */
 public class KeyValueOperationsTest {
-    /** Default mapper. */
+    /**
+     * Default mapper.
+     */
     private final Mapper<Long> mapper = new Mapper<>() {
         @Override
         public Class<Long> getType() {
@@ -56,7 +59,9 @@ public class KeyValueOperationsTest {
         }
     };
     
-    /** Simple schema. */
+    /**
+     * Simple schema.
+     */
     private SchemaDescriptor schema = new SchemaDescriptor(
             1,
             new Column[]{new Column("id", NativeTypes.INT64, false)},
@@ -70,17 +75,19 @@ public class KeyValueOperationsTest {
      */
     private KeyValueView<Long, Long> kvView() {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
+        Mockito.when(clusterService.topologyService().localMember().address())
+                .thenReturn(DummyInternalTableImpl.ADDR);
         
         LockManager lockManager = new HeapLockManager();
-    
+        
         TxManager txManager = new TxManagerImpl(clusterService, lockManager);
-    
+        
         DummyInternalTableImpl table = new DummyInternalTableImpl(
                 new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager),
                 txManager);
-    
-        return new KeyValueViewImpl<>(table, new DummySchemaManagerImpl(schema), mapper, mapper, null);
+        
+        return new KeyValueViewImpl<>(table, new DummySchemaManagerImpl(schema), mapper, mapper,
+                null);
     }
     
     /**
@@ -273,19 +280,13 @@ public class KeyValueOperationsTest {
         assertEquals(22L, tbl.get(1L));
         
         // Remove existed KV pair.
-        assertTrue(tbl.replace(1L, null));
-        assertNull(tbl.get(1L));
+        assertThrows(Throwable.class, () -> tbl.replace(1L, null));
+        assertEquals(22L, tbl.get(1L));
         
-        // Ignore replace operation for non-existed KV pair.
-        assertFalse(tbl.replace(1L, 33L));
-        assertNull(tbl.get(1L));
-        
-        tbl.put(1L, 33L);
+        assertTrue(tbl.replace(1L, 33L));
         assertEquals(33L, tbl.get(1L));
         
-        // Remove non-existed KV pair.
-        assertFalse(tbl.replace(2L, null));
-        assertNull(tbl.get(2L));
+        assertThrows(Throwable.class, () -> tbl.replace(null, 33L));
     }
     
     /**
@@ -296,9 +297,10 @@ public class KeyValueOperationsTest {
         KeyValueView<Long, Long> tbl = kvView();
         
         // Insert KV pair.
-        assertTrue(tbl.replace(1L, null, 11L));
-        assertEquals(11L, tbl.get(1L));
+        assertThrows(Throwable.class, () -> tbl.replace(1L, null, 11L));
+        assertNull(tbl.get(1L));
         assertNull(tbl.get(2L));
+        tbl.put(1L, 11L);
         
         // Ignore replace operation for non-existed KV pair.
         assertFalse(tbl.replace(2L, 11L, 22L));
@@ -308,15 +310,12 @@ public class KeyValueOperationsTest {
         assertTrue(tbl.replace(1L, 11L, 22L));
         assertEquals(22L, tbl.get(1L));
         
-        // Remove existed KV pair.
-        assertTrue(tbl.replace(1L, 22L, null));
-        assertNull(tbl.get(1L));
+        // Fail on replace with null.
+        assertThrows(Throwable.class, () -> tbl.replace(1L, 22L, null));
+        assertEquals(22L, tbl.get(1L));
         
-        // Insert KV pair.
-        assertTrue(tbl.replace(1L, null, 33L));
-        assertEquals(33L, tbl.get(1L));
-        
-        // Remove non-existed KV pair.
-        assertTrue(tbl.replace(2L, null, null));
+        // Fail on replace with null.
+        assertThrows(Throwable.class, () -> tbl.replace(1L, null, 33L));
+        assertEquals(22L, tbl.get(1L));
     }
 }

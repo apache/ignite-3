@@ -21,13 +21,11 @@ import static java.lang.Thread.sleep;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.LoggerMessageHelper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;

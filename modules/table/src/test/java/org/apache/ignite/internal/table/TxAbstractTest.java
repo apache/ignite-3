@@ -405,19 +405,19 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         var table2 = accounts.recordView().withTransaction(tx2);
 
         // Read in tx
-        double val_tx = table.get(key).doubleValue("balance");
+        double valTx = table.get(key).doubleValue("balance");
 
         // Read in tx2
-        double val_tx2 = table2.get(key).doubleValue("balance");
+        double valTx2 = table2.get(key).doubleValue("balance");
 
         // Write in tx (out of order)
         // TODO asch fix exception model.
-        Exception err = assertThrows(Exception.class, () -> table.upsert(makeValue(1, val_tx + 1)));
+        Exception err = assertThrows(Exception.class, () -> table.upsert(makeValue(1, valTx + 1)));
 
         assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
 
         // Write in tx2
-        table2.upsert(makeValue(1, val_tx2 + 1));
+        table2.upsert(makeValue(1, valTx2 + 1));
 
         tx2.commit();
 

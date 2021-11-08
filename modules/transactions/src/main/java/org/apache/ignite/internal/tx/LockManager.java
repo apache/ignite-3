@@ -23,54 +23,55 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Lock manager allows to acquire locks in shared and exclusive mode and supports deadlock prevention by timestamp ordering.
+ * Lock manager allows to acquire locks in shared and exclusive mode and supports deadlock
+ * prevention by timestamp ordering.
  */
 public interface LockManager extends IgniteComponent {
     /**
-     * @param key       The key.
+     * @param key The key.
      * @param timestamp The timestamp.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
     public CompletableFuture<Void> tryAcquire(Object key, Timestamp timestamp);
-
+    
     /**
-     * @param key       The key.
+     * @param key The key.
      * @param timestamp The timestamp.
      * @throws LockException If the unlock operation is invalid.
      */
     public void tryRelease(Object key, Timestamp timestamp) throws LockException;
-
+    
     /**
-     * @param key       The key.
+     * @param key The key.
      * @param timestamp The timestamp.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
     public CompletableFuture<Void> tryAcquireShared(Object key, Timestamp timestamp);
-
+    
     /**
-     * @param key       The key.
+     * @param key The key.
      * @param timestamp The timestamp.
      * @throws LockException If the unlock operation is invalid.
      */
     public void tryReleaseShared(Object key, Timestamp timestamp) throws LockException;
-
+    
     /**
      * @param key The key.
      * @return The waiters queue.
      */
     @TestOnly
     public Collection<Timestamp> queue(Object key);
-
+    
     /**
-     * @param key       The key.
+     * @param key The key.
      * @param timestamp The timestamp.
      * @return The waiter.
      */
     @TestOnly
     public Waiter waiter(Object key, Timestamp timestamp);
-
+    
     /**
      * @return {@code True} if no locks have been acquired.
      */

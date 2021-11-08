@@ -33,65 +33,77 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
      *
      */
     private final TxManager txManager;
-
+    
     /**
      * @param txManager The manager.
      */
     public IgniteTransactionsImpl(TxManager txManager) {
         this.txManager = txManager;
     }
-
-    /** {@inheritDoc} */
-    @Override public IgniteTransactions withTimeout(long timeout) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public IgniteTransactions withTimeout(long timeout) {
         return null;
     }
-
-    /** {@inheritDoc} */
-    @Override public Transaction begin() {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Transaction begin() {
         return txManager.begin();
     }
-
-    /** {@inheritDoc} */
-    @Override public CompletableFuture<Transaction> beginAsync() {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public CompletableFuture<Transaction> beginAsync() {
         return CompletableFuture.completedFuture(txManager.begin());
     }
-
-    /** {@inheritDoc} */
-    @Override public void runInTransaction(Consumer<Transaction> clo) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void runInTransaction(Consumer<Transaction> clo) {
         runInTransaction(tx -> {
             clo.accept(tx);
             return null;
         });
     }
-
-    /** {@inheritDoc} */
-    @Override public <T> T runInTransaction(Function<Transaction, T> clo) {
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public <T> T runInTransaction(Function<Transaction, T> clo) {
         InternalTransaction tx = txManager.begin();
-
+        
         Thread th = Thread.currentThread();
-
+        
         txManager.setTx(tx);
-
+        
         tx.thread(th);
-
+        
         try {
             T ret = clo.apply(tx);
-
+            
             tx.commit();
-
+            
             return ret;
-        }
-        catch (Throwable t) {
+        } catch (Throwable t) {
             try {
                 tx.rollback(); // Try rolling back on user exception.
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 t.addSuppressed(e);
             }
-
+            
             throw t;
-        }
-        finally {
+        } finally {
             txManager.clearTx();
         }
     }

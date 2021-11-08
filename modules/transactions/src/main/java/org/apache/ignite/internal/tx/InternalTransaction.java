@@ -28,32 +28,33 @@ public interface InternalTransaction extends Transaction {
      * @return The timestamp.
      */
     Timestamp timestamp();
-
+    
     /**
      * Returns a transaction map on topology.
      *
      * @return A map of enlisted nodes mapped to a partitions set.
      */
     Map<NetworkAddress, Set<String>> map();
-
+    
     /**
      * @return The state.
      */
     TxState state();
-
+    
     /**
      * @param node The node.
      * @param partId Partition group id.
      * @return {@code True} if a node is enlisted into the transaction.
      */
     boolean enlist(NetworkAddress node, String groupId);
-
+    
     /**
      * Sets a thread of control for a transaction.
+     *
      * @param t The thread.
      */
     void thread(Thread t);
-
+    
     /**
      * @return The thread of control, if presents.
      */

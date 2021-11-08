@@ -26,7 +26,7 @@ public interface Transaction {
     /**
      * Synchronously commits a transaction.
      *
-     * @throws TransactionException if a transaction can't be commited.
+     * @throws TransactionException If a transaction can't be commited.
      */
     void commit() throws TransactionException;
 
@@ -40,7 +40,7 @@ public interface Transaction {
     /**
      * Synchronously rolls back a transaction.
      *
-     @throws TransactionException if a transaction can't be rolled back.
+     * @throws TransactionException If a transaction can't be rolled back.
      */
     void rollback() throws TransactionException;
 
