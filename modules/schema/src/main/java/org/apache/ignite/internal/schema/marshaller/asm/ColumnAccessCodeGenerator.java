@@ -83,9 +83,9 @@ public class ColumnAccessCodeGenerator {
                 return new ColumnAccessCodeGenerator("dateTimeValue", "appendDateTime", LocalDateTime.class, colIdx);
             case TIMESTAMP:
                 return new ColumnAccessCodeGenerator("timestampValue", "appendTimestamp", Instant.class, colIdx);
+            default:
+                throw new IgniteInternalException("Unsupported binary mode: " + mode);
         }
-
-        throw new IgniteInternalException("Unsupported binary mode: " + mode);
     }
 
     /** Reader handle name. */
@@ -139,19 +139,31 @@ public class ColumnAccessCodeGenerator {
     public int columnIdx() {
         return colIdx;
     }
-
+    
+    /**
+     * @return Row field read method name.
+     */
     public String readMethodName() {
         return readMethodName;
     }
-
+    
+    /**
+     * @return Row field write method name.
+     */
     public String writeMethodName() {
         return writeMethodName;
     }
-
+    
+    /**
+     * @return Write method arg type.
+     */
     public Class<?> writeArgType() {
         return writeArgType;
     }
-
+    
+    /**
+     * @return Read method return type.
+     */
     public Class<?> mappedType() {
         return mappedType;
     }
