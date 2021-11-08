@@ -463,12 +463,16 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     /** {@inheritDoc} */
     @Override public boolean tryUnpackNil() {
         assert refCnt > 0 : "Unpacker is closed";
-
-        try {
-            return super.tryUnpackNil();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    
+        int idx = buf.readerIndex();
+        byte b = buf.getByte(idx);
+    
+        if (b == Code.NIL) {
+            buf.readerIndex(idx + 1);
+            return true;
         }
+    
+        return false;
     }
 
     /** {@inheritDoc} */
