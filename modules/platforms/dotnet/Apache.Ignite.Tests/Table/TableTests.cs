@@ -433,7 +433,7 @@ namespace Apache.Ignite.Tests.Table
             var skipped = await Table.DeleteAllExactAsync(new[] { GetTuple(1, "1"), GetTuple(2, "2") });
 
             Assert.AreEqual(2, skipped.Count);
-            CollectionAssert.AreEquivalent(new[] { 1, 2 }, skipped.Select(x => (int)x[0]!).ToArray());
+            CollectionAssert.AreEquivalent(new long[] { 1, 2 }, skipped.Select(x => (long)x[0]!).ToArray());
         }
 
         [Test]
