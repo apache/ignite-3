@@ -142,7 +142,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             LOG.debug("Handshake: " + clientContext);
 
             var extensionsLen = unpacker.unpackMapHeader();
-            unpacker.skipValue(extensionsLen);
+            unpacker.skipValues(extensionsLen);
 
             // Response.
             ProtocolVersion.LATEST_VER.pack(packer);

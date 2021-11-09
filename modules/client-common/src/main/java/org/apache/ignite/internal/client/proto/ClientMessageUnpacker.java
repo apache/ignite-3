@@ -180,7 +180,9 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
     
     /**
-     * {@inheritDoc}
+     * Reads a boolean value.
+     *
+     * @return Boolean.
      */
     public boolean unpackBoolean() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -200,7 +202,9 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
     
     /**
-     * {@inheritDoc}
+     * Reads a byte.
+     *
+     * @return Byte.
      */
     public byte unpackByte() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -222,7 +226,9 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
     
     /**
-     * {@inheritDoc}
+     * Reads a short value.
+     *
+     * @return Short.
      */
     public short unpackShort() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -253,7 +259,9 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
     
     /**
-     * {@inheritDoc}
+     * Reads a long value.
+     *
+     * @return Long.
      */
     public long unpackLong() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -293,7 +301,9 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
     
     /**
-     * {@inheritDoc}
+     * Reads a BigInteger value.
+     *
+     * @return BigInteger.
      */
     public BigInteger unpackBigInteger() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -340,7 +350,9 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
     
     /**
-     * {@inheritDoc}
+     * Reads a float value.
+     *
+     * @return Float.
      */
     public float unpackFloat() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -360,7 +372,9 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
     
     /**
-     * {@inheritDoc}
+     * Reads a double value.
+     *
+     * @return Double.
      */
     public double unpackDouble() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -380,7 +394,9 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
     
     /**
-     * {@inheritDoc}
+     * Reads an array header.
+     *
+     * @return Array size.
      */
     public int unpackArrayHeader() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -404,7 +420,9 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
     
     /**
-     * {@inheritDoc}
+     * Reads a map header.
+     *
+     * @return Map size.
      */
     public int unpackMapHeader() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -428,7 +446,9 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
     
     /**
-     * {@inheritDoc}
+     * Reads an extension type header.
+     *
+     * @return Extension type header.
      */
     public ExtensionTypeHeader unpackExtensionTypeHeader() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -483,7 +503,9 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
     
     /**
-     * {@inheritDoc}
+     * Reads a binary header.
+     *
+     * @return Binary payload size.
      */
     public int unpackBinaryHeader() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -510,7 +532,9 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
     
     /**
-     * {@inheritDoc}
+     * Tries to read a nil value.
+     *
+     * @return True when there was a nil value, false otherwise.
      */
     public boolean tryUnpackNil() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -527,7 +551,10 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
     
     /**
-     * {@inheritDoc}
+     * Reads a payload.
+     *
+     * @param length Payload size.
+     * @return Payload bytes.
      */
     public byte[] readPayload(int length) {
         assert refCnt > 0 : "Unpacker is closed";
@@ -539,9 +566,11 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
     
     /**
-     * {@inheritDoc}
+     * Skips values.
+     *
+     * @param count Number of values to skip.
      */
-    public void skipValue(int count) {
+    public void skipValues(int count) {
         assert refCnt > 0 : "Unpacker is closed";
         
         while (count > 0) {

@@ -42,7 +42,6 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.msgpack.core.MessageFormat;
 
 /**
  * Client table API implementation.
@@ -195,7 +194,7 @@ public class ClientTable implements Table {
             var isNullable = in.unpackBoolean();
             
             // Skip unknown extra properties, if any.
-            in.skipValue(propCnt - 4);
+            in.skipValues(propCnt - 4);
             
             var column = new ClientColumn(name, type, isNullable, isKey, i);
             columns[i] = column;
