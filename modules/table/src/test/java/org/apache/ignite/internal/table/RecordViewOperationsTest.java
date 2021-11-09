@@ -294,7 +294,6 @@ public class RecordViewOperationsTest {
                 new Column("primitiveByteCol", INT8, false),
                 new Column("primitiveShortCol", INT16, false),
                 new Column("primitiveIntCol", INT32, false),
-//                new Column("primitiveLongCol", INT64, false),
                 new Column("primitiveFloatCol", FLOAT, false),
                 new Column("primitiveDoubleCol", DOUBLE, false),
                 
