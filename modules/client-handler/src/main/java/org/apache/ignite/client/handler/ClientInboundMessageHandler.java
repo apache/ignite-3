@@ -221,12 +221,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     private ClientMessageUnpacker getUnpacker(ByteBuf buf) {
         return new ClientMessageUnpacker(buf);
     }
-
+    
     private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker in, ClientMessagePacker out) {
         long requestId = -1;
 
         try {
-            var opCode = in.unpackInt();
+            final int opCode = in.unpackInt();
             requestId = in.unpackLong();
 
             out.packInt(ServerMessageType.RESPONSE);
@@ -239,7 +239,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 // Operation completed synchronously.
                 write(out, ctx);
             } else {
-                var reqId = requestId;
+                final var reqId = requestId;
 
                 fut.whenComplete((Object res, Object err) -> {
                     if (err != null) {

@@ -36,6 +36,7 @@ import org.msgpack.core.MessagePacker;
 /**
  * Tests Ignite ByteBuf-based packer against third-party library implementation to ensure identical results.
  */
+@SuppressWarnings({"avoidescapedunicodecharacters", "AvoidEscapedUnicodeCharacters"})
 public class ClientMessagePackerTest {
     private static void testPacker(Consumer<ClientMessagePacker> pack1, MessagePackerConsumer pack2) {
         var bytesIgnite = packIgnite(pack1);
@@ -136,6 +137,7 @@ public class ClientMessagePackerTest {
     }
     
     @ParameterizedTest
+    @SuppressWarnings({"AvoidEscapedUnicodeCharacters", "checkstyle:AvoidEscapedUnicodeCharacters"})
     @ValueSource(strings = {"", "Abc", "Абв", "\uD83D\uDD25", "\uD808\uDC16\uD834\uDD1E"})
     public void testPackString(String s) {
         testPacker(p -> p.packString(s), p -> p.packString(s));
