@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
@@ -188,7 +189,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     /** */
-    protected IgniteRel physicalPlan(String sql, IgniteSchema publicSchema, String... disabledRules) throws Exception {
+    protected PlanningContext plannerCtx(String sql, IgniteSchema publicSchema, String... disabledRules) {
         SchemaPlus schema = createRootSchema(false)
             .add("PUBLIC", publicSchema);
 
@@ -208,6 +209,19 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 .build())
             .query(sql)
             .build();
+
+        IgnitePlanner planner = ctx.planner();
+
+        assertNotNull(planner);
+
+        planner.setDisabledRules(new HashSet<>(Arrays.asList(disabledRules)));
+
+        return ctx;
+    }
+
+    /** */
+    protected IgniteRel physicalPlan(String sql, IgniteSchema publicSchema, String... disabledRules) throws Exception {
+        PlanningContext ctx = plannerCtx(sql, publicSchema, disabledRules);
 
         try (IgnitePlanner planner = ctx.planner()) {
             assertNotNull(planner);
