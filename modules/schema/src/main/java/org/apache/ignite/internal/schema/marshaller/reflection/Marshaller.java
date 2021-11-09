@@ -110,8 +110,7 @@ public abstract class Marshaller {
      * @param fldIdx Field index.
      * @return Field value.
      */
-    public @Nullable
-    abstract Object value(Object obj, int fldIdx);
+    public abstract @Nullable Object value(Object obj, int fldIdx);
     
     /**
      * Reads object from a row.
