@@ -77,7 +77,8 @@ public abstract class Marshaller {
      * @param cls  Type.
      * @return Marshaller.
      */
-    @Deprecated // TODO drop method.
+    //TODO: IGNITE-15888 drop
+    @Deprecated
     public static Marshaller createMarshaller(Columns cols, Class<? extends Object> cls) {
         final BinaryMode mode = MarshallerUtil.mode(cls);
         
