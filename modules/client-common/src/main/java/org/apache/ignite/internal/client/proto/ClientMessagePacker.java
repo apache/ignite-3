@@ -274,6 +274,8 @@ public class ClientMessagePacker implements AutoCloseable {
         
         // Header is a varint.
         // Use pessimistic utf8MaxBytes to reserve bytes for the header.
+        // This may cause an extra byte to be used for the header,
+        // but this is cheaper than calculating correct utf8 byte size, which involves full string scan.
         int maxBytes = ByteBufUtil.utf8MaxBytes(s);
         int headerSize = getStringHeaderSize(maxBytes);
         int headerPos = buf.writerIndex();
