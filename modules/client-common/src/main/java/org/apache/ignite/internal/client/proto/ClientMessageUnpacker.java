@@ -53,7 +53,6 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.msgpack.core.ExtensionTypeHeader;
 import org.msgpack.core.MessageFormat;
 import org.msgpack.core.MessageFormatException;
-import org.msgpack.core.MessageIntegerOverflowException;
 import org.msgpack.core.MessageNeverUsedFormatException;
 import org.msgpack.core.MessagePackException;
 import org.msgpack.core.MessageSizeException;
@@ -718,11 +717,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
             throw new MessageSizeException("Expected 16 bytes for UUID extension, but got " + len, len);
         }
         
-        var bytes = readPayload(16);
-        
-        ByteBuffer bb = ByteBuffer.wrap(bytes);
-        
-        return new UUID(bb.getLong(), bb.getLong());
+        return new UUID(buf.readLong(), buf.readLong());
     }
     
     /**
@@ -747,12 +742,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
             throw new MessageSizeException("Expected 24 bytes for UUID extension, but got " + len, len);
         }
         
-        // TODO: fix all readPayload calls like this - read directly from buf.
-        var bytes = readPayload(24);
-        
-        ByteBuffer bb = ByteBuffer.wrap(bytes);
-        
-        return new IgniteUuid(new UUID(bb.getLong(), bb.getLong()), bb.getLong());
+        return new IgniteUuid(new UUID(buf.readLong(), buf.readLong()), buf.readLong());
     }
     
     /**
