@@ -747,6 +747,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
             throw new MessageSizeException("Expected 24 bytes for UUID extension, but got " + len, len);
         }
         
+        // TODO: fix all readPayload calls like this - read directly from buf.
         var bytes = readPayload(24);
         
         ByteBuffer bb = ByteBuffer.wrap(bytes);
