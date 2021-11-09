@@ -142,38 +142,6 @@ public class RecordViewOperationsTest {
     /**
      *
      */
- /*   @Test
-    public void contains() {
-        final TestObjectWithAllTypes key = key(rnd);
-        final TestKeyObject key2 = TestKeyObject.randomObject(rnd);
-        final TestObjectWithAllTypes obj = randomObject(rnd, key);
-        final TestObjectWithAllTypes obj2 = randomObject(rnd, key);
-        
-        RecordView<TestObjectWithAllTypes> tbl = recordView();
-        
-        // Not-existed value.
-        assertFalse(tbl.contains(key));
-        
-        // Put KV pair.
-        tbl.upsert(obj);
-        assertTrue(tbl.contains(key));
-        
-        // Delete key.
-        assertTrue(tbl.delete(key));
-        assertFalse(tbl.contains(key));
-        
-        // Put KV pair.
-        tbl.upsert(obj2);
-        assertTrue(tbl.contains(key));
-        
-        // Delete key.
-        tbl.delete(key2);
-        assertFalse(tbl.contains(key2));
-    }*/
-    
-    /**
-     *
-     */
     @Test
     public void remove() {
         final TestObjectWithAllTypes key = key(rnd);
