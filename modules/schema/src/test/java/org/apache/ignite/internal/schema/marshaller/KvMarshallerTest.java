@@ -251,9 +251,9 @@ public class KvMarshallerTest {
         SchemaDescriptor schema = new SchemaDescriptor(1,
                 new Column[]{new Column("key", INT64, false)},
                 new Column[]{
-                        new Column("longCol", INT64, false),
-                        new Column("longCol2", INT64, true),
-                        new Column("stringCol", STRING, false)
+                        new Column("col1", INT64, false),
+                        new Column("col2", INT64, true),
+                        new Column("col3", STRING, false)
                 });
         
         Mapper<TestKeyObject> keyMapper = Mapper.builderFor(TestKeyObject.class)
@@ -279,7 +279,7 @@ public class KvMarshallerTest {
         assertTrue(key.getClass().isInstance(restoredKey));
         assertTrue(val.getClass().isInstance(restoredVal));
         
-        val.col2 = null;
+        val.longCol2 = null;
         
         assertEquals(key, restoredKey);
         assertEquals(val, restoredVal);
@@ -602,18 +602,18 @@ public class KvMarshallerTest {
         public static TestObject randomObject(Random rnd) {
             final TestObject obj = new TestObject();
             
-            obj.col1 = rnd.nextLong();
-            obj.col2 = rnd.nextLong();
-            obj.col3 = IgniteTestUtils.randomString(rnd, 100);
+            obj.longCol = rnd.nextLong();
+            obj.longCol2 = rnd.nextLong();
+            obj.stringCol = IgniteTestUtils.randomString(rnd, 100);
             
             return obj;
         }
         
-        private long col1;
+        private long longCol;
         
-        private Long col2;
+        private Long longCol2;
         
-        private String col3;
+        private String stringCol;
         
         @Override
         public boolean equals(Object o) {
@@ -627,14 +627,14 @@ public class KvMarshallerTest {
             
             TestObject that = (TestObject) o;
             
-            return col1 == that.col1
-                    && Objects.equals(col2, that.col2)
-                    && Objects.equals(col3, that.col3);
+            return longCol == that.longCol
+                    && Objects.equals(longCol2, that.longCol2)
+                    && Objects.equals(stringCol, that.stringCol);
         }
         
         @Override
         public int hashCode() {
-            return Objects.hash(col1, col2, col3);
+            return Objects.hash(longCol, longCol2, stringCol);
         }
     }
     

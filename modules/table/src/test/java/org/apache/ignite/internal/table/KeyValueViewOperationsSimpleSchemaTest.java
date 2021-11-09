@@ -309,6 +309,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
                 NativeTypes.FLOAT,
                 NativeTypes.DOUBLE,
                 NativeTypes.DATE,
+                NativeTypes.UUID,
                 NativeTypes.numberOf(20),
                 NativeTypes.decimalOf(25, 5),
                 NativeTypes.bitmaskOf(22),

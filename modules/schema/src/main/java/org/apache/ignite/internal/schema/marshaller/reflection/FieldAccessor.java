@@ -479,12 +479,13 @@ abstract class FieldAccessor {
      * Stubbed accessor for unused columns writes default column value, and ignore value on read access.
      */
     private static class UnmappedFieldAccessor extends FieldAccessor {
+        /** Column. */
         private final Column col;
         
         /**
          * Constructor.
          *
-         * @param col
+         * @param col Column.
          */
         UnmappedFieldAccessor(Column col) {
             super(0, null);
