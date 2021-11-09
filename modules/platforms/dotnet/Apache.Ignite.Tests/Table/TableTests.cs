@@ -495,6 +495,30 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual("Tuple collection can't contain null elements.", ex!.Message);
         }
 
+        [Test]
+        public async Task TestLongValuePacking([Values(
+            long.MinValue,
+            long.MinValue+1,
+            (long)int.MinValue - 1,
+            int.MinValue,
+            int.MinValue + 1,
+            (long)short.MinValue - 1,
+            short.MinValue,
+            short.MinValue + 1)] long key)
+        {
+            var val = key.ToString(CultureInfo.InvariantCulture);
+            var tuple = new IgniteTuple { [KeyCol] = key, [ValCol] = val };
+            await Table.UpsertAsync(tuple);
+
+            var keyTuple = new IgniteTuple { [KeyCol] = key };
+            var resTuple = (await Table.GetAsync(keyTuple))!;
+
+            Assert.IsNotNull(resTuple);
+            Assert.AreEqual(2, resTuple.FieldCount);
+            Assert.AreEqual(key, resTuple["key"]);
+            Assert.AreEqual(val, resTuple["val"]);
+        }
+
         private static IIgniteTuple GetTuple(int id, string? val = null) =>
             new IgniteTuple { [KeyCol] = id, [ValCol] = val };
     }
