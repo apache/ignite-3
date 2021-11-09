@@ -496,7 +496,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        public async Task TestLongValuePacking([Values(
+        public async Task TestLongValueRoundTrip([Values(
             long.MinValue,
             long.MinValue + 1,
             (long)int.MinValue - 1,
