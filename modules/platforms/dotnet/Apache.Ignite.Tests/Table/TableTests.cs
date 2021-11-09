@@ -498,13 +498,30 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestLongValuePacking([Values(
             long.MinValue,
-            long.MinValue+1,
+            long.MinValue + 1,
             (long)int.MinValue - 1,
             int.MinValue,
             int.MinValue + 1,
             (long)short.MinValue - 1,
             short.MinValue,
-            short.MinValue + 1)] long key)
+            short.MinValue + 1,
+            (long)byte.MinValue - 1,
+            byte.MinValue,
+            byte.MinValue + 1,
+            -1,
+            0,
+            1,
+            byte.MaxValue - 1,
+            byte.MaxValue,
+            (long)byte.MaxValue + 1,
+            short.MaxValue - 1,
+            short.MaxValue,
+            (long)short.MaxValue + 1,
+            int.MaxValue - 1,
+            int.MaxValue,
+            (long)int.MaxValue + 1,
+            long.MaxValue - 1,
+            long.MaxValue)] long key)
         {
             var val = key.ToString(CultureInfo.InvariantCulture);
             var tuple = new IgniteTuple { [KeyCol] = key, [ValCol] = val };
