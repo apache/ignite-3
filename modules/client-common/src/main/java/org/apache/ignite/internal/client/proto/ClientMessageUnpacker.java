@@ -74,7 +74,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
      * @param buf Input.
      */
     public ClientMessageUnpacker(ByteBuf buf) {
-        // TODO: Fix all javadocs.
         assert buf != null;
         
         this.buf = buf;
@@ -246,7 +245,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
                 return buf.readByte();
             
             case Code.UINT16:
-                // TODO: Test those cases - use C# to generate data.
                 return (short) buf.readUnsignedShort();
             
             case Code.INT16:
