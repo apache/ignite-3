@@ -40,6 +40,9 @@ public interface Serializer {
     BinaryRow serialize(Object key, Object val) throws MarshallerException;
 
     /**
+     * DeserializeKey.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @param row Row.
      * @param <K> Key object type.
      * @return Key object.
@@ -48,6 +51,9 @@ public interface Serializer {
     <K> K deserializeKey(Row row) throws MarshallerException;
 
     /**
+     * DeserializeValue.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @param row Row.
      * @param <V> Value object type.
      * @return Value object.
@@ -56,6 +62,9 @@ public interface Serializer {
     <V> V deserializeValue(Row row) throws MarshallerException;
 
     /**
+     * Deserialize.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @param row Row.
      * @param <K> Key object type.
      * @param <V> Value object type.
@@ -65,7 +74,7 @@ public interface Serializer {
     <K, V> Pair<K, V> deserialize(Row row) throws MarshallerException;
 
     /**
-     * @return Schema.
+     * Get schema descriptor.
      */
     SchemaDescriptor schema();
 }

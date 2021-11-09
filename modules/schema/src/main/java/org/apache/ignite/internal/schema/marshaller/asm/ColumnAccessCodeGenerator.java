@@ -33,6 +33,9 @@ import org.apache.ignite.lang.IgniteInternalException;
  */
 public class ColumnAccessCodeGenerator {
     /**
+     * CreateAccessor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @param mode   Read-write mode.
      * @param colIdx Column index in the schema.
      * @return Row column access code generator.
@@ -134,35 +137,35 @@ public class ColumnAccessCodeGenerator {
     }
 
     /**
-     * @return Column index in the schema.
+     * Gets column index in the schema.
      */
     public int columnIdx() {
         return colIdx;
     }
     
     /**
-     * @return Row field read method name.
+     * Gets method name used to read POJO field.
      */
     public String readMethodName() {
         return readMethodName;
     }
     
     /**
-     * @return Row field write method name.
+     * Gets method name used to write POJO field.
      */
     public String writeMethodName() {
         return writeMethodName;
     }
     
     /**
-     * @return Write method arg type.
+     * Gets arg type of column write method.
      */
     public Class<?> writeArgType() {
         return writeArgType;
     }
     
     /**
-     * @return Read method return type.
+     * Gets read method return type.
      */
     public Class<?> mappedType() {
         return mappedType;
