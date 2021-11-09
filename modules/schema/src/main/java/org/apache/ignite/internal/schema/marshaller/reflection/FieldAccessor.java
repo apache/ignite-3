@@ -54,7 +54,6 @@ abstract class FieldAccessor {
      */
     protected final int colIdx;
     
-    //TODO: write default value to a row, ignore column on read.
     static FieldAccessor noopAccessor(Column col) {
         return new UnmappedFieldAccessor(col);
     }

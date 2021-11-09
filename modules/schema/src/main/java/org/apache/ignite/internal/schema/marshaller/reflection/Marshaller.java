@@ -62,7 +62,7 @@ public abstract class Marshaller {
         
             String fieldName = mapper.columnToField(col.name());
         
-            // TODO: validate key marshaller has no NoopAccessors.
+            // TODO: IGNITE-15785 validate key marshaller has no NoopAccessors.
             fieldAccessors[i] = (fieldName == null) ? FieldAccessor.noopAccessor(col) :
                     FieldAccessor.create(mapper.targetType(), fieldName, col, col.schemaIndex());
         }

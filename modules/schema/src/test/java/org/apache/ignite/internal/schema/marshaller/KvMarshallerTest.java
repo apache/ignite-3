@@ -449,7 +449,6 @@ public class KvMarshallerTest {
             
             assertTrue(valClass.isInstance(val1));
             
-            //TODO: add equals method for generated object.
             assertEquals(key, key1);
         } finally {
             Thread.currentThread().setContextClassLoader(loader);
