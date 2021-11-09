@@ -17,9 +17,6 @@
 
 package org.apache.ignite.table.mapper;
 
-import java.util.function.Function;
-import org.apache.ignite.table.Tuple;
-
 /**
  * Mapper interface defines methods that are required for a marshaller to map class field names to table columns.
  *
@@ -27,13 +24,26 @@ import org.apache.ignite.table.Tuple;
  */
 public interface Mapper<T> {
     /**
-     * Return mapped type.
+     * Creates a mapper for a class.
      *
-     * @return Mapped type.
+     * @param cls Key class.
+     * @param <K> Key type.
+     * @return Mapper.
      */
-    Class<T> targetType();
+    static <K> Mapper<K> of(Class<K> cls) {
+        return identity(cls);
+    }
     
-    String columnToField(String columnName);
+    /**
+     * Creates a mapper builder for a class.
+     *
+     * @param cls Value class.
+     * @param <V> Value type.
+     * @return Mapper builder.
+     */
+    static <V> MapperBuilder<V> builderFor(Class<V> cls) {
+        return new MapperBuilder<>(cls);
+    }
     
     /**
      * Creates identity mapper which is used for simple types that have native support or objects with field names that match column names.
@@ -42,63 +52,22 @@ public interface Mapper<T> {
      * @param <T>         Target type.
      * @return Mapper.
      */
-    static <T> Mapper<T> identityMapper(Class<T> targetClass) {
-        return new Mapper<>() {
-            @Override
-            public Class<T> targetType() {
-                return targetClass;
-            }
-            
-            @Override
-            public String columnToField(String columnName) {
-                try {
-                    targetClass.getDeclaredField(columnName);
-                    
-                    return columnName;
-                } catch (NoSuchFieldException e) {
-                    return null;
-                }
-            }
-        };
+    static <T> Mapper<T> identity(Class<T> targetClass) {
+        return new IdentityMapper<T>(targetClass);
     }
     
     /**
-     * Mapper builder.
+     * Return mapped type.
      *
-     * @param <T> Mapped type.
+     * @return Mapped type.
      */
-    interface Builder<T> {
-        /**
-         * Map a field to a type of given class.
-         *
-         * @param fieldName   Field name.
-         * @param targetClass Target class.
-         * @return {@code this} for chaining.
-         */
-        Builder<T> map(String fieldName, Class<?> targetClass);
-        
-        /**
-         * Adds a functional mapping for a field, the result depends on function call for every particular row.
-         *
-         * @param fieldName       Field name.
-         * @param mappingFunction Mapper function.
-         * @return {@code this} for chaining.
-         */
-        Builder<T> map(String fieldName, Function<Tuple, Object> mappingFunction);
-        
-        /**
-         * Sets a target class to deserialize to.
-         *
-         * @param targetClass Target class.
-         * @return {@code this} for chaining.
-         */
-        Builder<T> deserializeTo(Class<?> targetClass);
-        
-        /**
-         * Builds mapper.
-         *
-         * @return Mapper.
-         */
-        Mapper<T> build();
-    }
+    Class<T> targetType();
+    
+    /**
+     * Maps a column name to a field name.
+     *
+     * @param columnName Column name.
+     * @return Field name or {@code null} if no field mapped to a column.
+     */
+    String columnToField(String columnName);
 }

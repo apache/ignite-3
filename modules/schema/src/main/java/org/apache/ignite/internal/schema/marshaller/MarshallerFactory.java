@@ -43,10 +43,10 @@ public interface MarshallerFactory {
      * @param keyClass Key type.
      * @param valueClass Value type.
      * @return Key-value marshaller.
-     * @see Mapper#identityMapper(Class)
+     * @see Mapper#identity(Class)
      */
     default <K, V> KvMarshaller<K, V> create(SchemaDescriptor schema, Class<K> keyClass,
             Class<V> valueClass) {
-        return create(schema, Mapper.identityMapper(keyClass), Mapper.identityMapper(valueClass));
+        return create(schema, Mapper.identity(keyClass), Mapper.identity(valueClass));
     }
 }

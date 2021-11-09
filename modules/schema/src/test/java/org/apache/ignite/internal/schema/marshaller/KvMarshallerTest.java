@@ -227,7 +227,7 @@ public class KvMarshallerTest {
         expectedKey.setPrimitiveLongCol(key.getPrimitiveLongCol());
         expectedKey.setPrimitiveDoubleCol(key.getPrimitiveDoubleCol());
         expectedKey.setStringCol(key.getStringCol());
-    
+        
         TestObjectWithAllTypes expectedVal = new TestObjectWithAllTypes();
         expectedVal.setPrimitiveLongCol(val.getPrimitiveLongCol());
         expectedVal.setPrimitiveDoubleCol(val.getPrimitiveDoubleCol());
@@ -256,37 +256,14 @@ public class KvMarshallerTest {
                         new Column("stringCol", STRING, false)
                 });
         
-        Mapper<TestKeyObject> keyMapper = new Mapper<>() {
-            @Override
-            public Class<TestKeyObject> targetType() {
-                return TestKeyObject.class;
-            }
-            
-            @Override
-            public String columnToField(String columnName) {
-                return "key".equals(columnName) ? "id" : null;
-            }
-        };
+        Mapper<TestKeyObject> keyMapper = Mapper.builderFor(TestKeyObject.class)
+                .map("id", "key")
+                .build();
         
-        Mapper<TestObject> valMapper = new Mapper<>() {
-            @Override
-            public Class<TestObject> targetType() {
-                return TestObject.class;
-            }
-            
-            @Override
-            public String columnToField(String columnName) {
-                switch (columnName) {
-                    case "longCol":
-                        return "col1";
-                    case "stringCol":
-                        return "col3";
-                    
-                    default:
-                        return null;
-                }
-            }
-        };
+        Mapper<TestObject> valMapper = Mapper.builderFor(TestObject.class)
+                .map("longCol", "col1")
+                .map("stringCol", "col3")
+                .build();
         
         KvMarshaller<TestKeyObject, TestObject> marshaller = factory.create(schema, keyMapper, valMapper);
         
@@ -671,7 +648,7 @@ public class KvMarshallerTest {
          */
         public static TestTruncatedObject randomObject(Random rnd) {
             final TestTruncatedObject obj = new TestTruncatedObject();
-    
+            
             obj.primitiveIntCol = rnd.nextInt();
             obj.primitiveLongCol = rnd.nextLong();
             obj.primitiveDoubleCol = rnd.nextDouble();
@@ -686,9 +663,9 @@ public class KvMarshallerTest {
         private int primitiveIntCol;
         
         private long primitiveLongCol;
-    
+        
         private float primitiveFloatCol;
-    
+        
         private double primitiveDoubleCol;
         
         private String stringCol;
@@ -724,9 +701,9 @@ public class KvMarshallerTest {
     
     private Column[] columnsAllTypes() {
         Column[] cols = new Column[]{
-                new Column("primitiveByteCol", INT8, false, () -> Byte.valueOf((byte) 0x42)),
-                new Column("primitiveShortCol", INT16, false,() -> Short.valueOf((short)0x4242)),
-                new Column("primitiveIntCol", INT32, false, () -> Integer.valueOf(0x42424242)),
+                new Column("primitiveByteCol", INT8, false, () -> (byte) 0x42),
+                new Column("primitiveShortCol", INT16, false, () -> (short) 0x4242),
+                new Column("primitiveIntCol", INT32, false, () -> 0x42424242),
                 new Column("primitiveLongCol", INT64, false),
                 new Column("primitiveFloatCol", FLOAT, false),
                 new Column("primitiveDoubleCol", DOUBLE, false),
