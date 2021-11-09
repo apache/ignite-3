@@ -37,7 +37,7 @@ class DefaultColumnMapper<T> implements Mapper<T> {
      * @param targetType Target type.
      * @param mapping Column-to-field name mapping.
      */
-    public DefaultColumnMapper(Class<T> targetType, Map<String, String> mapping) {
+    DefaultColumnMapper(Class<T> targetType, Map<String, String> mapping) {
         this.targetType = targetType;
         this.mapping = mapping;
     }
