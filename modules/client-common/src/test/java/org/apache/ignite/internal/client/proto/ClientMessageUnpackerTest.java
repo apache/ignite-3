@@ -23,8 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import java.math.BigInteger;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.lang.IgniteUuid;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -172,14 +174,14 @@ public class ClientMessageUnpackerTest {
     @Test
     public void testSkipValues() {
         testUnpacker(p -> {
-            p.packInt(1);
+            p.packInt(123456);
             p.packBoolean(false);
             
             p.packMapHeader(2);
             p.packString("x");
-            p.packString("y");
-            p.packString("a");
-            p.packString("b");
+            p.packNil();
+            p.packUuid(UUID.randomUUID());
+            p.packIgniteUuid(new IgniteUuid(UUID.randomUUID(), 123));
             
             p.packDouble(1.1);
             p.packDouble(2.2);

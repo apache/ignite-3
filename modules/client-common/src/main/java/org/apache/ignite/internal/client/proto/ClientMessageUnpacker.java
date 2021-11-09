@@ -52,6 +52,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.msgpack.core.ExtensionTypeHeader;
 import org.msgpack.core.MessageFormat;
+import org.msgpack.core.MessageFormatException;
 import org.msgpack.core.MessageIntegerOverflowException;
 import org.msgpack.core.MessageNeverUsedFormatException;
 import org.msgpack.core.MessagePackException;
@@ -687,12 +688,11 @@ public class ClientMessageUnpacker implements AutoCloseable {
                     count += readLength32() * 2;
                     break;
                     
-                case NEVER_USED:
-                    throw new MessageNeverUsedFormatException("Encountered 0xC1 \"NEVER_USED\" byte");
-                    
                 default:
-                    count--;
+                    throw new MessageFormatException("Unexpected format code: " + code);
             }
+    
+            count--;
         }
     }
     
