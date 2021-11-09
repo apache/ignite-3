@@ -22,7 +22,7 @@ package org.apache.ignite.lang;
  */
 public class TableAlreadyExistsException extends IgniteException {
     /**
-     * Create a new exception with given error message.
+     * Create a new exception with given table name.
      *
      * @param name Table name.
      */

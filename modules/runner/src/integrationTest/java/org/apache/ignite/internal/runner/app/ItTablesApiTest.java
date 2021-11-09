@@ -24,6 +24,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doAnswer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,10 +38,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.configuration.DirectConfigurationProperty;
-import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.ItUtils;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
@@ -47,6 +47,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -163,7 +164,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testAddColumn() throws Exception {
+    public void testAddIndex() throws Exception {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
         
         Ignite ignite0 = clusterNodes.get(0);
@@ -172,7 +173,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     
         addIndex(ignite0, SCHEMA, SHORT_TABLE_NAME);
     
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(IndexAlreadyExistsException.class,
                 () -> addIndex(ignite0, SCHEMA, SHORT_TABLE_NAME));
     
         addIndexIfNotExists(ignite0, SCHEMA, SHORT_TABLE_NAME);
@@ -309,11 +310,17 @@ public class ItTablesApiTest extends IgniteAbstractTest {
                 .withColumns("valInt", "valStr")
                 .build();
     
-        node.tables().alterTable(
-                schemaName + "." + shortTableName,
-                chng -> chng.changeIndices(idxes ->
-                        idxes.create(idx.name(),
-                                tableIndexChange -> convert(idx, tableIndexChange))));
+        try {
+            node.tables().alterTable(
+                    schemaName + "." + shortTableName,
+                    chng -> chng.changeIndices(idxes ->
+                            idxes.create(idx.name(),
+                                    tableIndexChange -> convert(idx, tableIndexChange))));
+        } catch (IllegalArgumentException ex) {
+            log.error("Index already exists [naem={}]", idx.name(), ex);
+            
+            throw new IndexAlreadyExistsException(idx.name());
+        }
     }
     
     /**
@@ -333,17 +340,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
                             idxes.create(idx.name(),
                                     tableIndexChange -> convert(idx, tableIndexChange))));
         } catch (IllegalArgumentException ex) {
-            TablesConfiguration tablesCfg = (TablesConfiguration) ReflectionUtils
-                    .tryToReadFieldValue(TableManager.class, "tablesCfg",
-                            (TableManager) node.tables()).getOrThrow(e -> fail(e.getMessage()));
-    
-            NamedListView<TableView> directTablesCfg = ((DirectConfigurationProperty<NamedListView<TableView>>) tablesCfg
-                    .tables())
-                    .directValue();
-    
-            if (directTablesCfg.get(schemaName + "." + shortTableName).indices().get(idx.name()) == null) {
-                throw ex;
-            }
+            log.info("Index already exists [naem={}]", idx.name());
         }
     }
 }

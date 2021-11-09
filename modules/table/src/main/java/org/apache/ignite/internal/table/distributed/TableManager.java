@@ -792,7 +792,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             } else {
                                 LOG.error(LoggerMessageHelper
                                                 .format("Table wasn't created [name={}]", name),
-                                        ex);
+                                        t);
         
                                 removeListener(TableEvent.CREATE, clo,
                                         new IgniteInternalCheckedException(ex));
@@ -800,7 +800,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         });
                     } else {
                         LOG.error(LoggerMessageHelper
-                                .format("Table wasn't created [name={}]", name), ex);
+                                .format("Table wasn't created [name={}]", name), t);
     
                         removeListener(TableEvent.CREATE, clo,
                                 new IgniteInternalCheckedException(ex));
