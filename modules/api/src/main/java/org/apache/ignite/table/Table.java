@@ -28,6 +28,7 @@ import org.jetbrains.annotations.NotNull;
  *
  * @see RecordView
  * @see KeyValueView
+ * @see org.apache.ignite.table.mapper.Mapper
  */
 public interface Table {
     /**
