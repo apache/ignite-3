@@ -168,4 +168,25 @@ public class ClientMessageUnpackerTest {
         testUnpacker(p -> p.writePayload(b), p -> p.readPayload(b.length), b);
         testUnpacker(p -> p.writePayload(b, 1, 1), p -> p.readPayload(1), new byte[]{5});
     }
+    
+    @Test
+    public void testSkipValues() {
+        testUnpacker(p -> {
+            p.packInt(1);
+            p.packBoolean(false);
+            
+            p.packMapHeader(2);
+            p.packString("x");
+            p.packString("y");
+            p.packString("a");
+            p.packString("b");
+            
+            p.packDouble(1.1);
+            p.packDouble(2.2);
+        }, p -> {
+            p.skipValues(3);
+            
+            return p.unpackDouble();
+        }, 1.1);
+    }
 }
