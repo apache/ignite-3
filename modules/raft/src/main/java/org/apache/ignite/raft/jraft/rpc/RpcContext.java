@@ -16,10 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.rpc;
 
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.NodeManager;
-import org.jetbrains.annotations.Nullable;
 
 /**
  *

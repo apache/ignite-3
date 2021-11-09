@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft.server;
+package org.apache.ignite.internal.table.distributed.command;
 
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
 
+/** State machine command to finish a transaction. */
 public class FinishTxCommand implements WriteCommand {
     /** The timestamp. */
     private final Timestamp timestamp;

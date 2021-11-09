@@ -50,8 +50,6 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
@@ -148,7 +146,7 @@ public class ItDistributedConfigurationPropertiesTest {
                     new TestScaleCubeClusterServiceFactory()
             );
 
-            raftManager = new Loza(clusterService, new TxManagerImpl(clusterService, new HeapLockManager()), workDir);
+            raftManager = new Loza(clusterService, workDir);
 
             cfgManager = new ConfigurationManager(
                     List.of(NodeConfiguration.KEY),

@@ -203,9 +203,7 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
                 new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
         
         for (int i = 0; i < nodes; i++) {
-            TxManagerImpl txManager = new TxManagerImpl(cluster.get(i), new HeapLockManager());
-            
-            var raftSrv = new JraftServerImpl(cluster.get(i), txManager, workDir);
+            var raftSrv = new JraftServerImpl(cluster.get(i), workDir);
             
             raftSrv.start();
             
@@ -230,7 +228,7 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
         if (startClient()) {
             nearTxManager = new TxManagerImpl(client, new HeapLockManager());
         } else {
-            nearTxManager = (TxManagerImpl) getLeader(accRaftClients.get(0)).transactionManager();
+            nearTxManager = null; // (TxManagerImpl) getLeader(accRaftClients.get(0)).transactionManager();
         }
         
         assertNotNull(nearTxManager);
@@ -327,13 +325,11 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
             
             for (ClusterNode node : partNodes) {
                 RaftServer rs = raftServers.get(node);
-                assertNotNull(rs.transactionManager());
                 
                 rs.startRaftGroup(
                         grpId,
                         new PartitionListener(tblId,
-                                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(),
-                                        rs.transactionManager())),
+                                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), null)),
                         conf
                 );
             }
@@ -452,7 +448,7 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
             fail("Unknown table " + t.tableName());
         }
         
-        TxManager manager = getLeader(clients.get(0)).transactionManager();
+        TxManager manager = null; // getLeader(clients.get(0)).transactionManager();
         
         assertNotNull(manager);
         

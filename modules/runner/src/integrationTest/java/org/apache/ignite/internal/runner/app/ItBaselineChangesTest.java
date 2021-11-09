@@ -147,9 +147,13 @@ public class ItBaselineChangesTest {
 
         // Update baseline to nodes 1,4,5
         metaStoreNode.setBaseline(Set.of(metaStoreNode.name(), node3Name, node4Name));
-
+    
+        System.out.println("DBG: xxxx");
+        
         IgnitionManager.stop(clusterNodes.get(1).name());
         IgnitionManager.stop(clusterNodes.get(2).name());
+    
+        System.out.println("DBG: xxxx1111");
 
         Table tbl4 = node4.tables().table(schTbl1.canonicalName());
 

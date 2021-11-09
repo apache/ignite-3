@@ -19,7 +19,6 @@ package org.apache.ignite.internal.raft.server;
 
 import java.util.List;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
@@ -61,10 +60,4 @@ public interface RaftServer extends IgniteComponent {
      * @return Local peer or null if the group is not started.
      */
     @Nullable Peer localPeer(String groupId);
-
-    /**
-     * TODO asch do we need nullable ?
-     * @return Transaction manager or null if a server configured without tx support.
-     */
-    @Nullable TxManager transactionManager();
 }

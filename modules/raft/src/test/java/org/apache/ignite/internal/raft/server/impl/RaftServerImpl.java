@@ -27,7 +27,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -212,11 +211,6 @@ public class RaftServerImpl implements RaftServer {
     @Override
     public @Nullable Peer localPeer(String groupId) {
         return new Peer(service.topologyService().localMember().address());
-    }
-
-    /** {@inheritDoc} */
-    @Override public TxManager transactionManager() {
-        return null;
     }
 
     /**

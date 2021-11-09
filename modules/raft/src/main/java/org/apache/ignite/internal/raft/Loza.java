@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
@@ -30,7 +31,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.LoggerMessageHelper;
@@ -81,15 +81,13 @@ public class Loza implements IgniteComponent {
 
     /**
      * Constructor.
-     *
-     * @param clusterNetSvc Cluster network service.
-     * @param txManager Transaction manager.
+     *  @param clusterNetSvc Cluster network service.
      * @param dataPath Data path.
      */
-    public Loza(ClusterService clusterNetSvc, TxManager txManager, Path dataPath) {
+    public Loza(ClusterService clusterNetSvc, Path dataPath) {
         this.clusterNetSvc = clusterNetSvc;
 
-        this.raftServer = new JraftServerImpl(clusterNetSvc, txManager, dataPath);
+        this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath);
 
         this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
@@ -240,5 +238,16 @@ public class Loza implements IgniteComponent {
      */
     public void stopRaftGroup(String groupId) {
         raftServer.stopRaftGroup(groupId);
+    }
+    
+    /**
+     * Applies a command to local raft group.
+     *
+     * @param groupId Group id.
+     * @param rawData Raw command data.
+     * @return The future.
+     */
+    public CompletableFuture apply(String groupId, ByteBuffer rawData) {
+        return null;
     }
 }

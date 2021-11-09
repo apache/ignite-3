@@ -96,7 +96,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         ClusterService service = clusterService(PORT, List.of(addr), true);
 
-        server = new JraftServerImpl(service, null, dataPath) {
+        server = new JraftServerImpl(service, dataPath) {
             @Override
             public synchronized void stop() {
                 super.stop();

@@ -193,7 +193,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
 
         ClusterService service = clusterService(PORT + idx, List.of(addr), true);
     
-        JraftServerImpl server = new JraftServerImpl(service, null, dataPath) {
+        JraftServerImpl server = new JraftServerImpl(service, dataPath) {
             @Override
             public void stop() {
                 servers.remove(this);

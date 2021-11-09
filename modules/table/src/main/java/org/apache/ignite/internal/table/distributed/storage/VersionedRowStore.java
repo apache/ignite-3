@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -55,9 +56,9 @@ public class VersionedRowStore {
      * @param storage The storage.
      * @param txManager The TX manager.
      */
-    public VersionedRowStore(PartitionStorage storage, TxManager txManager) {
-        this.storage = storage;
-        this.txManager = txManager;
+    public VersionedRowStore(@NotNull PartitionStorage storage, @NotNull TxManager txManager) {
+        this.storage = Objects.requireNonNull(storage);
+        this.txManager = Objects.requireNonNull(txManager);
     }
 
     /**

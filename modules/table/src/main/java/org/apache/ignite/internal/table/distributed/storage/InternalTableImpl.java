@@ -498,7 +498,8 @@ public class InternalTableImpl implements InternalTable {
         CompletableFuture<Void> fut0 = svc.leader() == null ? svc.refreshLeader() : completedFuture(null);
 
         // TODO asch fixme need to map to fixed topology.
-        return fut0.thenAccept(ignored -> tx.enlist(svc.leader().address(), svc.groupId())).
+        // TODO a leader race is possible when enlisting different keys from the same partition.
+        return fut0.thenAccept(ignored -> tx.enlist(svc)).
             thenApply(ignored -> svc); // Enlist the leaseholder.
     }
 

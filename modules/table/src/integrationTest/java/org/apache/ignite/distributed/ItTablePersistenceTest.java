@@ -187,8 +187,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
      * {@inheritDoc}
      */
     @Override
-    public RaftGroupListener createListener(ClusterService service, TxManagerImpl txManager,
-            Path workDir) {
+    public RaftGroupListener createListener(ClusterService service, Path workDir) {
         return paths.entrySet().stream()
                 .filter(entry -> entry.getValue().equals(workDir))
                 .map(Map.Entry::getKey)
@@ -196,8 +195,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 .orElseGet(() -> {
                     PartitionListener listener = new PartitionListener(
                             new IgniteUuid(UUID.randomUUID(), 0),
-                            new VersionedRowStore(new ConcurrentHashMapPartitionStorage(),
-                                    txManager));
+                            new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), null));
                     
                     paths.put(listener, workDir);
                     

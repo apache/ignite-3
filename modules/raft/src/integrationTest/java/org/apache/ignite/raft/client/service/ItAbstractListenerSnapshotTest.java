@@ -36,8 +36,6 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
@@ -324,15 +322,10 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * Creates raft group listener.
      *
      * @param service The cluster service.
-     * @param txManager The transaction manager.
      * @param listenerPersistencePath Path to storage persistent data.
      * @return Raft group listener.
      */
-    public abstract RaftGroupListener createListener(
-            ClusterService service,
-            TxManagerImpl txManager,
-            Path listenerPersistencePath
-    );
+    public abstract RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath);
     
     /**
      * @return Raft group id for tests.
@@ -411,9 +404,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         
         Path jraft = workDir.resolve("jraft" + idx);
         
-        TxManagerImpl txManager = new TxManagerImpl(service, new HeapLockManager());
-        
-        JraftServerImpl server = new JraftServerImpl(service, txManager, jraft) {
+        JraftServerImpl server = new JraftServerImpl(service, jraft) {
             @Override
             public void stop() {
                 super.stop();
@@ -428,7 +419,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         
         server.startRaftGroup(
                 raftGroupId(),
-                createListener(service, txManager, listenerPersistencePath),
+                createListener(service, listenerPersistencePath),
                 INITIAL_CONF
         );
         

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,23 +36,23 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.message.TxFinishRequest;
 import org.apache.ignite.internal.tx.message.TxFinishResponse;
+import org.apache.ignite.internal.tx.message.TxFinishResponseBuilder;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
-
 /**
  * TODO asch do we need the interface ?
  */
-public class TxManagerImpl implements TxManager {
+public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /**
      * Factory.
      */
@@ -71,8 +74,8 @@ public class TxManagerImpl implements TxManager {
     private final LockManager lockManager;
     
     /**
-     * The storage for tx states. TODO asch use Storage for states, implement max size, implement
-     * replication.
+     * The storage for tx states.
+     * TODO asch use Storage for states, implement max size, implement replication.
      */
     private final ConcurrentHashMap<Timestamp, TxState> states = new ConcurrentHashMap<>();
     
@@ -336,7 +339,7 @@ public class TxManagerImpl implements TxManager {
      */
     @Override
     public void start() {
-        // No-op.
+        clusterService.messagingService().addMessageHandler(TxMessageGroup.class, this);
     }
     
     /**
@@ -401,5 +404,59 @@ public class TxManagerImpl implements TxManager {
     @TestOnly
     public LockManager getLockManager() {
         return lockManager;
+    }
+    
+    /**
+     * @param groupId Group id.
+     * @param ts The timestamp.
+     * @param commit {@code True} to commit.
+     *
+     * @return The future.
+     */
+    protected CompletableFuture finishGroup(String groupId, Timestamp ts, boolean commit) {
+        return CompletableFuture.completedFuture(null);
+    };
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void onReceived(NetworkMessage message, NetworkAddress senderAddr,
+            String correlationId) {
+        // Support raft and transactions interop.
+        if (message instanceof TxFinishRequest) {
+            TxFinishRequest req = (TxFinishRequest) message;
+            
+            Set<String> groupIds = req.partitions();
+            
+            CompletableFuture[] futs = new CompletableFuture[groupIds.size()];
+            
+            int i = 0;
+            
+            // Finish enlisted groups.
+            for (String groupId : groupIds) {
+                futs[i++] = finishGroup(groupId, req.timestamp(), req.commit());
+            }
+            
+            CompletableFuture.allOf(futs).thenCompose(ignored -> req.commit() ?
+                    commitAsync(req.timestamp()) :
+                    rollbackAsync(req.timestamp()))
+                    .handle(new BiFunction<Void, Throwable, Void>() {
+                        @Override
+                        public Void apply(Void ignored, Throwable err) {
+                            // TODO asch report finish error code.
+                            TxFinishResponseBuilder resp = FACTORY.txFinishResponse();
+                            
+                            if (err != null) {
+                                resp.errorMessage(err.getMessage());
+                            }
+    
+                            clusterService.messagingService()
+                                    .send(senderAddr, resp.build(), correlationId);
+                            
+                            return null;
+                        }
+                    });
+        }
     }
 }

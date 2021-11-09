@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -29,6 +31,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -57,9 +60,9 @@ public class TransactionImpl implements InternalTransaction {
     private final NetworkAddress address;
     
     /**
-     *
+     * Mapped groups.
      */
-    private Map<NetworkAddress, Set<String>> map = new ConcurrentHashMap<>();
+    private Set<RaftGroupService> set = Collections.newSetFromMap(new ConcurrentHashMap<>());
     
     /**
      *
@@ -86,8 +89,8 @@ public class TransactionImpl implements InternalTransaction {
     }
     
     @Override
-    public Map<NetworkAddress, Set<String>> map() {
-        return map;
+    public Set<RaftGroupService> map() {
+        return set;
     }
     
     /**
@@ -102,9 +105,9 @@ public class TransactionImpl implements InternalTransaction {
      * {@inheritDoc}
      */
     @Override
-    public synchronized boolean enlist(NetworkAddress node, String groupId) {
+    public synchronized boolean enlist(RaftGroupService svc) {
         // TODO asch remove synchronized
-        return map.computeIfAbsent(node, k -> new HashSet<>()).add(groupId);
+        return set.add(svc);
     }
     
     /**
@@ -164,11 +167,20 @@ public class TransactionImpl implements InternalTransaction {
      * @return The future.
      */
     private CompletableFuture<Void> finish(boolean commit) {
-        CompletableFuture[] futs = new CompletableFuture[map.size() + 1];
+        Map<NetworkAddress, Set<String>> tmp = new HashMap<>();
+
+        // Group by common leader addresses.
+        for (RaftGroupService svc : set) {
+            NetworkAddress addr = svc.leader().address();
+    
+            tmp.computeIfAbsent(addr, k -> new HashSet<>()).add(svc.groupId());
+        }
         
+        CompletableFuture[] futs = new CompletableFuture[tmp.size() + 1];
+    
         int i = 0;
-        
-        for (Map.Entry<NetworkAddress, Set<String>> entry : map.entrySet()) {
+    
+        for (Map.Entry<NetworkAddress, Set<String>> entry : tmp.entrySet()) {
             boolean local = address.equals(entry.getKey());
             
             futs[i++] = local ?
@@ -181,7 +193,7 @@ public class TransactionImpl implements InternalTransaction {
         }
         
         // Handle coordinator's tx.
-        futs[i] = map.containsKey(address) ? CompletableFuture.completedFuture(null) :
+        futs[i] = tmp.containsKey(address) ? CompletableFuture.completedFuture(null) :
                 commit ? txManager.commitAsync(timestamp) : txManager.rollbackAsync(timestamp);
         
         return CompletableFuture.allOf(futs);

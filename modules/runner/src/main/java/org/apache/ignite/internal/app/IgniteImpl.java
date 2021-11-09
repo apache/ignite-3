@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.Ignite;
@@ -56,7 +58,9 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.configuration.ColumnTypeValidatorImpl;
 import org.apache.ignite.internal.schema.configuration.TableValidatorImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -71,6 +75,7 @@ import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.raft.jraft.util.Marshaller;
 import org.apache.ignite.rest.RestModule;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -181,10 +186,18 @@ public class IgniteImpl implements Ignite {
 
         lockManager = new HeapLockManager();
 
-        txManager = new TxManagerImpl(clusterSvc, lockManager);
-
-        raftMgr = new Loza(clusterSvc, txManager, workDir);
-
+        raftMgr = new Loza(clusterSvc, workDir);
+    
+        txManager = new TxManagerImpl(clusterSvc, lockManager) {
+            @Override
+            protected CompletableFuture finishGroup(String groupId, Timestamp ts, boolean commit) {
+                FinishTxCommand cmd = new FinishTxCommand(ts, commit);
+    
+                // apply is async, shouldn't throw any exception.
+                return raftMgr.apply(groupId, ByteBuffer.wrap(Marshaller.DEFAULT.marshall(cmd)));
+            }
+        };
+    
         metaStorageMgr = new MetaStorageManager(
                 vaultMgr,
                 nodeCfgMgr,

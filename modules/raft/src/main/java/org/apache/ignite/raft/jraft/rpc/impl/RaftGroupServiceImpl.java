@@ -21,12 +21,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -240,6 +242,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         return fut.thenApply(resp -> {
             leader = parsePeer(resp.leaderId());
+            
+            LOG.info("DBG: setleader {}", leader.address());
 
             return null;
         });
@@ -489,6 +493,21 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param <R> Response type.
      */
     private <R> void sendWithRetry(Peer peer, Object req, long stopTime, CompletableFuture<R> fut) {
+        UUID id = UUID.randomUUID();
+    
+        Class<Object> cls = (Class<Object>) req.getClass();
+    
+        String msgStr = S.toString(cls, req);
+        
+        boolean print = msgStr.contains("GetCommand");
+        
+        if (print) {
+            LOG.info("sendWithRetry peers={} req={} from={} to={} id={}", peers, msgStr,
+                    cluster.topologyService().localMember().address(),
+                    peer.address(),
+                    id);
+        }
+        
         if (currentTimeMillis() >= stopTime) {
             fut.completeExceptionally(new TimeoutException());
 
@@ -499,6 +518,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         fut0.whenComplete(new BiConsumer<Object, Throwable>() {
             @Override public void accept(Object resp, Throwable err) {
+                if (print) {
+                    LOG.info("sendWithRetry resp={} err={}, id={}", resp, err == null ? err : err.getMessage(), id);
+                }
+                
                 if (err != null) {
                     if (recoverable(err)) {
                         executor.schedule(() -> {
@@ -507,15 +530,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                             return null;
                         }, retryDelay, TimeUnit.MILLISECONDS);
                     }
-                    else
+                    else {
                         fut.completeExceptionally(err);
+                    }
                 }
                 else if (resp instanceof RpcRequests.ErrorResponse) {
                     RpcRequests.ErrorResponse resp0 = (RpcRequests.ErrorResponse) resp;
 
                     if (resp0.errorCode() == RaftError.SUCCESS.getNumber()) { // Handle OK response.
                         leader = peer; // The OK response was received from a leader.
-
+    
+                        LOG.info("DBG: setleader 2 {}", leader.address());
+                        
                         fut.complete(null); // Void response.
                     }
                     else if (resp0.errorCode() == RaftError.EBUSY.getNumber() ||
@@ -540,7 +566,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                         }
                         else {
                             leader = parsePeer(resp0.leaderId()); // Update a leader.
-
+    
+                            LOG.info("DBG: setleader 3 {}", leader.address());
+                            
                             executor.schedule(() -> {
                                 sendWithRetry(leader, req, stopTime, fut);
 

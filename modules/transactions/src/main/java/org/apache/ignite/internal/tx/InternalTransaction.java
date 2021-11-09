@@ -20,8 +20,10 @@ package org.apache.ignite.internal.tx;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 public interface InternalTransaction extends Transaction {
     /**
@@ -34,7 +36,8 @@ public interface InternalTransaction extends Transaction {
      *
      * @return A map of enlisted nodes mapped to a partitions set.
      */
-    Map<NetworkAddress, Set<String>> map();
+    @TestOnly
+    Set<RaftGroupService> map();
     
     /**
      * @return The state.
@@ -42,11 +45,10 @@ public interface InternalTransaction extends Transaction {
     TxState state();
     
     /**
-     * @param node The node.
-     * @param partId Partition group id.
+     * @param RaftGroupService svc.
      * @return {@code True} if a node is enlisted into the transaction.
      */
-    boolean enlist(NetworkAddress node, String groupId);
+    boolean enlist(RaftGroupService svc);
     
     /**
      * Sets a thread of control for a transaction.
