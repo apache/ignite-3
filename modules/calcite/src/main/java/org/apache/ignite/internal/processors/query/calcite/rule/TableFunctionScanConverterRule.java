@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.processors.query.calcite.rule;
+
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.List;
 import java.util.Set;
-
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptUtil;
@@ -38,13 +40,10 @@ import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribut
 import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
 
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-
 /**
  * Rule to convert a {@link LogicalTableFunctionScan} to an {@link IgniteTableFunctionScan}.
  */
 public class TableFunctionScanConverterRule extends AbstractIgniteConverterRule<LogicalTableFunctionScan> {
-    /** */
     public static final RelOptRule INSTANCE = new TableFunctionScanConverterRule();
 
     /** Default constructor. */
@@ -53,13 +52,14 @@ public class TableFunctionScanConverterRule extends AbstractIgniteConverterRule<
     }
 
     /** {@inheritDoc} */
-    @Override protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalTableFunctionScan rel) {
+    @Override
+    protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalTableFunctionScan rel) {
         assert nullOrEmpty(rel.getInputs());
 
         RelTraitSet traitSet = rel.getTraitSet()
-            .replace(IgniteConvention.INSTANCE)
-            .replace(RewindabilityTrait.REWINDABLE)
-            .replace(IgniteDistributions.broadcast());
+                .replace(IgniteConvention.INSTANCE)
+                .replace(RewindabilityTrait.REWINDABLE)
+                .replace(IgniteDistributions.broadcast());
 
         RexBuilder rexBuilder = rel.getCluster().getRexBuilder();
 
@@ -75,11 +75,12 @@ public class TableFunctionScanConverterRule extends AbstractIgniteConverterRule<
 
             assert corrIds.size() == 1 : "Multiple correlates are applied: " + corrIds;
 
-            rel = (LogicalTableFunctionScan)rel0;
+            rel = (LogicalTableFunctionScan) rel0;
         }
 
-        if (!corrIds.isEmpty())
+        if (!corrIds.isEmpty()) {
             traitSet = traitSet.replace(CorrelationTrait.correlations(corrIds));
+        }
 
         return new IgniteTableFunctionScan(rel.getCluster(), traitSet, rel.getCall(), rel.getRowType());
     }

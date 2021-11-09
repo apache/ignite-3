@@ -17,6 +17,13 @@
 
 package org.apache.ignite.internal.processors.query.calcite.planner;
 
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.CoreMatchers.notNullValue;
+import static org.hamcrest.CoreMatchers.nullValue;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
@@ -29,24 +36,20 @@ import org.apache.ignite.internal.processors.query.calcite.schema.IgniteSchema;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions;
 import org.junit.jupiter.api.Test;
 
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.hamcrest.CoreMatchers.notNullValue;
-import static org.hamcrest.CoreMatchers.nullValue;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 /**
  * Table spool test.
  */
 public class TableDmlPlannerTest extends AbstractPlannerTest {
     /**
+     * InsertCachesTableScan.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @throws Exception If failed.
      */
     @Test
     public void insertCachesTableScan() throws Exception {
         IgniteSchema schema = createSchema(
-            createTable("TEST", IgniteDistributions.random(), "VAL", Integer.class)
+                createTable("TEST", IgniteDistributions.random(), "VAL", Integer.class)
         );
 
         String sql = "insert into test select 2 * val from test";
@@ -62,13 +65,16 @@ public class TableDmlPlannerTest extends AbstractPlannerTest {
         assertThat(invalidPlanMsg, modifyNode, notNullValue());
         assertThat(invalidPlanMsg, modifyNode.getInput(), instanceOf(Spool.class));
 
-        Spool spool = (Spool)modifyNode.getInput();
+        Spool spool = (Spool) modifyNode.getInput();
 
         assertThat(invalidPlanMsg, spool.readType, equalTo(Spool.Type.EAGER));
         assertThat(invalidPlanMsg, findFirstNode(phys, byClass(IgniteTableScan.class)), notNullValue());
     }
 
     /**
+     * InsertCachesIndexScan.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @throws Exception If failed.
      */
     @Test
@@ -92,19 +98,22 @@ public class TableDmlPlannerTest extends AbstractPlannerTest {
         assertThat(invalidPlanMsg, modifyNode, notNullValue());
         assertThat(invalidPlanMsg, modifyNode.getInput(), instanceOf(Spool.class));
 
-        Spool spool = (Spool)modifyNode.getInput();
+        Spool spool = (Spool) modifyNode.getInput();
 
         assertThat(invalidPlanMsg, spool.readType, equalTo(Spool.Type.EAGER));
         assertThat(invalidPlanMsg, findFirstNode(phys, byClass(IgniteIndexScan.class)), notNullValue());
     }
 
     /**
+     * UpdateNotCachesTableScan.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @throws Exception If failed.
      */
     @Test
     public void updateNotCachesTableScan() throws Exception {
         IgniteSchema schema = createSchema(
-            createTable("TEST", IgniteDistributions.random(), "VAL", Integer.class)
+                createTable("TEST", IgniteDistributions.random(), "VAL", Integer.class)
         );
 
         String sql = "update test set val = 2 * val";
@@ -120,6 +129,9 @@ public class TableDmlPlannerTest extends AbstractPlannerTest {
     }
 
     /**
+     * UpdateNotCachesNonDependentIndexScan.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @throws Exception If failed.
      */
     @Test
@@ -143,6 +155,9 @@ public class TableDmlPlannerTest extends AbstractPlannerTest {
     }
 
     /**
+     * UpdateCachesDependentIndexScan.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @throws Exception If failed.
      */
     @Test
@@ -166,7 +181,7 @@ public class TableDmlPlannerTest extends AbstractPlannerTest {
         assertThat(invalidPlanMsg, modifyNode, notNullValue());
         assertThat(invalidPlanMsg, modifyNode.getInput(), instanceOf(Spool.class));
 
-        Spool spool = (Spool)modifyNode.getInput();
+        Spool spool = (Spool) modifyNode.getInput();
 
         assertThat(invalidPlanMsg, spool.readType, equalTo(Spool.Type.EAGER));
         assertThat(invalidPlanMsg, findFirstNode(phys, byClass(IgniteIndexScan.class)), notNullValue());

@@ -29,7 +29,7 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeSystem
 import org.junit.jupiter.api.Test;
 
 /**
- *
+ * Union test.
  */
 @SuppressWarnings({"TooBroadScope", "FieldCanBeLocal", "TypeMayBeWeakened"})
 public class UnionPlannerTest extends AbstractPlannerTest {
@@ -40,22 +40,22 @@ public class UnionPlannerTest extends AbstractPlannerTest {
     public void testUnion() throws Exception {
         IgniteSchema publicSchema = prepareSchema();
 
-        String sql = "" +
-            "SELECT * FROM table1 " +
-            "UNION " +
-            "SELECT * FROM table2 " +
-            "UNION " +
-            "SELECT * FROM table3 ";
+        String sql = ""
+                + "SELECT * FROM table1 "
+                + "UNION "
+                + "SELECT * FROM table2 "
+                + "UNION "
+                + "SELECT * FROM table3 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(IgniteReduceAggregateBase.class)
-            .and(hasChildThat(isInstanceOf(Union.class)
-            )));
+                .and(hasChildThat(isInstanceOf(Union.class)
+                )));
         assertPlan(sql, publicSchema, isInstanceOf(IgniteReduceAggregateBase.class)
-            .and(hasChildThat(isInstanceOf(Union.class)
-                .and(input(0, isTableScan("TABLE1")))
-                .and(input(1, isTableScan("TABLE2")))
-                .and(input(2, isTableScan("TABLE3")))
-            )));
+                .and(hasChildThat(isInstanceOf(Union.class)
+                        .and(input(0, isTableScan("TABLE1")))
+                        .and(input(1, isTableScan("TABLE2")))
+                        .and(input(2, isTableScan("TABLE3")))
+                )));
     }
 
     /**
@@ -65,17 +65,17 @@ public class UnionPlannerTest extends AbstractPlannerTest {
     public void testUnionAll() throws Exception {
         IgniteSchema publicSchema = prepareSchema();
 
-        String sql = "" +
-            "SELECT * FROM table1 " +
-            "UNION ALL " +
-            "SELECT * FROM table2 " +
-            "UNION ALL " +
-            "SELECT * FROM table3 ";
+        String sql = ""
+                + "SELECT * FROM table1 "
+                + "UNION ALL "
+                + "SELECT * FROM table2 "
+                + "UNION ALL "
+                + "SELECT * FROM table3 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(IgniteUnionAll.class)
-            .and(input(0, hasChildThat(isTableScan("TABLE1"))))
-            .and(input(1, hasChildThat(isTableScan("TABLE2"))))
-            .and(input(2, hasChildThat(isTableScan("TABLE3")))));
+                .and(input(0, hasChildThat(isTableScan("TABLE1"))))
+                .and(input(1, hasChildThat(isTableScan("TABLE2"))))
+                .and(input(2, hasChildThat(isTableScan("TABLE3")))));
     }
 
     /**
@@ -85,11 +85,11 @@ public class UnionPlannerTest extends AbstractPlannerTest {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         TestTable tbl1 = new TestTable(
-            new RelDataTypeFactory.Builder(f)
-                .add("ID", f.createJavaType(Integer.class))
-                .add("NAME", f.createJavaType(String.class))
-                .add("SALARY", f.createJavaType(Double.class))
-                .build()) {
+                new RelDataTypeFactory.Builder(f)
+                        .add("ID", f.createJavaType(Integer.class))
+                        .add("NAME", f.createJavaType(String.class))
+                        .add("SALARY", f.createJavaType(Double.class))
+                        .build()) {
 
             @Override public IgniteDistribution distribution() {
                 return IgniteDistributions.affinity(0, "Table1", "hash");
@@ -97,11 +97,11 @@ public class UnionPlannerTest extends AbstractPlannerTest {
         };
 
         TestTable tbl2 = new TestTable(
-            new RelDataTypeFactory.Builder(f)
-                .add("ID", f.createJavaType(Integer.class))
-                .add("NAME", f.createJavaType(String.class))
-                .add("SALARY", f.createJavaType(Double.class))
-                .build()) {
+                new RelDataTypeFactory.Builder(f)
+                        .add("ID", f.createJavaType(Integer.class))
+                        .add("NAME", f.createJavaType(String.class))
+                        .add("SALARY", f.createJavaType(Double.class))
+                        .build()) {
 
             @Override public IgniteDistribution distribution() {
                 return IgniteDistributions.affinity(0, "Table2", "hash");
@@ -109,11 +109,11 @@ public class UnionPlannerTest extends AbstractPlannerTest {
         };
 
         TestTable tbl3 = new TestTable(
-            new RelDataTypeFactory.Builder(f)
-                .add("ID", f.createJavaType(Integer.class))
-                .add("NAME", f.createJavaType(String.class))
-                .add("SALARY", f.createJavaType(Double.class))
-                .build()) {
+                new RelDataTypeFactory.Builder(f)
+                        .add("ID", f.createJavaType(Integer.class))
+                        .add("NAME", f.createJavaType(String.class))
+                        .add("SALARY", f.createJavaType(Double.class))
+                        .build()) {
 
             @Override public IgniteDistribution distribution() {
                 return IgniteDistributions.affinity(0, "Table3", "hash");

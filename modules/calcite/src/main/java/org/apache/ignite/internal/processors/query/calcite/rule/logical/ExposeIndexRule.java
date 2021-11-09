@@ -21,7 +21,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
@@ -34,29 +33,24 @@ import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLog
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
 
 /**
- *
+ * ExposeIndexRule.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
-    /** */
     public static final RelOptRule INSTANCE = Config.DEFAULT.toRule();
 
-    /**
-     * Constructor
-     *
-     * @param config Expose index rule config.
-     */
     public ExposeIndexRule(Config config) {
         super(config);
     }
 
-    /** */
     private static boolean preMatch(IgniteLogicalTableScan scan) {
         return scan.simple() // was not modified by ProjectScanMergeRule or FilterScanMergeRule
-            && !scan.getTable().unwrap(IgniteTable.class).indexes().isEmpty(); // has indexes to expose
+                && !scan.getTable().unwrap(IgniteTable.class).indexes().isEmpty(); // has indexes to expose
     }
 
     /** {@inheritDoc} */
-    @Override public void onMatch(RelOptRuleCall call) {
+    @Override
+    public void onMatch(RelOptRuleCall call) {
         IgniteLogicalTableScan scan = call.rel(0);
         RelOptCluster cluster = scan.getCluster();
 
@@ -64,30 +58,32 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
         IgniteTable igniteTable = optTable.unwrap(IgniteTable.class);
 
         List<IgniteLogicalIndexScan> indexes = igniteTable.indexes().keySet().stream()
-            .map(idxName -> igniteTable.toRel(cluster, optTable, idxName))
-            .collect(Collectors.toList());
+                .map(idxName -> igniteTable.toRel(cluster, optTable, idxName))
+                .collect(Collectors.toList());
 
-        if (indexes.isEmpty())
+        if (indexes.isEmpty()) {
             return;
+        }
 
         Map<RelNode, RelNode> equivMap = new HashMap<>(indexes.size());
-        for (int i = 1; i < indexes.size(); i++)
+        for (int i = 1; i < indexes.size(); i++) {
             equivMap.put(indexes.get(i), scan);
+        }
 
         call.transformTo(indexes.get(0), equivMap);
     }
 
-    /** */
+    /** ExposeIndexRule configuration. */
     @SuppressWarnings("ClassNameSameAsAncestorName")
     public interface Config extends RelRule.Config {
         /** */
         Config DEFAULT = EMPTY
-            .withRelBuilderFactory(RelFactories.LOGICAL_BUILDER)
-            .withOperandSupplier(b ->
-                b.operand(IgniteLogicalTableScan.class)
-                    .predicate(ExposeIndexRule::preMatch)
-                    .anyInputs())
-            .as(Config.class);
+                .withRelBuilderFactory(RelFactories.LOGICAL_BUILDER)
+                .withOperandSupplier(b ->
+                        b.operand(IgniteLogicalTableScan.class)
+                                .predicate(ExposeIndexRule::preMatch)
+                                .anyInputs())
+                .as(Config.class);
 
         /** {@inheritDoc} */
         @Override default ExposeIndexRule toRule() {

@@ -42,48 +42,51 @@ public interface IgniteRel extends PhysicalNode {
 
     /**
      * Clones this rel associating it with given cluster.
+     *
      * @param cluster Cluster.
      * @return New rel.
      */
     IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs);
 
     /**
-     * @return Node distribution.
+     * Get node distribution.
      */
     default IgniteDistribution distribution() {
         return TraitUtils.distribution(getTraitSet());
     }
 
     /**
-     * @return Node collations.
+     * Get node collations.
      */
     default RelCollation collation() {
         return TraitUtils.collation(getTraitSet());
     }
 
     /**
-     * @return Node rewindability.
+     * Get node rewindability.
      */
     default RewindabilityTrait rewindability() {
         return TraitUtils.rewindability(getTraitSet());
     }
 
     /**
-     * @return Node correlation.
+     * Get node correlation.
      */
     default CorrelationTrait correlation() {
         return TraitUtils.correlation(getTraitSet());
     }
 
     /** {@inheritDoc} */
-    @Override default Pair<RelTraitSet, List<RelTraitSet>> passThroughTraits(
-        RelTraitSet required) {
+    @Override
+    default Pair<RelTraitSet, List<RelTraitSet>> passThroughTraits(
+            RelTraitSet required) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override default Pair<RelTraitSet, List<RelTraitSet>> deriveTraits(
-        RelTraitSet childTraits, int childId) {
+    @Override
+    default Pair<RelTraitSet, List<RelTraitSet>> deriveTraits(
+            RelTraitSet childTraits, int childId) {
         return null;
     }
 }

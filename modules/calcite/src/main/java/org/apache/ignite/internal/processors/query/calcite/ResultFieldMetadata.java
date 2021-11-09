@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.query.calcite;
 
 import java.util.List;
-
 import org.apache.ignite.internal.schema.NativeType;
 
 /**
@@ -26,32 +25,29 @@ import org.apache.ignite.internal.schema.NativeType;
  */
 public interface ResultFieldMetadata {
     /**
-     * @return name of the result's field.
+     * Get name of the result's field.
      */
     String name();
 
     /**
-     * @return index (order) of the result's field (starts from 0).
+     * Get index (order) of the result's field (starts from 0).
      */
     int order();
 
     /**
-     * @return type of the result's field.
+     * Get type of the result's field.
      */
     NativeType type();
 
     /**
-     * @return nullable flag of the result's field.
+     * Get nullable flag of the result's field.
      */
     boolean isNullable();
 
     /**
-     * Example:
-     * SELECT SUM(price), category, subcategory FROM Goods WHERE [condition] GROUP_BY category, subcategory;
+     * Example: SELECT SUM(price), category, subcategory FROM Goods WHERE [condition] GROUP_BY category, subcategory.
      *
-     * Field - Origin
-     * SUM(price) - null;
-     * category - {"PUBLIC", "Goods", "category"};
+     * <p>Field - Origin SUM(price) - null; category - {"PUBLIC", "Goods", "category"};
      * subcategory - {"PUBLIC", "Goods", "subcategory"};
      *
      * @return field's origin (or where a field value comes from).

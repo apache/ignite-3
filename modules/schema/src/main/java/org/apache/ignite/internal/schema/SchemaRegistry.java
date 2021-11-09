@@ -23,17 +23,16 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * Table schema registry interface.
- * <p>
- * Schemas itself MUST be registered in a version ascending order incrementing by {@code 1} with NO gaps,
- * otherwise an exception will be thrown. The version numbering starts from the {@code 1}.
- * <p>
- * After some table maintenance process some first versions may become outdated and can be safely cleaned up
- * if the process guarantees the table no longer has a data of these versions.
  *
- * @implSpec The changes in between two arbitrary actual versions MUST NOT be lost.
- * Thus, schema versions can only be removed from the beginning.
- * @implSpec Initial schema history MAY be registered without the first outdated versions
- * that could be cleaned up earlier.
+ * <p>Schemas itself MUST be registered in a version ascending order incrementing by {@code 1} with NO gaps, otherwise an exception will be
+ * thrown. The version numbering starts from the {@code 1}.
+ *
+ * <p>After some table maintenance process some first versions may become outdated and can be safely cleaned up if the process guarantees
+ * the table no longer has a data of these versions.
+ *
+ * @implSpec The changes in between two arbitrary actual versions MUST NOT be lost. Thus, schema versions can only be removed from the
+ *      beginning.
+ * @implSpec Initial schema history MAY be registered without the first outdated versions that could be cleaned up earlier.
  */
 public interface SchemaRegistry {
     /**
@@ -42,11 +41,6 @@ public interface SchemaRegistry {
      * @return Schema descriptor if initialized, {@code null} otherwise.
      */
     SchemaDescriptor schema();
-
-    /**
-     * @return Last registereg schema version.
-     */
-    public int lastSchemaVersion();
 
     /**
      * Gets schema descriptor for given version.
@@ -58,6 +52,14 @@ public interface SchemaRegistry {
     @NotNull SchemaDescriptor schema(int ver) throws SchemaRegistryException;
 
     /**
+     * Get last registereg schema version.
+     */
+    public int lastSchemaVersion();
+
+    /**
+     * Resolve row.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @param row Binary row.
      * @return Schema-aware row.
      */

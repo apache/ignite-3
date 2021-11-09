@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.query.calcite.rule;
 
 import java.util.List;
-
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
@@ -34,19 +33,20 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteUnionAll;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
 /**
- *
+ * UnionConverterRule.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class UnionConverterRule extends RelRule<UnionConverterRule.Config> {
     /** Instance. */
     public static final RelOptRule INSTANCE = Config.DEFAULT.toRule();
 
-    /** */
     public UnionConverterRule(Config cfg) {
         super(cfg);
     }
 
     /** {@inheritDoc} */
-    @Override public void onMatch(RelOptRuleCall call) {
+    @Override
+    public void onMatch(RelOptRuleCall call) {
         final LogicalUnion union = call.rel(0);
 
         RelOptCluster cluster = union.getCluster();
@@ -59,8 +59,8 @@ public class UnionConverterRule extends RelRule<UnionConverterRule.Config> {
             final RelBuilder relBuilder = relBuilderFactory.create(union.getCluster(), null);
 
             relBuilder
-                .push(res)
-                .aggregate(relBuilder.groupKey(ImmutableBitSet.range(union.getRowType().getFieldCount())));
+                    .push(res)
+                    .aggregate(relBuilder.groupKey(ImmutableBitSet.range(union.getRowType().getFieldCount())));
 
             res = convert(relBuilder.build(), union.getTraitSet());
         }
@@ -69,26 +69,27 @@ public class UnionConverterRule extends RelRule<UnionConverterRule.Config> {
     }
 
     /**
-     *
+     * Config interface.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public interface Config extends RelRule.Config {
-        /** */
         UnionConverterRule.Config DEFAULT = RelRule.Config.EMPTY
-            .withRelBuilderFactory(RelFactories.LOGICAL_BUILDER)
-            .withDescription("UnionConverterRule")
-            .as(UnionConverterRule.Config.class)
-            .withOperandFor(LogicalUnion.class);
+                .withRelBuilderFactory(RelFactories.LOGICAL_BUILDER)
+                .withDescription("UnionConverterRule")
+                .as(UnionConverterRule.Config.class)
+                .withOperandFor(LogicalUnion.class);
 
         /** Defines an operand tree for the given classes. */
         default UnionConverterRule.Config withOperandFor(Class<? extends LogicalUnion> union) {
             return withOperandSupplier(
-                o0 -> o0.operand(union).anyInputs()
+                    o0 -> o0.operand(union).anyInputs()
             )
-                .as(UnionConverterRule.Config.class);
+                    .as(UnionConverterRule.Config.class);
         }
 
         /** {@inheritDoc} */
-        @Override default UnionConverterRule toRule() {
+        @Override
+        default UnionConverterRule toRule() {
             return new UnionConverterRule(this);
         }
     }

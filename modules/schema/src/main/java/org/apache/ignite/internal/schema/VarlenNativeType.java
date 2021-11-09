@@ -27,8 +27,10 @@ public class VarlenNativeType extends NativeType {
     private final int len;
 
     /**
+     * Constructor.
+     *
      * @param typeSpec Type spec.
-     * @param len Type length.
+     * @param len      Type length.
      */
     protected VarlenNativeType(NativeTypeSpec typeSpec, int len) {
         super(typeSpec);
@@ -37,19 +39,21 @@ public class VarlenNativeType extends NativeType {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean mismatch(NativeType type) {
-        return super.mismatch(type) || len < ((VarlenNativeType)type).len;
+    @Override
+    public boolean mismatch(NativeType type) {
+        return super.mismatch(type) || len < ((VarlenNativeType) type).len;
     }
 
     /**
-     * @return Length of the type.
+     * Get length of the type.
      */
     public int length() {
         return len;
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return S.toString(VarlenNativeType.class.getSimpleName(), "name", spec(), "len", len);
     }
 }

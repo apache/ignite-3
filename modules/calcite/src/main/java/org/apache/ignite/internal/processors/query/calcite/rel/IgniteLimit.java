@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.query.calcite.rel;
 
 import java.util.List;
-
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
@@ -34,7 +33,10 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCost;
 
-/** */
+/**
+ * IgniteLimit.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public class IgniteLimit extends SingleRel implements IgniteRel {
     /** In case the fetch value is a DYNAMIC_PARAM. */
     private static final double FETCH_IS_PARAM_FACTOR = 0.01;
@@ -45,36 +47,39 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     /** Offset. */
     private final RexNode offset;
 
-    /** Fetches rows expression (limit) */
+    /** Fetches rows expression (limit). */
     private final RexNode fetch;
 
     /**
      * Constructor.
      *
      * @param cluster Cluster.
-     * @param traits Trait set.
-     * @param child Input relational expression.
-     * @param offset Offset.
-     * @param fetch Limit.
+     * @param traits  Trait set.
+     * @param child   Input relational expression.
+     * @param offset  Offset.
+     * @param fetch   Limit.
      */
     public IgniteLimit(
-        RelOptCluster cluster,
-        RelTraitSet traits,
-        RelNode child,
-        RexNode offset,
-        RexNode fetch
+            RelOptCluster cluster,
+            RelTraitSet traits,
+            RelNode child,
+            RexNode offset,
+            RexNode fetch
     ) {
         super(cluster, traits, child);
         this.offset = offset;
         this.fetch = fetch;
     }
 
-    /** */
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IgniteLimit(RelInput input) {
         super(
-            input.getCluster(),
-            input.getTraitSet().replace(IgniteConvention.INSTANCE),
-            input.getInputs().get(0)
+                input.getCluster(),
+                input.getTraitSet().replace(IgniteConvention.INSTANCE),
+                input.getInputs().get(0)
         );
 
         offset = input.getExpression("offset");
@@ -82,12 +87,14 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     }
 
     /** {@inheritDoc} */
-    @Override public final IgniteLimit copy(RelTraitSet traitSet, List<RelNode> inputs) {
+    @Override
+    public final IgniteLimit copy(RelTraitSet traitSet, List<RelNode> inputs) {
         return new IgniteLimit(getCluster(), traitSet, sole(inputs), offset, fetch);
     }
 
     /** {@inheritDoc} */
-    @Override public RelWriter explainTerms(RelWriter pw) {
+    @Override
+    public RelWriter explainTerms(RelWriter pw) {
         super.explainTerms(pw);
         pw.itemIf("offset", offset, offset != null);
         pw.itemIf("fetch", fetch, fetch != null);
@@ -95,30 +102,36 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T accept(IgniteRelVisitor<T> visitor) {
+    @Override
+    public <T> T accept(IgniteRelVisitor<T> visitor) {
         return visitor.visit(this);
     }
 
     /** {@inheritDoc} */
-    @Override public Pair<RelTraitSet, List<RelTraitSet>> passThroughTraits(RelTraitSet required) {
-        if (required.getConvention() != IgniteConvention.INSTANCE)
+    @Override
+    public Pair<RelTraitSet, List<RelTraitSet>> passThroughTraits(RelTraitSet required) {
+        if (required.getConvention() != IgniteConvention.INSTANCE) {
             return null;
+        }
 
         return Pair.of(required, List.of(required));
     }
 
     /** {@inheritDoc} */
-    @Override public Pair<RelTraitSet, List<RelTraitSet>> deriveTraits(RelTraitSet childTraits, int childId) {
+    @Override
+    public Pair<RelTraitSet, List<RelTraitSet>> deriveTraits(RelTraitSet childTraits, int childId) {
         assert childId == 0;
 
-        if (childTraits.getConvention() != IgniteConvention.INSTANCE)
+        if (childTraits.getConvention() != IgniteConvention.INSTANCE) {
             return null;
+        }
 
         return Pair.of(childTraits, List.of(childTraits));
     }
 
     /** {@inheritDoc} */
-    @Override public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
+    @Override
+    public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
         double inputRowCount = mq.getRowCount(getInput());
 
         double lim = fetch != null ? doubleFromRex(fetch, inputRowCount * FETCH_IS_PARAM_FACTOR) : inputRowCount;
@@ -130,7 +143,8 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     }
 
     /** {@inheritDoc} */
-    @Override public double estimateRowCount(RelMetadataQuery mq) {
+    @Override
+    public double estimateRowCount(RelMetadataQuery mq) {
         double inputRowCount = mq.getRowCount(getInput());
 
         double lim = fetch != null ? doubleFromRex(fetch, inputRowCount * FETCH_IS_PARAM_FACTOR) : inputRowCount;
@@ -140,16 +154,19 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     }
 
     /**
+     * DoubleFromRex.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @return Integer value of the literal expression.
      */
     private double doubleFromRex(RexNode n, double def) {
         try {
-            if (n.isA(SqlKind.LITERAL))
-                return ((RexLiteral)n).getValueAs(Integer.class);
-            else
+            if (n.isA(SqlKind.LITERAL)) {
+                return ((RexLiteral) n).getValueAs(Integer.class);
+            } else {
                 return def;
-        }
-        catch (Exception e) {
+            }
+        } catch (Exception e) {
             assert false : "Unable to extract value: " + e.getMessage();
 
             return def;
@@ -157,21 +174,22 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     }
 
     /**
-     * @return Offset.
+     * Get offset.
      */
     public RexNode offset() {
         return offset;
     }
 
     /**
-     * @return Fetches rows expression (limit)
+     * Get fetches rows expression (limit).
      */
     public RexNode fetch() {
         return fetch;
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
+    @Override
+    public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteLimit(cluster, getTraitSet(), sole(inputs), offset, fetch);
     }
 }

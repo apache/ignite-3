@@ -20,30 +20,36 @@ package org.apache.ignite.internal.processors.query.calcite.prepare;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteRel;
 
-/** */
+/**
+ * FragmentPlan.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public class FragmentPlan implements QueryPlan {
-    /** */
     private final IgniteRel root;
 
-    /** */
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public FragmentPlan(IgniteRel root) {
         RelOptCluster cluster = PlanningContext.empty().cluster();
 
         this.root = new Cloner(cluster).visit(root);
     }
 
-    /** */
     public IgniteRel root() {
         return root;
     }
 
     /** {@inheritDoc} */
-    @Override public Type type() {
+    @Override
+    public Type type() {
         return Type.FRAGMENT;
     }
 
     /** {@inheritDoc} */
-    @Override public QueryPlan copy() {
+    @Override
+    public QueryPlan copy() {
         return this;
     }
 }

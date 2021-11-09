@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.configuration.tree;
 
-/** */
+/**
+ * An interface for traversing a tree.
+ */
 public interface TraversableTreeNode {
     /**
+     * Accept the visitor.
+     *
      * @param key Name of the node retrieved from its holder object.
      * @param visitor Configuration visitor.
      * @param <T> Parameter type of the passed visitor.

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.query.calcite.rel.agg;
 
 import java.util.List;
-
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
@@ -39,49 +38,63 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
 /**
- *
+ * IgniteMapHashAggregate.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteMapHashAggregate extends IgniteMapAggregateBase implements IgniteHashAggregateBase {
-    /** */
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IgniteMapHashAggregate(
-        RelOptCluster cluster,
-        RelTraitSet traitSet,
-        RelNode input,
-        ImmutableBitSet groupSet,
-        List<ImmutableBitSet> groupSets,
-        List<AggregateCall> aggCalls
+            RelOptCluster cluster,
+            RelTraitSet traitSet,
+            RelNode input,
+            ImmutableBitSet groupSet,
+            List<ImmutableBitSet> groupSets,
+            List<AggregateCall> aggCalls
     ) {
         super(cluster, traitSet, input, groupSet, groupSets, aggCalls);
     }
 
-    /** */
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IgniteMapHashAggregate(RelInput input) {
         super(input);
     }
 
     /** {@inheritDoc} */
-    @Override public Aggregate copy(RelTraitSet traitSet, RelNode input, ImmutableBitSet groupSet,
-        List<ImmutableBitSet> groupSets, List<AggregateCall> aggCalls) {
+    @Override
+    public Aggregate copy(RelTraitSet traitSet, RelNode input, ImmutableBitSet groupSet,
+            List<ImmutableBitSet> groupSets, List<AggregateCall> aggCalls) {
         return new IgniteMapHashAggregate(getCluster(), traitSet, input, groupSet, groupSets, aggCalls);
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
+    @Override
+    public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteMapHashAggregate(cluster, getTraitSet(), sole(inputs),
-            getGroupSet(), getGroupSets(), getAggCallList());
+                getGroupSet(), getGroupSets(), getAggCallList());
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T accept(IgniteRelVisitor<T> visitor) {
+    @Override
+    public <T> T accept(IgniteRelVisitor<T> visitor) {
         return visitor.visit(this);
     }
 
     /** {@inheritDoc} */
-    @Override protected RelDataType deriveRowType() {
+    @Override
+    protected RelDataType deriveRowType() {
         return rowType(Commons.typeFactory(getCluster()), !aggCalls.isEmpty());
     }
 
-    /** */
+    /**
+     * RowType.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public static RelDataType rowType(RelDataTypeFactory typeFactory, boolean addData) {
         assert typeFactory instanceof IgniteTypeFactory;
 
@@ -90,14 +103,16 @@ public class IgniteMapHashAggregate extends IgniteMapAggregateBase implements Ig
         builder.add("GROUP_ID", typeFactory.createJavaType(byte.class));
         builder.add("GROUP_KEY", typeFactory.createJavaType(GroupKey.class));
 
-        if (addData)
+        if (addData) {
             builder.add("AGG_DATA", typeFactory.createArrayType(typeFactory.createJavaType(Accumulator.class), -1));
+        }
 
         return builder.build();
     }
 
     /** {@inheritDoc} */
-    @Override public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
+    @Override
+    public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
         return computeSelfCostHash(planner, mq);
     }
 }

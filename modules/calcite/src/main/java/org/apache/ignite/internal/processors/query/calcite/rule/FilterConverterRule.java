@@ -32,26 +32,31 @@ import org.apache.ignite.internal.processors.query.calcite.trait.CorrelationTrai
 import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
 
 /**
- *
+ * FilterConverterRule.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class FilterConverterRule extends AbstractIgniteConverterRule<LogicalFilter> {
-    /** */
     public static final RelOptRule INSTANCE = new FilterConverterRule();
 
-    /** */
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public FilterConverterRule() {
         super(LogicalFilter.class, "FilterConverterRule");
     }
 
     /** {@inheritDoc} */
-    @Override protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalFilter rel) {
+    @Override
+    protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalFilter rel) {
         RelOptCluster cluster = rel.getCluster();
         RelTraitSet traits = rel.getTraitSet().replace(IgniteConvention.INSTANCE);
 
         Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(rel.getCondition());
 
-        if (!corrIds.isEmpty())
+        if (!corrIds.isEmpty()) {
             traits = traits.replace(CorrelationTrait.correlations(corrIds));
+        }
 
         return new IgniteFilter(cluster, traits, rel.getInput(), rel.getCondition());
     }

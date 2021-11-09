@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.junit.jupiter.api.Test;
-
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -43,12 +39,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.junit.jupiter.api.Test;
+
 /**
- *
+ * NativeTypeTest.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class NativeTypeTest {
     /**
-     *
+     * CompareFixlenTypesVsVarlenTypes.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Test
     public void compareFixlenTypesVsVarlenTypes() {
@@ -66,7 +68,8 @@ public class NativeTypeTest {
     }
 
     /**
-     *
+     * CompareFixlenTypesBySize.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Test
     public void compareFixlenTypesBySize() {
@@ -89,7 +92,8 @@ public class NativeTypeTest {
     }
 
     /**
-     *
+     * CompareFixlenTypesByDesc.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Test
     public void compareFixlenTypesByDesc() {
@@ -101,7 +105,8 @@ public class NativeTypeTest {
     }
 
     /**
-     *
+     * ValidateTemporalTypesLength.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Test
     public void validateTemporalTypesLength() {
@@ -130,7 +135,8 @@ public class NativeTypeTest {
     }
 
     /**
-     *
+     * InvalidTemporalTypes.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Test
     public void invalidTemporalTypes() {
@@ -144,7 +150,8 @@ public class NativeTypeTest {
     }
 
     /**
-     *
+     * CompareVarlenTypesByDesc.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Test
     public void compareVarlenTypesByDesc() {
@@ -152,7 +159,8 @@ public class NativeTypeTest {
     }
 
     /**
-     *
+     * CreateNativeTypeFromColumnType.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Test
     public void createNativeTypeFromColumnType() {

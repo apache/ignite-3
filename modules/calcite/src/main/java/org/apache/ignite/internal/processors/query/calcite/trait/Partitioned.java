@@ -22,29 +22,35 @@ import java.util.List;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
-/** */
-public final class Partitioned<Row> implements Destination<Row> {
-    /** */
+/**
+ * Partitioned.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
+public final class Partitioned<RowT> implements Destination<RowT> {
     private final List<List<String>> assignments;
 
-    /** */
-    private final ToIntFunction<Row> partFun;
+    private final ToIntFunction<RowT> partFun;
 
-    /** */
-    public Partitioned(List<List<String>> assignments, ToIntFunction<Row> partFun) {
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
+    public Partitioned(List<List<String>> assignments, ToIntFunction<RowT> partFun) {
         this.assignments = assignments;
         this.partFun = partFun;
     }
 
     /** {@inheritDoc} */
-    @Override public List<String> targets(Row row) {
+    @Override
+    public List<String> targets(RowT row) {
         return assignments.get(partFun.applyAsInt(row) % assignments.size());
     }
 
     /** {@inheritDoc} */
-    @Override public List<String> targets() {
+    @Override
+    public List<String> targets() {
         return assignments.stream()
-            .flatMap(Collection::stream)
-            .distinct().collect(Collectors.toList());
+                .flatMap(Collection::stream)
+                .distinct().collect(Collectors.toList());
     }
 }
