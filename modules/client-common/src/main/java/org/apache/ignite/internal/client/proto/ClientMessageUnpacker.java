@@ -39,7 +39,6 @@ import static org.msgpack.core.MessagePack.Code;
 import io.netty.buffer.ByteBuf;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -761,14 +760,11 @@ public class ClientMessageUnpacker implements AutoCloseable {
         if (type != ClientMsgPackType.DECIMAL) {
             throw new MessageTypeException("Expected DECIMAL extension (2), but got " + type);
         }
+    
+        int scale = buf.readInt();
+        var bytes = readPayload(len - 4);
         
-        var bytes = readPayload(len);
-        
-        ByteBuffer bb = ByteBuffer.wrap(bytes);
-        
-        int scale = bb.getInt();
-        
-        return new BigDecimal(new BigInteger(bytes, bb.position(), bb.remaining()), scale);
+        return new BigDecimal(new BigInteger(bytes), scale);
     }
     
     /**
@@ -860,9 +856,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
             throw new MessageSizeException("Expected 6 bytes for DATE extension, but got " + len, len);
         }
         
-        var data = ByteBuffer.wrap(readPayload(len));
-        
-        return LocalDate.of(data.getInt(), data.get(), data.get());
+        return LocalDate.of(buf.readInt(), buf.readByte(), buf.readByte());
     }
     
     /**
@@ -887,9 +881,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
             throw new MessageSizeException("Expected 7 bytes for TIME extension, but got " + len, len);
         }
         
-        var data = ByteBuffer.wrap(readPayload(len));
-        
-        return LocalTime.of(data.get(), data.get(), data.get(), data.getInt());
+        return LocalTime.of(buf.readByte(), buf.readByte(), buf.readByte(), buf.readInt());
     }
     
     /**
@@ -914,11 +906,9 @@ public class ClientMessageUnpacker implements AutoCloseable {
             throw new MessageSizeException("Expected 13 bytes for DATETIME extension, but got " + len, len);
         }
         
-        var data = ByteBuffer.wrap(readPayload(len));
-        
         return LocalDateTime.of(
-                LocalDate.of(data.getInt(), data.get(), data.get()),
-                LocalTime.of(data.get(), data.get(), data.get(), data.getInt())
+                LocalDate.of(buf.readInt(), buf.readByte(), buf.readByte()),
+                LocalTime.of(buf.readByte(), buf.readByte(), buf.readByte(), buf.readInt())
         );
     }
     
@@ -944,9 +934,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
             throw new MessageSizeException("Expected 12 bytes for TIMESTAMP extension, but got " + len, len);
         }
         
-        var data = ByteBuffer.wrap(readPayload(len));
-        
-        return Instant.ofEpochSecond(data.getLong(), data.getInt());
+        return Instant.ofEpochSecond(buf.readLong(), buf.readInt());
     }
     
     /**
