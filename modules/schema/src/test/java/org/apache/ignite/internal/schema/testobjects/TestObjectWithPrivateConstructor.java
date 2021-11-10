@@ -41,7 +41,6 @@ public class TestObjectWithPrivateConstructor {
     
     private int primIntCol;
     
-    
     /**
      * Private constructor.
      */

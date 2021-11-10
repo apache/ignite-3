@@ -297,7 +297,6 @@ public class RecordMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithNoDefaultConstructor(MarshallerFactory factory) {
-        
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
                 new Column[]{new Column("primLongCol", INT64, false)},
@@ -315,17 +314,17 @@ public class RecordMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void privateClass(MarshallerFactory factory) throws MarshallerException {
-        Column[] cols = new Column[]{
-                new Column("primLongCol", INT64, false),
-        };
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("primLongCol", INT64, false)},
+                new Column[]{new Column("primIntCol", INT32, false)}
+        );
         
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
+        final ObjectFactory<PrivateTestObject> objFactory = new ObjectFactory<>(PrivateTestObject.class);
+        final RecordMarshaller<PrivateTestObject> marshaller = factory
+                .create(schema, PrivateTestObject.class);
         
-        final ObjectFactory<TestObjectWithPrivateConstructor> objFactory = new ObjectFactory<>(TestObjectWithPrivateConstructor.class);
-        final RecordMarshaller<TestObjectWithPrivateConstructor> marshaller = factory
-                .create(schema, TestObjectWithPrivateConstructor.class);
-        
-        final TestObjectWithPrivateConstructor rec = TestObjectWithPrivateConstructor.randomObject(rnd);
+        final PrivateTestObject rec = PrivateTestObject.randomObject(rnd);
         
         BinaryRow row = marshaller.marshal(objFactory.create());
         
@@ -443,6 +442,43 @@ public class RecordMarshallerTest {
         }
     }
     
+    private Column[] keyColumns() {
+        return new Column[]{
+                new Column("primitiveLongCol", INT64, false),
+                new Column("intCol", INT32, true)
+        };
+    }
+    
+    private Column[] valueColumnsAllTypes() {
+        return new Column[]{
+                new Column("primitiveByteCol", INT8, false, () -> (byte) 0x42),
+                new Column("primitiveShortCol", INT16, false, () -> (short) 0x4242),
+                new Column("primitiveIntCol", INT32, false, () -> 0x42424242),
+                new Column("primitiveFloatCol", FLOAT, false),
+                new Column("primitiveDoubleCol", DOUBLE, false),
+                
+                new Column("byteCol", INT8, true),
+                new Column("shortCol", INT16, true),
+                new Column("longCol", INT64, true),
+                new Column("nullLongCol", INT64, true),
+                new Column("floatCol", FLOAT, true),
+                new Column("doubleCol", DOUBLE, true),
+                
+                new Column("dateCol", DATE, true),
+                new Column("timeCol", time(), true),
+                new Column("dateTimeCol", datetime(), true),
+                new Column("timestampCol", timestamp(), true),
+                
+                new Column("uuidCol", UUID, true),
+                new Column("bitmaskCol", NativeTypes.bitmaskOf(42), true),
+                new Column("stringCol", STRING, true),
+                new Column("nullBytesCol", BYTES, true),
+                new Column("bytesCol", BYTES, true),
+                new Column("numberCol", NativeTypes.numberOf(12), true),
+                new Column("decimalCol", NativeTypes.decimalOf(19, 3), true),
+        };
+    }
+    
     /**
      * Test object.
      */
@@ -555,40 +591,54 @@ public class RecordMarshallerTest {
         }
     }
     
-    private Column[] keyColumns() {
-        return new Column[]{
-                new Column("primitiveLongCol", INT64, false),
-                new Column("intCol", INT32, true)
-        };
-    }
+    /**
+     * Test object without default constructor.
+     */
+    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
+    private static class PrivateTestObject {
+        /**
+         * Get random TestObject.
+         */
+        static PrivateTestObject randomObject(Random rnd) {
+            return new PrivateTestObject(rnd.nextLong(), rnd.nextInt());
+        }
     
-    private Column[] valueColumnsAllTypes() {
-        return new Column[]{
-                new Column("primitiveByteCol", INT8, false, () -> (byte) 0x42),
-                new Column("primitiveShortCol", INT16, false, () -> (short) 0x4242),
-                new Column("primitiveIntCol", INT32, false, () -> 0x42424242),
-                new Column("primitiveFloatCol", FLOAT, false),
-                new Column("primitiveDoubleCol", DOUBLE, false),
-                
-                new Column("byteCol", INT8, true),
-                new Column("shortCol", INT16, true),
-                new Column("longCol", INT64, true),
-                new Column("nullLongCol", INT64, true),
-                new Column("floatCol", FLOAT, true),
-                new Column("doubleCol", DOUBLE, true),
-                
-                new Column("dateCol", DATE, true),
-                new Column("timeCol", time(), true),
-                new Column("dateTimeCol", datetime(), true),
-                new Column("timestampCol", timestamp(), true),
-                
-                new Column("uuidCol", UUID, true),
-                new Column("bitmaskCol", NativeTypes.bitmaskOf(42), true),
-                new Column("stringCol", STRING, true),
-                new Column("nullBytesCol", BYTES, true),
-                new Column("bytesCol", BYTES, true),
-                new Column("numberCol", NativeTypes.numberOf(12), true),
-                new Column("decimalCol", NativeTypes.decimalOf(19, 3), true),
-        };
+        private long primLongCol;
+    
+        private int primIntCol;
+        
+        /** Constructor. */
+        PrivateTestObject() {
+        }
+        
+        /**
+         * Private constructor.
+         */
+        PrivateTestObject(long longVal, int intVal) {
+            primLongCol = longVal;
+            primIntCol = intVal;
+        }
+        
+        /** {@inheritDoc} */
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            
+            PrivateTestObject object = (PrivateTestObject) o;
+            
+            return primLongCol == object.primLongCol && primIntCol == object.primIntCol;
+        }
+        
+        /** {@inheritDoc} */
+        @Override
+        public int hashCode() {
+            return Objects.hash(primLongCol);
+        }
     }
 }

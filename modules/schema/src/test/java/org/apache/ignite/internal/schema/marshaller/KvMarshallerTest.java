@@ -365,12 +365,12 @@ public class KvMarshallerTest {
         
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
         
-        final ObjectFactory<TestObjectWithPrivateConstructor> objFactory = new ObjectFactory<>(TestObjectWithPrivateConstructor.class);
-        final KvMarshaller<TestObjectWithPrivateConstructor, TestObjectWithPrivateConstructor> marshaller =
-                factory.create(schema, TestObjectWithPrivateConstructor.class, TestObjectWithPrivateConstructor.class);
+        final ObjectFactory<PrivateTestObject> objFactory = new ObjectFactory<>(PrivateTestObject.class);
+        final KvMarshaller<PrivateTestObject, PrivateTestObject> marshaller =
+                factory.create(schema, PrivateTestObject.class, PrivateTestObject.class);
         
-        final TestObjectWithPrivateConstructor key = TestObjectWithPrivateConstructor.randomObject(rnd);
-        final TestObjectWithPrivateConstructor val = TestObjectWithPrivateConstructor.randomObject(rnd);
+        final PrivateTestObject key = PrivateTestObject.randomObject(rnd);
+        final PrivateTestObject val = PrivateTestObject.randomObject(rnd);
         
         BinaryRow row = marshaller.marshal(key, objFactory.create());
         
@@ -518,6 +518,46 @@ public class KvMarshallerTest {
                 .defineClass(classDef, Object.class);
     }
     
+    private Column[] columnsAllTypes() {
+        Column[] cols = new Column[]{
+                new Column("primitiveByteCol", INT8, false, () -> (byte) 0x42),
+                new Column("primitiveShortCol", INT16, false, () -> (short) 0x4242),
+                new Column("primitiveIntCol", INT32, false, () -> 0x42424242),
+                new Column("primitiveLongCol", INT64, false),
+                new Column("primitiveFloatCol", FLOAT, false),
+                new Column("primitiveDoubleCol", DOUBLE, false),
+                
+                new Column("byteCol", INT8, true),
+                new Column("shortCol", INT16, true),
+                new Column("intCol", INT32, true),
+                new Column("longCol", INT64, true),
+                new Column("nullLongCol", INT64, true),
+                new Column("floatCol", FLOAT, true),
+                new Column("doubleCol", DOUBLE, true),
+                
+                new Column("dateCol", DATE, true),
+                new Column("timeCol", time(), true),
+                new Column("dateTimeCol", datetime(), true),
+                new Column("timestampCol", timestamp(), true),
+                
+                new Column("uuidCol", UUID, true),
+                new Column("bitmaskCol", NativeTypes.bitmaskOf(42), true),
+                new Column("stringCol", STRING, true),
+                new Column("nullBytesCol", BYTES, true),
+                new Column("bytesCol", BYTES, true),
+                new Column("numberCol", NativeTypes.numberOf(12), true),
+                new Column("decimalCol", NativeTypes.decimalOf(19, 3), true),
+        };
+        // Validate all types are tested.
+        Set<NativeTypeSpec> testedTypes = Arrays.stream(cols).map(c -> c.type().spec())
+                .collect(Collectors.toSet());
+        Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
+                .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
+        
+        assertEquals(Collections.emptySet(), missedTypes);
+        return cols;
+    }
+    
     /**
      * Test object.
      */
@@ -654,43 +694,52 @@ public class KvMarshallerTest {
         }
     }
     
-    private Column[] columnsAllTypes() {
-        Column[] cols = new Column[]{
-                new Column("primitiveByteCol", INT8, false, () -> (byte) 0x42),
-                new Column("primitiveShortCol", INT16, false, () -> (short) 0x4242),
-                new Column("primitiveIntCol", INT32, false, () -> 0x42424242),
-                new Column("primitiveLongCol", INT64, false),
-                new Column("primitiveFloatCol", FLOAT, false),
-                new Column("primitiveDoubleCol", DOUBLE, false),
-                
-                new Column("byteCol", INT8, true),
-                new Column("shortCol", INT16, true),
-                new Column("intCol", INT32, true),
-                new Column("longCol", INT64, true),
-                new Column("nullLongCol", INT64, true),
-                new Column("floatCol", FLOAT, true),
-                new Column("doubleCol", DOUBLE, true),
-                
-                new Column("dateCol", DATE, true),
-                new Column("timeCol", time(), true),
-                new Column("dateTimeCol", datetime(), true),
-                new Column("timestampCol", timestamp(), true),
-                
-                new Column("uuidCol", UUID, true),
-                new Column("bitmaskCol", NativeTypes.bitmaskOf(42), true),
-                new Column("stringCol", STRING, true),
-                new Column("nullBytesCol", BYTES, true),
-                new Column("bytesCol", BYTES, true),
-                new Column("numberCol", NativeTypes.numberOf(12), true),
-                new Column("decimalCol", NativeTypes.decimalOf(19, 3), true),
-        };
-        // Validate all types are tested.
-        Set<NativeTypeSpec> testedTypes = Arrays.stream(cols).map(c -> c.type().spec())
-                .collect(Collectors.toSet());
-        Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
-                .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
+    /**
+     * Test object without default constructor.
+     */
+    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
+    private static class PrivateTestObject {
+        /**
+         * Get random TestObject.
+         */
+        static PrivateTestObject randomObject(Random rnd) {
+            return new PrivateTestObject(rnd.nextInt());
+        }
         
-        assertEquals(Collections.emptySet(), missedTypes);
-        return cols;
+        /** Value. */
+        private long primLongCol;
+        
+        /** Constructor. */
+        PrivateTestObject() {
+        }
+        
+        /**
+         * Private constructor.
+         */
+        PrivateTestObject(long val) {
+            primLongCol = val;
+        }
+        
+        /** {@inheritDoc} */
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            
+            PrivateTestObject object = (PrivateTestObject) o;
+            
+            return primLongCol == object.primLongCol;
+        }
+        
+        /** {@inheritDoc} */
+        @Override
+        public int hashCode() {
+            return Objects.hash(primLongCol);
+        }
     }
 }
