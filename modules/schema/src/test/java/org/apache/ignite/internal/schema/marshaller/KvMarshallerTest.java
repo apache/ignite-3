@@ -105,9 +105,6 @@ public class KvMarshallerTest {
         rnd = new Random(seed);
     }
     
-    /**
-     * Test factory method.
-     */
     @TestFactory
     public Stream<DynamicNode> basicTypes() {
         NativeType[] types = new NativeType[]{INT8, INT16, INT32, INT64, FLOAT, DOUBLE, UUID, STRING, BYTES,
