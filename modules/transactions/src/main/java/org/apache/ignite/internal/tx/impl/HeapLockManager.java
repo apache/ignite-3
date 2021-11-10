@@ -38,9 +38,6 @@ import org.jetbrains.annotations.NotNull;
  * it's validated against current lock owner: if where is an owner with a higher timestamp lock request is denied.
  */
 public class HeapLockManager implements LockManager {
-    /**
-     *
-     */
     private ConcurrentHashMap<Object, LockState> locks = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
@@ -68,8 +65,9 @@ public class HeapLockManager implements LockManager {
     }
 
     /**
+     * Returns the lock state for the key.
+     *
      * @param key The key.
-     * @return The lock state for the key.
      */
     private @NotNull LockState lockState(Object key) {
         return locks.computeIfAbsent(key, k -> new LockState());
@@ -248,7 +246,7 @@ public class HeapLockManager implements LockManager {
         }
 
         /**
-         * @return Waiters queue.
+         * Returns waiters queue.
          */
         public Collection<Timestamp> queue() {
             synchronized (waiters) {
@@ -257,6 +255,8 @@ public class HeapLockManager implements LockManager {
         }
 
         /**
+         * Adds waiter.
+         *
          * @param timestamp The timestamp.
          * @return The waiter.
          */
@@ -285,6 +285,8 @@ public class HeapLockManager implements LockManager {
         private boolean locked = false;
 
         /**
+         * Constructor.
+         *
          * @param timestamp The timestamp.
          * @param forRead   {@code True} to request a read lock.
          */
@@ -327,7 +329,7 @@ public class HeapLockManager implements LockManager {
         }
 
         /**
-         * @return {@code True} if is locked for read.
+         * Returns {@code true} if is locked for read.
          */
         public boolean isForRead() {
             return forRead;
