@@ -55,10 +55,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
     private KeyValueView<Long, Long> kvView() {
         return kvViewForValueType(NativeTypes.INT64, Long.class);
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void put() {
         KeyValueView<Long, Long> tbl = kvView();
@@ -86,10 +83,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         tbl.put(1L, 33L);
         assertEquals(33L, tbl.get(1L));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void putIfAbsent() {
         KeyValueView<Long, Long> tbl = kvView();
@@ -106,10 +100,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         
         assertEquals(11L, tbl.get(1L));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void getAndPut() {
         KeyValueView<Long, Long> tbl = kvView();
@@ -126,10 +117,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         
         assertEquals(33L, tbl.get(1L));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void contains() {
         KeyValueView<Long, Long> tbl = kvView();
@@ -153,10 +141,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         tbl.remove(2L);
         assertFalse(tbl.contains(2L));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void remove() {
         KeyValueView<Long, Long> tbl = kvView();
@@ -184,10 +169,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertNull(tbl.get(2L));
         assertFalse(tbl.remove(2L));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void removeExact() {
         KeyValueView<Long, Long> tbl = kvView();
@@ -227,10 +209,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertFalse(tbl.remove(2L, 22L));
         assertNull(tbl.get(2L));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void replace() {
         KeyValueView<Long, Long> tbl = kvView();
@@ -260,10 +239,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertFalse(tbl.replace(2L, null));
         assertNull(tbl.get(2L));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void replaceExact() {
         KeyValueView<Long, Long> tbl = kvView();
