@@ -43,10 +43,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R> {
     /** Marshaller factory. */
-    private final Function<SchemaDescriptor, RecordMarshallerImpl<R>> marshallerFactory;
+    private final Function<SchemaDescriptor, RecordMarshaller<R>> marshallerFactory;
     
     /** Record marshaller. */
-    private RecordMarshallerImpl<R> marsh;
+    private RecordMarshaller<R> marsh;
     
     /**
      * Constructor.
@@ -307,6 +307,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         throw new UnsupportedOperationException("Not implemented yet.");
     }
     
+    /**
     /**
      * Returns marshaller.
      *

@@ -28,6 +28,11 @@ import org.jetbrains.annotations.NotNull;
  */
 public interface RecordMarshaller<R> {
     /**
+     * @return Marshaller schema version.
+     */
+    int schemaVersion();
+    
+    /**
      * Marshals given record to a row.
      *
      * @param rec Record to marshal.

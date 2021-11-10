@@ -66,9 +66,8 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
         );
     }
     
-    /**
-     * @return Marshaller schema version.
-     */
+    /** {@inheritDoc} */
+    @Override
     public int schemaVersion() {
         return schema.version();
     }

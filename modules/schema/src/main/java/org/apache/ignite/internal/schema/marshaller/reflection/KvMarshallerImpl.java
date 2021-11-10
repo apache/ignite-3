@@ -67,9 +67,8 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         valMarsh = Marshaller.createMarshaller(schema.valueColumns().columns(), valueMapper);
     }
     
-    /**
-     * @return Marshaller schema version.
-     */
+    /** {@inheritDoc} */
+    @Override
     public int schemaVersion() {
         return schema.version();
     }
