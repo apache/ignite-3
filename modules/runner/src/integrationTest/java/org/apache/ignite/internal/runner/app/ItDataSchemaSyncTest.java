@@ -48,6 +48,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+/**
+ * There is a test of table schema synchronization.
+ */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     /**
@@ -68,7 +71,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     /**
      * Nodes bootstrap configuration.
      */
-    private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {
+    private static final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {
         {
             put("node0", "{\n"
                     + "  \"node\": {\n"
@@ -114,7 +117,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     private final List<Ignite> clusterNodes = new ArrayList<>();
 
     /**
-     *
+     * Starts a cluster before every test started.
      */
     @BeforeEach
     void beforeEach() throws Exception {
@@ -124,7 +127,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     }
 
     /**
-     *
+     * Stops a cluster after every test finished.
      */
     @AfterEach
     void afterEach() throws Exception {
@@ -132,7 +135,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     }
 
     /**
-     *
+     * The test executes various operation over the lagging node.
+     * The operations can be executed only the node overtakes a distributed cluster state.
      */
     @Test
     public void test() throws Exception {
@@ -237,6 +241,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     }
 
     /**
+     * Creates a table with the passed name on the specific schema.
+     *
      * @param node           Cluster node.
      * @param schemaName     Schema name.
      * @param shortTableName Table name.

@@ -46,7 +46,7 @@ public class WatchListenerInhibitor implements WatchListener {
     /** Inhibit flag. */
     private boolean inhibit = false;
 
-    /** Wrapped listener */
+    /** Wrapped listener. */
     private WatchListener realListener;
 
     /**
