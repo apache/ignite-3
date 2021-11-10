@@ -33,12 +33,15 @@ import org.openjdk.jmh.runner.options.TimeValue;
  * Message packer benchmark.
  *
  * <p>Benchmark                                 Mode  Cnt          Score          Error  Units
- * ClientMessagePackerBenchmark.packInt     thrpt    3  389568322.545 ± 48247870.394  ops/s
- * ClientMessagePackerBenchmark.packString  thrpt    3   30113891.585 ±  1781762.180  ops/s
+ *    ClientMessagePackerBenchmark.packInt     thrpt    3  389568322.545 ± 48247870.394  ops/s
+ *    ClientMessagePackerBenchmark.packString  thrpt    3   30113891.585 ±  1781762.180  ops/s
+ *    ClientMessagePackerBenchmark.packUuid    thrpt    3  331495906.854 ± 12134046.484  ops/s
  */
 @State(Scope.Benchmark)
 public class ClientMessagePackerBenchmark {
     private static final ByteBuf buffer = Unpooled.buffer(1024);
+    
+    private static final UUID uuid = UUID.randomUUID();
     
     /**
      * String benchmark.
@@ -68,7 +71,7 @@ public class ClientMessagePackerBenchmark {
     public void packUuid() {
         var packer = new ClientMessagePacker(buffer.writerIndex(0));
         
-        packer.packUuid(UUID.randomUUID());
+        packer.packUuid(uuid);
     }
     
     /**
