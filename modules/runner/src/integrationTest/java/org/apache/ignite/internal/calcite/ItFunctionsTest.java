@@ -224,4 +224,16 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT NULL % 2").returns(new Object[]{null}).check();
         assertQuery("SELECT 3 % NULL::int").returns(new Object[]{null}).check();
     }
+
+    /**
+     *
+     */
+    @Test
+    public void testReplace() {
+        assertQuery("SELECT REPLACE('12341234', '1', '55')").returns("5523455234").check();
+        assertQuery("SELECT REPLACE(NULL, '1', '5')").returns(new Object[] { null }).check();
+        assertQuery("SELECT REPLACE('1', NULL, '5')").returns(new Object[] { null }).check();
+        assertQuery("SELECT REPLACE('11', '1', NULL)").returns(new Object[] { null }).check();
+        assertQuery("SELECT REPLACE('11', '1', '')").returns("").check();
+    }
 }
