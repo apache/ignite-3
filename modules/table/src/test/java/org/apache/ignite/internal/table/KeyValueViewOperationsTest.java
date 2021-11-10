@@ -316,7 +316,7 @@ public class KeyValueViewOperationsTest {
     }
     
     /**
-     * @return the key-value view.
+     * Creates key-value view.
      */
     private KeyValueViewImpl<TestKeyObject, TestObjectWithAllTypes> kvView() {
         Mapper<TestKeyObject> keyMapper = Mapper.identity(TestKeyObject.class);

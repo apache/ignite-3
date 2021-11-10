@@ -315,9 +315,10 @@ public class KeyValueViewOperationsSimpleSchemaTest {
     }
     
     /**
+     * Creates key-value view.
+     *
      * @param type   Value column native type.
      * @param valueClass Value class.
-     * @return the key-value view for given value type.
      */
     private <T> KeyValueViewImpl<Long, T> kvViewForValueType(NativeType type, Class<T> valueClass) {
         Mapper<Long> keyMapper = Mapper.identity(Long.class);

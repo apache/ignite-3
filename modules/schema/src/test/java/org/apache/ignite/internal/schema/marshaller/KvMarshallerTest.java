@@ -84,7 +84,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class KvMarshallerTest {
     /**
-     * @return the list of marshallers for test.
+     * Return list of marshaller factories for test.
      */
     private static List<MarshallerFactory> marshallerFactoryProvider() {
         return List.of(new ReflectionMarshallerFactory());
@@ -93,6 +93,9 @@ public class KvMarshallerTest {
     /** Random. */
     private Random rnd;
     
+    /**
+     * Init test.
+     */
     @BeforeEach
     public void initRandom() {
         long seed = System.currentTimeMillis();
@@ -102,6 +105,9 @@ public class KvMarshallerTest {
         rnd = new Random(seed);
     }
     
+    /**
+     * Test factory method.
+     */
     @TestFactory
     public Stream<DynamicNode> basicTypes() {
         NativeType[] types = new NativeType[]{INT8, INT16, INT32, INT64, FLOAT, DOUBLE, UUID, STRING, BYTES,
