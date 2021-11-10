@@ -25,7 +25,7 @@ import java.util.Random;
  */
 public class TestObjectWithNoDefaultConstructor {
     /**
-     * @return Random TestObject.
+     * Creates an object with random data.
      */
     public static TestObjectWithNoDefaultConstructor randomObject(Random rnd) {
         return new TestObjectWithNoDefaultConstructor(rnd.nextLong());

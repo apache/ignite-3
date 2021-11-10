@@ -27,6 +27,9 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
  */
 @SuppressWarnings("InstanceVariableMayNotBeInitialized")
 public class TestSimpleObject {
+    /**
+     * Creates an object with random data.
+     */
     public static TestSimpleObject randomObject(Random rnd) {
         TestSimpleObject obj = new TestSimpleObject();
         

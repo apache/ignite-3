@@ -61,9 +61,6 @@ public class KeyValueViewOperationsTest {
     
     private final Random rnd = new Random();
     
-    /**
-     *
-     */
     @Test
     public void put() {
         final TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -97,9 +94,6 @@ public class KeyValueViewOperationsTest {
         assertEquals(obj3, tbl.get(key));
     }
     
-    /**
-     *
-     */
     @Test
     public void putIfAbsent() {
         final TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -121,9 +115,6 @@ public class KeyValueViewOperationsTest {
         assertEquals(obj, tbl.get(key));
     }
     
-    /**
-     *
-     */
     @Test
     public void getAndPut() {
         final TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -146,9 +137,6 @@ public class KeyValueViewOperationsTest {
         assertEquals(obj3, tbl.get(key));
     }
     
-    /**
-     *
-     */
     @Test
     public void contains() {
         final TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -178,9 +166,6 @@ public class KeyValueViewOperationsTest {
         assertFalse(tbl.contains(key2));
     }
     
-    /**
-     *
-     */
     @Test
     public void remove() {
         final TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -214,9 +199,6 @@ public class KeyValueViewOperationsTest {
         assertFalse(tbl.remove(key2));
     }
     
-    /**
-     *
-     */
     @Test
     public void removeExact() {
         final TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -262,9 +244,6 @@ public class KeyValueViewOperationsTest {
         assertNull(tbl.get(key2));
     }
     
-    /**
-     *
-     */
     @Test
     public void replace() {
         final TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -301,9 +280,6 @@ public class KeyValueViewOperationsTest {
         assertNull(tbl.get(key2));
     }
     
-    /**
-     *
-     */
     @Test
     public void replaceExact() {
         final TestKeyObject key = TestKeyObject.randomObject(rnd);
@@ -340,7 +316,7 @@ public class KeyValueViewOperationsTest {
     }
     
     /**
-     * @return Key-value view.
+     * @return the key-value view.
      */
     private KeyValueViewImpl<TestKeyObject, TestObjectWithAllTypes> kvView() {
         Mapper<TestKeyObject> keyMapper = Mapper.identity(TestKeyObject.class);
@@ -437,5 +413,4 @@ public class KeyValueViewOperationsTest {
             return Objects.hash(id);
         }
     }
-    
 }

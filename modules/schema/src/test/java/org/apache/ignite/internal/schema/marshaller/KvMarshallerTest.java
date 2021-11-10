@@ -84,7 +84,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class KvMarshallerTest {
     /**
-     * @return List of marshallers for test.
+     * @return the list of marshallers for test.
      */
     private static List<MarshallerFactory> marshallerFactoryProvider() {
         return List.of(new ReflectionMarshallerFactory());
@@ -93,9 +93,6 @@ public class KvMarshallerTest {
     /** Random. */
     private Random rnd;
     
-    /**
-     *
-     */
     @BeforeEach
     public void initRandom() {
         long seed = System.currentTimeMillis();
@@ -105,11 +102,8 @@ public class KvMarshallerTest {
         rnd = new Random(seed);
     }
     
-    /**
-     *
-     */
     @TestFactory
-    public Stream<DynamicNode> testBasicTypes() {
+    public Stream<DynamicNode> basicTypes() {
         NativeType[] types = new NativeType[]{INT8, INT16, INT32, INT64, FLOAT, DOUBLE, UUID, STRING, BYTES,
                 NativeTypes.bitmaskOf(5), NativeTypes.numberOf(42), NativeTypes.decimalOf(12, 3)};
         
@@ -136,12 +130,9 @@ public class KvMarshallerTest {
                 ));
     }
     
-    /**
-     * @throws MarshallerException If serialization failed.
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
-    public void complexType(MarshallerFactory factory) throws MarshallerException {
+    public void pojoWithFieldsOfAllTypes(MarshallerFactory factory) throws MarshallerException {
         Column[] cols = columnsAllTypes();
         
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
@@ -165,12 +156,9 @@ public class KvMarshallerTest {
         assertEquals(val, restoredVal);
     }
     
-    /**
-     * @throws MarshallerException If serialization failed.
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
-    public void truncatedType(MarshallerFactory factory) throws MarshallerException {
+    public void narrowType(MarshallerFactory factory) throws MarshallerException {
         Column[] cols = columnsAllTypes();
         
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
@@ -194,12 +182,9 @@ public class KvMarshallerTest {
         assertEquals(val, restoredVal);
     }
     
-    /**
-     * @throws MarshallerException If serialization failed.
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
-    public void widerType(MarshallerFactory factory) throws MarshallerException {
+    public void wideType(MarshallerFactory factory) throws MarshallerException {
         Column[] cols = new Column[]{
                 new Column("primitiveLongCol", INT64, false),
                 new Column("primitiveDoubleCol", DOUBLE, false),
@@ -242,12 +227,9 @@ public class KvMarshallerTest {
         assertEquals(0, restoredVal.getPrimitiveIntCol());
     }
     
-    /**
-     * @throws MarshallerException If serialization failed.
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
-    public void mapping(MarshallerFactory factory) throws MarshallerException {
+    public void columnNameMapping(MarshallerFactory factory) throws MarshallerException {
         SchemaDescriptor schema = new SchemaDescriptor(1,
                 new Column[]{new Column("key", INT64, false)},
                 new Column[]{
@@ -285,9 +267,6 @@ public class KvMarshallerTest {
         assertEquals(val, restoredVal);
     }
     
-    /**
-     *
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithWrongFieldType(MarshallerFactory factory) {
@@ -311,9 +290,6 @@ public class KvMarshallerTest {
         );
     }
     
-    /**
-     *
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithIncorrectBitmaskSize(MarshallerFactory factory) {
@@ -337,9 +313,6 @@ public class KvMarshallerTest {
         );
     }
     
-    /**
-     *
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithPrivateConstructor(MarshallerFactory factory) throws MarshallerException {
@@ -367,9 +340,6 @@ public class KvMarshallerTest {
         assertEquals(val, val1);
     }
     
-    /**
-     *
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithNoDefaultConstructor(MarshallerFactory factory) {
@@ -384,10 +354,7 @@ public class KvMarshallerTest {
         
         assertThrows(IgniteInternalException.class, () -> factory.create(schema, key.getClass(), val.getClass()));
     }
-    
-    /**
-     *
-     */
+
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void privateClass(MarshallerFactory factory) throws MarshallerException {
@@ -413,9 +380,6 @@ public class KvMarshallerTest {
         assertTrue(val.getClass().isInstance(val1));
     }
     
-    /**
-     *
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classLoader(MarshallerFactory factory) throws MarshallerException {

@@ -40,7 +40,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 @SuppressWarnings("InstanceVariableMayNotBeInitialized")
 public class TestObjectWithAllTypes {
     /**
-     * @return Random TestObject.
+     * Creates an object with random data.
      */
     public static TestObjectWithAllTypes randomObject(Random rnd) {
         final TestObjectWithAllTypes obj = new TestObjectWithAllTypes();

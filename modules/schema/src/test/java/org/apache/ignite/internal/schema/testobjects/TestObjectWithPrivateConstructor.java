@@ -26,7 +26,7 @@ import java.util.Random;
 @SuppressWarnings("InstanceVariableMayNotBeInitialized")
 public class TestObjectWithPrivateConstructor {
     /**
-     * @return Random TestObject.
+     * Creates an object with random data.
      */
     public static TestObjectWithPrivateConstructor randomObject(Random rnd) {
         final TestObjectWithPrivateConstructor obj = new TestObjectWithPrivateConstructor();

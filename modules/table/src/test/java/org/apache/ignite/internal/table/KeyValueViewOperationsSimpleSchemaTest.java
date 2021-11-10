@@ -269,9 +269,6 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertTrue(tbl.replace(2L, null, null));
     }
     
-    /**
-     *
-     */
     @Test
     public void putGetAllTypes() {
         Random rnd = new Random();
@@ -320,7 +317,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
     /**
      * @param type   Value column native type.
      * @param valueClass Value class.
-     * @return Key-value view for given value type.
+     * @return the key-value view for given value type.
      */
     private <T> KeyValueViewImpl<Long, T> kvViewForValueType(NativeType type, Class<T> valueClass) {
         Mapper<Long> keyMapper = Mapper.identity(Long.class);
