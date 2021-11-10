@@ -18,6 +18,7 @@
 package org.apache.ignite.table.mapper;
 
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Simple mapper implementation that map a column to a class field.
@@ -48,7 +49,7 @@ class DefaultColumnMapper<T> implements Mapper<T> {
     }
     
     /** {@inheritDoc} */
-    @Override public String columnToField(String columnName) {
+    @Override public String columnToField(@NotNull String columnName) {
         return mapping.get(columnName);
     }
 }

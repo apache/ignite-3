@@ -20,6 +20,7 @@ package org.apache.ignite.table.mapper;
 import java.lang.reflect.Field;
 import java.util.HashSet;
 import java.util.Set;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Trivial mapper implementation that maps a column to a field with the same name.
@@ -56,7 +57,7 @@ class IdentityMapper<T> implements Mapper<T> {
     }
     
     /** {@inheritDoc} */
-    @Override public String columnToField(String columnName) {
+    @Override public String columnToField(@NotNull String columnName) {
         return fieldsNames.contains(columnName) ? columnName : null;
     }
 }

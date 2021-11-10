@@ -17,6 +17,9 @@
 
 package org.apache.ignite.table.mapper;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Mapper interface defines methods that are required for a marshaller to map class field names to table columns.
  *
@@ -69,5 +72,5 @@ public interface Mapper<T> {
      * @param columnName Column name.
      * @return Field name or {@code null} if no field mapped to a column.
      */
-    String columnToField(String columnName);
+    @Nullable String columnToField(@NotNull String columnName);
 }

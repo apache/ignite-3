@@ -19,8 +19,10 @@ package org.apache.ignite.table.mapper;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Mapper builder.
@@ -39,7 +41,7 @@ public final class MapperBuilder<T> {
      *
      * @param targetType Target type.
      */
-    MapperBuilder(Class<T> targetType) {
+    MapperBuilder(@NotNull Class<T> targetType) {
         this.targetType = targetType;
         
         mapping = new HashMap<>(targetType.getDeclaredFields().length);
@@ -52,12 +54,12 @@ public final class MapperBuilder<T> {
      * @param columnName Column name.
      * @return {@code this} for chaining.
      */
-    public MapperBuilder<T> map(String fieldName, String columnName) {
+    public MapperBuilder<T> map(@NotNull String fieldName, @NotNull String columnName) {
         if (mapping == null) {
             throw new IllegalStateException("Mapper builder can't be reused.");
         }
         
-        if (mapping.put(columnName, fieldName) != null) {
+        if (mapping.put(Objects.requireNonNull(columnName), Objects.requireNonNull(fieldName)) != null) {
             throw new IllegalArgumentException("Mapping for a column already exists: " + columnName);
         }
         
@@ -71,7 +73,7 @@ public final class MapperBuilder<T> {
      * @param targetClass Target class.
      * @return {@code this} for chaining.
      */
-    public MapperBuilder<T> map(String fieldName, Class<?> targetClass) {
+    public MapperBuilder<T> map(@NotNull String fieldName, Class<?> targetClass) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
     
@@ -82,7 +84,7 @@ public final class MapperBuilder<T> {
      * @param mappingFunction Mapper function.
      * @return {@code this} for chaining.
      */
-    public MapperBuilder<T> map(String fieldName, Function<Tuple, Object> mappingFunction) {
+    public MapperBuilder<T> map(@NotNull String fieldName, Function<Tuple, Object> mappingFunction) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
     
@@ -92,7 +94,7 @@ public final class MapperBuilder<T> {
      * @param targetClass Target class.
      * @return {@code this} for chaining.
      */
-    public MapperBuilder<T> deserializeTo(Class<?> targetClass) {
+    public MapperBuilder<T> deserializeTo(@NotNull Class<?> targetClass) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
     
