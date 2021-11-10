@@ -75,6 +75,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Serializer test.
  */
+//TODO: IGNITE-15888 drop
+@Deprecated(forRemoval = true)
 public class JavaSerializerTest {
     /**
      * Get list of serializers for test.
@@ -176,7 +178,6 @@ public class JavaSerializerTest {
 
         BinaryRow row = serializer.serialize(key, val);
 
-        // Try different order.
         Object restoredVal = serializer.deserializeValue(new Row(schema, row));
         Object restoredKey = serializer.deserializeKey(new Row(schema, row));
 

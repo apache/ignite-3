@@ -94,7 +94,7 @@ public class KvMarshallerTest {
     private Random rnd;
     
     /**
-     * Init test.
+     * Init random.
      */
     @BeforeEach
     public void initRandom() {
@@ -148,7 +148,6 @@ public class KvMarshallerTest {
         
         BinaryRow row = marshaller.marshal(key, val);
         
-        // Try different order.
         TestObjectWithAllTypes restoredVal = marshaller.unmarshalValue(new Row(schema, row));
         TestObjectWithAllTypes restoredKey = marshaller.unmarshalKey(new Row(schema, row));
         
@@ -174,7 +173,6 @@ public class KvMarshallerTest {
         
         BinaryRow row = marshaller.marshal(key, val);
         
-        // Try different order.
         Object restoredVal = marshaller.unmarshalValue(new Row(schema, row));
         Object restoredKey = marshaller.unmarshalKey(new Row(schema, row));
         
@@ -204,7 +202,6 @@ public class KvMarshallerTest {
         
         BinaryRow row = marshaller.marshal(key, val);
         
-        // Try different order.
         TestObjectWithAllTypes restoredVal = marshaller.unmarshalValue(new Row(schema, row));
         TestObjectWithAllTypes restoredKey = marshaller.unmarshalKey(new Row(schema, row));
         
@@ -224,6 +221,7 @@ public class KvMarshallerTest {
         assertEquals(expectedKey, restoredKey);
         assertEquals(expectedVal, restoredVal);
         
+        // Check non-mapped fields has default values.
         assertNull(restoredKey.getUuidCol());
         assertNull(restoredVal.getUuidCol());
         assertEquals(0, restoredKey.getPrimitiveIntCol());
@@ -257,7 +255,6 @@ public class KvMarshallerTest {
         
         BinaryRow row = marshaller.marshal(key, val);
         
-        // Try different order.
         Object restoredVal = marshaller.unmarshalValue(new Row(schema, row));
         Object restoredKey = marshaller.unmarshalKey(new Row(schema, row));
         
@@ -321,6 +318,7 @@ public class KvMarshallerTest {
     public void classWithPrivateConstructor(MarshallerFactory factory) throws MarshallerException {
         Column[] cols = new Column[]{
                 new Column("primLongCol", INT64, false),
+                new Column("primIntCol", INT32, false),
         };
         
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
