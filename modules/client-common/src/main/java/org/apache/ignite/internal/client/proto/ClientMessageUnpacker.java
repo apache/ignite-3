@@ -1067,7 +1067,12 @@ public class ClientMessageUnpacker implements AutoCloseable {
             buf.release();
         }
     }
-
+    
+    /**
+     * Unpacks string header.
+     *
+     * @return String length.
+     */
     public int unpackRawStringHeader() {
         byte code = buf.readByte();
 
