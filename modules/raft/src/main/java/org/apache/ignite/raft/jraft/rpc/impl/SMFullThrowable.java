@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,19 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli;
+package org.apache.ignite.raft.jraft.rpc.impl;
 
-import org.junit.jupiter.api.BeforeAll;
+import java.io.Serializable;
 
 /**
- * Base class for any CLI tests.
+ * Full version of throwable from client's state machine logic.
  */
-public class AbstractCliTest {
+public class SMFullThrowable implements SMThrowable, Serializable {
+    /** Throwable. */
+    private final Throwable th;
+
     /**
-     * Sets up a dumb terminal before tests.
+     * @param th Throwable.
      */
-    @BeforeAll
-    private static void beforeAll() {
-        System.setProperty("org.jline.terminal.dumb", "true");
+    public SMFullThrowable(Throwable th) {
+        this.th = th;
+    }
+
+    /**
+     * Returns the original throwable.
+     */
+    public Throwable throwable() {
+        return th;
     }
 }

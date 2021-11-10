@@ -24,11 +24,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
@@ -103,6 +101,8 @@ public class InternalTableImpl implements InternalTable {
     private final TableStorage tableStorage;
 
     /**
+     * Constructor.
+     *
      * @param tableName  Table name.
      * @param tableId    Table id.
      * @param partMap    Map partition id to raft group.
@@ -435,9 +435,6 @@ public class InternalTableImpl implements InternalTable {
         /** {@link Publisher} that relatively notifies about partition rows. */
         private final RaftGroupService raftGrpSvc;
 
-        /**
-         *
-         */
         private AtomicBoolean subscribed;
 
         /**
@@ -470,14 +467,8 @@ public class InternalTableImpl implements InternalTable {
          * Partition Scan Subscription.
          */
         private class PartitionScanSubscription implements Subscription {
-            /**
-             *
-             */
             private final Subscriber<? super BinaryRow> subscriber;
 
-            /**
-             *
-             */
             private final AtomicBoolean canceled;
 
             /** Scan id to uniquely identify it on server side. */
@@ -579,11 +570,6 @@ public class InternalTableImpl implements InternalTable {
                                 })
                         .exceptionally(
                                 t -> {
-                                    if (t instanceof NoSuchElementException
-                                            || t instanceof CompletionException && t.getCause() instanceof NoSuchElementException) {
-                                        return null;
-                                    }
-
                                     cancel(!scanInitOp.isCompletedExceptionally());
 
                                     subscriber.onError(t);

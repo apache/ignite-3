@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,29 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.raft.jraft.rpc.impl;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import java.io.Serializable;
 
 /**
- * This exception is thrown when a lock cannot be acquired due to conflict.
+ * Compacted version of throwable from client's state machine logic.
  */
-public class LockException extends IgniteInternalCheckedException {
+public class SMCompactedThrowable implements SMThrowable, Serializable {
+    /** Throwable class name. */
+    private final String clsName;
+
+    /** Throwable message. */
+    private final String msg;
+
     /**
-     * Constructor.
-     *
-     * @param msg The message.
+     * @param th Throwable.
      */
-    public LockException(String msg) {
-        super(msg);
+    public SMCompactedThrowable(Throwable th) {
+        this.clsName = th.getClass().getName();
+        this.msg = th.getMessage();
     }
 
     /**
-     * Constructor.
-     *
-     * @param waiter Conflicting waiter.
+     * Returns class name of the original throwable.
      */
-    public LockException(Waiter waiter) {
-        super("Failed to acquire a lock due to a conflict with: " + waiter);
+    public String throwableClassName() {
+        return clsName;
+    }
+
+    /**
+     * Returns message from the original throwable.
+     */
+    public String throwableMessage() {
+        return msg;
     }
 }
