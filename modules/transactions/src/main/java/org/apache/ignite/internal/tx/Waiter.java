@@ -27,7 +27,7 @@ public interface Waiter {
     Timestamp timestamp();
 
     /**
-     * Returns {@code True} if the waiter holds the lock.
+     * Returns {@code true} if the waiter holds the lock.
      */
     boolean locked();
 }
