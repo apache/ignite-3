@@ -525,9 +525,6 @@ public class KvMarshallerTest {
      */
     @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     public static class TestKeyObject {
-        /**
-         * @return Random TestObject.
-         */
         public static TestKeyObject randomObject(Random rnd) {
             final TestKeyObject obj = new TestKeyObject();
             
@@ -562,9 +559,6 @@ public class KvMarshallerTest {
      */
     @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     public static class TestObject {
-        /**
-         * @return Random TestObject.
-         */
         public static TestObject randomObject(Random rnd) {
             final TestObject obj = new TestObject();
             
@@ -609,9 +603,6 @@ public class KvMarshallerTest {
      */
     @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     public static class TestTruncatedObject {
-        /**
-         * @return Random TestObject.
-         */
         public static TestTruncatedObject randomObject(Random rnd) {
             final TestTruncatedObject obj = new TestTruncatedObject();
             
