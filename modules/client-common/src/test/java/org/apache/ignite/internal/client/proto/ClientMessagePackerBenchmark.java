@@ -19,11 +19,7 @@ package org.apache.ignite.internal.client.proto;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.BenchmarkMode;
-import org.openjdk.jmh.annotations.Mode;
-import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.runner.Runner;
@@ -34,6 +30,10 @@ import org.openjdk.jmh.runner.options.TimeValue;
 
 /**
  * Message packer benchmark.
+ *
+ * Benchmark                                 Mode  Cnt          Score          Error  Units
+ * ClientMessagePackerBenchmark.packInt     thrpt    3  389568322.545 ± 48247870.394  ops/s
+ * ClientMessagePackerBenchmark.packString  thrpt    3   30113891.585 ±  1781762.180  ops/s
  */
 @State(Scope.Benchmark)
 public class ClientMessagePackerBenchmark {
