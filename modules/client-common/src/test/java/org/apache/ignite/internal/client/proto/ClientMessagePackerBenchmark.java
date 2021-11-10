@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.proto;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import java.util.UUID;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
@@ -31,7 +32,7 @@ import org.openjdk.jmh.runner.options.TimeValue;
 /**
  * Message packer benchmark.
  *
- * Benchmark                                 Mode  Cnt          Score          Error  Units
+ * <p>Benchmark                                 Mode  Cnt          Score          Error  Units
  * ClientMessagePackerBenchmark.packInt     thrpt    3  389568322.545 ± 48247870.394  ops/s
  * ClientMessagePackerBenchmark.packString  thrpt    3   30113891.585 ±  1781762.180  ops/s
  */
@@ -39,6 +40,9 @@ import org.openjdk.jmh.runner.options.TimeValue;
 public class ClientMessagePackerBenchmark {
     private static final ByteBuf buffer = Unpooled.buffer(1024);
     
+    /**
+     * String benchmark.
+     */
     @Benchmark
     public void packString() {
         var packer = new ClientMessagePacker(buffer.writerIndex(0));
@@ -46,6 +50,9 @@ public class ClientMessagePackerBenchmark {
         packer.packString("The quick brown fox jumps over the lazy dog.");
     }
     
+    /**
+     * Int benchmark.
+     */
     @Benchmark
     public void packInt() {
         var packer = new ClientMessagePacker(buffer.writerIndex(0));
@@ -54,6 +61,22 @@ public class ClientMessagePackerBenchmark {
         packer.packInt(Integer.MAX_VALUE);
     }
     
+    /**
+     * UUID benchmark.
+     */
+    @Benchmark
+    public void packUuid() {
+        var packer = new ClientMessagePacker(buffer.writerIndex(0));
+        
+        packer.packUuid(UUID.randomUUID());
+    }
+    
+    /**
+     * Runner.
+     *
+     * @param args Arguments.
+     * @throws RunnerException Exception.
+     */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(ClientMessagePackerBenchmark.class.getSimpleName())
