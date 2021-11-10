@@ -73,10 +73,11 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
         call.transformTo(indexes.get(0), equivMap);
     }
 
-    /** ExposeIndexRule configuration. */
+    /**
+     * Rule's configuration.
+     */
     @SuppressWarnings("ClassNameSameAsAncestorName")
     public interface Config extends RelRule.Config {
-        /** */
         Config DEFAULT = EMPTY
                 .withRelBuilderFactory(RelFactories.LOGICAL_BUILDER)
                 .withOperandSupplier(b ->

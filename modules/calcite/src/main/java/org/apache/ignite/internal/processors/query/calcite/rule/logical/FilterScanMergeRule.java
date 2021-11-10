@@ -182,19 +182,20 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
 
     protected abstract T createNode(RelOptCluster cluster, T scan, RelTraitSet traits, RexNode cond);
 
-    /** */
+    /**
+     * Rule's configuration.
+     */
     @SuppressWarnings("ClassNameSameAsAncestorName")
     public interface Config extends RelRule.Config {
-        /** */
         Config DEFAULT = EMPTY.withRelBuilderFactory(RelFactories.LOGICAL_BUILDER).as(Config.class);
 
-        /** */
         Config TABLE_SCAN = DEFAULT.withScanRuleConfig(IgniteLogicalTableScan.class, "FilterTableScanMergeRule");
 
-        /** */
         Config INDEX_SCAN = DEFAULT.withScanRuleConfig(IgniteLogicalIndexScan.class, "FilterIndexScanMergeRule");
 
-        /** */
+        /**
+         * Create configuration for specified scan.
+         */
         default Config withScanRuleConfig(Class<? extends ProjectableFilterableTableScan> scanCls, String desc) {
             return withDescription(desc)
                 .withOperandSupplier(b ->

@@ -37,20 +37,20 @@ import org.jetbrains.annotations.Nullable;
  * Runtime sorted index.
  */
 public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<RowT> {
-    /** */
     protected final ExecutionContext<RowT> ectx;
 
-    /** */
     protected final Comparator<RowT> comp;
 
-    /** Collation. */
     private final RelCollation collation;
 
-    /** Rows. */
     private final ArrayList<RowT> rows = new ArrayList<>();
-
+    
     /**
+     * Constructor.
      *
+     * @param ectx Execution context.
+     * @param collation Index collation.
+     * @param comp Index row comparator.
      */
     public RuntimeSortedIndex(
             ExecutionContext<RowT> ectx,
@@ -118,11 +118,6 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
         /** Current index of list element. */
         private int idx;
 
-        /**
-         * @param rows List of rows.
-         * @param lower Lower bound (inclusive).
-         * @param upper Upper bound (inclusive).
-         */
         CursorImpl(List<RowT> rows, @Nullable RowT lower, @Nullable RowT upper) {
             this.rows = rows;
             this.upper = upper;
@@ -193,16 +188,9 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
     }
 
     /**
-     *
+     * Index scan for RuntimeSortedIndex.
      */
     private class IndexScan extends AbstractIndexScan<RowT, RowT> {
-        /**
-         * @param rowType Row type.
-         * @param idx Physical index.
-         * @param filter Additional filters.
-         * @param lowerBound Lower index scan bound.
-         * @param upperBound Upper index scan bound.
-         */
         IndexScan(
                 RelDataType rowType,
                 TreeIndex<RowT> idx,

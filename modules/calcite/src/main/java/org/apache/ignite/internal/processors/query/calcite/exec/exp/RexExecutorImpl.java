@@ -56,9 +56,6 @@ public class RexExecutorImpl implements RexExecutor {
     /** Data context. */
     private final DataContext dataCtx;
 
-    /**
-     * @param dataCtx Data context.
-     */
     public RexExecutorImpl(DataContext dataCtx) {
         this.dataCtx = dataCtx;
     }
@@ -74,9 +71,6 @@ public class RexExecutorImpl implements RexExecutor {
         return compile(rexBuilder, constExps, getter, emptyRowType);
     }
 
-    /**
-     *
-     */
     private static String compile(
             RexBuilder rexBuilder,
             List<RexNode> constExps,
@@ -184,10 +178,6 @@ public class RexExecutorImpl implements RexExecutor {
         /** Row type. */
         private final RelDataType rowType;
 
-        /**
-         * @param rowType Row type.
-         * @param typeFactory Type factory.
-         */
         DataContextInputGetter(
                 RelDataType rowType,
                 RelDataTypeFactory typeFactory

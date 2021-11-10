@@ -44,11 +44,13 @@ import org.junit.jupiter.api.Test;
  * Tests correctness applying of JOIN_COMMUTE* rules.
  */
 public class JoinCommutePlannerTest extends AbstractPlannerTest {
-    /** */
     private static IgniteSchema publicSchema;
 
+    /**
+     * Set up tests.
+     */
     @BeforeAll
-    public static void init() throws Exception {
+    public static void init() {
         publicSchema = createSchema(
                 new TestTable(
                         "HUGE",
@@ -73,7 +75,6 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
         );
     }
 
-    /** */
     @Test
     public void testOuterCommute() throws Exception {
         String sql = "SELECT COUNT(*) FROM SMALL s RIGHT JOIN HUGE h on h.id = s.id";
@@ -124,7 +125,6 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
         assertTrue(costWithCommute.isLt(costWithoutCommute));
     }
 
-    /** */
     @Test
     public void testInnerCommute() throws Exception {
         String sql = "SELECT COUNT(*) FROM SMALL s JOIN HUGE h on h.id = s.id";

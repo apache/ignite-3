@@ -28,7 +28,6 @@ import org.junit.jupiter.api.Test;
  * Sql functions test.
  */
 public class IgniteSqlFunctionsTest {
-    /** */
     @Test
     public void testBigDecimalToString() {
         assertNull(IgniteSqlFunctions.toString(null));
@@ -54,7 +53,6 @@ public class IgniteSqlFunctionsTest {
         );
     }
 
-    /** */
     @Test
     public void testBooleanPrimitiveToBigDecimal() {
         assertThrows(
@@ -62,7 +60,6 @@ public class IgniteSqlFunctionsTest {
                 () -> IgniteSqlFunctions.toBigDecimal(true, 10, 10));
     }
 
-    /** */
     @Test
     public void testBooleanObjectToBigDecimal() {
         assertThrows(
@@ -70,7 +67,6 @@ public class IgniteSqlFunctionsTest {
                 () -> IgniteSqlFunctions.toBigDecimal(Boolean.valueOf(true), 10, 10));
     }
 
-    /** */
     @Test
     public void testPrimitiveToDecimal() {
         assertEquals(
@@ -104,7 +100,6 @@ public class IgniteSqlFunctionsTest {
         );
     }
 
-    /** */
     @Test
     public void testObjectToDecimal() {
         assertNull(IgniteSqlFunctions.toBigDecimal((Object) null, 10, 0));

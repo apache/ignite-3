@@ -181,19 +181,20 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
         call.transformTo(createNode(cluster, scan, traits, projects, cond1, requiredColumns));
     }
 
-    /** */
+    /**
+     * Rule's configuration.
+     */
     @SuppressWarnings("ClassNameSameAsAncestorName")
     public interface Config extends RelRule.Config {
-        /** */
         Config DEFAULT = EMPTY.withRelBuilderFactory(RelFactories.LOGICAL_BUILDER).as(Config.class);
 
-        /** */
         Config TABLE_SCAN = DEFAULT.withScanRuleConfig(IgniteLogicalTableScan.class, "ProjectTableScanMergeRule");
 
-        /** */
         Config INDEX_SCAN = DEFAULT.withScanRuleConfig(IgniteLogicalIndexScan.class, "ProjectIndexScanMergeRule");
 
-        /** */
+        /**
+         * Create rule configuration for specified scan.
+         */
         default Config withScanRuleConfig(Class<? extends ProjectableFilterableTableScan> scanCls, String desc) {
             return withDescription(desc)
                 .withOperandSupplier(b ->

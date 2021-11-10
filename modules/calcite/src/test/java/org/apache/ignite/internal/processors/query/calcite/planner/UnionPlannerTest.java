@@ -33,9 +33,6 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings({"TooBroadScope", "FieldCanBeLocal", "TypeMayBeWeakened"})
 public class UnionPlannerTest extends AbstractPlannerTest {
-    /**
-     * @throws Exception If failed.
-     */
     @Test
     public void testUnion() throws Exception {
         IgniteSchema publicSchema = prepareSchema();
@@ -58,9 +55,6 @@ public class UnionPlannerTest extends AbstractPlannerTest {
                 )));
     }
 
-    /**
-     * @throws Exception If failed.
-     */
     @Test
     public void testUnionAll() throws Exception {
         IgniteSchema publicSchema = prepareSchema();
@@ -79,6 +73,8 @@ public class UnionPlannerTest extends AbstractPlannerTest {
     }
 
     /**
+     * Create schema for tests.
+     *
      * @return Ignite schema.
      */
     private IgniteSchema prepareSchema() {

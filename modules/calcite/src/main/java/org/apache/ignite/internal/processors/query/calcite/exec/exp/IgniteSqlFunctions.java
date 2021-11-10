@@ -146,7 +146,9 @@ public class IgniteSqlFunctions {
                : toBigDecimal(o.toString(), precision, scale);
     }
 
-    /** */
+    /**
+     * Dummy table to implement the SYSTEM_RANGE function.
+     */
     private static class RangeTable implements ScannableTable {
         /** Start of the range. */
         private final Object rangeStart;
