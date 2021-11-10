@@ -41,10 +41,10 @@ public interface SqlExtension {
      * @see ExternalCatalog
      */
     void init(
-        Ignite ignite,
-        CatalogUpdateListener catalogUpdateListener
+            Ignite ignite,
+            CatalogUpdateListener catalogUpdateListener
     );
-    
+
     /**
      * Returns a set of optimization rules for given optimization phase.
      *
