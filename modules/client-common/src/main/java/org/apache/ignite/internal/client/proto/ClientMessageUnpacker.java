@@ -91,7 +91,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
-     * Create an exception for the case when an unexpected byte value is read
+     * Create an exception for the case when an unexpected byte value is read.
      *
      * @param expected Expected format.
      * @param b        Actual format.
