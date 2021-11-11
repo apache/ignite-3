@@ -14,6 +14,79 @@ internal implementations to avoid writing boilerplate code.
 
 All schema classes must end with the `ConfigurationSchema` suffix.
 
+### Polymorphic configuration
+
+This is the ability to create various forms of the same configuration. 
+
+Let's take an example of a sql column configuration, suppose it can be of the following types:
+* varchar(max) - string with the maximum length;
+* decimal(p,s) - decimal number with fixed precision(p) and scale(s);
+* datetime(fsp) - date and time with fractional seconds precision(fsp).
+
+If you do not use polymorphic configuration, then the scheme will be something like this:
+
+```java
+@Config
+public static class ColumnConfigurationSchema { 
+    @Value
+    public String type;
+
+    @Value
+    public String name;
+    
+    @Value
+    public int maxLength;
+
+    @Value
+    public int precision;
+
+    @Value
+    public int scale;
+
+    @Value
+    public int fsp;
+}
+```
+
+Such a scheme is redundant and can be confusing when using it, since it is not obvious which fields 
+are needed for each type of column, to solve these problems, you can use a polymorphic configuration 
+that will look something like this:
+
+```java
+@PolymorphicConfig
+public static class ColumnConfigurationSchema { 
+    @PolymorphicId
+    public String type;
+
+    @Value
+    public String name;
+}
+
+@PolymorphicConfigInstance("varchar")
+public static class VarcharColumnConfigurationSchema extends ColumnConfigurationSchema {
+    @Value
+    public int maxLength;
+}
+
+@PolymorphicConfigInstance("decimal")
+public static class DecimalColumnConfigurationSchema extends ColumnConfigurationSchema {
+    @Value
+    public int precision;
+
+    @Value
+    public int scale;
+}
+
+@PolymorphicConfigInstance("datetime")
+public static class DatetimeColumnConfigurationSchema extends ColumnConfigurationSchema {
+    @Value
+    public int fsp;
+}
+```
+
+Thus, a column can only be one of these (varchar, decimal and datetime) types and will contain the 
+type, name and fields specific to it.
+
 ### Configuration Registry
 
 `ConfigurationRegistry` is the entry point of the module. It is used to register root keys, validators, storages and to
@@ -32,11 +105,6 @@ Instances of this interface are generated automatically and are mandatory for re
 An example configuration schema may look like the following:
 
 ```java
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.PolymorphicId;
-
 @ConfigurationRoot(rootName = "root", type = ConfigurationType.LOCAL)
 public static class ParentConfigurationSchema {
     @NamedConfigValue
@@ -197,7 +265,7 @@ public interface FirstPolymorphicInstanceChange extends FirstPolymorphicInstance
 }
 ```
 
-Example of update all child nodes of the parent configuration in a single transaction:
+Example of updating of all child nodes of the parent configuration in a single transaction:
 
 ```java
 ParentConfiguration parentCfg = ...;
