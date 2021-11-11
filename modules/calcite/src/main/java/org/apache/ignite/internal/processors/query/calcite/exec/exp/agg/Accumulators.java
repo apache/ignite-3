@@ -75,6 +75,8 @@ public class Accumulators {
                 return maxFactory(call);
             case "SINGLE_VALUE":
                 return SingleVal.FACTORY;
+            case "ANY_VALUE":
+                return AnyVal.FACTORY;
             default:
                 throw new AssertionError(call.getAggregation().getName());
         }
@@ -168,51 +170,69 @@ public class Accumulators {
      * SingleVal.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    private static class SingleVal implements Accumulator {
-        private Object holder;
-
+    private static class SingleVal extends AnyVal {
         private boolean touched;
 
         public static final Supplier<Accumulator> FACTORY = SingleVal::new;
 
-        /** {@inheritDoc} */
         @Override
         public void add(Object... args) {
-            assert args.length == 1 : args.length;
-
             if (touched) {
                 throw new IllegalArgumentException("Subquery returned more than 1 value.");
             }
 
             touched = true;
 
-            holder = args[0];
+            super.add(args);
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public void apply(Accumulator other) {
-            assert other instanceof SingleVal;
+        @Override public void apply(Accumulator other) {
+            if (((SingleVal) other).touched) {
+                if (touched) {
+                    throw new IllegalArgumentException("Subquery returned more than 1 value.");
+                } else {
+                    touched = true;
+                }
+            }
 
-            SingleVal otherSingle = (SingleVal) other;
-            if (otherSingle.touched) {
-                add(otherSingle.holder);
+            super.apply(other);
+        }
+    }
+
+    /**
+     * ANY_VALUE accumulator.
+     */
+    private static class AnyVal implements Accumulator {
+        private Object holder;
+
+        public static final Supplier<Accumulator> FACTORY = AnyVal::new;
+
+        @Override
+        public void add(Object... args) {
+            assert args.length == 1 : args.length;
+
+            if (holder == null) {
+                holder = args[0];
             }
         }
 
-        /** {@inheritDoc} */
+        @Override
+        public void apply(Accumulator other) {
+            if (holder == null) {
+                holder = ((AnyVal) other).holder;
+            }
+        }
+
         @Override
         public Object end() {
             return holder;
         }
 
-        /** {@inheritDoc} */
         @Override
         public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
             return List.of(typeFactory.createTypeWithNullability(typeFactory.createSqlType(ANY), true));
         }
 
-        /** {@inheritDoc} */
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createSqlType(ANY);
