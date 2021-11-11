@@ -57,7 +57,7 @@ public interface SchemaRegistry {
      *
      * @return Schema descriptor if initialized, {@code null} otherwise.
      */
-    SchemaDescriptor waitLatesSchema();
+    SchemaDescriptor waitLatestSchema();
 
     /**
      * Get last registereg schema version.

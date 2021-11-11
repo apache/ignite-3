@@ -116,7 +116,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaDescriptor waitLatesSchema() {
+    @Override public SchemaDescriptor waitLatestSchema() {
         int lastVer0 = latestVersionStore.getAsInt();
     
         if (lastVer0 == INITIAL_SCHEMA_VERSION) {
@@ -138,7 +138,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row) {
-        final SchemaDescriptor curSchema = waitLatesSchema();
+        final SchemaDescriptor curSchema = waitLatestSchema();
     
         return resolveInternal(row, curSchema);
     }
@@ -146,7 +146,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     /** {@inheritDoc} */
     @Override
     public Collection<Row> resolve(Collection<BinaryRow> rows) {
-        final SchemaDescriptor curSchema = waitLatesSchema();
+        final SchemaDescriptor curSchema = waitLatestSchema();
     
         return rows.stream().map(row -> resolveInternal(row, curSchema))
                 .collect(Collectors.toList());

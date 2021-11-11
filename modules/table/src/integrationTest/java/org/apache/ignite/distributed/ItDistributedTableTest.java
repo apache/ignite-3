@@ -329,7 +329,7 @@ public class ItDistributedTableTest {
             }
             
             @Override
-            public SchemaDescriptor waitLatesSchema() {
+            public SchemaDescriptor waitLatestSchema() {
                 return schema();
             }
     

@@ -213,8 +213,6 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         assertEquals(1, table1.schemaView().lastSchemaVersion());
 
-        Thread.sleep(10_000);
-
         assertFalse(getFut.isDone());
         assertFalse(insertFut.isDone());
         assertFalse(checkDefaultFut.isDone());

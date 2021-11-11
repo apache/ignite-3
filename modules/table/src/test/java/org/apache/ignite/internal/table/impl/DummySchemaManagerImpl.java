@@ -60,7 +60,7 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
     }
     
     /** {@inheritDoc} */
-    @Override public SchemaDescriptor waitLatesSchema() {
+    @Override public SchemaDescriptor waitLatestSchema() {
         return schema();
     }
 

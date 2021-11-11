@@ -85,7 +85,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     
             while (valTuple0.knownColumns() + keyTuple0.knownColumns() != tuple.columnCount()) {
                 if (tbl.schemaMode() == SchemaManagementMode.STRICT) {
-                    SchemaDescriptor newSchema = schemaReg.waitLatesSchema();
+                    SchemaDescriptor newSchema = schemaReg.waitLatestSchema();
             
                     if (newSchema.version() == schema.version()) {
                         throw new SchemaMismatchException("Value doesn't match schema.");
@@ -131,7 +131,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 }
         
                 if (tbl.schemaMode() == SchemaManagementMode.STRICT) {
-                    SchemaDescriptor newSchema = schemaReg.waitLatesSchema();
+                    SchemaDescriptor newSchema = schemaReg.waitLatestSchema();
             
                     if (newSchema.version() == schema.version()) {
                         throw new SchemaMismatchException("Value doesn't match schema.");
