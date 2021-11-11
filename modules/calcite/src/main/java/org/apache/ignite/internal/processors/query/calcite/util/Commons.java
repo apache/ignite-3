@@ -71,6 +71,7 @@ import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImp
 import org.apache.ignite.internal.processors.query.calcite.ResultSetMetadata;
 import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryType;
+import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 import org.apache.ignite.internal.processors.query.calcite.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.processors.query.calcite.exec.exp.RexExecutorImpl;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCostFactory;
@@ -201,6 +202,20 @@ public final class Commons {
                 }
             }
         };
+    }
+
+    /**
+     * Gets appropriate field from two rows by offset.
+     *
+     * @param hnd RowHandler impl.
+     * @param offset Current offset.
+     * @param row1 row1.
+     * @param row2 row2.
+     * @return Returns field by offset.
+     */
+    public static <RowT> Object getFieldFromBiRows(RowHandler<RowT> hnd, int offset, RowT row1, RowT row2) {
+        return offset < hnd.columnCount(row1) ? hnd.get(offset, row1) :
+            hnd.get(offset - hnd.columnCount(row1), row2);
     }
 
     /**
