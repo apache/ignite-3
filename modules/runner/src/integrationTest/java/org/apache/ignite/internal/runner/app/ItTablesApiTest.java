@@ -146,6 +146,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
     
     /**
+     * Trys to create a table which is already created.
+     *
      * @throws Exception If failed.
      */
     @Test
@@ -163,6 +165,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
 
     /**
+     * Trys to create a table which is already created from lagged node.
+     *
      * @throws Exception If failed.
      */
     @Test
@@ -212,6 +216,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
 
     /**
+     * Trys to create an index which is already created.
+     *
      * @throws Exception If failed.
      */
     @Test
@@ -231,6 +237,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
     
     /**
+     * Trys to create an index which is already created from lagged node.
+     *
      * @throws Exception If failed.
      */
     @Test
@@ -366,6 +374,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
     
     /**
+     * Adds an index if it does not exist.
+     *
      * @param node           Cluster node.
      * @param schemaName     Schema name.
      * @param shortTableName Table name.
@@ -384,6 +394,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
     
     /**
+     * Adds an index.
+     *
      * @param node           Cluster node.
      * @param schemaName     Schema name.
      * @param shortTableName Table name.
@@ -402,6 +414,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
     
     /**
+     * Adds a column.
+     *
      * @param node           Cluster node.
      * @param schemaName     Schema name.
      * @param shortTableName Table name.
@@ -425,6 +439,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
     
     /**
+     * Creates a table if it does not exist.
+     *
      * @param node           Cluster node.
      * @param schemaName     Schema name.
      * @param shortTableName Table name.
