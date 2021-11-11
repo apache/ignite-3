@@ -109,7 +109,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     /**
      * Servers.
      */
-    private final List<JraftServerImpl> servers = new ArrayList<>();
+    protected final List<JraftServerImpl> servers = new ArrayList<>();
     
     /**
      * Clients.
@@ -416,14 +416,14 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         server.start();
         
         Path listenerPersistencePath = workDir.resolve("db" + idx);
+    
+        servers.add(server);
         
         server.startRaftGroup(
                 raftGroupId(),
                 createListener(service, listenerPersistencePath),
                 INITIAL_CONF
         );
-        
-        servers.add(server);
         
         return server;
     }

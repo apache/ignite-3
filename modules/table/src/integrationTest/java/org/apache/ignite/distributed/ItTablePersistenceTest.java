@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.table.distributed.TableTxManager;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
@@ -92,15 +94,13 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
      */
     @Override
     public void beforeFollowerStop(RaftGroupService service) throws Exception {
-        TxManager txManager = new TxManagerImpl(clientService(), new HeapLockManager());
-        
         var table = new InternalTableImpl(
                 "table",
                 new IgniteUuid(UUID.randomUUID(), 0),
                 Map.of(0, service),
                 1,
                 NetworkAddress::toString,
-                txManager,
+                new TxManagerImpl(clientService(), new HeapLockManager()),
                 mock(TableStorage.class)
         );
         
@@ -112,15 +112,13 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
      */
     @Override
     public void afterFollowerStop(RaftGroupService service) throws Exception {
-        TxManager txManager = new TxManagerImpl(clientService(), new HeapLockManager());
-        
         var table = new InternalTableImpl(
                 "table",
                 new IgniteUuid(UUID.randomUUID(), 0),
                 Map.of(0, service),
                 1,
                 NetworkAddress::toString,
-                txManager,
+                new TxManagerImpl(clientService(), new HeapLockManager()),
                 mock(TableStorage.class)
         );
         
@@ -193,9 +191,21 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 .map(Map.Entry::getKey)
                 .findAny()
                 .orElseGet(() -> {
+                    JraftServerImpl srv = servers.stream()
+                            .filter(s -> s.clusterService().topologyService().localMember().equals(service.topologyService().localMember()))
+                            .findFirst().get();
+                    
+                    // We need raft manager instance to initialize transaction manager.
+                    Loza raftMgr = new Loza(srv);
+    
+                    TableTxManager txManager = new TableTxManager(service,
+                            new HeapLockManager(), raftMgr);
+    
+                    txManager.start(); // Init listener.
+                    
                     PartitionListener listener = new PartitionListener(
                             new IgniteUuid(UUID.randomUUID(), 0),
-                            new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), new TxManagerImpl(service, new HeapLockManager())));
+                            new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager));
                     
                     paths.put(listener, workDir);
                     

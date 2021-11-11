@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.raft;
 
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
@@ -93,6 +92,22 @@ public class Loza implements IgniteComponent {
 
         this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath);
 
+        this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
+                new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
+                        CLIENT_POOL_NAME)
+                )
+        );
+    }
+    
+    /**
+     * @param srv Pre-started raft server. Used for testing purposes.
+     */
+    @TestOnly
+    public Loza(JraftServerImpl srv) {
+        this.clusterNetSvc = srv.clusterService();
+    
+        this.raftServer = srv;
+    
         this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
                         CLIENT_POOL_NAME)
