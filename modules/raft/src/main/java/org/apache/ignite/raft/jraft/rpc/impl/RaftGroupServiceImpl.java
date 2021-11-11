@@ -241,8 +241,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         return fut.thenApply(resp -> {
             leader = parsePeer(resp.leaderId());
-            
-            LOG.info("DBG: setleader {}", leader.address());
 
             return null;
         });
@@ -492,19 +490,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param <R> Response type.
      */
     private <R> void sendWithRetry(Peer peer, Object req, long stopTime, CompletableFuture<R> fut) {
-        UUID id = UUID.randomUUID();
-    
-        Class<Object> cls = (Class<Object>) req.getClass();
-    
-        String msgStr = S.toString(cls, req);
-        
-        boolean print = msgStr.contains("GetCommand");
-        
-        if (print) {
-            LOG.info("sendWithRetry peers={} req={} from={} to={} id={}", peers, msgStr,
+        if (LOG.isTraceEnabled()) {
+            LOG.trace("sendWithRetry peers={} req={} from={} to={}",
+                    peers,
+                    S.toString(req),
                     cluster.topologyService().localMember().address(),
-                    peer.address(),
-                    id);
+                    peer.address());
         }
         
         if (currentTimeMillis() >= stopTime) {
@@ -517,8 +508,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         fut0.whenComplete(new BiConsumer<Object, Throwable>() {
             @Override public void accept(Object resp, Throwable err) {
-                if (print) {
-                    LOG.info("sendWithRetry resp={} err={}, id={}", resp, err == null ? err : err.getMessage(), id);
+                if (LOG.isTraceEnabled()) {
+                    LOG.trace("sendWithRetry resp={} from={} to={} err={}",
+                            S.toString(resp),
+                            cluster.topologyService().localMember().address(),
+                            peer.address(),
+                            err == null ? null : err.getMessage());
                 }
                 
                 if (err != null) {
@@ -538,8 +533,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
                     if (resp0.errorCode() == RaftError.SUCCESS.getNumber()) { // Handle OK response.
                         leader = peer; // The OK response was received from a leader.
-    
-                        LOG.info("DBG: setleader 2 {}", leader.address());
                         
                         fut.complete(null); // Void response.
                     }
@@ -565,8 +558,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                         }
                         else {
                             leader = parsePeer(resp0.leaderId()); // Update a leader.
-    
-                            LOG.info("DBG: setleader 3 {}", leader.address());
                             
                             executor.schedule(() -> {
                                 sendWithRetry(leader, req, stopTime, fut);

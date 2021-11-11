@@ -834,6 +834,30 @@ public class IgniteToStringBuilder {
             }
         }
     }
+    
+    /**
+     * Produces auto-generated output of string presentation for given object.
+     *
+     * @param obj Object to get a string presentation for.
+     * @return String presentation of the given object.
+     */
+    public static String toString(Object obj) {
+        assert obj != null;
+    
+        Class cls = obj.getClass();
+    
+        StringBuilderLimitedLength sb = threadLocSB.get();
+        
+        boolean newStr = sb.length() == 0;
+        
+        try {
+            return toStringImpl(cls, sb, obj, EMPTY_ARRAY, EMPTY_ARRAY, null, 0);
+        } finally {
+            if (newStr) {
+                sb.reset();
+            }
+        }
+    }
 
     /**
      * Produces auto-generated output of string presentation for given object and its declaration class.
