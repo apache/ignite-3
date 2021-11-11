@@ -18,15 +18,15 @@
 package org.apache.ignite.lang;
 
 /**
- * This exception is thrown when a new index failed to be created, because another index with the same name already exists.
+ * This exception is thrown when a new column failed to be created, because another column with the same name already exists.
  */
-public class IndexAlreadyExistsException extends IgniteException {
+public class ColumnAlreadyExistsException extends IgniteException {
     /**
-     * Create a new exception with given index name.
+     * Create a new exception with given column name.
      *
-     * @param name Index name.
+     * @param name Column name.
      */
-    public IndexAlreadyExistsException(String name) {
-        super(LoggerMessageHelper.format("Index already exists [name={}]", name));
+    public ColumnAlreadyExistsException(String name) {
+        super(LoggerMessageHelper.format("Column already exists [name={}]", name));
     }
 }

@@ -47,11 +47,13 @@ import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.index.IndexDefinition;
 import org.apache.ignite.table.Table;
@@ -289,6 +291,79 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
     
     /**
+     * Trys to create a column which is already created.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testAddColumn() throws Exception {
+        clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
+        
+        Ignite ignite0 = clusterNodes.get(0);
+        
+        createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
+        
+        addColumn(ignite0, SCHEMA, SHORT_TABLE_NAME);
+    
+        assertThrows(ColumnAlreadyExistsException.class,
+                () -> addColumn(ignite0, SCHEMA, SHORT_TABLE_NAME));
+    
+        addColumnIfNotExists(ignite0, SCHEMA, SHORT_TABLE_NAME);
+    }
+    
+    /**
+     * Trys to create a column which is already created from lagged node.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    @Disabled("IGNITE-15891 Configuration use local state cache internally, but have to look at consensus")
+    public void testAddColumnFromLaggedNode() throws Exception {
+        clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
+        
+        Ignite ignite0 = clusterNodes.get(0);
+        
+        createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
+        
+        Ignite ignite1 = clusterNodes.get(1);
+        
+        WatchListenerInhibitor ignite1Inhibitor = metastorageEventsInhibitor(ignite1);
+        
+        ignite1Inhibitor.startInhibit();
+        
+        addColumn(ignite0, SCHEMA, SHORT_TABLE_NAME);
+        
+        CompletableFuture addColFut = CompletableFuture.runAsync(() -> addColumn(ignite1, SCHEMA, SHORT_TABLE_NAME));
+        CompletableFuture addColIfNotExistsFut = CompletableFuture.runAsync(() -> addColumnIfNotExists(ignite1, SCHEMA, SHORT_TABLE_NAME));
+        
+        for (Ignite ignite : clusterNodes) {
+            if (ignite != ignite1) {
+                assertThrows(ColumnAlreadyExistsException.class,
+                        () -> addColumn(ignite, SCHEMA, SHORT_TABLE_NAME));
+                
+                addColumnIfNotExists(ignite, SCHEMA, SHORT_TABLE_NAME);
+            }
+        }
+        
+        Thread.sleep(10_000);
+        
+        assertFalse(addColFut.isDone());
+        assertFalse(addColIfNotExistsFut.isDone());
+        
+        ignite1Inhibitor.stopInhibit();
+        
+        assertThrows(IndexAlreadyExistsException.class, () -> {
+            try {
+                addColFut.get(10, TimeUnit.SECONDS);
+            } catch (ExecutionException e) {
+                throw e.getCause();
+            }
+        });
+    
+        addColIfNotExistsFut.get(10, TimeUnit.SECONDS);
+    }
+    
+    /**
      * Checks that if a table would be created/dropped into any cluster node, this is visible to all
      * other nodes.
      *
@@ -400,17 +475,54 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @param schemaName     Schema name.
      * @param shortTableName Table name.
      */
-    protected void addCoulmn(Ignite node, String schemaName, String shortTableName) {
+    protected void addColumn(Ignite node, String schemaName, String shortTableName) {
+        ColumnDefinition col = SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable()
+                .withDefaultValueExpression("default").build();
+    
+        addColumnInternal(node, schemaName, shortTableName, col);
+    }
+    
+    /**
+     * Adds a column according to the column definition.
+     *
+     * @param node Ignite node.
+     * @param schemaName Schema name.
+     * @param shortTableName Table name.
+     * @param colDefinition Column defenition.
+     */
+    private void addColumnInternal(Ignite node, String schemaName, String shortTableName, ColumnDefinition colDefinition) {
         node.tables().alterTable(
                 schemaName + "." + shortTableName,
                 chng -> chng.changeColumns(cols -> {
+                    for (String colOrder : chng.columns().namedListKeys()) {
+                        if (colDefinition.name().equals(chng.columns().get(colOrder).name())) {
+                            throw new ColumnAlreadyExistsException(colDefinition.name());
+                        }
+                    }
+                    
                     int colIdx = chng.columns().namedListKeys().stream().mapToInt(Integer::parseInt)
                             .max().getAsInt() + 1;
                     
-                    cols.create(String.valueOf(colIdx), colChg -> convert(
-                            SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable()
-                                    .withDefaultValueExpression("default").build(), colChg));
+                    cols.create(String.valueOf(colIdx), colChg -> convert(colDefinition, colChg));
                 }));
+    }
+    
+    /**
+     * Adds a column if it does not exist.
+     *
+     * @param node Ignite node.
+     * @param schemaName Schema name.
+     * @param shortTableName Table name.
+     */
+    protected void addColumnIfNotExists(Ignite node, String schemaName, String shortTableName) {
+        ColumnDefinition col = SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable()
+                .withDefaultValueExpression("default").build();
+        
+        try {
+            addColumnInternal(node, schemaName, shortTableName, col);
+        } catch (ColumnAlreadyExistsException ex) {
+            log.info("Column already exists [naem={}]", col.name());
+        }
     }
     
     /**
