@@ -278,4 +278,19 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
         assertEquals("brandNewDefault", kvView.get(keyTuple3).value("valStr"));
         assertEquals("brandNewDefault", kvView.get(keyTuple3).value("val"));
     }
+    
+    /**
+     * Check an operation failed if an unknown column found.
+     */
+    @Test
+    public void testInsertRowOfDifferentSchema() {
+        List<Ignite> grid = startGrid();
+        
+        createTable(grid);
+        
+        KeyValueView<Tuple, Tuple> view = grid.get(0).tables().table(TABLE).keyValueView();
+        
+        assertThrowsWithCause(SchemaMismatchException.class,
+                () -> view.put(Tuple.create().set("key", 1L), Tuple.create().set("unknownColumn", 10)));
+    }
 }
