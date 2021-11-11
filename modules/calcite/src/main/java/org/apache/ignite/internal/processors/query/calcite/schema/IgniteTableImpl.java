@@ -29,6 +29,7 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelReferentialConstraint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.util.ImmutableBitSet;
@@ -37,8 +38,8 @@ import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningConte
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
-import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite table implementation.
@@ -72,7 +73,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
         return statistic;
     }
 
-
     /** {@inheritDoc} */
     @Override
     public TableDescriptor descriptor() {
@@ -81,22 +81,27 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteLogicalTableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl) {
-        RelTraitSet traitSet = cluster.traitSetOf(distribution())
-                .replace(RewindabilityTrait.REWINDABLE);
-
-        return IgniteLogicalTableScan.create(cluster, traitSet, relOptTbl, null, null, null);
+    public IgniteLogicalTableScan toRel(
+            RelOptCluster cluster,
+            RelOptTable relOptTbl,
+            @Nullable List<RexNode> proj,
+            @Nullable RexNode cond,
+            @Nullable ImmutableBitSet requiredColumns
+    ) {
+        return IgniteLogicalTableScan.create(cluster, cluster.traitSet(), relOptTbl, proj, cond, requiredColumns);
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteLogicalIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, String idxName) {
-        RelTraitSet traitSet = cluster.traitSetOf(Convention.Impl.NONE)
-                .replace(distribution())
-                .replace(RewindabilityTrait.REWINDABLE)
-                .replace(getIndex(idxName).collation());
-
-        return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTbl, idxName, null, null, null);
+    public IgniteLogicalIndexScan toRel(
+            RelOptCluster cluster,
+            RelOptTable relOptTbl,
+            String idxName,
+            @Nullable List<RexNode> proj,
+            @Nullable RexNode cond,
+            @Nullable ImmutableBitSet requiredColumns
+    ) {
+        return IgniteLogicalIndexScan.create(cluster, cluster.traitSet(), relOptTbl, idxName, proj, cond, requiredColumns);
     }
 
     /** {@inheritDoc} */

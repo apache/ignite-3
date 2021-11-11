@@ -36,7 +36,6 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableScan;
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteSchema;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions;
-import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -56,7 +55,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
                         "HUGE",
                         new RelDataTypeFactory.Builder(TYPE_FACTORY)
                                 .add("ID", TYPE_FACTORY.createJavaType(Integer.class))
-                                .build(), RewindabilityTrait.REWINDABLE, 1_000) {
+                                .build(), 1_000) {
 
                     @Override public IgniteDistribution distribution() {
                         return IgniteDistributions.affinity(0, "HUGE", "hash");
@@ -66,7 +65,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
                         "SMALL",
                         new RelDataTypeFactory.Builder(TYPE_FACTORY)
                                 .add("ID", TYPE_FACTORY.createJavaType(Integer.class))
-                                .build(), RewindabilityTrait.REWINDABLE, 10) {
+                                .build(), 10) {
 
                     @Override public IgniteDistribution distribution() {
                         return IgniteDistributions.affinity(0, "SMALL", "hash");

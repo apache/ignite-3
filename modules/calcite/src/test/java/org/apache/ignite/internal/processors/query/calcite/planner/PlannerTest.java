@@ -19,7 +19,6 @@ package org.apache.ignite.internal.processors.query.calcite.planner;
 
 import static org.apache.calcite.tools.Frameworks.createRootSchema;
 import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
-import static org.apache.ignite.internal.processors.query.calcite.externalize.RelJsonWriter.toJson;
 import static org.apache.ignite.internal.processors.query.calcite.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -49,10 +47,8 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableIntList;
-import org.apache.ignite.internal.processors.query.calcite.externalize.RelJsonReader;
 import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGroup;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCostFactory;
-import org.apache.ignite.internal.processors.query.calcite.prepare.Fragment;
 import org.apache.ignite.internal.processors.query.calcite.prepare.IgnitePlanner;
 import org.apache.ignite.internal.processors.query.calcite.prepare.MultiStepPlan;
 import org.apache.ignite.internal.processors.query.calcite.prepare.MultiStepQueryPlan;
@@ -72,7 +68,6 @@ import org.apache.ignite.internal.processors.query.calcite.trait.CorrelationTrai
 import org.apache.ignite.internal.processors.query.calcite.trait.DistributionTraitDef;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions;
-import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTraitDef;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeSystem;
@@ -101,477 +96,6 @@ public class PlannerTest extends AbstractPlannerTest {
         }
     }
 
-    /**
-     * TestLogicalPlan.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testLogicalPlan() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
-
-        TestTable developer = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("PROJECTID", f.createJavaType(Integer.class))
-                        .build()) {
-        };
-
-        TestTable project = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("VER", f.createJavaType(Integer.class))
-                        .build()) {
-        };
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable("DEVELOPER", developer);
-        publicSchema.addTable("PROJECT", project);
-
-        SchemaPlus schema = createRootSchema(false)
-                .add("PUBLIC", publicSchema);
-
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
-                + "FROM PUBLIC.Developer d JOIN ("
-                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
-                + ") p "
-                + "ON d.projectId = p.id0 + 1"
-                + "WHERE (d.projectId + 1) > ?";
-
-        RelTraitDef<?>[] traitDefs = {
-                ConventionTraitDef.INSTANCE
-        };
-
-        PlanningContext ctx = PlanningContext.builder()
-                .localNodeId(first(NODES))
-                .originatingNodeId(first(NODES))
-                .parentContext(Contexts.empty())
-                .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
-                        .defaultSchema(schema)
-                        .traitDefs(traitDefs)
-                        .build())
-                .query(sql)
-                .parameters(2)
-                .build();
-
-        RelRoot relRoot;
-
-        try (IgnitePlanner planner = ctx.planner()) {
-            assertNotNull(planner);
-
-            String qry = ctx.query();
-
-            assertNotNull(qry);
-
-            // Parse
-            SqlNode sqlNode = planner.parse(qry);
-
-            // Validate
-            sqlNode = planner.validate(sqlNode);
-
-            // Convert to Relational operators graph
-            relRoot = planner.rel(sqlNode);
-        }
-
-        assertNotNull(relRoot.rel);
-    }
-
-    /**
-     * TestLogicalPlanDefaultSchema.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testLogicalPlanDefaultSchema() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
-
-        TestTable developer = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("PROJECTID", f.createJavaType(Integer.class))
-                        .build()) {
-        };
-
-        TestTable project = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("VER", f.createJavaType(Integer.class))
-                        .build()) {
-        };
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable("DEVELOPER", developer);
-        publicSchema.addTable("PROJECT", project);
-
-        SchemaPlus schema = createRootSchema(false)
-                .add("PUBLIC", publicSchema);
-
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
-                + "FROM Developer d JOIN ("
-                + "SELECT pp.id as id0, pp.ver as ver0 FROM Project pp"
-                + ") p "
-                + "ON d.projectId = p.id0 "
-                + "WHERE (d.projectId + 1) > ?";
-
-        RelTraitDef<?>[] traitDefs = {
-                ConventionTraitDef.INSTANCE
-        };
-
-        PlanningContext ctx = PlanningContext.builder()
-                .localNodeId(first(NODES))
-                .originatingNodeId(first(NODES))
-                .parentContext(Contexts.empty())
-                .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
-                        .defaultSchema(schema)
-                        .traitDefs(traitDefs)
-                        .build())
-                .query(sql)
-                .parameters(2)
-                .build();
-
-        RelRoot relRoot;
-
-        try (IgnitePlanner planner = ctx.planner()) {
-            assertNotNull(planner);
-
-            String qry = ctx.query();
-
-            assertNotNull(qry);
-
-            // Parse
-            SqlNode sqlNode = planner.parse(qry);
-
-            // Validate
-            sqlNode = planner.validate(sqlNode);
-
-            // Convert to Relational operators graph
-            relRoot = planner.rel(sqlNode);
-        }
-
-        assertNotNull(relRoot.rel);
-    }
-
-    /**
-     * TestCorrelatedQuery.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testCorrelatedQuery() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
-
-        TestTable developer = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("PROJECTID", f.createJavaType(Integer.class))
-                        .build()) {
-        };
-
-        TestTable project = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("VER", f.createJavaType(Integer.class))
-                        .build()) {
-        };
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable("DEVELOPER", developer);
-        publicSchema.addTable("PROJECT", project);
-
-        SchemaPlus schema = createRootSchema(false)
-                .add("PUBLIC", publicSchema);
-
-        String sql = "SELECT d.id, (SELECT p.name FROM Project p WHERE p.id = d.id) name, d.projectId "
-                + "FROM Developer d";
-
-        RelTraitDef<?>[] traitDefs = {
-                ConventionTraitDef.INSTANCE
-        };
-
-        PlanningContext ctx = PlanningContext.builder()
-                .localNodeId(first(NODES))
-                .originatingNodeId(first(NODES))
-                .parentContext(Contexts.empty())
-                .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
-                        .defaultSchema(schema)
-                        .traitDefs(traitDefs)
-                        .build())
-                .query(sql)
-                .parameters(2)
-                .build();
-
-        RelRoot relRoot;
-
-        try (IgnitePlanner planner = ctx.planner()) {
-            assertNotNull(planner);
-
-            String qry = ctx.query();
-
-            assertNotNull(qry);
-
-            // Parse
-            SqlNode sqlNode = planner.parse(qry);
-
-            // Validate
-            sqlNode = planner.validate(sqlNode);
-
-            // Convert to Relational operators graph
-            relRoot = planner.rel(sqlNode);
-        }
-
-        assertNotNull(relRoot.rel);
-    }
-
-    /**
-     * TestHepPlaner.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testHepPlaner() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
-
-        TestTable developer = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("PROJECTID", f.createJavaType(Integer.class))
-                        .build()) {
-            @Override
-            public IgniteIndex getIndex(String idxName) {
-                return new IgniteIndex(null, null, null);
-            }
-
-            @Override
-            public ColocationGroup colocationGroup(PlanningContext ctx) {
-                return ColocationGroup.forAssignments(Arrays.asList(
-                        select(NODES, 0, 1),
-                        select(NODES, 1, 2),
-                        select(NODES, 2, 0),
-                        select(NODES, 0, 1),
-                        select(NODES, 1, 2)
-                ));
-            }
-
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Developer", "hash");
-            }
-        };
-
-        TestTable project = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("VER", f.createJavaType(Integer.class))
-                        .build()) {
-            @Override
-            public IgniteIndex getIndex(String idxName) {
-                return new IgniteIndex(null, null, null);
-            }
-
-            @Override
-            public ColocationGroup colocationGroup(PlanningContext ctx) {
-                return ColocationGroup.forAssignments(Arrays.asList(
-                        select(NODES, 0, 1),
-                        select(NODES, 1, 2),
-                        select(NODES, 2, 0),
-                        select(NODES, 0, 1),
-                        select(NODES, 1, 2)
-                ));
-            }
-
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Project", "hash");
-            }
-        };
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable("DEVELOPER", developer);
-        publicSchema.addTable("PROJECT", project);
-
-        SchemaPlus schema = createRootSchema(false)
-                .add("PUBLIC", publicSchema);
-
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
-                + "FROM PUBLIC.Developer d JOIN ("
-                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
-                + ") p "
-                + "ON d.projectId = p.id0 "
-                + "WHERE (d.projectId + 1) > ?";
-
-        RelTraitDef<?>[] traitDefs = {
-                ConventionTraitDef.INSTANCE
-        };
-
-        PlanningContext ctx = PlanningContext.builder()
-                .localNodeId(first(NODES))
-                .originatingNodeId(first(NODES))
-                .parentContext(Contexts.empty())
-                .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
-                        .defaultSchema(schema)
-                        .traitDefs(traitDefs)
-                        .build())
-                .query(sql)
-                .parameters(2)
-                .build();
-
-        RelRoot relRoot;
-
-        try (IgnitePlanner planner = ctx.planner()) {
-            assertNotNull(planner);
-
-            String qry = ctx.query();
-
-            assertNotNull(qry);
-
-            // Parse
-            SqlNode sqlNode = planner.parse(qry);
-
-            // Validate
-            sqlNode = planner.validate(sqlNode);
-
-            // Convert to Relational operators graph
-            relRoot = planner.rel(sqlNode);
-
-            RelNode rel = relRoot.rel;
-
-            // Transformation chain
-            rel = planner.transform(PlannerPhase.HEURISTIC_OPTIMIZATION, rel.getTraitSet(), rel);
-
-            relRoot = relRoot.withRel(rel).withKind(sqlNode.getKind());
-        }
-
-        assertNotNull(relRoot.rel);
-    }
-
-    /**
-     * TestVolcanoPlanerDistributed.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testVolcanoPlanerDistributed() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
-
-        TestTable developer = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("PROJECTID", f.createJavaType(Integer.class))
-                        .build()) {
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Developer", "hash");
-            }
-        };
-
-        TestTable project = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("VER", f.createJavaType(Integer.class))
-                        .build()) {
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Project", "hash");
-            }
-        };
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable("DEVELOPER", developer);
-        publicSchema.addTable("PROJECT", project);
-
-        SchemaPlus schema = createRootSchema(false)
-                .add("PUBLIC", publicSchema);
-
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
-                + "FROM PUBLIC.Developer d "
-                + "JOIN ("
-                + "   SELECT pp.id as id0, pp.ver as ver0 "
-                + "   FROM PUBLIC.Project pp"
-                + ") p ON d.projectId = p.id0 "
-                + "WHERE (d.projectId + 1) > ?";
-
-        RelTraitDef<?>[] traitDefs = {
-                DistributionTraitDef.INSTANCE,
-                ConventionTraitDef.INSTANCE,
-                RelCollationTraitDef.INSTANCE,
-                RewindabilityTraitDef.INSTANCE,
-                CorrelationTraitDef.INSTANCE
-        };
-
-        PlanningContext ctx = PlanningContext.builder()
-                .localNodeId(first(NODES))
-                .originatingNodeId(first(NODES))
-                .parentContext(Contexts.empty())
-                .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
-                        .defaultSchema(schema)
-                        .traitDefs(traitDefs)
-                        .build())
-                .query(sql)
-                .parameters(2)
-                .build();
-
-        RelRoot relRoot;
-
-        try (IgnitePlanner planner = ctx.planner()) {
-            assertNotNull(planner);
-
-            String qry = ctx.query();
-
-            assertNotNull(qry);
-
-            // Parse
-            SqlNode sqlNode = planner.parse(qry);
-
-            // Validate
-            sqlNode = planner.validate(sqlNode);
-
-            // Convert to Relational operators graph
-            relRoot = planner.rel(sqlNode);
-
-            RelNode rel = relRoot.rel;
-
-            rel = planner.transform(PlannerPhase.HEURISTIC_OPTIMIZATION, rel.getTraitSet(), rel);
-
-            // Transformation chain
-            RelTraitSet desired = rel.getCluster().traitSet()
-                    .replace(IgniteConvention.INSTANCE)
-                    .replace(IgniteDistributions.single())
-                    .simplify();
-
-            rel = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
-
-            relRoot = relRoot.withRel(rel).withKind(sqlNode.getKind());
-        }
-
-        assertNotNull(relRoot.rel);
-    }
-
-    /**
-     * TestSplitterColocatedPartitionedPartitioned.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
     @Test
     public void testSplitterColocatedPartitionedPartitioned() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
@@ -583,6 +107,11 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("PROJECTID", f.createJavaType(Integer.class))
                         .build()) {
             @Override
+            public IgniteIndex getIndex(String idxName) {
+                return new IgniteIndex(null, null, null);
+            }
+
+            @Override
             public ColocationGroup colocationGroup(PlanningContext ctx) {
                 return ColocationGroup.forAssignments(Arrays.asList(
                         select(NODES, 0, 1),
@@ -593,30 +122,27 @@ public class PlannerTest extends AbstractPlannerTest {
                 ));
             }
 
-            @Override
-            public IgniteDistribution distribution() {
+            @Override public IgniteDistribution distribution() {
                 return IgniteDistributions.affinity(0, "Developer", "hash");
             }
         };
 
         TestTable project = new TestTable(
                 new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("VER", f.createJavaType(Integer.class))
-                        .build()) {
-            @Override
-            public ColocationGroup colocationGroup(PlanningContext ctx) {
+                    .add("ID", f.createJavaType(Integer.class))
+                    .add("NAME", f.createJavaType(String.class))
+                    .add("VER", f.createJavaType(Integer.class))
+                    .build()) {
+            @Override public ColocationGroup colocationGroup(PlanningContext ctx) {
                 return ColocationGroup.forAssignments(Arrays.asList(
-                        select(NODES, 0, 1),
-                        select(NODES, 1, 2),
-                        select(NODES, 2, 0),
-                        select(NODES, 0, 1),
-                        select(NODES, 1, 2)));
+                    select(NODES, 0, 1),
+                    select(NODES, 1, 2),
+                    select(NODES, 2, 0),
+                    select(NODES, 0, 1),
+                    select(NODES, 1, 2)));
             }
 
-            @Override
-            public IgniteDistribution distribution() {
+            @Override public IgniteDistribution distribution() {
                 return IgniteDistributions.affinity(0, "Project", "hash");
             }
         };
@@ -636,11 +162,11 @@ public class PlannerTest extends AbstractPlannerTest {
                 + "ON d.id = p.id0";
 
         RelTraitDef<?>[] traitDefs = {
-                ConventionTraitDef.INSTANCE,
-                DistributionTraitDef.INSTANCE,
-                RelCollationTraitDef.INSTANCE,
-                RewindabilityTraitDef.INSTANCE,
-                CorrelationTraitDef.INSTANCE
+            ConventionTraitDef.INSTANCE,
+            DistributionTraitDef.INSTANCE,
+            RelCollationTraitDef.INSTANCE,
+            RewindabilityTraitDef.INSTANCE,
+            CorrelationTraitDef.INSTANCE
         };
 
         PlanningContext ctx = PlanningContext.builder()
@@ -657,43 +183,12 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(ctx);
 
-        RelRoot relRoot;
+        IgniteRel phys = physicalPlan(sql, ctx);
 
-        try (IgnitePlanner planner = ctx.planner()) {
-            assertNotNull(planner);
-
-            String qry = ctx.query();
-
-            assertNotNull(planner);
-
-            // Parse
-            SqlNode sqlNode = planner.parse(qry);
-
-            // Validate
-            sqlNode = planner.validate(sqlNode);
-
-            // Convert to Relational operators graph
-            relRoot = planner.rel(sqlNode);
-
-            RelNode rel = relRoot.rel;
-
-            // Transformation chain
-            rel = planner.transform(PlannerPhase.HEURISTIC_OPTIMIZATION, rel.getTraitSet(), rel);
-
-            RelTraitSet desired = rel.getCluster().traitSet()
-                    .replace(IgniteConvention.INSTANCE)
-                    .replace(IgniteDistributions.single())
-                    .simplify();
-
-            rel = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
-
-            relRoot = relRoot.withRel(rel).withKind(sqlNode.getKind());
-        }
-
-        assertNotNull(relRoot);
+        assertNotNull(phys);
 
         MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(this::intermediateMapping,
-                new Splitter().go((IgniteRel) relRoot.rel)), null);
+                new Splitter().go(phys)), null);
 
         assertNotNull(plan);
 
@@ -704,12 +199,6 @@ public class PlannerTest extends AbstractPlannerTest {
         assertEquals(2, plan.fragments().size());
     }
 
-    /**
-     * TestSplitterColocatedReplicatedReplicated.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
     @Test
     public void testSplitterColocatedReplicatedReplicated() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
@@ -742,8 +231,7 @@ public class PlannerTest extends AbstractPlannerTest {
                 return ColocationGroup.forNodes(select(NODES, 0, 1, 2, 3));
             }
 
-            @Override
-            public IgniteDistribution distribution() {
+            @Override public IgniteDistribution distribution() {
                 return IgniteDistributions.broadcast();
             }
         };
@@ -764,11 +252,11 @@ public class PlannerTest extends AbstractPlannerTest {
                 + "WHERE (d.projectId + 1) > ?";
 
         RelTraitDef<?>[] traitDefs = {
-                DistributionTraitDef.INSTANCE,
-                ConventionTraitDef.INSTANCE,
-                RelCollationTraitDef.INSTANCE,
-                RewindabilityTraitDef.INSTANCE,
-                CorrelationTraitDef.INSTANCE
+            DistributionTraitDef.INSTANCE,
+            ConventionTraitDef.INSTANCE,
+            RelCollationTraitDef.INSTANCE,
+            RewindabilityTraitDef.INSTANCE,
+            CorrelationTraitDef.INSTANCE
         };
 
         PlanningContext ctx = PlanningContext.builder()
@@ -783,43 +271,12 @@ public class PlannerTest extends AbstractPlannerTest {
                 .parameters(2)
                 .build();
 
-        RelRoot relRoot;
+        IgniteRel phys = physicalPlan(sql, ctx);
 
-        try (IgnitePlanner planner = ctx.planner()) {
-            assertNotNull(planner);
-
-            String qry = ctx.query();
-
-            assertNotNull(planner);
-
-            // Parse
-            SqlNode sqlNode = planner.parse(qry);
-
-            // Validate
-            sqlNode = planner.validate(sqlNode);
-
-            // Convert to Relational operators graph
-            relRoot = planner.rel(sqlNode);
-
-            RelNode rel = relRoot.rel;
-
-            // Transformation chain
-            rel = planner.transform(PlannerPhase.HEURISTIC_OPTIMIZATION, rel.getTraitSet(), rel);
-
-            RelTraitSet desired = rel.getCluster().traitSet()
-                    .replace(IgniteConvention.INSTANCE)
-                    .replace(IgniteDistributions.single())
-                    .simplify();
-
-            rel = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
-
-            relRoot = relRoot.withRel(rel).withKind(sqlNode.getKind());
-        }
-
-        assertNotNull(relRoot);
+        assertNotNull(phys);
 
         MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(this::intermediateMapping,
-                new Splitter().go((IgniteRel) relRoot.rel)), null);
+                new Splitter().go(phys)), null);
 
         assertNotNull(plan);
 
@@ -830,12 +287,6 @@ public class PlannerTest extends AbstractPlannerTest {
         assertEquals(1, plan.fragments().size());
     }
 
-    /**
-     * TestSplitterPartiallyColocatedReplicatedAndPartitioned.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
     @Test
     public void testSplitterPartiallyColocatedReplicatedAndPartitioned() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
@@ -873,8 +324,7 @@ public class PlannerTest extends AbstractPlannerTest {
                 ));
             }
 
-            @Override
-            public IgniteDistribution distribution() {
+            @Override public IgniteDistribution distribution() {
                 return IgniteDistributions.affinity(0, "Project", "hash");
             }
         };
@@ -895,11 +345,11 @@ public class PlannerTest extends AbstractPlannerTest {
                 + "WHERE (d.projectId + 1) > ?";
 
         RelTraitDef<?>[] traitDefs = {
-                DistributionTraitDef.INSTANCE,
-                ConventionTraitDef.INSTANCE,
-                RelCollationTraitDef.INSTANCE,
-                RewindabilityTraitDef.INSTANCE,
-                CorrelationTraitDef.INSTANCE
+            DistributionTraitDef.INSTANCE,
+            ConventionTraitDef.INSTANCE,
+            RelCollationTraitDef.INSTANCE,
+            RewindabilityTraitDef.INSTANCE,
+            CorrelationTraitDef.INSTANCE
         };
 
         PlanningContext ctx = PlanningContext.builder()
@@ -914,43 +364,12 @@ public class PlannerTest extends AbstractPlannerTest {
                 .parameters(2)
                 .build();
 
-        RelRoot relRoot;
+        IgniteRel phys = physicalPlan(sql, ctx);
 
-        try (IgnitePlanner planner = ctx.planner()) {
-            assertNotNull(planner);
-
-            String qry = ctx.query();
-
-            assertNotNull(planner);
-
-            // Parse
-            SqlNode sqlNode = planner.parse(qry);
-
-            // Validate
-            sqlNode = planner.validate(sqlNode);
-
-            // Convert to Relational operators graph
-            relRoot = planner.rel(sqlNode);
-
-            RelNode rel = relRoot.rel;
-
-            // Transformation chain
-            rel = planner.transform(PlannerPhase.HEURISTIC_OPTIMIZATION, rel.getTraitSet(), rel);
-
-            RelTraitSet desired = rel.getCluster().traitSet()
-                    .replace(IgniteConvention.INSTANCE)
-                    .replace(IgniteDistributions.single())
-                    .simplify();
-
-            rel = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
-
-            relRoot = relRoot.withRel(rel).withKind(sqlNode.getKind());
-        }
-
-        assertNotNull(relRoot);
+        assertNotNull(phys);
 
         MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(this::intermediateMapping,
-                new Splitter().go((IgniteRel) relRoot.rel)), null);
+                new Splitter().go(phys)), null);
 
         assertNotNull(plan);
 
@@ -959,12 +378,6 @@ public class PlannerTest extends AbstractPlannerTest {
         assertEquals(3, plan.fragments().size());
     }
 
-    /**
-     * TestSplitterPartiallyColocated1.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
     @Test
     public void testSplitterPartiallyColocated1() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
@@ -1023,11 +436,11 @@ public class PlannerTest extends AbstractPlannerTest {
                 + "WHERE (d.projectId + 1) > ?";
 
         RelTraitDef<?>[] traitDefs = {
-                DistributionTraitDef.INSTANCE,
-                ConventionTraitDef.INSTANCE,
-                RelCollationTraitDef.INSTANCE,
-                RewindabilityTraitDef.INSTANCE,
-                CorrelationTraitDef.INSTANCE
+            DistributionTraitDef.INSTANCE,
+            ConventionTraitDef.INSTANCE,
+            RelCollationTraitDef.INSTANCE,
+            RewindabilityTraitDef.INSTANCE,
+            CorrelationTraitDef.INSTANCE
         };
 
         PlanningContext ctx = PlanningContext.builder()
@@ -1042,43 +455,12 @@ public class PlannerTest extends AbstractPlannerTest {
                 .parameters(2)
                 .build();
 
-        RelRoot relRoot;
+        IgniteRel phys = physicalPlan(sql, ctx);
 
-        try (IgnitePlanner planner = ctx.planner()) {
-            assertNotNull(planner);
-
-            String qry = ctx.query();
-
-            assertNotNull(planner);
-
-            // Parse
-            SqlNode sqlNode = planner.parse(qry);
-
-            // Validate
-            sqlNode = planner.validate(sqlNode);
-
-            // Convert to Relational operators graph
-            relRoot = planner.rel(sqlNode);
-
-            RelNode rel = relRoot.rel;
-
-            // Transformation chain
-            rel = planner.transform(PlannerPhase.HEURISTIC_OPTIMIZATION, rel.getTraitSet(), rel);
-
-            RelTraitSet desired = rel.getCluster().traitSet()
-                    .replace(IgniteConvention.INSTANCE)
-                    .replace(IgniteDistributions.single())
-                    .simplify();
-
-            rel = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
-
-            relRoot = relRoot.withRel(rel).withKind(sqlNode.getKind());
-        }
-
-        assertNotNull(relRoot);
+        assertNotNull(phys);
 
         MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(this::intermediateMapping,
-                new Splitter().go((IgniteRel) relRoot.rel)), null);
+                new Splitter().go(phys)), null);
 
         assertNotNull(plan);
 
@@ -1089,12 +471,6 @@ public class PlannerTest extends AbstractPlannerTest {
         assertEquals(3, plan.fragments().size());
     }
 
-    /**
-     * TestSplitterPartiallyColocated2.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
     @Test
     public void testSplitterPartiallyColocated2() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
@@ -1110,8 +486,7 @@ public class PlannerTest extends AbstractPlannerTest {
                 return ColocationGroup.forNodes(select(NODES, 0));
             }
 
-            @Override
-            public IgniteDistribution distribution() {
+            @Override public IgniteDistribution distribution() {
                 return IgniteDistributions.broadcast();
             }
         };
@@ -1143,7 +518,7 @@ public class PlannerTest extends AbstractPlannerTest {
         publicSchema.addTable("PROJECT", project);
 
         SchemaPlus schema = createRootSchema(false)
-                .add("PUBLIC", publicSchema);
+                  .add("PUBLIC", publicSchema);
 
         String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
                 + "FROM PUBLIC.Developer d JOIN ("
@@ -1153,11 +528,11 @@ public class PlannerTest extends AbstractPlannerTest {
                 + "WHERE (d.projectId + 1) > ?";
 
         RelTraitDef<?>[] traitDefs = {
-                DistributionTraitDef.INSTANCE,
-                ConventionTraitDef.INSTANCE,
-                RelCollationTraitDef.INSTANCE,
-                RewindabilityTraitDef.INSTANCE,
-                CorrelationTraitDef.INSTANCE
+            DistributionTraitDef.INSTANCE,
+            ConventionTraitDef.INSTANCE,
+            RelCollationTraitDef.INSTANCE,
+            RewindabilityTraitDef.INSTANCE,
+            CorrelationTraitDef.INSTANCE
         };
 
         PlanningContext ctx = PlanningContext.builder()
@@ -1172,43 +547,12 @@ public class PlannerTest extends AbstractPlannerTest {
                 .parameters(2)
                 .build();
 
-        RelRoot relRoot;
+        IgniteRel phys = physicalPlan(sql, ctx);
 
-        try (IgnitePlanner planner = ctx.planner()) {
-            assertNotNull(planner);
-
-            String qry = ctx.query();
-
-            assertNotNull(planner);
-
-            // Parse
-            SqlNode sqlNode = planner.parse(qry);
-
-            // Validate
-            sqlNode = planner.validate(sqlNode);
-
-            // Convert to Relational operators graph
-            relRoot = planner.rel(sqlNode);
-
-            RelNode rel = relRoot.rel;
-
-            // Transformation chain
-            rel = planner.transform(PlannerPhase.HEURISTIC_OPTIMIZATION, rel.getTraitSet(), rel);
-
-            RelTraitSet desired = rel.getCluster().traitSet()
-                    .replace(IgniteConvention.INSTANCE)
-                    .replace(IgniteDistributions.single())
-                    .simplify();
-
-            rel = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
-
-            relRoot = relRoot.withRel(rel).withKind(sqlNode.getKind());
-        }
-
-        assertNotNull(relRoot);
+        assertNotNull(phys);
 
         MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(this::intermediateMapping,
-                new Splitter().go((IgniteRel) relRoot.rel)), null);
+                new Splitter().go(phys)), null);
 
         assertNotNull(plan);
 
@@ -1217,12 +561,6 @@ public class PlannerTest extends AbstractPlannerTest {
         assertEquals(3, plan.fragments().size());
     }
 
-    /**
-     * TestSplitterNonColocated.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
     @Test
     public void testSplitterNonColocated() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
@@ -1277,11 +615,11 @@ public class PlannerTest extends AbstractPlannerTest {
                 + "WHERE (d.projectId + 1) > ?";
 
         RelTraitDef<?>[] traitDefs = {
-                DistributionTraitDef.INSTANCE,
-                ConventionTraitDef.INSTANCE,
-                RelCollationTraitDef.INSTANCE,
-                RewindabilityTraitDef.INSTANCE,
-                CorrelationTraitDef.INSTANCE
+            DistributionTraitDef.INSTANCE,
+            ConventionTraitDef.INSTANCE,
+            RelCollationTraitDef.INSTANCE,
+            RewindabilityTraitDef.INSTANCE,
+            CorrelationTraitDef.INSTANCE
         };
 
         PlanningContext ctx = PlanningContext.builder()
@@ -1296,45 +634,12 @@ public class PlannerTest extends AbstractPlannerTest {
                 .parameters(2)
                 .build();
 
-        RelRoot relRoot;
+        IgniteRel phys = physicalPlan(sql, ctx);
 
-        try (IgnitePlanner planner = ctx.planner()) {
-            planner.setDisabledRules(Set.of("CorrelatedNestedLoopJoin"));
-
-            assertNotNull(planner);
-
-            String qry = ctx.query();
-
-            assertNotNull(planner);
-
-            // Parse
-            SqlNode sqlNode = planner.parse(qry);
-
-            // Validate
-            sqlNode = planner.validate(sqlNode);
-
-            // Convert to Relational operators graph
-            relRoot = planner.rel(sqlNode);
-
-            RelNode rel = relRoot.rel;
-
-            // Transformation chain
-            rel = planner.transform(PlannerPhase.HEURISTIC_OPTIMIZATION, rel.getTraitSet(), rel);
-
-            RelTraitSet desired = rel.getCluster().traitSet()
-                    .replace(IgniteConvention.INSTANCE)
-                    .replace(IgniteDistributions.single())
-                    .simplify();
-
-            rel = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
-
-            relRoot = relRoot.withRel(rel).withKind(sqlNode.getKind());
-        }
-
-        assertNotNull(relRoot);
+        assertNotNull(phys);
 
         MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(this::intermediateMapping,
-                new Splitter().go((IgniteRel) relRoot.rel)), null);
+                new Splitter().go(phys)), null);
 
         assertNotNull(plan);
 
@@ -1345,143 +650,6 @@ public class PlannerTest extends AbstractPlannerTest {
         assertEquals(2, plan.fragments().size());
     }
 
-    /**
-     * TestSerializationDeserialization.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    @Test
-    public void testSerializationDeserialization() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
-
-        TestTable developer = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("PROJECTID", f.createJavaType(Integer.class))
-                        .build()) {
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Developer", "hash");
-            }
-        };
-
-        TestTable project = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("VER", f.createJavaType(Integer.class))
-                        .build()) {
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Project", "hash");
-            }
-        };
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable("DEVELOPER", developer);
-        publicSchema.addTable("PROJECT", project);
-
-        SchemaPlus schema = createRootSchema(false)
-                .add("PUBLIC", publicSchema);
-
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
-                + "FROM PUBLIC.Developer d JOIN ("
-                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
-                + ") p "
-                + "ON d.projectId = p.id0 "
-                + "WHERE (d.projectId + 1) > ?";
-
-        RelTraitDef<?>[] traitDefs = {
-                DistributionTraitDef.INSTANCE,
-                ConventionTraitDef.INSTANCE,
-                RelCollationTraitDef.INSTANCE,
-                RewindabilityTraitDef.INSTANCE,
-                CorrelationTraitDef.INSTANCE
-        };
-
-        PlanningContext ctx = PlanningContext.builder()
-                .localNodeId(first(NODES))
-                .originatingNodeId(first(NODES))
-                .parentContext(Contexts.empty())
-                .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
-                        .defaultSchema(schema)
-                        .traitDefs(traitDefs)
-                        .build())
-                .query(sql)
-                .parameters(2)
-                .build();
-
-        RelNode rel;
-
-        try (IgnitePlanner planner = ctx.planner()) {
-            assertNotNull(planner);
-
-            String qry = ctx.query();
-
-            assertNotNull(qry);
-
-            // Parse
-            SqlNode sqlNode = planner.parse(qry);
-
-            // Validate
-            sqlNode = planner.validate(sqlNode);
-
-            // Convert to Relational operators graph
-            rel = planner.rel(sqlNode).rel;
-
-            rel = planner.transform(PlannerPhase.HEURISTIC_OPTIMIZATION, rel.getTraitSet(), rel);
-
-            // Transformation chain
-            RelTraitSet desired = rel.getCluster().traitSet()
-                    .replace(IgniteConvention.INSTANCE)
-                    .replace(IgniteDistributions.single())
-                    .simplify();
-
-            rel = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
-        }
-
-        assertNotNull(rel);
-
-        List<Fragment> fragments = new Splitter().go((IgniteRel) rel);
-        List<String> serialized = new ArrayList<>(fragments.size());
-
-        for (Fragment fragment : fragments) {
-            serialized.add(toJson(fragment.root()));
-        }
-
-        assertNotNull(serialized);
-
-        ctx = PlanningContext.builder()
-                .localNodeId(first(NODES))
-                .originatingNodeId(first(NODES))
-                .parentContext(Contexts.empty())
-                .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
-                        .defaultSchema(schema)
-                        .traitDefs(traitDefs)
-                        .build())
-                .query(sql)
-                .parameters(2)
-                .build();
-
-        List<RelNode> nodes = new ArrayList<>();
-
-        try (IgnitePlanner ignored = ctx.planner()) {
-            for (String s : serialized) {
-                RelJsonReader reader = new RelJsonReader(ctx.cluster(), ctx.catalogReader());
-                nodes.add(reader.read(s));
-            }
-        }
-
-        assertNotNull(nodes);
-    }
-
-    /**
-     * TestMergeFilters.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
     @Test
     public void testMergeFilters() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
@@ -1530,69 +698,34 @@ public class PlannerTest extends AbstractPlannerTest {
                 .parameters(2)
                 .build();
 
-        RelRoot relRoot;
+        RelNode phys = physicalPlan(sql, publicSchema);
 
-        try (IgnitePlanner planner = ctx.planner()) {
-            assertNotNull(planner);
+        assertNotNull(phys);
 
-            String qry = ctx.query();
+        AtomicInteger filterCnt = new AtomicInteger();
 
-            assertNotNull(qry);
-
-            // Parse
-            SqlNode sqlNode = planner.parse(qry);
-
-            // Validate
-            sqlNode = planner.validate(sqlNode);
-
-            // Convert to Relational operators graph
-            relRoot = planner.rel(sqlNode);
-
-            RelNode rel = relRoot.rel;
-
-            // Transformation chain
-            rel = planner.transform(PlannerPhase.HEURISTIC_OPTIMIZATION, rel.getTraitSet(), rel);
-
-            RelTraitSet desired = rel.getCluster()
-                    .traitSetOf(IgniteConvention.INSTANCE)
-                    .replace(IgniteDistributions.single());
-
-            RelNode phys = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
-
-            assertNotNull(phys);
-
-            AtomicInteger filterCnt = new AtomicInteger();
-
-            // Counts filters af the plan.
-            phys.childrenAccept(
-                    new RelVisitor() {
-                        @Override
-                        public void visit(RelNode node, int ordinal, RelNode parent) {
-                            if (node instanceof IgniteFilter) {
-                                filterCnt.incrementAndGet();
-                            }
-
-                            super.visit(node, ordinal, parent);
-                        }
+        // Counts filters af the plan.
+        phys.childrenAccept(
+            new RelVisitor() {
+                @Override public void visit(RelNode node, int ordinal, RelNode parent) {
+                    if (node instanceof IgniteFilter) {
+                        filterCnt.incrementAndGet();
                     }
-            );
 
-            // Checks that two filter merged into one filter.
-            // Expected plan:
-            // IgniteProject(VAL=[$1])
-            //  IgniteProject(ID=[$0], VAL=[$1])
-            //    IgniteFilter(condition=[=(CAST($1):INTEGER, 10)])
-            //      IgniteTableScan(table=[[PUBLIC, TEST]])
-            assertEquals(0, filterCnt.get());
-        }
+                    super.visit(node, ordinal, parent);
+                }
+            }
+        );
+
+        // Checks that two filter merged into one filter.
+        // Expected plan:
+        // IgniteProject(VAL=[$1])
+        //  IgniteProject(ID=[$0], VAL=[$1])
+        //    IgniteFilter(condition=[=(CAST($1):INTEGER, 10)])
+        //      IgniteTableScan(table=[[PUBLIC, TEST]])
+        assertEquals(0, filterCnt.get());
     }
 
-    /**
-     * TestJoinPushExpressionRule.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
     @Test
     public void testJoinPushExpressionRule() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
@@ -1604,8 +737,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("DEPTNO", f.createJavaType(Integer.class))
                         .build()) {
 
-            @Override
-            public IgniteDistribution distribution() {
+            @Override public IgniteDistribution distribution() {
                 return IgniteDistributions.broadcast();
             }
         };
@@ -1706,10 +838,6 @@ public class PlannerTest extends AbstractPlannerTest {
         }
     }
 
-    /**
-     * TestMergeJoin.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
     @Test
     public void testMergeJoin() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
@@ -1765,10 +893,6 @@ public class PlannerTest extends AbstractPlannerTest {
         checkSplitAndSerialization(phys, publicSchema);
     }
 
-    /**
-     * TestMergeJoinIsNotAppliedForNonEquiJoin.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
     @Test
     public void testMergeJoinIsNotAppliedForNonEquiJoin() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
@@ -1778,7 +902,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
                         .add("DEPTNO", f.createJavaType(Integer.class))
-                        .build(), RewindabilityTrait.REWINDABLE, 1000) {
+                        .build(), 1000) {
 
             @Override
             public IgniteDistribution distribution() {
@@ -1792,7 +916,7 @@ public class PlannerTest extends AbstractPlannerTest {
                 new RelDataTypeFactory.Builder(f)
                         .add("DEPTNO", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
-                        .build(), RewindabilityTrait.REWINDABLE, 100) {
+                        .build(), 100) {
 
             @Override
             public IgniteDistribution distribution() {
@@ -1820,12 +944,6 @@ public class PlannerTest extends AbstractPlannerTest {
                 RelOptUtil.toString(phys));
     }
 
-    /**
-     * TestLimit.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @throws Exception If failed.
-     */
     @Test
     public void testLimit() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
@@ -1900,10 +1018,6 @@ public class PlannerTest extends AbstractPlannerTest {
         checkSplitAndSerialization(phys, publicSchema);
     }
 
-    /**
-     * TestNotStandardFunctions.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
     @Test
     public void testNotStandardFunctions() throws Exception {
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");

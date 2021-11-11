@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.processors.query.calcite.schema;
 
+import java.util.List;
 import java.util.Map;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGroup;
@@ -30,6 +32,7 @@ import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningConte
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite table.
@@ -57,7 +60,7 @@ public interface IgniteTable extends TranslatableTable {
     /** {@inheritDoc} */
     @Override
     default TableScan toRel(RelOptTable.ToRelContext context, RelOptTable relOptTable) {
-        return toRel(context.getCluster(), relOptTable);
+        return toRel(context.getCluster(), relOptTable, null, null, null);
     }
 
     /**
@@ -65,9 +68,18 @@ public interface IgniteTable extends TranslatableTable {
      *
      * @param cluster   Custer.
      * @param relOptTbl Table.
+     * @param proj List of required projections.
+     * @param cond Conditions to filter rows.
+     * @param requiredColumns Set of columns to extract from original row.
      * @return Table relational expression.
      */
-    IgniteLogicalTableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl);
+    IgniteLogicalTableScan toRel(
+            RelOptCluster cluster,
+            RelOptTable relOptTbl,
+            @Nullable List<RexNode> proj,
+            @Nullable RexNode cond,
+            @Nullable ImmutableBitSet requiredColumns
+    );
 
     /**
      * Converts table into relational expression.
@@ -75,9 +87,19 @@ public interface IgniteTable extends TranslatableTable {
      * @param cluster   Custer.
      * @param relOptTbl Table.
      * @param idxName   Index name.
+     * @param proj List of required projections.
+     * @param cond Conditions to filter rows.
+     * @param requiredColumns Set of columns to extra
      * @return Table relational expression.
      */
-    IgniteLogicalIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, String idxName);
+    IgniteLogicalIndexScan toRel(
+            RelOptCluster cluster,
+            RelOptTable relOptTbl,
+            String idxName,
+            @Nullable List<RexNode> proj,
+            @Nullable RexNode cond,
+            @Nullable ImmutableBitSet requiredColumns
+    );
 
     /**
      * Returns nodes mapping.
