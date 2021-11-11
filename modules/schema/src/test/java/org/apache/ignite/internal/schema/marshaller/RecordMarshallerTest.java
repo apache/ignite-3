@@ -449,6 +449,9 @@ public class RecordMarshallerTest {
         };
     }
     
+    /**
+     * Test object.
+     */
     @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     public static class TestObject {
         static TestObject randomObject(Random rnd) {
@@ -494,6 +497,9 @@ public class RecordMarshallerTest {
         }
     }
     
+    /**
+     * Test object with less amount of fields.
+     */
     @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     public static class TestTruncatedObject {
         static TestTruncatedObject randomObject(Random rnd) {

@@ -62,6 +62,9 @@ public class MapperTest {
         Mapper.identity(TestObject.class);
     }
     
+    /**
+     * Test object.
+     */
     @SuppressWarnings({"InstanceVariableMayNotBeInitialized", "unused"})
     public static class TestObject {
         private long id;
@@ -69,25 +72,5 @@ public class MapperTest {
         private long longCol;
         
         private String stringCol;
-        
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            } else if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            
-            TestObject that = (TestObject) o;
-            
-            return id == that.id
-                    && longCol == that.longCol
-                    && Objects.equals(stringCol, that.stringCol);
-        }
-        
-        @Override
-        public int hashCode() {
-            return Objects.hash(id);
-        }
     }
 }
