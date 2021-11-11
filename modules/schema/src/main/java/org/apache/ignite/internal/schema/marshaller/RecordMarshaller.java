@@ -28,7 +28,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public interface RecordMarshaller<R> {
     /**
-     * @return Marshaller schema version.
+     * Returns marshaller schema version.
      */
     int schemaVersion();
     

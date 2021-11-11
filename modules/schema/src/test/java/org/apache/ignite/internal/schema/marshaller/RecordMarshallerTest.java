@@ -79,7 +79,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class RecordMarshallerTest {
     /**
-     * @return List of marshaller factories for test.
+     * Returns list of marshaller factories for the test.
      */
     private static List<MarshallerFactory> marshallerFactoryProvider() {
         return List.of(new ReflectionMarshallerFactory());
@@ -89,7 +89,7 @@ public class RecordMarshallerTest {
     private Random rnd;
     
     /**
-     *
+     * Init random.
      */
     @BeforeEach
     public void initRandom() {
@@ -100,9 +100,6 @@ public class RecordMarshallerTest {
         rnd = new Random(seed);
     }
     
-    /**
-     * @throws MarshallerException If serialization failed.
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void complexType(MarshallerFactory factory) throws MarshallerException {
@@ -121,9 +118,6 @@ public class RecordMarshallerTest {
         assertEquals(rec, restoredRec);
     }
     
-    /**
-     * @throws MarshallerException If serialization failed.
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void truncatedType(MarshallerFactory factory) throws MarshallerException {
@@ -142,9 +136,6 @@ public class RecordMarshallerTest {
         assertEquals(rec, restoredRec);
     }
     
-    /**
-     * @throws MarshallerException If serialization failed.
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void widerType(MarshallerFactory factory) throws MarshallerException {
@@ -181,9 +172,6 @@ public class RecordMarshallerTest {
         assertEquals(0, restoredRec.getPrimitiveIntCol());
     }
     
-    /**
-     * @throws MarshallerException If serialization failed.
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void mapping(MarshallerFactory factory) throws MarshallerException {
@@ -216,9 +204,6 @@ public class RecordMarshallerTest {
         assertEquals(rec, restoredRec);
     }
     
-    /**
-     *
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithWrongFieldType(MarshallerFactory factory) {
@@ -242,9 +227,6 @@ public class RecordMarshallerTest {
         );
     }
     
-    /**
-     *
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithIncorrectBitmaskSize(MarshallerFactory factory) {
@@ -268,9 +250,6 @@ public class RecordMarshallerTest {
         );
     }
     
-    /**
-     *
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithPrivateConstructor(MarshallerFactory factory) throws MarshallerException, IllegalAccessException {
@@ -291,9 +270,6 @@ public class RecordMarshallerTest {
         assertDeepEquals(TestObjectWithPrivateConstructor.class, rec, restoredRec);
     }
     
-    /**
-     *
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithNoDefaultConstructor(MarshallerFactory factory) {
@@ -308,9 +284,6 @@ public class RecordMarshallerTest {
         assertThrows(IgniteInternalException.class, () -> factory.create(schema, rec.getClass()));
     }
     
-    /**
-     *
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void privateClass(MarshallerFactory factory) throws MarshallerException {
@@ -333,9 +306,6 @@ public class RecordMarshallerTest {
         assertTrue(rec.getClass().isInstance(restoredRec));
     }
     
-    /**
-     *
-     */
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classLoader(MarshallerFactory factory) throws MarshallerException, IllegalAccessException {
@@ -479,15 +449,9 @@ public class RecordMarshallerTest {
         };
     }
     
-    /**
-     * Test object.
-     */
     @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     public static class TestObject {
-        /**
-         * @return Random TestObject.
-         */
-        public static TestObject randomObject(Random rnd) {
+        static TestObject randomObject(Random rnd) {
             final TestObject obj = new TestObject();
             
             obj.id = rnd.nextLong();
@@ -530,15 +494,9 @@ public class RecordMarshallerTest {
         }
     }
     
-    /**
-     * Test object.
-     */
     @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     public static class TestTruncatedObject {
-        /**
-         * @return Random TestObject.
-         */
-        public static TestTruncatedObject randomObject(Random rnd) {
+        static TestTruncatedObject randomObject(Random rnd) {
             final TestTruncatedObject obj = new TestTruncatedObject();
             
             obj.primitiveIntCol = rnd.nextInt();
@@ -564,7 +522,6 @@ public class RecordMarshallerTest {
         
         private java.util.UUID uuidCol;
         
-        /** {@inheritDoc} */
         @Override
         public boolean equals(Object o) {
             if (this == o) {
@@ -584,7 +541,6 @@ public class RecordMarshallerTest {
                     && Objects.equals(uuidCol, ((TestTruncatedObject) o).uuidCol);
         }
         
-        /** {@inheritDoc} */
         @Override
         public int hashCode() {
             return 42;
@@ -596,30 +552,22 @@ public class RecordMarshallerTest {
      */
     @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     private static class PrivateTestObject {
-        /**
-         * Get random TestObject.
-         */
         static PrivateTestObject randomObject(Random rnd) {
             return new PrivateTestObject(rnd.nextLong(), rnd.nextInt());
         }
-    
+        
         private long primLongCol;
-    
+        
         private int primIntCol;
         
-        /** Constructor. */
         PrivateTestObject() {
         }
         
-        /**
-         * Private constructor.
-         */
         PrivateTestObject(long longVal, int intVal) {
             primLongCol = longVal;
             primIntCol = intVal;
         }
         
-        /** {@inheritDoc} */
         @Override
         public boolean equals(Object o) {
             if (this == o) {
@@ -635,7 +583,6 @@ public class RecordMarshallerTest {
             return primLongCol == object.primLongCol && primIntCol == object.primIntCol;
         }
         
-        /** {@inheritDoc} */
         @Override
         public int hashCode() {
             return Objects.hash(primLongCol);

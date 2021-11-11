@@ -60,9 +60,6 @@ public class RecordViewOperationsTest {
     
     private final Random rnd = new Random();
     
-    /**
-     *
-     */
     @Test
     public void upsert() {
         final TestObjectWithAllTypes key = key(rnd);
@@ -92,9 +89,6 @@ public class RecordViewOperationsTest {
         assertEquals(obj3, tbl.get(key));
     }
     
-    /**
-     *
-     */
     @Test
     public void insert() {
         final TestObjectWithAllTypes key = key(rnd);
@@ -114,9 +108,6 @@ public class RecordViewOperationsTest {
         assertEquals(obj, tbl.get(key));
     }
     
-    /**
-     *
-     */
     @Test
     public void getAndUpsert() {
         final TestObjectWithAllTypes key = key(rnd);
@@ -139,9 +130,6 @@ public class RecordViewOperationsTest {
         assertEquals(obj3, tbl.get(key));
     }
     
-    /**
-     *
-     */
     @Test
     public void remove() {
         final TestObjectWithAllTypes key = key(rnd);
@@ -170,9 +158,6 @@ public class RecordViewOperationsTest {
         assertEquals(obj2, tbl.get(key));
     }
     
-    /**
-     *
-     */
     @Test
     public void removeExact() {
         final TestObjectWithAllTypes key = key(rnd);
@@ -209,9 +194,6 @@ public class RecordViewOperationsTest {
         assertNull(tbl.get(obj2));
     }
     
-    /**
-     *
-     */
     @Test
     public void replace() {
         final TestObjectWithAllTypes key = key(rnd);
@@ -244,9 +226,6 @@ public class RecordViewOperationsTest {
         assertEquals(obj, tbl.get(key));
     }
     
-    /**
-     *
-     */
     @Test
     public void replaceExact() {
         final TestObjectWithAllTypes key = key(rnd);
@@ -285,7 +264,7 @@ public class RecordViewOperationsTest {
     }
     
     /**
-     * @return Key-value view.
+     * Creates RecordView.
      */
     private RecordViewImpl<TestObjectWithAllTypes> recordView() {
         Mapper<TestObjectWithAllTypes> recMapper = Mapper.identity(TestObjectWithAllTypes.class);

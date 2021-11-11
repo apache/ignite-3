@@ -31,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface KvMarshaller<K, V> {
     /**
-     * @return Marshaller schema version.
+     * Returns marshaller schema version.
      */
     int schemaVersion();
     
