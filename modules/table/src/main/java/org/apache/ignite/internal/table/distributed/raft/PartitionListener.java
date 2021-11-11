@@ -495,7 +495,7 @@ public class PartitionListener implements RaftGroupListener {
 
             txManager.getOrCreateTransaction(cmd0.getTimestamp()); // TODO asch handle race between rollback and lock.
 
-            return cmd0.read() ? txManager.readLock(tableId, cmd0.getRow().keySlice(), cmd0.getTimestamp()) :
+            return cmd0 instanceof ReadCommand ? txManager.readLock(tableId, cmd0.getRow().keySlice(), cmd0.getTimestamp()) :
                 txManager.writeLock(tableId, cmd0.getRow().keySlice(), cmd0.getTimestamp());
         }
         else if (cmd instanceof MultiKeyCommand) {
@@ -508,7 +508,7 @@ public class PartitionListener implements RaftGroupListener {
             CompletableFuture<Void>[] futs = new CompletableFuture[rows.size()];
 
             int i = 0;
-            boolean read = cmd0.read();
+            boolean read = cmd0 instanceof ReadCommand;
 
             for (BinaryRow row : rows) {
                 futs[i++] = read ? txManager.readLock(tableId, row.keySlice(), cmd0.getTimestamp()) :

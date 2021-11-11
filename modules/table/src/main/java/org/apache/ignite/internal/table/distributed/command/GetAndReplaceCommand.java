@@ -76,9 +76,4 @@ public class GetAndReplaceCommand implements SingleKeyCommand, WriteCommand {
     @Override public Timestamp getTimestamp() {
         return timestamp;
     }
-
-    /** {@inheritDoc} */
-    @Override public boolean read() {
-        return false;
-    }
 }

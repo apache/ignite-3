@@ -75,9 +75,4 @@ public class DeleteCommand implements SingleKeyCommand, WriteCommand {
     public Timestamp getTimestamp() {
         return timestamp;
     }
-
-    @Override
-    public boolean read() {
-        return false;
-    }
 }

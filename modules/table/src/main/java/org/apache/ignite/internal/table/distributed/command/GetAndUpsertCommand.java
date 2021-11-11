@@ -77,12 +77,4 @@ public class GetAndUpsertCommand implements SingleKeyCommand, WriteCommand {
     public Timestamp getTimestamp() {
         return timestamp;
     }
-    
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean read() {
-        return false;
-    }
 }

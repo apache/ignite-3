@@ -34,9 +34,4 @@ public interface MultiKeyCommand {
      * @return The timestamp.
      */
     Timestamp getTimestamp();
-
-    /**
-     * @return {@code True} for read mode.
-     */
-    boolean read();
 }

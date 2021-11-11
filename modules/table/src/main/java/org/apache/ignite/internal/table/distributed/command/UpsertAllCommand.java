@@ -75,9 +75,4 @@ public class UpsertAllCommand implements MultiKeyCommand, WriteCommand {
     @Override public Timestamp getTimestamp() {
         return timestamp;
     }
-
-    /** {@inheritDoc} */
-    @Override public boolean read() {
-        return false;
-    }
 }

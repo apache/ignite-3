@@ -75,9 +75,4 @@ public class GetCommand implements SingleKeyCommand, ReadCommand {
     @Override public Timestamp getTimestamp() {
         return timestamp;
     }
-
-    /** {@inheritDoc} */
-    @Override public boolean read() {
-        return true;
-    }
 }

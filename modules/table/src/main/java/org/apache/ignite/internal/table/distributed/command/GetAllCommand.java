@@ -77,9 +77,4 @@ public class GetAllCommand implements MultiKeyCommand, ReadCommand {
     @Override public Timestamp getTimestamp() {
         return timestamp;
     }
-
-    /** {@inheritDoc} */
-    @Override public boolean read() {
-        return true;
-    }
 }
