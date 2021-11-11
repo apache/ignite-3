@@ -214,6 +214,10 @@ public class ConverterUtils {
             return operand;
         }
 
+        if (toType == Void.class) {
+            return RexImpTable.NULL_EXPR;
+        }
+
         if (toType == BigDecimal.class) {
             throw new AssertionError("For conversion to decimal, ConverterUtils#convertToDecimal method should be used instead.");
         }
@@ -249,8 +253,6 @@ public class ConverterUtils {
             }
             if (toBox != null) {
                 switch (toBox) {
-                    case VOID:
-                        return Expressions.constant(null);
                     case CHAR:
                         // Generate "SqlFunctions.toCharBoxed(x)".
                         return Expressions.call(
