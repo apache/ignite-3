@@ -422,6 +422,8 @@ public class PartitionListener implements RaftGroupListener {
         if (cursorDesc == null) {
             clo.result(new NoSuchElementException(LoggerMessageHelper.format(
                     "Cursor with id={} is not found on server side.", clo.command().scanId())));
+
+            return;
         }
 
         List<BinaryRow> res = new ArrayList<>();
@@ -430,7 +432,7 @@ public class PartitionListener implements RaftGroupListener {
             for (int i = 0; i < clo.command().itemsToRetrieveCount() && cursorDesc.cursor().hasNext(); i++) {
                 res.add(cursorDesc.cursor().next());
             }
-        } catch (Exception e) {
+        } catch (NoSuchElementException e) {
             clo.result(e);
         }
 
@@ -535,7 +537,7 @@ public class PartitionListener implements RaftGroupListener {
     }
 
     /**
-     * @return Underlying storage.
+     * Returns underlying storage.
      */
     @TestOnly
     public VersionedRowStore getStorage() {
@@ -567,14 +569,14 @@ public class PartitionListener implements RaftGroupListener {
         }
 
         /**
-         * @return Cursor.
+         * Returns cursor.
          */
         public Cursor<BinaryRow> cursor() {
             return cursor;
         }
 
         /**
-         * @return Id of the node that creates cursor.
+         * Returns id of the node that creates cursor.
          */
         public String requesterNodeId() {
             return requesterNodeId;

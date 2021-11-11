@@ -269,8 +269,7 @@ class ClientTableCommon {
         var tuple = Tuple.create(cnt);
         
         for (int i = 0; i < cnt; i++) {
-            if (unpacker.getNextFormat() == MessageFormat.NIL) {
-                unpacker.skipValue();
+            if (unpacker.tryUnpackNil()) {
                 continue;
             }
             
@@ -327,9 +326,10 @@ class ClientTableCommon {
         
         for (int i = 0; i < cnt; i++) {
             var colName = unpacker.unpackString();
+            var colType = unpacker.unpackInt();
             
             // TODO: Unpack value as object IGNITE-15194.
-            tuple.set(colName, unpacker.unpackValue());
+            tuple.set(colName, unpacker.unpackObject(colType));
         }
         
         return tuple;

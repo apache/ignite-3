@@ -68,10 +68,7 @@ public class KeyValueBinaryViewOperationsTest {
                 new VersionedRowStore(new ConcurrentHashMapPartitionStorage(),
                         txManager), txManager);
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void put() {
         SchemaDescriptor schema = new SchemaDescriptor(
@@ -112,10 +109,7 @@ public class KeyValueBinaryViewOperationsTest {
         tbl.put(key, val3);
         assertEqualsValues(schema, val3, tbl.get(key));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void putIfAbsent() {
         SchemaDescriptor schema = new SchemaDescriptor(
@@ -146,10 +140,7 @@ public class KeyValueBinaryViewOperationsTest {
         assertEqualsValues(schema, val, tbl.get(key));
         assertEqualsValues(schema, val, tbl.get(Tuple.create().set("id", 1L)));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void getAndPut() {
         SchemaDescriptor schema = new SchemaDescriptor(
@@ -181,10 +172,7 @@ public class KeyValueBinaryViewOperationsTest {
         assertEqualsValues(schema, val3, tbl.get(key));
         assertNull(tbl.get(Tuple.create().set("id", 2L)));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void contains() {
         SchemaDescriptor schema = new SchemaDescriptor(
@@ -220,10 +208,7 @@ public class KeyValueBinaryViewOperationsTest {
         tbl.remove(Tuple.create().set("id", 2L));
         assertFalse(tbl.contains(Tuple.create().set("id", 2L)));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void remove() {
         SchemaDescriptor schema = new SchemaDescriptor(
@@ -264,10 +249,7 @@ public class KeyValueBinaryViewOperationsTest {
         assertNull(tbl.get(key2));
         assertFalse(tbl.remove(key2));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void removeExact() {
         SchemaDescriptor schema = new SchemaDescriptor(
@@ -320,10 +302,7 @@ public class KeyValueBinaryViewOperationsTest {
         assertFalse(tbl.remove(key2, val2));
         assertNull(tbl.get(key2));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void replace() {
         SchemaDescriptor schema = new SchemaDescriptor(
@@ -359,10 +338,7 @@ public class KeyValueBinaryViewOperationsTest {
         tbl.put(key, val3);
         assertEqualsValues(schema, val3, tbl.get(key));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void replaceExact() {
         SchemaDescriptor schema = new SchemaDescriptor(

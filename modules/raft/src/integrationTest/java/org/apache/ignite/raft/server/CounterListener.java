@@ -122,7 +122,7 @@ public class CounterListener implements RaftGroupListener {
     }
 
     /**
-     * @return Current value.
+     * Returns current value.
      */
     public long value() {
         return counter.get();

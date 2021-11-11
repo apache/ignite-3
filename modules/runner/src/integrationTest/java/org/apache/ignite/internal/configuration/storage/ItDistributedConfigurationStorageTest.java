@@ -65,31 +65,22 @@ public class ItDistributedConfigurationStorageTest {
      * An emulation of an Ignite node, that only contains components necessary for tests.
      */
     private static class Node {
-        /** */
         private final String name;
     
-        /** */
         private final VaultManager vaultManager;
     
-        /** */
         private final ClusterService clusterService;
 
-        /** */
         private final LockManager lockManager;
 
-        /** */
         private final TxManager txManager;
 
-        /** */
         private final Loza raftManager;
     
-        /** */
         private final ConfigurationManager cfgManager;
     
-        /** */
         private final MetaStorageManager metaStorageManager;
     
-        /** */
         private final DistributedConfigurationStorage cfgStorage;
         
         /**

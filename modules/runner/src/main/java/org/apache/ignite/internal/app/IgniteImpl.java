@@ -210,12 +210,10 @@ public class IgniteImpl implements Ignite {
     
         distributedTblMgr = new TableManager(
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
-                clusterCfgMgr.configurationRegistry()
-                        .getConfiguration(DataStorageConfiguration.KEY),
+                clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
                 raftMgr,
                 baselineMgr,
                 clusterSvc.topologyService(),
-                metaStorageMgr,
                 getPartitionsStorePath(workDir),
                 txManager
         );
@@ -375,21 +373,21 @@ public class IgniteImpl implements Ignite {
     }
     
     /**
-     * @return Node configuration.
+     * Returns node configuration.
      */
     public ConfigurationRegistry nodeConfiguration() {
         return nodeCfgMgr.configurationRegistry();
     }
     
     /**
-     * @return Cluster configuration.
+     * Returns cluster configuration.
      */
     public ConfigurationRegistry clusterConfiguration() {
         return clusterCfgMgr.configurationRegistry();
     }
     
     /**
-     * @return Client handler module.
+     * Returns client handler module.
      */
     public ClientHandlerModule clientHandlerModule() {
         return clientHandlerModule;
@@ -492,19 +490,10 @@ public class IgniteImpl implements Ignite {
      * Node state.
      */
     private enum Status {
-        /**
-         *
-         */
         STARTING,
-        
-        /**
-         *
-         */
+
         STARTED,
-        
-        /**
-         *
-         */
+
         STOPPING
     }
 }

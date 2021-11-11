@@ -45,9 +45,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
  * queue)
  */
 public class HeapLockManager implements LockManager {
-    /**
-     *
-     */
     private ConcurrentHashMap<Object, LockState> locks = new ConcurrentHashMap<>();
     
     /**
@@ -114,8 +111,9 @@ public class HeapLockManager implements LockManager {
     }
     
     /**
+     * Returns the lock state for the key.
+     *
      * @param key The key.
-     * @return The lock state for the key.
      */
     private @NotNull LockState lockState(Object key) {
         return locks.computeIfAbsent(key, k -> new LockState());
@@ -168,6 +166,8 @@ public class HeapLockManager implements LockManager {
         private boolean markedForRemove = false;
         
         /**
+         * Attempts to acquire a lock for the specified {@code key} in exclusive mode.
+         *
          * @param timestamp The timestamp.
          * @return The future or null if state is marked for removal.
          */
@@ -226,6 +226,8 @@ public class HeapLockManager implements LockManager {
         }
         
         /**
+         * Attempts to release a lock for the specified {@code key} in exclusive mode.
+         *
          * @param timestamp The timestamp.
          * @return {@code True} if the queue is empty.
          */
@@ -299,6 +301,8 @@ public class HeapLockManager implements LockManager {
         }
         
         /**
+         * Attempts to acquire a lock for the specified {@code key} in shared mode.
+         *
          * @param timestamp The timestamp.
          * @return The future or null if a state is marked for removal from map.
          */
@@ -353,6 +357,7 @@ public class HeapLockManager implements LockManager {
         }
         
         /**
+         * @param timestamp The timestamp.
          * @return {@code True} if the queue is empty.
          */
         public boolean tryReleaseShared(Timestamp timestamp) throws LockException {
@@ -392,7 +397,9 @@ public class HeapLockManager implements LockManager {
         }
         
         /**
-         * @return Waiters queue.
+         * Returns a collection of timestamps that is associated with the specified {@code key}.
+         *
+         * @return The waiters queue.
          */
         public Collection<Timestamp> queue() {
             synchronized (waiters) {
@@ -401,6 +408,8 @@ public class HeapLockManager implements LockManager {
         }
         
         /**
+         * Returns a waiter for the specified {@code key}.
+         *
          * @param timestamp The timestamp.
          * @return The waiter.
          */
@@ -442,6 +451,8 @@ public class HeapLockManager implements LockManager {
         private boolean locked = false;
         
         /**
+         * Constructor.
+         *
          * @param timestamp The timestamp.
          * @param forRead {@code True} to request a read lock.
          */
@@ -500,7 +511,7 @@ public class HeapLockManager implements LockManager {
         }
         
         /**
-         * @return {@code True} if is locked for read.
+         * Returns {@code true} if is locked for read.
          */
         @Override
         public boolean isForRead() {

@@ -76,6 +76,8 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
     private final long nodeId;
     
     /**
+     * Constructor.
+     *
      * @param timestamp The timestamp.
      * @param nodeId Node id.
      */

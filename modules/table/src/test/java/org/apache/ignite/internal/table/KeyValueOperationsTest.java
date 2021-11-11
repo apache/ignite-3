@@ -89,10 +89,7 @@ public class KeyValueOperationsTest {
         return new KeyValueViewImpl<>(table, new DummySchemaManagerImpl(schema), mapper, mapper,
                 null);
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void put() {
         KeyValueView<Long, Long> tbl = kvView();
@@ -120,10 +117,7 @@ public class KeyValueOperationsTest {
         tbl.put(1L, 33L);
         assertEquals(33L, tbl.get(1L));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void putIfAbsent() {
         KeyValueView<Long, Long> tbl = kvView();
@@ -140,10 +134,7 @@ public class KeyValueOperationsTest {
         
         assertEquals(11L, tbl.get(1L));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void getAndPut() {
         KeyValueView<Long, Long> tbl = kvView();
@@ -160,10 +151,7 @@ public class KeyValueOperationsTest {
         
         assertEquals(33L, tbl.get(1L));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void contains() {
         KeyValueView<Long, Long> tbl = kvView();
@@ -187,10 +175,7 @@ public class KeyValueOperationsTest {
         tbl.remove(2L);
         assertFalse(tbl.contains(2L));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void remove() {
         KeyValueView<Long, Long> tbl = kvView();
@@ -218,10 +203,7 @@ public class KeyValueOperationsTest {
         assertNull(tbl.get(2L));
         assertFalse(tbl.remove(2L));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void removeExact() {
         KeyValueView<Long, Long> tbl = kvView();
@@ -261,10 +243,7 @@ public class KeyValueOperationsTest {
         assertFalse(tbl.remove(2L, 22L));
         assertNull(tbl.get(2L));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void replace() {
         KeyValueView<Long, Long> tbl = kvView();
@@ -288,10 +267,7 @@ public class KeyValueOperationsTest {
         
         assertThrows(Throwable.class, () -> tbl.replace(null, 33L));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void replaceExact() {
         KeyValueView<Long, Long> tbl = kvView();

@@ -22,12 +22,12 @@ package org.apache.ignite.internal.tx;
  */
 public interface Waiter {
     /**
-     * @return Associated timestamp.
+     * Returns associated timestamp.
      */
     Timestamp timestamp();
     
     /**
-     * @return {@code True} if a waiter holds the lock.
+     * @return {@code true} if a waiter holds the lock.
      */
     boolean locked();
     

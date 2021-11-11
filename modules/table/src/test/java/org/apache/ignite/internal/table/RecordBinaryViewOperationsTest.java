@@ -102,10 +102,7 @@ public class RecordBinaryViewOperationsTest {
         
         assertNull(tbl.get(nonExistedTuple));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void upsert() {
         SchemaDescriptor schema = new SchemaDescriptor(
@@ -134,10 +131,7 @@ public class RecordBinaryViewOperationsTest {
         
         assertNull(tbl.get(nonExistedTuple));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void getAndUpsert() {
         SchemaDescriptor schema = new SchemaDescriptor(
@@ -163,10 +157,7 @@ public class RecordBinaryViewOperationsTest {
         
         assertEqualsRows(schema, newTuple, tbl.get(Tuple.create().set("id", 1L)));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void remove() {
         SchemaDescriptor schema = new SchemaDescriptor(
@@ -191,10 +182,7 @@ public class RecordBinaryViewOperationsTest {
         // Delete already deleted keyTuple.
         assertFalse(tbl.delete(keyTuple));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void removeExact() {
         SchemaDescriptor schema = new SchemaDescriptor(
@@ -242,10 +230,7 @@ public class RecordBinaryViewOperationsTest {
         assertTrue(tbl.deleteExact(tuple2));
         assertNull(tbl.get(keyTuple));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void replace() {
         SchemaDescriptor schema = new SchemaDescriptor(
@@ -275,10 +260,7 @@ public class RecordBinaryViewOperationsTest {
         
         assertEqualsRows(schema, tuple2, tbl.get(keyTuple));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void replaceExact() {
         SchemaDescriptor schema = new SchemaDescriptor(
@@ -309,10 +291,7 @@ public class RecordBinaryViewOperationsTest {
         
         assertEqualsRows(schema, tuple2, tbl.get(Tuple.create().set("id", 1L)));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void validateSchema() {
         SchemaDescriptor schema = new SchemaDescriptor(
@@ -344,10 +323,7 @@ public class RecordBinaryViewOperationsTest {
         assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(tuple0));
         assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(tuple1));
     }
-    
-    /**
-     *
-     */
+
     @Test
     public void defaultValues() {
         SchemaDescriptor schema = new SchemaDescriptor(
@@ -452,7 +428,7 @@ public class RecordBinaryViewOperationsTest {
         return new TableImpl(table, new DummySchemaManagerImpl(schema), null);
     }
     
-    public <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {
+    private <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {
         Throwable ex = assertThrows(IgniteException.class, executable);
         
         while (ex.getCause() != null) {

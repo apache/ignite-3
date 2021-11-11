@@ -107,7 +107,9 @@ public class JraftServerImpl implements RaftServer {
     private ExecutorService requestExecutor;
     
     /**
-     * @param service Cluster service.
+     * Constructor.
+     *
+     * @param service  Cluster service.
      * @param dataPath Data path.
      */
     public JraftServerImpl(
@@ -118,8 +120,9 @@ public class JraftServerImpl implements RaftServer {
     }
     
     /**
-     * @param lockManager Lock manager.
-     * @param service Cluster service.
+     * Constructor.
+     *
+     * @param service  Cluster service.
      * @param dataPath Data path.
      * @param opts Default node options.
      */
@@ -262,6 +265,8 @@ public class JraftServerImpl implements RaftServer {
     }
     
     /**
+     * Returns path to persistence folder.
+     *
      * @param groupId Group id.
      * @return The path to persistence folder.
      */
@@ -357,6 +362,8 @@ public class JraftServerImpl implements RaftServer {
     }
     
     /**
+     * Returns service group.
+     *
      * @param groupId Group id.
      * @return Service group.
      */
@@ -370,12 +377,14 @@ public class JraftServerImpl implements RaftServer {
     }
     
     /**
-     *
+     * Wrapper of {@link StateMachineAdapter}.
      */
     public static class DelegatingStateMachine extends StateMachineAdapter {
         private final RaftGroupListener listener;
         
         /**
+         * Constructor.
+         *
          * @param listener The listener.
          */
         DelegatingStateMachine(RaftGroupListener listener) {

@@ -34,6 +34,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
@@ -85,7 +86,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -97,24 +97,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class ItInternalTableScanTest {
-    /**
-     *
-     */
     private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
-    /**
-     *
-     */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
-    /**
-     *
-     */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
-    /**
-     *
-     */
     private static final String TEST_TABLE_NAME = "testTbl";
 
     /** Id for the test RAFT group. */
@@ -124,14 +112,8 @@ public class ItInternalTableScanTest {
     @Mock
     private PartitionStorage mockStorage;
 
-    /**
-     *
-     */
     private ClusterService network;
 
-    /**
-     *
-     */
     private RaftServer raftSrv;
 
     /** Internal table to test. */
@@ -141,7 +123,7 @@ public class ItInternalTableScanTest {
     ScheduledExecutorService executor;
 
     /**
-     * Prepare test environment:
+     * Prepare test environment.
      * <ol>
      * <li>Start network node.</li>
      * <li>Start raft server.</li>
@@ -341,7 +323,6 @@ public class ItInternalTableScanTest {
     /**
      * Checks that exception from storage cursors has next properly propagates to subscriber.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15581")
     @Test
     public void testExceptionRowScanCursorHasNext() throws Exception {
         AtomicReference<Throwable> gotException = new AtomicReference<>();
@@ -351,8 +332,10 @@ public class ItInternalTableScanTest {
         when(mockStorage.scan(any())).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
-            when(cursor.hasNext()).thenAnswer(hnInvocation -> {
-                throw new StorageException("test");
+            when(cursor.hasNext()).thenAnswer(hnInvocation -> true);
+
+            when(cursor.next()).thenAnswer(hnInvocation -> {
+                throw new NoSuchElementException("test");
             });
 
             doAnswer(
@@ -390,7 +373,7 @@ public class ItInternalTableScanTest {
 
         assertTrue(waitForCondition(() -> gotException.get() != null, 1_000));
 
-        assertEquals(gotException.get().getCause().getClass(), StorageException.class);
+        assertEquals(gotException.get().getCause().getClass(), NoSuchElementException.class);
 
         assertTrue(waitForCondition(cursorClosed::get, 1_000));
     }
@@ -398,7 +381,6 @@ public class ItInternalTableScanTest {
     /**
      * Checks that exception from storage cursor creation properly propagates to subscriber.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15581")
     @Test
     public void testExceptionRowScan() throws Exception {
         AtomicReference<Throwable> gotException = new AtomicReference<>();

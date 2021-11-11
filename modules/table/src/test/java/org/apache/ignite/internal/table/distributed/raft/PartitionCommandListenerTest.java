@@ -308,6 +308,8 @@ public class PartitionCommandListenerTest {
     }
 
     /**
+     * Inserts all rows.
+     *
      * @param existed True if rows are existed, false otherwise.
      */
     private void insertAll(boolean existed) {
@@ -365,6 +367,8 @@ public class PartitionCommandListenerTest {
     }
 
     /**
+     * Deletes all rows.
+     *
      * @param existed True if rows are existed, false otherwise.
      */
     private void deleteAll(boolean existed) {
@@ -400,6 +404,8 @@ public class PartitionCommandListenerTest {
     }
 
     /**
+     * Reads all rows.
+     *
      * @param existed True if rows are existed, false otherwise.
      */
     private void readAll(boolean existed) {
@@ -454,6 +460,8 @@ public class PartitionCommandListenerTest {
     }
 
     /**
+     * Deletes row.
+     *
      * @param existed True if rows are existed, false otherwise.
      */
     private void delete(boolean existed) {
@@ -509,6 +517,8 @@ public class PartitionCommandListenerTest {
     }
 
     /**
+     * Inserts row.
+     *
      * @param existed True if rows are existed, false otherwise.
      */
     private void insert(boolean existed) {
@@ -524,6 +534,8 @@ public class PartitionCommandListenerTest {
     }
 
     /**
+     * Deletes exact rows.
+     *
      * @param existed True if rows are existed, false otherwise.
      */
     private void deleteExactAllValues(boolean existed) {
@@ -561,6 +573,8 @@ public class PartitionCommandListenerTest {
     }
 
     /**
+     * Gets and replaces rows.
+     *
      * @param existed True if rows are existed, false otherwise.
      */
     private void getAndReplaceValues(boolean existed) {
@@ -585,6 +599,8 @@ public class PartitionCommandListenerTest {
     }
 
     /**
+     * Gets an upserts rows.
+     *
      * @param existed True if rows are existed, false otherwise.
      */
     private void getAndUpsertValues(boolean existed) {
@@ -609,6 +625,8 @@ public class PartitionCommandListenerTest {
     }
 
     /**
+     * Gets and deletes rows.
+     *
      * @param existed True if rows are existed, false otherwise.
      */
     private void getAndDeleteValues(boolean existed) {
@@ -634,6 +652,8 @@ public class PartitionCommandListenerTest {
     }
 
     /**
+     * Puts rows if exists.
+     *
      * @param existed True if rows are existed, false otherwise.
      */
     private void putIfExistValues(boolean existed) {
@@ -651,6 +671,8 @@ public class PartitionCommandListenerTest {
     }
 
     /**
+     * Deletes exact rows.
+     *
      * @param existed True if rows are existed, false otherwise.
      */
     private void deleteExactValues(boolean existed) {

@@ -468,6 +468,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
     
     /**
+     * Do test single key multithreaded.
+     *
      * @param duration The duration.
      * @param rLocks Read lock accumulator.
      * @param wLocks Write lock accumulator.
