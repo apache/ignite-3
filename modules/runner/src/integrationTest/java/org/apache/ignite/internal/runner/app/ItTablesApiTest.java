@@ -32,6 +32,7 @@ import static org.mockito.Mockito.doAnswer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -56,6 +57,7 @@ import org.apache.ignite.schema.definition.index.IndexDefinition;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.platform.commons.util.ReflectionUtils;
@@ -159,24 +161,123 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         
         assertEquals(tbl, createTableIfNotExists(ignite0, SCHEMA, SHORT_TABLE_NAME));
     }
+
+    /**
+     * @throws Exception If failed.
+     */
+    @Test
+    @Disabled("IGNITE-15891 Configuration use local state cache internally, but have to look at consensus")
+    public void testTableAlreadyCreatedFromLaggedNode() throws Exception {
+        clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
+
+        Ignite ignite0 = clusterNodes.get(0);
+
+        Ignite ignite1 = clusterNodes.get(1);
+
+        WatchListenerInhibitor ignite1Inhibitor = metastorageEventsInhibitor(ignite1);
+
+        ignite1Inhibitor.startInhibit();
+
+        createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
     
+        CompletableFuture createTblFut = CompletableFuture.runAsync(() -> createTable(ignite1, SCHEMA, SHORT_TABLE_NAME));
+        CompletableFuture createTblIfNotExistsFut = CompletableFuture
+                .runAsync(() -> createTableIfNotExists(ignite1, SCHEMA, SHORT_TABLE_NAME));
+
+        for (Ignite ignite : clusterNodes) {
+            if (ignite != ignite1) {
+                assertThrows(TableAlreadyExistsException.class,
+                        () -> createTable(ignite, SCHEMA, SHORT_TABLE_NAME));
+
+                assertNotNull(createTableIfNotExists(ignite, SCHEMA, SHORT_TABLE_NAME));
+            }
+        }
+
+        Thread.sleep(10_000);
+
+        assertFalse(createTblFut.isDone());
+        assertFalse(createTblIfNotExistsFut.isDone());
+
+        ignite1Inhibitor.stopInhibit();
+
+        assertThrows(TableAlreadyExistsException.class, () -> {
+            try {
+                createTblFut.get(10, TimeUnit.SECONDS);
+            } catch (ExecutionException e) {
+                throw e.getCause();
+            }
+        });
+
+        assertNotNull(createTblIfNotExistsFut.get(10, TimeUnit.SECONDS));
+    }
+
     /**
      * @throws Exception If failed.
      */
     @Test
     public void testAddIndex() throws Exception {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
+
+        Ignite ignite0 = clusterNodes.get(0);
+
+        createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
+
+        addIndex(ignite0, SCHEMA, SHORT_TABLE_NAME);
+
+        assertThrows(IndexAlreadyExistsException.class,
+                () -> addIndex(ignite0, SCHEMA, SHORT_TABLE_NAME));
+
+        addIndexIfNotExists(ignite0, SCHEMA, SHORT_TABLE_NAME);
+    }
+    
+    /**
+     * @throws Exception If failed.
+     */
+    @Test
+    @Disabled("IGNITE-15891 Configuration use local state cache internally, but have to look at consensus")
+    public void testAddIndexFromLaggedNode() throws Exception {
+        clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
         
         Ignite ignite0 = clusterNodes.get(0);
         
         createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
     
+        Ignite ignite1 = clusterNodes.get(1);
+    
+        WatchListenerInhibitor ignite1Inhibitor = metastorageEventsInhibitor(ignite1);
+    
+        ignite1Inhibitor.startInhibit();
+    
         addIndex(ignite0, SCHEMA, SHORT_TABLE_NAME);
+        
+        CompletableFuture addIndesFut = CompletableFuture.runAsync(() -> addIndex(ignite1, SCHEMA, SHORT_TABLE_NAME));
+        CompletableFuture addIndesIfNotExistsFut = CompletableFuture.runAsync(() -> addIndexIfNotExists(ignite1, SCHEMA, SHORT_TABLE_NAME));
     
-        assertThrows(IndexAlreadyExistsException.class,
-                () -> addIndex(ignite0, SCHEMA, SHORT_TABLE_NAME));
+        for (Ignite ignite : clusterNodes) {
+            if (ignite != ignite1) {
+                assertThrows(IndexAlreadyExistsException.class,
+                        () -> addIndex(ignite, SCHEMA, SHORT_TABLE_NAME));
+            
+                addIndexIfNotExists(ignite, SCHEMA, SHORT_TABLE_NAME);
+            }
+        }
+        
+        Thread.sleep(10_000);
+        
+        assertFalse(addIndesFut.isDone());
+        assertFalse(addIndesIfNotExistsFut.isDone());
     
-        addIndexIfNotExists(ignite0, SCHEMA, SHORT_TABLE_NAME);
+        ignite1Inhibitor.stopInhibit();
+    
+        assertThrows(IndexAlreadyExistsException.class, () -> {
+            try {
+                addIndesFut.get(10, TimeUnit.SECONDS);
+            } catch (ExecutionException e) {
+                throw e.getCause();
+            }
+        });
+        
+        addIndesIfNotExistsFut.get(10, TimeUnit.SECONDS);
     }
     
     /**
@@ -328,7 +429,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @param schemaName     Schema name.
      * @param shortTableName Table name.
      */
-    protected void addIndexIfNotExists(Ignite node, String schemaName, String shortTableName) throws Exception {
+    protected void addIndexIfNotExists(Ignite node, String schemaName, String shortTableName) {
         IndexDefinition idx = SchemaBuilders.hashIndex("testHI")
                 .withColumns("valInt", "valStr")
                 .build();
