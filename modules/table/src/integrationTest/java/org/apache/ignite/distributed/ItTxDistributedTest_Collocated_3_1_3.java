@@ -41,6 +41,6 @@ public class ItTxDistributedTest_Collocated_3_1_3 extends ItTxDistributedTest_3_
     @Override public void before() throws Exception {
         super.before();
 
-        assertSame(accRaftClients.get(0).clusterService(), getLeader(accRaftClients.get(0)).clusterService());
+        assertSame(accRaftClients.get(0).clusterService(), getLeader(accRaftClients.get(0)).service());
     }
 }

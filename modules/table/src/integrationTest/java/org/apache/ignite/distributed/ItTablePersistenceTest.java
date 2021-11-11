@@ -195,7 +195,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 .orElseGet(() -> {
                     PartitionListener listener = new PartitionListener(
                             new IgniteUuid(UUID.randomUUID(), 0),
-                            new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), null));
+                            new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), new TxManagerImpl(service, new HeapLockManager())));
                     
                     paths.put(listener, workDir);
                     

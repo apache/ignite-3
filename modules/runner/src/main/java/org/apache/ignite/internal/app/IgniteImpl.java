@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.app;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -28,7 +27,6 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.Ignite;
@@ -58,12 +56,9 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.configuration.ColumnTypeValidatorImpl;
 import org.apache.ignite.internal.schema.configuration.TableValidatorImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
-import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.Timestamp;
+import org.apache.ignite.internal.table.distributed.TableTxManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -75,7 +70,6 @@ import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
-import org.apache.ignite.raft.jraft.util.Marshaller;
 import org.apache.ignite.rest.RestModule;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -127,9 +121,6 @@ public class IgniteImpl implements Ignite {
     
     /** Baseline manager. */
     private final BaselineManager baselineMgr;
-
-    /** Locks manager. */
-    private final LockManager lockManager;
 
     /** Transactions manager. */
     private final TxManager txManager;
@@ -184,19 +175,9 @@ public class IgniteImpl implements Ignite {
                 nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY)
         );
 
-        lockManager = new HeapLockManager();
-
         raftMgr = new Loza(clusterSvc, workDir);
     
-        txManager = new TxManagerImpl(clusterSvc, lockManager) {
-            @Override
-            protected CompletableFuture finishGroup(String groupId, Timestamp ts, boolean commit) {
-                FinishTxCommand cmd = new FinishTxCommand(ts, commit);
-    
-                // apply is async, shouldn't throw any exception.
-                return raftMgr.apply(groupId, ByteBuffer.wrap(Marshaller.DEFAULT.marshall(cmd)));
-            }
-        };
+        txManager = new TableTxManager(clusterSvc, new HeapLockManager(), raftMgr);
     
         metaStorageMgr = new MetaStorageManager(
                 vaultMgr,
@@ -302,6 +283,7 @@ public class IgniteImpl implements Ignite {
             List<IgniteComponent> otherComponents = List.of(
                     clusterSvc,
                     raftMgr,
+                    txManager,
                     metaStorageMgr,
                     clusterCfgMgr,
                     baselineMgr,
@@ -349,7 +331,7 @@ public class IgniteImpl implements Ignite {
         });
         
         if (explicitStop.get()) {
-            doStopNode(List.of(vaultMgr, nodeCfgMgr, clusterSvc, raftMgr, metaStorageMgr, clusterCfgMgr, baselineMgr,
+            doStopNode(List.of(vaultMgr, nodeCfgMgr, clusterSvc, raftMgr, txManager, metaStorageMgr, clusterCfgMgr, baselineMgr,
                     distributedTblMgr, qryEngine, restModule, clientHandlerModule));
         }
     }

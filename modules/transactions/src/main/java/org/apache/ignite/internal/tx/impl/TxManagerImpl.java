@@ -409,11 +409,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /**
      * @param groupId Group id.
      * @param ts The timestamp.
-     * @param commit {@code True} to commit.
+     * @param commit {@code True} to commit, false to abort.
      *
      * @return The future.
      */
-    protected CompletableFuture finishGroup(String groupId, Timestamp ts, boolean commit) {
+    protected CompletableFuture<?> onFinish(String groupId, Timestamp ts, boolean commit) {
         return CompletableFuture.completedFuture(null);
     };
     
@@ -435,7 +435,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             
             // Finish enlisted groups.
             for (String groupId : groupIds) {
-                futs[i++] = finishGroup(groupId, req.timestamp(), req.commit());
+                futs[i++] = onFinish(groupId, req.timestamp(), req.commit());
             }
             
             CompletableFuture.allOf(futs).thenCompose(ignored -> req.commit() ?

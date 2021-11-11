@@ -231,19 +231,14 @@ public enum RaftError {
     EIO(1014),
 
     /**
-     * Invalid value.
+     * Invalid value
      */
     EINVAL(1015),
 
     /**
      * Permission denied
      */
-    EACCES(1016),
-
-    /**
-     * Transaction failed TODO asch A temporary solution, should be replaced with tx error codes.
-     */
-    ETX(1017);
+    EACCES(1016);
 
     private static final Map<Integer, RaftError> RAFT_ERROR_MAP = new HashMap<>();
 

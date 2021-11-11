@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -212,7 +213,13 @@ public class RaftServerImpl implements RaftServer {
     public @Nullable Peer localPeer(String groupId) {
         return new Peer(service.topologyService().localMember().address());
     }
-
+    
+    /** {@inheritDoc} */
+    @Override
+    public Set<String> startedGroups() {
+        return listeners.keySet();
+    }
+    
     /**
      * @param sender        The sender.
      * @param req           The request.

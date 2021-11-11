@@ -38,12 +38,12 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.table.distributed.TableTxManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterService;
@@ -111,10 +111,10 @@ public class ItDistributedConfigurationStorageTest {
             );
 
             lockManager = new HeapLockManager();
-
-            txManager = new TxManagerImpl(clusterService, lockManager);
-
+    
             raftManager = new Loza(clusterService, workDir);
+            
+            txManager = new TableTxManager(clusterService, lockManager, raftManager);
 
             List<RootKey<?, ?>> rootKeys = List.of(NodeConfiguration.KEY);
             
@@ -150,7 +150,7 @@ public class ItDistributedConfigurationStorageTest {
             
             cfgManager.bootstrap(config);
             
-            Stream.of(clusterService, raftManager, metaStorageManager).forEach(IgniteComponent::start);
+            Stream.of(clusterService, raftManager, txManager, metaStorageManager).forEach(IgniteComponent::start);
             
             // this is needed to avoid assertion errors
             cfgStorage.registerConfigurationListener(changedEntries -> completedFuture(null));
@@ -164,7 +164,7 @@ public class ItDistributedConfigurationStorageTest {
          */
         void stop() throws Exception {
             var components =
-                    List.of(metaStorageManager, raftManager, clusterService, cfgManager, vaultManager);
+                    List.of(metaStorageManager, raftManager, txManager, clusterService, cfgManager, vaultManager);
     
             for (IgniteComponent igniteComponent : components) {
                 igniteComponent.beforeNodeStop();

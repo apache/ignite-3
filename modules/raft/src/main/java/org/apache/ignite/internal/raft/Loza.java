@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -36,13 +37,16 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.ApiStatus.Experimental;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Best raft manager ever since 1982.
@@ -241,13 +245,39 @@ public class Loza implements IgniteComponent {
     }
     
     /**
-     * Applies a command to local raft group.
+     * Applies a command to a local raft group.
      *
      * @param groupId Group id.
-     * @param rawData Raw command data.
+     * @param cmd The command.
      * @return The future.
      */
-    public CompletableFuture apply(String groupId, ByteBuffer rawData) {
-        return null;
+    public CompletableFuture<?> apply(String groupId, Command cmd) {
+        ActionRequest req = FACTORY.actionRequest().command(cmd).groupId(groupId).readOnlySafe(true).build();
+        
+        return clusterNetSvc.messagingService().invoke(clusterNetSvc.topologyService().localMember(), req, NETWORK_TIMEOUT);
+    }
+    
+    /**
+     * @return An underlying network service.
+     */
+    @TestOnly
+    public ClusterService service() {
+        return clusterNetSvc;
+    }
+    
+    /**
+     * @return An underlying raft server.
+     */
+    @TestOnly
+    public RaftServer server() {
+        return raftServer;
+    }
+    
+    /**
+     * @return Started groups.
+     */
+    @TestOnly
+    public Set<String> startedGroups() {
+        return raftServer.startedGroups();
     }
 }

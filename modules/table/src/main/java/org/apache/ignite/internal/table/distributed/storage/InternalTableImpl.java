@@ -219,10 +219,13 @@ public class InternalTableImpl implements InternalTable {
 
         return fut.handle(new BiFunction<T, Throwable, CompletableFuture<T>>() {
             @Override public CompletableFuture<T> apply(T r, Throwable e) {
-                if (e != null)
+                if (e != null) {
+                    // TODO asch add suppressed exception from rollback.
                     return tx0.rollbackAsync().thenCompose(ignored -> failedFuture(e)); // Preserve failed state.
-                else
+                }
+                else {
                     return implicit ? tx0.commitAsync().thenApply(ignored -> r) : completedFuture(r);
+                }
             }
         }).thenCompose(x -> x);
     }
@@ -264,10 +267,13 @@ public class InternalTableImpl implements InternalTable {
         // TODO asch remove futures creation
         return fut.handle(new BiFunction<T, Throwable, CompletableFuture<T>>() {
             @Override public CompletableFuture<T> apply(T r, Throwable e) {
-                if (e != null)
+                if (e != null) {
+                    // TODO asch add suppressed exception from rollback.
                     return tx0.rollbackAsync().thenCompose(ignored -> failedFuture(e)); // Preserve failed state.
-                else
+                }
+                else {
                     return implicit ? tx0.commitAsync().thenApply(ignored -> r) : completedFuture(r);
+                }
             }
         }).thenCompose(x -> x);
     }

@@ -26,6 +26,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -361,6 +362,11 @@ public class JraftServerImpl implements RaftServer {
      */
     public RaftGroupService raftGroupService(String groupId) {
         return groups.get(groupId);
+    }
+    
+    @Override
+    public Set<String> startedGroups() {
+        return groups.keySet();
     }
     
     /**

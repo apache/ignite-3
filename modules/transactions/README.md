@@ -174,6 +174,10 @@ It makes sense to remove obsolete values and timestamps from record by running a
 
 Key -> Tuple (newVal, oldVal, ts) will change after resetting to Key -> Tuple (newVal, null, null) and can be compacted.
 
+# One phase commit
+
+Implicit tx can be fast committed if all keys belongs to the same partition. TODO asch create ticket
+
 # SQL and indexes.
 
 We assume only row level locking in the first approach, which gives us a repeatable_read isolation.

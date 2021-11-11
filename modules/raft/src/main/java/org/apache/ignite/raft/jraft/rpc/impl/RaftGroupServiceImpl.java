@@ -17,6 +17,26 @@
 
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import static java.lang.System.currentTimeMillis;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.ThreadLocalRandom.current;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerResponse;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersResponse;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersResponse;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.RemoveLearnersRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerResponse;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -43,28 +63,7 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.ActionResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
-import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
-
-import static java.lang.System.currentTimeMillis;
-import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.ThreadLocalRandom.current;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerResponse;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersRequest;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersResponse;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersRequest;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersResponse;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.RemoveLearnersRequest;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerRequest;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerResponse;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 
 /**
  * The implementation of {@link RaftGroupService}
@@ -468,14 +467,14 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override public <R> CompletableFuture<R> run(Peer peer, ReadCommand cmd) {
         ActionRequest req = factory.actionRequest().command(cmd).groupId(groupId).readOnlySafe(false).build();
 
-        CompletableFuture<?> fut = cluster.messagingService().invoke(peer.address(), req, timeout);
+        CompletableFuture<ActionResponse> fut = cluster.messagingService().invoke(peer.address(), req, timeout);
 
-        return fut.thenApply(resp -> (R) ((ActionResponse) resp).result());
+        return fut.thenApply(resp -> (R) resp.result());
     }
 
     /** {@inheritDoc} */
     @Override public void shutdown() {
-
+        // No-op.
     }
 
     /** {@inheritDoc} */
@@ -576,14 +575,14 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                             }, retryDelay, TimeUnit.MILLISECONDS);
                         }
                     }
-                    else if (resp0.errorCode() == RaftError.ETX.getNumber()) {
-                        fut.completeExceptionally(
-                            new TransactionException(resp0.errorMsg()));
-                    }
                     else {
                         fut.completeExceptionally(
                             new RaftException(RaftError.forNumber(resp0.errorCode()), resp0.errorMsg()));
                     }
+                }
+                else if (resp instanceof ActionResponse && ((ActionResponse)resp).result() instanceof Throwable) {
+                    // Unwrap custom exception.
+                    fut.completeExceptionally((Throwable) ((ActionResponse)resp).result());
                 }
                 else {
                     leader = peer; // The OK response was received from a leader.

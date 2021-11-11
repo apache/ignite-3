@@ -28,7 +28,7 @@ import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
-import org.apache.ignite.raft.jraft.rpc.ErrorResponseBuilder;
+import org.apache.ignite.raft.jraft.rpc.ActionResponse;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
@@ -88,12 +88,9 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                             applyRead(node, request, rpcCtx);
                         }
                     } else {
-                        // TODO asch add support for transaction specific error codes
-                        ErrorResponseBuilder resp =
-                                factory.errorResponse().errorCode(RaftError.ETX.getNumber())
-                                        .errorMsg(err.getMessage());
+                        ActionResponse resp = factory.actionResponse().result(err).build();
                     
-                        rpcCtx.sendResponse(resp.build());
+                        rpcCtx.sendResponse(resp);
                     }
                 
                     return null;
