@@ -20,55 +20,15 @@ package org.apache.ignite.internal.processors.query.calcite.schema;
 import java.util.Map;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
-import org.apache.calcite.rel.core.TableScan;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.schema.TranslatableTable;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.processors.query.calcite.extension.IgniteTable;
 import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGroup;
 import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
-import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
-import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
 
 /**
- * Ignite table.
+ * Ignite internal table.
  */
-public interface IgniteTable extends TranslatableTable {
-    /**
-     * Get table description.
-     */
-    TableDescriptor descriptor();
-
-    /** {@inheritDoc} */
-    @Override
-    default RelDataType getRowType(RelDataTypeFactory typeFactory) {
-        return getRowType(typeFactory, null);
-    }
-
-    /**
-     * Returns new type according {@code usedClumns} param.
-     *
-     * @param typeFactory     Factory.
-     * @param requiredColumns Used columns enumeration.
-     */
-    RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet requiredColumns);
-
-    /** {@inheritDoc} */
-    @Override
-    default TableScan toRel(RelOptTable.ToRelContext context, RelOptTable relOptTable) {
-        return toRel(context.getCluster(), relOptTable);
-    }
-
-    /**
-     * Converts table into relational expression.
-     *
-     * @param cluster   Custer.
-     * @param relOptTbl Table.
-     * @return Table relational expression.
-     */
-    IgniteLogicalTableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl);
-
+public interface InternalIgniteTable extends IgniteTable {
     /**
      * Converts table into relational expression.
      *
@@ -86,13 +46,6 @@ public interface IgniteTable extends TranslatableTable {
      * @return Nodes mapping.
      */
     ColocationGroup colocationGroup(PlanningContext ctx);
-
-    /**
-     * Returns table distribution.
-     *
-     * @return Table distribution.
-     */
-    IgniteDistribution distribution();
 
     /**
      * Returns all table indexes.
