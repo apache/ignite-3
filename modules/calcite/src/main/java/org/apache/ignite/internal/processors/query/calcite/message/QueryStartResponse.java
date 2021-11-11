@@ -19,27 +19,27 @@ package org.apache.ignite.internal.processors.query.calcite.message;
 
 import java.io.Serializable;
 import java.util.UUID;
-
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- *
+ * QueryStartResponse interface.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 @Transferable(value = SqlQueryMessageGroup.QUERY_START_RESPONSE, autoSerializable = false)
 public interface QueryStartResponse extends NetworkMessage, Serializable {
     /**
-     * @return Query ID.
+     * Get query ID.
      */
     UUID queryId();
 
     /**
-     * @return Fragment ID.
+     * Get fragment ID.
      */
     long fragmentId();
 
     /**
-     * @return Error.
+     * Get error.
      */
     Throwable error();
 }

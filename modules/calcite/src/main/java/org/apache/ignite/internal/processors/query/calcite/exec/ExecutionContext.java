@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.processors.query.calcite.exec;
 
+import static org.apache.ignite.internal.processors.query.calcite.util.Commons.checkRange;
+
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
@@ -24,7 +26,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-
 import org.apache.calcite.DataContext;
 import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
@@ -39,37 +40,26 @@ import org.apache.ignite.internal.processors.query.calcite.util.TypeUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 
-import static org.apache.ignite.internal.processors.query.calcite.util.Commons.checkRange;
-
 /**
  * Runtime context allowing access to the tables in a database.
  */
-public class ExecutionContext<Row> implements DataContext {
-    /** */
+public class ExecutionContext<RowT> implements DataContext {
     private static final TimeZone TIME_ZONE = TimeZone.getDefault(); // TODO DistributedSqlConfiguration#timeZone
 
-    /** */
     private final UUID qryId;
 
-    /** */
     private final PlanningContext ctx;
 
-    /** */
     private final FragmentDescription fragmentDesc;
 
-    /** */
     private final Map<String, Object> params;
 
-    /** */
     private final QueryTaskExecutor executor;
 
-    /** */
-    private final RowHandler<Row> handler;
+    private final RowHandler<RowT> handler;
 
-    /** */
-    private final ExpressionFactory<Row> expressionFactory;
+    private final ExpressionFactory<RowT> expressionFactory;
 
-    /** */
     private final AtomicBoolean cancelFlag = new AtomicBoolean();
 
     /**
@@ -78,25 +68,26 @@ public class ExecutionContext<Row> implements DataContext {
      */
     private final long startTs;
 
-    /** */
     private Object[] correlations = new Object[16];
 
     /**
-     * @param executor Task executor.
-     * @param ctx Parent context.
-     * @param qryId Query ID.
+     * Constructor.
+     *
+     * @param executor     Task executor.
+     * @param ctx          Parent context.
+     * @param qryId        Query ID.
      * @param fragmentDesc Partitions information.
-     * @param handler Row handler.
-     * @param params Parameters.
+     * @param handler      Row handler.
+     * @param params       Parameters.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
-        QueryTaskExecutor executor,
-        PlanningContext ctx,
-        UUID qryId,
-        FragmentDescription fragmentDesc,
-        RowHandler<Row> handler,
-        Map<String, Object> params
+            QueryTaskExecutor executor,
+            PlanningContext ctx,
+            UUID qryId,
+            FragmentDescription fragmentDesc,
+            RowHandler<RowT> handler,
+            Map<String, Object> params
     ) {
         this.executor = executor;
         this.ctx = ctx;
@@ -112,34 +103,36 @@ public class ExecutionContext<Row> implements DataContext {
     }
 
     /**
-     * @return Parent context.
+     * Get parent context.
      */
     public PlanningContext planningContext() {
         return ctx;
     }
 
     /**
-     * @return Query ID.
+     * Get query ID.
      */
     public UUID queryId() {
         return qryId;
     }
 
     /**
-     * @return Fragment ID.
+     * Get fragment ID.
      */
     public long fragmentId() {
         return fragmentDesc.fragmentId();
     }
 
     /**
-     * @return Target mapping.
+     * Get target mapping.
      */
     public ColocationGroup target() {
         return fragmentDesc.target();
     }
 
     /**
+     * Get remote nodes for the given exchange id.
+     *
      * @param exchangeId ExchangeId to find remote nodes for.
      * @return Remote nodes for given exchangeId.
      */
@@ -148,6 +141,8 @@ public class ExecutionContext<Row> implements DataContext {
     }
 
     /**
+     * Get colocation group for the given source id.
+     *
      * @param sourceId SourceId to find colocation group for.
      * @return Colocation group for given sourceId.
      */
@@ -156,60 +151,69 @@ public class ExecutionContext<Row> implements DataContext {
     }
 
     /**
-     * @return Keep binary flag.
+     * Get keep binary flag.
      */
     public boolean keepBinary() {
         return true; // TODO
     }
 
     /**
-     * @return Handler to access row fields.
+     * Get handler to access row fields.
      */
-    public RowHandler<Row> rowHandler() {
+    public RowHandler<RowT> rowHandler() {
         return handler;
     }
 
     /**
-     * @return Expression factory.
+     * Get expression factory.
      */
-    public ExpressionFactory<Row> expressionFactory() {
+    public ExpressionFactory<RowT> expressionFactory() {
         return expressionFactory;
     }
 
     /**
-     * @return Originating node ID.
+     * Get originating node ID.
      */
     public String originatingNodeId() {
         return planningContext().originatingNodeId();
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaPlus getRootSchema() {
+    @Override
+    public SchemaPlus getRootSchema() {
         return ctx.schema();
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteTypeFactory getTypeFactory() {
+    @Override
+    public IgniteTypeFactory getTypeFactory() {
         return ctx.typeFactory();
     }
 
     /** {@inheritDoc} */
-    @Override public QueryProvider getQueryProvider() {
+    @Override
+    public QueryProvider getQueryProvider() {
         return null; // TODO
     }
 
     /** {@inheritDoc} */
-    @Override public Object get(String name) {
-        if (Variable.CANCEL_FLAG.camelName.equals(name))
+    @Override
+    public Object get(String name) {
+        if (Variable.CANCEL_FLAG.camelName.equals(name)) {
             return cancelFlag;
-        if (Variable.TIME_ZONE.camelName.equals(name))
+        }
+        if (Variable.TIME_ZONE.camelName.equals(name)) {
             return TIME_ZONE; // TODO DistributedSqlConfiguration#timeZone
-        if (Variable.CURRENT_TIMESTAMP.camelName.equals(name))
+        }
+        if (Variable.CURRENT_TIMESTAMP.camelName.equals(name)) {
             return startTs;
-        if (Variable.LOCAL_TIMESTAMP.camelName.equals(name))
+        }
+        if (Variable.LOCAL_TIMESTAMP.camelName.equals(name)) {
             return startTs;
-        if (name.startsWith("?"))
+        }
+        if (name.startsWith("?")) {
             return TypeUtils.toInternal(this, params.get(name));
+        }
 
         return params.get(name);
     }
@@ -229,7 +233,7 @@ public class ExecutionContext<Row> implements DataContext {
     /**
      * Sets correlated value.
      *
-     * @param id Correlation ID.
+     * @param id    Correlation ID.
      * @param value Correlated value.
      */
     public void setCorrelated(@NotNull Object value, int id) {
@@ -244,14 +248,14 @@ public class ExecutionContext<Row> implements DataContext {
      * @param task Query task.
      */
     public void execute(RunnableX task, Consumer<Throwable> onError) {
-        if (isCancelled())
+        if (isCancelled()) {
             return;
+        }
 
         executor.execute(qryId, fragmentId(), () -> {
             try {
                 task.run();
-            }
-            catch (Throwable e) {
+            } catch (Throwable e) {
                 onError.accept(e);
 
                 throw new IgniteInternalException("Unexpected exception", e);
@@ -260,9 +264,8 @@ public class ExecutionContext<Row> implements DataContext {
     }
 
     /**
-     * Submits a Runnable task for execution and returns a Future
-     * representing that task. The Future's {@code get} method will
-     * return {@code null} upon <em>successful</em> completion.
+     * Submits a Runnable task for execution and returns a Future representing that task. The Future's {@code get} method will return {@code
+     * null} upon <em>successful</em> completion.
      *
      * @param task the task to submit.
      * @return a {@link CompletableFuture} representing pending task
@@ -273,8 +276,7 @@ public class ExecutionContext<Row> implements DataContext {
         return executor.submit(qryId, fragmentId(), () -> {
             try {
                 task.run();
-            }
-            catch (Throwable e) {
+            } catch (Throwable e) {
                 onError.accept(e);
 
                 throw new IgniteInternalException("Unexpected exception", e);
@@ -282,10 +284,11 @@ public class ExecutionContext<Row> implements DataContext {
         });
     }
 
-    /** */
+    /**
+     * RunnableX interface.
+     */
     @FunctionalInterface
     public interface RunnableX {
-        /** */
         void run() throws Throwable;
     }
 
@@ -298,7 +301,6 @@ public class ExecutionContext<Row> implements DataContext {
         return !cancelFlag.get() && cancelFlag.compareAndSet(false, true);
     }
 
-    /** */
     public boolean isCancelled() {
         return cancelFlag.get();
     }

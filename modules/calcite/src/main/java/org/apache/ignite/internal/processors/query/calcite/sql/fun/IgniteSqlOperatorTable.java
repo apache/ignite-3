@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.processors.query.calcite.sql.fun;
 
 import org.apache.calcite.sql.SqlFunction;
@@ -32,21 +33,15 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
      */
     private static IgniteSqlOperatorTable instance;
 
-    /**
-     *
-     */
     public static final SqlFunction LENGTH =
-        new SqlFunction(
-            "LENGTH",
-            SqlKind.OTHER_FUNCTION,
-            ReturnTypes.INTEGER_NULLABLE,
-            null,
-            OperandTypes.CHARACTER,
-            SqlFunctionCategory.NUMERIC);
+            new SqlFunction(
+                    "LENGTH",
+                    SqlKind.OTHER_FUNCTION,
+                    ReturnTypes.INTEGER_NULLABLE,
+                    null,
+                    OperandTypes.CHARACTER,
+                    SqlFunctionCategory.NUMERIC);
 
-    /**
-     *
-     */
     public static final SqlFunction SYSTEM_RANGE = new SqlSystemRangeFunction();
 
     /**

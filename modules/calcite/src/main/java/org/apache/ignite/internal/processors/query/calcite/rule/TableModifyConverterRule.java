@@ -32,10 +32,10 @@ import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribut
 import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 
 /**
- *
+ * TableModifyConverterRule.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TableModifyConverterRule extends AbstractIgniteConverterRule<LogicalTableModify> {
-    /** */
     public static final RelOptRule INSTANCE = new TableModifyConverterRule();
 
     /**
@@ -46,12 +46,13 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
     }
 
     /** {@inheritDoc} */
-    @Override protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalTableModify rel) {
+    @Override
+    protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalTableModify rel) {
         RelOptCluster cluster = rel.getCluster();
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
-            .replace(IgniteDistributions.single())
-            .replace(RewindabilityTrait.ONE_WAY)
-            .replace(RelCollations.EMPTY);
+                .replace(IgniteDistributions.single())
+                .replace(RewindabilityTrait.ONE_WAY)
+                .replace(RelCollations.EMPTY);
         RelNode input = convert(rel.getInput(), traits);
 
         return new IgniteTableModify(cluster, traits, rel.getTable(), input,

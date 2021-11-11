@@ -25,32 +25,35 @@ import org.apache.ignite.raft.client.ReadCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Get all command for MetaStorageCommandListener that retrieves entries
- * for given keys and the revision upper bound, if latter is present.
+ * Get all command for MetaStorageCommandListener that retrieves entries for given keys and the revision upper bound, if latter is present.
  */
 public final class GetAllCommand implements ReadCommand {
     /** The list of keys. */
-    @NotNull private final List<byte[]> keys;
+    @NotNull
+    private final List<byte[]> keys;
 
     /** The upper bound for entry revisions. Must be positive. */
     private long revUpperBound;
 
     /**
-     * @param keys The collection of keys. Couldn't be {@code null} or empty. Collection elements couldn't be {@code
-     * null}.
+     * Constructor.
+     *
+     * @param keys The collection of keys. Couldn't be {@code null} or empty. Collection elements couldn't be {@code null}.
      */
     public GetAllCommand(@NotNull Set<ByteArray> keys) {
         assert !keys.isEmpty();
 
         this.keys = new ArrayList<>(keys.size());
 
-        for (ByteArray key : keys)
+        for (ByteArray key : keys) {
             this.keys.add(key.bytes());
+        }
     }
 
     /**
-     * @param keys The collection of keys. Couldn't be {@code null} or empty. Collection elements couldn't be {@code
-     * null}.
+     * Constructor.
+     *
+     * @param keys          The collection of keys. Couldn't be {@code null} or empty. Collection elements couldn't be {@code null}.
      * @param revUpperBound The upper bound for entry revisions. Must be positive.
      */
     public GetAllCommand(@NotNull Set<ByteArray> keys, long revUpperBound) {
@@ -62,14 +65,14 @@ public final class GetAllCommand implements ReadCommand {
     }
 
     /**
-     * @return The list of keys.
+     * Returns the list of keys.
      */
     public @NotNull List<byte[]> keys() {
         return keys;
     }
 
     /**
-     * @return The upper bound for entry revisions. Must be positive.
+     * Returns the upper bound for entry revisions. Must be positive.
      */
     public long revision() {
         return revUpperBound;

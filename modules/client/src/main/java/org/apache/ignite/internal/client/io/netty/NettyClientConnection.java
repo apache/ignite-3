@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.client.io.netty;
 
-import java.io.IOException;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.util.AttributeKey;
+import java.io.IOException;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
 import org.apache.ignite.internal.client.io.ClientMessageHandler;
@@ -32,7 +31,7 @@ import org.apache.ignite.lang.IgniteException;
  * Netty client connection.
  */
 public class NettyClientConnection implements ClientConnection {
-    /** Connection attribute */
+    /** Connection attribute. */
     public static final AttributeKey<NettyClientConnection> ATTR_CONN = AttributeKey.newInstance("CONN");
 
     /** Channel. */
@@ -47,8 +46,8 @@ public class NettyClientConnection implements ClientConnection {
     /**
      * Constructor.
      *
-     * @param channel Channel.
-     * @param msgHnd Message handler.
+     * @param channel  Channel.
+     * @param msgHnd   Message handler.
      * @param stateHnd State handler.
      */
     public NettyClientConnection(Channel channel, ClientMessageHandler msgHnd, ClientConnectionStateHandler stateHnd) {
@@ -60,18 +59,21 @@ public class NettyClientConnection implements ClientConnection {
     }
 
     /** {@inheritDoc} */
-    @Override public ChannelFuture send(ByteBuf msg) throws IgniteException {
+    @Override
+    public ChannelFuture send(ByteBuf msg) throws IgniteException {
         // writeAndFlush releases pooled buffer.
         return channel.writeAndFlush(msg);
     }
 
     /** {@inheritDoc} */
-    @Override public ByteBuf getBuffer() {
+    @Override
+    public ByteBuf getBuffer() {
         return channel.alloc().buffer();
     }
 
     /** {@inheritDoc} */
-    @Override public void close() {
+    @Override
+    public void close() {
         channel.close();
     }
 

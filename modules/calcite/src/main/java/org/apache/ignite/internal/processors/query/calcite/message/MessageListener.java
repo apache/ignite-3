@@ -20,12 +20,15 @@ package org.apache.ignite.internal.processors.query.calcite.message;
 import org.apache.ignite.network.NetworkMessage;
 
 /**
- *
+ * MessageListener interface.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public interface MessageListener {
     /**
+     * OnMessage.
+     *
      * @param nodeId Sender node ID.
-     * @param msg Message.
+     * @param msg    Message.
      */
     void onMessage(String nodeId, NetworkMessage msg);
 }

@@ -28,6 +28,8 @@ public class SimpleWriteInvokeClosure implements InvokeClosure<Void> {
     private final DataRow newRow;
 
     /**
+     * Constructor.
+     *
      * @param newRow Data row to write into the storage.
      */
     public SimpleWriteInvokeClosure(DataRow newRow) {
@@ -35,18 +37,21 @@ public class SimpleWriteInvokeClosure implements InvokeClosure<Void> {
     }
 
     /** {@inheritDoc} */
-    @Override public void call(@Nullable DataRow row) {
+    @Override
+    public void call(@Nullable DataRow row) {
     }
 
     /** {@inheritDoc} */
     @Nullable
-    @Override public DataRow newRow() {
+    @Override
+    public DataRow newRow() {
         return newRow;
     }
 
     /** {@inheritDoc} */
     @Nullable
-    @Override public OperationType operationType() {
+    @Override
+    public OperationType operationType() {
         return OperationType.WRITE;
     }
 }

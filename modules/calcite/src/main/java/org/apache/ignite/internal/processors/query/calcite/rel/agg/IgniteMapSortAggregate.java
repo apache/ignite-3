@@ -19,7 +19,6 @@ package org.apache.ignite.internal.processors.query.calcite.rel.agg;
 
 import java.util.List;
 import java.util.Objects;
-
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
@@ -42,21 +41,25 @@ import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
 /**
- *
+ * IgniteMapSortAggregate.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteMapSortAggregate extends IgniteMapAggregateBase implements IgniteSortAggregateBase {
     /** Collation. */
     private final RelCollation collation;
 
-    /** */
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IgniteMapSortAggregate(
-        RelOptCluster cluster,
-        RelTraitSet traitSet,
-        RelNode input,
-        ImmutableBitSet groupSet,
-        List<ImmutableBitSet> groupSets,
-        List<AggregateCall> aggCalls,
-        RelCollation collation
+            RelOptCluster cluster,
+            RelTraitSet traitSet,
+            RelNode input,
+            ImmutableBitSet groupSet,
+            List<ImmutableBitSet> groupSets,
+            List<AggregateCall> aggCalls,
+            RelCollation collation
     ) {
         super(cluster, traitSet, input, groupSet, groupSets, aggCalls);
 
@@ -66,7 +69,10 @@ public class IgniteMapSortAggregate extends IgniteMapAggregateBase implements Ig
         this.collation = collation;
     }
 
-    /** */
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IgniteMapSortAggregate(RelInput input) {
         super(TraitUtils.changeTraits(input, IgniteConvention.INSTANCE));
 
@@ -77,41 +83,46 @@ public class IgniteMapSortAggregate extends IgniteMapAggregateBase implements Ig
     }
 
     /** {@inheritDoc} */
-    @Override public Aggregate copy(
-        RelTraitSet traitSet,
-        RelNode input,
-        ImmutableBitSet groupSet,
-        List<ImmutableBitSet> groupSets,
-        List<AggregateCall> aggCalls) {
+    @Override
+    public Aggregate copy(
+            RelTraitSet traitSet,
+            RelNode input,
+            ImmutableBitSet groupSet,
+            List<ImmutableBitSet> groupSets,
+            List<AggregateCall> aggCalls) {
         return new IgniteMapSortAggregate(
-            getCluster(), traitSet, input, groupSet, groupSets, aggCalls, TraitUtils.collation(traitSet));
+                getCluster(), traitSet, input, groupSet, groupSets, aggCalls, TraitUtils.collation(traitSet));
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
+    @Override
+    public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteMapSortAggregate(
-            cluster,
-            getTraitSet().replace(collation),
-            sole(inputs),
-            getGroupSet(),
-            getGroupSets(),
-            getAggCallList(),
-            collation
+                cluster,
+                getTraitSet().replace(collation),
+                sole(inputs),
+                getGroupSet(),
+                getGroupSets(),
+                getAggCallList(),
+                collation
         );
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T accept(IgniteRelVisitor<T> visitor) {
+    @Override
+    public <T> T accept(IgniteRelVisitor<T> visitor) {
         return visitor.visit(this);
     }
 
     /** {@inheritDoc} */
-    @Override public RelWriter explainTerms(RelWriter pw) {
+    @Override
+    public RelWriter explainTerms(RelWriter pw) {
         return super.explainTerms(pw).item("collation", collation);
     }
 
     /** {@inheritDoc} */
-    @Override protected RelDataType deriveRowType() {
+    @Override
+    protected RelDataType deriveRowType() {
         RelDataTypeFactory typeFactory = Commons.typeFactory(getCluster());
 
         RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
@@ -122,19 +133,22 @@ public class IgniteMapSortAggregate extends IgniteMapAggregateBase implements Ig
             builder.add(fld);
         });
 
-        if (!aggCalls.isEmpty())
+        if (!aggCalls.isEmpty()) {
             builder.add("AGG_DATA", typeFactory.createArrayType(typeFactory.createJavaType(Object.class/*Accumulator.class*/), -1));
+        }
 
         return builder.build();
     }
 
     /** {@inheritDoc} */
-    @Override public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
+    @Override
+    public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
         return computeSelfCostSort(planner, mq);
     }
 
     /** {@inheritDoc} */
-    @Override public RelCollation collation() {
+    @Override
+    public RelCollation collation() {
         return collation;
     }
 }

@@ -17,6 +17,15 @@
 
 package org.apache.ignite.internal.processors.query.calcite;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.when;
+
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
@@ -25,7 +34,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Flow;
-
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -54,15 +62,6 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.when;
 
 /**
  * Stop Calcite module test.
@@ -96,6 +95,10 @@ public class StopCalciteModuleTest {
 
     SchemaRegistry schemaReg;
 
+    /**
+     * Before.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     @BeforeEach
     public void before(TestInfo testInfo) {
         when(clusterSrvc.messagingService()).thenReturn(msgSrvc);
@@ -107,9 +110,9 @@ public class StopCalciteModuleTest {
         when(topologySrvc.allMembers()).thenReturn(Collections.singleton(node));
 
         SchemaDescriptor schemaDesc = new SchemaDescriptor(
-            0,
-            new Column[]{new Column("ID", NativeTypes.INT32, false)},
-            new Column[]{new Column("VAL", NativeTypes.INT32, false)}
+                0,
+                new Column[]{new Column("ID", NativeTypes.INT32, false)},
+                new Column[]{new Column("VAL", NativeTypes.INT32, false)}
         );
 
         schemaReg = new SchemaRegistryImpl(0, (v) -> schemaDesc);
@@ -118,9 +121,10 @@ public class StopCalciteModuleTest {
 
         // Mock create table (notify on register listener).
         doAnswer(invocation -> {
-            EventListener<TableEventParameters> clo = (EventListener<TableEventParameters>)invocation.getArguments()[1];
+            EventListener<TableEventParameters> clo = (EventListener<TableEventParameters>) invocation.getArguments()[1];
 
-            clo.notify(new TableEventParameters(new IgniteUuid(UUID.randomUUID(), 0), "TEST", new TableImpl(tbl, schemaReg, tableManager)), null);
+            clo.notify(new TableEventParameters(new IgniteUuid(UUID.randomUUID(), 0), "TEST", new TableImpl(tbl, schemaReg, tableManager)),
+                    null);
 
             return null;
         }).when(tableManager).listen(eq(TableEvent.CREATE), any());
@@ -134,22 +138,25 @@ public class StopCalciteModuleTest {
 
         // Mock table scan
         doAnswer(invocation -> {
-            int part = (int)invocation.getArguments()[0];
+            int part = (int) invocation.getArguments()[0];
 
-            return (Flow.Publisher<BinaryRow>)s -> {
+            return (Flow.Publisher<BinaryRow>) s -> {
                 s.onSubscribe(new Flow.Subscription() {
-                    @Override public void request(long n) {
+                    @Override
+                    public void request(long n) {
                         // No-op.
                     }
 
-                    @Override public void cancel() {
+                    @Override
+                    public void cancel() {
                         // No-op.
                     }
                 });
 
                 if (part == 0) {
-                    for (int i = 0; i < ROWS; ++i)
+                    for (int i = 0; i < ROWS; ++i) {
                         s.onNext(binaryRow);
+                    }
                 }
 
                 s.onComplete();
@@ -159,7 +166,6 @@ public class StopCalciteModuleTest {
         LOG.info(">>>> Starting test {}", testInfo.getTestMethod().orElseThrow().getName());
     }
 
-    /** */
     @Test
     public void testStopQueryOnNodeStop() throws Exception {
         SqlQueryProcessor qryProc = new SqlQueryProcessor(clusterSrvc, tableManager);
@@ -167,8 +173,8 @@ public class StopCalciteModuleTest {
         qryProc.start();
 
         List<SqlCursor<List<?>>> cursors = qryProc.query(
-            "PUBLIC",
-            "SELECT * FROM TEST"
+                "PUBLIC",
+                "SELECT * FROM TEST"
         );
 
         SqlCursor<List<?>> cur = cursors.get(0);
@@ -184,8 +190,8 @@ public class StopCalciteModuleTest {
 
         // Check execute query on stopped node.
         assertTrue(assertThrows(IgniteException.class, () -> qryProc.query(
-            "PUBLIC",
-            "SELECT 1"
+                "PUBLIC",
+                "SELECT 1"
         )).getCause() instanceof NodeStoppingException);
 
         // Check: there are no alive Ignite threads.
@@ -193,15 +199,16 @@ public class StopCalciteModuleTest {
     }
 
     /**
-     * @return {@code true} is there are any threads with node name prefix;
-     * Otherwise returns {@code false}.
+     * Get isThereNodeThreads flag.
+     *
+     * @return {@code true} is there are any threads with node name prefix; Otherwise returns {@code false}.
      */
     private boolean isThereNodeThreads(String nodeName) {
         ThreadMXBean bean = ManagementFactory.getThreadMXBean();
         ThreadInfo[] infos = bean.dumpAllThreads(true, true);
 
         return Arrays.stream(infos)
-            .anyMatch((ti) -> ti.getThreadName().contains(nodeName));
+                .anyMatch((ti) -> ti.getThreadName().contains(nodeName));
     }
 }
 

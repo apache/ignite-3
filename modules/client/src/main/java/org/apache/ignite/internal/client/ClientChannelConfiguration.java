@@ -33,7 +33,7 @@ final class ClientChannelConfiguration {
     /**
      * Constructor.
      *
-     * @param cfg Config.
+     * @param cfg  Config.
      * @param addr Address.
      */
     ClientChannelConfiguration(IgniteClientConfiguration cfg, InetSocketAddress addr) {
@@ -42,6 +42,8 @@ final class ClientChannelConfiguration {
     }
 
     /**
+     * Returns address.
+     *
      * @return Address.
      */
     public InetSocketAddress getAddress() {
@@ -49,6 +51,8 @@ final class ClientChannelConfiguration {
     }
 
     /**
+     * Returns config.
+     *
      * @return Config.
      */
     public IgniteClientConfiguration clientConfiguration() {

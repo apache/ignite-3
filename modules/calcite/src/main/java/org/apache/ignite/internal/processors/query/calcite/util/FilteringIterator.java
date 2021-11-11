@@ -20,9 +20,12 @@ package org.apache.ignite.internal.processors.query.calcite.util;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.Predicate;
-
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * FilteringIterator.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public class FilteringIterator<T> implements Iterator<T> {
     private final Iterator<T> delegate;
 
@@ -30,27 +33,34 @@ public class FilteringIterator<T> implements Iterator<T> {
 
     private T cur;
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public FilteringIterator(
-        @NotNull Iterator<T> delegate,
-        @NotNull Predicate<T> pred
+            @NotNull Iterator<T> delegate,
+            @NotNull Predicate<T> pred
     ) {
         this.delegate = delegate;
         this.pred = pred;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean hasNext() {
+    @Override
+    public boolean hasNext() {
         advance();
 
         return cur != null;
     }
 
     /** {@inheritDoc} */
-    @Override public T next() {
+    @Override
+    public T next() {
         advance();
 
-        if (cur == null)
+        if (cur == null) {
             throw new NoSuchElementException();
+        }
 
         T tmp = cur;
 
@@ -60,20 +70,22 @@ public class FilteringIterator<T> implements Iterator<T> {
     }
 
     /** {@inheritDoc} */
-    @Override public void remove() {
+    @Override
+    public void remove() {
         delegate.remove();
     }
 
-    /** */
     private void advance() {
-        if (cur != null)
+        if (cur != null) {
             return;
+        }
 
         while (delegate.hasNext() && cur == null) {
             cur = delegate.next();
 
-            if (!pred.test(cur))
+            if (!pred.test(cur)) {
                 cur = null;
+            }
         }
     }
 }

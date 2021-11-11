@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.schema;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import org.apache.ignite.internal.schema.row.TemporalTypesHelper;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Test temporal type compaction.
@@ -55,19 +55,24 @@ public class TemporalTypesTest {
     @Test
     void testTime() {
         for (int i = 0; i <= 9; i++) {
-            checkTime(TemporalNativeType.time(i), LocalTime.MAX.withNano(TemporalTypesHelper.normalizeNanos(LocalTime.MAX.getNano(), i))); // Seconds precision.
+            checkTime(TemporalNativeType.time(i),
+                    LocalTime.MAX.withNano(TemporalTypesHelper.normalizeNanos(LocalTime.MAX.getNano(), i))); // Seconds precision.
             checkTime(TemporalNativeType.time(i), LocalTime.MIN);
         }
 
         checkTime(TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION), LocalTime.MAX.truncatedTo(ChronoUnit.MICROS));
         checkTime(TemporalNativeType.time(9), LocalTime.MAX);
 
-        assertThrows(AssertionError.class, () -> checkTime(TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION), LocalTime.MAX));
+        assertThrows(AssertionError.class,
+                () -> checkTime(TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION), LocalTime.MAX));
         assertThrows(AssertionError.class, () -> checkTime(TemporalNativeType.time(0), LocalTime.MAX));
         assertThrows(AssertionError.class, () -> checkTime(TemporalNativeType.time(8), LocalTime.MAX));
     }
 
     /**
+     * CheckDate.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @param date Date.
      */
     private void checkDate(LocalDate date) {
@@ -75,6 +80,9 @@ public class TemporalTypesTest {
     }
 
     /**
+     * CheckTime.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @param type Type to validate against.
      * @param time Time value.
      */

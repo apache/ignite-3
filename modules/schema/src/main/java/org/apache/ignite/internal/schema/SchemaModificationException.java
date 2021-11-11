@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.schema;
 
 /**
- * An exception thrown when an attempt to modification schema was failed or forbidden,
+ * An exception thrown when an attempt to modification schema was failed or forbidden.
  */
 public class SchemaModificationException extends SchemaException {
     /**
@@ -33,7 +33,7 @@ public class SchemaModificationException extends SchemaException {
     /**
      * Constructor with error message and cause.
      *
-     * @param msg Message.
+     * @param msg   Message.
      * @param cause Cause.
      */
     public SchemaModificationException(String msg, Throwable cause) {

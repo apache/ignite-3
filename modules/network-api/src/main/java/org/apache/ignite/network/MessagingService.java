@@ -23,19 +23,21 @@ import org.apache.ignite.network.annotations.MessageGroup;
 /**
  * Entry point for sending messages between network members in both weak and patient mode.
  *
- * TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
+ * <p>TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
  */
 public interface MessagingService {
     /**
      * Tries to send the given message asynchronously to the specific member without any delivery guarantees.
      *
      * @param recipient Recipient of the message.
-     * @param msg Message which should be delivered.
+     * @param msg       Message which should be delivered.
      */
     void weakSend(ClusterNode recipient, NetworkMessage msg);
 
     /**
-     * Tries to send the given message asynchronously to the specific cluster member with the following guarantees:
+     * Tries to send the given message asynchronously to the specific cluster member.
+     *
+     * <p>Guarantees:
      * <ul>
      *     <li>Messages will be delivered in the same order as they were sent;</li>
      *     <li>If a message N has been successfully delivered to a member implies that all messages preceding N
@@ -43,7 +45,7 @@ public interface MessagingService {
      * </ul>
      *
      * @param recipient Recipient of the message.
-     * @param msg Message which should be delivered.
+     * @param msg       Message which should be delivered.
      * @return Future of the send operation.
      */
     CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg);
@@ -51,8 +53,8 @@ public interface MessagingService {
     /**
      * Same as {@link #send(ClusterNode, NetworkMessage)} but attaches the given correlation ID to the given message.
      *
-     * @param recipient Recipient of the message.
-     * @param msg Message which should be delivered.
+     * @param recipient     Recipient of the message.
+     * @param msg           Message which should be delivered.
      * @param correlationId Correlation id when replying to the request.
      * @return Future of the send operation.
      */
@@ -61,30 +63,30 @@ public interface MessagingService {
     /**
      * Same as {@link #send(ClusterNode, NetworkMessage)} but attaches the given correlation ID to the given message.
      *
-     * @param addr Recipient network address.
-     * @param msg Message which should be delivered.
+     * @param addr          Recipient network address.
+     * @param msg           Message which should be delivered.
      * @param correlationId Correlation id when replying to the request.
      * @return Future of the send operation.
      */
     CompletableFuture<Void> send(NetworkAddress addr, NetworkMessage msg, String correlationId);
 
     /**
-     * Sends a message asynchronously with same guarantees as {@link #send(ClusterNode, NetworkMessage)} and
-     * returns a future that will be completed successfully upon receiving a response.
+     * Sends a message asynchronously with same guarantees as {@link #send(ClusterNode, NetworkMessage)} and returns a future that will be
+     * completed successfully upon receiving a response.
      *
      * @param recipient Recipient of the message.
-     * @param msg The message.
-     * @param timeout Waiting for response timeout in milliseconds.
+     * @param msg       The message.
+     * @param timeout   Waiting for response timeout in milliseconds.
      * @return A future holding the response or error if the expected response was not received.
      */
     CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, NetworkMessage msg, long timeout);
 
     /**
-     * Sends a message asynchronously with same guarantees as {@link #send(ClusterNode, NetworkMessage)} and
-     * returns a future that will be completed successfully upon receiving a response.
+     * Sends a message asynchronously with same guarantees as {@link #send(ClusterNode, NetworkMessage)} and returns a future that will be
+     * completed successfully upon receiving a response.
      *
-     * @param addr Recipient network address.
-     * @param msg A message.
+     * @param addr    Recipient network address.
+     * @param msg     A message.
      * @param timeout Waiting for response timeout in milliseconds.
      * @return A future holding the response or error if the expected response was not received.
      */
@@ -92,13 +94,13 @@ public interface MessagingService {
 
     /**
      * Registers a listener for a group of network message events.
-     * <p>
-     * Message group is specified by providing a class annotated with the {@link MessageGroup} annotation.
+     *
+     * <p>Message group is specified by providing a class annotated with the {@link MessageGroup} annotation.
      *
      * @param messageGroup Message group descriptor.
-     * @param handler Message handler.
-     * @throws IllegalArgumentException If some handlers have already been registered for a different message group
-     * class that has the same ID as the given {@code messageGroup}.
+     * @param handler      Message handler.
+     * @throws IllegalArgumentException If some handlers have already been registered for a different message group class that has the same
+     *                                  ID as the given {@code messageGroup}.
      */
     void addMessageHandler(Class<?> messageGroup, NetworkMessageHandler handler);
 }

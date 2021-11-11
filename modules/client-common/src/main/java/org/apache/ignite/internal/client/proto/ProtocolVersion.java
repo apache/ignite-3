@@ -17,14 +17,12 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import java.io.IOException;
-
 import org.apache.ignite.internal.tostring.S;
 
 /** Thin client protocol version. */
 public final class ProtocolVersion implements Comparable<ProtocolVersion> {
     /** Protocol version: 3.0.0. */
-    public static final ProtocolVersion V3_0_0 = new ProtocolVersion((short)3, (short)0, (short)0);
+    public static final ProtocolVersion V3_0_0 = new ProtocolVersion((short) 3, (short) 0, (short) 0);
 
     /** The most actual version. */
     public static final ProtocolVersion LATEST_VER = V3_0_0;
@@ -56,9 +54,8 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
      *
      * @param unpacker Unpacker.
      * @return Version.
-     * @throws IOException when underlying input throws IOException.
      */
-    public static ProtocolVersion unpack(ClientMessageUnpacker unpacker) throws IOException {
+    public static ProtocolVersion unpack(ClientMessageUnpacker unpacker) {
         return new ProtocolVersion(unpacker.unpackShort(), unpacker.unpackShort(), unpacker.unpackShort());
     }
 
@@ -66,10 +63,11 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
      * Writes this instance to the specified packer.
      *
      * @param packer Packer.
-     * @throws IOException when underlying output throws IOException.
      */
-    public void pack(ClientMessagePacker packer) throws IOException {
-        packer.packShort(major).packShort(minor).packShort(patch);
+    public void pack(ClientMessagePacker packer) {
+        packer.packShort(major);
+        packer.packShort(minor);
+        packer.packShort(patch);
     }
 
     /**
@@ -100,19 +98,20 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean equals(Object obj) {
-        if (!(obj instanceof ProtocolVersion))
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof ProtocolVersion)) {
             return false;
+        }
 
-        ProtocolVersion other = (ProtocolVersion)obj;
+        ProtocolVersion other = (ProtocolVersion) obj;
 
-        return major == other.major &&
-                minor == other.minor &&
-                patch == other.patch;
+        return major == other.major && minor == other.minor && patch == other.patch;
     }
 
     /** {@inheritDoc} */
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         int res = 31 * major;
         res += ((minor & 0xFFFF) << 16) & (patch & 0xFFFF);
 
@@ -120,22 +119,26 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
     }
 
     /** {@inheritDoc} */
-    @Override public int compareTo(ProtocolVersion other) {
+    @Override
+    public int compareTo(ProtocolVersion other) {
         int diff = major - other.major;
 
-        if (diff != 0)
+        if (diff != 0) {
             return diff;
+        }
 
         diff = minor - other.minor;
 
-        if (diff != 0)
+        if (diff != 0) {
             return diff;
+        }
 
         return patch - other.patch;
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return S.toString(ProtocolVersion.class, this);
     }
 }

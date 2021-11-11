@@ -29,7 +29,10 @@ import org.apache.ignite.lang.IgniteInternalException;
  */
 public class ColumnAccessCodeGenerator {
     /**
-     * @param mode Binary mode.
+     * CreateAccessor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @param mode   Binary mode.
      * @param colIdx Column index in schema.
      * @return Row column access code generator.
      */
@@ -71,6 +74,8 @@ public class ColumnAccessCodeGenerator {
                 return new ColumnAccessCodeGenerator("numberValue", "appendNumber", BigInteger.class, colIdx);
             case DECIMAL:
                 return new ColumnAccessCodeGenerator("decimalValue", "appendDecimal", BigDecimal.class, colIdx);
+            default:
+                break;
         }
 
         throw new IgniteInternalException("Unsupported binary mode: " + mode);
@@ -94,10 +99,10 @@ public class ColumnAccessCodeGenerator {
     /**
      * Constructor.
      *
-     * @param readMethodName Reader handle name.
+     * @param readMethodName  Reader handle name.
      * @param writeMethodName Writer handle name.
-     * @param mappedType Mapped value type.
-     * @param colIdx Column index in schema.
+     * @param mappedType      Mapped value type.
+     * @param colIdx          Column index in schema.
      */
     ColumnAccessCodeGenerator(String readMethodName, String writeMethodName, Class<?> mappedType, int colIdx) {
         this(readMethodName, writeMethodName, mappedType, mappedType, colIdx);
@@ -106,14 +111,14 @@ public class ColumnAccessCodeGenerator {
     /**
      * Constructor.
      *
-     * @param readMethodName Reader handle name.
+     * @param readMethodName  Reader handle name.
      * @param writeMethodName Writer handle name.
-     * @param mappedType Mapped value type.
-     * @param writeArgType Write method argument type.
-     * @param colIdx Column index in schema.
+     * @param mappedType      Mapped value type.
+     * @param writeArgType    Write method argument type.
+     * @param colIdx          Column index in schema.
      */
     ColumnAccessCodeGenerator(String readMethodName, String writeMethodName, Class<?> mappedType,
-        Class<?> writeArgType, int colIdx) {
+            Class<?> writeArgType, int colIdx) {
         this.readMethodName = readMethodName;
         this.writeMethodName = writeMethodName;
         this.colIdx = colIdx;
@@ -122,7 +127,7 @@ public class ColumnAccessCodeGenerator {
     }
 
     /**
-     * @return Column index in schema.
+     * Get column index in schema.
      */
     public int columnIdx() {
         return colIdx;

@@ -55,7 +55,9 @@ public class SchemaDescriptor implements Serializable {
     private ColumnMapper colMapper = ColumnMapping.identityMapping();
 
     /**
-     * @param ver Schema version.
+     * Constructor.
+     *
+     * @param ver     Schema version.
      * @param keyCols Key columns.
      * @param valCols Value columns.
      */
@@ -64,7 +66,9 @@ public class SchemaDescriptor implements Serializable {
     }
 
     /**
-     * @param ver Schema version.
+     * Constructor.
+     *
+     * @param ver     Schema version.
      * @param keyCols Key columns.
      * @param affCols Affinity column names.
      * @param valCols Value columns.
@@ -80,16 +84,18 @@ public class SchemaDescriptor implements Serializable {
         colMap = new LinkedHashMap<>(keyCols.length + valCols.length);
 
         Stream.concat(Arrays.stream(this.keyCols.columns()), Arrays.stream(this.valCols.columns()))
-            .sorted(Comparator.comparingInt(Column::columnOrder))
-            .forEach(c -> colMap.put(c.name(), c));
+                .sorted(Comparator.comparingInt(Column::columnOrder))
+                .forEach(c -> colMap.put(c.name(), c));
 
         // Preserving key chunk column order is not actually required.
         // It is sufficient to has same column order for all nodes.
         this.affCols = (ArrayUtils.nullOrEmpty(affCols)) ? keyCols :
-            Arrays.stream(affCols).map(colMap::get).toArray(Column[]::new);
+                Arrays.stream(affCols).map(colMap::get).toArray(Column[]::new);
     }
 
     /**
+     * Get schema version.
+     *
      * @return Schema version.
      */
     public int version() {
@@ -97,6 +103,8 @@ public class SchemaDescriptor implements Serializable {
     }
 
     /**
+     * Check if column index belongs to the key column.
+     *
      * @param idx Column index to check.
      * @return {@code true} if the column belongs to the key chunk, {@code false} otherwise.
      */
@@ -107,6 +115,8 @@ public class SchemaDescriptor implements Serializable {
     }
 
     /**
+     * Get column by index.
+     *
      * @param colIdx Column index.
      * @return Column instance.
      */
@@ -114,6 +124,16 @@ public class SchemaDescriptor implements Serializable {
         validateColumnIndex(colIdx);
 
         return colIdx < keyCols.length() ? keyCols.column(colIdx) : valCols.column(colIdx - keyCols.length());
+    }
+
+    /**
+     * Get column by name.
+     *
+     * @param name Column name.
+     * @return Column.
+     */
+    public @Nullable Column column(@NotNull String name) {
+        return colMap.get(name);
     }
 
     /**
@@ -135,6 +155,8 @@ public class SchemaDescriptor implements Serializable {
     }
 
     /**
+     * Get key columns.
+     *
      * @return Key columns chunk.
      */
     public Columns keyColumns() {
@@ -142,6 +164,8 @@ public class SchemaDescriptor implements Serializable {
     }
 
     /**
+     * Get affinity columns.
+     *
      * @return Key affinity columns chunk.
      */
     public Column[] affinityColumns() {
@@ -149,6 +173,8 @@ public class SchemaDescriptor implements Serializable {
     }
 
     /**
+     * Get value columns.
+     *
      * @return Value columns chunk.
      */
     public Columns valueColumns() {
@@ -156,18 +182,12 @@ public class SchemaDescriptor implements Serializable {
     }
 
     /**
+     * Get total number of columns in schema.
+     *
      * @return Total number of columns in schema.
      */
     public int length() {
         return keyCols.length() + valCols.length();
-    }
-
-    /**
-     * @param name Column name.
-     * @return Column.
-     */
-    public @Nullable Column column(@NotNull String name) {
-        return colMap.get(name);
     }
 
     /**
@@ -180,6 +200,8 @@ public class SchemaDescriptor implements Serializable {
     }
 
     /**
+     * Get column mapper.
+     *
      * @return Column mapper.
      */
     public ColumnMapper columnMapping() {
@@ -187,7 +209,8 @@ public class SchemaDescriptor implements Serializable {
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return S.toString(SchemaDescriptor.class, this);
     }
 }

@@ -18,28 +18,30 @@
 package org.apache.ignite.internal.processors.query.calcite.rel.agg;
 
 import java.util.List;
-
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitsAwareIgniteRel;
 
 /**
- *
+ * IgniteHashAggregateBase interface.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 interface IgniteHashAggregateBase extends TraitsAwareIgniteRel {
     /** {@inheritDoc} */
-    @Override default Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
+    @Override
+    default Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
         // Since it's a hash aggregate it erases collation.
         return Pair.of(nodeTraits.replace(RelCollations.EMPTY),
-            List.of(inputTraits.get(0).replace(RelCollations.EMPTY)));
+                List.of(inputTraits.get(0).replace(RelCollations.EMPTY)));
     }
 
     /** {@inheritDoc} */
-    @Override default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCollation(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
+    @Override
+    default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCollation(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
         // Since it's a hash aggregate it erases collation.
         return List.of(Pair.of(nodeTraits.replace(RelCollations.EMPTY),
-            List.of(inputTraits.get(0).replace(RelCollations.EMPTY))));
+                List.of(inputTraits.get(0).replace(RelCollations.EMPTY))));
     }
 
 }

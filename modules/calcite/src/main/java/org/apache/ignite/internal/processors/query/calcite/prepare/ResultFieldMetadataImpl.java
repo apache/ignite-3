@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
 import java.util.List;
-
 import org.apache.ignite.internal.processors.query.calcite.ResultFieldMetadata;
 import org.apache.ignite.internal.schema.NativeType;
 
@@ -41,12 +40,16 @@ public class ResultFieldMetadataImpl implements ResultFieldMetadata {
     /** Origin of the result's field. */
     private final List<String> origin;
 
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public ResultFieldMetadataImpl(
-        String name,
-        NativeType type,
-        int order,
-        boolean nullable,
-        List<String> origin
+            String name,
+            NativeType type,
+            int order,
+            boolean nullable,
+            List<String> origin
     ) {
         this.name = name;
         this.type = type;
@@ -56,27 +59,32 @@ public class ResultFieldMetadataImpl implements ResultFieldMetadata {
     }
 
     /** {@inheritDoc} */
-    @Override public String name() {
+    @Override
+    public String name() {
         return name;
     }
 
     /** {@inheritDoc} */
-    @Override public int order() {
+    @Override
+    public int order() {
         return order;
     }
 
     /** {@inheritDoc} */
-    @Override public NativeType type() {
+    @Override
+    public NativeType type() {
         return type;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean isNullable() {
+    @Override
+    public boolean isNullable() {
         return nullable;
     }
 
     /** {@inheritDoc} */
-    @Override public List<String> origin() {
+    @Override
+    public List<String> origin() {
         return origin;
     }
 }

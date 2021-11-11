@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.runner.app.jdbc;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -30,9 +33,9 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
+/**
+ * Abstract jdbc self test.
+ */
 public class AbstractJdbcSelfTest {
     /** URL. */
     protected static final String URL = "jdbc:ignite:thin://127.0.1.1:10800";
@@ -61,8 +64,9 @@ public class AbstractJdbcSelfTest {
      */
     @AfterAll
     public static void afterAll() throws Exception {
-        for (Ignite clusterNode : clusterNodes)
+        for (Ignite clusterNode : clusterNodes) {
             clusterNode.close();
+        }
 
         clusterNodes.clear();
     }

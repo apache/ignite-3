@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.network.handshake;
 
-import java.util.concurrent.CompletableFuture;
 import io.netty.channel.Channel;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.netty.HandshakeHandler;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.network.NetworkMessage;
@@ -53,6 +53,8 @@ public interface HandshakeManager {
     HandshakeAction onMessage(Channel channel, NetworkMessage message);
 
     /**
+     * Returns future that represents the handshake operation.
+     *
      * @return Future that represents the handshake operation.
      */
     CompletableFuture<NettySender> handshakeFuture();

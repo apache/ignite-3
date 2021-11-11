@@ -20,11 +20,13 @@ package org.apache.ignite.internal.schema;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * The exception is thrown when the row assembler encountered an unrecoverable error during the row marshalling.
- * After the exception is thrown, the assembler remains in an invalid state and should be discarded.
+ * The exception is thrown when the row assembler encountered an unrecoverable error during the row marshalling. After the exception is
+ * thrown, the assembler remains in an invalid state and should be discarded.
  */
 public class AssemblyException extends IgniteInternalException {
     /**
+     * Constructor.
+     *
      * @param errMsg Error message
      */
     public AssemblyException(String errMsg) {
@@ -32,8 +34,10 @@ public class AssemblyException extends IgniteInternalException {
     }
 
     /**
+     * Constructor.
+     *
      * @param errMsg Error message
-     * @param cause Cause for this error.
+     * @param cause  Cause for this error.
      */
     public AssemblyException(String errMsg, Exception cause) {
         super(errMsg, cause);

@@ -28,44 +28,59 @@ import com.facebook.presto.bytecode.Variable;
  */
 public interface MarshallerCodeGenerator {
     /**
-     * @return {@code true} if it is simple object marshaller, {@code false} otherwise.
+     * Get is simple type flag: {@code true} if it is simple object marshaller, {@code false} otherwise.
      */
     boolean isSimpleType();
 
     /**
+     * Get target class.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @return Target class.
      */
     Class<?> targetClass();
 
     /**
+     * GetValue.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @param serializerClass Serializer type.
-     * @param obj Target object variable.
-     * @param colIdx Column index.
+     * @param obj             Target object variable.
+     * @param colIdx          Column index.
      * @return Object field value for given column.
      */
     BytecodeNode getValue(ParameterizedType serializerClass, Variable obj, int colIdx);
 
     /**
+     * MarshallObject.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @param serializerClass Serializer type
-     * @param asm Row assembler.
-     * @param obj Target object variable.
+     * @param asm             Row assembler.
+     * @param obj             Target object variable.
      * @return Unmarshall object code.
      */
     BytecodeNode marshallObject(ParameterizedType serializerClass, Variable asm, Variable obj);
 
     /**
+     * UnmarshallObject.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @param serializerClass Serializer type
-     * @param row Row.
-     * @param obj Result object variable.
+     * @param row             Row.
+     * @param obj             Result object variable.
      * @return Unmarshall object code.
      */
     BytecodeNode unmarshallObject(ParameterizedType serializerClass, Variable row, Variable obj);
 
     /**
-     * @param classDef Class definition.
-     * @param tClassField Target class field definition.
+     * InitStaticHandlers.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @param classDef    Class definition.
+     * @param targetClassField Target class field definition.
      */
-    default void initStaticHandlers(ClassDefinition classDef, FieldDefinition tClassField) {
+    default void initStaticHandlers(ClassDefinition classDef, FieldDefinition targetClassField) {
 
     }
 }

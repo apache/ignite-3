@@ -27,6 +27,9 @@ import org.apache.ignite.internal.schema.marshaller.reflection.JavaSerializerFac
 @FunctionalInterface
 public interface SerializerFactory {
     /**
+     * CreateGeneratedSerializerFactory.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @return Serializer factory back by code generator.
      */
     static SerializerFactory createGeneratedSerializerFactory() {
@@ -34,6 +37,9 @@ public interface SerializerFactory {
     }
 
     /**
+     * CreateJavaSerializerFactory.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @return Reflection-based serializer factory.
      */
     static SerializerFactory createJavaSerializerFactory() {
@@ -43,7 +49,7 @@ public interface SerializerFactory {
     /**
      * Creates serializer.
      *
-     * @param schema Schema descriptor.
+     * @param schema   Schema descriptor.
      * @param keyClass Key class.
      * @param valClass Value class.
      * @return Serializer.
