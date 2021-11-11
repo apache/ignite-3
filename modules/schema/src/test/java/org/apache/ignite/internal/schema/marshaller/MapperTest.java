@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema.marshaller;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.Objects;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.MapperBuilder;
 import org.junit.jupiter.api.Test;
