@@ -60,12 +60,11 @@ public class TestObjectWithPrivateConstructor {
         
         TestObjectWithPrivateConstructor object = (TestObjectWithPrivateConstructor) o;
         
-        return primLongCol == object.primLongCol && primIntCol == object.primIntCol;
+        return primLongCol == object.primLongCol;
     }
     
     /** {@inheritDoc} */
-    @Override
-    public int hashCode() {
+    @Override public int hashCode() {
         return Objects.hash(primLongCol);
     }
 }

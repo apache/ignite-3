@@ -38,8 +38,8 @@ public interface MarshallerFactory {
     /**
      * Shortcut method creates key-value marshaller for classes using identity mappers.
      *
-     * @param schema     Schema descriptor.
-     * @param keyClass   Key type.
+     * @param schema Schema descriptor.
+     * @param keyClass Key type.
      * @param valueClass Value type.
      * @return Key-value marshaller.
      * @see Mapper#identity(Class)

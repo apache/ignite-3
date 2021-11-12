@@ -94,7 +94,7 @@ public class KvMarshallerTest {
     private Random rnd;
     
     /**
-     * Init random.
+     * Init test.
      */
     @BeforeEach
     public void initRandom() {

@@ -34,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Reflection based (de)serializer.
  */
-//TODO: IGNITE-15888 drop
+//TODO: IGNITE-15907 drop
 @Deprecated(forRemoval = true)
 public class JavaSerializer extends AbstractSerializer {
     /** Key class. */

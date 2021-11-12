@@ -48,7 +48,6 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Random;
 import java.util.stream.Stream;
 import javax.annotation.processing.Generated;
@@ -303,10 +302,10 @@ public class JavaSerializerTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
 
-        final Object key = PrivateTestObject.randomObject(rnd);
-        final Object val = PrivateTestObject.randomObject(rnd);
+        final Object key = TestObjectWithPrivateConstructor.randomObject(rnd);
+        final Object val = TestObjectWithPrivateConstructor.randomObject(rnd);
 
-        final ObjectFactory<?> objFactory = new ObjectFactory<>(PrivateTestObject.class);
+        final ObjectFactory<?> objFactory = new ObjectFactory<>(TestObjectWithPrivateConstructor.class);
         final Serializer serializer = factory.create(schema, key.getClass(), val.getClass());
 
         BinaryRow row = serializer.serialize(key, objFactory.create());
