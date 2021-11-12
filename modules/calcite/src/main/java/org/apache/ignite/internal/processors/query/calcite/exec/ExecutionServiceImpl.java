@@ -360,14 +360,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
 
     private PlanningContext createContext(long topVer, String originator,
             @Nullable String schema, String qry, Object[] params) {
-        RelTraitDef<?>[] traitDefs = {
-                ConventionTraitDef.INSTANCE,
-                RelCollationTraitDef.INSTANCE,
-                DistributionTraitDef.INSTANCE,
-                RewindabilityTraitDef.INSTANCE,
-                CorrelationTraitDef.INSTANCE,
-        };
-
         return PlanningContext.builder()
                 .localNodeId(locNodeId)
                 .originatingNodeId(originator)
@@ -376,7 +368,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
                         .defaultSchema(schema != null
                                 ? schemaHolder.schema().getSubSchema(schema)
                                 : schemaHolder.schema())
-                        .traitDefs(traitDefs)
                         .build())
                 .query(qry)
                 .parameters(params)

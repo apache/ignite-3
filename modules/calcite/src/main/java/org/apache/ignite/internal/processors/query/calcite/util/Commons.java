@@ -50,7 +50,10 @@ import org.apache.calcite.config.Lex;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.Contexts;
+import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelTraitDef;
+import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.hint.HintStrategyTable;
@@ -87,6 +90,9 @@ import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningConte
 import org.apache.ignite.internal.processors.query.calcite.prepare.QueryPlan;
 import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlConformance;
 import org.apache.ignite.internal.processors.query.calcite.sql.fun.IgniteSqlOperatorTable;
+import org.apache.ignite.internal.processors.query.calcite.trait.CorrelationTraitDef;
+import org.apache.ignite.internal.processors.query.calcite.trait.DistributionTraitDef;
+import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTraitDef;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeSystem;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
@@ -150,6 +156,13 @@ public final class Commons {
             // Custom cost factory to use during optimization
             .costFactory(new IgniteCostFactory())
             .typeSystem(IgniteTypeSystem.INSTANCE)
+            .traitDefs(new RelTraitDef<?>[] {
+                    ConventionTraitDef.INSTANCE,
+                    RelCollationTraitDef.INSTANCE,
+                    DistributionTraitDef.INSTANCE,
+                    RewindabilityTraitDef.INSTANCE,
+                    CorrelationTraitDef.INSTANCE,
+            })
             .build();
 
     private Commons() {

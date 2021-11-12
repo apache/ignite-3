@@ -42,15 +42,12 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.Contexts;
-import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.AbstractRelNode;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelReferentialConstraint;
@@ -92,10 +89,7 @@ import org.apache.ignite.internal.processors.query.calcite.schema.IgniteIndex;
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteSchema;
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
 import org.apache.ignite.internal.processors.query.calcite.schema.TableDescriptor;
-import org.apache.ignite.internal.processors.query.calcite.trait.CorrelationTraitDef;
-import org.apache.ignite.internal.processors.query.calcite.trait.DistributionTraitDef;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
-import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTraitDef;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeSystem;
 import org.apache.ignite.internal.schema.NativeType;
@@ -210,19 +204,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
 
-        RelTraitDef<?>[] traitDefs = {
-                DistributionTraitDef.INSTANCE,
-                ConventionTraitDef.INSTANCE,
-                RelCollationTraitDef.INSTANCE,
-                RewindabilityTraitDef.INSTANCE,
-                CorrelationTraitDef.INSTANCE
-        };
-
         PlanningContext ctx = PlanningContext.builder()
                 .parentContext(Contexts.empty())
                 .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                         .defaultSchema(schema)
-                        .traitDefs(traitDefs)
                         .build())
                 .query(sql)
                 .build();
@@ -436,6 +421,13 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     /**
      * Predicate builder for "Input with given index satisfy predicate" condition.
      */
+    protected <T extends RelNode> Predicate<RelNode> input(Predicate<T> predicate) {
+        return input(0, predicate);
+    }
+
+    /**
+     * Predicate builder for "Input with given index satisfy predicate" condition.
+     */
     protected <T extends RelNode> Predicate<RelNode> input(int idx, Predicate<T> predicate) {
         return node -> {
             int size = nullOrEmpty(node.getInputs()) ? 0 : node.getInputs().size();
@@ -482,14 +474,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         assertNotNull(serialized);
 
-        RelTraitDef<?>[] traitDefs = {
-                DistributionTraitDef.INSTANCE,
-                ConventionTraitDef.INSTANCE,
-                RelCollationTraitDef.INSTANCE,
-                RewindabilityTraitDef.INSTANCE,
-                CorrelationTraitDef.INSTANCE
-        };
-
         List<String> nodes = new ArrayList<>(4);
 
         for (int i = 0; i < 4; i++) {
@@ -502,7 +486,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 .parentContext(Contexts.empty())
                 .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                         .defaultSchema(schema)
-                        .traitDefs(traitDefs)
                         .build())
                 .build();
 

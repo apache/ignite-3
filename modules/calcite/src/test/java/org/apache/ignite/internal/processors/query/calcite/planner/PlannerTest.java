@@ -34,11 +34,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.calcite.plan.Contexts;
-import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
@@ -64,11 +61,8 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteSort;
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteIndex;
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteSchema;
 import org.apache.ignite.internal.processors.query.calcite.trait.CorrelationTrait;
-import org.apache.ignite.internal.processors.query.calcite.trait.CorrelationTraitDef;
-import org.apache.ignite.internal.processors.query.calcite.trait.DistributionTraitDef;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions;
-import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTraitDef;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeSystem;
 import org.apache.ignite.network.ClusterNode;
@@ -161,21 +155,12 @@ public class PlannerTest extends AbstractPlannerTest {
                 + ") p "
                 + "ON d.id = p.id0";
 
-        RelTraitDef<?>[] traitDefs = {
-            ConventionTraitDef.INSTANCE,
-            DistributionTraitDef.INSTANCE,
-            RelCollationTraitDef.INSTANCE,
-            RewindabilityTraitDef.INSTANCE,
-            CorrelationTraitDef.INSTANCE
-        };
-
         PlanningContext ctx = PlanningContext.builder()
                 .localNodeId(first(NODES))
                 .originatingNodeId(first(NODES))
                 .parentContext(Contexts.empty())
                 .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                         .defaultSchema(schema)
-                        .traitDefs(traitDefs)
                         .build())
                 .query(sql)
                 .parameters(2)
@@ -251,21 +236,12 @@ public class PlannerTest extends AbstractPlannerTest {
                 + "ON d.id = p.id0 "
                 + "WHERE (d.projectId + 1) > ?";
 
-        RelTraitDef<?>[] traitDefs = {
-            DistributionTraitDef.INSTANCE,
-            ConventionTraitDef.INSTANCE,
-            RelCollationTraitDef.INSTANCE,
-            RewindabilityTraitDef.INSTANCE,
-            CorrelationTraitDef.INSTANCE
-        };
-
         PlanningContext ctx = PlanningContext.builder()
                 .localNodeId(first(NODES))
                 .originatingNodeId(first(NODES))
                 .parentContext(Contexts.empty())
                 .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                         .defaultSchema(schema)
-                        .traitDefs(traitDefs)
                         .build())
                 .query(sql)
                 .parameters(2)
@@ -344,21 +320,12 @@ public class PlannerTest extends AbstractPlannerTest {
                 + "ON d.id = p.id0 "
                 + "WHERE (d.projectId + 1) > ?";
 
-        RelTraitDef<?>[] traitDefs = {
-            DistributionTraitDef.INSTANCE,
-            ConventionTraitDef.INSTANCE,
-            RelCollationTraitDef.INSTANCE,
-            RewindabilityTraitDef.INSTANCE,
-            CorrelationTraitDef.INSTANCE
-        };
-
         PlanningContext ctx = PlanningContext.builder()
                 .localNodeId(first(NODES))
                 .originatingNodeId(first(NODES))
                 .parentContext(Contexts.empty())
                 .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                         .defaultSchema(schema)
-                        .traitDefs(traitDefs)
                         .build())
                 .query(sql)
                 .parameters(2)
@@ -435,21 +402,12 @@ public class PlannerTest extends AbstractPlannerTest {
                 + "ON d.projectId = p.id0 "
                 + "WHERE (d.projectId + 1) > ?";
 
-        RelTraitDef<?>[] traitDefs = {
-            DistributionTraitDef.INSTANCE,
-            ConventionTraitDef.INSTANCE,
-            RelCollationTraitDef.INSTANCE,
-            RewindabilityTraitDef.INSTANCE,
-            CorrelationTraitDef.INSTANCE
-        };
-
         PlanningContext ctx = PlanningContext.builder()
                 .localNodeId(first(NODES))
                 .originatingNodeId(first(NODES))
                 .parentContext(Contexts.empty())
                 .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                         .defaultSchema(schema)
-                        .traitDefs(traitDefs)
                         .build())
                 .query(sql)
                 .parameters(2)
@@ -527,21 +485,12 @@ public class PlannerTest extends AbstractPlannerTest {
                 + "ON d.projectId = p.id0 "
                 + "WHERE (d.projectId + 1) > ?";
 
-        RelTraitDef<?>[] traitDefs = {
-            DistributionTraitDef.INSTANCE,
-            ConventionTraitDef.INSTANCE,
-            RelCollationTraitDef.INSTANCE,
-            RewindabilityTraitDef.INSTANCE,
-            CorrelationTraitDef.INSTANCE
-        };
-
         PlanningContext ctx = PlanningContext.builder()
                 .localNodeId(first(NODES))
                 .originatingNodeId(first(NODES))
                 .parentContext(Contexts.empty())
                 .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                         .defaultSchema(schema)
-                        .traitDefs(traitDefs)
                         .build())
                 .query(sql)
                 .parameters(2)
@@ -614,21 +563,12 @@ public class PlannerTest extends AbstractPlannerTest {
                 + "ON d.projectId = p.ver0 "
                 + "WHERE (d.projectId + 1) > ?";
 
-        RelTraitDef<?>[] traitDefs = {
-            DistributionTraitDef.INSTANCE,
-            ConventionTraitDef.INSTANCE,
-            RelCollationTraitDef.INSTANCE,
-            RewindabilityTraitDef.INSTANCE,
-            CorrelationTraitDef.INSTANCE
-        };
-
         PlanningContext ctx = PlanningContext.builder()
                 .localNodeId(first(NODES))
                 .originatingNodeId(first(NODES))
                 .parentContext(Contexts.empty())
                 .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                         .defaultSchema(schema)
-                        .traitDefs(traitDefs)
                         .build())
                 .query(sql)
                 .parameters(2)
@@ -678,21 +618,12 @@ public class PlannerTest extends AbstractPlannerTest {
                 + "   WHERE VAL = 10) \n"
                 + "WHERE VAL = 10";
 
-        RelTraitDef<?>[] traitDefs = {
-                ConventionTraitDef.INSTANCE,
-                DistributionTraitDef.INSTANCE,
-                RelCollationTraitDef.INSTANCE,
-                RewindabilityTraitDef.INSTANCE,
-                CorrelationTraitDef.INSTANCE
-        };
-
         PlanningContext ctx = PlanningContext.builder()
                 .localNodeId(first(NODES))
                 .originatingNodeId(first(NODES))
                 .parentContext(Contexts.empty())
                 .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                         .defaultSchema(schema)
-                        .traitDefs(traitDefs)
                         .build())
                 .query(sql)
                 .parameters(2)
@@ -766,21 +697,12 @@ public class PlannerTest extends AbstractPlannerTest {
                 + "from dept d, emp e "
                 + "where d.deptno + e.deptno = 2";
 
-        RelTraitDef<?>[] traitDefs = {
-                DistributionTraitDef.INSTANCE,
-                ConventionTraitDef.INSTANCE,
-                RelCollationTraitDef.INSTANCE,
-                RewindabilityTraitDef.INSTANCE,
-                CorrelationTraitDef.INSTANCE
-        };
-
         PlanningContext ctx = PlanningContext.builder()
                 .localNodeId(first(NODES))
                 .originatingNodeId(first(NODES))
                 .parentContext(Contexts.empty())
                 .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                         .defaultSchema(schema)
-                        .traitDefs(traitDefs)
                         .costFactory(new IgniteCostFactory(1, 100, 1, 1))
                         .build())
                 .query(sql)
@@ -931,91 +853,18 @@ public class PlannerTest extends AbstractPlannerTest {
         publicSchema.addTable("EMP", emp);
         publicSchema.addTable("DEPT", dept);
 
-        String sql = "select * from dept d join emp e on d.deptno = e.deptno and e.name >= d.name order by e.name, d.deptno";
+        String sql = "select d.deptno, d.name, e.id, e.name from dept d join emp e "
+                + "on d.deptno = e.deptno and e.name >= d.name order by e.name, d.deptno";
 
         RelNode phys = physicalPlan(sql, publicSchema, "CorrelatedNestedLoopJoin");
 
         assertNotNull(phys);
         assertEquals("IgniteSort(sort0=[$3], sort1=[$0], dir0=[ASC], dir1=[ASC])\n"
-                        + "  IgniteProject(DEPTNO=[$3], NAME=[$4], ID=[$0], NAME0=[$1], DEPTNO0=[$2])\n"
+                        + "  IgniteProject(DEPTNO=[$3], NAME=[$4], ID=[$0], NAME0=[$1])\n"
                         + "    IgniteNestedLoopJoin(condition=[AND(=($3, $2), >=($1, $4))], joinType=[inner])\n"
                         + "      IgniteTableScan(table=[[PUBLIC, EMP]])\n"
                         + "      IgniteTableScan(table=[[PUBLIC, DEPT]])\n",
                 RelOptUtil.toString(phys));
-    }
-
-    @Test
-    public void testLimit() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
-
-        TestTable testTbl = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("VAL", f.createJavaType(String.class))
-                        .build()) {
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.broadcast();
-            }
-        };
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable("TEST", testTbl);
-
-        String sql = "SELECT * FROM TEST OFFSET 10 ROWS FETCH FIRST 10 ROWS ONLY";
-
-        IgniteRel phys = physicalPlan(sql, publicSchema);
-
-        assertNotNull(phys);
-
-        AtomicInteger limit = new AtomicInteger();
-        AtomicBoolean sort = new AtomicBoolean();
-
-        relTreeVisit(phys, (node, ordinal, parent) -> {
-                    if (node instanceof IgniteLimit) {
-                        limit.incrementAndGet();
-                    }
-
-                    if (node instanceof IgniteSort) {
-                        sort.set(true);
-                    }
-                }
-        );
-
-        String errMsg = "Invalid plan: \n" + RelOptUtil.toString(phys);
-
-        assertEquals(1, limit.get(), errMsg);
-        assertFalse(sort.get(), errMsg);
-
-        checkSplitAndSerialization(phys, publicSchema);
-
-        sql = "SELECT * FROM TEST ORDER BY ID OFFSET 10 ROWS FETCH FIRST 10 ROWS ONLY";
-
-        phys = physicalPlan(sql, publicSchema);
-
-        assertNotNull(phys);
-
-        limit.set(0);
-        sort.set(false);
-
-        relTreeVisit(phys, (node, ordinal, parent) -> {
-                    if (node instanceof IgniteLimit) {
-                        limit.incrementAndGet();
-                    }
-
-                    if (node instanceof IgniteSort) {
-                        sort.set(true);
-                    }
-                }
-        );
-
-        errMsg = "Invalid plan: \n" + RelOptUtil.toString(phys);
-
-        assertEquals(1, limit.get(), errMsg);
-        assertTrue(sort.get(), errMsg);
-
-        checkSplitAndSerialization(phys, publicSchema);
     }
 
     @Test
