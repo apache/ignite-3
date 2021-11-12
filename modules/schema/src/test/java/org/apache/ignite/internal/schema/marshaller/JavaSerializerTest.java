@@ -48,6 +48,7 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.stream.Stream;
 import javax.annotation.processing.Generated;
@@ -285,7 +286,7 @@ public class JavaSerializerTest {
 
         final Object key = TestObjectWithNoDefaultConstructor.randomObject(rnd);
         final Object val = TestObjectWithNoDefaultConstructor.randomObject(rnd);
-        
+
         assertThrows(IgniteInternalException.class, () -> factory.create(schema, key.getClass(), val.getClass()));
     }
 
@@ -302,10 +303,10 @@ public class JavaSerializerTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
 
-        final Object key = TestObjectWithPrivateConstructor.randomObject(rnd);
-        final Object val = TestObjectWithPrivateConstructor.randomObject(rnd);
+        final Object key = PrivateTestObject.randomObject(rnd);
+        final Object val = PrivateTestObject.randomObject(rnd);
 
-        final ObjectFactory<?> objFactory = new ObjectFactory<>(TestObjectWithPrivateConstructor.class);
+        final ObjectFactory<?> objFactory = new ObjectFactory<>(PrivateTestObject.class);
         final Serializer serializer = factory.create(schema, key.getClass(), val.getClass());
 
         BinaryRow row = serializer.serialize(key, objFactory.create());
@@ -457,7 +458,7 @@ public class JavaSerializerTest {
                 .dumpRawBytecode(true)
                 .defineClass(classDef, Object.class);
     }
-    
+
     /**
      * Test object without default constructor.
      */
@@ -469,37 +470,37 @@ public class JavaSerializerTest {
         static PrivateTestObject randomObject(Random rnd) {
             return new PrivateTestObject(rnd.nextInt());
         }
-        
+
         /** Value. */
         private long primLongCol;
-        
+
         /** Constructor. */
         PrivateTestObject() {
         }
-        
+
         /**
          * Private constructor.
          */
         PrivateTestObject(long val) {
             primLongCol = val;
         }
-        
+
         /** {@inheritDoc} */
         @Override
         public boolean equals(Object o) {
             if (this == o) {
                 return true;
             }
-            
+
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-    
+
             PrivateTestObject object = (PrivateTestObject) o;
-            
+
             return primLongCol == object.primLongCol;
         }
-        
+
         /** {@inheritDoc} */
         @Override
         public int hashCode() {
