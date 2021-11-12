@@ -109,7 +109,7 @@ public final class MapperBuilder<T> {
      */
     public Mapper<T> build() {
         if (columnToFields.isEmpty()) {
-            throw new IllegalStateException("Empty mapping doen't allowed.");
+            throw new IllegalStateException("Empty mapping isn't allowed.");
         }
         
         Map<String, String> mapping = this.columnToFields;
