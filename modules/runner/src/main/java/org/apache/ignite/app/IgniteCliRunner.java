@@ -21,7 +21,6 @@ import static picocli.CommandLine.Model.CommandSpec;
 import static picocli.CommandLine.Model.OptionSpec;
 import static picocli.CommandLine.Model.PositionalParamSpec;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgnitionImpl;
@@ -37,7 +36,6 @@ public class IgniteCliRunner {
      * <p>Usage: IgniteCliRunner [--config=configPath] --work-dir=workDir nodeName
      *
      * @param args CLI args to start a new node.
-     * @throws IOException if any issues with reading config file.
      */
     public static void main(String[] args) {
         try {
