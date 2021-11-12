@@ -31,24 +31,26 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface KvMarshaller<K, V> {
     /**
-     * Marshal key and value objects to a table row.
+     * Marshal given key and value objects to a table row.
      *
      * @param key Key object to marshal.
      * @param val Value object to marshal or {@code null}.
      * @return Table row with columns from given key-value pair.
+     * @throws MarshallerException If failed to marshal key and/or value.
      */
     BinaryRow marshal(@NotNull K key, V val) throws MarshallerException;
     
     /**
-     * Unmarshal row to a key object.
+     * Unmarshal given row to a key object.
      *
      * @param row Table row.
      * @return Key object.
+     * @throws MarshallerException If failed to unmarshal row.
      */
     @NotNull K unmarshalKey(@NotNull Row row) throws MarshallerException;
     
     /**
-     * Unmarshal row to a value object.
+     * Unmarshal given row to a value object.
      *
      * @param row Table row.
      * @return Value object.
