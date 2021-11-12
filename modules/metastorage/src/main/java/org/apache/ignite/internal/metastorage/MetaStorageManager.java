@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.metastorage.client.MetaStorageService;
 import org.apache.ignite.internal.metastorage.client.MetaStorageServiceImpl;
 import org.apache.ignite.internal.metastorage.client.Operation;
 import org.apache.ignite.internal.metastorage.client.OperationTimeoutException;
+import org.apache.ignite.internal.metastorage.client.WatchEvent;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
@@ -91,6 +93,18 @@ public class MetaStorageManager implements IgniteComponent {
      */
     public static final ByteArray APPLIED_REV = ByteArray.fromString("applied_revision");
 
+    /** No-op subsciption that is used in case of empry aggregated watch. */
+    private static final Flow.Subscription WATCH_NOOP_SUBSCRIPTION =
+        new Flow.Subscription() {
+            @Override public void request(long n) {
+                // No-op.
+            }
+
+            @Override public void cancel() {
+                // No-op.
+            }
+        };
+
     /** Vault manager in order to commit processed watches with corresponding applied revision. */
     private final VaultManager vaultMgr;
 
@@ -115,12 +129,9 @@ public class MetaStorageManager implements IgniteComponent {
      * @see WatchAggregator
      */
     private final WatchAggregator watchAggregator = new WatchAggregator();
-
-    /**
-     * Future which will be completed with {@link IgniteUuid}, when aggregated watch will be successfully deployed. Can be resolved to
-     * {@link Optional#empty()} if no watch deployed at the moment.
-     */
-    private CompletableFuture<Optional<IgniteUuid>> deployFut = new CompletableFuture<>();
+    
+    /** Watch subscription future. */
+    private volatile CompletableFuture<Flow.Subscription> watchSubscription = new CompletableFuture<>();
 
     /**
      * If true - all new watches will be deployed immediately.
@@ -244,18 +255,8 @@ public class MetaStorageManager implements IgniteComponent {
             // IgniteImpl.start, before deployWatches, or before init phase.
             // It is correct to check completeness of the future because the method calls are guarded by busy lock.
             // TODO: add busy lock for init method https://issues.apache.org/jira/browse/IGNITE-14414
-            if (deployFut.isDone()) {
-                watchId = deployFut.get();
-
-                try {
-                    if (watchId.isPresent()) {
-                        metaStorageSvcFut.get().stopWatch(watchId.get());
-                    }
-                } catch (InterruptedException | ExecutionException e) {
-                    LOG.error("Failed to get meta storage service.");
-
-                    throw new IgniteInternalException(e);
-                }
+            if (watchSubscription.isDone()) {
+                watchSubscription.get().cancel();
             }
         } catch (InterruptedException | ExecutionException e) {
             LOG.error("Failed to get watch.");
@@ -297,13 +298,12 @@ public class MetaStorageManager implements IgniteComponent {
             );
 
             if (watch.isEmpty()) {
-                deployFut.complete(Optional.empty());
+                watchSubscription.complete(WATCH_NOOP_SUBSCRIPTION);
             } else {
-                CompletableFuture<Void> fut =
-                        dispatchAppropriateMetaStorageWatch(watch.get()).thenAccept(id -> deployFut.complete(Optional.of(id)));
+                dispatchAppropriateMetaStorageWatch(watch.get());
 
                 if (metaStorageNodesOnStart) {
-                    fut.join();
+                    watchSubscription.join();
                 } else {
                     // TODO: need to wait for this future in init phase https://issues.apache.org/jira/browse/IGNITE-14414
                 }
@@ -323,8 +323,8 @@ public class MetaStorageManager implements IgniteComponent {
      * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription
      */
     public synchronized CompletableFuture<Long> registerWatch(
-            @Nullable ByteArray key,
-            @NotNull WatchListener lsnr
+        @Nullable ByteArray key,
+        @NotNull WatchListener lsnr
     ) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
@@ -345,8 +345,8 @@ public class MetaStorageManager implements IgniteComponent {
      * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription
      */
     public synchronized CompletableFuture<Long> registerWatch(
-            @NotNull Collection<ByteArray> keys,
-            @NotNull WatchListener lsnr
+        @NotNull Collection<ByteArray> keys,
+        @NotNull WatchListener lsnr
     ) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
@@ -358,7 +358,7 @@ public class MetaStorageManager implements IgniteComponent {
             busyLock.leaveBusy();
         }
     }
-    
+
     /**
      * Register watch listener by range of keys.
      *
@@ -368,14 +368,14 @@ public class MetaStorageManager implements IgniteComponent {
      * @return future with id of registered watch.
      */
     public synchronized CompletableFuture<Long> registerWatch(
-            @NotNull ByteArray from,
-            @NotNull ByteArray to,
-            @NotNull WatchListener lsnr
+        @NotNull ByteArray from,
+        @NotNull ByteArray to,
+        @NotNull WatchListener lsnr
     ) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
-        
+
         try {
             return waitForReDeploy(watchAggregator.add(from, to, lsnr));
         } finally {
@@ -391,8 +391,8 @@ public class MetaStorageManager implements IgniteComponent {
      * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription
      */
     public synchronized CompletableFuture<Long> registerWatchByPrefix(
-            @Nullable ByteArray key,
-            @NotNull WatchListener lsnr
+        @Nullable ByteArray key,
+        @NotNull WatchListener lsnr
     ) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
@@ -422,7 +422,7 @@ public class MetaStorageManager implements IgniteComponent {
                 return updateWatches().thenAccept(v -> {
                 });
             } else {
-                return deployFut.thenAccept(uuid -> {
+                return watchSubscription.thenAccept(uuid -> {
                 });
             }
         } finally {
@@ -616,9 +616,9 @@ public class MetaStorageManager implements IgniteComponent {
      * @see MetaStorageService#invoke(Condition, Operation, Operation)
      */
     public @NotNull CompletableFuture<Boolean> invoke(
-            @NotNull Condition cond,
-            @NotNull Operation success,
-            @NotNull Operation failure
+        @NotNull Condition cond,
+        @NotNull Operation success,
+        @NotNull Operation failure
     ) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
@@ -635,9 +635,9 @@ public class MetaStorageManager implements IgniteComponent {
      * @see MetaStorageService#invoke(Condition, Collection, Collection)
      */
     public @NotNull CompletableFuture<Boolean> invoke(
-            @NotNull Condition cond,
-            @NotNull Collection<Operation> success,
-            @NotNull Collection<Operation> failure
+        @NotNull Condition cond,
+        @NotNull Collection<Operation> success,
+        @NotNull Collection<Operation> failure
     ) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
@@ -654,20 +654,20 @@ public class MetaStorageManager implements IgniteComponent {
      * @see MetaStorageService#range(ByteArray, ByteArray, long)
      */
     public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound)
-            throws NodeStoppingException {
+        throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
             return new CursorWrapper<>(
-                    metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, revUpperBound))
+                metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, revUpperBound))
             );
         } finally {
             busyLock.leaveBusy();
         }
     }
-    
+
     /**
      * @see MetaStorageService#range(ByteArray, ByteArray)
      */
@@ -675,10 +675,10 @@ public class MetaStorageManager implements IgniteComponent {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
-        
+
         try {
             return new CursorWrapper<>(
-                    metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo))
+                metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo))
             );
         } finally {
             busyLock.leaveBusy();
@@ -698,14 +698,14 @@ public class MetaStorageManager implements IgniteComponent {
      * @see Entry
      */
     public @NotNull Cursor<Entry> rangeWithAppliedRevision(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo)
-            throws NodeStoppingException {
+        throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
             return new CursorWrapper<>(
-                    metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, appliedRevision()))
+                metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, appliedRevision()))
             );
         } finally {
             busyLock.leaveBusy();
@@ -734,7 +734,7 @@ public class MetaStorageManager implements IgniteComponent {
             var rangeCriterion = KeyCriterion.RangeCriterion.fromPrefixKey(keyPrefix);
 
             return new CursorWrapper<>(
-                    metaStorageSvcFut.thenApply(svc -> svc.range(rangeCriterion.from(), rangeCriterion.to(), appliedRevision()))
+                metaStorageSvcFut.thenApply(svc -> svc.range(rangeCriterion.from(), rangeCriterion.to(), appliedRevision()))
             );
         } finally {
             busyLock.leaveBusy();
@@ -778,7 +778,7 @@ public class MetaStorageManager implements IgniteComponent {
         try {
             var rangeCriterion = KeyCriterion.RangeCriterion.fromPrefixKey(keyPrefix);
             return new CursorWrapper<>(
-                    metaStorageSvcFut.thenApply(svc -> svc.range(rangeCriterion.from(), rangeCriterion.to(), revUpperBound))
+                metaStorageSvcFut.thenApply(svc -> svc.range(rangeCriterion.from(), rangeCriterion.to(), revUpperBound))
             );
         } finally {
             busyLock.leaveBusy();
@@ -814,22 +814,20 @@ public class MetaStorageManager implements IgniteComponent {
      *
      * @return Ignite UUID of new consolidated watch.
      */
-    private CompletableFuture<Optional<IgniteUuid>> updateWatches() {
+    private CompletableFuture<Flow.Subscription> updateWatches() {
         long revision = appliedRevision() + 1;
 
-        deployFut = deployFut
-                .thenCompose(idOpt ->
-                        idOpt
-                                .map(id -> metaStorageSvcFut.thenCompose(svc -> svc.stopWatch(id)))
-                                .orElseGet(() -> CompletableFuture.completedFuture(null))
-                )
-                .thenCompose(r ->
-                        watchAggregator.watch(revision, this::storeEntries)
-                                .map(watch -> dispatchAppropriateMetaStorageWatch(watch).thenApply(Optional::of))
-                                .orElseGet(() -> CompletableFuture.completedFuture(Optional.empty()))
-                );
+        watchSubscription.thenAccept(Flow.Subscription::cancel);
 
-        return deployFut;
+        watchSubscription = new CompletableFuture<>();
+
+        watchAggregator.watch(revision, this::storeEntries)
+            .ifPresentOrElse(
+                watch -> dispatchAppropriateMetaStorageWatch(watch),
+                () -> watchSubscription.complete(WATCH_NOOP_SUBSCRIPTION)
+            );
+
+        return watchSubscription;
     }
 
     /**
@@ -851,8 +849,8 @@ public class MetaStorageManager implements IgniteComponent {
 
         if (revision <= appliedRevision) {
             throw new IgniteInternalException(String.format(
-                    "Current revision (%d) must be greater than the revision in the Vault (%d)",
-                    revision, appliedRevision
+                "Current revision (%d) must be greater than the revision in the Vault (%d)",
+                revision, appliedRevision
             ));
         }
 
@@ -867,7 +865,7 @@ public class MetaStorageManager implements IgniteComponent {
         if (deployed) {
             return updateWatches().thenApply(uid -> id);
         } else {
-            return deployFut.thenApply(uid -> id);
+            return watchSubscription.thenApply(uid -> id);
         }
     }
 
@@ -900,10 +898,10 @@ public class MetaStorageManager implements IgniteComponent {
      */
     public boolean hasMetastorageLocally(ConfigurationManager configurationMgr) {
         String[] metastorageMembers = configurationMgr
-                .configurationRegistry()
-                .getConfiguration(NodeConfiguration.KEY)
-                .metastorageNodes()
-                .value();
+            .configurationRegistry()
+            .getConfiguration(NodeConfiguration.KEY)
+            .metastorageNodes()
+            .value();
 
         return hasMetastorage(vaultMgr.name().join(), metastorageMembers);
     }
@@ -924,7 +922,7 @@ public class MetaStorageManager implements IgniteComponent {
          * @param innerCursorFut Inner cursor future.
          */
         CursorWrapper(
-                CompletableFuture<Cursor<T>> innerCursorFut
+            CompletableFuture<Cursor<T>> innerCursorFut
         ) {
             this.innerCursorFut = innerCursorFut;
             this.innerIterFut = innerCursorFut.thenApply(Iterable::iterator);
@@ -1016,29 +1014,88 @@ public class MetaStorageManager implements IgniteComponent {
      * @param aggregatedWatch Aggregated watch.
      * @return Future, which will be completed after new watch registration finished.
      */
-    private CompletableFuture<IgniteUuid> dispatchAppropriateMetaStorageWatch(AggregatedWatch aggregatedWatch) {
+    private void dispatchAppropriateMetaStorageWatch(AggregatedWatch aggregatedWatch) {
+        Flow.Subscriber<WatchEvent> watchSubscriber = new Flow.Subscriber<>() {
+
+            @Override
+            public void onSubscribe(Flow.Subscription subscription) {
+                if (!busyLock.enterBusy()) {
+                    return;
+                }
+                try {
+                    watchSubscription.complete(subscription);
+
+                    subscription.request(1);
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }
+
+            @Override
+            public void onNext(WatchEvent item) {
+                if (!busyLock.enterBusy()) {
+                    return;
+                }
+                try {
+                    aggregatedWatch.listener().onUpdate(item);
+
+                    try {
+                        watchSubscription.get().request(1);
+                    }
+                    catch (InterruptedException | ExecutionException e) {
+                        throw new IgniteInternalException(e);
+                    }
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                if (!busyLock.enterBusy()) {
+                    return;
+                }
+                try {
+                    aggregatedWatch.listener().onError(throwable);
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }
+
+            @Override
+            public void onComplete() {
+                assert false; // should never get here.
+            }
+        };
+
         if (aggregatedWatch.keyCriterion() instanceof KeyCriterion.CollectionCriterion) {
             var criterion = (KeyCriterion.CollectionCriterion) aggregatedWatch.keyCriterion();
 
-            return metaStorageSvcFut.thenCompose(metaStorageSvc -> metaStorageSvc.watch(
+            metaStorageSvcFut.thenAccept(
+                metaStorageSvc -> metaStorageSvc.watch(
                     criterion.keys(),
-                    aggregatedWatch.revision(),
-                    aggregatedWatch.listener()));
+                    aggregatedWatch.revision()
+                ).subscribe(watchSubscriber)
+            );
         } else if (aggregatedWatch.keyCriterion() instanceof KeyCriterion.ExactCriterion) {
             var criterion = (KeyCriterion.ExactCriterion) aggregatedWatch.keyCriterion();
 
-            return metaStorageSvcFut.thenCompose(metaStorageSvc -> metaStorageSvc.watch(
+            metaStorageSvcFut.thenAccept(
+                metaStorageSvc -> metaStorageSvc.watch(
                     criterion.key(),
-                    aggregatedWatch.revision(),
-                    aggregatedWatch.listener()));
+                    aggregatedWatch.revision()
+                ).subscribe(watchSubscriber)
+            );
         } else if (aggregatedWatch.keyCriterion() instanceof KeyCriterion.RangeCriterion) {
             var criterion = (KeyCriterion.RangeCriterion) aggregatedWatch.keyCriterion();
 
-            return metaStorageSvcFut.thenCompose(metaStorageSvc -> metaStorageSvc.watch(
+            metaStorageSvcFut.thenAccept(
+                metaStorageSvc -> metaStorageSvc.watch(
                     criterion.from(),
                     criterion.to(),
-                    aggregatedWatch.revision(),
-                    aggregatedWatch.listener()));
+                    aggregatedWatch.revision()
+                ).subscribe(watchSubscriber)
+            );
         } else {
             throw new UnsupportedOperationException("Unsupported type of criterion");
         }

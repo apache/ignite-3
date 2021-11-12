@@ -21,9 +21,9 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -262,8 +262,7 @@ public interface MetaStorageService {
      * @param keyTo    End key of range (exclusive). Could be {@code null}.
      * @param revision Start revision inclusive. {@code 0} - all revisions, {@code -1} - latest revision (accordingly to current meta
      *                 storage state).
-     * @param lsnr     Listener which will be notified for each update.
-     * @return Subscription identifier. Could be used in {@link #stopWatch} method in order to cancel subscription.
+     * @return Subscription for watch events.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
      * @throws CompactedException        If the desired revisions are removed from the storage due to a compaction. Will be thrown on
      *                                   getting future result.
@@ -271,8 +270,7 @@ public interface MetaStorageService {
      * @see Entry
      */
     @NotNull
-    CompletableFuture<IgniteUuid> watch(@Nullable ByteArray keyFrom, @Nullable ByteArray keyTo,
-            long revision, @NotNull WatchListener lsnr);
+    Flow.Publisher<WatchEvent> watch(@Nullable ByteArray keyFrom, @Nullable ByteArray keyTo, long revision);
 
     /**
      * Subscribes on meta storage updates for the given key.
@@ -280,8 +278,7 @@ public interface MetaStorageService {
      * @param key      The target key. Couldn't be {@code null}.
      * @param revision Start revision inclusive. {@code 0} - all revisions, {@code -1} - latest revision (accordingly to current meta
      *                 storage state).
-     * @param lsnr     Listener which will be notified for each update.
-     * @return Subscription identifier. Could be used in {@link #stopWatch} method in order to cancel subscription.
+     * @return Subscription for watch events.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
      * @throws CompactedException        If the desired revisions are removed from the storage due to a compaction. Will be thrown on
      *                                   getting future result.
@@ -289,7 +286,7 @@ public interface MetaStorageService {
      * @see Entry
      */
     @NotNull
-    CompletableFuture<IgniteUuid> watch(@NotNull ByteArray key, long revision, @NotNull WatchListener lsnr);
+    Flow.Publisher<WatchEvent> watch(@NotNull ByteArray key, long revision);
 
     /**
      * Subscribes on meta storage updates for given keys.
@@ -297,8 +294,7 @@ public interface MetaStorageService {
      * @param keys     Set of target keys. Couldn't be {@code null} or empty.
      * @param revision Start revision inclusive. {@code 0} - all revision, {@code -1} - latest revision (accordingly to current meta storage
      *                 state).
-     * @param lsnr     Listener which will be notified for each update.
-     * @return Subscription identifier. Could be used in {@link #stopWatch} method in order to cancel subscription.
+     * @return Subscription for watch events.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
      * @throws CompactedException        If the desired revisions are removed from the storage due to a compaction. Will be thrown on
      *                                   getting future result.
@@ -306,17 +302,7 @@ public interface MetaStorageService {
      * @see Entry
      */
     @NotNull
-    CompletableFuture<IgniteUuid> watch(@NotNull Set<ByteArray> keys, long revision, @NotNull WatchListener lsnr);
-
-    /**
-     * Cancels subscription for the given identifier.
-     *
-     * @param id Subscription identifier.
-     * @return Completed future in case of operation success. Couldn't be {@code null}.
-     * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
-     */
-    @NotNull
-    CompletableFuture<Void> stopWatch(@NotNull IgniteUuid id);
+    Flow.Publisher<WatchEvent> watch(@NotNull Set<ByteArray> keys, long revision);
 
     /**
      * Compacts meta storage (removes all tombstone entries and old entries except of entries with latest revision).

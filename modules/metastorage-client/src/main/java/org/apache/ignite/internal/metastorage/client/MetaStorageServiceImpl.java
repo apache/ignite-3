@@ -19,15 +19,20 @@ package org.apache.ignite.internal.metastorage.client;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Flow;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
@@ -47,6 +52,9 @@ import org.apache.ignite.internal.metastorage.common.command.RemoveCommand;
 import org.apache.ignite.internal.metastorage.common.command.SingleEntryResponse;
 import org.apache.ignite.internal.metastorage.common.command.WatchExactKeysCommand;
 import org.apache.ignite.internal.metastorage.common.command.WatchRangeKeysCommand;
+import org.apache.ignite.internal.metastorage.common.command.cursor.CursorCloseCommand;
+import org.apache.ignite.internal.metastorage.common.command.cursor.CursorHasNextCommand;
+import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorsCloseCommand;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
@@ -54,6 +62,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
+import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
@@ -67,7 +76,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     private static final IgniteLogger LOG = IgniteLogger.forClass(MetaStorageServiceImpl.class);
 
     /** IgniteUuid generator. */
-    private static final IgniteUuidGenerator uuidGenerator = new IgniteUuidGenerator(UUID.randomUUID(), 0);
+    private static final IgniteUuidGenerator UUID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
 
     /** Meta storage raft group service. */
     private final RaftGroupService metaStorageRaftGrpSvc;
@@ -196,7 +205,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return new CursorImpl<>(
                 metaStorageRaftGrpSvc,
                 metaStorageRaftGrpSvc.run(
-                        new RangeCommand(keyFrom, keyTo, revUpperBound, localNodeId, uuidGenerator.randomUuid())),
+                        new RangeCommand(keyFrom, keyTo, revUpperBound, localNodeId, UUID_GENERATOR.randomUuid())),
                 MetaStorageServiceImpl::singleEntryResult
         );
     }
@@ -207,68 +216,37 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return new CursorImpl<>(
                 metaStorageRaftGrpSvc,
                 metaStorageRaftGrpSvc.run(
-                        new RangeCommand(keyFrom, keyTo, localNodeId, uuidGenerator.randomUuid())),
+                        new RangeCommand(keyFrom, keyTo, localNodeId, UUID_GENERATOR.randomUuid())),
                 MetaStorageServiceImpl::singleEntryResult
         );
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<IgniteUuid> watch(
+    public @NotNull Flow.Publisher<WatchEvent> watch(
             @Nullable ByteArray keyFrom,
             @Nullable ByteArray keyTo,
-            long revision,
-            @NotNull WatchListener lsnr
+            long revision
     ) {
-        CompletableFuture<IgniteUuid> watchRes =
-                metaStorageRaftGrpSvc.run(new WatchRangeKeysCommand(keyFrom, keyTo, revision, localNodeId, uuidGenerator.randomUuid()));
-
-        watchRes.thenAccept(
-                watchId -> watchProcessor.addWatch(
-                        watchId,
-                        new CursorImpl<>(metaStorageRaftGrpSvc, watchRes, MetaStorageServiceImpl::watchResponse),
-                        lsnr
-                )
-        );
-
-        return watchRes;
+        return new WatchEventsPublisher(keyFrom, keyTo, revision);
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<IgniteUuid> watch(
+    public @NotNull Flow.Publisher<WatchEvent> watch(
             @NotNull ByteArray key,
-            long revision,
-            @NotNull WatchListener lsnr
+            long revision
     ) {
-        return watch(key, null, revision, lsnr);
+        return watch(key, null, revision);
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<IgniteUuid> watch(
+    public @NotNull Flow.Publisher<WatchEvent> watch(
             @NotNull Set<ByteArray> keys,
-            long revision,
-            @NotNull WatchListener lsnr
+            long revision
     ) {
-        CompletableFuture<IgniteUuid> watchRes =
-                metaStorageRaftGrpSvc.run(new WatchExactKeysCommand(keys, revision, localNodeId, uuidGenerator.randomUuid()));
-
-        watchRes.thenAccept(
-                watchId -> watchProcessor.addWatch(
-                        watchId,
-                        new CursorImpl<>(metaStorageRaftGrpSvc, watchRes, MetaStorageServiceImpl::watchResponse),
-                        lsnr
-                )
-        );
-
-        return watchRes;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull CompletableFuture<Void> stopWatch(@NotNull IgniteUuid id) {
-        return CompletableFuture.runAsync(() -> watchProcessor.stopWatch(id));
+        return new WatchEventsPublisher(keys, revision);
     }
 
     // TODO: IGNITE-14734 Implement.
@@ -372,6 +350,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /**
      *
      */
+    // TODO: sanpwc Do we really need this?
     private static WatchEvent watchResponse(Object obj) {
         MultipleEntryResponse resp = (MultipleEntryResponse) obj;
 
@@ -399,6 +378,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     // TODO: IGNITE-14691 Temporally solution that should be removed after implementing reactive watches.
 
+    // TODO: sanpwc Do we really need this stuff?
     /** Watch processor, that manages {@link Watcher} threads. */
     private final class WatchProcessor {
         /** Active Watcher threads that process notification pulling logic. */
@@ -515,6 +495,220 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                         }
                     }
                 }
+            }
+        }
+    }
+    
+    /**
+     * Watch events publisher.
+     */
+    private class WatchEventsPublisher implements Flow.Publisher<WatchEvent> {
+        /** */
+        private final AtomicBoolean subscribed;
+        
+        private final ByteArray keyFrom;
+        
+        private final ByteArray keyTo;
+        
+        private final Set<ByteArray> keys;
+        
+        private long revision;
+        
+        /**
+         * The constructor.
+         */
+        WatchEventsPublisher(
+                @Nullable ByteArray keyFrom,
+                @Nullable ByteArray keyTo,
+                long revision
+        ) {
+            this.subscribed = new AtomicBoolean(false);
+            this.keyFrom = keyFrom;
+            this.keyTo = keyTo;
+            // TODO: sanpwc Consider better solution here.
+            this.keys = null;
+            this.revision = revision;
+        }
+        
+        /**
+         * The constructor.
+         */
+        WatchEventsPublisher(
+                @NotNull Set<ByteArray> keys,
+                long revision
+        ) {
+            this.subscribed = new AtomicBoolean(false);
+            this.keyFrom = null;
+            this.keyTo = null;
+            this.keys = Collections.unmodifiableSet(keys);
+            this.revision = revision;
+        }
+        
+        
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public void subscribe(Flow.Subscriber<? super WatchEvent> subscriber) {
+            if (subscriber == null) {
+                throw new NullPointerException("Subscriber is null");
+            }
+            
+            if (!subscribed.compareAndSet(false, true)) {
+                subscriber.onError(new IllegalStateException("Watch events publisher does not support multiple subscriptions."));
+            }
+            
+            WatchEventsSubscription subscription = keys == null ?
+                    new WatchEventsSubscription(subscriber, keyFrom, keyTo, revision) :
+                    new WatchEventsSubscription(subscriber, keys, revision);
+            
+            subscriber.onSubscribe(subscription);
+        }
+        
+        /**
+         * Watch events subscription.
+         */
+        private class WatchEventsSubscription implements Flow.Subscription {
+            /** */
+            private final Flow.Subscriber<? super WatchEvent> subscriber;
+            
+            /** */
+            private final AtomicBoolean canceled;
+            
+            /**
+             * Watch id to uniquely identify it on server side.
+             */
+            private final IgniteUuid watchId;
+            
+            /**
+             * Watch initial operation that created server cursor.
+             */
+            private final CompletableFuture<Void> watchInitOp;
+    
+            /**
+             * The constructor.
+             *
+             * @param subscriber The subscriber.
+             * @param keyFrom    Start key of range (inclusive).
+             * @param keyTo      End key of range (exclusive).
+             * @param revision   Start revision inclusive. {@code 0} - all revisions.
+             */
+            private WatchEventsSubscription(
+                    Flow.Subscriber<? super WatchEvent> subscriber,
+                    @Nullable ByteArray keyFrom,
+                    @Nullable ByteArray keyTo,
+                    long revision
+            ) {
+                this.subscriber = subscriber;
+                this.canceled = new AtomicBoolean(false);
+                this.watchId = UUID_GENERATOR.randomUuid();
+                this.watchInitOp = metaStorageRaftGrpSvc.run(new WatchRangeKeysCommand(keyFrom, keyTo, revision, localNodeId, watchId));
+            }
+    
+            /**
+             * The constructor.
+             *
+             * @param subscriber The subscriber.
+             * @param keys       The keys collection. Couldn't be {@code null}.
+             * @param revision   Start revision inclusive. {@code 0} - all revisions.
+             */
+            private WatchEventsSubscription(
+                    Flow.Subscriber<? super WatchEvent> subscriber,
+                    @NotNull Set<ByteArray> keys,
+                    long revision
+            ) {
+                this.subscriber = subscriber;
+                this.canceled = new AtomicBoolean(false);
+                this.watchId = UUID_GENERATOR.randomUuid();
+                this.watchInitOp = metaStorageRaftGrpSvc.run(new WatchExactKeysCommand(keys, revision, localNodeId, watchId));
+            }
+            
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void request(long n) {
+                if (n <= 0) {
+                    cancel();
+                    
+                    subscriber.onError(
+                            new IllegalArgumentException(
+                                    LoggerMessageHelper.format("Invalid requested amount of items [requested={}, minValue=1]", n))
+                    );
+                }
+                
+                // TODO: IGNITE-14691 Back pressure logic should be adjusted after implementing reactive server-side watches.
+                assert n == 1 : LoggerMessageHelper.format("Invalid requested amount of watch items [requested={}, expected=1]", n);
+                
+                watchInitOp.thenRun(this::retrieveNextWatchEvent);
+            }
+            
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void cancel() {
+                cancel(true);
+            }
+            
+            /**
+             * Cancels given subscription and closes cursor if necessary.
+             *
+             * @param closeCursor If {@code true} closes inner storage scan.
+             */
+            private void cancel(boolean closeCursor) {
+                if (!canceled.compareAndSet(false, true)) {
+                    return;
+                }
+                
+                if (closeCursor) {
+                    watchInitOp.thenRun(() -> metaStorageRaftGrpSvc.run(new CursorCloseCommand(watchId))).exceptionally(closeT -> {
+                        LOG.warn("Unable to close watch.", closeT);
+                        
+                        return null;
+                    });
+                }
+            }
+            
+            /**
+             * Retrieves next watch event.
+             */
+            // TODO: IGNITE-14691 Temporary solution, that'll be reworked after implementing proper server-side reactive watches.
+            private void retrieveNextWatchEvent() {
+                if (canceled.get()) {
+                    return;
+                }
+                
+                metaStorageRaftGrpSvc.<Boolean>run(new CursorHasNextCommand(watchId))
+                        .thenAccept((hasNext) -> {
+                            if (hasNext) {
+                                metaStorageRaftGrpSvc.run(new CursorNextCommand(watchId))
+                                        .thenAccept((res) -> {
+                                                    WatchEvent item = watchResponse(res);
+                                                    
+                                                    subscriber.onNext(item);
+                                                    
+                                                }
+                                        )
+                                        .exceptionally(
+                                                t -> {
+                                                    cancel(!watchInitOp.isCompletedExceptionally());
+                                                    
+                                                    subscriber.onError(t);
+                                                    
+                                                    return null;
+                                                }
+                                        );
+                            } else {
+                                try {
+                                    Thread.sleep(10);
+                                } catch (InterruptedException e) {
+                                    
+                                    subscriber.onError(e);
+                                }
+                                retrieveNextWatchEvent();
+                            }
+                        });
             }
         }
     }
