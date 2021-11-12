@@ -230,4 +230,10 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT REPLACE('11', '1', NULL)").returns(new Object[] { null }).check();
         assertQuery("SELECT REPLACE('11', '1', '')").returns("").check();
     }
+
+    @Test
+    public void testMonthnameDayname() {
+        assertQuery("SELECT MONTHNAME(DATE '2021-01-01')").returns("January").check();
+        assertQuery("SELECT DAYNAME(DATE '2021-01-01')").returns("Friday").check();
+    }
 }
