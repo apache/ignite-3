@@ -54,6 +54,7 @@ public interface KvMarshaller<K, V> {
      *
      * @param row Table row.
      * @return Value object.
+     * @throws MarshallerException If failed to unmarshal row.
      */
     @Nullable V unmarshalValue(@NotNull Row row) throws MarshallerException;
 }
