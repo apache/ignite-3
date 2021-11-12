@@ -23,6 +23,7 @@ import java.util.Objects;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Columns;
+import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
@@ -149,12 +150,13 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         
         for (int i = cols.firstVarlengthColumn(); i < cols.length(); i++) {
             final Object val = marsh.value(obj, i);
+            final NativeType colType = cols.column(i).type();
             
-            if (val == null || cols.column(i).type().spec().fixedLength()) {
+            if (val == null || colType.spec().fixedLength()) {
                 continue;
             }
             
-            size += getValueSize(val, cols.column(i).type());
+            size += getValueSize(val, colType);
             cnt++;
         }
         

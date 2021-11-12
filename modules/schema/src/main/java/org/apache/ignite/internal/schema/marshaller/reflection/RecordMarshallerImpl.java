@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getVal
 import java.util.Objects;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
@@ -139,13 +140,14 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
         int size = 0;
         
         for (int i = cols.firstVarlengthColumn(); i < cols.length(); i++) {
-            final Object val = marsh.value(obj, cols.column(i).schemaIndex());
+            final Column column = cols.column(i);
+            final Object val = marsh.value(obj, column.schemaIndex());
             
-            if (val == null || cols.column(i).type().spec().fixedLength()) {
+            if (val == null || column.type().spec().fixedLength()) {
                 continue;
             }
             
-            size += getValueSize(val, cols.column(i).type());
+            size += getValueSize(val, column.type());
             cnt++;
         }
         
