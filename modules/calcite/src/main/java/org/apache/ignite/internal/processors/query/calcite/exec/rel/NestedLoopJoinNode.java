@@ -264,7 +264,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
          * @param rowType Rel data type.
          * @param cond Join expression.
          */
-        public InnerJoin(ExecutionContext<RowT> ctx, RelDataType rowType, BiPredicate<RowT, RowT> cond) {
+        private InnerJoin(ExecutionContext<RowT> ctx, RelDataType rowType, BiPredicate<RowT, RowT> cond) {
             super(ctx, rowType, cond);
         }
 
@@ -345,7 +345,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
          * @param cond Join expression.
          * @param rightRowFactory Right row factory.
          */
-        public LeftJoin(
+        private LeftJoin(
                 ExecutionContext<RowT> ctx,
                 RelDataType rowType,
                 BiPredicate<RowT, RowT> cond,
@@ -449,7 +449,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
          * @param cond Join expression.
          * @param leftRowFactory Left row factory.
          */
-        public RightJoin(
+        private RightJoin(
                 ExecutionContext<RowT> ctx,
                 RelDataType rowType,
                 BiPredicate<RowT, RowT> cond,
@@ -588,7 +588,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
          * @param leftRowFactory Left row factory.
          * @param rightRowFactory Right row factory.
          */
-        public FullOuterJoin(
+        private FullOuterJoin(
                 ExecutionContext<RowT> ctx,
                 RelDataType rowType,
                 BiPredicate<RowT, RowT> cond,
@@ -729,7 +729,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
          * @param rowType Rel data type.
          * @param cond Join expression.
          */
-        public SemiJoin(ExecutionContext<RowT> ctx, RelDataType rowType, BiPredicate<RowT, RowT> cond) {
+        private SemiJoin(ExecutionContext<RowT> ctx, RelDataType rowType, BiPredicate<RowT, RowT> cond) {
             super(ctx, rowType, cond);
         }
 
