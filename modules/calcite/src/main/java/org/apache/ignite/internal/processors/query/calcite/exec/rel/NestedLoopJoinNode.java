@@ -289,8 +289,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
                         while (requested > 0 && rightIdx < rightMaterialized.size()) {
                             checkState();
-    
-    
+   
                             if (!cond.test(left, rightMaterialized.get(rightIdx++))) {
                                 continue;
                             }
