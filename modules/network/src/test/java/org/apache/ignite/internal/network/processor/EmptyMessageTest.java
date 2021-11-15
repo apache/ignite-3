@@ -17,15 +17,16 @@
 
 package org.apache.ignite.internal.network.processor;
 
-import org.apache.ignite.network.TestMessagesFactory;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
-/** */
+import org.apache.ignite.network.TestMessagesFactory;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Test class for {@link EmptyMessage}.
+ */
 public class EmptyMessageTest {
-    /** */
     private final TestMessagesFactory factory = new TestMessagesFactory();
 
     /**

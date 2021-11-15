@@ -29,6 +29,7 @@ import org.apache.ignite.internal.table.distributed.command.InsertAllCommand;
 
 /**
  * This class represents a response object that contains a collection {@link BinaryRow} from a batch operation.
+ *
  * @see GetAllCommand
  * @see DeleteAllCommand
  * @see InsertAllCommand
@@ -57,7 +58,7 @@ public class MultiRowsResponse implements Serializable {
     }
 
     /**
-     * @return Binary rows.
+     * Returns binary rows.
      */
     public List<BinaryRow> getValues() {
         if (rows == null && rowsBytes != null) {

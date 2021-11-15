@@ -23,7 +23,7 @@ import java.nio.file.Path;
 import java.util.List;
 import javax.inject.Inject;
 import org.apache.ignite.cli.CliPathsConfigLoader;
-import org.apache.ignite.cli.IgniteCLIException;
+import org.apache.ignite.cli.IgniteCliException;
 import org.apache.ignite.cli.IgnitePaths;
 import org.apache.ignite.cli.Table;
 import org.apache.ignite.cli.builtins.node.NodeManager;
@@ -35,14 +35,14 @@ import picocli.CommandLine.Help.ColorScheme;
  * Commands for start/stop/list Ignite nodes on the current machine.
  */
 @CommandLine.Command(
-    name = "node",
-    description = "Manages locally running Ignite nodes.",
-    subcommands = {
-        NodeCommandSpec.StartNodeCommandSpec.class,
-        NodeCommandSpec.StopNodeCommandSpec.class,
-        NodeCommandSpec.NodesClasspathCommandSpec.class,
-        NodeCommandSpec.ListNodesCommandSpec.class
-    }
+        name = "node",
+        description = "Manages locally running Ignite nodes.",
+        subcommands = {
+                NodeCommandSpec.StartNodeCommandSpec.class,
+                NodeCommandSpec.StopNodeCommandSpec.class,
+                NodeCommandSpec.NodesClasspathCommandSpec.class,
+                NodeCommandSpec.ListNodesCommandSpec.class
+        }
 )
 public class NodeCommandSpec extends CategorySpec {
     /**
@@ -68,21 +68,25 @@ public class NodeCommandSpec extends CategorySpec {
         private Path configPath;
 
         /** {@inheritDoc} */
-        @Override public void run() {
+        @Override
+        public void run() {
             IgnitePaths ignitePaths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
 
             PrintWriter out = spec.commandLine().getOut();
             ColorScheme cs = spec.commandLine().getColorScheme();
 
-            NodeManager.RunningNode node = nodeMgr.start(nodeName, ignitePaths.logDir,
-                ignitePaths.cliPidsDir(),
-                configPath,
-                ignitePaths.serverJavaUtilLoggingPros(),
-                out);
+            NodeManager.RunningNode node = nodeMgr.start(
+                    nodeName,
+                    ignitePaths.nodesBaseWorkDir(),
+                    ignitePaths.logDir,
+                    ignitePaths.cliPidsDir(),
+                    configPath,
+                    ignitePaths.serverJavaUtilLoggingPros(),
+                    out);
 
             out.println();
-            out.println("Node is successfully started. To stop, type " +
-                cs.commandText("ignite node stop ") + cs.parameterText(node.name));
+            out.println("Node is successfully started. To stop, type "
+                    + cs.commandText("ignite node stop ") + cs.parameterText(node.name));
             out.println();
 
             Table tbl = new Table(0, cs);
@@ -110,14 +114,15 @@ public class NodeCommandSpec extends CategorySpec {
 
         /** Consistent ids of nodes to stop. */
         @CommandLine.Parameters(
-            arity = "1..*",
-            paramLabel = "consistent-ids",
-            description = "Consistent IDs of the nodes to stop (space separated list)"
+                arity = "1..*",
+                paramLabel = "consistent-ids",
+                description = "Consistent IDs of the nodes to stop (space separated list)"
         )
         private List<String> consistentIds;
 
         /** {@inheritDoc} */
-        @Override public void run() {
+        @Override
+        public void run() {
             IgnitePaths ignitePaths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
 
             PrintWriter out = spec.commandLine().getOut();
@@ -126,10 +131,11 @@ public class NodeCommandSpec extends CategorySpec {
             consistentIds.forEach(p -> {
                 out.print("Stopping locally running node with consistent ID " + cs.parameterText(p) + "... ");
 
-                if (nodeMgr.stopWait(p, ignitePaths.cliPidsDir()))
+                if (nodeMgr.stopWait(p, ignitePaths.cliPidsDir())) {
                     out.println(cs.text("@|bold,green Done!|@"));
-                else
+                } else {
                     out.println(cs.text("@|bold,red Failed|@"));
+                }
             });
         }
     }
@@ -148,7 +154,8 @@ public class NodeCommandSpec extends CategorySpec {
         private CliPathsConfigLoader cliPathsCfgLdr;
 
         /** {@inheritDoc} */
-        @Override public void run() {
+        @Override
+        public void run() {
             IgnitePaths paths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
 
             List<NodeManager.RunningNode> nodes = nodeMgr.getRunningNodes(paths.logDir, paths.cliPidsDir());
@@ -160,9 +167,8 @@ public class NodeCommandSpec extends CategorySpec {
                 out.println("Currently, there are no locally running nodes.");
                 out.println();
                 out.println("Use the " + cs.commandText("ignite node start")
-                    + " command to start a new node.");
-            }
-            else {
+                        + " command to start a new node.");
+            } else {
                 out.println("Number of running nodes: " + cs.text("@|bold " + nodes.size() + "|@"));
                 out.println();
 
@@ -170,8 +176,9 @@ public class NodeCommandSpec extends CategorySpec {
 
                 tbl.addRow("@|bold Consistent ID|@", "@|bold PID|@", "@|bold Log File|@");
 
-                for (NodeManager.RunningNode node : nodes)
+                for (NodeManager.RunningNode node : nodes) {
                     tbl.addRow(node.name, node.pid, node.logFile);
+                }
 
                 out.println(tbl);
             }
@@ -188,7 +195,8 @@ public class NodeCommandSpec extends CategorySpec {
         private NodeManager nodeMgr;
 
         /** {@inheritDoc} */
-        @Override public void run() {
+        @Override
+        public void run() {
             try {
                 List<String> items = nodeMgr.classpathItems();
 
@@ -196,11 +204,11 @@ public class NodeCommandSpec extends CategorySpec {
 
                 out.println(Ansi.AUTO.string("@|bold Current Ignite node classpath:|@"));
 
-                for (String item : items)
+                for (String item : items) {
                     out.println("    " + item);
-            }
-            catch (IOException e) {
-                throw new IgniteCLIException("Can't get current classpath", e);
+                }
+            } catch (IOException e) {
+                throw new IgniteCliException("Can't get current classpath", e);
             }
         }
     }

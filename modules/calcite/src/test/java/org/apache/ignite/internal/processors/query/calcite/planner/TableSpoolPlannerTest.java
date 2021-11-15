@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.processors.query.calcite.planner;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -29,13 +31,14 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeSystem;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 /**
  * Table spool test.
  */
 public class TableSpoolPlannerTest extends AbstractPlannerTest {
     /**
+     * TableSpoolDistributed.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @throws Exception If failed.
      */
     @Test
@@ -43,25 +46,27 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         TestTable t0 = new TestTable(
-            new RelDataTypeFactory.Builder(f)
-                .add("ID", f.createJavaType(Integer.class))
-                .add("JID", f.createJavaType(Integer.class))
-                .add("VAL", f.createJavaType(String.class))
-                .build()) {
+                new RelDataTypeFactory.Builder(f)
+                        .add("ID", f.createJavaType(Integer.class))
+                        .add("JID", f.createJavaType(Integer.class))
+                        .add("VAL", f.createJavaType(String.class))
+                        .build()) {
 
-            @Override public IgniteDistribution distribution() {
+            @Override
+            public IgniteDistribution distribution() {
                 return IgniteDistributions.affinity(0, "T0", "hash");
             }
         };
 
         TestTable t1 = new TestTable(
-            new RelDataTypeFactory.Builder(f)
-                .add("ID", f.createJavaType(Integer.class))
-                .add("JID", f.createJavaType(Integer.class))
-                .add("VAL", f.createJavaType(String.class))
-                .build()) {
+                new RelDataTypeFactory.Builder(f)
+                        .add("ID", f.createJavaType(Integer.class))
+                        .add("JID", f.createJavaType(Integer.class))
+                        .add("VAL", f.createJavaType(String.class))
+                        .build()) {
 
-            @Override public IgniteDistribution distribution() {
+            @Override
+            public IgniteDistribution distribution() {
                 return IgniteDistributions.affinity(0, "T1", "hash");
             }
         };
@@ -71,12 +76,12 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
         publicSchema.addTable("T0", t0);
         publicSchema.addTable("T1", t1);
 
-        String sql = "select * " +
-            "from t0 " +
-            "join t1 on t0.jid > t1.jid";
+        String sql = "select * "
+                + "from t0 "
+                + "join t1 on t0.jid > t1.jid";
 
         RelNode phys = physicalPlan(sql, publicSchema,
-            "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeRule");
+                "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeRule");
 
         assertNotNull(phys);
 
@@ -86,6 +91,9 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
     }
 
     /**
+     * TableSpoolBroadcastNotRewindable.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @throws Exception If failed.
      */
     @Test
@@ -93,27 +101,29 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         TestTable t0 = new TestTable(
-            new RelDataTypeFactory.Builder(f)
-                .add("ID", f.createJavaType(Integer.class))
-                .add("JID", f.createJavaType(Integer.class))
-                .add("VAL", f.createJavaType(String.class))
-                .build(),
-            RewindabilityTrait.ONE_WAY) {
+                new RelDataTypeFactory.Builder(f)
+                        .add("ID", f.createJavaType(Integer.class))
+                        .add("JID", f.createJavaType(Integer.class))
+                        .add("VAL", f.createJavaType(String.class))
+                        .build(),
+                RewindabilityTrait.ONE_WAY) {
 
-            @Override public IgniteDistribution distribution() {
+            @Override
+            public IgniteDistribution distribution() {
                 return IgniteDistributions.broadcast();
             }
         };
 
         TestTable t1 = new TestTable(
-            new RelDataTypeFactory.Builder(f)
-                .add("ID", f.createJavaType(Integer.class))
-                .add("JID", f.createJavaType(Integer.class))
-                .add("VAL", f.createJavaType(String.class))
-                .build(),
-            RewindabilityTrait.ONE_WAY) {
+                new RelDataTypeFactory.Builder(f)
+                        .add("ID", f.createJavaType(Integer.class))
+                        .add("JID", f.createJavaType(Integer.class))
+                        .add("VAL", f.createJavaType(String.class))
+                        .build(),
+                RewindabilityTrait.ONE_WAY) {
 
-            @Override public IgniteDistribution distribution() {
+            @Override
+            public IgniteDistribution distribution() {
                 return IgniteDistributions.broadcast();
             }
         };
@@ -123,13 +133,13 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
         publicSchema.addTable("T0", t0);
         publicSchema.addTable("T1", t1);
 
-        String sql = "select * " +
-            "from t0 " +
-            "join t1 on t0.jid = t1.jid";
+        String sql = "select * "
+                + "from t0 "
+                + "join t1 on t0.jid = t1.jid";
 
         RelNode phys = physicalPlan(sql, publicSchema,
-            "MergeJoinConverter", "NestedLoopJoinConverter",
-            "FilterSpoolMergeToHashIndexSpoolRule", "FilterSpoolMergeToSortIndexSpoolRule");
+                "MergeJoinConverter", "NestedLoopJoinConverter",
+                "FilterSpoolMergeToHashIndexSpoolRule", "FilterSpoolMergeToSortIndexSpoolRule");
 
         assertNotNull(phys);
 

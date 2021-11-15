@@ -83,10 +83,11 @@
         <jctools.version>3.3.0</jctools.version>
         <msgpack.version>0.8.21</msgpack.version>
         <caffeine.version>3.0.4</caffeine.version>
+        <fastutil.version>8.5.6</fastutil.version>
 
         <!-- Plugins versions -->
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
-        <checkstyle.puppycrawl.version>8.41.1</checkstyle.puppycrawl.version>
+        <checkstyle.puppycrawl.version>8.45</checkstyle.puppycrawl.version>
         <launch.maven.plugin.version>1.7.25</launch.maven.plugin.version>
         <maven.antrun.plugin.version>3.0.0</maven.antrun.plugin.version>
         <maven.assembly.plugin.version>3.2.0</maven.assembly.plugin.version>
@@ -486,6 +487,13 @@
 
             <dependency>
                 <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-schema</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-storage-api</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
@@ -635,6 +643,12 @@
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-jdk14</artifactId>
                 <version>${slf4j.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>it.unimi.dsi</groupId>
+                <artifactId>fastutil-core</artifactId>
+                <version>${fastutil.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -1008,7 +1022,7 @@
                 <configuration>
                     <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
                     <excludes>
-                        <exclude>**/IT*.java</exclude>
+                        <exclude>%regex[.*(It)[A-Z].*]</exclude>
                         <!-- Exclude inner classes (preserve default behaviour) -->
                         <exclude>**/*$*</exclude>
                     </excludes>
@@ -1024,6 +1038,9 @@
                 <configuration>
                     <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
                     <useModulePath>false</useModulePath>
+                    <includes>
+                        <include>%regex[.*(It)[A-Z].*]</include>
+                    </includes>
                 </configuration>
                 <executions>
                     <execution>
@@ -1147,6 +1164,9 @@
                         <exclude>modules/raft/src/main/java/org/apache/ignite/raft/jraft/util/timer/TimerTask.java</exclude> <!-- Netty license. -->
                         <exclude>modules/raft/src/main/java/org/apache/ignite/raft/jraft/util/timer/Timeout.java</exclude> <!-- Netty license. -->
                         <exclude>**/*.sln</exclude> <!-- Visual Studio solution. -->
+                        <!-- DEB package assembly files -->
+                        <exclude>deliveries/deb/rules</exclude>
+                        <exclude>deliveries/deb/control</exclude>
                     </excludes>
                 </configuration>
             </plugin>

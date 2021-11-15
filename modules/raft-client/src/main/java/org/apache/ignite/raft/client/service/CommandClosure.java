@@ -24,17 +24,18 @@ import org.jetbrains.annotations.Nullable;
 /**
  * A closure to notify about a command processing outcome.
  *
- * @see RaftGroupListener
  * @param <R> Command type.
+ * @see RaftGroupListener
  */
 public interface CommandClosure<R extends Command> {
     /**
-     * @return The command.
+     * Returns command.
      */
     R command();
 
     /**
      * Must be called after a command has been processed normally.
+     *
      * @param res Execution result.
      */
     void result(@Nullable Serializable res);

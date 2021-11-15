@@ -33,7 +33,7 @@ public class Pair<T, V> {
     /**
      * Constructor.
      *
-     * @param first First object.
+     * @param first  First object.
      * @param second Second object.
      */
     public Pair(T first, V second) {
@@ -42,14 +42,14 @@ public class Pair<T, V> {
     }
 
     /**
-     * @return First object.
+     * Get the first object.
      */
     public T getFirst() {
         return first;
     }
 
     /**
-     * @return Second object.
+     * Get the second object.
      */
     public V getSecond() {
         return second;

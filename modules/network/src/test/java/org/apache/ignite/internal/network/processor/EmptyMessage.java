@@ -21,7 +21,9 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TestMessageTypes;
 import org.apache.ignite.network.annotations.Transferable;
 
-/** */
+/**
+ * Empty {@link NetworkMessage} implementation.
+ */
 @Transferable(TestMessageTypes.EMPTY_MESSAGE)
 public interface EmptyMessage extends NetworkMessage {
 }

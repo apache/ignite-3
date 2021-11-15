@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.processors.query.calcite.schema;
 
 import java.util.Map;
-
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.core.TableScan;
@@ -36,32 +36,34 @@ import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribut
  */
 public interface IgniteTable extends TranslatableTable {
     /**
-     * @return Table description.
+     * Get table description.
      */
     TableDescriptor descriptor();
 
     /** {@inheritDoc} */
-    default @Override RelDataType getRowType(RelDataTypeFactory typeFactory) {
+    @Override
+    default RelDataType getRowType(RelDataTypeFactory typeFactory) {
         return getRowType(typeFactory, null);
     }
 
     /**
      * Returns new type according {@code usedClumns} param.
      *
-     * @param typeFactory Factory.
+     * @param typeFactory     Factory.
      * @param requiredColumns Used columns enumeration.
      */
     RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet requiredColumns);
 
     /** {@inheritDoc} */
-    @Override default TableScan toRel(RelOptTable.ToRelContext context, RelOptTable relOptTable) {
+    @Override
+    default TableScan toRel(RelOptTable.ToRelContext context, RelOptTable relOptTable) {
         return toRel(context.getCluster(), relOptTable);
     }
 
     /**
      * Converts table into relational expression.
      *
-     * @param cluster Custer.
+     * @param cluster   Custer.
      * @param relOptTbl Table.
      * @return Table relational expression.
      */
@@ -70,9 +72,9 @@ public interface IgniteTable extends TranslatableTable {
     /**
      * Converts table into relational expression.
      *
-     * @param cluster Custer.
+     * @param cluster   Custer.
      * @param relOptTbl Table.
-     * @param idxName Index name.
+     * @param idxName   Index name.
      * @return Table relational expression.
      */
     IgniteLogicalIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, String idxName);
@@ -86,6 +88,8 @@ public interface IgniteTable extends TranslatableTable {
     ColocationGroup colocationGroup(PlanningContext ctx);
 
     /**
+     * Returns table distribution.
+     *
      * @return Table distribution.
      */
     IgniteDistribution distribution();
@@ -113,6 +117,8 @@ public interface IgniteTable extends TranslatableTable {
     IgniteIndex getIndex(String idxName);
 
     /**
+     * Returns index name.
+     *
      * @param idxName Index name.
      */
     void removeIndex(String idxName);

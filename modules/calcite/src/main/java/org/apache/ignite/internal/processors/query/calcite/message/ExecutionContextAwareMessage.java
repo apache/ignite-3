@@ -19,7 +19,6 @@ package org.apache.ignite.internal.processors.query.calcite.message;
 
 import java.io.Serializable;
 import java.util.UUID;
-
 import org.apache.ignite.network.NetworkMessage;
 
 /**
@@ -27,12 +26,12 @@ import org.apache.ignite.network.NetworkMessage;
  */
 public interface ExecutionContextAwareMessage extends NetworkMessage, Serializable {
     /**
-     * @return Query ID.
+     * Get query ID.
      */
     UUID queryId();
 
     /**
-     * @return Fragment ID.
+     * Get fragment ID.
      */
     long fragmentId();
 }

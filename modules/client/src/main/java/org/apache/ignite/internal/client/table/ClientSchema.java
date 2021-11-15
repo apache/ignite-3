@@ -19,7 +19,6 @@ package org.apache.ignite.internal.client.table;
 
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -43,7 +42,7 @@ public class ClientSchema {
     /**
      * Constructor.
      *
-     * @param ver Schema version.
+     * @param ver     Schema version.
      * @param columns Columns.
      */
     public ClientSchema(int ver, ClientColumn[] columns) {
@@ -56,8 +55,9 @@ public class ClientSchema {
         var keyCnt = 0;
 
         for (var col : columns) {
-            if (col.key())
+            if (col.key()) {
                 keyCnt++;
+            }
 
             map.put(col.name(), col);
         }
@@ -66,6 +66,8 @@ public class ClientSchema {
     }
 
     /**
+     * Returns version.
+     *
      * @return Version.
      */
     public int version() {
@@ -73,6 +75,8 @@ public class ClientSchema {
     }
 
     /**
+     * Returns columns.
+     *
      * @return Columns.
      */
     public @NotNull ClientColumn[] columns() {
@@ -89,8 +93,9 @@ public class ClientSchema {
     public @NotNull ClientColumn column(String name) {
         var column = map.get(name);
 
-        if (column == null)
+        if (column == null) {
             throw new IgniteException("Column is not present in schema: " + name);
+        }
 
         return column;
     }
@@ -106,6 +111,8 @@ public class ClientSchema {
     }
 
     /**
+     * Returns key column count.
+     *
      * @return Key column count.
      */
     public int keyColumnCount() {

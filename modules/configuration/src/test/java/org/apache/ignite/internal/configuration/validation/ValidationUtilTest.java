@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.configuration.validation;
 
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.lang.annotation.Annotation;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -43,85 +47,88 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-/** */
+/**
+ * Test class for {@link ValidationUtil}.
+ */
 public class ValidationUtilTest {
     private static ConfigurationAsmGenerator cgen;
-
+    
+    /**
+     * Before all.
+     */
     @BeforeAll
     public static void beforeAll() {
         cgen = new ConfigurationAsmGenerator();
 
-        cgen.compileRootSchema(ValidatedRootConfigurationSchema.class, Map.of());
+        cgen.compileRootSchema(ValidatedRootConfigurationSchema.class, Map.of(), Map.of());
     }
-
+    
+    /**
+     * After all.
+     */
     @AfterAll
     public static void afterAll() {
         cgen = null;
     }
-
-    /** */
+    
     @Target(FIELD)
     @Retention(RUNTIME)
     @interface LeafValidation {
     }
-
-    /** */
+    
     @Target(FIELD)
     @Retention(RUNTIME)
     @interface InnerValidation {
     }
-
-    /** */
+    
     @Target(FIELD)
     @Retention(RUNTIME)
     @interface NamedListValidation {
     }
-
-    /** */
+    
+    /**
+     * Root configuration schema.
+     */
     @ConfigurationRoot(rootName = "root", type = ConfigurationType.LOCAL)
     public static class ValidatedRootConfigurationSchema {
-        /** */
         @InnerValidation
         @ConfigValue
         public ValidatedChildConfigurationSchema child;
-
-        /** */
+        
         @NamedListValidation
         @NamedConfigValue
         public ValidatedChildConfigurationSchema elements;
     }
 
-    /** */
+    /**
+     * Child configuration schema.
+     */
     @Config
     public static class ValidatedChildConfigurationSchema {
-        /** */
         @LeafValidation
         @Value(hasDefault = true)
         public String str = "foo";
     }
-
-    /** */
+    
     private InnerNode root;
 
-    /** */
+    /**
+     * Before each.
+     */
     @BeforeEach
     public void before() {
         root = cgen.instantiateNode(ValidatedRootConfigurationSchema.class);
 
         ConfigurationUtil.addDefaults(root);
     }
-
-    /** */
+    
     @Test
-    public void validateLeafNode() throws Exception {
+    public void validateLeafNode() {
         var rootsNode = new SuperRoot(key -> null, Map.of(ValidatedRootConfiguration.KEY, root));
 
         Validator<LeafValidation, String> validator = new Validator<>() {
-            @Override public void validate(LeafValidation annotation, ValidationContext<String> ctx) {
+            @Override
+            public void validate(LeafValidation annotation, ValidationContext<String> ctx) {
                 assertEquals("root.child.str", ctx.currentKey());
 
                 assertEquals("foo", ctx.getOldValue());
@@ -139,14 +146,14 @@ public class ValidationUtilTest {
 
         assertEquals("bar", issues.get(0).message());
     }
-
-    /** */
+    
     @Test
     public void validateInnerNode() throws Exception {
         var rootsNode = new SuperRoot(key -> null, Map.of(ValidatedRootConfiguration.KEY, root));
 
         Validator<InnerValidation, ValidatedChildView> validator = new Validator<>() {
-            @Override public void validate(InnerValidation annotation, ValidationContext<ValidatedChildView> ctx) {
+            @Override
+            public void validate(InnerValidation annotation, ValidationContext<ValidatedChildView> ctx) {
                 assertEquals("root.child", ctx.currentKey());
 
                 assertEquals("foo", ctx.getOldValue().str());
@@ -164,14 +171,14 @@ public class ValidationUtilTest {
 
         assertEquals("bar", issues.get(0).message());
     }
-
-    /** */
+    
     @Test
     public void validateNamedListNode() throws Exception {
         var rootsNode = new SuperRoot(key -> null, Map.of(ValidatedRootConfiguration.KEY, root));
 
         Validator<NamedListValidation, NamedListView<?>> validator = new Validator<>() {
-            @Override public void validate(NamedListValidation annotation, ValidationContext<NamedListView<?>> ctx) {
+            @Override
+            public void validate(NamedListValidation annotation, ValidationContext<NamedListView<?>> ctx) {
                 assertEquals("root.elements", ctx.currentKey());
 
                 assertEquals(List.of(), ctx.getOldValue().namedListKeys());

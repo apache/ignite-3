@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
+
 import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.Map;
@@ -25,53 +29,55 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
-
 /** Implementation of {@link ConfigurationChanger} to be used in tests. Has no support of listeners. */
 public class TestConfigurationChanger extends ConfigurationChanger {
     /** Runtime implementations generator for node classes. */
     private final ConfigurationAsmGenerator cgen;
-
+    
     /**
      * Constructor.
      *
-     * @param cgen Runtime implementations generator for node classes. Will be used to instantiate nodes objects.
-     * @param rootKeys Configuration root keys.
-     * @param validators Validators.
-     * @param storage Configuration storage.
-     * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration})
-     *      of configuration schemas ({@link ConfigurationRoot} and {@link Config}).
+     * @param cgen                        Runtime implementations generator for node classes. Will be used to instantiate nodes objects.
+     * @param rootKeys                    Configuration root keys.
+     * @param validators                  Validators.
+     * @param storage                     Configuration storage.
+     * @param internalSchemaExtensions    Internal extensions ({@link InternalConfiguration}) of configuration schemas ({@link
+     *                                    ConfigurationRoot} and {@link Config}).
+     * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance}) of configuration schemas.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
      */
     public TestConfigurationChanger(
-        ConfigurationAsmGenerator cgen,
-        Collection<RootKey<?, ?>> rootKeys,
-        Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators,
-        ConfigurationStorage storage,
-        Collection<Class<?>> internalSchemaExtensions
+            ConfigurationAsmGenerator cgen,
+            Collection<RootKey<?, ?>> rootKeys,
+            Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators,
+            ConfigurationStorage storage,
+            Collection<Class<?>> internalSchemaExtensions,
+            Collection<Class<?>> polymorphicSchemaExtensions
     ) {
         super(
-            (oldRoot, newRoot, revision) -> completedFuture(null),
-            rootKeys,
-            validators,
-            storage
+                (oldRoot, newRoot, revision) -> completedFuture(null),
+                rootKeys,
+                validators,
+                storage
         );
-
+        
         this.cgen = cgen;
-
-        Map<Class<?>, Set<Class<?>>> extensions = internalSchemaExtensions(internalSchemaExtensions);
-
-        rootKeys.forEach(key -> cgen.compileRootSchema(key.schemaClass(), extensions));
+        
+        Map<Class<?>, Set<Class<?>>> internalExtensions = internalSchemaExtensions(internalSchemaExtensions);
+        Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicSchemaExtensions(polymorphicSchemaExtensions);
+        
+        rootKeys.forEach(key -> cgen.compileRootSchema(key.schemaClass(), internalExtensions, polymorphicExtensions));
     }
-
+    
     /** {@inheritDoc} */
-    @Override public InnerNode createRootNode(RootKey<?, ?> rootKey) {
+    @Override
+    public InnerNode createRootNode(RootKey<?, ?> rootKey) {
         return cgen.instantiateNode(rootKey.schemaClass());
     }
 }

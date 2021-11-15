@@ -35,6 +35,8 @@ public class TableEventParameters implements EventParameters {
     private final TableImpl table;
 
     /**
+     * Constructor.
+     *
      * @param table Table instance.
      */
     public TableEventParameters(TableImpl table) {
@@ -42,7 +44,9 @@ public class TableEventParameters implements EventParameters {
     }
 
     /**
-     * @param tableId Table identifier.
+     * Constructor.
+     *
+     * @param tableId   Table identifier.
      * @param tableName Table name.
      */
     public TableEventParameters(IgniteUuid tableId, String tableName) {
@@ -50,9 +54,11 @@ public class TableEventParameters implements EventParameters {
     }
 
     /**
-     * @param tableId Table identifier.
+     * Constructor.
+     *
+     * @param tableId   Table identifier.
      * @param tableName Table name.
-     * @param table Table instance.
+     * @param table     Table instance.
      */
     public TableEventParameters(IgniteUuid tableId, String tableName, TableImpl table) {
         this.tableId = tableId;

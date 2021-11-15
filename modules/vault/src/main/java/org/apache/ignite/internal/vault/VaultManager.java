@@ -27,17 +27,17 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * VaultManager is responsible for handling {@link VaultService} lifecycle
- * and providing interface for managing local keys.
+ * VaultManager is responsible for handling {@link VaultService} lifecycle and providing interface for managing local keys.
  */
 public class VaultManager implements IgniteComponent {
     /** Special key, which reserved for storing the name of the current node. */
     private static final ByteArray NODE_NAME = new ByteArray("node_name");
 
-    /** Instance of vault */
+    /** Instance of vault. */
     private final VaultService vaultSvc;
 
-    /** Default constructor.
+    /**
+     * Default constructor.
      *
      * @param vaultSvc Instance of vault.
      */
@@ -46,29 +46,31 @@ public class VaultManager implements IgniteComponent {
     }
 
     /** {@inheritDoc} */
-    @Override public void start() {
+    @Override
+    public void start() {
         vaultSvc.start();
     }
 
     /** {@inheritDoc} */
-    @Override public void stop() throws Exception {
+    @Override
+    public void stop() throws Exception {
         // TODO: IGNITE-15161 Implement component's stop.
         vaultSvc.close();
     }
 
     /**
-     * See {@link VaultService#get}
+     * See {@link VaultService#get}.
      *
      * @param key Key. Couldn't be {@code null}.
-     * @return An entry for the given key. Couldn't be {@code null}. If there is no mapping for the provided {@code key},
-     * then {@code Entry} with value that equals to {@code null} will be returned.
+     * @return An entry for the given key. Couldn't be {@code null}. If there is no mapping for the provided {@code key}, then {@code Entry}
+     *      with value that equals to {@code null} will be returned.
      */
     public CompletableFuture<VaultEntry> get(@NotNull ByteArray key) {
         return vaultSvc.get(key);
     }
 
     /**
-     * See {@link VaultService#put}
+     * See {@link VaultService#put}.
      *
      * @param key Vault key. Couldn't be {@code null}.
      * @param val Value. If value is equal to {@code null}, then previous value with key will be deleted if there was any mapping.
@@ -79,7 +81,7 @@ public class VaultManager implements IgniteComponent {
     }
 
     /**
-     * See {@link VaultService#remove}
+     * See {@link VaultService#remove}.
      *
      * @param key Vault key. Couldn't be {@code null}.
      * @return Future representing pending completion of the operation. Couldn't be {@code null}.
@@ -89,10 +91,10 @@ public class VaultManager implements IgniteComponent {
     }
 
     /**
-     * See {@link VaultService#range}
+     * See {@link VaultService#range}.
      *
      * @param fromKey Start key of range (inclusive). Couldn't be {@code null}.
-     * @param toKey End key of range (exclusive). Could be {@code null}.
+     * @param toKey   End key of range (exclusive). Could be {@code null}.
      * @return Iterator built upon entries corresponding to the given range.
      */
     public Cursor<VaultEntry> range(@NotNull ByteArray fromKey, @NotNull ByteArray toKey) {
@@ -100,8 +102,8 @@ public class VaultManager implements IgniteComponent {
     }
 
     /**
-     * Inserts or updates entries with given keys and given values. If the given value in {@code vals} is {@code null},
-     * then corresponding value with key will be deleted if there was any mapping.
+     * Inserts or updates entries with given keys and given values. If the given value in {@code vals} is {@code null}, then corresponding
+     * value with key will be deleted if there was any mapping.
      *
      * @param vals The map of keys and corresponding values. Couldn't be {@code null} or empty.
      * @return Future representing pending completion of the operation. Couldn't be {@code null}.
@@ -117,19 +119,19 @@ public class VaultManager implements IgniteComponent {
      * @return future representing pending completion of the operation.
      */
     public CompletableFuture<Void> putName(String name) {
-        if (name.isBlank())
+        if (name.isBlank()) {
             throw new IllegalArgumentException("Name must not be empty");
+        }
 
         return put(NODE_NAME, name.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
-     * @return {@code CompletableFuture} which, when complete, returns the node name, if was stored earlier,
-     * or {@code null} otherwise.
+     * Returns {@code CompletableFuture} which, when complete, returns the node name, if was stored earlier, or {@code null} otherwise.
      */
     public CompletableFuture<String> name() {
         return vaultSvc.get(NODE_NAME)
-            .thenApply(VaultEntry::value)
-            .thenApply(name -> name == null ? null : new String(name, StandardCharsets.UTF_8));
+                .thenApply(VaultEntry::value)
+                .thenApply(name -> name == null ? null : new String(name, StandardCharsets.UTF_8));
     }
 }

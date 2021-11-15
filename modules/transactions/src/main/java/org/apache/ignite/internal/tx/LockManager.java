@@ -21,48 +21,59 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Lock manager allows to acquire locks in shared and exclusive mode and supports deadlock prevention by timestamp
- * ordering.
+ * Lock manager allows to acquire locks in shared and exclusive mode and supports deadlock prevention by timestamp ordering.
  */
 public interface LockManager {
     /**
-     * @param key The key.
+     * Attempts to acquire a lock for the specified {@code key} in exclusive mode.
+     *
+     * @param key       The key.
      * @param timestamp The timestamp.
-     * @return The future.
+     * @return The future that will be completed when a lock is successfully acquired.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
     public CompletableFuture<Void> tryAcquire(Object key, Timestamp timestamp) throws LockException;
 
     /**
-     * @param key The key.
+     * Attempts to release a lock for the specified {@code key} in exclusive mode.
+     *
+     * @param key       The key.
      * @param timestamp The timestamp.
      * @throws LockException If the unlock operation is invalid.
      */
     public void tryRelease(Object key, Timestamp timestamp) throws LockException;
 
     /**
-     * @param key The key.
+     * Attempts to acquire a lock for the specified {@code key} in shared mode.
+     *
+     * @param key       The key.
      * @param timestamp The timestamp.
-     * @return The future.
+     * @return The future that will be completed when a lock is successfully acquired.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
     public CompletableFuture<Void> tryAcquireShared(Object key, Timestamp timestamp) throws LockException;
 
     /**
-     * @param key The key.
+     * Attempts to release a lock for the specified {@code key} in shared mode.
+     *
+     * @param key       The key.
      * @param timestamp The timestamp.
      * @throws LockException If the unlock operation is invalid.
      */
     public void tryReleaseShared(Object key, Timestamp timestamp) throws LockException;
 
     /**
+     * Returns a collection of timestamps that is associated with the specified {@code key}.
+     *
      * @param key The key.
      * @return The waiters queue.
      */
     public Collection<Timestamp> queue(Object key);
 
     /**
-     * @param key The key.
+     * Returns a waiter associated with the specified {@code key}.
+     *
+     * @param key       The key.
      * @param timestamp The timestamp.
      * @return The waiter.
      */

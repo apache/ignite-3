@@ -26,9 +26,12 @@ import org.jetbrains.annotations.NotNull;
  */
 public class CursorHasNextCommand implements ReadCommand {
     /** Cursor id. */
-    @NotNull private final IgniteUuid cursorId;
+    @NotNull
+    private final IgniteUuid cursorId;
 
     /**
+     * Constructor.
+     *
      * @param cursorId Cursor id.
      */
     public CursorHasNextCommand(@NotNull IgniteUuid cursorId) {
@@ -36,7 +39,7 @@ public class CursorHasNextCommand implements ReadCommand {
     }
 
     /**
-     * @return Cursor id.
+     * Returns cursor id.
      */
     public @NotNull IgniteUuid cursorId() {
         return cursorId;

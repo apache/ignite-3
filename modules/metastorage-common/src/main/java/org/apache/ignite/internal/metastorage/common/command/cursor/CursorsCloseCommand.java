@@ -21,14 +21,17 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Command that closes all cursor for the specified node id. Common use case for a given command is to close cursors
- * for the node that left topology.
+ * Command that closes all cursor for the specified node id. Common use case for a given command is to close cursors for the node that left
+ * topology.
  */
 public class CursorsCloseCommand implements WriteCommand {
     /** Cursor id. */
-    @NotNull private final String nodeId;
+    @NotNull
+    private final String nodeId;
 
     /**
+     * Constructor.
+     *
      * @param nodeId Node id.
      */
     public CursorsCloseCommand(@NotNull String nodeId) {
@@ -36,7 +39,7 @@ public class CursorsCloseCommand implements WriteCommand {
     }
 
     /**
-     * @return Cursor id.
+     * Returns cursor id.
      */
     public @NotNull String nodeId() {
         return nodeId;

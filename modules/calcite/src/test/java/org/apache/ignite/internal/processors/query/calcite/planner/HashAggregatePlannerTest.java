@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.processors.query.calcite.planner;
 
+import static org.apache.ignite.internal.util.CollectionUtils.first;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -34,15 +38,15 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeSystem
 import org.hamcrest.core.IsInstanceOf;
 import org.junit.jupiter.api.Test;
 
-import static org.apache.ignite.internal.util.CollectionUtils.first;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 /**
- *
+ * HashAggregatePlannerTest.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class HashAggregatePlannerTest extends AbstractAggregatePlannerTest {
     /**
+     * SubqueryWithAggregate.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @throws Exception If failed.
      */
     @Test
@@ -50,13 +54,14 @@ public class HashAggregatePlannerTest extends AbstractAggregatePlannerTest {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         TestTable employer = new TestTable(
-            new RelDataTypeFactory.Builder(f)
-                .add("ID", f.createJavaType(Integer.class))
-                .add("NAME", f.createJavaType(String.class))
-                .add("SALARY", f.createJavaType(Double.class))
-                .build()) {
+                new RelDataTypeFactory.Builder(f)
+                        .add("ID", f.createJavaType(Integer.class))
+                        .add("NAME", f.createJavaType(String.class))
+                        .add("SALARY", f.createJavaType(Double.class))
+                        .build()) {
 
-            @Override public IgniteDistribution distribution() {
+            @Override
+            public IgniteDistribution distribution() {
                 return IgniteDistributions.affinity(0, "Employers", "hash");
             }
         };
@@ -68,8 +73,8 @@ public class HashAggregatePlannerTest extends AbstractAggregatePlannerTest {
         String sql = "SELECT * FROM emps WHERE emps.salary = (SELECT AVG(emps.salary) FROM emps)";
 
         IgniteRel phys = physicalPlan(
-            sql,
-            publicSchema
+                sql,
+                publicSchema
         );
 
         assertNotNull(phys);
@@ -81,18 +86,19 @@ public class HashAggregatePlannerTest extends AbstractAggregatePlannerTest {
         assertNotNull(mapAgg, "Invalid plan\n" + RelOptUtil.toString(phys));
 
         assertThat(
-            "Invalid plan\n" + RelOptUtil.toString(phys),
-            first(rdcAgg.getAggregateCalls()).getAggregation(),
-            IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
+                "Invalid plan\n" + RelOptUtil.toString(phys),
+                first(rdcAgg.getAggregateCalls()).getAggregation(),
+                IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
 
         assertThat(
-            "Invalid plan\n" + RelOptUtil.toString(phys),
-            first(mapAgg.getAggCallList()).getAggregation(),
-            IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
+                "Invalid plan\n" + RelOptUtil.toString(phys),
+                first(mapAgg.getAggCallList()).getAggregation(),
+                IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
     }
 
     /**
-     *
+     * NoGroupByAggregate.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Test
     public void noGroupByAggregate() throws Exception {
@@ -105,8 +111,8 @@ public class HashAggregatePlannerTest extends AbstractAggregatePlannerTest {
         String sqlCount = "SELECT COUNT(*) FROM test";
 
         IgniteRel phys = physicalPlan(
-            sqlCount,
-            publicSchema
+                sqlCount,
+                publicSchema
         );
 
         IgniteMapHashAggregate mapAgg = findFirstNode(phys, byClass(IgniteMapHashAggregate.class));
@@ -116,13 +122,13 @@ public class HashAggregatePlannerTest extends AbstractAggregatePlannerTest {
         assertNotNull(mapAgg, "Invalid plan\n" + RelOptUtil.toString(phys));
 
         assertThat(
-            "Invalid plan\n" + RelOptUtil.toString(phys),
-            first(rdcAgg.getAggregateCalls()).getAggregation(),
-            IsInstanceOf.instanceOf(SqlCountAggFunction.class));
+                "Invalid plan\n" + RelOptUtil.toString(phys),
+                first(rdcAgg.getAggregateCalls()).getAggregation(),
+                IsInstanceOf.instanceOf(SqlCountAggFunction.class));
 
         assertThat(
-            "Invalid plan\n" + RelOptUtil.toString(phys),
-            first(mapAgg.getAggCallList()).getAggregation(),
-            IsInstanceOf.instanceOf(SqlCountAggFunction.class));
+                "Invalid plan\n" + RelOptUtil.toString(phys),
+                first(mapAgg.getAggCallList()).getAggregation(),
+                IsInstanceOf.instanceOf(SqlCountAggFunction.class));
     }
 }

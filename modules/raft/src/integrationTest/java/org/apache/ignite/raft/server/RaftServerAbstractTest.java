@@ -37,10 +37,8 @@ import org.junit.jupiter.api.TestInfo;
  * Abstract test for raft server.
  */
 abstract class RaftServerAbstractTest {
-    /** */
     protected static final IgniteLogger LOG = IgniteLogger.forClass(RaftServerAbstractTest.class);
 
-    /** */
     protected static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     /** Network factory. */
@@ -51,7 +49,6 @@ abstract class RaftServerAbstractTest {
      */
     protected static final int PORT = 20010;
 
-    /** */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
     /** Test info. */
@@ -70,21 +67,24 @@ abstract class RaftServerAbstractTest {
     }
 
     /**
-     * @param port Local port.
+     * Creates a client cluster view.
+     *
+     * @param port    Local port.
      * @param servers Server nodes of the cluster.
      * @return The client cluster view.
      */
     protected ClusterService clusterService(int port, List<NetworkAddress> servers, boolean start) {
         var network = ClusterServiceTestUtils.clusterService(
-            testInfo,
-            port,
-            new StaticNodeFinder(servers),
-            SERIALIZATION_REGISTRY,
-            NETWORK_FACTORY
+                testInfo,
+                port,
+                new StaticNodeFinder(servers),
+                SERIALIZATION_REGISTRY,
+                NETWORK_FACTORY
         );
 
-        if (start)
+        if (start) {
             network.start();
+        }
 
         clusterServices.add(network);
 

@@ -44,6 +44,8 @@ public class InteractiveWrapper {
     private final Terminal terminal;
 
     /**
+     * Creates a new instance of {@code InteractiveWrapper} for the given {@code terminal}.
+     *
      * @param terminal Terminal.
      */
     public InteractiveWrapper(Terminal terminal) {
@@ -51,14 +53,15 @@ public class InteractiveWrapper {
     }
 
     /**
-     * Start interactive shell.
+     * Starts interactive shell.
      *
      * @param cmd Prepared CommandLine instance to use for interactive mode.
      */
     public void run(CommandLine cmd) {
         PicocliCommands picocliCommands = new PicocliCommands(workDir(), cmd) {
-            @Override public Object invoke(CommandSession ses, String cmd, Object... args) throws Exception {
-                return execute(ses, cmd, (String[])args);
+            @Override
+            public Object invoke(CommandSession ses, String cmd, Object... args) throws Exception {
+                return execute(ses, cmd, (String[]) args);
             }
         };
 
@@ -68,11 +71,11 @@ public class InteractiveWrapper {
         sysRegistry.setCommandRegistries(picocliCommands);
 
         LineReader reader = LineReaderBuilder.builder()
-            .terminal(terminal)
-            .completer(sysRegistry.completer())
-            .parser(parser)
-            .variable(LineReader.LIST_MAX, 50)   // max tab completion candidates
-            .build();
+                .terminal(terminal)
+                .completer(sysRegistry.completer())
+                .parser(parser)
+                .variable(LineReader.LIST_MAX, 50)   // max tab completion candidates
+                .build();
 
         TailTipWidgets widgets = new TailTipWidgets(reader, sysRegistry::commandDescription, 5, TailTipWidgets.TipType.COMPLETER);
         widgets.enable();
@@ -101,7 +104,12 @@ public class InteractiveWrapper {
         }
     }
 
-    /** */
+    /**
+     * Returns a path to the user directory.
+     * This is the directory where JVM was run from.
+     *
+     * @return Path to the user directory.
+     */
     private static Path workDir() {
         return Paths.get(System.getProperty("user.dir"));
     }

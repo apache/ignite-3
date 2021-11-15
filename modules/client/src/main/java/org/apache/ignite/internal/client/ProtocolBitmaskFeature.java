@@ -27,8 +27,7 @@ import java.util.EnumSet;
 public enum ProtocolBitmaskFeature {
     /** Feature for user attributes. */
     USER_ATTRIBUTES(0);
-
-    /** */
+    
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);
 
@@ -36,6 +35,8 @@ public enum ProtocolBitmaskFeature {
     private final int featureId;
 
     /**
+     * Constructor.
+     *
      * @param id Feature ID.
      */
     ProtocolBitmaskFeature(int id) {
@@ -43,6 +44,8 @@ public enum ProtocolBitmaskFeature {
     }
 
     /**
+     * Returns feature ID.
+     *
      * @return Feature ID.
      */
     public int featureId() {
@@ -50,39 +53,48 @@ public enum ProtocolBitmaskFeature {
     }
 
     /**
+     * Returns set of supported features.
+     *
      * @param bytes Feature byte array.
      * @return Set of supported features.
      */
     public static EnumSet<ProtocolBitmaskFeature> enumSet(byte[] bytes) {
         EnumSet<ProtocolBitmaskFeature> set = EnumSet.noneOf(ProtocolBitmaskFeature.class);
 
-        if (bytes == null)
+        if (bytes == null) {
             return set;
+        }
 
         final BitSet bSet = BitSet.valueOf(bytes);
 
         for (ProtocolBitmaskFeature e : ProtocolBitmaskFeature.values()) {
-            if (bSet.get(e.featureId()))
+            if (bSet.get(e.featureId())) {
                 set.add(e);
+            }
         }
 
         return set;
     }
 
     /**
+     * Returns byte array representing all supported features.
+     *
      * @param features Feature set.
      * @return Byte array representing all supported features.
      */
     static byte[] featuresAsBytes(Collection<ProtocolBitmaskFeature> features) {
         final BitSet set = new BitSet();
 
-        for (ProtocolBitmaskFeature f : features)
+        for (ProtocolBitmaskFeature f : features) {
             set.set(f.featureId());
+        }
 
         return set.toByteArray();
     }
 
     /**
+     * Returns all features as a set.
+     *
      * @return All features as a set.
      */
     public static EnumSet<ProtocolBitmaskFeature> allFeaturesAsEnumSet() {

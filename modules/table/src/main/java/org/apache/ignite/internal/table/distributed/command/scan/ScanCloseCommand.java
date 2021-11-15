@@ -26,7 +26,8 @@ import org.jetbrains.annotations.NotNull;
  */
 public class ScanCloseCommand implements WriteCommand {
     /** Id of scan that is associated with the current command. */
-    @NotNull private final IgniteUuid scanId;
+    @NotNull
+    private final IgniteUuid scanId;
 
     /**
      * The Constructor.
@@ -38,7 +39,7 @@ public class ScanCloseCommand implements WriteCommand {
     }
 
     /**
-     * @return Id of scan that is associated with the current command.
+     * Returns id of scan that is associated with the current command.
      */
     public @NotNull IgniteUuid scanId() {
         return scanId;
