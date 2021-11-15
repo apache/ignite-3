@@ -187,48 +187,6 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
      * Collations.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public ImmutableList<RelCollation> collations(EnumerableMergeJoin join, RelMetadataQuery mq) {
-        // In general a join is not sorted. But a merge join preserves the sort
-        // order of the left and right sides.
-        return ImmutableList.copyOf(
-                RelMdCollation.mergeJoin(mq, join.getLeft(), join.getRight(),
-                        join.analyzeCondition().leftKeys, join.analyzeCondition().rightKeys,
-                        join.getJoinType()));
-    }
-
-    /**
-     * Collations.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public ImmutableList<RelCollation> collations(EnumerableHashJoin join, RelMetadataQuery mq) {
-        return ImmutableList.copyOf(
-                RelMdCollation.enumerableHashJoin(mq, join.getLeft(), join.getRight(), join.getJoinType()));
-    }
-
-    /**
-     * Collations.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public ImmutableList<RelCollation> collations(EnumerableNestedLoopJoin join, RelMetadataQuery mq) {
-        return ImmutableList.copyOf(
-                RelMdCollation.enumerableNestedLoopJoin(mq, join.getLeft(), join.getRight(),
-                        join.getJoinType()));
-    }
-
-    /**
-     * Collations.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public ImmutableList<RelCollation> collations(EnumerableCorrelate join, RelMetadataQuery mq) {
-        return ImmutableList.copyOf(
-                RelMdCollation.enumerableCorrelate(mq, join.getLeft(), join.getRight(),
-                        join.getJoinType()));
-    }
-
-    /**
-     * Collations.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
     public ImmutableList<RelCollation> collations(Sort sort, RelMetadataQuery mq) {
         return ImmutableList.copyOf(
                 RelMdCollation.sort(sort.getCollation()));

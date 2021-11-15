@@ -47,6 +47,7 @@ import java.util.stream.Collectors;
 import org.apache.calcite.DataContexts;
 import org.apache.calcite.config.CalciteSystemProperty;
 import org.apache.calcite.config.Lex;
+import org.apache.calcite.config.NullCollation;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.Contexts;
@@ -141,6 +142,7 @@ public final class Commons {
                             .withConformance(IgniteSqlConformance.INSTANCE))
             .sqlValidatorConfig(SqlValidator.Config.DEFAULT
                     .withIdentifierExpansion(true)
+                    .withDefaultNullCollation(NullCollation.LOW)
                     .withSqlConformance(IgniteSqlConformance.INSTANCE))
             // Dialects support.
             .operatorTable(SqlOperatorTables.chain(
