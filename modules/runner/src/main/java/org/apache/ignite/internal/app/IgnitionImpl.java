@@ -139,10 +139,11 @@ public class IgnitionImpl implements Ignition {
         } catch (Exception e) {
             nodes.remove(nodeName);
 
-            if (e instanceof IgniteException)
+            if (e instanceof IgniteException) {
                 throw e;
-            else
+            } else {
                 throw new IgniteException(e);
+            }
         }
 
         ackSuccessStart();
@@ -159,8 +160,6 @@ public class IgnitionImpl implements Ignition {
 
         String banner = String.join("\n", BANNER);
 
-        LOG.info(() ->
-                        LoggerMessageHelper.format("{}\n" + " ".repeat(22) + "Apache Ignite ver. {}\n", banner, ver),
-                null);
+        LOG.info(() -> LoggerMessageHelper.format("{}\n" + " ".repeat(22) + "Apache Ignite ver. {}\n", banner, ver), null);
     }
 }

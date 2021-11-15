@@ -42,11 +42,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-
 /**
  * Ignition interface tests.
  */
@@ -58,8 +53,10 @@ class ItIgnitionTest {
     /** Nodes bootstrap configuration. */
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
 
+    /** Collection of started nodes. */
     private final List<Ignite> startedNodes = new ArrayList<>();
 
+    /** Path to the working directory. */
     @WorkDirectory
     private Path workDir;
 
@@ -148,7 +145,7 @@ class ItIgnitionTest {
      * Tests scenario when we try to start cluster with single node, but without any node, that hosts metastorage.
      */
     @Test
-    void testErrorWhenStartSingleNodeClusterWithoutMetastorage() throws Exception {
+    void testErrorWhenStartSingleNodeClusterWithoutMetastorage() {
         try {
             startedNodes.add(IgnitionManager.start("other-name", "{\n"
                     + "    \"node\": {\n"
