@@ -329,7 +329,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         return new TableScanNode<>(
                 ctx,
                 rowType,
-                tbl.descriptor(),
+                tbl,
                 group.partitions(ctx.planningContext().localNodeId()),
                 filters,
                 prj,
@@ -493,7 +493,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
             case INSERT:
             case UPDATE:
             case DELETE:
-                ModifyNode<RowT> node = new ModifyNode<>(ctx, rel.getRowType(), rel.getTable().unwrap(TableDescriptor.class),
+                ModifyNode<RowT> node = new ModifyNode<>(ctx, rel.getRowType(), rel.getTable().unwrap(IgniteTable.class),
                         rel.getOperation(), rel.getUpdateColumnList());
 
                 Node<RowT> input = visit(rel.getInput());

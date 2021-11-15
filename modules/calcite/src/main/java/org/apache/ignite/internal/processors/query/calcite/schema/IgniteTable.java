@@ -20,16 +20,22 @@ package org.apache.ignite.internal.processors.query.calcite.schema;
 import java.util.Map;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
+import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGroup;
 import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite table.
@@ -39,6 +45,40 @@ public interface IgniteTable extends TranslatableTable {
      * Get table description.
      */
     TableDescriptor descriptor();
+
+    /** Returns the internal table. */
+    TableImpl table();
+
+    /**
+     * Converts a tuple to relational node row.
+     *
+     * @param ectx            Execution context.
+     * @param row             Tuple to convert.
+     * @param requiredColumns Participating columns.
+     * @return Relational node row.
+     */
+    <RowT> RowT toRow(
+            ExecutionContext<RowT> ectx,
+            Tuple row,
+            RowHandler.RowFactory<RowT> factory,
+            @Nullable ImmutableBitSet requiredColumns
+    );
+
+    /**
+     * Converts a relational node row to internal tuple.
+     *
+     * @param ectx Execution context.
+     * @param row  Relational node row.
+     * @param op   Operation.
+     * @param arg  Operation specific argument.
+     * @return Cache key-value tuple;
+     */
+    <RowT> Tuple toTuple(
+            ExecutionContext<RowT> ectx,
+            RowT row,
+            TableModify.Operation op,
+            @Nullable Object arg
+    );
 
     /** {@inheritDoc} */
     @Override
