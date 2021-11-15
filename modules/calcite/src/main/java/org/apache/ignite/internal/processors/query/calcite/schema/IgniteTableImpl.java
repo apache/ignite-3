@@ -53,7 +53,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Ignite table implementation.
  */
-public class IgniteTableImpl extends AbstractTable implements IgniteTable {
+public class IgniteTableImpl extends AbstractTable implements InternalIgniteTable {
     private final TableDescriptor desc;
 
     private final TableImpl table;
