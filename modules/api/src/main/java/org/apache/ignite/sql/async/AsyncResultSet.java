@@ -33,7 +33,7 @@ public interface AsyncResultSet {
     ResultSetMetadata metadata();
     
     /**
-     * Returns if the result set contains rows (SELECT query result), or not (for query of DML, DDL or other kind).
+     * Returns whether the result set contains rows (SELECT query result), or not (for query of DML, DDL or other kind).
      *
      * @return {@code True} if result set contains rows, {@code false} otherwise.
      */
@@ -54,7 +54,9 @@ public interface AsyncResultSet {
     boolean wasApplied();
     
     /**
-     * @return Current page rows.
+     * Returns the current page content.
+     *
+     * @return Iterable over rows.
      */
     Iterable<SqlRow> currentPage();
     
@@ -66,7 +68,9 @@ public interface AsyncResultSet {
     CompletionStage<? extends AsyncResultSet> fetchNextPageAsync();
     
     /**
-     * @return Whether there are more pages of results.
+     * Returns whether there are more pages of results.
+     *
+     * @return {@code True} if there are more pages with results, {@code false} otherwise.
      */
     boolean hasMorePages();
 }

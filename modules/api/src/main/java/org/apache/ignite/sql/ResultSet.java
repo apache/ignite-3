@@ -33,7 +33,7 @@ public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
     ResultSetMetadata metadata();
     
     /**
-     * Returns if the result set contains rows (SELECT query result), or not (for query of DML, DDL or other kind).
+     * Returns whether the result set contains rows (SELECT query result), or not (for query of DML, DDL or other kind).
      *
      * @return {@code True} if result set contains rows, {@code false} otherwise.
      */
