@@ -19,7 +19,7 @@ package org.apache.ignite;
 
 import java.util.Set;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.query.sql.IgniteSql;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.ApiStatus.Experimental;

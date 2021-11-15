@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.query.sql;
+package org.apache.ignite.sql;
 
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.query.sql.async.AsyncSession;
-import org.apache.ignite.query.sql.reactive.ReactiveSession;
+import org.apache.ignite.sql.async.AsyncSession;
+import org.apache.ignite.sql.reactive.ReactiveSession;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 
@@ -27,23 +27,6 @@ import org.jetbrains.annotations.NotNull;
  * SQL Session provides methods for query execution.
  */
 public interface Session extends AsyncSession, ReactiveSession {
-    /**
-     * Creates transactional SQL session projection with given transaction.
-     *
-     * @param tx Transaction.
-     * @return Transactional projection for the session.
-     */
-    //TODO: Drop this and add "Session Transaction.wrap(Session)" method.
-    Session withTransaction(@NotNull Transaction tx);
-    
-    /**
-     * Creates transactional SQL session projection with a new transaction.
-     *
-     * @return Transactional projection for the session.
-     */
-    //TODO: Drop this and add "Session Transaction.wrap(Session)" method.
-    Session withNewTransaction();
-    
     /**
      * Sets default query timeout.
      *
@@ -100,7 +83,7 @@ public interface Session extends AsyncSession, ReactiveSession {
      * @return SQL query results set.
      * @throws SqlException If failed.
      */
-    MultiResultSet executeMulti(@NotNull String query, Object... arguments);
+    MultiResultSet executeScript(@NotNull String query, Object... arguments);
     
     /**
      * Sets session property.
@@ -114,7 +97,7 @@ public interface Session extends AsyncSession, ReactiveSession {
     /**
      * Returns current transaction.
      *
-     * @return Transaction;
+     * @return Transaction or {@code null} if wasn't set.
      */
     Transaction transaction();
 }

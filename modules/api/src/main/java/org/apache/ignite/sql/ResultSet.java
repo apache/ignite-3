@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.query.sql.async;
-
-import java.util.concurrent.CompletionStage;
-import org.apache.ignite.query.sql.ResultSetMetadata;
-import org.apache.ignite.query.sql.SqlRow;
+package org.apache.ignite.sql;
 
 /**
- * Asynchronous result set.
+ * SQL result set provides methods to access SQL query result represented as collection of {@link
+ * SqlRow}.
+ *
+ * <p>All the rows in result set have the same structure described in {@link ResultSetMetadata}.
+ * ResultSet must be closed after usage to free resources.
  */
-public interface AsyncResultSet {
+public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
     /**
      * Returns metadata for the results.
      *
@@ -33,6 +33,8 @@ public interface AsyncResultSet {
     ResultSetMetadata metadata();
     
     /**
+     * Returns if the result set contains rows (SELECT query result), or not (for query of DML, DDL or other kind).
+     *
      * @return {@code True} if result set contains rows, {@code false} otherwise.
      */
     boolean hasRowSet();
@@ -40,7 +42,7 @@ public interface AsyncResultSet {
     /**
      * Returns number of row affected by DML query.
      *
-     * @return Number of rows.
+     * @return Number of rows or {@code -1} if unapplicable.
      */
     int updateCount();
     
@@ -50,21 +52,4 @@ public interface AsyncResultSet {
      * @return {@code True} if conditional query applied, {@code false} otherwise.
      */
     boolean wasApplied();
-    
-    /**
-     * @return Current page rows.
-     */
-    Iterable<SqlRow> currentPage();
-    
-    /**
-     * Fetch the next page of results asynchronously.
-     *
-     * @return Operation future.
-     */
-    CompletionStage<? extends AsyncResultSet> fetchNextPageAsync();
-    
-    /**
-     * @return Whether there are more pages of results.
-     */
-    boolean hasMorePages();
 }

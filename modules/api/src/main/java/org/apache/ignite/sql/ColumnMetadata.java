@@ -15,13 +15,42 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.query.sql;
+package org.apache.ignite.sql;
+
+import org.apache.ignite.schema.definition.ColumnType;
 
 /**
- * Result set for multi-statement query.
+ * Column metadata.
  */
-public interface MultiResultSet extends Iterable<ResultSet>, AutoCloseable {
-    /** {@inheritDoc} */
-    @Override
-    void close();
+public interface ColumnMetadata {
+    /**
+     * Return column name in the result set.
+     *
+     * <p>Note: If row column does not represent any table column, then generated name will be
+     * used.
+     *
+     * @return Column name.
+     */
+    String name();
+    
+    /**
+     * Returns column type.
+     *
+     * @return Column type.
+     */
+    ColumnType type();
+    
+    /**
+     * Returns column value type.
+     *
+     * @return Value type.
+     */
+    Class<?> valueClass();
+    
+    /**
+     * Returns row column nullability flag.
+     *
+     * @return {@code true} if column is nullable, {@code false} otherwise.
+     */
+    boolean nullable();
 }

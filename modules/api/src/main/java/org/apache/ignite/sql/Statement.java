@@ -15,40 +15,48 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.query.sql;
+package org.apache.ignite.sql;
 
 import java.util.concurrent.TimeUnit;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * SQL statement.
+ * The object represents parameterized SQL query statement that supports batched query, and provides methods for managing it`s state.
  */
 public interface Statement {
     /**
-     * @return Statement SQL query.
+     * Returns SQL statement string representation.
+     *
+     * @return SQL statement string.
      */
     String query();
     
     /**
-     * @return Query parameters.
+     * Returns SQL statement parameters.
+     *
+     * @return SQL statement parameters.
      */
     Object[] parameters();
     
     /**
-     * @param parameters Query parameters.
+     * Sets SQL statement parameters.
+     *
+     * @param parameters SQL statement parameters.
      * @return {@code this} for chaining.
      */
     Statement parameters(Object... parameters);
     
     /**
-     * @param parameterIndex Query parameter index.
-     * @param parameterValue Query parameter value.
+     * Sets a SQL statement parameter value by the parameter index.
+     *
+     * @param parameterIndex Parameter index.
+     * @param parameterValue Parameter value.
      * @return {@code this} for chaining.
      */
     Statement parameter(int parameterIndex, Object parameterValue);
     
     /**
-     * Clears batch and query parameters.
+     * Resets batch state and clears query parameters.
      *
      * @return {@code this} for chaining.
      */

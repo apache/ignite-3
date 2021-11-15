@@ -15,42 +15,58 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.query.sql.reactive;
+package org.apache.ignite.sql.async;
 
-import java.util.concurrent.Flow;
-import org.apache.ignite.query.sql.ResultSetMetadata;
-import org.apache.ignite.query.sql.SqlRow;
+import java.util.concurrent.CompletionStage;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlRow;
 
 /**
- * Reactive result set provides methods to subscribe to the query results in reactive way.
- *
- * <p>Note: It implies to be used with the reactive framework such as ProjectReactor or R2DBC.
+ * Asynchronous result set.
  */
-public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
-    
+public interface AsyncResultSet {
     /**
-     * Return publisher for the ResultSet's metadata.
+     * Returns metadata for the results.
      *
-     * @return Metadata publisher.
+     * @return ResultSet metadata.
      */
-    Flow.Publisher<ResultSetMetadata> metadata();
+    ResultSetMetadata metadata();
     
     /**
+     * Returns if the result set contains rows (SELECT query result), or not (for query of DML, DDL or other kind).
+     *
      * @return {@code True} if result set contains rows, {@code false} otherwise.
      */
-    Flow.Publisher<Boolean> hasRowSet();
+    boolean hasRowSet();
     
     /**
      * Returns number of row affected by DML query.
      *
      * @return Number of rows.
      */
-    Flow.Publisher<Integer> updateCount();
+    int updateCount();
     
     /**
      * Returns result for the conditional query.
      *
      * @return {@code True} if conditional query applied, {@code false} otherwise.
      */
-    Flow.Publisher<Boolean> wasApplied();
+    boolean wasApplied();
+    
+    /**
+     * @return Current page rows.
+     */
+    Iterable<SqlRow> currentPage();
+    
+    /**
+     * Fetch the next page of results asynchronously.
+     *
+     * @return Operation future.
+     */
+    CompletionStage<? extends AsyncResultSet> fetchNextPageAsync();
+    
+    /**
+     * @return Whether there are more pages of results.
+     */
+    boolean hasMorePages();
 }

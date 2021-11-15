@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.query.sql.async;
+package org.apache.ignite.sql.async;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.query.sql.SqlException;
-import org.apache.ignite.query.sql.Statement;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.Statement;
 
 /**
  * Async Session provides methods for asynchronous query execution.
@@ -44,15 +43,4 @@ public interface AsyncSession {
      * @throws SqlException If failed.
      */
     CompletableFuture<AsyncResultSet> executeAsync(Statement statement);
-    
-    /**
-     * Executes multi-statement SQL query in async way.
-     *
-     * @param query     SQL query template.
-     * @param arguments Arguments for the template (optional).
-     * @return Operation future.
-     * @throws SqlException If failed.
-     */
-    CompletableFuture<AsyncMultiResultSet> executeMultiAsync(@NotNull String query,
-            Object... arguments);
 }

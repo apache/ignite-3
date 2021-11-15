@@ -26,7 +26,7 @@ import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.client.proto.query.ClientMessage;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.table.ClientTables;
-import org.apache.ignite.query.sql.IgniteSql;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 

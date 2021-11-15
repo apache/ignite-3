@@ -15,39 +15,42 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.query.sql;
+package org.apache.ignite.sql.reactive;
+
+import java.util.concurrent.Flow;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlRow;
 
 /**
- * SQL result set provides methods to access SQL query result represented as collection of {@link
- * SqlRow}.
+ * Reactive result set provides methods to subscribe to the query results in reactive way.
  *
- * <p>All the rows in result set have the same structure described in {@link ResultSetMetadata}.
- * ResultSet must be closed after usage to free resources.
+ * <p>Note: It implies to be used with the reactive framework such as ProjectReactor or R2DBC.
  */
-public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
+public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
+    
     /**
-     * Returns metadata for the results.
+     * Return publisher for the ResultSet's metadata.
      *
-     * @return ResultSet metadata.
+     * @return Metadata publisher.
      */
-    ResultSetMetadata metadata();
+    Flow.Publisher<ResultSetMetadata> metadata();
     
     /**
      * @return {@code True} if result set contains rows, {@code false} otherwise.
      */
-    boolean hasRowSet();
+    Flow.Publisher<Boolean> hasRowSet();
     
     /**
      * Returns number of row affected by DML query.
      *
-     * @return Number of rows or {@code -1} if unapplicable.
+     * @return Number of rows.
      */
-    int updateCount();
+    Flow.Publisher<Integer> updateCount();
     
     /**
      * Returns result for the conditional query.
      *
      * @return {@code True} if conditional query applied, {@code false} otherwise.
      */
-    boolean wasApplied();
+    Flow.Publisher<Boolean> wasApplied();
 }

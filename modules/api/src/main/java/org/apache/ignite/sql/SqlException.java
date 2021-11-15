@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.query.sql;
+package org.apache.ignite.sql;
 
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.query.sql;
+package org.apache.ignite.sql;
 
 import java.util.List;
 
@@ -40,10 +40,10 @@ public interface ResultSetMetadata {
     /**
      * Returns metadata for the requested column.
      *
-     * @param columnId Column Id.
+     * @param columnIndex Column index in columns list.
      * @return Column metadata.
      */
-    ColumnMetadata column(int columnId);
+    ColumnMetadata column(int columnIndex);
     
     /**
      * Returns metadata for the requested column.
@@ -54,10 +54,10 @@ public interface ResultSetMetadata {
     ColumnMetadata column(String columnName);
     
     /**
-     * Returns column id in ResultSet by column name.
+     * Returns column index in columns list by given column name.
      *
-     * @param columnName Columns name which id is resolving.
-     * @return Column Id for the requested column.
+     * @param columnName Columns name which index is resolving.
+     * @return Column index.
      */
     int indexOf(String columnName);
 }

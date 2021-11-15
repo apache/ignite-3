@@ -20,7 +20,7 @@ package org.apache.ignite.client.fakes;
 import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
-import org.apache.ignite.query.sql.IgniteSql;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 

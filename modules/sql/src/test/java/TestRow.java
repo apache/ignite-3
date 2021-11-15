@@ -25,8 +25,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.query.sql.ResultSetMetadata;
-import org.apache.ignite.query.sql.SqlRow;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlRow;
 import org.jetbrains.annotations.NotNull;
 
 /**

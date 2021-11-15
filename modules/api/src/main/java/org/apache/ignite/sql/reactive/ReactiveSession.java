@@ -15,42 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.query.sql;
+package org.apache.ignite.sql.reactive;
 
-import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.Statement;
 
 /**
- * Column metadata.
+ * Reactive Session provides methods for reactive query execution.
  */
-public interface ColumnMetadata {
+public interface ReactiveSession {
     /**
-     * Return column name in resultset.
+     * Executes SQL query in reactive way.
      *
-     * <p>Note: If row column does not represent any table column, then generated name will be
-     * used.
-     *
-     * @return Column name.
+     * @param sql  SQL query template.
+     * @param args Arguments for the template (optional).
+     * @return Reactive result.
+     * @throws SqlException If failed.
      */
-    String name();
+    ReactiveResultSet executeReactive(String sql, Object... args);
     
     /**
-     * Returns column type.
+     * Executes SQL query in reactive way.
      *
-     * @return Column type.
+     * @param statement SQL statement.
+     * @return Reactive result.
+     * @throws SqlException If failed.
      */
-    ColumnType columnType();
-    
-    /**
-     * Returns column value type.
-     *
-     * @return Value type.
-     */
-    Class<?> valueClass();
-    
-    /**
-     * Row column nullability.
-     *
-     * @return {@code true} if column is nullable, {@code false} otherwise.
-     */
-    boolean nullable();
+    ReactiveResultSet executeReactive(Statement statement);
 }

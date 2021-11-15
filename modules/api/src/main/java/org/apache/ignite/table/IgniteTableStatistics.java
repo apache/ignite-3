@@ -40,8 +40,7 @@ public interface IgniteTableStatistics {
      * @param statisticName Statistic name.
      * @return Statistics info.
      */
-    StatisticInfo statistic(
-            String statisticName); //TODO: Local or global? Ready or in-progress? TBD.
+    StatisticInfo statistic(String statisticName); //TODO: Local or global? Ready or in-progress? TBD.
     
     /**
      * Creates statistics for the table and initiate it gathering on the nodes.
@@ -87,12 +86,12 @@ public interface IgniteTableStatistics {
     //TODO TBD.
     interface StatisticInfo {
         /**
-         * @return Statistic name.
+         * Returns Statistic name.
          */
         String name();
         
         /**
-         * @return Statistic configuration.
+         * Returns statistic configuration.
          */
         StatisticConfiguration config();
     }
@@ -103,7 +102,7 @@ public interface IgniteTableStatistics {
     //TODO TBD.
     interface StatisticConfiguration {
         /**
-         * @return Statistic name.
+         * Return statistic name.
          */
         String name();
     }

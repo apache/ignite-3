@@ -15,13 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.query.sql.reactive;
+package org.apache.ignite.sql;
 
-import java.util.concurrent.Flow;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Reactive result set for multi-statement queries.
+ * Ignite SQL query facade.
  */
-public interface ReactiveMultiResultSet extends Flow.Publisher<ReactiveResultSet> {
-
+public interface IgniteSql {
+    /**
+     * Creates SQL session.
+     *
+     * @return Session.
+     */
+    Session newSession();
+    
+    /**
+     * Creates statement.
+     *
+     * @param sql SQL query template.
+     * @return Prepared statement.
+     * @throws SqlException If parsing failed.
+     */
+    Statement newStatement(@NotNull String sql);
 }
+
