@@ -105,7 +105,7 @@ public interface TableDescriptor extends RelProtoDataType, InitializerExpression
     /**
      * Returns count of columns in the table.
      *
-     * @return Actual count if columns.
+     * @return Actual count of columns.
      */
     int columnsCount();
 }
