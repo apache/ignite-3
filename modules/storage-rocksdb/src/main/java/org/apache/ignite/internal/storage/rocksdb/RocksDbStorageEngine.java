@@ -50,11 +50,13 @@ public class RocksDbStorageEngine implements StorageEngine {
             Runtime.getRuntime().availableProcessors(), new NamedThreadFactory("rocksdb-storage-engine-pool"));
 
     /** {@inheritDoc} */
-    @Override public void start() {
+    @Override
+    public void start() {
     }
 
     /** {@inheritDoc} */
-    @Override public void stop() throws StorageException {
+    @Override
+    public void stop() throws StorageException {
         IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
     }
 
