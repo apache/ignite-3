@@ -43,7 +43,7 @@ public interface StorageEngine {
     void stop() throws StorageException;
 
     /**
-     * Creates new data resion.
+     * Creates a new data region.
      *
      * @param regionCfg Data region configuration.
      * @return New data region.
