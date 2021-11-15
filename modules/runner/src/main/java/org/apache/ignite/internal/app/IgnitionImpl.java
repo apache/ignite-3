@@ -136,12 +136,13 @@ public class IgnitionImpl implements Ignition {
 
         try {
             nodeToStart.start(cfgContent);
-        } catch (IgniteException e) {
-            throw e;
         } catch (Exception e) {
             nodes.remove(nodeName);
 
-            throw new IgniteException(e);
+            if (e instanceof IgniteException)
+                throw e;
+            else
+                throw new IgniteException(e);
         }
 
         ackSuccessStart();
