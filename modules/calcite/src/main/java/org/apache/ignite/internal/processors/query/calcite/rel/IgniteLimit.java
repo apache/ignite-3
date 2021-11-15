@@ -39,7 +39,7 @@ import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
  * IgniteLimit.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class IgniteLimit extends SingleRel implements IgniteRel {
+public class IgniteLimit extends SingleRel implements InternalIgniteRel {
     /** In case the fetch value is a DYNAMIC_PARAM. */
     private static final double FETCH_IS_PARAM_FACTOR = 0.01;
 
