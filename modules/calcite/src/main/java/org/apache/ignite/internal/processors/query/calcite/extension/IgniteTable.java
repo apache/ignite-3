@@ -56,7 +56,7 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
     }
     
     /**
-     * Returns new type according {@code usedColumns} param.
+     * Returns new type according {@code requiredColumns} param.
      *
      * @param typeFactory     Factory.
      * @param requiredColumns Used columns enumeration.
