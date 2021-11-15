@@ -118,7 +118,6 @@ public class SortAggregateConverterRule {
             RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(collation);
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(collation);
 
-
             RelNode map = new IgniteMapSortAggregate(
                     cluster,
                     outTrait.replace(IgniteDistributions.random()),
