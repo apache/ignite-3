@@ -24,7 +24,10 @@ import org.apache.ignite.internal.util.Pair;
 
 /**
  * Key-value objects (de)serializer.
+ *
+ * @deprecated see {@link org.apache.ignite.internal.schema.marshaller.reflection.Marshaller}
  */
+@Deprecated(forRemoval = true)
 public interface Serializer {
     /**
      * Writes key-value pair to row.
@@ -32,37 +35,46 @@ public interface Serializer {
      * @param key Key object.
      * @param val Value object.
      * @return Binary row.
-     * @throws SerializationException If serialization failed.
+     * @throws MarshallerException If serialization failed.
      */
-    BinaryRow serialize(Object key, Object val) throws SerializationException;
+    BinaryRow serialize(Object key, Object val) throws MarshallerException;
 
     /**
+     * DeserializeKey.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @param row Row.
      * @param <K> Key object type.
      * @return Key object.
-     * @throws SerializationException If deserialization failed.
+     * @throws MarshallerException If deserialization failed.
      */
-    <K> K deserializeKey(Row row) throws SerializationException;
+    <K> K deserializeKey(Row row) throws MarshallerException;
 
     /**
+     * DeserializeValue.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @param row Row.
      * @param <V> Value object type.
      * @return Value object.
-     * @throws SerializationException If deserialization failed.
+     * @throws MarshallerException If deserialization failed.
      */
-    <V> V deserializeValue(Row row) throws SerializationException;
+    <V> V deserializeValue(Row row) throws MarshallerException;
 
     /**
+     * Deserialize.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @param row Row.
      * @param <K> Key object type.
      * @param <V> Value object type.
      * @return Key-value pair.
-     * @throws SerializationException If deserialization failed.
+     * @throws MarshallerException If deserialization failed.
      */
-    <K, V> Pair<K, V> deserialize(Row row) throws SerializationException;
+    <K, V> Pair<K, V> deserialize(Row row) throws MarshallerException;
 
     /**
-     * @return Schema.
+     * Get schema descriptor.
      */
     SchemaDescriptor schema();
 }

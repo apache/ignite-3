@@ -23,10 +23,17 @@ import org.apache.ignite.internal.schema.marshaller.reflection.JavaSerializerFac
 
 /**
  * (De)Serializer factory interface.
+ *
+ * @deprecated Replaced with {@link MarshallerFactory}
  */
+//TODO: IGNITE-15888 drop
 @FunctionalInterface
+@Deprecated(forRemoval = true)
 public interface SerializerFactory {
     /**
+     * CreateGeneratedSerializerFactory.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @return Serializer factory back by code generator.
      */
     static SerializerFactory createGeneratedSerializerFactory() {
@@ -34,6 +41,9 @@ public interface SerializerFactory {
     }
 
     /**
+     * CreateJavaSerializerFactory.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @return Reflection-based serializer factory.
      */
     static SerializerFactory createJavaSerializerFactory() {

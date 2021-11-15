@@ -41,14 +41,8 @@ public class PlatformTestNodeRunner {
     /** Test node name. */
     private static final String NODE_NAME = PlatformTestNodeRunner.class.getCanonicalName();
 
-    /**
-     *
-     */
     private static final String SCHEMA_NAME = "PUB";
 
-    /**
-     *
-     */
     private static final String TABLE_NAME = "tbl1";
 
     /** Time to keep the node alive. */
@@ -105,7 +99,7 @@ public class PlatformTestNodeRunner {
         var valCol = "val";
 
         TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
-                SchemaBuilders.column(keyCol, ColumnType.INT32).asNonNull().build(),
+                SchemaBuilders.column(keyCol, ColumnType.INT64).asNonNull().build(),
                 SchemaBuilders.column(valCol, ColumnType.string()).asNullable().build()
         ).withPrimaryKey(keyCol).build();
 
