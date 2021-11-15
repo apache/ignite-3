@@ -43,9 +43,11 @@ public class RocksDbStorageEngine implements StorageEngine {
         RocksDB.loadLibrary();
     }
 
-    /** */
+    /**
+     * Thread pool to be used to snapshot partitions and maybe some other operations.
+     */
     private final ExecutorService threadPool = Executors.newFixedThreadPool(
-        Runtime.getRuntime().availableProcessors(), new NamedThreadFactory("rocksdb-storage-engine-pool"));
+            Runtime.getRuntime().availableProcessors(), new NamedThreadFactory("rocksdb-storage-engine-pool"));
 
     /** {@inheritDoc} */
     @Override public void start() {

@@ -83,10 +83,10 @@ public class RocksDbPartitionStorage implements PartitionStorage {
      * @throws StorageException If failed to create RocksDB instance.
      */
     public RocksDbPartitionStorage(
-        Executor threadPool,
-        int partId,
-        RocksDB db,
-        ColumnFamily columnFamily
+            Executor threadPool,
+            int partId,
+            RocksDB db,
+            ColumnFamily columnFamily
     ) throws StorageException {
         this.threadPool = threadPool;
         this.partId = partId;
@@ -342,18 +342,17 @@ public class RocksDbPartitionStorage implements PartitionStorage {
         Snapshot snapshot = db.getSnapshot();
 
         return CompletableFuture.runAsync(() -> {
-                // (Re)create the temporary directory
-                IgniteUtils.deleteIfExists(tempPath);
+            // (Re)create the temporary directory
+            IgniteUtils.deleteIfExists(tempPath);
 
-                try {
-                    Files.createDirectories(tempPath);
-                }
-                catch (IOException e) {
-                    throw new IgniteInternalException("Failed to create directory: " + tempPath, e);
-                }
-            }, threadPool)
+            try {
+                Files.createDirectories(tempPath);
+            } catch (IOException e) {
+                throw new IgniteInternalException("Failed to create directory: " + tempPath, e);
+            }
+        }, threadPool)
             .thenRunAsync(() -> createSstFile(data, snapshot, tempPath), threadPool)
-            .whenComplete((aVoid, throwable) -> {
+            .whenComplete((nothing, throwable) -> {
                 // Release a snapshot
                 db.releaseSnapshot(snapshot);
 
@@ -361,8 +360,9 @@ public class RocksDbPartitionStorage implements PartitionStorage {
                 // database does. Calling close to maintain the AutoCloseable semantics
                 snapshot.close();
 
-                if (throwable != null)
+                if (throwable != null) {
                     return;
+                }
 
                 // Delete snapshot directory if it already exists
                 IgniteUtils.deleteIfExists(snapshotPath);
@@ -370,8 +370,7 @@ public class RocksDbPartitionStorage implements PartitionStorage {
                 try {
                     // Rename the temporary directory
                     Files.move(tempPath, snapshotPath);
-                }
-                catch (IOException e) {
+                } catch (IOException e) {
                     throw new IgniteInternalException("Failed to rename: " + tempPath + " to " + snapshotPath, e);
                 }
             });
