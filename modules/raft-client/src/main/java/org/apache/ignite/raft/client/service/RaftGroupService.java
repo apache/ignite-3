@@ -26,6 +26,7 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * A service providing operations on a replication group.
@@ -230,5 +231,6 @@ public interface RaftGroupService {
     /**
      * @return Cluster service.
      */
+    @TestOnly
     ClusterService clusterService();
 }

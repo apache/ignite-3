@@ -71,39 +71,25 @@ import org.jetbrains.annotations.Nullable;
  * Raft server implementation on top of forked JRaft library.
  */
 public class JraftServerImpl implements RaftServer {
-    /**
-     * Cluster service.
-     */
+    /** Cluster service. */
     private final ClusterService service;
-    
-    /**
-     * Data path.
-     */
+
+    /** Data path. */
     private final Path dataPath;
-    
-    /**
-     * Server instance.
-     */
+
+    /** Server instance. */
     private IgniteRpcServer rpcServer;
-    
-    /**
-     * Started groups.
-     */
+
+    /** Started groups. */
     private ConcurrentMap<String, RaftGroupService> groups = new ConcurrentHashMap<>();
-    
-    /**
-     * Node manager.
-     */
+
+    /** Node manager. */
     private final NodeManager nodeManager;
-    
-    /**
-     * Options.
-     */
+
+    /** Options. */
     private final NodeOptions opts;
-    
-    /**
-     * Request executor.
-     */
+
+    /** Request executor. */
     private ExecutorService requestExecutor;
     
     /**

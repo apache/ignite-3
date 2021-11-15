@@ -21,11 +21,13 @@ import static java.lang.Thread.sleep;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.LoggerMessageHelper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
@@ -274,15 +276,16 @@ public final class IgniteTestUtils {
     
     /**
      * Creates a unique Ignite node name for the given test.
+     *
+     * @param testInfo Test info.
+     * @param idx Node index.
+     *
+     * @return Node name.
      */
-    public static String testNodeName(TestInfo testInfo, int port) {
-        return testInfo.getTestClass()
-                .map(Class::getSimpleName) // Uses shorter path to make a test work on Windows.
-                .map(name -> testInfo.getTestMethod()
-                        .map(method -> name + '#' + method.getName())
-                        .orElse(name)
-                )
-                .map(name -> name + '_' + port)
-                .orElseThrow();
+    public static String testNodeName(TestInfo testInfo, int idx) {
+        return LoggerMessageHelper.format("{}_{}_{}",
+                testInfo.getTestClass().map(Class::getSimpleName).orElseGet(() -> "null"),
+                testInfo.getTestMethod().map(Method::getName).orElseGet(() -> "null"),
+                idx);
     }
 }
