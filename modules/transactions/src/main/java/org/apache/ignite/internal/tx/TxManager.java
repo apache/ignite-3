@@ -37,13 +37,13 @@ public interface TxManager extends IgniteComponent {
      * @return The transaction.
      */
     InternalTransaction begin();
-    
+
     /**
      * @param ts The timestamp.
      * @return The state or null if the state is unknown.
      */
     @Nullable TxState state(Timestamp ts);
-    
+
     /**
      * @param ts The timestamp.
      * @param before Before state.
@@ -51,24 +51,24 @@ public interface TxManager extends IgniteComponent {
      * @return {@code True} if a state was changed.
      */
     boolean changeState(Timestamp ts, @Nullable TxState before, TxState after);
-    
+
     /**
      * @param ts The timestamp.
      */
     void forget(Timestamp ts);
-    
+
     /**
      * @param ts The timestamp.
      * @return The future.
      */
     CompletableFuture<Void> commitAsync(Timestamp ts);
-    
+
     /**
      * @param ts The timestamp.
      * @return The future.
      */
     CompletableFuture<Void> rollbackAsync(Timestamp ts);
-    
+
     /**
      * @param tableId Table ID.
      * @param ts The timestamp.
@@ -76,7 +76,7 @@ public interface TxManager extends IgniteComponent {
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
     public CompletableFuture<Void> writeLock(IgniteUuid tableId, ByteBuffer keyData, Timestamp ts);
-    
+
     /**
      * @param key The key.
      * @param ts The timestamp.
@@ -84,7 +84,7 @@ public interface TxManager extends IgniteComponent {
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
     public CompletableFuture<Void> readLock(IgniteUuid tableId, ByteBuffer keyData, Timestamp ts);
-    
+
     /**
      * TODO asch Should be replicated using raft.
      *
@@ -92,28 +92,27 @@ public interface TxManager extends IgniteComponent {
      * @return {@code True} if a transaction was created in PENDING state.
      */
     boolean getOrCreateTransaction(Timestamp ts);
-    
+
     /**
      * @param timestamp The timestamp.
      * @param addr The address.
      * @param commit {@code True} if a commit requested.
-     * @param groupIds Group ids.
+     * @param groups Enlisted partition groups.
      */
-    CompletableFuture<Void> finishRemote(NetworkAddress addr, Timestamp ts, boolean commit,
-            Set<String> groupIds);
-    
+    CompletableFuture<Void> finishRemote(NetworkAddress addr, Timestamp ts, boolean commit, Set<String> groups);
+
     /**
      * @param addr The address.
      * @return {@code True} if a local node.
      */
     boolean isLocal(NetworkAddress addr);
-    
+
     void setTx(InternalTransaction tx);
-    
+
     InternalTransaction tx() throws TransactionException;
-    
+
     void clearTx();
-    
+
     /**
      * @return A number of finished transactions.
      */

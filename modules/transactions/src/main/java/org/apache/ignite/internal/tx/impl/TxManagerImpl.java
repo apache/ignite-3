@@ -254,11 +254,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             NetworkAddress addr,
             Timestamp ts,
             boolean commit,
-            Set<String> groupIds
+            Set<String> groups
     ) {
-        assert groupIds != null && !groupIds.isEmpty();
+        assert groups != null && !groups.isEmpty();
 
-        TxFinishRequest req = FACTORY.txFinishRequest().timestamp(ts).partitions(groupIds)
+        TxFinishRequest req = FACTORY.txFinishRequest().timestamp(ts).groups(groups)
                 .commit(commit).build();
 
         CompletableFuture<NetworkMessage> fut = clusterService.messagingService()
