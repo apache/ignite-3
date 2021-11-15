@@ -28,6 +28,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.BiFunction;
 import org.apache.ignite.configuration.NamedListView;
@@ -81,8 +82,8 @@ public class RocksDbTableStorage implements TableStorage {
     /** Table configuration. */
     private final TableConfiguration tableCfg;
 
-    /** Storage engine for the table. */
-    private final RocksDbStorageEngine engine;
+    /** Thread pool for async operations. */
+    private final Executor threadPool;
 
     /** Data region for the table. */
     private final RocksDbDataRegion dataRegion;
@@ -119,20 +120,20 @@ public class RocksDbTableStorage implements TableStorage {
      *
      * @param tablePath Path for the directory that stores table data.
      * @param tableCfg Table configuration.
-     * @param engine Storage engine.
+     * @param threadPool Thread pool for async operations.
      * @param dataRegion Data region for the table.
      * @param indexComparatorFactory Comparators factory for indexes.
      */
     public RocksDbTableStorage(
         Path tablePath,
         TableConfiguration tableCfg,
-        RocksDbStorageEngine engine,
+        Executor threadPool,
         RocksDbDataRegion dataRegion,
         BiFunction<TableView, String, Comparator<ByteBuffer>> indexComparatorFactory
     ) {
         this.tablePath = tablePath;
         this.tableCfg = tableCfg;
-        this.engine = engine;
+        this.threadPool = threadPool;
         this.dataRegion = dataRegion;
         this.indexComparatorFactory = indexComparatorFactory;
     }
@@ -196,7 +197,7 @@ public class RocksDbTableStorage implements TableStorage {
 
                 ColumnFamily cf = new ColumnFamily(db, cfHandle, handleName, cfDescriptor.getOptions(), null);
 
-                partitions.set(partId, new RocksDbPartitionStorage(engine, partId, db, cf));
+                partitions.set(partId, new RocksDbPartitionStorage(threadPool, partId, db, cf));
             }
             else {
                 String indexName = handleName.substring(CF_INDEX_PREFIX.length());
@@ -261,7 +262,7 @@ public class RocksDbTableStorage implements TableStorage {
 
                 ColumnFamily cf = new ColumnFamily(db, cfHandle, handleName, cfDescriptor.getOptions(), null);
 
-                partition = new RocksDbPartitionStorage(engine, partId, db, cf);
+                partition = new RocksDbPartitionStorage(threadPool, partId, db, cf);
             }
             catch (RocksDBException e) {
                 cfDescriptor.getOptions().close();

@@ -329,6 +329,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
         });
 
+        engine.start();
+
         DataRegion defaultDataRegion = engine.createDataRegion(dataStorageCfg.defaultRegion());
 
         dataRegions.put(DEFAULT_DATA_REGION_NAME, defaultDataRegion);
@@ -374,6 +376,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 LOG.error("Failed to stop data region " + entry.getKey(), e);
             }
         }
+
+        engine.stop();
         // TODO: IGNITE-15161 Implement component's stop.
     }
 

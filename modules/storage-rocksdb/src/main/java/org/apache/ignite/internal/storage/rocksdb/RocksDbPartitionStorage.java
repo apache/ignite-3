@@ -29,6 +29,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.DataRow;
@@ -60,8 +61,8 @@ public class RocksDbPartitionStorage implements PartitionStorage {
     /** Suffix for the temporary snapshot folder */
     private static final String TMP_SUFFIX = ".tmp";
 
-    /** Storage engine. */
-    private final RocksDbStorageEngine engine;
+    /** Thread pool for async operations. */
+    private final Executor threadPool;
 
     /** Partition id. */
     private final int partId;
@@ -75,19 +76,19 @@ public class RocksDbPartitionStorage implements PartitionStorage {
     /**
      * Constructor.
      *
-     * @param engine Storage engine.
+     * @param threadPool Thread pool for async operations.
      * @param partId Partition id.
      * @param db Rocks DB instance.
      * @param columnFamily Column family to be used for all storage operations.
      * @throws StorageException If failed to create RocksDB instance.
      */
     public RocksDbPartitionStorage(
-        RocksDbStorageEngine engine,
+        Executor threadPool,
         int partId,
         RocksDB db,
         ColumnFamily columnFamily
     ) throws StorageException {
-        this.engine = engine;
+        this.threadPool = threadPool;
         this.partId = partId;
         this.db = db;
         this.data = columnFamily;
@@ -339,8 +340,8 @@ public class RocksDbPartitionStorage implements PartitionStorage {
             catch (IOException e) {
                 throw new IgniteInternalException("Failed to create directory: " + tempPath, e);
             }
-        }, engine.threadPool())
-            .thenRunAsync(() -> createSstFile(data, snapshot, tempPath), engine.threadPool())
+        }, threadPool)
+            .thenRunAsync(() -> createSstFile(data, snapshot, tempPath), threadPool)
             .whenComplete((aVoid, throwable) -> {
                 // Release a snapshot
                 db.releaseSnapshot(snapshot);

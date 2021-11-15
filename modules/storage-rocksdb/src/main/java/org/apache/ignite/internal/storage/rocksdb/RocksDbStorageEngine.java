@@ -45,7 +45,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     /** */
     private final ExecutorService threadPool = Executors.newFixedThreadPool(
-        Runtime.getRuntime().availableProcessors(), new NamedThreadFactory("rocksdb-pool"));
+        Runtime.getRuntime().availableProcessors(), new NamedThreadFactory("rocksdb-storage-engine-pool"));
 
     /** {@inheritDoc} */
     @Override public void start() {
@@ -73,14 +73,9 @@ public class RocksDbStorageEngine implements StorageEngine {
         return new RocksDbTableStorage(
             tablePath,
             tableCfg,
-            this,
+            threadPool,
             (RocksDbDataRegion)dataRegion,
             indexComparatorFactory
         );
-    }
-
-    /** */
-    public ExecutorService threadPool() {
-        return threadPool;
     }
 }
