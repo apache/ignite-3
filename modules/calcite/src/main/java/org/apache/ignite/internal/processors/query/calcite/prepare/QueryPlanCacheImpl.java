@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
