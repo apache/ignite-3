@@ -40,9 +40,9 @@ public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
     /**
      * Returns number of row affected by DML query.
      *
-     * @return Number of rows.
+     * @return Number of rows or {@code -1} if unapplicable.
      */
-    int updateCount(); //TODO: return '-1' if unapplicable?
+    int updateCount();
     
     /**
      * Returns result for the conditional query.
