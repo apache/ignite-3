@@ -291,6 +291,14 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
                 .check();
     }
     
+    /**
+     * Checks bang equal is allowed and works.
+     */
+    @Test
+    public void testBangEqual() {
+        assertEquals(4, sql("SELECT * FROM EMP1 WHERE name != ?", "Igor").size());
+    }
+    
     private static Table createTable(String tableName) {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", tableName)
                 .columns(
