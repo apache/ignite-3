@@ -66,19 +66,22 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
     }
 
     /** {@inheritDoc} */
-    @Override public void push(RowT r) {
+    @Override
+    public void push(RowT r) {
         assert rows.isEmpty() || comp.compare(r, rows.get(rows.size() - 1)) >= 0 : "Not sorted input";
 
         rows.add(r);
     }
 
     /** {@inheritDoc} */
-    @Override public void close() {
+    @Override
+    public void close() {
         rows.clear();
     }
 
     /** {@inheritDoc} */
-    @Override public Cursor<RowT> find(RowT lower, RowT upper) {
+    @Override
+    public Cursor<RowT> find(RowT lower, RowT upper) {
         int firstCol = first(collation.getKeys());
 
         if (ectx.rowHandler().get(firstCol, lower) != null && ectx.rowHandler().get(firstCol, upper) != null) {
@@ -202,12 +205,14 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
         }
 
         /** {@inheritDoc} */
-        @Override protected RowT row2indexRow(RowT bound) {
+        @Override
+        protected RowT row2indexRow(RowT bound) {
             return bound;
         }
 
         /** {@inheritDoc} */
-        @Override protected RowT indexRow2Row(RowT row) {
+        @Override
+        protected RowT indexRow2Row(RowT row) {
             return row;
         }
     }
