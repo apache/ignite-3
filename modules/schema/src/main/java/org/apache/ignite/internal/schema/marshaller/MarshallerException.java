@@ -15,23 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.calcite.prepare;
+package org.apache.ignite.internal.schema.marshaller;
 
-import java.util.List;
-import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * FieldsMetadata interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Exception that is thrown during object marshal/unmarshal.
  */
-public interface FieldsMetadata {
+public class MarshallerException extends IgniteInternalCheckedException {
     /**
-     * Get result row type.
+     * Constructor.
+     *
+     * @param cause Cause.
      */
-    RelDataType rowType();
+    public MarshallerException(Throwable cause) {
+        super(cause);
+    }
 
     /**
-     * Get result row origins (or where a field value comes from).
+     * Constructor.
+     *
+     * @param message Message.
+     * @param cause   Cause.
      */
-    List<List<String>> origins();
+    public MarshallerException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }
