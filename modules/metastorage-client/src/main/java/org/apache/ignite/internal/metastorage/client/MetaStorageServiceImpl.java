@@ -21,17 +21,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
@@ -81,10 +76,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** Meta storage raft group service. */
     private final RaftGroupService metaStorageRaftGrpSvc;
 
-    // TODO: IGNITE-14691 Temporally solution that should be removed after implementing reactive watches.
-    /** Watch processor, that uses pulling logic in order to retrieve watch notifications from server. */
-    private final WatchProcessor watchProcessor;
-
     /** Local node id. */
     private final String localNodeId;
 
@@ -94,7 +85,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
      */
     public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc, String localNodeId) {
         this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
-        this.watchProcessor = new WatchProcessor();
         this.localNodeId = localNodeId;
     }
 
@@ -375,129 +365,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         return new WatchEvent(evts);
     }
-
-    // TODO: IGNITE-14691 Temporally solution that should be removed after implementing reactive watches.
-
-    // TODO: sanpwc Do we really need this stuff?
-    /** Watch processor, that manages {@link Watcher} threads. */
-    private final class WatchProcessor {
-        /** Active Watcher threads that process notification pulling logic. */
-        private final Map<IgniteUuid, Watcher> watchers = new ConcurrentHashMap<>();
-
-        /**
-         * Starts exclusive thread per watch that implement watch pulling logic and calls {@link WatchListener#onUpdate(WatchEvent)}} or
-         * {@link WatchListener#onError(Throwable)}.
-         *
-         * @param watchId Watch id.
-         * @param cursor  Watch Cursor.
-         * @param lsnr    The listener which receives and handles watch updates.
-         */
-        private void addWatch(IgniteUuid watchId, CursorImpl<WatchEvent> cursor, WatchListener lsnr) {
-            Watcher watcher = new Watcher(cursor, lsnr);
-
-            watchers.put(watchId, watcher);
-
-            watcher.start();
-        }
-
-        /**
-         * Closes server cursor and interrupts watch pulling thread.
-         *
-         * @param watchId Watch id.
-         */
-        private void stopWatch(IgniteUuid watchId) {
-            watchers.computeIfPresent(
-                    watchId,
-                    (k, v) -> {
-                        CompletableFuture.runAsync(() -> {
-                            v.stop = true;
-
-                            v.interrupt();
-                        }).thenRun(() -> {
-                            try {
-                                Thread.sleep(100);
-
-                                v.cursor.close();
-                            } catch (InterruptedException e) {
-                                throw new IgniteInternalException(e);
-                            } catch (Exception e) {
-                                if (e instanceof IgniteInternalException && e.getCause().getCause() instanceof RejectedExecutionException) {
-                                    LOG.warn("Cursor close command was rejected because raft executor has been already stopped.");
-                                    return;
-                                }
-
-                                // TODO: IGNITE-14693 Implement Meta storage exception handling logic.
-                                LOG.error("Unexpected exception", e);
-                            }
-                        });
-                        return null;
-                    }
-            );
-        }
-
-        /** Watcher thread, uses pulling logic in order to retrieve watch notifications from server */
-        private final class Watcher extends Thread {
-            /**
-             *
-             */
-            private volatile boolean stop = false;
-
-            /** Watch event cursor. */
-            private Cursor<WatchEvent> cursor;
-
-            /** The listener which receives and handles watch updates. */
-            private WatchListener lsnr;
-
-            /**
-             * @param cursor Watch event cursor.
-             * @param lsnr   The listener which receives and handles watch updates.
-             */
-            Watcher(Cursor<WatchEvent> cursor, WatchListener lsnr) {
-                this.cursor = cursor;
-                this.lsnr = lsnr;
-            }
-
-            /**
-             * Pulls watch events from server side with the help of cursor.iterator.hasNext()/next() in the while(true) loop. Collects watch
-             * events with same revision and fires either onUpdate or onError().
-             */
-            @Override
-            public void run() {
-                Iterator<WatchEvent> watchEvtsIter = cursor.iterator();
-
-                while (!stop) {
-                    try {
-                        if (watchEvtsIter.hasNext()) {
-                            WatchEvent watchEvt = null;
-
-                            try {
-                                watchEvt = watchEvtsIter.next();
-                            } catch (Throwable e) {
-                                lsnr.onError(e);
-                            }
-
-                            assert watchEvt != null;
-
-                            lsnr.onUpdate(watchEvt);
-                        } else {
-                            Thread.sleep(10);
-                        }
-                    } catch (Throwable e) {
-                        if (e instanceof NodeStoppingException || e.getCause() instanceof NodeStoppingException) {
-                            break;
-                        } else if ((e instanceof InterruptedException || e.getCause() instanceof InterruptedException) && stop) {
-                            LOG.debug("Watcher has been stopped during node's stop");
-
-                            break;
-                        } else {
-                            // TODO: IGNITE-14693 Implement Meta storage exception handling logic.
-                            LOG.error("Unexpected exception", e);
-                        }
-                    }
-                }
-            }
-        }
-    }
     
     /**
      * Watch events publisher.
@@ -557,11 +424,12 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             if (!subscribed.compareAndSet(false, true)) {
                 subscriber.onError(new IllegalStateException("Watch events publisher does not support multiple subscriptions."));
             }
-            
-            WatchEventsSubscription subscription = keys == null ?
+    
+            WatchEventsSubscription subscription = keys == null
+                    ?
                     new WatchEventsSubscription(subscriber, keyFrom, keyTo, revision) :
                     new WatchEventsSubscription(subscriber, keys, revision);
-            
+
             subscriber.onSubscribe(subscription);
         }
         

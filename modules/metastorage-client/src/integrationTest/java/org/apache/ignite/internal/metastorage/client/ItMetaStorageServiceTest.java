@@ -700,61 +700,22 @@ public class ItMetaStorageServiceTest {
                                 )
                         )
                 ));
-
+    
         ByteArray keyFrom = new ByteArray(new byte[]{1});
-
+    
         ByteArray keyTo = new ByteArray(new byte[]{10});
-
+    
         long rev = 2;
-
+    
         when(mockStorage.watch(keyFrom.bytes(), keyTo.bytes(), rev)).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
-
+        
             when(cursor.hasNext()).thenReturn(true);
             when(cursor.next()).thenReturn(expectedEvent);
-
+        
             return cursor;
         });
-
-        CountDownLatch latch = new CountDownLatch(1);
-
         // TODO: sanpwc Implement.
-//        IgniteUuid watchId = metaStorageSvc.watch(keyFrom, keyTo, rev, new WatchListener() {
-//            @Override
-//            public boolean onUpdate(@NotNull WatchEvent event) {
-//                Collection<EntryEvent> expectedEvents = expectedEvent.entryEvents();
-//                Collection<org.apache.ignite.internal.metastorage.client.EntryEvent> actualEvents = event.entryEvents();
-//
-//                assertEquals(expectedEvents.size(), actualEvents.size());
-//
-//                Iterator<EntryEvent> expectedIterator = expectedEvents.iterator();
-//                Iterator<org.apache.ignite.internal.metastorage.client.EntryEvent> actualIterator = actualEvents.iterator();
-//
-//                while (expectedIterator.hasNext() && actualIterator.hasNext()) {
-//                    org.apache.ignite.internal.metastorage.server.EntryEvent expectedEntryEvent = expectedIterator.next();
-//                    org.apache.ignite.internal.metastorage.client.EntryEvent actualEntryEvent = actualIterator.next();
-//
-//                    assertArrayEquals(expectedEntryEvent.oldEntry().key(), actualEntryEvent.oldEntry().key().bytes());
-//                    assertArrayEquals(expectedEntryEvent.oldEntry().value(), actualEntryEvent.oldEntry().value());
-//                    assertArrayEquals(expectedEntryEvent.entry().key(), actualEntryEvent.newEntry().key().bytes());
-//                    assertArrayEquals(expectedEntryEvent.entry().value(), actualEntryEvent.newEntry().value());
-//                }
-//
-//                latch.countDown();
-//
-//                return true;
-//            }
-//
-//            @Override
-//            public void onError(@NotNull Throwable e) {
-//                // Within given test it's not expected to get here.
-//                fail();
-//            }
-//        }).get();
-//
-//        latch.await();
-//
-//        metaStorageSvc.stopWatch(watchId).get();
     }
 
     @Test
