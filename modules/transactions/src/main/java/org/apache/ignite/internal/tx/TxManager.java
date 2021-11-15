@@ -28,11 +28,11 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- *
+ * A transaction manager.
  */
 public interface TxManager extends IgniteComponent {
     /**
-     * Starts a transaction coordinated by local node.
+     * Starts a transaction coordinated by a local node.
      *
      * @return The transaction.
      */
@@ -70,20 +70,21 @@ public interface TxManager extends IgniteComponent {
     CompletableFuture<Void> rollbackAsync(Timestamp ts);
 
     /**
-     * @param tableId Table ID.
+     * @param lockId Table ID.
      * @param ts The timestamp.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> writeLock(IgniteUuid tableId, ByteBuffer keyData, Timestamp ts);
+    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts);
 
     /**
      * @param key The key.
+     * @param lockId
      * @param ts The timestamp.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> readLock(IgniteUuid tableId, ByteBuffer keyData, Timestamp ts);
+    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts);
 
     /**
      * TODO asch Should be replicated using raft.
@@ -107,10 +108,25 @@ public interface TxManager extends IgniteComponent {
      */
     boolean isLocal(NetworkAddress addr);
 
+    /**
+     * @param tx The thread local transaction.
+     * @deprecated Should be removed after table API adjustment TODO asch ticket.
+     */
+    @Deprecated
     void setTx(InternalTransaction tx);
 
+    /**
+     * @return The thread local transaction.
+     * @throws TransactionException Thrown on illegal access.
+     * @deprecated Should be removed after table API adjustment TODO asch ticket.
+     */
+    @Deprecated
     InternalTransaction tx() throws TransactionException;
 
+    /**
+     * Clear thread local transaction.
+     */
+    @Deprecated
     void clearTx();
 
     /**

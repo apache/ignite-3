@@ -37,7 +37,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
-import org.apache.ignite.internal.table.distributed.TableTxManager;
+import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
@@ -60,20 +60,20 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
             new Column[]{new Column("key", NativeTypes.INT64, false)},
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
-    
+
     private static final Row FIRST_KEY = createKeyRow(0);
-    
+
     private static final Row FIRST_VALUE = createKeyValueRow(0, 0);
-    
+
     private static final Row SECOND_KEY = createKeyRow(1);
-    
+
     private static final Row SECOND_VALUE = createKeyValueRow(1, 1);
-    
+
     /**
      * Paths for created partition listeners.
      */
     private final Map<PartitionListener, Path> paths = new ConcurrentHashMap<>();
-    
+
     /**
      * {@inheritDoc}
      */
@@ -88,10 +88,10 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 new TxManagerImpl(clientService(), new HeapLockManager()),
                 mock(TableStorage.class)
         );
-        
+
         table.upsert(FIRST_VALUE, null).get();
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -106,21 +106,21 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 new TxManagerImpl(clientService(), new HeapLockManager()),
                 mock(TableStorage.class)
         );
-        
+
         // Remove the first key
         table.delete(FIRST_KEY, null).get();
-        
+
         // Put deleted data again
         table.upsert(FIRST_VALUE, null).get();
     }
-    
+
     /**
      * {@inheritDoc}
      */
     @Override
     public void afterSnapshot(RaftGroupService service) throws Exception {
         TxManager txManager = new TxManagerImpl(clientService(), new HeapLockManager());
-        
+
         var table = new InternalTableImpl(
                 "table",
                 new IgniteUuid(UUID.randomUUID(), 0),
@@ -130,12 +130,12 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 txManager,
                 mock(TableStorage.class)
         );
-        
+
         table.upsert(SECOND_VALUE, null).get();
-        
+
         assertNotNull(table.get(SECOND_KEY, null).join());
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -143,21 +143,21 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted,
             boolean interactedAfterSnapshot) {
         VersionedRowStore storage = getListener(restarted, raftGroupId()).getStorage();
-        
+
         Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;
         Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
-        
+
         return () -> {
             BinaryRow read = storage.get(key, null);
-    
+
             if (read == null) {
                 return false;
             }
-            
+
             return Arrays.equals(value.bytes(), read.bytes());
         };
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -165,7 +165,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     public Path getListenerPersistencePath(PartitionListener listener) {
         return paths.get(listener);
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -179,25 +179,25 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     JraftServerImpl srv = servers.stream()
                             .filter(s -> s.clusterService().topologyService().localMember().equals(service.topologyService().localMember()))
                             .findFirst().get();
-                    
+
                     // We need raft manager instance to initialize transaction manager.
                     Loza raftMgr = new Loza(srv);
-    
-                    TableTxManager txManager = new TableTxManager(service,
+
+                    TableTxManagerImpl txManager = new TableTxManagerImpl(service,
                             new HeapLockManager(), raftMgr);
-    
+
                     txManager.start(); // Init listener.
-                    
+
                     PartitionListener listener = new PartitionListener(
                             new IgniteUuid(UUID.randomUUID(), 0),
                             new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager));
-                    
+
                     paths.put(listener, workDir);
-                    
+
                     return listener;
                 });
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -205,7 +205,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     public String raftGroupId() {
         return "partitions";
     }
-    
+
     /**
      * Creates a {@link Row} with the supplied key.
      *
@@ -214,12 +214,12 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
      */
     private static Row createKeyRow(long id) {
         RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
-        
+
         rowBuilder.appendLong(id);
-        
+
         return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
     }
-    
+
     /**
      * Creates a {@link Row} with the supplied key and value.
      *
@@ -229,10 +229,10 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
      */
     private static Row createKeyValueRow(long id, long value) {
         RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
-        
+
         rowBuilder.appendLong(id);
         rowBuilder.appendLong(value);
-        
+
         return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
     }
 }

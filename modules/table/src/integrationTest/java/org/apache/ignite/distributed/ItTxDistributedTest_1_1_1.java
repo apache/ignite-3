@@ -43,7 +43,7 @@ import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorag
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
-import org.apache.ignite.internal.table.distributed.TableTxManager;
+import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
@@ -83,90 +83,90 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
      * Base network port.
      */
     public static final int NODE_PORT_BASE = 20_000;
-    
+
     /**
      * Factory.
      */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
-    
+
     /**
      * Network factory.
      */
     private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
-    
+
     /**
      *
      */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
-    
+
     /**
      *
      */
     private ClusterService client;
-    
+
     /**
      *
      */
     protected Map<ClusterNode, Loza> raftServers;
-    
+
     /**
      *
      */
     protected Map<ClusterNode, TxManager> txManagers;
-    
+
     /**
      *
      */
     protected Map<Integer, RaftGroupService> accRaftClients;
-    
+
     /**
      *
      */
     protected Map<Integer, RaftGroupService> custRaftClients;
-    
+
     /**
      * Cluster.
      */
     protected List<ClusterService> cluster = new CopyOnWriteArrayList<>();
-    
+
     /**
      *
      */
     private ScheduledThreadPoolExecutor executor;
-    
+
     /**
      * @return Nodes.
      */
     protected int nodes() {
         return 1;
     }
-    
+
     /**
      * @return Replicas.
      */
     protected int replicas() {
         return 1;
     }
-    
+
     /**
      * @return {@code True} to disable collocation.
      */
     protected boolean startClient() {
         return true;
     }
-    
+
     /**
      *
      */
     private final TestInfo testInfo;
-    
+
     /**
      * @param testInfo Test info.
      */
     public ItTxDistributedTest_1_1_1(TestInfo testInfo) {
         this.testInfo = testInfo;
     }
-    
+
     /**
      * Initialize the test state.
      */
@@ -175,82 +175,82 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
     public void before() throws Exception {
         int nodes = nodes();
         int replicas = replicas();
-        
+
         assertTrue(nodes > 0);
         assertTrue(replicas > 0);
-        
+
         List<NetworkAddress> localAddresses = findLocalAddresses(NODE_PORT_BASE,
                 NODE_PORT_BASE + nodes);
-        
+
         var nodeFinder = new StaticNodeFinder(localAddresses);
-        
+
         nodeFinder.findNodes().parallelStream()
                 .map(addr -> startNode(testInfo, addr.toString(), addr.port(), nodeFinder))
                 .forEach(cluster::add);
-    
+
         for (ClusterService node : cluster) {
             assertTrue(waitForTopology(node, nodes, 1000));
         }
-        
+
         log.info("The cluster has been started");
-        
+
         if (startClient()) {
             client = startNode(testInfo, "client", NODE_PORT_BASE - 1, nodeFinder);
-            
+
             assertTrue(waitForTopology(client, nodes + 1, 1000));
-            
+
             log.info("The client has been started");
         }
-        
+
         // Start raft servers. Each raft server can hold multiple groups.
         raftServers = new HashMap<>(nodes);
         txManagers = new HashMap<>(nodes);
-        
+
         executor = new ScheduledThreadPoolExecutor(20,
                 new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
-        
+
         for (int i = 0; i < nodes; i++) {
             var raftSrv = new Loza(cluster.get(i), workDir);
-            
+
             raftSrv.start();
-    
+
             ClusterNode node = cluster.get(i).topologyService().localMember();
-            
+
             raftServers.put(node, raftSrv);
-            
-            TableTxManager txMgr = new TableTxManager(cluster.get(i), new HeapLockManager(), raftSrv);
-    
+
+            TableTxManagerImpl txMgr = new TableTxManagerImpl(cluster.get(i), new HeapLockManager(), raftSrv);
+
             txMgr.start();
-            
+
             txManagers.put(node, txMgr);
         }
-        
+
         log.info("Raft servers have been started");
-        
+
         final String accountsName = "accounts";
         final String customersName = "customers";
-        
+
         IgniteUuid accTblId = new IgniteUuidGenerator(UUID.randomUUID(), 0).randomUuid();
         IgniteUuid custTblId = new IgniteUuidGenerator(UUID.randomUUID(), 0).randomUuid();
-        
+
         accRaftClients = startTable(accountsName, accTblId);
         custRaftClients = startTable(customersName, custTblId);
-        
+
         log.info("Partition groups have been started");
-        
+
         TxManager txMgr;
-    
+
         if (startClient()) {
             txMgr = new TxManagerImpl(client, new HeapLockManager());
         } else {
             // Collocated mode.
             txMgr = txManagers.get(accRaftClients.get(0).clusterService().topologyService().localMember());
         }
-        
+
         assertNotNull(txMgr);
-        
+
         igniteTransactions = new IgniteTransactionsImpl(txMgr);
-        
+
         this.accounts = new TableImpl(new InternalTableImpl(
                 accountsName,
                 accTblId,
@@ -264,23 +264,23 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
             public SchemaDescriptor schema() {
                 return ACCOUNTS_SCHEMA;
             }
-            
+
             @Override
             public int lastSchemaVersion() {
                 return ACCOUNTS_SCHEMA.version();
             }
-            
+
             @Override
             public SchemaDescriptor schema(int ver) {
                 return ACCOUNTS_SCHEMA;
             }
-            
+
             @Override
             public Row resolve(BinaryRow row) {
                 return new Row(ACCOUNTS_SCHEMA, row);
             }
         }, null);
-        
+
         this.customers = new TableImpl(new InternalTableImpl(
                 customersName,
                 custTblId,
@@ -294,26 +294,26 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
             public SchemaDescriptor schema() {
                 return CUSTOMERS_SCHEMA;
             }
-            
+
             @Override
             public int lastSchemaVersion() {
                 return CUSTOMERS_SCHEMA.version();
             }
-            
+
             @Override
             public SchemaDescriptor schema(int ver) {
                 return CUSTOMERS_SCHEMA;
             }
-            
+
             @Override
             public Row resolve(BinaryRow row) {
                 return new Row(CUSTOMERS_SCHEMA, row);
             }
         }, null);
-        
+
         log.info("Tables have been started");
     }
-    
+
     /**
      * @param name The name.
      * @return Groups map.
@@ -328,14 +328,14 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
                 false,
                 null
         );
-        
+
         Map<Integer, RaftGroupService> clients = new HashMap<>();
-        
+
         for (int p = 0; p < assignment.size(); p++) {
             List<ClusterNode> partNodes = assignment.get(p);
-            
+
             String grpId = name + "-part-" + p;
-    
+
             List<Peer> conf = partNodes.stream().map(n -> n.address()).map(Peer::new)
                     .collect(Collectors.toList());
 
@@ -347,51 +347,51 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
                                 new  VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManagers.get(node)))
                 );
             }
-            
+
             if (startClient()) {
                 RaftGroupService service = RaftGroupServiceImpl
                         .start(grpId, client, FACTORY, 10_000, conf, true, 200, executor)
                         .get(5, TimeUnit.SECONDS);
-                
+
                 clients.put(p, service);
             } else {
                 // Create temporary client to find a leader address.
                 ClusterService tmpSvc = raftServers.values().stream().findFirst().get().service();
-                
+
                 RaftGroupService service = RaftGroupServiceImpl
                         .start(grpId, tmpSvc, FACTORY, 10_000, conf, true, 200, executor)
                         .get(5, TimeUnit.SECONDS);
-                
+
                 Peer leader = service.leader();
-                
+
                 service.shutdown();
-                
+
                 Loza leaderSrv = raftServers
                         .get(tmpSvc.topologyService().getByAddress(leader.address()));
-                
+
                 RaftGroupService leaderClusterSvc = RaftGroupServiceImpl
                         .start(grpId, leaderSrv.service(), FACTORY,
                                 10_000, conf, true, 200, executor).get(5, TimeUnit.SECONDS);
-                
+
                 clients.put(p, leaderClusterSvc);
             }
         }
-        
+
         return clients;
     }
-    
+
     /**
      * @param svc The service.
      * @return Raft manager hosting a leader for group.
      */
     protected Loza getLeader(RaftGroupService svc) {
         Peer leader = svc.leader();
-        
+
         assertNotNull(leader);
-        
+
         return raftServers.get(svc.clusterService().topologyService().getByAddress(leader.address()));
     }
-    
+
     /**
      * Shutdowns all cluster nodes after each test.
      *
@@ -404,36 +404,36 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
             return null;
         }).forEach(o -> {
         });
-    
+
         if (client != null) {
             client.stop();
         }
-        
+
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-    
+
         for (Loza rs : raftServers.values()) {
             Set<String> grps = rs.startedGroups();
 
             for (String grp : grps) {
                 rs.stopRaftGroup(grp);
             }
-    
+
             rs.stop();
         }
-    
+
         for (TxManager txMgr : txManagers.values()) {
             txMgr.stop();
         }
-    
+
         for (RaftGroupService svc : accRaftClients.values()) {
             svc.shutdown();
         }
-    
+
         for (RaftGroupService svc : custRaftClients.values()) {
             svc.shutdown();
         }
     }
-    
+
     /**
      * @param name Node name.
      * @param port Local port.
@@ -449,19 +449,19 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
                 SERIALIZATION_REGISTRY,
                 NETWORK_FACTORY
         );
-        
+
         network.start();
-        
+
         return network;
     }
-    
+
     /**
      * {@inheritDoc}
      */
     @Override
     protected TxManager txManager(Table t) {
         Map<Integer, RaftGroupService> clients = null;
-    
+
         if (t == accounts) {
             clients = accRaftClients;
         } else if (t == customers) {
@@ -469,21 +469,21 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
         } else {
             fail("Unknown table " + t.tableName());
         }
-        
+
         TxManager manager = txManagers.get(clients.get(0).clusterService().topologyService().getByAddress(clients.get(0).leader().address()));
-        
+
         assertNotNull(manager);
-        
+
         return manager;
     }
-    
+
     /**
      * {@inheritDoc}
      */
     @Override
     protected boolean assertPartitionsSame(Table t, int partId) {
         int hash = 0;
-        
+
         for (Map.Entry<ClusterNode, Loza> entry : raftServers.entrySet()) {
             Loza svc = (Loza) entry.getValue();
             JraftServerImpl server = (JraftServerImpl) svc.server();
@@ -492,14 +492,14 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
                     .getRaftNode().getOptions().getFsm();
             PartitionListener listener = (PartitionListener) fsm.getListener();
             VersionedRowStore storage = listener.getStorage();
-    
+
             if (hash == 0) {
                 hash = storage.delegate().hashCode();
             } else if (hash != storage.delegate().hashCode()) {
                 return false;
             }
         }
-        
+
         return true;
     }
 }

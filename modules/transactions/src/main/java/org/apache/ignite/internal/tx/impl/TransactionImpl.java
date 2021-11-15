@@ -45,13 +45,13 @@ public class TransactionImpl implements InternalTransaction {
     /** The timestamp. */
     private final Timestamp timestamp;
 
-    /** TX manager. */
+    /** The transaction manager. */
     private final TxManager txManager;
 
-    /** Originator. */
+    /** The originator. */
     private final NetworkAddress address;
 
-    /** Mapped groups. */
+    /** Enlisted groups. */
     private Set<RaftGroupService> set = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     /** Bound thread. */
@@ -75,7 +75,7 @@ public class TransactionImpl implements InternalTransaction {
     }
 
     @Override
-    public Set<RaftGroupService> map() {
+    public Set<RaftGroupService> enlisted() {
         return set;
     }
 
@@ -136,7 +136,7 @@ public class TransactionImpl implements InternalTransaction {
     }
 
     /**
-     * @param commit {@code True} to commit.
+     * @param commit {@code true} to commit.
      * @return The future.
      */
     private CompletableFuture<Void> finish(boolean commit) {

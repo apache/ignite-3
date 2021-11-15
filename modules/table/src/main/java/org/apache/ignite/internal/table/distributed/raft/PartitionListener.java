@@ -74,12 +74,10 @@ import org.jetbrains.annotations.TestOnly;
  * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener {
-    /** Table ID. */
-    private final IgniteUuid tableId;
+    /** Lock id. */
+    private final IgniteUuid lockId;
 
-    /**
-     * The versioned storage.
-     */
+    /** The versioned storage. */
     private final VersionedRowStore storage;
 
     /** Cursors map. */
@@ -89,11 +87,11 @@ public class PartitionListener implements RaftGroupListener {
     private final TxManager txManager;
 
     /**
-     * @param tableId Table id.
+     * @param lockId Lock id.
      * @param store The storage.
      */
-    public PartitionListener(IgniteUuid tableId, VersionedRowStore store) {
-        this.tableId = tableId;
+    public PartitionListener(IgniteUuid lockId, VersionedRowStore store) {
+        this.lockId = lockId;
         this.storage = store;
         this.txManager = store.txManager();
         this.cursors = new ConcurrentHashMap<>();
@@ -495,8 +493,8 @@ public class PartitionListener implements RaftGroupListener {
 
             txManager.getOrCreateTransaction(cmd0.getTimestamp()); // TODO asch handle race between rollback and lock.
 
-            return cmd0 instanceof ReadCommand ? txManager.readLock(tableId, cmd0.getRow().keySlice(), cmd0.getTimestamp()) :
-                txManager.writeLock(tableId, cmd0.getRow().keySlice(), cmd0.getTimestamp());
+            return cmd0 instanceof ReadCommand ? txManager.readLock(lockId, cmd0.getRow().keySlice(), cmd0.getTimestamp()) :
+                txManager.writeLock(lockId, cmd0.getRow().keySlice(), cmd0.getTimestamp());
         }
         else if (command instanceof MultiKeyCommand) {
             MultiKeyCommand cmd0 = (MultiKeyCommand) command;
@@ -511,8 +509,8 @@ public class PartitionListener implements RaftGroupListener {
             boolean read = cmd0 instanceof ReadCommand;
 
             for (BinaryRow row : rows) {
-                futs[i++] = read ? txManager.readLock(tableId, row.keySlice(), cmd0.getTimestamp()) :
-                    txManager.writeLock(tableId, row.keySlice(), cmd0.getTimestamp());
+                futs[i++] = read ? txManager.readLock(lockId, row.keySlice(), cmd0.getTimestamp()) :
+                    txManager.writeLock(lockId, row.keySlice(), cmd0.getTimestamp());
             }
 
             return CompletableFuture.allOf(futs);

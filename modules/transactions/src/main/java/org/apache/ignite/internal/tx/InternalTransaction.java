@@ -32,12 +32,12 @@ public interface InternalTransaction extends Transaction {
     Timestamp timestamp();
 
     /**
-     * Returns a transaction map on topology.
+     * Returns a set of enlisted partition groups.
      *
-     * @return A map of enlisted nodes mapped to a partitions set.
+     * @return A set of enlisted partition groups.
      */
     @TestOnly
-    Set<RaftGroupService> map();
+    Set<RaftGroupService> enlisted();
 
     /**
      * @return The state.

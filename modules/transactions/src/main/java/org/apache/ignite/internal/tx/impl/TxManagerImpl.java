@@ -50,7 +50,8 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * TODO asch do we need the interface ?
+ * A transaction manager implementation.
+ * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
 public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /**
@@ -78,7 +79,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * for read. TODO asch use Storage for locks. Introduce limits, deny lock operation if the limit
      * is exceeded.
      */
-    private final ConcurrentHashMap<Timestamp, Map<TableLockKey, Boolean>> locks = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Timestamp, Map<LockKey, Boolean>> locks = new ConcurrentHashMap<>();
 
     /**
      * TODO asch remove and replace with expicit TX argument in table API calls.
@@ -122,7 +123,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> commitAsync(Timestamp ts) {
-        // TODO asch remove async
         if (changeState(ts, TxState.PENDING, TxState.COMMITED) || state(ts) == TxState.COMMITED) {
             unlockAll(ts);
 
@@ -137,7 +137,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync(Timestamp ts) {
-        // TODO asch remove async
         // TODO asch split to tx coordinator and tx manager ?
         if (changeState(ts, TxState.PENDING, TxState.ABORTED) || state(ts) == TxState.ABORTED) {
             unlockAll(ts);
@@ -154,13 +153,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param tx The transaction.
      */
     private void unlockAll(Timestamp ts) {
-        Map<TableLockKey, Boolean> locks = this.locks.remove(ts);
+        Map<LockKey, Boolean> locks = this.locks.remove(ts);
 
         if (locks == null) {
             return;
         }
 
-        for (Map.Entry<TableLockKey, Boolean> lock : locks.entrySet()) {
+        for (Map.Entry<LockKey, Boolean> lock : locks.entrySet()) {
             try {
                 if (lock.getValue()) {
                     lockManager.tryReleaseShared(lock.getKey(), ts);
@@ -181,7 +180,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> writeLock(IgniteUuid tableId, ByteBuffer keyData, Timestamp ts) {
+    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts) {
         // TODO asch process tx messages in striped fasion to avoid races. But locks can be acquired from any thread !
         if (state(ts) != TxState.PENDING) {
             return failedFuture(new TransactionException(
@@ -189,7 +188,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
 
         // Should rollback tx on lock error.
-        TableLockKey key = new TableLockKey(tableId, keyData);
+        LockKey key = new LockKey(lockId, keyData);
 
         return lockManager.tryAcquire(key, ts)
                 .thenAccept(ignored -> recordLock(key, ts, Boolean.FALSE));
@@ -197,13 +196,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> readLock(IgniteUuid tableId, ByteBuffer keyData, Timestamp ts) {
+    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts) {
         if (state(ts) != TxState.PENDING) {
             return failedFuture(new TransactionException(
                     "The operation is attempted for completed transaction"));
         }
 
-        TableLockKey key = new TableLockKey(tableId, keyData);
+        LockKey key = new LockKey(lockId, keyData);
 
         return lockManager.tryAcquireShared(key, ts)
                 .thenAccept(ignored -> recordLock(key, ts, Boolean.TRUE));
@@ -216,12 +215,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param timestamp The tx timestamp.
      * @param read Read lock.
      */
-    private void recordLock(TableLockKey key, Timestamp timestamp, Boolean read) {
+    private void recordLock(LockKey key, Timestamp timestamp, Boolean read) {
         locks.compute(timestamp,
-                new BiFunction<Timestamp, Map<TableLockKey, Boolean>, Map<TableLockKey, Boolean>>() {
+                new BiFunction<Timestamp, Map<LockKey, Boolean>, Map<LockKey, Boolean>>() {
                     @Override
-                    public Map<TableLockKey, Boolean> apply(Timestamp timestamp,
-                            Map<TableLockKey, Boolean> map) {
+                    public Map<LockKey, Boolean> apply(Timestamp timestamp,
+                            Map<LockKey, Boolean> map) {
                         if (map == null) {
                             map = new HashMap<>();
                         }
@@ -315,22 +314,20 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // No-op.
     }
 
-    /**
-     *
-     */
-    private static class TableLockKey {
-        /** Table id. */
-        private final IgniteUuid tableId;
+    /** Lock key. */
+    private static class LockKey {
+        /** The id. */
+        private final IgniteUuid id;
 
         /** The key. */
         private final ByteBuffer key;
 
         /**
-         * @param tableId Table ID.
+         * @param id The id.
          * @param key The key.
          */
-        TableLockKey(IgniteUuid tableId, ByteBuffer key) {
-            this.tableId = tableId;
+        LockKey(IgniteUuid id, ByteBuffer key) {
+            this.id = id;
             this.key = key;
         }
 
@@ -343,15 +340,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            TableLockKey key1 = (TableLockKey) o;
-            return tableId.equals(key1.tableId) &&
+            LockKey key1 = (LockKey) o;
+            return id.equals(key1.id) &&
                     key.equals(key1.key);
         }
 
         /** {@inheritDoc} */
         @Override
         public int hashCode() {
-            return Objects.hash(tableId, key);
+            return Objects.hash(id, key);
         }
     }
 
@@ -364,13 +361,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     /**
+     * Finishes a transaction for a group.
+     *
      * @param groupId Group id.
      * @param ts The timestamp.
      * @param commit {@code True} to commit, false to abort.
      *
      * @return The future.
      */
-    protected CompletableFuture<?> onFinish(String groupId, Timestamp ts, boolean commit) {
+    protected CompletableFuture<?> finish(String groupId, Timestamp ts, boolean commit) {
         return CompletableFuture.completedFuture(null);
     };
 
@@ -388,9 +387,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             int i = 0;
 
-            // Finish enlisted groups.
+            // Finish a tx for enlisted groups.
             for (String grp : groups) {
-                futs[i++] = onFinish(grp, req.timestamp(), req.commit());
+                futs[i++] = finish(grp, req.timestamp(), req.commit());
             }
 
             CompletableFuture.allOf(futs).thenCompose(ignored -> req.commit() ?
@@ -399,7 +398,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     .handle(new BiFunction<Void, Throwable, Void>() {
                         @Override
                         public Void apply(Void ignored, Throwable err) {
-                            // TODO asch report finish error code.
                             TxFinishResponseBuilder resp = FACTORY.txFinishResponse();
 
                             if (err != null) {

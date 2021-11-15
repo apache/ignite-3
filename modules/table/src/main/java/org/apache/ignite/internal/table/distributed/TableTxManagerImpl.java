@@ -26,25 +26,25 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
 
 /**
- * Distributed transaction manager.
- * <p>Used to support transactions across tables.
+ * A transaction manager extension for Ignite tables.
+ * <p>Uses raft protocol to replicate tx finish state for a partition group.
  */
-public class TableTxManager extends TxManagerImpl {
+public class TableTxManagerImpl extends TxManagerImpl {
     private final Loza raftManager;
-    
+
     /**
      * @param clusterService Cluster service.
      * @param lockManager Lock manager.
      * @param raftManager Raft manager.
      */
-    public TableTxManager(ClusterService clusterService, LockManager lockManager, Loza raftManager) {
+    public TableTxManagerImpl(ClusterService clusterService, LockManager lockManager, Loza raftManager) {
         super(clusterService, lockManager);
         this.raftManager = raftManager;
     }
-    
+
     /** {@inheritDoc} */
     @Override
-    protected CompletableFuture<?> onFinish(String groupId, Timestamp ts, boolean commit) {
+    protected CompletableFuture<?> finish(String groupId, Timestamp ts, boolean commit) {
         return raftManager.apply(groupId, new FinishTxCommand(ts, commit));
     }
 }
