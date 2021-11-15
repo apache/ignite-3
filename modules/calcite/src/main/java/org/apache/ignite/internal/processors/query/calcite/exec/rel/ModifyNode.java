@@ -27,7 +27,7 @@ import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
-import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
+import org.apache.ignite.internal.processors.query.calcite.schema.InternalIgniteTable;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.table.RecordView;
@@ -38,7 +38,7 @@ import org.apache.ignite.table.Tuple;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
-    private final IgniteTable table;
+    private final InternalIgniteTable table;
 
     private final TableModify.Operation op;
 
@@ -71,7 +71,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     public ModifyNode(
             ExecutionContext<RowT> ctx,
             RelDataType rowType,
-            IgniteTable table,
+            InternalIgniteTable table,
             TableModify.Operation op,
             List<String> cols
     ) {

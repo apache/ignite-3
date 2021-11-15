@@ -30,7 +30,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
-import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
+import org.apache.ignite.internal.processors.query.calcite.schema.InternalIgniteTable;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableRow;
@@ -47,7 +47,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
     private final TableImpl physTable;
 
     /** Table that is an object in SQL schema. */
-    private final IgniteTable schemaTable;
+    private final InternalIgniteTable schemaTable;
 
     private final RowHandler.RowFactory<RowT> factory;
 
@@ -86,7 +86,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
     public TableScanNode(
             ExecutionContext<RowT> ctx,
             RelDataType rowType,
-            IgniteTable schemaTable,
+            InternalIgniteTable schemaTable,
             int[] parts,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
