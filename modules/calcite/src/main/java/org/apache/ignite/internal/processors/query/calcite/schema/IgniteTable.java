@@ -46,9 +46,7 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
      */
     TableDescriptor descriptor();
     
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     default RelDataType getRowType(RelDataTypeFactory typeFactory) {
         return getRowType(typeFactory, null);
@@ -62,9 +60,7 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
      */
     RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet requiredColumns);
     
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     default TableScan toRel(RelOptTable.ToRelContext context, RelOptTable relOptTable) {
         return toRel(context.getCluster(), relOptTable);
