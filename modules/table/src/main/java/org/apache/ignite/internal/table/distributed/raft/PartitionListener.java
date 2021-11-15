@@ -489,17 +489,17 @@ public class PartitionListener implements RaftGroupListener {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> onBeforeApply(Command cmd) {
-        if (cmd instanceof SingleKeyCommand) {
-            SingleKeyCommand cmd0 = (SingleKeyCommand) cmd;
+    @Override public CompletableFuture<Void> onBeforeApply(Command command) {
+        if (command instanceof SingleKeyCommand) {
+            SingleKeyCommand cmd0 = (SingleKeyCommand) command;
 
             txManager.getOrCreateTransaction(cmd0.getTimestamp()); // TODO asch handle race between rollback and lock.
 
             return cmd0 instanceof ReadCommand ? txManager.readLock(tableId, cmd0.getRow().keySlice(), cmd0.getTimestamp()) :
                 txManager.writeLock(tableId, cmd0.getRow().keySlice(), cmd0.getTimestamp());
         }
-        else if (cmd instanceof MultiKeyCommand) {
-            MultiKeyCommand cmd0 = (MultiKeyCommand) cmd;
+        else if (command instanceof MultiKeyCommand) {
+            MultiKeyCommand cmd0 = (MultiKeyCommand) command;
 
             txManager.getOrCreateTransaction(cmd0.getTimestamp());
 

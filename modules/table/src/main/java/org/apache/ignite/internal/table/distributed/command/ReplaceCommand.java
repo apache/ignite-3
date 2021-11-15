@@ -26,28 +26,15 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command replaces an old entry to a new one.
  */
-public class ReplaceCommand implements SingleKeyCommand, WriteCommand {
-    /** Replacing binary row. */
-    private transient BinaryRow row;
-
+public class ReplaceCommand extends SingleKeyCommand implements WriteCommand {
     /** Replaced binary row. */
     private transient BinaryRow oldRow;
-
-    /*
-     * Row bytes.
-     * It is a temporary solution, before network have not implement correct serialization BinaryRow.
-     * TODO: Remove the field after (IGNITE-14793).
-     */
-    private byte[] rowBytes;
 
     /**
      * Old row bytes.
      * TODO: Remove the field after (IGNITE-14793).
      */
     private byte[] oldRowBytes;
-
-    /** The timestamp. */
-    private final Timestamp timestamp;
 
     /**
      * Creates a new instance of ReplaceCommand with the given two rows to be replaced each other.
@@ -57,29 +44,10 @@ public class ReplaceCommand implements SingleKeyCommand, WriteCommand {
      * @param ts The timestamp.
      */
     public ReplaceCommand(@NotNull BinaryRow oldRow, @NotNull BinaryRow row, Timestamp ts) {
+        super(row, ts);
         assert oldRow != null;
-        assert row != null;
 
-        this.oldRow = oldRow;
-        this.row = row;
-        this.timestamp = ts;
-
-        CommandUtils.rowToBytes(oldRow, bytes -> oldRowBytes = bytes);
-        CommandUtils.rowToBytes(row, bytes -> rowBytes = bytes);
-    }
-
-    /**
-     * Gets a binary row which will be after replace.
-     *
-     * @return Binary row.
-     */
-    @Override @NotNull
-    public BinaryRow getRow() {
-        if (row == null) {
-            row = new ByteBufferRow(rowBytes);
-        }
-
-        return row;
+        oldRowBytes = CommandUtils.rowToBytes(oldRow);
     }
 
     /**
@@ -94,12 +62,5 @@ public class ReplaceCommand implements SingleKeyCommand, WriteCommand {
         }
 
         return oldRow;
-    }
-
-    /**
-     * @return The timestamp.
-     */
-    @Override public Timestamp getTimestamp() {
-        return timestamp;
     }
 }

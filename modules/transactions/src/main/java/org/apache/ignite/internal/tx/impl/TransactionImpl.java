@@ -39,36 +39,24 @@ import org.jetbrains.annotations.Nullable;
  *
  */
 public class TransactionImpl implements InternalTransaction {
-    /**
-     * The logger.
-     */
+    /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(TransactionImpl.class);
-    
-    /**
-     * The timestamp.
-     */
+
+    /** The timestamp. */
     private final Timestamp timestamp;
-    
-    /**
-     * TX manager.
-     */
+
+    /** TX manager. */
     private final TxManager txManager;
-    
-    /**
-     * Originator.
-     */
+
+    /** Originator. */
     private final NetworkAddress address;
-    
-    /**
-     * Mapped groups.
-     */
+
+    /** Mapped groups. */
     private Set<RaftGroupService> set = Collections.newSetFromMap(new ConcurrentHashMap<>());
-    
-    /**
-     *
-     */
+
+    /** Bound thread. */
     private Thread t;
-    
+
     /**
      * @param txManager The tx managert.
      * @param timestamp The timestamp.
@@ -79,40 +67,31 @@ public class TransactionImpl implements InternalTransaction {
         this.timestamp = timestamp;
         this.address = address;
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public Timestamp timestamp() {
         return timestamp;
     }
-    
+
     @Override
     public Set<RaftGroupService> map() {
         return set;
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public TxState state() {
         return txManager.state(timestamp);
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
-    public synchronized boolean enlist(RaftGroupService svc) {
-        // TODO asch remove synchronized
+    public boolean enlist(RaftGroupService svc) {
         return set.add(svc);
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public void commit() throws TransactionException {
         try {
@@ -127,18 +106,14 @@ public class TransactionImpl implements InternalTransaction {
             throw new TransactionException(e);
         }
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> commitAsync() {
         return finish(true);
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public void rollback() throws TransactionException {
         try {
@@ -153,15 +128,13 @@ public class TransactionImpl implements InternalTransaction {
             throw new TransactionException(e);
         }
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync() {
         return finish(false);
     }
-    
+
     /**
      * @param commit {@code True} to commit.
      * @return The future.
@@ -172,44 +145,40 @@ public class TransactionImpl implements InternalTransaction {
         // Group by common leader addresses.
         for (RaftGroupService svc : set) {
             NetworkAddress addr = svc.leader().address();
-    
+
             tmp.computeIfAbsent(addr, k -> new HashSet<>()).add(svc.groupId());
         }
-        
+
         CompletableFuture[] futs = new CompletableFuture[tmp.size() + 1];
-    
+
         int i = 0;
-    
+
         for (Map.Entry<NetworkAddress, Set<String>> entry : tmp.entrySet()) {
             boolean local = address.equals(entry.getKey());
-            
+
             futs[i++] = local ?
                     commit ? txManager.commitAsync(timestamp) : txManager.rollbackAsync(timestamp)
                     // Collocated.
                     : txManager.finishRemote(entry.getKey(), timestamp, commit, entry.getValue());
-            
+
             LOG.debug("finish [addr={}, commit={}, ts={}, local={}, groupIds={}",
                     address, commit, timestamp, local, entry.getValue());
         }
-        
+
         // Handle coordinator's tx.
         futs[i] = tmp.containsKey(address) ? CompletableFuture.completedFuture(null) :
                 commit ? txManager.commitAsync(timestamp) : txManager.rollbackAsync(timestamp);
-        
+
         return CompletableFuture.allOf(futs);
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public void thread(Thread t) {
         this.t = t;
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public @Nullable Thread thread() {
         return t;

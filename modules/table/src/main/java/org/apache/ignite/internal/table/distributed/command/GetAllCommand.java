@@ -27,20 +27,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * This is a command for the batch get operation.
  */
-public class GetAllCommand implements MultiKeyCommand, ReadCommand {
-    /** Binary key rows. */
-    private transient Collection<BinaryRow> keyRows;
-
-    /** The timestamp. */
-    private final Timestamp timestamp;
-
-    /*
-     * Row bytes.
-     * It is a temporary solution, before network have not implement correct serialization BinaryRow.
-     * TODO: Remove the field after (IGNITE-14793).
-     */
-    private byte[] keyRowsBytes;
-
+public class GetAllCommand extends MultiKeyCommand implements ReadCommand {
     /**
      * Creates a new instance of GetAllCommand with the given keys to be got. The {@code keyRows} should not be {@code null} or empty.
      *
@@ -48,33 +35,6 @@ public class GetAllCommand implements MultiKeyCommand, ReadCommand {
      * @param timestamp The timestamp.
      */
     public GetAllCommand(@NotNull Collection<BinaryRow> keyRows, Timestamp timestamp) {
-        assert keyRows != null && !keyRows.isEmpty();
-
-        this.keyRows = keyRows;
-        this.timestamp = timestamp;
-
-        CommandUtils.rowsToBytes(keyRows, bytes -> keyRowsBytes = bytes);
-    }
-
-    /**
-     * Gets a set of binary key rows to be got.
-     *
-     * @return Binary keys.
-     */
-    @Override public Collection<BinaryRow> getRows() {
-        if (keyRows == null && keyRowsBytes != null) {
-            keyRows = new ArrayList<>();
-
-            CommandUtils.readRows(keyRowsBytes, keyRows::add);
-        }
-
-        return keyRows;
-    }
-
-    /**
-     * @return The timestamp.
-     */
-    @Override public Timestamp getTimestamp() {
-        return timestamp;
+        super(keyRows, timestamp);
     }
 }

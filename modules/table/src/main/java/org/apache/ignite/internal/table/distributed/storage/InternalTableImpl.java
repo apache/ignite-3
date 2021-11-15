@@ -135,7 +135,7 @@ public class InternalTableImpl implements InternalTable {
         this.netAddrResolver = netAddrResolver;
         this.txManager = txManager;
         this.tableStorage = tableStorage;
-    
+
         this.schemaMode = SchemaManagementMode.STRICT;
     }
 
@@ -182,7 +182,8 @@ public class InternalTableImpl implements InternalTable {
      * @param reducer The reducer.
      * @param <R> Reducer's input.
      * @param <T> Reducer's output.
-     * @return
+     *
+     * @return The future.
      */
     private <R, T> CompletableFuture<T> wrapInTx(
         Collection<BinaryRow> keyRows,
@@ -217,17 +218,7 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<T> fut = reducer.apply(futures);
 
-        return fut.handle(new BiFunction<T, Throwable, CompletableFuture<T>>() {
-            @Override public CompletableFuture<T> apply(T r, Throwable e) {
-                if (e != null) {
-                    // TODO asch add suppressed exception from rollback.
-                    return tx0.rollbackAsync().thenCompose(ignored -> failedFuture(e)); // Preserve failed state.
-                }
-                else {
-                    return implicit ? tx0.commitAsync().thenApply(ignored -> r) : completedFuture(r);
-                }
-            }
-        }).thenCompose(x -> x);
+        return postOperation(fut, implicit, tx0);
     }
 
     /**
@@ -237,7 +228,8 @@ public class InternalTableImpl implements InternalTable {
      * @param trans Transform closure.
      * @param <R> Transform input.
      * @param <T> Transform output.
-     * @return
+     *
+     * @return The future.
      */
     private <R, T> CompletableFuture<T> wrapInTx(
         BinaryRow row,
@@ -260,16 +252,31 @@ public class InternalTableImpl implements InternalTable {
 
         int partId = partId(row);
 
-        CompletableFuture<RaftGroupService> enlistFut = enlist(partId, tx0);
+        CompletableFuture<T> fut = enlist(partId, tx0).thenCompose(svc -> svc.<R>run(op.apply(tx0)).thenApply(trans::apply));
 
-        CompletableFuture<T> fut = enlistFut.thenCompose(svc -> svc.<R>run(op.apply(tx0)).thenApply(trans::apply));
+        return postOperation(fut, implicit, tx0);
+    }
 
-        // TODO asch remove futures creation
+    /**
+     * @param fut The future.
+     * @param implicit {@code true} for implicit tx.
+     * @param tx0 The transaction.
+     * @param <T> Operation return type.
+     *
+     * @return The future.
+     */
+    private <T> CompletableFuture<T> postOperation(CompletableFuture<T> fut, boolean implicit, InternalTransaction tx0) {
         return fut.handle(new BiFunction<T, Throwable, CompletableFuture<T>>() {
-            @Override public CompletableFuture<T> apply(T r, Throwable e) {
+            @Override
+            public CompletableFuture<T> apply(T r, Throwable e) {
                 if (e != null) {
-                    // TODO asch add suppressed exception from rollback.
-                    return tx0.rollbackAsync().thenCompose(ignored -> failedFuture(e)); // Preserve failed state.
+                    return tx0.rollbackAsync().handle((ignored, err) -> {
+                        if (err != null) {
+                            e.addSuppressed(err);
+                        }
+
+                        throw (RuntimeException) e;
+                    }); // Preserve failed state.
                 }
                 else {
                     return implicit ? tx0.commitAsync().thenApply(ignored -> r) : completedFuture(r);

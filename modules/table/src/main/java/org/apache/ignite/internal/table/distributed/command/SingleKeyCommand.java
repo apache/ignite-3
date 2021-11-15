@@ -17,20 +17,58 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.io.Serializable;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.tx.Timestamp;
 
 /**
- * A single key command.
+ * A single key transactional command.
  */
-public interface SingleKeyCommand {
-    /**
-     * @return The row.
+public abstract class SingleKeyCommand implements Serializable {
+    /** Binary key row. */
+    private transient BinaryRow keyRow;
+
+    /** The timestamp. */
+    private final Timestamp timestamp;
+
+    /*
+     * Row bytes.
+     * It is a temporary solution, before network have not implement correct serialization BinaryRow.
+     * TODO: Remove the field after (IGNITE-14793).
      */
-    BinaryRow getRow();
+    private byte[] keyRowBytes;
+
+    /**
+     * @param keyRow The row.
+     * @param timestamp The timestamp.
+     */
+    public SingleKeyCommand(BinaryRow keyRow, Timestamp timestamp) {
+        assert keyRow != null;
+
+        this.keyRow = keyRow;
+        this.timestamp = timestamp;
+
+        keyRowBytes = CommandUtils.rowToBytes(keyRow);
+    }
+
+    /**
+     * Gets a binary key row to be deleted.
+     *
+     * @return Binary key.
+     */
+    public BinaryRow getRow() {
+        if (keyRow == null) {
+            keyRow = new ByteBufferRow(keyRowBytes);
+        }
+
+        return keyRow;
+    }
 
     /**
      * @return The timestamp.
      */
-    Timestamp getTimestamp();
+    public Timestamp getTimestamp() {
+        return timestamp;
+    }
 }

@@ -25,8 +25,6 @@ public interface RpcClientEx extends RpcClient {
 
     void stopBlock();
 
-    void stopBlock(int cnt);
-
     void recordMessages(BiPredicate<Object, String> predicate);
 
     void stopRecord();

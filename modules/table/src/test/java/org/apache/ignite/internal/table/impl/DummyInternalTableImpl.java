@@ -103,7 +103,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                 try {
                                     partitionListener.onRead(List.of(clo).iterator());
                                 }
-                                catch (Exception e) {
+                                catch (Throwable e) {
                                     res.completeExceptionally(new TransactionException(e));
                                 }
                             }
@@ -121,7 +121,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                 try {
                                     partitionListener.onWrite(List.of(clo).iterator());
                                 }
-                                catch (Exception e) {
+                                catch (Throwable e) {
                                     res.completeExceptionally(new TransactionException(e));
                                 }
                             }

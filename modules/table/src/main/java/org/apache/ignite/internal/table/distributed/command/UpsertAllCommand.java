@@ -26,53 +26,14 @@ import org.apache.ignite.raft.client.WriteCommand;
 /**
  * The command puts a batch rows.
  */
-public class UpsertAllCommand implements MultiKeyCommand, WriteCommand {
-    /** Binary rows. */
-    private transient Collection<BinaryRow> rows;
-
-    /*
-     * Row bytes.
-     * It is a temporary solution, before network have not implement correct serialization BinaryRow.
-     * TODO: Remove the field after (IGNITE-14793).
-     */
-    private byte[] rowsBytes;
-
-    /** The timestamp. */
-    private final Timestamp timestamp;
-
+public class UpsertAllCommand extends MultiKeyCommand implements WriteCommand {
     /**
      * Creates a new instance of UpsertAllCommand with the given rows to be upserted. The {@code rows} should not be {@code null} or empty.
      *
      * @param rows Binary rows.
+     * @param timestamp The timestamp.
      */
-    public UpsertAllCommand(Collection<BinaryRow> rows, Timestamp ts) {
-        assert rows != null && !rows.isEmpty();
-
-        this.rows = rows;
-        this.timestamp = ts;
-
-        CommandUtils.rowsToBytes(rows, bytes -> rowsBytes = bytes);
-    }
-
-    /**
-     * Gets a set of binary rows to be upserted.
-     *
-     * @return Binary rows.
-     */
-    @Override public Collection<BinaryRow> getRows() {
-        if (rows == null && rowsBytes != null) {
-            rows = new ArrayList<>();
-
-            CommandUtils.readRows(rowsBytes, rows::add);
-        }
-
-        return rows;
-    }
-
-    /**
-     * @return The timestamp.
-     */
-    @Override public Timestamp getTimestamp() {
-        return timestamp;
+    public UpsertAllCommand(Collection<BinaryRow> rows, Timestamp timestamp) {
+        super(rows, timestamp);
     }
 }

@@ -17,21 +17,60 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 
 /**
- * A multi key command.
+ * A multi key transactional command.
  */
-public interface MultiKeyCommand {
-    /**
-     * @return The list of related rows.
+public abstract class MultiKeyCommand implements Serializable {
+    /** Binary rows. */
+    private transient Collection<BinaryRow> rows;
+
+    /** The timestamp. */
+    private Timestamp timestamp;
+
+    /*
+     * Row bytes.
+     * It is a temporary solution, before network have not implement correct serialization BinaryRow.
+     * TODO: Remove the field after (IGNITE-14793).
      */
-    Collection<BinaryRow> getRows();
+    private byte[] rowsBytes;
+
+    /**
+     * @param rows Rows.
+     * @param ts The timestamp.
+     */
+    public MultiKeyCommand(Collection<BinaryRow> rows, Timestamp ts) {
+        assert rows != null && !rows.isEmpty();
+        this.rows = rows;
+        this.timestamp = ts;
+
+        rowsBytes = CommandUtils.rowsToBytes(rows);
+    }
+
+    /**
+     * Gets a collection of binary rows.
+     *
+     * @return Binary rows.
+     */
+    public Collection<BinaryRow> getRows() {
+        if (rows == null && rowsBytes != null) {
+            rows = new ArrayList<>();
+
+            CommandUtils.readRows(rowsBytes, rows::add);
+        }
+
+        return rows;
+    }
 
     /**
      * @return The timestamp.
      */
-    Timestamp getTimestamp();
+    public Timestamp getTimestamp() {
+        return timestamp;
+    }
 }

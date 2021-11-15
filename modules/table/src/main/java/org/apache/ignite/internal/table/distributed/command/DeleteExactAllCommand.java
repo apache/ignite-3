@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -27,55 +26,15 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command deletes entries that exact the same as the rows passed.
  */
-public class DeleteExactAllCommand implements MultiKeyCommand, WriteCommand {
-    /** Binary rows. */
-    private transient Collection<BinaryRow> rows;
-
-    /*
-     * Row bytes.
-     * It is a temporary solution, before network have not implement correct serialization BinaryRow.
-     * TODO: Remove the field after (IGNITE-14793).
-     */
-    private byte[] rowsBytes;
-
-    /** The timestamp. */
-    private final Timestamp timestamp;
-
+public class DeleteExactAllCommand extends MultiKeyCommand implements WriteCommand {
     /**
      * Creates a new instance of DeleteExactAllCommand with the given set of rows to be deleted. The {@code rows} should not be {@code null}
      * or empty.
      *
      * @param rows Binary rows.
-     * @param ts
+     * @param timestamp The timestamp.
      */
-    public DeleteExactAllCommand(@NotNull Collection<BinaryRow> rows, Timestamp ts) {
-        assert rows != null && !rows.isEmpty();
-
-        this.rows = rows;
-        this.timestamp = ts;
-
-        CommandUtils.rowsToBytes(rows, bytes -> rowsBytes = bytes);
-    }
-
-    /**
-     * Gets a set of binary rows to be deleted.
-     *
-     * @return Binary rows.
-     */
-    @Override public Collection<BinaryRow> getRows() {
-        if (rows == null && rowsBytes != null) {
-            rows = new ArrayList<>();
-
-            CommandUtils.readRows(rowsBytes, rows::add);
-        }
-
-        return rows;
-    }
-
-    /**
-     * @return The timestamp.
-     */
-    @Override public Timestamp getTimestamp() {
-        return timestamp;
+    public DeleteExactAllCommand(@NotNull Collection<BinaryRow> rows, Timestamp timestamp) {
+        super(rows, timestamp);
     }
 }

@@ -695,7 +695,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             assertTrue(accounts.recordView().deleteExact(makeValue(1, 100.)));
         });
 
-        assertNull(accounts.recordView().get(makeKey(1)));
+        Tuple actual = accounts.recordView().get(makeKey(1));
+
+        assertNull(actual);
     }
 
     @Test

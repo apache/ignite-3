@@ -19,7 +19,7 @@ package org.apache.ignite.tx;
 
 import org.apache.ignite.lang.IgniteException;
 
-/** */
+/** This exception is thrown when a transactional operation can't be finished by some reasons. */
 public class TransactionException extends IgniteException {
     /**
      * @param message The message.

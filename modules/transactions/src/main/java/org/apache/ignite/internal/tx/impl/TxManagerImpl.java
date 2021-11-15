@@ -57,40 +57,40 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * Factory.
      */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
-    
+
     /**
      *
      */
     private static final int TIMEOUT = 5_000;
-    
+
     /**
      *
      */
     private final ClusterService clusterService;
-    
+
     /**
      *
      */
     private final LockManager lockManager;
-    
+
     /**
      * The storage for tx states.
      * TODO asch use Storage for states, implement max size, implement replication.
      */
     private final ConcurrentHashMap<Timestamp, TxState> states = new ConcurrentHashMap<>();
-    
+
     /**
      * The storage for locks acquired by transactions. Each key is mapped to lock type where true is
      * for read. TODO asch use Storage for locks. Introduce limits, deny lock operation if the limit
      * is exceeded.
      */
     private final ConcurrentHashMap<Timestamp, Map<TableLockKey, Boolean>> locks = new ConcurrentHashMap<>();
-    
+
     /**
      * TODO asch remove and replace with expicit TX argument in table API calls.
      */
     private ThreadLocal<InternalTransaction> threadCtx = new ThreadLocal<>();
-    
+
     /**
      * @param clusterService Cluster service.
      * @param lockManager Lock manager.
@@ -99,20 +99,20 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.clusterService = clusterService;
         this.lockManager = lockManager;
     }
-    
+
     /**
      * {@inheritDoc}
      */
     @Override
     public InternalTransaction begin() {
         Timestamp ts = Timestamp.nextVersion();
-        
+
         states.put(ts, TxState.PENDING);
-        
+
         return new TransactionImpl(this, ts,
                 clusterService.topologyService().localMember().address());
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -120,7 +120,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public TxState state(Timestamp ts) {
         return states.get(ts);
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -128,7 +128,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public void forget(Timestamp ts) {
         states.remove(ts);
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -137,15 +137,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // TODO asch remove async
         if (changeState(ts, TxState.PENDING, TxState.COMMITED) || state(ts) == TxState.COMMITED) {
             unlockAll(ts);
-            
+
             return completedFuture(null);
         }
-        
+
         return failedFuture(new TransactionException(
                 LoggerMessageHelper.format("Failed to commit a transaction [ts={}, " +
                         "state={}]", ts, state(ts))));
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -155,25 +155,25 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // TODO asch split to tx coordinator and tx manager ?
         if (changeState(ts, TxState.PENDING, TxState.ABORTED) || state(ts) == TxState.ABORTED) {
             unlockAll(ts);
-            
+
             return completedFuture(null);
         }
-        
+
         return failedFuture(new TransactionException(
                 LoggerMessageHelper.format("Failed to rollback a transaction [ts={}, " +
                         "state={}]", ts, state(ts))));
     }
-    
+
     /**
      * @param tx The transaction.
      */
     private void unlockAll(Timestamp ts) {
         Map<TableLockKey, Boolean> locks = this.locks.remove(ts);
-        
+
         if (locks == null) {
             return;
         }
-        
+
         for (Map.Entry<TableLockKey, Boolean> lock : locks.entrySet()) {
             try {
                 if (lock.getValue()) {
@@ -186,7 +186,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             }
         }
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -194,7 +194,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public boolean changeState(Timestamp ts, TxState before, TxState after) {
         return states.replace(ts, before, after);
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -205,14 +205,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return failedFuture(new TransactionException(
                     "The operation is attempted for completed transaction"));
         }
-        
+
         // Should rollback tx on lock error.
         TableLockKey key = new TableLockKey(tableId, keyData);
-        
+
         return lockManager.tryAcquire(key, ts)
                 .thenAccept(ignored -> recordLock(key, ts, Boolean.FALSE));
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -222,13 +222,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return failedFuture(new TransactionException(
                     "The operation is attempted for completed transaction"));
         }
-        
+
         TableLockKey key = new TableLockKey(tableId, keyData);
-        
+
         return lockManager.tryAcquireShared(key, ts)
                 .thenAccept(ignored -> recordLock(key, ts, Boolean.TRUE));
     }
-    
+
     /**
      * Records the acquired lock for further unlocking.
      *
@@ -245,9 +245,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         if (map == null) {
                             map = new HashMap<>();
                         }
-                        
+
                         Boolean mode = map.get(key);
-                        
+
                         if (mode == null) {
                             map.put(key, read);
                         } else if (read == Boolean.FALSE
@@ -255,12 +255,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         {
                             map.put(key, Boolean.FALSE);
                         }
-                        
+
                         return map;
                     }
                 });
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -269,7 +269,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // TODO asch track originator or use broadcast recovery ?
         return states.putIfAbsent(ts, TxState.PENDING) == null;
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -281,17 +281,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             Set<String> groupIds
     ) {
         assert groupIds != null && !groupIds.isEmpty();
-        
+
         TxFinishRequest req = FACTORY.txFinishRequest().timestamp(ts).partitions(groupIds)
                 .commit(commit).build();
-        
+
         CompletableFuture<NetworkMessage> fut = clusterService.messagingService()
                 .invoke(addr, req, TIMEOUT);
-        
+
         return fut.thenApply(resp -> ((TxFinishResponse) resp).errorMessage()).thenCompose(msg ->
                 msg == null ? completedFuture(null) : failedFuture(new TransactionException(msg)));
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -299,25 +299,24 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public boolean isLocal(NetworkAddress node) {
         return clusterService.topologyService().localMember().address().equals(node);
     }
-    
+
     @Override
     public void setTx(InternalTransaction tx) {
         threadCtx.set(tx);
     }
-    
+
     @Override
     @Nullable
     public InternalTransaction tx() throws TransactionException {
         InternalTransaction tx = threadCtx.get();
-        
+
         if (tx != null && tx.thread() != Thread.currentThread()) {
-            throw new TransactionException(
-                    "Transactional operation is attempted from another thread");
+            throw new TransactionException("Transactional operation is attempted from another thread");
         }
-        
+
         return tx;
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -325,7 +324,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public void clearTx() {
         threadCtx.remove();
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -333,7 +332,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public int finished() {
         return states.size();
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -341,7 +340,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public void start() {
         clusterService.messagingService().addMessageHandler(TxMessageGroup.class, this);
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -349,7 +348,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public void stop() throws Exception {
         // No-op.
     }
-    
+
     /**
      *
      */
@@ -358,12 +357,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
          *
          */
         private final IgniteUuid tableId;
-        
+
         /**
          *
          */
         private final ByteBuffer key;
-        
+
         /**
          * @param tableId Table ID.
          * @param key The key.
@@ -372,7 +371,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             this.tableId = tableId;
             this.key = key;
         }
-        
+
         /**
          * {@inheritDoc}
          */
@@ -388,7 +387,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return tableId.equals(key1.tableId) &&
                     key.equals(key1.key);
         }
-        
+
         /**
          * {@inheritDoc}
          */
@@ -397,7 +396,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return Objects.hash(tableId, key);
         }
     }
-    
+
     /**
      * @return The lock manager.
      */
@@ -405,7 +404,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public LockManager getLockManager() {
         return lockManager;
     }
-    
+
     /**
      * @param groupId Group id.
      * @param ts The timestamp.
@@ -416,7 +415,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     protected CompletableFuture<?> onFinish(String groupId, Timestamp ts, boolean commit) {
         return CompletableFuture.completedFuture(null);
     };
-    
+
     /**
      * {@inheritDoc}
      */
@@ -426,18 +425,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // Support raft and transactions interop.
         if (message instanceof TxFinishRequest) {
             TxFinishRequest req = (TxFinishRequest) message;
-            
+
             Set<String> groupIds = req.partitions();
-            
+
             CompletableFuture[] futs = new CompletableFuture[groupIds.size()];
-            
+
             int i = 0;
-            
+
             // Finish enlisted groups.
             for (String groupId : groupIds) {
                 futs[i++] = onFinish(groupId, req.timestamp(), req.commit());
             }
-            
+
             CompletableFuture.allOf(futs).thenCompose(ignored -> req.commit() ?
                     commitAsync(req.timestamp()) :
                     rollbackAsync(req.timestamp()))
@@ -446,14 +445,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         public Void apply(Void ignored, Throwable err) {
                             // TODO asch report finish error code.
                             TxFinishResponseBuilder resp = FACTORY.txFinishResponse();
-                            
+
                             if (err != null) {
                                 resp.errorMessage(err.getMessage());
                             }
-    
+
                             clusterService.messagingService()
                                     .send(senderAddr, resp.build(), correlationId);
-                            
+
                             return null;
                         }
                     });

@@ -26,53 +26,14 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command deletes a entry by passed key.
  */
-public class DeleteCommand implements SingleKeyCommand, WriteCommand {
-    /** Binary key row. */
-    private transient BinaryRow keyRow;
-
-    /** The timestamp. */
-    private final Timestamp timestamp;
-
-    /*
-     * Row bytes.
-     * It is a temporary solution, before network have not implement correct serialization BinaryRow.
-     * TODO: Remove the field after (IGNITE-14793).
-     */
-    private byte[] keyRowBytes;
-
+public class DeleteCommand extends SingleKeyCommand implements WriteCommand {
     /**
      * Creates a new instance of DeleteCommand with the given key to be deleted. The {@code keyRow} should not be {@code null}.
      *
      * @param keyRow Binary key row.
+     * @param timestamp The timestamp.
      */
     public DeleteCommand(@NotNull BinaryRow keyRow, Timestamp timestamp) {
-        assert keyRow != null;
-
-        this.keyRow = keyRow;
-        this.timestamp = timestamp;
-
-        CommandUtils.rowToBytes(keyRow, bytes -> keyRowBytes = bytes);
-    }
-
-    /**
-     * Gets a binary key row to be deleted.
-     *
-     * @return Binary key.
-     */
-    @Override
-    public BinaryRow getRow() {
-        if (keyRow == null) {
-            keyRow = new ByteBufferRow(keyRowBytes);
-        }
-
-        return keyRow;
-    }
-
-    /**
-     * @return The timestamp.
-     */
-    @Override
-    public Timestamp getTimestamp() {
-        return timestamp;
+        super(keyRow, timestamp);
     }
 }

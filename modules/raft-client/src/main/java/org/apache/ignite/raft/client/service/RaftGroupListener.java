@@ -39,7 +39,7 @@ public interface RaftGroupListener {
      * @param iterator Read command iterator.
      */
     void onRead(Iterator<CommandClosure<ReadCommand>> iterator);
-    
+
     /**
      * The callback to apply write commands.
      *
@@ -53,7 +53,7 @@ public interface RaftGroupListener {
      * @param iterator Write command iterator.
      */
     void onWrite(Iterator<CommandClosure<WriteCommand>> iterator);
-    
+
     /**
      * The callback to save a snapshot. The execution should be asynchronous to avoid blocking of
      * STM updates.
@@ -63,7 +63,7 @@ public interface RaftGroupListener {
      * not been created or null on successful creation.
      */
     void onSnapshotSave(Path path, Consumer<Throwable> doneClo);
-    
+
     /**
      * The callback to load a snapshot.
      *
@@ -71,16 +71,16 @@ public interface RaftGroupListener {
      * @return {@code True} if the snapshot was loaded successfully.
      */
     boolean onSnapshotLoad(Path path);
-    
+
     /**
      * Invoked once after a raft node has been shut down.
      */
     void onShutdown();
-    
+
     /**
      * Invoked before submitting a command to a raft group.
      *
-     * @param cmd The command.
+     * @param command The command.
      * @return The future or null if no-op.
      */
     @Nullable CompletableFuture<Void> onBeforeApply(Command command);

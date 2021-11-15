@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
@@ -26,20 +25,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command inserts or updates a value for the key specified.
  */
-public class UpsertCommand implements SingleKeyCommand, WriteCommand {
-    /** The timestamp. */
-    private final Timestamp timestamp;
-
-    /** Binary row. */
-    private transient BinaryRow row;
-
-    /*
-     * Row bytes.
-     * It is a temporary solution, before network have not implement correct serialization BinaryRow.
-     * TODO: Remove the field after (IGNITE-14793).
-     */
-    private byte[] rowBytes;
-
+public class UpsertCommand extends SingleKeyCommand implements WriteCommand {
     /**
      * Creates a new instance of UpsertCommand with the given row to be upserted. The {@code row} should not be {@code null}.
      *
@@ -47,32 +33,6 @@ public class UpsertCommand implements SingleKeyCommand, WriteCommand {
      * @param timestamp The timestamp.
      */
     public UpsertCommand(@NotNull BinaryRow row, Timestamp timestamp) {
-        assert row != null;
-
-        this.row = row;
-        this.timestamp = timestamp;
-
-        CommandUtils.rowToBytes(row, bytes -> rowBytes = bytes);
-    }
-
-    /**
-     * Gets a binary row to be upserted.
-     *
-     * @return Binary row.
-     */
-    @Override
-    public BinaryRow getRow() {
-        if (row == null) {
-            row = new ByteBufferRow(rowBytes);
-        }
-
-        return row;
-    }
-
-    /**
-     * @return The timestamp.
-     */
-    @Override public Timestamp getTimestamp() {
-        return timestamp;
+        super(row, timestamp);
     }
 }

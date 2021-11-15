@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -27,52 +26,15 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command deletes entries by the passed keys.
  */
-public class DeleteAllCommand implements MultiKeyCommand, WriteCommand {
-    /** Binary rows. */
-    private transient Collection<BinaryRow> rows;
-
-    /*
-     * Row bytes.
-     * It is a temporary solution, before network have not implement correct serialization BinaryRow.
-     * TODO: Remove the field after (IGNITE-14793).
-     */
-    private byte[] rowsBytes;
-
-    /** The timestamp. */
-    private final Timestamp timestamp;
-
+public class DeleteAllCommand extends MultiKeyCommand implements WriteCommand {
     /**
      * Creates a new instance of DeleteAllCommand with the given set of keys to be deleted. The {@code keyRows} should not be {@code null}
      * or empty.
      *
      * @param keyRows Collection of binary row keys to be deleted.
-     * @param ts
+     * @param timestamp The timestamp.
      */
-    public DeleteAllCommand(@NotNull Collection<BinaryRow> keyRows, Timestamp ts) {
-        assert keyRows != null && !keyRows.isEmpty();
-
-        this.rows = keyRows;
-        this.timestamp = ts;
-
-        CommandUtils.rowsToBytes(keyRows, bytes -> rowsBytes = bytes);
-    }
-
-    /**
-     * Returns a set of binary key rows to be deleted.
-     *
-     * @return Binary keys.
-     */
-    @Override public Collection<BinaryRow> getRows() {
-        if (rows == null && rowsBytes != null) {
-            rows = new ArrayList<>();
-
-            CommandUtils.readRows(rowsBytes, rows::add);
-        }
-
-        return rows;
-    }
-
-    @Override public Timestamp getTimestamp() {
-        return timestamp;
+    public DeleteAllCommand(@NotNull Collection<BinaryRow> keyRows, Timestamp timestamp) {
+        super(keyRows, timestamp);
     }
 }

@@ -26,54 +26,15 @@ import org.jetbrains.annotations.NotNull;
 /**
  * This is a command to get a value before delete it.
  */
-public class GetAndDeleteCommand implements SingleKeyCommand, WriteCommand {
-    /** Binary key row. */
-    private transient BinaryRow keyRow;
-
-    /*
-     * Row bytes.
-     * It is a temporary solution, before network have not implement correct serialization BinaryRow.
-     * TODO: Remove the field after (IGNITE-14793).
-     */
-    private byte[] keyRowBytes;
-
-    /** The timestamp. */
-    private final Timestamp timestamp;
-
+public class GetAndDeleteCommand extends SingleKeyCommand implements WriteCommand {
     /**
      * Creates a new instance of GetAndDeleteCommand with the given key to be got and deleted. The {@code keyRow} should not be {@code
      * null}.
      *
      * @param keyRow Binary key row.
-     * @param ts The timestamp.
+     * @param timestamp The timestamp.
      */
-    public GetAndDeleteCommand(@NotNull BinaryRow keyRow, Timestamp ts) {
-        assert keyRow != null;
-
-        this.keyRow = keyRow;
-        this.timestamp = ts;
-
-        CommandUtils.rowToBytes(keyRow, bytes -> keyRowBytes = bytes);
-    }
-
-    /**
-     * Gets a binary key row to be got and deleted.
-     *
-     * @return Binary key.
-     */
-    @Override
-    public BinaryRow getRow() {
-        if (keyRow == null) {
-            keyRow = new ByteBufferRow(keyRowBytes);
-        }
-
-        return keyRow;
-    }
-
-    /**
-     * @return The timestamp.
-     */
-    @Override public Timestamp getTimestamp() {
-        return timestamp;
+    public GetAndDeleteCommand(@NotNull BinaryRow keyRow, Timestamp timestamp) {
+        super(keyRow, timestamp);
     }
 }

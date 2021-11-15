@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.jetbrains.annotations.NotNull;
@@ -26,20 +25,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command gets a value by key specified.
  */
-public class GetCommand implements SingleKeyCommand, ReadCommand {
-    /** The timestamp or null for implicit read. */
-    private final Timestamp timestamp;
-
-    /** Binary key row. */
-    private transient BinaryRow keyRow;
-
-    /*
-     * Row bytes.
-     * It is a temporary solution, before network have not implement correct serialization BinaryRow.
-     * TODO: Remove the field after (IGNITE-14793).
-     */
-    private byte[] keyRowBytes;
-
+public class GetCommand extends SingleKeyCommand implements ReadCommand {
     /**
      * Creates a new instance of GetCommand with the given key to be got. The {@code keyRow} should not be {@code null}.
      *
@@ -47,32 +33,6 @@ public class GetCommand implements SingleKeyCommand, ReadCommand {
      * @param timestamp The timestamp.
      */
     public GetCommand(@NotNull BinaryRow keyRow, Timestamp timestamp) {
-        assert keyRow != null;
-
-        this.keyRow = keyRow;
-        this.timestamp = timestamp;
-
-        CommandUtils.rowToBytes(keyRow, bytes -> keyRowBytes = bytes);
-    }
-
-    /**
-     * Gets a binary key row to be got.
-     *
-     * @return Binary key.
-     */
-    @Override
-    public BinaryRow getRow() {
-        if (keyRow == null) {
-            keyRow = new ByteBufferRow(keyRowBytes);
-        }
-
-        return keyRow;
-    }
-
-    /**
-     * @return The timestamp.
-     */
-    @Override public Timestamp getTimestamp() {
-        return timestamp;
+        super(keyRow, timestamp);
     }
 }

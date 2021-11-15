@@ -30,7 +30,7 @@ public interface InternalTransaction extends Transaction {
      * @return The timestamp.
      */
     Timestamp timestamp();
-    
+
     /**
      * Returns a transaction map on topology.
      *
@@ -38,25 +38,25 @@ public interface InternalTransaction extends Transaction {
      */
     @TestOnly
     Set<RaftGroupService> map();
-    
+
     /**
      * @return The state.
      */
     TxState state();
-    
+
     /**
-     * @param RaftGroupService svc.
-     * @return {@code True} if a node is enlisted into the transaction.
+     * @param svc Partition service.
+     * @return {@code True} if a partition is enlisted into the transaction.
      */
     boolean enlist(RaftGroupService svc);
-    
+
     /**
      * Sets a thread of control for a transaction.
      *
      * @param t The thread.
      */
     void thread(Thread t);
-    
+
     /**
      * @return The thread of control, if presents.
      */

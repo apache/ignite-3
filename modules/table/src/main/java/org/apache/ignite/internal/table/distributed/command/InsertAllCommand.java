@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -27,20 +26,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command inserts a batch rows.
  */
-public class InsertAllCommand implements MultiKeyCommand, WriteCommand {
-    /** Binary rows. */
-    private transient Collection<BinaryRow> rows;
-
-    /*
-     * Row bytes.
-     * It is a temporary solution, before network have not implement correct serialization BinaryRow.
-     * TODO: Remove the field after (IGNITE-14793).
-     */
-    private byte[] rowsBytes;
-
-    /** The timestamp. */
-    private Timestamp timestamp;
-
+public class InsertAllCommand extends MultiKeyCommand implements WriteCommand {
     /**
      * Creates a new instance of InsertAllCommand with the given rows to be inserted. The {@code rows} should not be {@code null} or empty.
      *
@@ -48,30 +34,6 @@ public class InsertAllCommand implements MultiKeyCommand, WriteCommand {
      * @param ts The timestamp.
      */
     public InsertAllCommand(@NotNull Collection<BinaryRow> rows, Timestamp ts) {
-        assert rows != null && !rows.isEmpty();
-
-        this.rows = rows;
-        this.timestamp = ts;
-
-        CommandUtils.rowsToBytes(rows, bytes -> rowsBytes = bytes);
-    }
-
-    /**
-     * Gets a set of binary rows to be inserted.
-     *
-     * @return Binary rows.
-     */
-    @Override public Collection<BinaryRow> getRows() {
-        if (rows == null && rowsBytes != null) {
-            rows = new ArrayList<>();
-
-            CommandUtils.readRows(rowsBytes, rows::add);
-        }
-
-        return rows;
-    }
-
-    @Override public Timestamp getTimestamp() {
-        return timestamp;
+        super(rows, ts);
     }
 }
