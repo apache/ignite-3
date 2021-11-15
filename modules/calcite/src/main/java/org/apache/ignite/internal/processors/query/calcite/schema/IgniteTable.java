@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.calcite.extension;
+package org.apache.ignite.internal.processors.query.calcite.schema;
 
 import java.util.List;
 import org.apache.calcite.config.CalciteConnectionConfig;
@@ -32,7 +32,6 @@ import org.apache.calcite.schema.Wrapper;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.processors.query.calcite.schema.TableDescriptor;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -87,32 +86,24 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
      */
     IgniteDistribution distribution();
     
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     default Schema.TableType getJdbcTableType() {
         return Schema.TableType.TABLE;
     }
     
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     default boolean isRolledUp(String column) {
         return false;
     }
     
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     default boolean rolledUpColumnValidInsideAgg(String column, SqlCall call,
             @Nullable SqlNode parent,
             @Nullable CalciteConnectionConfig config) {
         return false;
     }
     
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     default Statistic getStatistic() {
         return new Statistic() {
             @Override
@@ -122,9 +113,7 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
         };
     }
     
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     default <C> @Nullable C unwrap(Class<C> cls) {
         if (cls.isInstance(this)) {
