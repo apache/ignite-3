@@ -54,23 +54,17 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /**
-     * Factory.
+     * Tx messages factory.
      */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
-    /**
-     *
-     */
+    /** Tx finish timeout. */
     private static final int TIMEOUT = 5_000;
 
-    /**
-     *
-     */
+    /** Cluster service. */
     private final ClusterService clusterService;
 
-    /**
-     *
-     */
+    /** Lock manager. */
     private final LockManager lockManager;
 
     /**
@@ -100,9 +94,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.lockManager = lockManager;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public InternalTransaction begin() {
         Timestamp ts = Timestamp.nextVersion();
@@ -113,9 +105,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 clusterService.topologyService().localMember().address());
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public TxState state(Timestamp ts) {
         return states.get(ts);
@@ -129,9 +119,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         states.remove(ts);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> commitAsync(Timestamp ts) {
         // TODO asch remove async
@@ -146,9 +134,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         "state={}]", ts, state(ts))));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync(Timestamp ts) {
         // TODO asch remove async
@@ -187,17 +173,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean changeState(Timestamp ts, TxState before, TxState after) {
         return states.replace(ts, before, after);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> writeLock(IgniteUuid tableId, ByteBuffer keyData, Timestamp ts) {
         // TODO asch process tx messages in striped fasion to avoid races. But locks can be acquired from any thread !
@@ -213,9 +195,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 .thenAccept(ignored -> recordLock(key, ts, Boolean.FALSE));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> readLock(IgniteUuid tableId, ByteBuffer keyData, Timestamp ts) {
         if (state(ts) != TxState.PENDING) {
@@ -261,18 +241,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 });
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean getOrCreateTransaction(Timestamp ts) {
         // TODO asch track originator or use broadcast recovery ?
         return states.putIfAbsent(ts, TxState.PENDING) == null;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> finishRemote(
             NetworkAddress addr,
@@ -292,9 +268,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 msg == null ? completedFuture(null) : failedFuture(new TransactionException(msg)));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean isLocal(NetworkAddress node) {
         return clusterService.topologyService().localMember().address().equals(node);
@@ -317,33 +291,25 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         return tx;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void clearTx() {
         threadCtx.remove();
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public int finished() {
         return states.size();
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void start() {
         clusterService.messagingService().addMessageHandler(TxMessageGroup.class, this);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
         // No-op.
@@ -353,14 +319,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      *
      */
     private static class TableLockKey {
-        /**
-         *
-         */
+        /** Table id. */
         private final IgniteUuid tableId;
 
-        /**
-         *
-         */
+        /** The key. */
         private final ByteBuffer key;
 
         /**
@@ -372,9 +334,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             this.key = key;
         }
 
-        /**
-         * {@inheritDoc}
-         */
+        /** {@inheritDoc} */
         @Override
         public boolean equals(Object o) {
             if (this == o) {
@@ -388,9 +348,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     key.equals(key1.key);
         }
 
-        /**
-         * {@inheritDoc}
-         */
+        /** {@inheritDoc} */
         @Override
         public int hashCode() {
             return Objects.hash(tableId, key);
@@ -416,9 +374,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         return CompletableFuture.completedFuture(null);
     };
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void onReceived(NetworkMessage message, NetworkAddress senderAddr,
             String correlationId) {
@@ -426,15 +382,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         if (message instanceof TxFinishRequest) {
             TxFinishRequest req = (TxFinishRequest) message;
 
-            Set<String> groupIds = req.partitions();
+            Set<String> groups = req.groups();
 
-            CompletableFuture[] futs = new CompletableFuture[groupIds.size()];
+            CompletableFuture[] futs = new CompletableFuture[groups.size()];
 
             int i = 0;
 
             // Finish enlisted groups.
-            for (String groupId : groupIds) {
-                futs[i++] = onFinish(groupId, req.timestamp(), req.commit());
+            for (String grp : groups) {
+                futs[i++] = onFinish(grp, req.timestamp(), req.commit());
             }
 
             CompletableFuture.allOf(futs).thenCompose(ignored -> req.commit() ?

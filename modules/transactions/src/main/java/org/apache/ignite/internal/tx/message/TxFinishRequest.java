@@ -32,14 +32,14 @@ public interface TxFinishRequest extends NetworkMessage, Serializable {
      * @return The timestamp.
      */
     Timestamp timestamp();
-    
+
     /**
      * @return {@code True} to commit.
      */
     boolean commit();
-    
+
     /**
      * @return Enlisted partition groups.
      */
-    Set<String> partitions();
+    Set<String> groups();
 }

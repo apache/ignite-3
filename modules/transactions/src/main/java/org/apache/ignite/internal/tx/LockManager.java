@@ -26,7 +26,7 @@ import org.jetbrains.annotations.TestOnly;
  * Lock manager allows to acquire locks in shared and exclusive mode and supports deadlock
  * prevention by timestamp ordering.
  */
-public interface LockManager extends IgniteComponent {
+public interface LockManager {
     /**
      * Attempts to acquire a lock for the specified {@code key} in exclusive mode.
      *
@@ -36,7 +36,7 @@ public interface LockManager extends IgniteComponent {
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
     public CompletableFuture<Void> tryAcquire(Object key, Timestamp timestamp);
-    
+
     /**
      * Attempts to release a lock for the specified {@code key} in exclusive mode.
      *
@@ -45,7 +45,7 @@ public interface LockManager extends IgniteComponent {
      * @throws LockException If the unlock operation is invalid.
      */
     public void tryRelease(Object key, Timestamp timestamp) throws LockException;
-    
+
     /**
      * Attempts to acquire a lock for the specified {@code key} in shared mode.
      *
@@ -55,7 +55,7 @@ public interface LockManager extends IgniteComponent {
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
     public CompletableFuture<Void> tryAcquireShared(Object key, Timestamp timestamp);
-    
+
     /**
      * Attempts to release a lock for the specified {@code key} in shared mode.
      *
@@ -64,7 +64,7 @@ public interface LockManager extends IgniteComponent {
      * @throws LockException If the unlock operation is invalid.
      */
     public void tryReleaseShared(Object key, Timestamp timestamp) throws LockException;
-    
+
     /**
      * Returns a collection of timestamps that is associated with the specified {@code key}.
      *
@@ -73,7 +73,7 @@ public interface LockManager extends IgniteComponent {
      */
     @TestOnly
     public Collection<Timestamp> queue(Object key);
-    
+
     /**
      * Returns a waiter associated with the specified {@code key}.
      *
@@ -83,7 +83,7 @@ public interface LockManager extends IgniteComponent {
      */
     @TestOnly
     public Waiter waiter(Object key, Timestamp timestamp);
-    
+
     /**
      * @return {@code True} if no locks have been acquired.
      */

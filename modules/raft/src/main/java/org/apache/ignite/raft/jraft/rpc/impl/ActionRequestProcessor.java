@@ -65,20 +65,19 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     public void handleRequest(RpcContext rpcCtx, ActionRequest request) {
         Node node = rpcCtx.getNodeManager()
                 .get(request.groupId(), new PeerId(rpcCtx.getLocalAddress()));
-    
+
         if (node == null) {
-            rpcCtx.sendResponse(
-                    factory.errorResponse().errorCode(RaftError.UNKNOWN.getNumber()).build());
-        
+            rpcCtx.sendResponse(factory.errorResponse().errorCode(RaftError.UNKNOWN.getNumber()).build());
+
             return;
         }
-    
+
         JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) node
                 .getOptions().getFsm();
-    
+
         // Apply a filter before commiting to STM.
         CompletableFuture<Void> fut = fsm.getListener().onBeforeApply(request.command());
-    
+
         if (fut != null) {
             fut.handle(new BiFunction<Void, Throwable, Void>() {
                 @Override
@@ -92,7 +91,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                     } else {
                         sendSMError(rpcCtx, err, false);
                     }
-                
+
                     return null;
                 }
             });
@@ -124,7 +123,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
                         rpcCtx.sendResponse(factory.actionResponse().result(res).build());
                     }
-                
+
                     @Override
                     public void run(Status status) {
                         assert !status.isOk() : status;
@@ -146,20 +145,20 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                     if (status.isOk()) {
                         JraftServerImpl.DelegatingStateMachine fsm =
                                 (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
-                
+
                         try {
                             fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
                                 @Override public ReadCommand command() {
                                     return (ReadCommand)request.command();
                                 }
-                        
+
                                 @Override public void result(Serializable res) {
                                     if (res instanceof Throwable) {
                                         sendSMError(rpcCtx, (Throwable)res, true);
-                                
+
                                         return;
                                     }
-                            
+
                                     rpcCtx.sendResponse(factory.actionResponse().result(res).build());
                                 }
                             }).iterator());
@@ -176,17 +175,17 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             // TODO asch remove copy paste, batching https://issues.apache.org/jira/browse/IGNITE-14832
             JraftServerImpl.DelegatingStateMachine fsm =
                     (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
-    
+
             try {
                 fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
                     @Override public ReadCommand command() {
                         return (ReadCommand)request.command();
                     }
-            
+
                     @Override public void result(Serializable res) {
                         if (res instanceof Throwable) {
                             sendSMError(rpcCtx, (Throwable)res, true);
-                    
+
                             return;
                         }
                         rpcCtx.sendResponse(factory.actionResponse().result(res).build());
