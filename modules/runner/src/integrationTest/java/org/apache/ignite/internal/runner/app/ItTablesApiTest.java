@@ -18,16 +18,12 @@
 package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
+import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.doAnswer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,7 +38,6 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.ItUtils;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -62,7 +57,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.platform.commons.util.ReflectionUtils;
 
 /**
  * Integration tests to check consistent of java API on different nodes.
@@ -375,7 +369,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         
         Ignite ignite1 = clusterNodes.get(1);
 
-        WatchListenerInhibitor ignite1Inhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(ignite1);
+        WatchListenerInhibitor ignite1Inhibitor = metastorageEventsInhibitor(ignite1);
 
         ignite1Inhibitor.startInhibit();
         
