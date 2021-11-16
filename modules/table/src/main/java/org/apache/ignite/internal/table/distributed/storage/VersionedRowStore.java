@@ -42,14 +42,14 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * TODO asch use read only buffers ? replace Pair from ignite-schema
- * TODO asch can use some sort of a cache on tx coordinator to avoid network IO.
+ * TODO asch use read only buffers ? replace Pair from ignite-schema TODO asch can use some sort of a cache on tx coordinator to avoid
+ * network IO.
  */
 public class VersionedRowStore {
     /** Storage delegate. */
     private final PartitionStorage storage;
-    
-    /** */
+
+    /** Transaction manager. */
     private TxManager txManager;
 
     /**
@@ -62,8 +62,8 @@ public class VersionedRowStore {
     }
 
     /**
-     * Decodes a storage row to a pair where the first is an actual value (visible to a current transaction) and the
-     * second is an old value used for rollback.
+     * Decodes a storage row to a pair where the first is an actual value (visible to a current transaction) and the second is an old value
+     * used for rollback.
      *
      * @param row The row.
      * @param ts Timestamp ts.
@@ -100,8 +100,9 @@ public class VersionedRowStore {
 
         List<BinaryRow> res = new ArrayList<>(keyRows.size());
 
-        for (BinaryRow keyRow : keyRows)
+        for (BinaryRow keyRow : keyRows) {
             res.add(get(keyRow, ts));
+        }
 
         return res;
     }
@@ -125,7 +126,8 @@ public class VersionedRowStore {
      * @param ts The timestamp.
      * @return Previous row.
      */
-    @Nullable public BinaryRow getAndUpsert(@NotNull BinaryRow row, Timestamp ts) {
+    @Nullable
+    public BinaryRow getAndUpsert(@NotNull BinaryRow row, Timestamp ts) {
         assert row != null;
 
         BinaryRow oldRow = get(row, ts);
@@ -147,8 +149,9 @@ public class VersionedRowStore {
 
         Pair<BinaryRow, BinaryRow> pair = resolve(unpack(storage.read(key)), ts);
 
-        if (pair.getFirst() == null)
+        if (pair.getFirst() == null) {
             return false;
+        }
 
         // Write a tombstone.
         storage.write(pack(key, new Value(null, pair.getSecond(), ts)));
@@ -163,8 +166,9 @@ public class VersionedRowStore {
     public void upsertAll(Collection<BinaryRow> rows, Timestamp ts) {
         assert rows != null && !rows.isEmpty();
 
-        for (BinaryRow row : rows)
+        for (BinaryRow row : rows) {
             upsert(row, ts);
+        }
     }
 
     /**
@@ -178,8 +182,9 @@ public class VersionedRowStore {
 
         Pair<BinaryRow, BinaryRow> pair = resolve(unpack(storage.read(key)), ts);
 
-        if (pair.getFirst() != null)
+        if (pair.getFirst() != null) {
             return false;
+        }
 
         storage.write(pack(key, new Value(row, null, ts)));
 
@@ -197,8 +202,9 @@ public class VersionedRowStore {
         List<BinaryRow> inserted = new ArrayList<>(rows.size());
 
         for (BinaryRow row : rows) {
-            if (!insert(row, ts))
+            if (!insert(row, ts)) {
                 inserted.add(row);
+            }
         }
 
         return inserted;
@@ -218,9 +224,9 @@ public class VersionedRowStore {
             upsert(row, ts);
 
             return true;
-        }
-        else
+        } else {
             return false;
+        }
     }
 
     /**
@@ -239,9 +245,9 @@ public class VersionedRowStore {
             upsert(newRow, ts);
 
             return true;
-        }
-        else
+        } else {
             return false;
+        }
     }
 
     /**
@@ -256,9 +262,9 @@ public class VersionedRowStore {
             upsert(row, ts);
 
             return oldRow;
-        }
-        else
+        } else {
             return null;
+        }
     }
 
     /**
@@ -276,9 +282,9 @@ public class VersionedRowStore {
             delete(oldRow, ts);
 
             return true;
-        }
-        else
+        } else {
             return false;
+        }
     }
 
     /**
@@ -293,9 +299,9 @@ public class VersionedRowStore {
             delete(oldRow, ts);
 
             return oldRow;
-        }
-        else
+        } else {
             return null;
+        }
     }
 
     /**
@@ -307,8 +313,9 @@ public class VersionedRowStore {
         var notDeleted = new ArrayList<BinaryRow>();
 
         for (BinaryRow keyRow : keyRows) {
-            if (!delete(keyRow, ts))
+            if (!delete(keyRow, ts)) {
                 notDeleted.add(keyRow);
+            }
         }
 
         return notDeleted;
@@ -325,8 +332,9 @@ public class VersionedRowStore {
         var notDeleted = new ArrayList<BinaryRow>(rows.size());
 
         for (BinaryRow row : rows) {
-            if (!deleteExact(row, ts))
+            if (!deleteExact(row, ts)) {
                 notDeleted.add(row);
+            }
         }
 
         return notDeleted;
@@ -337,8 +345,9 @@ public class VersionedRowStore {
      * @return Extracted key.
      */
     private boolean equalValues(@NotNull BinaryRow row, @NotNull BinaryRow row2) {
-        if (row.hasValue() ^ row2.hasValue())
+        if (row.hasValue() ^ row2.hasValue()) {
             return false;
+        }
 
         return row.valueSlice().compareTo(row2.valueSlice()) == 0;
     }
@@ -356,7 +365,8 @@ public class VersionedRowStore {
      * @param row Binary row.
      * @return Data row.
      */
-    @NotNull private static DataRow extractAndWrapKeyValue(@NotNull BinaryRow row) {
+    @NotNull
+    private static DataRow extractAndWrapKeyValue(@NotNull BinaryRow row) {
         byte[] key = new byte[row.keySlice().capacity()];
         row.keySlice().get(key);
 
@@ -369,7 +379,8 @@ public class VersionedRowStore {
      * @param row Binary row.
      * @return Search row.
      */
-    @NotNull private static SearchRow extractAndWrapKey(@NotNull BinaryRow row) {
+    @NotNull
+    private static SearchRow extractAndWrapKey(@NotNull BinaryRow row) {
         // TODO asch can reuse thread local byte buffer
         byte[] key = new byte[row.keySlice().capacity()];
         row.keySlice().get(key);
@@ -378,14 +389,15 @@ public class VersionedRowStore {
     }
 
     /**
-     * Unpacks a raw value into (cur, old, ts) triplet.
-     * TODO asch not very efficient.
+     * Unpacks a raw value into (cur, old, ts) triplet. TODO asch not very efficient.
+     *
      * @param row The row.
      * @return The value.
      */
     private static Value unpack(@Nullable DataRow row) {
-        if (row == null)
+        if (row == null) {
             return new Value(null, null, null);
+        }
 
         ByteBuffer buf = row.value();
 
@@ -455,15 +467,17 @@ public class VersionedRowStore {
 
         buf.position(4);
 
-        if (l1 > 0)
+        if (l1 > 0) {
             buf.put(b1);
+        }
 
         buf.asIntBuffer().put(l2);
 
         buf.position(buf.position() + 4);
 
-        if (l2 > 0)
+        if (l2 > 0) {
             buf.put(b2);
+        }
 
         buf.putLong(value.timestamp.getTimestamp());
         buf.putLong(value.timestamp.getNodeId());
@@ -472,10 +486,10 @@ public class VersionedRowStore {
     }
 
     /**
-     * @see {@link #versionedRow(DataRow, Timestamp)}
      * @param val The value.
      * @param ts The transaction
      * @return New and old rows pair.
+     * @see {@link #versionedRow(DataRow, Timestamp)}
      */
     private Pair<BinaryRow, BinaryRow> resolve(Value val, Timestamp ts) {
         if (val.timestamp == null) { // New or after reset.
@@ -485,17 +499,20 @@ public class VersionedRowStore {
         }
 
         // Checks "inTx" condition. Will be false if this is a first transactional op.
-        if (val.timestamp.equals(ts))
+        if (val.timestamp.equals(ts)) {
             return new Pair<>(val.newRow, val.oldRow);
+        }
 
         TxState state = txManager.state(val.timestamp);
 
         BinaryRow cur;
 
         if (state == TxState.ABORTED) // Was aborted and had written a temp value.
+        {
             cur = val.oldRow;
-        else
+        } else {
             cur = val.newRow;
+        }
 
         return new Pair<>(cur, cur);
     }
@@ -523,19 +540,24 @@ public class VersionedRowStore {
         Cursor<DataRow> delegate = storage.scan(pred);
 
         return new Cursor<BinaryRow>() {
-            @Override public void close() throws Exception {
+            @Override
+            public void close() throws Exception {
                 delegate.close();
             }
 
-            @NotNull @Override public Iterator<BinaryRow> iterator() {
+            @NotNull
+            @Override
+            public Iterator<BinaryRow> iterator() {
                 return this;
             }
 
-            @Override public boolean hasNext() {
+            @Override
+            public boolean hasNext() {
                 return delegate.hasNext();
             }
 
-            @Override public BinaryRow next() {
+            @Override
+            public BinaryRow next() {
                 DataRow row = delegate.next();
 
                 return versionedRow(row, null).getFirst(); // TODO asch add tx support.
@@ -547,13 +569,19 @@ public class VersionedRowStore {
      * Versioned value.
      */
     private static class Value {
-        /** Current value. */
+        /**
+         * Current value.
+         */
         BinaryRow newRow;
 
-        /** The value for rollback. */
+        /**
+         * The value for rollback.
+         */
         @Nullable BinaryRow oldRow;
 
-        /** Transaction's timestamp. */
+        /**
+         * Transaction's timestamp.
+         */
         Timestamp timestamp;
 
         Value(@Nullable BinaryRow newRow, @Nullable BinaryRow oldRow, Timestamp timestamp) {
@@ -567,10 +595,14 @@ public class VersionedRowStore {
      * Wrapper provides correct byte[] comparison.
      */
     public static class KeyWrapper {
-        /** Data. */
+        /**
+         * Data.
+         */
         private final byte[] data;
 
-        /** Hash. */
+        /**
+         * Hash.
+         */
         private final int hash;
 
         /**
@@ -585,20 +617,28 @@ public class VersionedRowStore {
             this.hash = hash;
         }
 
-        /** {@inheritDoc} */
-        @Override public boolean equals(Object o) {
-            if (this == o)
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
                 return true;
+            }
 
-            if (o == null || getClass() != o.getClass())
+            if (o == null || getClass() != o.getClass()) {
                 return false;
+            }
 
-            KeyWrapper wrapper = (KeyWrapper)o;
+            KeyWrapper wrapper = (KeyWrapper) o;
             return Arrays.equals(data, wrapper.data);
         }
 
-        /** {@inheritDoc} */
-        @Override public int hashCode() {
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public int hashCode() {
             return hash;
         }
     }
@@ -621,10 +661,14 @@ public class VersionedRowStore {
      * Adapter that converts a {@link BinaryRow} into a {@link SearchRow}.
      */
     private static class BinarySearchRow implements SearchRow {
-        /** Search key. */
+        /**
+         * Search key.
+         */
         private final byte[] keyBytes;
 
-        /** Source row. */
+        /**
+         * Source row.
+         */
         private final BinaryRow sourceRow;
 
         /**
@@ -637,13 +681,19 @@ public class VersionedRowStore {
             row.keySlice().get(keyBytes);
         }
 
-        /** {@inheritDoc} */
-        @Override public byte @NotNull [] keyBytes() {
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public byte @NotNull [] keyBytes() {
             return keyBytes;
         }
 
-        /** {@inheritDoc} */
-        @Override public @NotNull ByteBuffer key() {
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public @NotNull ByteBuffer key() {
             return ByteBuffer.wrap(keyBytes);
         }
     }

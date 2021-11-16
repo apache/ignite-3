@@ -75,7 +75,7 @@ public class CommandUtils {
      * Writes a row to byte array.
      *
      * @param row      Row.
-     * @param consumer Byte array consumer.
+     * @return         Row bytes.
      */
     public static byte[] rowToBytes(@Nullable BinaryRow row) {
         if (row == null) {

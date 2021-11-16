@@ -103,7 +103,7 @@ public class InternalTableImpl implements InternalTable {
     /** Table schema mode. */
     private volatile SchemaManagementMode schemaMode;
 
-    /** TX manager. */
+    /** Transactional manager. */
     private final TxManager txManager;
 
     /** Storage for table data. */
@@ -112,9 +112,9 @@ public class InternalTableImpl implements InternalTable {
     /**
      * Constructor.
      *
-     * @param tableName  Table name.
-     * @param tableId    Table id.
-     * @param partMap    Map partition id to raft group.
+     * @param tableName Table name.
+     * @param tableId Table id.
+     * @param partMap Map partition id to raft group.
      * @param partitions Partitions.
      * @param txManager Transaction manager.
      * @param tableStorage Table storage.
@@ -182,20 +182,18 @@ public class InternalTableImpl implements InternalTable {
      * @param reducer The reducer.
      * @param <R> Reducer's input.
      * @param <T> Reducer's output.
-     *
      * @return The future.
      */
     private <R, T> CompletableFuture<T> wrapInTx(
-        Collection<BinaryRow> keyRows,
-        InternalTransaction tx,
-        BiFunction<Collection<BinaryRow>, InternalTransaction, Command> op,
-        Function<CompletableFuture<R>[], CompletableFuture<T>> reducer
+            Collection<BinaryRow> keyRows,
+            InternalTransaction tx,
+            BiFunction<Collection<BinaryRow>, InternalTransaction, Command> op,
+            Function<CompletableFuture<R>[], CompletableFuture<T>> reducer
     ) {
         if (tx == null) {
             try {
                 tx = txManager.tx();
-            }
-            catch (TransactionException e) {
+            } catch (TransactionException e) {
                 return failedFuture(e);
             }
         }
@@ -228,20 +226,18 @@ public class InternalTableImpl implements InternalTable {
      * @param trans Transform closure.
      * @param <R> Transform input.
      * @param <T> Transform output.
-     *
      * @return The future.
      */
     private <R, T> CompletableFuture<T> wrapInTx(
-        BinaryRow row,
-        InternalTransaction tx,
-        Function<InternalTransaction, Command> op,
-        Function<R, T> trans
+            BinaryRow row,
+            InternalTransaction tx,
+            Function<InternalTransaction, Command> op,
+            Function<R, T> trans
     ) {
         if (tx == null) {
             try {
                 tx = txManager.tx();
-            }
-            catch (TransactionException e) {
+            } catch (TransactionException e) {
                 return failedFuture(e);
             }
         }
@@ -262,7 +258,6 @@ public class InternalTableImpl implements InternalTable {
      * @param implicit {@code true} for implicit tx.
      * @param tx0 The transaction.
      * @param <T> Operation return type.
-     *
      * @return The future.
      */
     private <T> CompletableFuture<T> postOperation(CompletableFuture<T> fut, boolean implicit, InternalTransaction tx0) {
@@ -277,8 +272,7 @@ public class InternalTableImpl implements InternalTable {
 
                         throw (RuntimeException) e;
                     }); // Preserve failed state.
-                }
-                else {
+                } else {
                     return implicit ? tx0.commitAsync().thenApply(ignored -> r) : completedFuture(r);
                 }
             }
@@ -286,17 +280,20 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<BinaryRow> get(BinaryRow keyRow, InternalTransaction tx) {
+    @Override
+    public CompletableFuture<BinaryRow> get(BinaryRow keyRow, InternalTransaction tx) {
         return wrapInTx(keyRow, tx, tx0 -> new GetCommand(keyRow, tx0.timestamp()), SingleRowResponse::getValue);
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows, InternalTransaction tx) {
+    @Override
+    public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows, InternalTransaction tx) {
         return wrapInTx(keyRows, tx, (rows0, tx0) -> new GetAllCommand(rows0, tx0.timestamp()), this::collectMultiRowsResponses);
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> upsert(BinaryRow row, InternalTransaction tx) {
+    @Override
+    public CompletableFuture<Void> upsert(BinaryRow row, InternalTransaction tx) {
         return wrapInTx(row, tx, tx0 -> new UpsertCommand(row, tx0.timestamp()), ignored -> null);
     }
 
@@ -369,8 +366,8 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<BinaryRow>> deleteAllExact(
-        Collection<BinaryRow> rows,
-        InternalTransaction tx
+            Collection<BinaryRow> rows,
+            InternalTransaction tx
     ) {
         return wrapInTx(rows, tx, (rows0, tx0) -> new DeleteExactAllCommand(rows0, tx0.timestamp()), this::collectMultiRowsResponses);
     }
@@ -437,7 +434,8 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @TestOnly
-    @Override public int partition(BinaryRow keyRow) {
+    @Override
+    public int partition(BinaryRow keyRow) {
         return partId(keyRow);
     }
 
@@ -462,34 +460,34 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * TODO asch keep the same order as for keys
-     * Collects multirow responses from multiple futures into a single collection.
+     * TODO asch keep the same order as for keys Collects multirow responses from multiple futures into a single collection.
+     *
      * @param futs Futures.
      * @return Row collection.
      */
     private CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponses(CompletableFuture<?>[] futs) {
         return CompletableFuture.allOf(futs)
-            .thenApply(response -> {
-                List<BinaryRow> list = new ArrayList<>(futs.length);
+                .thenApply(response -> {
+                    List<BinaryRow> list = new ArrayList<>(futs.length);
 
-                for (CompletableFuture<?> future : futs) {
-                    MultiRowsResponse ret = (MultiRowsResponse) future.join();
+                    for (CompletableFuture<?> future : futs) {
+                        MultiRowsResponse ret = (MultiRowsResponse) future.join();
 
-                    List<BinaryRow> values = ret.getValues();
+                        List<BinaryRow> values = ret.getValues();
 
-                    if (values != null) {
-                        list.addAll(values);
+                        if (values != null) {
+                            list.addAll(values);
+                        }
                     }
-                }
 
-                return list;
-            });
+                    return list;
+                });
     }
 
     /**
      * Updates internal table raft group service for given partition.
      *
-     * @param p          Partition.
+     * @param p Partition.
      * @param raftGrpSvc Raft group service.
      */
     public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGrpSvc) {
@@ -513,12 +511,16 @@ public class InternalTableImpl implements InternalTable {
         // TODO asch fixme need to map to fixed topology.
         // TODO a leader race is possible when enlisting different keys from the same partition.
         return fut0.thenAccept(ignored -> tx.enlist(svc)).
-            thenApply(ignored -> svc); // Enlist the leaseholder.
+                thenApply(ignored -> svc); // Enlist the leaseholder.
     }
 
-    /** Partition scan publisher. */
+    /**
+     * Partition scan publisher.
+     */
     private static class PartitionScanPublisher implements Publisher<BinaryRow> {
-        /** {@link Publisher<BinaryRow>} that relatively notifies about partition rows.  */
+        /**
+         * {@link Publisher<BinaryRow>} that relatively notifies about partition rows.
+         */
         private final RaftGroupService raftGrpSvc;
 
         private AtomicBoolean subscribed;
@@ -557,10 +559,14 @@ public class InternalTableImpl implements InternalTable {
 
             private final AtomicBoolean canceled;
 
-            /** Scan id to uniquely identify it on server side. */
+            /**
+             * Scan id to uniquely identify it on server side.
+             */
             private final IgniteUuid scanId;
 
-            /** Scan initial operation that created server cursor. */
+            /**
+             * Scan initial operation that created server cursor.
+             */
             private final CompletableFuture<Void> scanInitOp;
 
             /**

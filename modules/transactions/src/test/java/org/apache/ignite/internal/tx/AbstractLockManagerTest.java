@@ -471,17 +471,17 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
      * Do test single key multithreaded.
      *
      * @param duration The duration.
-     * @param rLocks Read lock accumulator.
-     * @param wLocks Write lock accumulator.
-     * @param fLocks Failed lock accumulator.
+     * @param readLocks Read lock accumulator.
+     * @param writeLocks Write lock accumulator.
+     * @param failedLocks Failed lock accumulator.
      * @param mode Mode: 0 - read only, 1 - write only, 2 - mixed random.
      * @throws InterruptedException If interrupted while waiting.
      */
     private void doTestSingleKeyMultithreaded(
             long duration,
-            LongAdder rLocks,
-            LongAdder wLocks,
-            LongAdder fLocks,
+            LongAdder readLocks,
+            LongAdder writeLocks,
+            LongAdder failedLocks,
             int mode
     ) throws InterruptedException {
         Object key = new String("test");
@@ -512,9 +512,9 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
                             try {
                                 lockManager.tryAcquire(key, timestamp).join();
 
-                                wLocks.increment();
+                                writeLocks.increment();
                             } catch (CompletionException e) {
-                                fLocks.increment();
+                                failedLocks.increment();
                                 continue;
                             }
 
@@ -527,13 +527,13 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
                             try {
                                 lockManager.tryAcquireShared(key, timestamp).join();
 
-                                rLocks.increment();
+                                readLocks.increment();
                             } catch (CompletionException e) {
                                 if (mode == 0) {
                                     fail("Unexpected exception for read only locking mode");
                                 }
 
-                                fLocks.increment();
+                                failedLocks.increment();
 
                                 continue;
                             }
@@ -572,8 +572,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
             throw new IgniteException(firstErr.get());
         }
 
-        log.info("After test rLocks={} wLocks={} fLocks={}", rLocks.sum(), wLocks.sum(),
-                fLocks.sum());
+        log.info("After test readLocks={} writeLocks={} failedLocks={}", readLocks.sum(), writeLocks.sum(),
+                failedLocks.sum());
 
         assertTrue(lockManager.queue(key).isEmpty());
     }

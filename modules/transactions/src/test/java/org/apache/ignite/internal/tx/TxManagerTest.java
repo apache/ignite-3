@@ -17,6 +17,14 @@
 
 package org.apache.ignite.internal.tx;
 
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -31,31 +39,15 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Answers.RETURNS_DEEP_STUBS;
-
 /**
- * Basic tests for transaction manager.
+ * Basic tests for a transaction manager.
  */
 @ExtendWith(MockitoExtension.class)
 public class TxManagerTest extends IgniteAbstractTest {
-    /**
-     *
-     */
     private static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
-    /**
-     *
-     */
-    private TxManager txMgr;
+    private TxManager txManager;
 
-    /**
-     *
-     */
     @Mock
     private ClusterService clusterService;
 
@@ -65,52 +57,52 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(ADDR);
 
-        txMgr = new TxManagerImpl(clusterService, new HeapLockManager());
+        txManager = new TxManagerImpl(clusterService, new HeapLockManager());
     }
 
     @Test
     public void testBegin() throws TransactionException {
-        InternalTransaction tx = txMgr.begin();
+        InternalTransaction tx = txManager.begin();
 
         assertNotNull(tx.timestamp());
-        assertEquals(TxState.PENDING, txMgr.begin().state());
+        assertEquals(TxState.PENDING, txManager.begin().state());
     }
 
     @Test
     public void testCommit() throws TransactionException {
-        InternalTransaction tx = txMgr.begin();
+        InternalTransaction tx = txManager.begin();
         tx.commit();
 
         assertEquals(TxState.COMMITED, tx.state());
-        assertEquals(TxState.COMMITED, txMgr.state(tx.timestamp()));
+        assertEquals(TxState.COMMITED, txManager.state(tx.timestamp()));
 
         assertThrows(TransactionException.class, () -> tx.rollback());
 
         assertEquals(TxState.COMMITED, tx.state());
-        assertEquals(TxState.COMMITED, txMgr.state(tx.timestamp()));
+        assertEquals(TxState.COMMITED, txManager.state(tx.timestamp()));
     }
 
     @Test
     public void testRollback() throws TransactionException {
-        InternalTransaction tx = txMgr.begin();
+        InternalTransaction tx = txManager.begin();
         tx.rollback();
 
         assertEquals(TxState.ABORTED, tx.state());
-        assertEquals(TxState.ABORTED, txMgr.state(tx.timestamp()));
+        assertEquals(TxState.ABORTED, txManager.state(tx.timestamp()));
 
         assertThrows(TransactionException.class, () -> tx.commit());
 
         assertEquals(TxState.ABORTED, tx.state());
-        assertEquals(TxState.ABORTED, txMgr.state(tx.timestamp()));
+        assertEquals(TxState.ABORTED, txManager.state(tx.timestamp()));
     }
 
     @Test
     public void testForget() throws TransactionException {
-        InternalTransaction tx = txMgr.begin();
+        InternalTransaction tx = txManager.begin();
 
         assertEquals(TxState.PENDING, tx.state());
 
-        txMgr.forget(tx.timestamp());
+        txManager.forget(tx.timestamp());
 
         assertNull(tx.state());
     }
@@ -121,7 +113,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         assertEquals(ADDR, addr);
 
-        InternalTransaction tx = txMgr.begin();
+        InternalTransaction tx = txManager.begin();
 
         RaftGroupService svc = Mockito.mock(RaftGroupService.class);
 

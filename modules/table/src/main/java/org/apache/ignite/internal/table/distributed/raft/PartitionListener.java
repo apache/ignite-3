@@ -86,7 +86,7 @@ public class PartitionListener implements RaftGroupListener {
     /** Cursors map. */
     private final Map<IgniteUuid, CursorMeta> cursors;
 
-    /** TX manager. */
+    /** Transaction manager. */
     private final TxManager txManager;
 
     /**
@@ -106,8 +106,9 @@ public class PartitionListener implements RaftGroupListener {
         iterator.forEachRemaining((CommandClosure<? extends ReadCommand> clo) -> {
             Command command = clo.command();
 
-            if (!tryEnlistIntoTransaction(command, clo))
+            if (!tryEnlistIntoTransaction(command, clo)) {
                 return;
+            }
 
             if (command instanceof GetCommand) {
                 handleGetCommand((CommandClosure<GetCommand>) clo);
@@ -125,8 +126,9 @@ public class PartitionListener implements RaftGroupListener {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
             Command command = clo.command();
 
-            if (!tryEnlistIntoTransaction(command, clo))
+            if (!tryEnlistIntoTransaction(command, clo)) {
                 return;
+            }
 
             if (command instanceof InsertCommand) {
                 handleInsertCommand((CommandClosure<InsertCommand>) clo);
@@ -244,7 +246,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleReplaceCommand(CommandClosure<ReplaceCommand> clo) {
-        ReplaceCommand cmd = ((ReplaceCommand)clo.command());
+        ReplaceCommand cmd = ((ReplaceCommand) clo.command());
 
         clo.result(storage.replace(cmd.getOldRow(), cmd.getRow(), cmd.getTimestamp()));
     }
@@ -519,14 +521,14 @@ public class PartitionListener implements RaftGroupListener {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> onBeforeApply(Command command) {
+    @Override
+    public CompletableFuture<Void> onBeforeApply(Command command) {
         if (command instanceof SingleKeyCommand) {
             SingleKeyCommand cmd0 = (SingleKeyCommand) command;
 
             return cmd0 instanceof ReadCommand ? txManager.readLock(lockId, cmd0.getRow().keySlice(), cmd0.getTimestamp()) :
-                txManager.writeLock(lockId, cmd0.getRow().keySlice(), cmd0.getTimestamp());
-        }
-        else if (command instanceof MultiKeyCommand) {
+                    txManager.writeLock(lockId, cmd0.getRow().keySlice(), cmd0.getTimestamp());
+        } else if (command instanceof MultiKeyCommand) {
             MultiKeyCommand cmd0 = (MultiKeyCommand) command;
 
             Collection<BinaryRow> rows = cmd0.getRows();
@@ -538,7 +540,7 @@ public class PartitionListener implements RaftGroupListener {
 
             for (BinaryRow row : rows) {
                 futs[i++] = read ? txManager.readLock(lockId, row.keySlice(), cmd0.getTimestamp()) :
-                    txManager.writeLock(lockId, row.keySlice(), cmd0.getTimestamp());
+                        txManager.writeLock(lockId, row.keySlice(), cmd0.getTimestamp());
             }
 
             return CompletableFuture.allOf(futs);
@@ -574,21 +576,25 @@ public class PartitionListener implements RaftGroupListener {
      * Cursor meta information: origin node id and type.
      */
     private class CursorMeta {
-        /** Cursor. */
+        /**
+         * Cursor.
+         */
         private final Cursor<BinaryRow> cursor;
 
-        /** Id of the node that creates cursor. */
+        /**
+         * Id of the node that creates cursor.
+         */
         private final String requesterNodeId;
 
         /**
          * The constructor.
          *
-         * @param cursor          Cursor.
+         * @param cursor Cursor.
          * @param requesterNodeId Id of the node that creates cursor.
          */
         CursorMeta(
-            Cursor<BinaryRow> cursor,
-            String requesterNodeId
+                Cursor<BinaryRow> cursor,
+                String requesterNodeId
         ) {
             this.cursor = cursor;
             this.requesterNodeId = requesterNodeId;
