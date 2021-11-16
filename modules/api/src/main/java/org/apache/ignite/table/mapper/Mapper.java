@@ -17,6 +17,7 @@
 
 package org.apache.ignite.table.mapper;
 
+import java.lang.reflect.Modifier;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,50 +28,101 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface Mapper<T> {
     /**
-     * Creates a mapper for a class.
+     * Creates a mapper for a case when object individual fields map to the column with the same names.
      *
-     * @param cls Key class.
-     * @param <K> Key type.
+     * @param cls Target object class.
      * @return Mapper.
      */
-    static <K> Mapper<K> of(Class<K> cls) {
+    static <O> Mapper<O> of(Class<O> cls) {
         return identity(cls);
     }
-    
+
     /**
-     * Creates a mapper builder for a class.
+     * Creates a mapper for a simple case when a whole object maps to a single column.
      *
-     * @param cls Value class.
-     * @param <V> Value type.
-     * @return Mapper builder.
+     * @param columnName Column name.
+     * @param cls        Target object class.
+     * @return Single column mapper.
      */
-    static <V> MapperBuilder<V> builderFor(Class<V> cls) {
+    static <O> Mapper<O> of(String columnName, Class<O> cls) {
+        return new SingleColumnMapper<>(ensureValidKind(cls), columnName);
+    }
+
+    /**
+     * Creates a mapper builder for objects of given class.
+     *
+     * @param cls Target object class.
+     * @return Mapper builder.
+     * @throws IllegalArgumentException If class is of unsupported kind. E.g. inner, anonymous or local.
+     */
+    static <O> MapperBuilder<O> builderFor(Class<O> cls) {
+        ensureDefaultConsturctor(ensureValidKind(cls));
+
         return new MapperBuilder<>(cls);
     }
-    
+
     /**
      * Creates identity mapper which is used for simple types that have native support or objects with field names that match column names.
      *
-     * @param targetClass Target type class.
+     * @param cls Target type class.
      * @param <T>         Target type.
      * @return Mapper.
      */
-    static <T> Mapper<T> identity(Class<T> targetClass) {
-        return new IdentityMapper<T>(targetClass);
+    static <T> Mapper<T> identity(Class<T> cls) {
+        return new IdentityMapper<T>(ensureValidKind(cls));
     }
-    
+
     /**
-     * Return mapped type.
+     * Ensures class is of the supported kind.
      *
-     * @return Mapped type.
+     * @param cls Class to validate.
+     * @return {@code cls} if it is valid.
+     * @throws IllegalArgumentException If {@code cls} is invalid and can't be used in mapping.
+     */
+    private static <T> Class<T> ensureValidKind(Class<T> cls) {
+        if (cls.isAnonymousClass() || cls.isLocalClass() || cls.isSynthetic() || cls.isPrimitive() ||
+                (cls.isMemberClass() && !Modifier.isStatic(cls.getModifiers()))) {
+            throw new IllegalArgumentException("Class is of unsupported kind.");
+        }
+
+        return cls;
+    }
+
+    /**
+     * Ensures class has default constructor.
+     *
+     * @param cls Class to validate.
+     * @throws IllegalArgumentException If {@code cls} can't be used in mapping.
+     */
+    static <O> void ensureDefaultConsturctor(Class<O> cls) {
+        try {
+            cls.getDeclaredConstructor(new Class[0]);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("Class must have default constructor.");
+        }
+    }
+
+    /**
+     * Returns a type which objects (or their fields) are mapped with the columns.
+     *
+     * @return Mapper target type.
      */
     Class<T> targetType();
-    
+
     /**
-     * Maps a column name to a field name.
+     * Returns a column name if the whole object is mapped to the single column, otherwise, returns {@code null} and individual column
+     * mapping (see {@link #mappedField(String)) should be used}.
+     *
+     * @return Column name that a whole object is mapped to, or {@code null}.
+     */
+    String mappedColumn();
+
+    /**
+     * Return a field name for given column name when POJO individual fields are mapped to columns, otherwise fails.
      *
      * @param columnName Column name.
      * @return Field name or {@code null} if no field mapped to a column.
+     * @throws IllegalStateException If a whole object is mapped to a single column.
      */
-    @Nullable String columnToField(@NotNull String columnName);
+    @Nullable String mappedField(@NotNull String columnName);
 }

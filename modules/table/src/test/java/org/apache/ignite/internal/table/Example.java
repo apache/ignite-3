@@ -22,6 +22,9 @@ import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -35,9 +38,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Example.
  */
-@SuppressWarnings({
-        "PMD.EmptyLineSeparatorCheck", "emptylineseparator",
-        "unused", "UnusedAssignment", "InstanceVariableMayNotBeInitialized", "JoinDeclarationAndAssignmentJava"})
+@SuppressWarnings({"PMD.EmptyLineSeparatorCheck", "emptylineseparator", "unused", "UnusedAssignment", "InstanceVariableMayNotBeInitialized",
+        "JoinDeclarationAndAssignmentJava"})
 public class Example {
     /**
      * Returns table implementation.
@@ -240,16 +242,14 @@ public class Example {
             String bankName;
         }
 
-        KeyValueView<OrderKey, OrderValue> orderKvView = t.keyValueView(Mapper.of(OrderKey.class),
-                Mapper.builderFor(OrderValue.class)
-                        .map("billingDetails", (row) -> {
-                            BinaryObject binObj = row.binaryObjectValue("conditionalDetails");
-                            int type = row.intValue("type");
+        KeyValueView<OrderKey, OrderValue> orderKvView = t
+                .keyValueView(Mapper.of("key", OrderKey.class), Mapper.builderFor(OrderValue.class).map("billingDetails", (row) -> {
+                    BinaryObject binObj = row.binaryObjectValue("conditionalDetails");
+                    int type = row.intValue("type");
 
-                            return type == 0
-                                    ? BinaryObjects.deserialize(binObj, CreditCard.class) :
-                                    BinaryObjects.deserialize(binObj, BankAccount.class);
-                        }).build());
+                    return type == 0 ? BinaryObjects.deserialize(binObj, CreditCard.class)
+                            : BinaryObjects.deserialize(binObj, BankAccount.class);
+                }).build());
 
         OrderValue ov = orderKvView.get(new OrderKey(1, 1));
 
@@ -284,9 +284,8 @@ public class Example {
         binObj = orderRecord.billingDetails;
 
         // Manual deserialization is possible as well.
-        Object billingDetails = orderRecord.type == 0
-                ? BinaryObjects.deserialize(binObj, CreditCard.class) :
-                BinaryObjects.deserialize(binObj, BankAccount.class);
+        Object billingDetails = orderRecord.type == 0 ? BinaryObjects.deserialize(binObj, CreditCard.class)
+                : BinaryObjects.deserialize(binObj, BankAccount.class);
     }
 
     /**
@@ -352,25 +351,21 @@ public class Example {
             int department;
         }
 
-        RecordView<TruncatedRecord> truncatedView = t.recordView(
-                Mapper.builderFor(TruncatedRecord.class)
-                        .map("upgradedObject", JavaPersonV2.class).build());
+        RecordView<TruncatedRecord> truncatedView = t
+                .recordView(Mapper.builderFor(TruncatedRecord.class).map("upgradedObject", JavaPersonV2.class).build());
 
         // Or we can have a custom conditional type selection.
-        RecordView<TruncatedRecord> truncatedView2 = t.recordView(
-                Mapper.builderFor(TruncatedRecord.class)
-                        .map("upgradedObject", (row) -> {
-                            BinaryObject binObj1 = row.binaryObjectValue("upgradedObject");
-                            int dept = row.intValue("department");
+        RecordView<TruncatedRecord> truncatedView2 = t.recordView(Mapper.builderFor(TruncatedRecord.class).map("upgradedObject", (row) -> {
+            BinaryObject binObj1 = row.binaryObjectValue("upgradedObject");
+            int dept = row.intValue("department");
 
-                            return dept == 0
-                                    ? BinaryObjects.deserialize(binObj1, JavaPerson.class) :
-                                    BinaryObjects.deserialize(binObj1, JavaPersonV2.class);
-                        }).build());
+            return dept == 0 ? BinaryObjects.deserialize(binObj1, JavaPerson.class)
+                    : BinaryObjects.deserialize(binObj1, JavaPersonV2.class);
+        }).build());
     }
 
     /**
-     * Use case 1: a simple one. The table has the structure [ [id long] // key [name varchar, lastName varchar, decimal salary, int
+     * Use case 6: a simple one. The table has the structure [ [id long] // key [name varchar, lastName varchar, decimal salary, int
      * department] // value ] We show how to use the raw TableRow and a mapped class.
      */
     @Disabled
@@ -406,7 +401,7 @@ public class Example {
     }
 
     /**
-     * Use case 1: a simple one. The table has the structure [ [byte[]] // key [name varchar, lastName varchar, decimal salary, int
+     * Use case 7: a simple one. The table has the structure [ [byte[]] // key [name varchar, lastName varchar, decimal salary, int
      * department] // value ] We show how to use the raw TableRow and a mapped class.
      */
     @Disabled
@@ -425,8 +420,50 @@ public class Example {
 
         employeeView.put(1L, BinaryObjects.wrap(new byte[0] /* serialized Employee */));
 
-        t.keyValueView(
-                Mapper.identity(Long.class),
-                Mapper.builderFor(BinaryObject.class).deserializeTo(Employee.class).build());
+        t.keyValueView(Mapper.identity(Long.class), Mapper.of("value", Employee.class));
+    }
+
+    /**
+     * Use case 8: Here we show how to use mapper for single column case.
+     */
+    @Disabled
+    @ParameterizedTest
+    @MethodSource("tableFactory")
+    public void useCase8(Table t) {
+        new SchemaDescriptor(
+                1,
+                new Column[]{new Column("key", NativeTypes.INT64, false)},
+                new Column[]{new Column("val", NativeTypes.BYTES, true),
+        });
+
+        class UserObject {
+        }
+
+        class Employee {
+            UserObject data;
+        }
+
+        class Employee2 {
+            byte[] data;
+        }
+
+        // Class usage without a column name can work correctly only and only when each of key and value parts is single column.
+        KeyValueView<Long, Employee> v1 = t.keyValueView(Long.class, Employee.class);
+
+        KeyValueView<Long, Employee> v2 = t.keyValueView(
+                Mapper.of(Long.class), // Class usage without a column name can work correctly only and only when the key part is single column.
+                Mapper.builderFor(Employee.class).map("data", "val").build());
+
+        KeyValueView<Long, Employee> v3 = t.keyValueView(
+                Mapper.of("key", Long.class),
+                Mapper.builderFor(Employee.class).map("data", "val").build());
+
+        KeyValueView<Long, UserObject> v4 = t.keyValueView(
+                Mapper.of("key", Long.class),
+                Mapper.of("data", UserObject.class));
+
+        KeyValueView<Long, byte[]> v5 = t.keyValueView(
+                Mapper.of("key", Long.class),
+                Mapper.of("data", byte[].class));
     }
 }

@@ -17,40 +17,24 @@
 
 package org.apache.ignite.table.mapper;
 
-import java.lang.reflect.Field;
-import java.util.HashSet;
-import java.util.Set;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Simple mapper implementation which maps POJO fields to the columns with the same name.
+ * Simple mapper implementation that maps a whole object (of the target type) to a single column.
  *
  * @param <T> Target type.
  */
-class IdentityMapper<T> implements Mapper<T> {
+class SingleColumnMapper<T> implements Mapper<T> {
     /** Target type. */
     private final Class<T> targetType;
 
-    /** Class field names. */
-    private final Set<String> fieldsNames;
+    /** Column name. */
+    private final String mappedColumn;
 
-    /**
-     * Creates a mapper for given class.
-     *
-     * @param targetType Target class.
-     */
-    IdentityMapper(Class<T> targetType) {
+    SingleColumnMapper(Class<T> targetType, @NotNull String mappedColumn) {
         this.targetType = targetType;
-
-        //TODO: process inherited fields.
-        Field[] fields = targetType.getDeclaredFields();
-        fieldsNames = new HashSet<>(fields.length);
-
-        for (int i = 0; i < fields.length; i++) {
-            //TODO Filter out 'static' fields.
-            //TODO IGNITE-15787 Filter out 'transient' fields.
-            fieldsNames.add(fields[i].getName());
-        }
+        this.mappedColumn = mappedColumn;
     }
 
     /** {@inheritDoc} */
@@ -62,12 +46,12 @@ class IdentityMapper<T> implements Mapper<T> {
     /** {@inheritDoc} */
     @Override
     public String mappedColumn() {
-        return null;
+        return mappedColumn;
     }
 
     /** {@inheritDoc} */
     @Override
-    public String mappedField(@NotNull String columnName) {
-        return fieldsNames.contains(columnName) ? columnName : null;
+    public @Nullable String mappedField(@NotNull String columnName) {
+        throw new UnsupportedOperationException("Not intended for individual fields mapping.");
     }
 }

@@ -45,8 +45,9 @@ public final class MarshallerUtil {
     public static int getValueSize(Object val, NativeType type) throws InvalidTypeException {
         switch (type.spec()) {
             case BYTES:
-                return ((byte[]) val).length;
-            
+                // Return zero for pojos as they are not serialized yet.
+               return (val instanceof byte[]) ? ((byte[]) val).length : 0;
+
             case STRING:
                 // Overestimating size here prevents from later unwanted row buffer expanding.
                 return ((CharSequence) val).length() << 1;
@@ -118,7 +119,7 @@ public final class MarshallerUtil {
             return BinaryMode.DECIMAL;
         }
         
-        return null;
+        return BinaryMode.POJO;
     }
     
     /**
@@ -129,7 +130,7 @@ public final class MarshallerUtil {
      * @return Object factory.
      */
     public static <T> ObjectFactory<T> factoryForClass(Class<T> targetCls) {
-        if (mode(targetCls) == null) {
+        if (mode(targetCls) == BinaryMode.POJO) {
             return new ObjectFactory<>(targetCls);
         } else {
             return null;

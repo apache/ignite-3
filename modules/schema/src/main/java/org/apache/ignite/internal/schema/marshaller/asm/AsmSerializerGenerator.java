@@ -184,7 +184,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
     ) {
         final BinaryMode mode = MarshallerUtil.mode(cls);
     
-        if (mode == null) {
+        if (mode == BinaryMode.POJO) {
             return new ObjectMarshallerCodeGenerator(columns, cls, firstColIdx);
         } else {
             return new IdentityMarshallerCodeGenerator(cls, ColumnAccessCodeGenerator.createAccessor(mode, firstColIdx));

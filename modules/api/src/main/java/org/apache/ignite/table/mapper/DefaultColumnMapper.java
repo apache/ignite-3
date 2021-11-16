@@ -21,7 +21,7 @@ import java.util.Map;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Simple mapper implementation that map a column to a class field.
+ * Mapper implementation which maps object fields to the columns by their names.
  *
  * @param <T> Target type.
  */
@@ -47,9 +47,15 @@ class DefaultColumnMapper<T> implements Mapper<T> {
     @Override public Class<T> targetType() {
         return targetType;
     }
-    
+
     /** {@inheritDoc} */
-    @Override public String columnToField(@NotNull String columnName) {
+    @Override
+    public String mappedColumn() {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String mappedField(@NotNull String columnName) {
         return mapping.get(columnName);
     }
 }

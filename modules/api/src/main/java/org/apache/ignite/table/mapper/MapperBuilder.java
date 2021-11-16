@@ -17,6 +17,7 @@
 
 package org.apache.ignite.table.mapper;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -33,10 +34,14 @@ import org.jetbrains.annotations.NotNull;
 public final class MapperBuilder<T> {
     /** Target type. */
     private Class<T> targetType;
-    
+
     /** Column-to-field name mapping. */
     private Map<String, String> columnToFields;
-    
+
+    private String rawPojoColumnName;
+
+    private boolean isStale;
+
     /**
      * Creates a mapper builder for a type.
      *
@@ -44,10 +49,10 @@ public final class MapperBuilder<T> {
      */
     MapperBuilder(@NotNull Class<T> targetType) {
         this.targetType = targetType;
-        
+
         columnToFields = new HashMap<>(targetType.getDeclaredFields().length);
     }
-    
+
     /**
      * Add mapping for a field to a column.
      *
@@ -55,20 +60,18 @@ public final class MapperBuilder<T> {
      * @param columnName Column name.
      * @return {@code this} for chaining.
      * @throws IllegalArgumentException if a column was already mapped to some field.
-     * @throws IllegalStateException if tries to reuse the builder after a mapping has been built.
+     * @throws IllegalStateException    if tries to reuse the builder after a mapping has been built.
      */
     public MapperBuilder<T> map(@NotNull String fieldName, @NotNull String columnName) {
-        if (columnToFields == null) {
+        if (isStale) {
             throw new IllegalStateException("Mapper builder can't be reused.");
-        }
-        
-        if (columnToFields.put(Objects.requireNonNull(columnName), Objects.requireNonNull(fieldName)) != null) {
+        } else if (columnToFields.put(Objects.requireNonNull(columnName), Objects.requireNonNull(fieldName)) != null) {
             throw new IllegalArgumentException("Mapping for a column already exists: " + columnName);
         }
-        
+
         return this;
     }
-    
+
     /**
      * Map a field to a type of given class.
      *
@@ -79,7 +82,7 @@ public final class MapperBuilder<T> {
     public MapperBuilder<T> map(@NotNull String fieldName, Class<?> targetClass) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
-    
+
     /**
      * Adds a functional mapping for a field, the result depends on function call for every particular row.
      *
@@ -90,17 +93,26 @@ public final class MapperBuilder<T> {
     public MapperBuilder<T> map(@NotNull String fieldName, Function<Tuple, Object> mappingFunction) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
-    
+
     /**
-     * Sets a target class to deserialize to.
+     * Map an object to a binary column.
      *
-     * @param targetClass Target class.
+     * @param columnName Column name.
      * @return {@code this} for chaining.
      */
-    public MapperBuilder<T> deserializeTo(@NotNull Class<?> targetClass) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+    public MapperBuilder<T> toBinaryColumn(String columnName) {
+        if (isStale) {
+            throw new IllegalStateException("Mapper builder can't be reused.");
+        } else if (!columnToFields.isEmpty()) {
+            throw new IllegalStateException(
+                    "Can't map object to a binary column because the mapping for it`s individual fields is already defined.");
+        }
+
+        columnToFields = null;
+
+        return this;
     }
-    
+
     /**
      * Builds mapper.
      *
@@ -108,22 +120,24 @@ public final class MapperBuilder<T> {
      * @throws IllegalStateException if nothing were mapped or more than one column were mapped to the same field.
      */
     public Mapper<T> build() {
+        isStale = true;
+
         if (columnToFields.isEmpty()) {
             throw new IllegalStateException("Empty mapping isn't allowed.");
         }
-        
+
         Map<String, String> mapping = this.columnToFields;
-        
+
         this.columnToFields = null;
-        
+
         HashSet<String> fields = new HashSet<>(mapping.size());
-        
+
         for (String f : mapping.values()) {
             if (!fields.add(f)) {
                 throw new IllegalStateException("More than one column is mapped to the field: field=" + f);
             }
         }
-        
+
         return new DefaultColumnMapper<>(targetType, mapping);
     }
 }
