@@ -726,6 +726,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     }
 
     /**
+     * Returns {@code true} if thread is related to timers.
+     *
      * @param name The name.
      * @return {@code True} if a timer thread.
      */
@@ -737,6 +739,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     }
 
     /**
+     * Returns {@code true} if a raft group has elected a leader for a some term.
+     *
      * @param grpId Group id.
      * @return {@code True} if a leader is elected.
      */
