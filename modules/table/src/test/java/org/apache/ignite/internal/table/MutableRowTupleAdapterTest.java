@@ -63,7 +63,6 @@ import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 /**
  * Tests server tuple builder implementation.
