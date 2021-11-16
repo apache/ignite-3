@@ -148,7 +148,7 @@ public static class FirstPolymorphicInstanceConfigurationSchema extends Polymorp
     the corresponding configuration schema;
 * `@Config` is similar to the `@ConfigurationRoot` but represents an inner configuration node;
 * `@PolymorphicConfig` is similar to the `@Config` and an abstract class in java, i.e. it cannot be instantiated, but it can be subclassed;
-* `@PolymorphicConfigInstance` marks the inheritor of a polymorphic configuration, has the only property `value`, which is a unique identifier;
+* `@PolymorphicConfigInstance` marks an inheritor of a polymorphic configuration. This annotation has a single property called `value`, which is a unique identifier;
 * `@ConfigValue` marks a nested schema field. Cyclic dependencies are not allowed;
 * `@NamedConfigValue` is similar to `@ConfigValue`, but such fields represent a collection of properties, not a single
   instance. Every element of the collection will have a `String` name, similar to a `Map`.
