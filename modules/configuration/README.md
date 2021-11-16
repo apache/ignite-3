@@ -281,7 +281,7 @@ ChildConfiguration childCfg = parentCfg.child();
 childCfg.changeStr("newStr2").get();
 ```
 
-Example of changing the type of polymorphic configuration:
+Example of changing the type of a polymorphic configuration:
 
 ```java
 ParentConfiguration parentCfg = ...;
