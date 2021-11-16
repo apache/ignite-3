@@ -59,7 +59,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     @Override
     public Row marshal(@NotNull Tuple tuple) throws TupleMarshallerException {
         try {
-            SchemaDescriptor schema = schemaReg.schema();
+            SchemaDescriptor schema = schemaReg.waitLatestSchema();
             
             InternalTuple keyTuple0 = toInternalTuple(schema, tuple, true);
             InternalTuple valTuple0 = toInternalTuple(schema, tuple, false);
@@ -80,7 +80,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     @Override
     public Row marshal(@NotNull Tuple keyTuple, @Nullable Tuple valTuple) throws TupleMarshallerException {
         try {
-            SchemaDescriptor schema = schemaReg.schema();
+            SchemaDescriptor schema = schemaReg.waitLatestSchema();
             
             InternalTuple keyTuple0 = toInternalTuple(schema, keyTuple, true);
             InternalTuple valTuple0 = toInternalTuple(schema, valTuple, false);
@@ -141,7 +141,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     @Override
     public Row marshalKey(@NotNull Tuple keyTuple) throws TupleMarshallerException {
         try {
-            final SchemaDescriptor schema = schemaReg.schema();
+            final SchemaDescriptor schema = schemaReg.waitLatestSchema();
             
             InternalTuple keyTuple0 = toInternalTuple(schema, keyTuple, true);
 

@@ -228,9 +228,9 @@ public class SchemaRegistryImpl implements SchemaRegistry {
             throw new SchemaRegistryException("Try to register schema of wrong version: ver=" + desc.version() + ", lastVer=" + lastVer);
         }
 
-        lastVer = desc.version();
-
         schemaCache.put(desc.version(), desc);
+
+        lastVer = desc.version();
     }
 
     /**
