@@ -28,6 +28,6 @@ import org.apache.ignite.configuration.annotation.Value;
 @PolymorphicConfigInstance(HASH_INDEX_TYPE)
 public class HashIndexConfigurationSchema extends TableIndexConfigurationSchema {
     /** Columns names for hash indexes. */
-    @Value(hasDefault = true)
-    public String[] colNames = new String[0];
+    @Value
+    public String[] colNames;
 }

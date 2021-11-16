@@ -29,8 +29,8 @@ import org.apache.ignite.configuration.annotation.Value;
 @PolymorphicConfigInstance(PARTIAL_INDEX_TYPE)
 public class PartialIndexConfigurationSchema extends TableIndexConfigurationSchema {
     /** Expression for PartialIndex: PARTIAL indexes. */
-    @Value(hasDefault = true)
-    public String expr = "";
+    @Value
+    public String expr;
     
     /** Columns configuration for sorted indexes. */
     @NamedConfigValue
