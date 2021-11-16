@@ -84,7 +84,7 @@ public class Loza implements IgniteComponent {
 
     /**
      * Constructor.
-     *  @param clusterNetSvc Cluster network service.
+     * @param clusterNetSvc Cluster network service.
      * @param dataPath Data path.
      */
     public Loza(ClusterService clusterNetSvc, Path dataPath) {
@@ -98,16 +98,16 @@ public class Loza implements IgniteComponent {
                 )
         );
     }
-    
+
     /**
      * @param srv Pre-started raft server. Used for testing purposes.
      */
     @TestOnly
     public Loza(JraftServerImpl srv) {
         this.clusterNetSvc = srv.clusterService();
-    
+
         this.raftServer = srv;
-    
+
         this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
                         CLIENT_POOL_NAME)
@@ -258,7 +258,7 @@ public class Loza implements IgniteComponent {
     public void stopRaftGroup(String groupId) {
         raftServer.stopRaftGroup(groupId);
     }
-    
+
     /**
      * Applies a command to a local raft group.
      *
@@ -268,10 +268,10 @@ public class Loza implements IgniteComponent {
      */
     public CompletableFuture<?> apply(String groupId, Command cmd) {
         ActionRequest req = FACTORY.actionRequest().command(cmd).groupId(groupId).readOnlySafe(true).build();
-        
+
         return clusterNetSvc.messagingService().invoke(clusterNetSvc.topologyService().localMember(), req, NETWORK_TIMEOUT);
     }
-    
+
     /**
      * @return An underlying network service.
      */
@@ -279,7 +279,7 @@ public class Loza implements IgniteComponent {
     public ClusterService service() {
         return clusterNetSvc;
     }
-    
+
     /**
      * @return An underlying raft server.
      */
@@ -287,7 +287,7 @@ public class Loza implements IgniteComponent {
     public RaftServer server() {
         return raftServer;
     }
-    
+
     /**
      * @return Started groups.
      */

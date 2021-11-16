@@ -443,19 +443,19 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         var table2 = accounts.recordView().withTransaction(tx2);
 
         // Read in tx
-        double val_tx = table.get(key).doubleValue("balance");
+        double valTx = table.get(key).doubleValue("balance");
 
         // Read in tx2
-        double val_tx2 = table2.get(key).doubleValue("balance");
+        double valTx2 = table2.get(key).doubleValue("balance");
 
         // Write in tx2 (should wait for read unlock in tx1)
-        CompletableFuture<Void> fut = table2.upsertAsync(makeValue(1, val_tx2 + 1));
+        CompletableFuture<Void> fut = table2.upsertAsync(makeValue(1, valTx2 + 1));
         assertFalse(fut.isDone());
 
         CompletableFuture<Void> fut2 = fut.thenCompose(ret -> tx2.commitAsync());
 
         // Write in tx
-        table.upsert(makeValue(1, val_tx + 1));
+        table.upsert(makeValue(1, valTx + 1));
 
         tx.commit();
 

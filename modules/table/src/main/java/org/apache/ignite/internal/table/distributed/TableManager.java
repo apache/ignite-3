@@ -604,7 +604,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param name Table name.
      * @param tableInitChange Table configuration.
      * @param exceptionWhenExist If the value is {@code true}, an exception will be thrown when the table already exists, {@code false}
-     * means the existing table will be returned.
+     *     means the existing table will be returned.
      * @return A table instance.
      */
     private CompletableFuture<Table> createTableAsync(

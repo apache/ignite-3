@@ -388,8 +388,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 futs[i++] = finish(grp, req.timestamp(), req.commit());
             }
 
-            CompletableFuture.allOf(futs).thenCompose(ignored -> req.commit() ?
-                    commitAsync(req.timestamp()) :
+            CompletableFuture.allOf(futs).thenCompose(ignored -> req.commit()
+                    ? commitAsync(req.timestamp()) :
                     rollbackAsync(req.timestamp()))
                     .handle(new BiFunction<Void, Throwable, Void>() {
                         @Override

@@ -517,9 +517,7 @@ public class InternalTableImpl implements InternalTable {
      * Partition scan publisher.
      */
     private static class PartitionScanPublisher implements Publisher<BinaryRow> {
-        /**
-         * {@link Publisher<BinaryRow>} that relatively notifies about partition rows.
-         */
+        /** {@link Publisher} that relatively notifies about partition rows. */
         private final RaftGroupService raftGrpSvc;
 
         private AtomicBoolean subscribed;

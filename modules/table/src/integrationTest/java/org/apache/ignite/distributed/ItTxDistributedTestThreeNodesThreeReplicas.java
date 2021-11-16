@@ -42,9 +42,6 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
         return 3;
     }
 
-    /**
-     * @throws Exception
-     */
     @Override
     @AfterEach
     public void after() throws Exception {

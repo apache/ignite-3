@@ -263,13 +263,13 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             }
 
             @Override
-            public int lastSchemaVersion() {
-                return CUSTOMERS_SCHEMA.version();
+            public SchemaDescriptor schema(int ver) {
+                return CUSTOMERS_SCHEMA;
             }
 
             @Override
-            public SchemaDescriptor schema(int ver) {
-                return CUSTOMERS_SCHEMA;
+            public int lastSchemaVersion() {
+                return CUSTOMERS_SCHEMA.version();
             }
 
             @Override
@@ -283,6 +283,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     /**
      * @param name The name.
+     * @param tblId Table id.
      * @return Groups map.
      */
     protected Map<Integer, RaftGroupService> startTable(String name, IgniteUuid tblId)

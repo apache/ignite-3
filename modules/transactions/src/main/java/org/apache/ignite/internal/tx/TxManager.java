@@ -79,7 +79,7 @@ public interface TxManager extends IgniteComponent {
 
     /**
      * @param lockId Lock id.
-     * @param key The key.
+     * @param keyData The key data.
      * @param ts The timestamp.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.

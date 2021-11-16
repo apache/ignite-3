@@ -63,13 +63,11 @@ public class VersionedRowStore {
 
     /**
      * Decodes a storage row to a pair where the first is an actual value (visible to a current transaction) and the second is an old value
-     * used for rollback.
+     * used for rollback. TODO asch refactor to use this method in this class when possible.
      *
      * @param row The row.
      * @param ts Timestamp ts.
      * @return Actual value.
-     *
-     * TODO asch refactor to use this method in this class when possible.
      */
     protected Pair<BinaryRow, BinaryRow> versionedRow(@Nullable DataRow row, Timestamp ts) {
         return resolve(unpack(row), ts);
@@ -507,7 +505,7 @@ public class VersionedRowStore {
 
         BinaryRow cur;
 
-        if (state == TxState.ABORTED) {// Was aborted and had written a temp value.
+        if (state == TxState.ABORTED) { // Was aborted and had written a temp value.
             cur = val.oldRow;
         } else {
             cur = val.newRow;
