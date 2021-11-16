@@ -36,7 +36,8 @@ import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- *
+ * The implementation of an internal transaction.
+ * <p>Delegates state management to tx manager.
  */
 public class TransactionImpl implements InternalTransaction {
     /** The logger. */
@@ -52,7 +53,7 @@ public class TransactionImpl implements InternalTransaction {
     private final NetworkAddress address;
 
     /** Enlisted groups. */
-    private Set<RaftGroupService> set = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private Set<RaftGroupService> enlisted = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     /** Bounded thread. */
     private Thread thread;
@@ -74,13 +75,14 @@ public class TransactionImpl implements InternalTransaction {
         return timestamp;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Set<RaftGroupService> enlisted() {
-        return set;
+        return enlisted;
     }
 
     /** {@inheritDoc} */
-    @Override
+    @Nullable @Override
     public TxState state() {
         return txManager.state(timestamp);
     }
@@ -88,7 +90,7 @@ public class TransactionImpl implements InternalTransaction {
     /** {@inheritDoc} */
     @Override
     public boolean enlist(RaftGroupService svc) {
-        return set.add(svc);
+        return enlisted.add(svc);
     }
 
     /** {@inheritDoc} */
@@ -143,7 +145,7 @@ public class TransactionImpl implements InternalTransaction {
         Map<NetworkAddress, Set<String>> tmp = new HashMap<>();
 
         // Group by common leader addresses.
-        for (RaftGroupService svc : set) {
+        for (RaftGroupService svc : enlisted) {
             NetworkAddress addr = svc.leader().address();
 
             tmp.computeIfAbsent(addr, k -> new HashSet<>()).add(svc.groupId());

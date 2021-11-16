@@ -1396,7 +1396,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     /**
-     * Get a tx manager for test purposes.
+     * Get a tx manager on a partition leader.
      *
      * @param t The table.
      * @return TX manager.
@@ -1404,7 +1404,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     protected abstract TxManager txManager(Table t);
 
     /**
-     * Get a lock manager for test purposes.
+     * Get a lock manager on a partition leader.
      *
      * @param t The table.
      * @return Lock manager.

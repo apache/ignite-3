@@ -455,9 +455,7 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
         return network;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     protected TxManager txManager(Table t) {
         Map<Integer, RaftGroupService> clients = null;
