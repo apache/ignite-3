@@ -53,6 +53,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      */
     public TupleMarshallerImpl(SchemaRegistry schemaReg) {
         this.schemaReg = schemaReg;
+
+        schemaReg.waitLatestSchema(); //TODO: Fix schema synchronization.
     }
     
     /** {@inheritDoc} */
