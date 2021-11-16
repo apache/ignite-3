@@ -536,18 +536,16 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         IndexDefinition idx = SchemaBuilders.hashIndex("testHI")
                 .withColumns("valInt", "valStr")
                 .build();
-    
-        try {
-            node.tables().alterTable(
-                    schemaName + "." + shortTableName,
-                    chng -> chng.changeIndices(idxes ->
-                            idxes.create(idx.name(),
-                                    tableIndexChange -> convert(idx, tableIndexChange))));
-        } catch (IllegalArgumentException ex) {
-            log.error("Index already exists [naem={}]", idx.name(), ex);
+        
+        node.tables().alterTable(schemaName + "." + shortTableName, chng -> chng.changeIndices(idxes -> {
+            if (idxes.get(idx.name()) != null) {
+                log.info("Index already exists [naem={}]", idx.name());
+                
+                throw new IndexAlreadyExistsException(idx.name());
+            }
             
-            throw new IndexAlreadyExistsException(idx.name());
-        }
+            idxes.create(idx.name(), tableIndexChange -> convert(idx, tableIndexChange));
+        }));
     }
     
     /**
@@ -561,15 +559,13 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         IndexDefinition idx = SchemaBuilders.hashIndex("testHI")
                 .withColumns("valInt", "valStr")
                 .build();
-    
-        try {
-            node.tables().alterTable(
-                    schemaName + "." + shortTableName,
-                    chng -> chng.changeIndices(idxes ->
-                            idxes.create(idx.name(),
-                                    tableIndexChange -> convert(idx, tableIndexChange))));
-        } catch (IllegalArgumentException ex) {
-            log.info("Index already exists [naem={}]", idx.name());
-        }
+        
+        node.tables().alterTable(schemaName + "." + shortTableName, chng -> chng.changeIndices(idxes -> {
+            if (idxes.get(idx.name()) == null) {
+                idxes.create(idx.name(), tableIndexChange -> convert(idx, tableIndexChange));
+            } else {
+                log.info("Index already exists [naem={}]", idx.name());
+            }
+        }));
     }
 }
