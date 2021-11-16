@@ -23,7 +23,7 @@ Let's take an example of an SQL column configuration, suppose it can be one of t
 * decimal(p,s) - decimal number with fixed precision(p) and scale(s);
 * datetime(fsp) - date and time with fractional seconds precision(fsp).
 
-If you do not use polymorphic configuration, then the scheme will be something like this:
+If you do not use polymorphic configuration, then the scheme will look something like this:
 
 ```java
 @Config
