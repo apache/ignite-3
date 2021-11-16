@@ -49,7 +49,7 @@ public static class ColumnConfigurationSchema {
 ```
 
 Such a scheme is redundant and can be confusing when using it, since it is not obvious which fields 
-are needed for each type of column, to solve these problems, you can use a polymorphic configuration 
+are needed for each type of column. Instead, one can use a polymorphic configuration 
 that will look something like this:
 
 ```java
