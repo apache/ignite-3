@@ -42,8 +42,9 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * TODO asch use read only buffers ? replace Pair from ignite-schema TODO asch can use some sort of a cache on tx coordinator to avoid
- * network IO.
+ * TODO asch use read only buffers ? replace Pair from ignite-schema
+ * TODO asch can use some sort of a cache on tx coordinator to avoid network IO.
+ * TODO asch invokes on storage not used for now ?
  */
 public class VersionedRowStore {
     /** Storage delegate. */
@@ -53,6 +54,8 @@ public class VersionedRowStore {
     private TxManager txManager;
 
     /**
+     * The constructor.
+     *
      * @param storage The storage.
      * @param txManager The TX manager.
      */
@@ -74,6 +77,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Gets a row.
+     *
      * @param row The search row.
      * @param ts The timestamp.
      * @return The result row.
@@ -89,6 +94,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Gets multiple rows.
+     *
      * @param keyRows Search rows.
      * @param ts The timestamp.
      * @return The result rows.
@@ -106,6 +113,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Upserts a row.
+     *
      * @param row The row.
      * @param ts The timestamp.
      */
@@ -120,6 +129,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Upserts a row and returns previous value.
+     *
      * @param row The row.
      * @param ts The timestamp.
      * @return Previous row.
@@ -136,6 +147,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Deletes a row.
+     *
      * @param row The row.
      * @param ts The timestamp.
      * @return {@code True} if was deleted.
@@ -158,6 +171,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Upserts multiple rows.
+     *
      * @param rows Search rows.
      * @param ts The timestamp.
      */
@@ -170,9 +185,11 @@ public class VersionedRowStore {
     }
 
     /**
+     * Inserts a row.
+     *
      * @param row The row.
      * @param ts The timestamp.
-     * @return {@code True} if was inserted.
+     * @return {@code true} if was inserted.
      */
     public boolean insert(BinaryRow row, Timestamp ts) {
         assert row != null && row.hasValue() : row;
@@ -190,6 +207,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Inserts multiple rows.
+     *
      * @param rows Rows.
      * @param ts The timestamp.
      * @return List of not inserted rows.
@@ -209,6 +228,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Replaces an existing row.
+     *
      * @param row The row.
      * @param ts The timestamp.
      * @return {@code True} if was replaced.
@@ -228,6 +249,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Replaces a row by exact match.
+     *
      * @param oldRow Old row.
      * @param newRow New row.
      * @param ts The timestamp.
@@ -249,6 +272,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Replaces existing row and returns a previous value.
+     *
      * @param row The row.
      * @param ts The timestamp.
      * @return Replaced row.
@@ -266,6 +291,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Deletes a row by exact match.
+     *
      * @param row The row.
      * @param ts The timestamp.
      * @return {@code True} if was deleted.
@@ -286,6 +313,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Delets a row and returns a previous value.
+     *
      * @param row The row.
      * @param ts The timestamp.
      * @return Deleted row.
@@ -303,6 +332,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Deletes multiple rows.
+     *
      * @param keyRows Search rows.
      * @param ts The timestamp.
      * @return Not deleted rows.
@@ -320,6 +351,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Deletes multiple rows by exact match.
+     *
      * @param rows Search rows.
      * @param ts The timestamp.
      * @return Not deleted rows.
@@ -339,6 +372,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Tests row values for equality.
+     *
      * @param row Row.
      * @return Extracted key.
      */
@@ -351,6 +386,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Closes a storage.
+     *
      * @throws Exception If failed.
      */
     public void close() throws Exception {
@@ -447,6 +484,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Packs a multi-versioned value.
+     *
      * @param key The key.
      * @param value The value.
      * @return Data row.
@@ -484,8 +523,10 @@ public class VersionedRowStore {
     }
 
     /**
+     * Resolves a multi-versioned value depending on a viewer's timestamp.
+     *
      * @param val The value.
-     * @param ts The transaction
+     * @param ts The timestamp
      * @return New and old rows pair.
      * @see {@link #versionedRow}
      */
@@ -515,6 +556,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Takes a snapshot.
+     *
      * @param path The path.
      * @return Snapshot future.
      */
@@ -523,6 +566,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Restores a snapshot.
+     *
      * @param path The path.
      */
     public void restoreSnapshot(Path path) {
@@ -530,6 +575,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Executes a scan.
+     *
      * @param pred The predicate.
      * @return The cursor.
      */
@@ -566,21 +613,22 @@ public class VersionedRowStore {
      * Versioned value.
      */
     private static class Value {
-        /**
-         * Current value.
-         */
+        /** Current value. */
         BinaryRow newRow;
 
-        /**
-         * The value for rollback.
-         */
+        /** The value for rollback. */
         @Nullable BinaryRow oldRow;
 
-        /**
-         * Transaction's timestamp.
-         */
+        /** Transaction's timestamp. */
         Timestamp timestamp;
 
+        /**
+         * The constructor.
+         *
+         * @param newRow New row.
+         * @param oldRow Old row.
+         * @param timestamp The timestamp.
+         */
         Value(@Nullable BinaryRow newRow, @Nullable BinaryRow oldRow, Timestamp timestamp) {
             this.newRow = newRow;
             this.oldRow = oldRow;
@@ -592,18 +640,14 @@ public class VersionedRowStore {
      * Wrapper provides correct byte[] comparison.
      */
     public static class KeyWrapper {
-        /**
-         * Data.
-         */
+        /** Data. */
         private final byte[] data;
 
-        /**
-         * Hash.
-         */
+        /** Hash. */
         private final int hash;
 
         /**
-         * Constructor.
+         * The constructor.
          *
          * @param data Wrapped data.
          */
@@ -614,9 +658,7 @@ public class VersionedRowStore {
             this.hash = hash;
         }
 
-        /**
-         * {@inheritDoc}
-         */
+        /** {@inheritDoc} */
         @Override
         public boolean equals(Object o) {
             if (this == o) {
@@ -631,9 +673,7 @@ public class VersionedRowStore {
             return Arrays.equals(data, wrapper.data);
         }
 
-        /**
-         * {@inheritDoc}
-         */
+        /** {@inheritDoc} */
         @Override
         public int hashCode() {
             return hash;
@@ -641,6 +681,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Returns a storage delegate.
+     *
      * @return The delegate.
      */
     public PartitionStorage delegate() {
@@ -648,6 +690,8 @@ public class VersionedRowStore {
     }
 
     /**
+     * Returns a transaction manager.
+     *
      * @return Transaction manager.
      */
     public TxManager txManager() {
@@ -658,14 +702,10 @@ public class VersionedRowStore {
      * Adapter that converts a {@link BinaryRow} into a {@link SearchRow}.
      */
     private static class BinarySearchRow implements SearchRow {
-        /**
-         * Search key.
-         */
+        /** Search key. */
         private final byte[] keyBytes;
 
-        /**
-         * Source row.
-         */
+        /** Source row. */
         private final BinaryRow sourceRow;
 
         /**
@@ -678,17 +718,13 @@ public class VersionedRowStore {
             row.keySlice().get(keyBytes);
         }
 
-        /**
-         * {@inheritDoc}
-         */
+        /** {@inheritDoc} */
         @Override
         public byte @NotNull [] keyBytes() {
             return keyBytes;
         }
 
-        /**
-         * {@inheritDoc}
-         */
+        /** {@inheritDoc} */
         @Override
         public @NotNull ByteBuffer key() {
             return ByteBuffer.wrap(keyBytes);
