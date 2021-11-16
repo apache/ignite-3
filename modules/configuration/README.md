@@ -21,7 +21,7 @@ This is the ability to create various forms of the same configuration.
 Let's take an example of an SQL column configuration, suppose it can be one of the following types:
 * varchar(max) - string with a maximum length;
 * decimal(p,s) - decimal number with a fixed precision (p) and a scale (s);
-* datetime(fsp) - date and time with fractional seconds precision(fsp).
+* datetime(fsp) - date and time with a fractional seconds precision (fsp).
 
 If you do not use polymorphic configuration, then the scheme will look something like this:
 
