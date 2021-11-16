@@ -14,83 +14,10 @@ internal implementations to avoid writing boilerplate code.
 
 All schema classes must end with the `ConfigurationSchema` suffix.
 
-### Polymorphic configuration
-
-This is the ability to create various forms of the same configuration. 
-
-Let's take an example of an SQL column configuration, suppose it can be one of the following types:
-* varchar(max) - string with a maximum length;
-* decimal(p,s) - decimal number with a fixed precision (p) and a scale (s);
-* datetime(fsp) - date and time with a fractional seconds precision (fsp).
-
-If you do not use polymorphic configuration, then the scheme will look something like this:
-
-```java
-@Config
-public static class ColumnConfigurationSchema { 
-    @Value
-    public String type;
-
-    @Value
-    public String name;
-    
-    @Value
-    public int maxLength;
-
-    @Value
-    public int precision;
-
-    @Value
-    public int scale;
-
-    @Value
-    public int fsp;
-}
-```
-
-Such a scheme is redundant and can be confusing when using it, since it is not obvious which fields 
-are needed for each type of column. Instead, one can use a polymorphic configuration 
-that will look something like this:
-
-```java
-@PolymorphicConfig
-public static class ColumnConfigurationSchema { 
-    @PolymorphicId
-    public String type;
-
-    @Value
-    public String name;
-}
-
-@PolymorphicConfigInstance("varchar")
-public static class VarcharColumnConfigurationSchema extends ColumnConfigurationSchema {
-    @Value
-    public int maxLength;
-}
-
-@PolymorphicConfigInstance("decimal")
-public static class DecimalColumnConfigurationSchema extends ColumnConfigurationSchema {
-    @Value
-    public int precision;
-
-    @Value
-    public int scale;
-}
-
-@PolymorphicConfigInstance("datetime")
-public static class DatetimeColumnConfigurationSchema extends ColumnConfigurationSchema {
-    @Value
-    public int fsp;
-}
-```
-
-Thus, a column can only be one of these (varchar, decimal and datetime) types and will contain the 
-type, name and fields specific to it.
-
 ### Configuration Registry
 
-`ConfigurationRegistry` is the entry point of the module. It is used to register root keys, validators, storages and to
-start / stop the component. Refer to the class javadocs for more details.
+`ConfigurationRegistry` is the entry point of the module. It is used to register root keys, validators, storages,
+polymorphic extensions and to start / stop the component. Refer to the class javadocs for more details.
 
 ### Root Key
 
@@ -148,7 +75,8 @@ public static class FirstPolymorphicInstanceConfigurationSchema extends Polymorp
     the corresponding configuration schema;
 * `@Config` is similar to the `@ConfigurationRoot` but represents an inner configuration node;
 * `@PolymorphicConfig` is similar to the `@Config` and an abstract class in java, i.e. it cannot be instantiated, but it can be subclassed;
-* `@PolymorphicConfigInstance` marks an inheritor of a polymorphic configuration. This annotation has a single property called `value`, which is a unique identifier;
+* `@PolymorphicConfigInstance` marks an inheritor of a polymorphic configuration. This annotation has a single property called `value` - 
+   a unique identifier among the inheritors of one polymorphic configuration, used to define the type (schema) of the polymorphic configuration we are dealing with now.
 * `@ConfigValue` marks a nested schema field. Cyclic dependencies are not allowed;
 * `@NamedConfigValue` is similar to `@ConfigValue`, but such fields represent a collection of properties, not a single
   instance. Every element of the collection will have a `String` name, similar to a `Map`.
@@ -161,6 +89,79 @@ public static class FirstPolymorphicInstanceConfigurationSchema extends Polymorp
 * `@PolymorphicId` is similar to the `@Value`, but is used to store the type of polymorphic configuration (`@PolymorphicConfigInstance#value`), must be a `String` and placed as the first field in a schema;
 * `@Immutable` annotation can only be present on fields marked with the `@Value` annotation. Annotated fields cannot be 
   changed after they have been initialized (either manually or by assigning a default value).
+
+### Polymorphic configuration
+
+This is the ability to create various forms of the same configuration.
+
+Let's take an example of an SQL column configuration, suppose it can be one of the following types:
+* varchar(max) - string with a maximum length;
+* decimal(p,s) - decimal number with a fixed precision (p) and a scale (s);
+* datetime(fsp) - date and time with a fractional seconds precision (fsp).
+
+If you do not use polymorphic configuration, then the scheme will look something like this:
+
+```java
+@Config
+public static class ColumnConfigurationSchema { 
+    @Value
+    public String type;
+
+    @Value
+    public String name;
+    
+    @Value
+    public int maxLength;
+
+    @Value
+    public int precision;
+
+    @Value
+    public int scale;
+
+    @Value
+    public int fsp;
+}
+```
+
+Such a scheme is redundant and can be confusing when using it, since it is not obvious which fields
+are needed for each type of column. Instead, one can use a polymorphic configuration
+that will look something like this:
+
+```java
+@PolymorphicConfig
+public static class ColumnConfigurationSchema { 
+    @PolymorphicId
+    public String type;
+
+    @Value
+    public String name;
+}
+
+@PolymorphicConfigInstance("varchar")
+public static class VarcharColumnConfigurationSchema extends ColumnConfigurationSchema {
+    @Value
+    public int maxLength;
+}
+
+@PolymorphicConfigInstance("decimal")
+public static class DecimalColumnConfigurationSchema extends ColumnConfigurationSchema {
+    @Value
+    public int precision;
+
+    @Value
+    public int scale;
+}
+
+@PolymorphicConfigInstance("datetime")
+public static class DatetimeColumnConfigurationSchema extends ColumnConfigurationSchema {
+    @Value
+    public int fsp;
+}
+```
+
+Thus, a column can only be one of these (varchar, decimal and datetime) types and will contain the
+type, name and fields specific to it.
 
 ## Generated API
 
