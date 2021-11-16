@@ -82,22 +82,28 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             
             InternalTuple keyTuple0 = toInternalTuple(schema, tuple, true);
             InternalTuple valTuple0 = toInternalTuple(schema, tuple, false);
-            
+    
             while (valTuple0.knownColumns() + keyTuple0.knownColumns() != tuple.columnCount()) {
                 if (tbl.schemaMode() == SchemaManagementMode.STRICT) {
-                    throw new SchemaMismatchException("Value doesn't match schema.");
+                    SchemaDescriptor newSchema = schemaReg.waitLatestSchema();
+            
+                    if (newSchema.version() == schema.version()) {
+                        throw new SchemaMismatchException("Value doesn't match schema.");
+                    }
+            
+                    return marshal(tuple);
                 }
-                
+        
                 createColumns(extractColumnsType(tuple, extraColumnNames(tuple, schema)));
-                
+        
                 assert schemaReg.lastSchemaVersion() > schema.version();
-                
+        
                 schema = schemaReg.schema();
-                
+        
                 keyTuple0 = toInternalTuple(schema, tuple, true);
                 valTuple0 = toInternalTuple(schema, tuple, false);
             }
-            
+    
             return buildRow(schema, keyTuple0, valTuple0);
         } catch (Exception ex) {
             throw new TupleMarshallerException("Failed to marshal tuple.", ex);
@@ -112,26 +118,34 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             
             InternalTuple keyTuple0 = toInternalTuple(schema, keyTuple, true);
             InternalTuple valTuple0 = toInternalTuple(schema, valTuple, false);
-            
+    
             while (true) {
                 if (keyTuple0.knownColumns() < keyTuple.columnCount()) {
-                    throw new SchemaMismatchException("Key tuple contains extra columns: " + extraColumnNames(keyTuple, true, schema));
+                    throw new SchemaMismatchException(
+                            "Key tuple contains extra columns: " + extraColumnNames(keyTuple, true,
+                                    schema));
                 }
-    
+        
                 if (valTuple == null || valTuple0.knownColumns() == valTuple.columnCount()) {
                     break; // Nothing to do.
                 }
-    
+        
                 if (tbl.schemaMode() == SchemaManagementMode.STRICT) {
-                    throw new SchemaMismatchException("Value doesn't match schema.");
+                    SchemaDescriptor newSchema = schemaReg.waitLatestSchema();
+            
+                    if (newSchema.version() == schema.version()) {
+                        throw new SchemaMismatchException("Value doesn't match schema.");
+                    }
+            
+                    return marshal(keyTuple, valTuple);
                 }
-                
+        
                 createColumns(extractColumnsType(valTuple, extraColumnNames(valTuple, false, schema)));
-                
+        
                 assert schemaReg.lastSchemaVersion() > schema.version();
-                
+        
                 schema = schemaReg.schema();
-                
+        
                 keyTuple0 = toInternalTuple(schema, keyTuple, true);
                 valTuple0 = toInternalTuple(schema, valTuple, false);
             }
@@ -273,6 +287,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     }
     
     /**
+     * Extracts columns.
+     *
      * @param tuple  Tuple representing a Row.
      * @param schema Schema.
      * @return Extra columns.
@@ -366,6 +382,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     }
     
     /**
+     * Writes column.
+     *
      * @param rowAsm Row assembler.
      * @param col    Column.
      * @param tup    Internal tuple.
@@ -432,15 +450,16 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         }
         
         /**
-         * @return Number of columns that matches schema.
+         * Returns number of columns that matches schema.
          */
         public int knownColumns() {
             return knownColumns;
         }
         
         /**
+         * Returns column value.
+         *
          * @param columnName Columns name.
-         * @return Column value.
          */
         Object value(String columnName) {
             Object val = tuple.valueOrDefault(columnName, POISON_OBJECT);

@@ -42,40 +42,21 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.msgpack.core.MessageFormat;
 
 /**
  * Client table API implementation.
  */
 public class ClientTable implements Table {
-    /**
-     *
-     */
     private final IgniteUuid id;
     
-    /**
-     *
-     */
     private final String name;
     
-    /**
-     *
-     */
     private final ReliableChannel ch;
     
-    /**
-     *
-     */
     private final ConcurrentHashMap<Integer, ClientSchema> schemas = new ConcurrentHashMap<>();
     
-    /**
-     *
-     */
     private volatile int latestSchemaVer = -1;
-    
-    /**
-     *
-     */
+
     private final Object latestSchemaLock = new Object();
     
     /**
@@ -195,7 +176,7 @@ public class ClientTable implements Table {
             var isNullable = in.unpackBoolean();
             
             // Skip unknown extra properties, if any.
-            in.skipValue(propCnt - 4);
+            in.skipValues(propCnt - 4);
             
             var column = new ClientColumn(name, type, isNullable, isKey, i);
             columns[i] = column;
@@ -220,6 +201,13 @@ public class ClientTable implements Table {
         return IgniteToStringBuilder.toString(ClientTable.class, this);
     }
     
+    /**
+     * Writes {@link Tuple}.
+     *
+     * @param tuple Tuple.
+     * @param schema Schema.
+     * @param out Out.
+     */
     public void writeTuple(
             @NotNull Tuple tuple,
             ClientSchema schema,
@@ -228,6 +216,14 @@ public class ClientTable implements Table {
         writeTuple(tuple, schema, out, false, false);
     }
     
+    /**
+     * Writes {@link Tuple}.
+     *
+     * @param tuple Tuple.
+     * @param schema Schema.
+     * @param out Out.
+     * @param keyOnly Key only.
+     */
     public void writeTuple(
             @NotNull Tuple tuple,
             ClientSchema schema,
@@ -237,6 +233,15 @@ public class ClientTable implements Table {
         writeTuple(tuple, schema, out, keyOnly, false);
     }
     
+    /**
+     * Writes {@link Tuple}.
+     *
+     * @param tuple Tuple.
+     * @param schema Schema.
+     * @param out Out.
+     * @param keyOnly Key only.
+     * @param skipHeader Skip header.
+     */
     public void writeTuple(
             @NotNull Tuple tuple,
             ClientSchema schema,
@@ -269,6 +274,15 @@ public class ClientTable implements Table {
         }
     }
     
+    /**
+     * Writes key and value {@link Tuple}.
+     *
+     * @param key Key tuple.
+     * @param val Value tuple.
+     * @param schema Schema.
+     * @param out Out.
+     * @param skipHeader Skip header.
+     */
     public void writeKvTuple(
             @NotNull Tuple key,
             @Nullable Tuple val,
@@ -312,6 +326,13 @@ public class ClientTable implements Table {
         }
     }
     
+    /**
+     * Writes pairs {@link Tuple}.
+     *
+     * @param pairs Key tuple.
+     * @param schema Schema.
+     * @param out Out.
+     */
     public void writeKvTuples(Map<Tuple, Tuple> pairs, ClientSchema schema, ClientMessagePacker out) {
         out.packIgniteUuid(id);
         out.packInt(schema.version());
@@ -322,6 +343,14 @@ public class ClientTable implements Table {
         }
     }
     
+    /**
+     * Writes {@link Tuple}'s.
+     *
+     * @param tuples Tuples.
+     * @param schema Schema.
+     * @param out Out.
+     * @param keyOnly Key only.
+     */
     public void writeTuples(
             @NotNull Collection<Tuple> tuples,
             ClientSchema schema,
@@ -402,6 +431,13 @@ public class ClientTable implements Table {
         return new IgniteBiTuple<>(keyTuple, valTuple);
     }
     
+    /**
+     * Reads {@link Tuple} pairs.
+     *
+     * @param schema Schema.
+     * @param in In.
+     * @return Tuple pairs.
+     */
     public Map<Tuple, Tuple> readKvTuples(ClientSchema schema, ClientMessageUnpacker in) {
         var cnt = in.unpackInt();
         Map<Tuple, Tuple> res = new HashMap<>(cnt);
@@ -468,7 +504,7 @@ public class ClientTable implements Table {
             BiFunction<ClientSchema, ClientMessageUnpacker, T> fn,
             T defaultValue
     ) {
-        if (in.getNextFormat() == MessageFormat.NIL) {
+        if (in.tryUnpackNil()) {
             return defaultValue;
         }
         

@@ -71,14 +71,20 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
     /** stdout. */
     ByteArrayOutputStream out;
 
-    /**
-     *
-     */
+    /** Configuration loader. */
     @Mock
     CliPathsConfigLoader cliPathsCfgLdr;
 
+    /** Paths to cli working directories. */
+    IgnitePaths ignitePaths = new IgnitePaths(
+            Path.of("bin"),
+            Path.of("work"),
+            Path.of("config"),
+            Path.of("log"),
+            "version");
+
     /**
-     *
+     * Sets up environment before test execution.
      */
     @BeforeEach
     void setup() {
@@ -90,13 +96,18 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         out = new ByteArrayOutputStream();
     }
 
+    /**
+     * Stops application context after a test.
+     */
     @AfterEach
     void tearDown() {
         ctx.stop();
     }
 
     /**
+     * Creates a new command line interpreter with the given application context.
      *
+     * @return New {@code CommandLine} interpreter.
      */
     CommandLine cmd(ApplicationContext applicationCtx) {
         CommandLine.IFactory factory = new CommandFactory(applicationCtx);
@@ -106,22 +117,12 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                 .setOut(new PrintWriter(out, true));
     }
 
-    IgnitePaths ignitePaths = new IgnitePaths(
-            Path.of("bin"),
-            Path.of("work"),
-            Path.of("config"),
-            Path.of("log"),
-            "version");
-
     /**
-     *
+     * Tests "init" command.
      */
     @DisplayName("init")
     @Nested
     class Init {
-        /**
-         *
-         */
         @Test
         @DisplayName("init")
         void init() {
@@ -137,35 +138,25 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
     }
 
     /**
-     *
+     * Tests "module" command.
      */
     @DisplayName("module")
     @Nested
     class Module {
-        /**
-         *
-         */
+        /** Distributive module manager. */
         @Mock
         ModuleManager moduleMgr;
 
-        /**
-         *
-         */
+        /** registry of installed CLI or Ignite server modules. */
         @Mock
         ModuleRegistry moduleRegistry;
 
-        /**
-         *
-         */
         @BeforeEach
         void setUp() {
             ctx.registerSingleton(moduleMgr);
             ctx.registerSingleton(moduleRegistry);
         }
 
-        /**
-         *
-         */
         @Test
         @DisplayName("add mvn:groupId:artifact:version")
         void add() {
@@ -178,9 +169,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             Assertions.assertEquals(0, exitCode);
         }
 
-        /**
-         *
-         */
         @Test
         @DisplayName("add mvn:groupId:artifact:version --repo http://mvnrepo.com/repostiory")
         void addWithCustomRepo() throws MalformedURLException {
@@ -200,9 +188,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             Assertions.assertEquals(0, exitCode);
         }
 
-        /**
-         *
-         */
         @Test
         @DisplayName("add test-module")
         void addBuiltinModule() {
@@ -217,9 +202,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             Assertions.assertEquals(0, exitCode);
         }
 
-        /**
-         *
-         */
         @Test
         @DisplayName("remove builtin-module")
         void remove() {
@@ -237,9 +219,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     + " was removed successfully.\n", out.toString());
         }
 
-        /**
-         *
-         */
         @Test
         @DisplayName("remove unknown-module")
         void removeUnknownModule() {
@@ -257,9 +236,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     + " is not yet added.\n", out.toString());
         }
 
-        /**
-         *
-         */
         @Test
         @DisplayName("list")
         void list() {
@@ -322,28 +298,20 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
     }
 
     /**
-     *
+     * Tests "node" command.
      */
     @Nested
     @DisplayName("node")
     class Node {
-        /**
-         *
-         */
+        /** Manager of local Ignite nodes. */
         @Mock
         NodeManager nodeMgr;
 
-        /**
-         *
-         */
         @BeforeEach
         void setUp() {
             ctx.registerSingleton(nodeMgr);
         }
 
-        /**
-         *
-         */
         @Test
         @DisplayName("start node1 --config conf.json")
         void start() {
@@ -352,7 +320,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             var node =
                     new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
 
-            when(nodeMgr.start(any(), any(), any(), any(), any(), any()))
+            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any()))
                     .thenReturn(node);
 
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
@@ -366,6 +334,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             verify(nodeMgr).start(
                     nodeName,
+                    ignitePaths.nodesBaseWorkDir(),
                     ignitePaths.logDir,
                     ignitePaths.cliPidsDir(),
                     Path.of("conf.json"),
@@ -383,9 +352,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     out.toString());
         }
 
-        /**
-         *
-         */
         @Test
         @DisplayName("stop node1")
         void stopRunning() {
@@ -410,9 +376,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     out.toString());
         }
 
-        /**
-         *
-         */
         @Test
         @DisplayName("stop unknown-node")
         void stopUnknown() {
@@ -437,9 +400,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     out.toString());
         }
 
-        /**
-         *
-         */
         @Test
         @DisplayName("list")
         void list() {
@@ -469,9 +429,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     out.toString());
         }
 
-        /**
-         *
-         */
         @Test
         @DisplayName("list")
         void listEmpty() {
@@ -492,9 +449,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     out.toString());
         }
 
-        /**
-         *
-         */
         @Test
         @DisplayName("classpath")
         void classpath() throws IOException {
@@ -513,34 +467,24 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
     }
 
     /**
-     *
+     * Tests "config" command.
      */
     @Nested
     @DisplayName("config")
     class Config {
-        /**
-         *
-         */
+        /** Http client that is used for communication purposes. */
         @Mock
         private HttpClient httpClient;
 
-        /**
-         *
-         */
+        /** HTTP response. */
         @Mock
         private HttpResponse<String> res;
 
-        /**
-         *
-         */
         @BeforeEach
         void setUp() {
             ctx.registerSingleton(httpClient);
         }
 
-        /**
-         *
-         */
         //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
         @Test
         @DisplayName("get --node-endpoint localhost:8081 --type node")
@@ -566,9 +510,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     + "}\n", out.toString());
         }
 
-        /**
-         *
-         */
         //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
         @Test
         @DisplayName("get --node-endpoint localhost:8081 --selector local.baseline --type node")
@@ -594,9 +535,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     + "}\n", out.toString());
         }
 
-        /**
-         *
-         */
         //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
         @Test
         @DisplayName("set --node-endpoint localhost:8081 local.baseline.autoAdjust.enabled=true --type node")
@@ -624,9 +562,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     + " command to view the updated configuration.\n", out.toString());
         }
 
-        /**
-         *
-         */
         //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
         @Test
         @DisplayName(
@@ -659,7 +594,13 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
     }
 
     /**
+     * <em>Assert</em> that {@code expected} and {@code actual} are equal.
      *
+     * <p>If both are {@code null}, they are considered equal.
+     *
+     * @param exp Expected result.
+     * @param actual Actual result.
+     * @see Object#equals(Object)
      */
     private static void assertEquals(String exp, String actual) {
         Assertions.assertEquals(

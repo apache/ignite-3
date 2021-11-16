@@ -63,7 +63,7 @@ public class IgnitePaths {
     /** Directory for storing server node configs. */
     public final Path cfgDir;
 
-    /** Directory for server nodes logs */
+    /** Directory for server nodes logs. */
     public final Path logDir;
 
     /**
@@ -89,6 +89,8 @@ public class IgnitePaths {
     }
 
     /**
+     * Returns a path where CLI module artifacts will be placed.
+     *
      * @return Path where CLI module artifacts will be placed.
      */
     public Path cliLibsDir() {
@@ -96,6 +98,8 @@ public class IgnitePaths {
     }
 
     /**
+     * Returns a path where Ignite server module artifacts will be placed..
+     *
      * @return Path where Ignite server module artifacts will be placed.
      */
     public Path libsDir() {
@@ -103,6 +107,8 @@ public class IgnitePaths {
     }
 
     /**
+     * Returns a path where Ignite node pid files will be created.
+     *
      * @return Path where Ignite node pid files will be created.
      */
     public Path cliPidsDir() {
@@ -110,13 +116,17 @@ public class IgnitePaths {
     }
 
     /**
-     * @return Path to file with registry data for {@link org.apache.ignite.cli.builtins.module.ModuleRegistry}
+     * Returns a path to file with registry data for {@link org.apache.ignite.cli.builtins.module.ModuleRegistry}.
+     *
+     * @return Path to file with registry data for {@link org.apache.ignite.cli.builtins.module.ModuleRegistry}.
      */
     public Path installedModulesFile() {
         return workDir.resolve("modules.json");
     }
 
     /**
+     * Returns a path to directory with Ignite nodes configs.
+     *
      * @return Path to directory with Ignite nodes configs.
      */
     public Path serverConfigDir() {
@@ -124,14 +134,27 @@ public class IgnitePaths {
     }
 
     /**
-     * @return Path to default Ignite node config.
+     * Returns a path to the root data directory.
+     *
+     * @return Path to root directory for data of Ignite nodes.
+     */
+    public Path nodesBaseWorkDir() {
+        return workDir.resolve("data");
+    }
+
+    /**
+     * Returns a path to the default Ignite node config.
+     *
+     * @return Path to the default Ignite node config.
      */
     public Path serverDefaultConfigFile() {
         return cfgDir.resolve("default-config.xml");
     }
 
     /**
-     * @return Path to default Ignite node config.
+     * Returns a path to logging properties file.
+     *
+     * @return Path to logging properties file.
      */
     public Path serverJavaUtilLoggingPros() {
         return cfgDir.resolve("ignite.java.util.logging.properties");
@@ -147,6 +170,7 @@ public class IgnitePaths {
         initDirIfNeeded(cliLibsDir(), "Can't create a directory for cli modules: " + cliLibsDir());
         initDirIfNeeded(cfgDir, "Can't create a directory for server configs: " + cfgDir);
         initDirIfNeeded(logDir, "Can't create a directory for server logs: " + logDir);
+        initDirIfNeeded(nodesBaseWorkDir(), "Can't create a nodes work directory: " + nodesBaseWorkDir());
     }
 
     /**

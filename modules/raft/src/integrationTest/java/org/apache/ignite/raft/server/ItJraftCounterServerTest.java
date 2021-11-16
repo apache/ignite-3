@@ -61,6 +61,7 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -141,7 +142,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     private ScheduledExecutorService executor;
 
     /**
-     *
+     * Before each.
      */
     @BeforeEach
     void before() {
@@ -151,7 +152,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     }
 
     /**
-     *
+     * After each.
      */
     @AfterEach
     @Override
@@ -192,6 +193,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     }
 
     /**
+     * Starts server.
+     *
      * @param idx The index.
      * @param clo Init closure.
      * @param cons Node options updater.
@@ -230,6 +233,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     }
 
     /**
+     * Starts client.
+     *
      * @param groupId Group id.
      * @return The client.
      * @throws Exception If failed.
@@ -321,9 +326,6 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
                 .collect(toSet());
     }
 
-    /**
-     *
-     */
     @Test
     public void testRefreshLeader() throws Exception {
         startCluster();
@@ -345,9 +347,6 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
         assertNotNull(clients.get(1).leader());
     }
 
-    /**
-     * @throws Exception If failed.
-     */
     @Test
     public void testCounterCommandListener() throws Exception {
         startCluster();
@@ -478,7 +477,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
         }
     }
 
-    /** Tests if a raft group become unavaiable in case of a critical error */
+    /** Tests if a raft group become unavailable in case of a critical error. */
     @Test
     public void testApplyWithFailure() throws Exception {
         listenerFactory = () -> new CounterListener() {
@@ -558,31 +557,106 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
         }
     }
 
+    /** Tests that users related exceptions from SM are propagated to the client. */
+    @Test
+    public void testClientCatchExceptionFromSm() throws Exception {
+        listenerFactory = () -> new CounterListener() {
+            @Override
+            public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
+                Iterator<CommandClosure<WriteCommand>> wrapper = new Iterator<>() {
+                    @Override
+                    public boolean hasNext() {
+                        return iterator.hasNext();
+                    }
+
+                    @Override
+                    public CommandClosure<WriteCommand> next() {
+                        CommandClosure<WriteCommand> cmd = iterator.next();
+
+                        cmd.result(new RuntimeException("Expected message"));
+
+                        return cmd;
+                    }
+                };
+
+                super.onWrite(wrapper);
+            }
+
+            @Override public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
+                Iterator<CommandClosure<ReadCommand>> wrapper = new Iterator<>() {
+                    @Override public boolean hasNext() {
+                        return iterator.hasNext();
+                    }
+
+                    @Override public CommandClosure<ReadCommand> next() {
+                        CommandClosure<ReadCommand> cmd = iterator.next();
+
+                        cmd.result(new RuntimeException("Another expected message"));
+
+                        return cmd;
+                    }
+                };
+
+                super.onRead(wrapper);
+            }
+        };
+
+        startCluster();
+
+        RaftGroupService client1 = clients.get(0);
+        RaftGroupService client2 = clients.get(1);
+
+        client1.refreshLeader().get();
+        client2.refreshLeader().get();
+
+        NodeImpl leader = servers.stream().map(s -> ((NodeImpl) s.raftGroupService(COUNTER_GROUP_0).getRaftNode()))
+                .filter(n -> n.getState() == STATE_LEADER).findFirst().orElse(null);
+
+        assertNotNull(leader);
+
+        try {
+            client1.<Long>run(new IncrementAndGetCommand(0)).get();
+
+            fail();
+        } catch (Exception e) {
+            // Expected.
+            Throwable cause = e.getCause();
+
+            assertTrue(cause instanceof RuntimeException);
+
+            assertEquals(cause.getMessage(), "Expected message");
+        }
+
+        try {
+            client1.<Long>run(new GetValueCommand()).get();
+
+            fail();
+        } catch (Exception e) {
+            // Expected.
+            Throwable cause = e.getCause();
+
+            assertTrue(cause instanceof RuntimeException);
+
+            assertEquals(cause.getMessage(), "Another expected message");
+        }
+    }
+
     /** Tests if a follower is catching up the leader after restarting. */
     @Test
     public void testFollowerCatchUpFromLog() throws Exception {
         doTestFollowerCatchUp(false, true);
     }
 
-    /**
-     *
-     */
     @Test
     public void testFollowerCatchUpFromSnapshot() throws Exception {
         doTestFollowerCatchUp(true, true);
     }
 
-    /**
-     *
-     */
     @Test
     public void testFollowerCatchUpFromLog2() throws Exception {
         doTestFollowerCatchUp(false, false);
     }
 
-    /**
-     *
-     */
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15156")
     public void testFollowerCatchUpFromSnapshot2() throws Exception {
@@ -671,6 +745,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     }
 
     /**
+     * Do test follower catch up.
+     *
      * @param snapshot {@code True} to create snapshot on leader and truncate log.
      * @param cleanDir {@code True} to clean persistent state on follower before restart.
      * @throws Exception If failed.
@@ -759,6 +835,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     }
 
     /**
+     * Applies increments.
+     *
      * @param client The client
      * @param start  Start element.
      * @param stop   Stop element.
@@ -788,6 +866,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     }
 
     /**
+     * Validates state machine.
+     *
      * @param expected Expected value.
      * @param server   The server.
      * @param groupId  Group id.

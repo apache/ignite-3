@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
@@ -401,8 +402,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     }
     
     /**
+     * Returns table row tuple.
+     *
      * @param row Binary row.
-     * @return Table row tuple.
      */
     private Tuple wrap(BinaryRow row) {
         if (row == null) {
@@ -415,14 +417,23 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     }
     
     /**
+     * Returns table rows.
+     *
      * @param rows Binary rows.
-     * @return Table rows.
      */
     private Collection<Tuple> wrap(Collection<BinaryRow> rows) {
         if (rows == null) {
             return null;
         }
-        
-        return rows.stream().filter(Objects::nonNull).map(this::wrap).collect(Collectors.toSet());
+    
+        Collection<BinaryRow> nonEmptyRows = rows.stream().filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    
+        if (nonEmptyRows.isEmpty()) {
+            return Collections.EMPTY_LIST;
+        }
+    
+        return schemaReg.resolve(nonEmptyRows).stream().map(TableRow::tuple)
+                .collect(Collectors.toList());
     }
 }

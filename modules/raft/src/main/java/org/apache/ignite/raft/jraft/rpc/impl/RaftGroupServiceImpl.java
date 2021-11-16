@@ -17,32 +17,6 @@
 
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
-import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.raft.client.Command;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.ReadCommand;
-import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.entity.PeerId;
-import org.apache.ignite.raft.jraft.error.RaftError;
-import org.apache.ignite.raft.jraft.rpc.ActionRequest;
-import org.apache.ignite.raft.jraft.rpc.ActionResponse;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests;
-import org.jetbrains.annotations.NotNull;
-
 import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.ThreadLocalRandom.current;
@@ -62,6 +36,33 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerResponse;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.raft.client.Command;
+import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.client.ReadCommand;
+import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.ActionRequest;
+import org.apache.ignite.raft.jraft.rpc.ActionResponse;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * The implementation of {@link RaftGroupService}
@@ -491,7 +492,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         CompletableFuture<?> fut0 = cluster.messagingService().invoke(peer.address(), (NetworkMessage) req, networkTimeout);
 
-        fut0.whenComplete(new BiConsumer<Object, Throwable>() {
+        //TODO: IGNITE-15389 org.apache.ignite.internal.metastorage.client.CursorImpl has potential deadlock inside
+        fut0.whenCompleteAsync(new BiConsumer<Object, Throwable>() {
             @Override public void accept(Object resp, Throwable err) {
                 if (err != null) {
                     if (recoverable(err)) {
@@ -545,6 +547,29 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     else
                         fut.completeExceptionally(
                             new RaftException(RaftError.forNumber(resp0.errorCode()), resp0.errorMsg()));
+                }
+                else if (resp instanceof RpcRequests.SMErrorResponse) {
+                    SMThrowable th = ((RpcRequests.SMErrorResponse)resp).error();
+                    if (th instanceof SMCompactedThrowable) {
+                        SMCompactedThrowable compactedThrowable = (SMCompactedThrowable)th;
+
+                        try {
+                            Throwable restoredTh = (Throwable)Class.forName(compactedThrowable.throwableClassName())
+                                .getConstructor(String.class)
+                                .newInstance(compactedThrowable.throwableMessage());
+
+                            fut.completeExceptionally(restoredTh);
+                        }
+                        catch (Exception e) {
+                            LOG.warn("Cannot restore throwable from user's state machine. " +
+                                "Check if throwable " + compactedThrowable.throwableClassName() +
+                                " is presented in the classpath.");
+
+                            fut.completeExceptionally(new IgniteException(compactedThrowable.throwableMessage()));
+                        }
+                    }
+                    else if (th instanceof SMFullThrowable)
+                        fut.completeExceptionally(((SMFullThrowable)th).throwable());
                 }
                 else {
                     leader = peer; // The OK response was received from a leader.

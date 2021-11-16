@@ -28,9 +28,10 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
 /**
- *
+ * IgniteTableModify.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class IgniteTableModify extends TableModify implements IgniteRel {
+public class IgniteTableModify extends TableModify implements InternalIgniteRel {
     /**
      * Creates a {@code TableModify}.
      *

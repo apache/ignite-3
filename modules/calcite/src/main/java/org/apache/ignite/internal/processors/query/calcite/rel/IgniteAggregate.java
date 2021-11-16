@@ -34,9 +34,10 @@ import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteC
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCostFactory;
 
 /**
- *
+ * IgniteAggregate.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public abstract class IgniteAggregate extends Aggregate implements IgniteRel {
+public abstract class IgniteAggregate extends Aggregate implements InternalIgniteRel {
     /** {@inheritDoc} */
     protected IgniteAggregate(
             RelOptCluster cluster,
@@ -69,7 +70,8 @@ public abstract class IgniteAggregate extends Aggregate implements IgniteRel {
     }
 
     /**
-     *
+     * EstimateMemoryForGroup.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public double estimateMemoryForGroup(RelMetadataQuery mq) {
         double mem = groupSet.cardinality() * IgniteCost.AVERAGE_FIELD_SIZE;
@@ -91,7 +93,8 @@ public abstract class IgniteAggregate extends Aggregate implements IgniteRel {
     }
 
     /**
-     *
+     * ComputeSelfCostHash.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public RelOptCost computeSelfCostHash(RelOptPlanner planner, RelMetadataQuery mq) {
         IgniteCostFactory costFactory = (IgniteCostFactory) planner.getCostFactory();
@@ -109,7 +112,8 @@ public abstract class IgniteAggregate extends Aggregate implements IgniteRel {
     }
 
     /**
-     *
+     * ComputeSelfCostSort.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public RelOptCost computeSelfCostSort(RelOptPlanner planner, RelMetadataQuery mq) {
         IgniteCostFactory costFactory = (IgniteCostFactory) planner.getCostFactory();

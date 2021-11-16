@@ -17,45 +17,36 @@
 
 package org.apache.ignite.internal.processors.query.calcite.metadata;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.io.Serializable;
 import java.util.List;
-import java.util.Map;
 
 /**
- *
+ * FragmentDescription.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class FragmentDescription implements Serializable {
-    /**
-     *
-     */
     private long fragmentId;
 
-    /**
-     *
-     */
     private FragmentMapping mapping;
 
-    /**
-     *
-     */
     private ColocationGroup target;
 
-    /**
-     *
-     */
-    private Map<Long, List<String>> remoteSources;
+    private Long2ObjectOpenHashMap<List<String>> remoteSources;
 
     /**
-     *
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public FragmentDescription() {
     }
 
     /**
-     *
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public FragmentDescription(long fragmentId, FragmentMapping mapping, ColocationGroup target,
-            Map<Long, List<String>> remoteSources) {
+            Long2ObjectOpenHashMap<List<String>> remoteSources) {
         this.fragmentId = fragmentId;
         this.mapping = mapping;
         this.target = target;
@@ -63,35 +54,35 @@ public class FragmentDescription implements Serializable {
     }
 
     /**
-     *
+     * Get fragment id.
      */
     public long fragmentId() {
         return fragmentId;
     }
 
     /**
-     *
+     * Get node ids.
      */
     public List<String> nodeIds() {
         return mapping.nodeIds();
     }
 
     /**
-     *
+     * Get target.
      */
     public ColocationGroup target() {
         return target;
     }
 
     /**
-     *
+     * Get remotes.
      */
-    public Map<Long, List<String>> remotes() {
+    public Long2ObjectOpenHashMap<List<String>> remotes() {
         return remoteSources;
     }
 
     /**
-     *
+     * Get mappring.
      */
     public FragmentMapping mapping() {
         return mapping;

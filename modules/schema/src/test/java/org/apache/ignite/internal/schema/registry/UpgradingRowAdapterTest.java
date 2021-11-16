@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.NativeTypes.datetime;
 import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
+import static org.apache.ignite.internal.schema.registry.SchemaRegistryImpl.INITIAL_SCHEMA_VERSION;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -48,7 +49,7 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.TestUtils;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
@@ -150,12 +151,12 @@ public class UpgradingRowAdapterTest {
         ByteBufferRow row = new ByteBufferRow(serializeValuesToRow(schema, values));
 
         // Validate row.
-        validateRow(values, new SchemaRegistryImpl(1, v -> v == 1 ? schema : schema2), row);
+        validateRow(values, new SchemaRegistryImpl(1, v -> v == 1 ? schema : schema2, () -> INITIAL_SCHEMA_VERSION), row);
 
         // Validate upgraded row.
         values.add(addedColumnIndex, null);
 
-        validateRow(values, new SchemaRegistryImpl(2, v -> v == 1 ? schema : schema2), row);
+        validateRow(values, new SchemaRegistryImpl(2, v -> v == 1 ? schema : schema2, () -> INITIAL_SCHEMA_VERSION), row);
     }
 
     private void validateRow(List<Object> values, SchemaRegistryImpl schemaRegistry, ByteBufferRow binaryRow) {
@@ -189,7 +190,7 @@ public class UpgradingRowAdapterTest {
         for (int i = 0; i < schema.length(); i++) {
             NativeType type = schema.column(i).type();
 
-            res.add(TestUtils.generateRandomValue(rnd, type));
+            res.add(SchemaTestUtils.generateRandomValue(rnd, type));
         }
 
         return res;

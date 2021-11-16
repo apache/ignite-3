@@ -40,19 +40,18 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableModify
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableSpool;
 import org.apache.ignite.internal.processors.query.calcite.schema.ColumnDescriptor;
-import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
+import org.apache.ignite.internal.processors.query.calcite.schema.InternalIgniteTable;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.internal.processors.query.calcite.util.HintUtils;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
- *
+ * PlannerHelper.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class PlannerHelper {
-    /**
-     *
-     */
+
     private static final IgniteLogger LOG = IgniteLogger.forClass(PlannerHelper.class);
 
     /**
@@ -63,6 +62,9 @@ public class PlannerHelper {
     }
 
     /**
+     * Optimize.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @param sqlNode Sql node.
      * @param planner Planner.
      */
@@ -200,9 +202,10 @@ public class PlannerHelper {
          * @return The input rel.
          */
         private IgniteRel processScan(TableScan scan) {
-            IgniteTable tbl = modifyNode != null ? modifyNode.getTable().unwrap(IgniteTable.class) : null;
+            InternalIgniteTable tbl = modifyNode != null ? modifyNode.getTable().unwrap(
+                    InternalIgniteTable.class) : null;
 
-            if (tbl == null || scan.getTable().unwrap(IgniteTable.class) != tbl) {
+            if (tbl == null || scan.getTable().unwrap(InternalIgniteTable.class) != tbl) {
                 return (IgniteRel) scan;
             }
 
@@ -230,7 +233,7 @@ public class PlannerHelper {
         }
 
         /**
-         * @return {@code true} in case {@link #modifyNode} produces any insert.
+         * Get modifyNodeInsertsData flag: {@code true} in case {@link #modifyNode} produces any insert.
          */
         private boolean modifyNodeInsertsData() {
             return modifyNode.isInsert(); // MERGE should be analyzed too

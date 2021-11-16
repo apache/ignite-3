@@ -2,11 +2,11 @@
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
+ * The ASF licenses this file to you under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,30 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller;
+package org.apache.ignite.internal.processors.query.calcite.extension;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.processors.query.calcite.extension.SqlExtension.ExternalCatalog;
+import org.apache.ignite.internal.processors.query.calcite.schema.SchemaHolder;
 
 /**
- * Serialization exception.
+ * Listener used to notify {@link SchemaHolder} about any changes in the external catalogs.
  */
-public class SerializationException extends IgniteInternalCheckedException {
+public interface CatalogUpdateListener {
     /**
-     * Constructor.
+     * Notify the {@link SchemaHolder} that provided catalog has been updated.
      *
-     * @param cause Cause.
+     * @param catalog Catalog to notify the {@link SchemaHolder} about.
      */
-    public SerializationException(Throwable cause) {
-        super(cause);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param message Message.
-     * @param cause   Cause.
-     */
-    public SerializationException(String message, Throwable cause) {
-        super(message, cause);
-    }
+    void onCatalogUpdated(ExternalCatalog catalog);
 }

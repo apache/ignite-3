@@ -15,42 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.calcite.prepare;
+package org.apache.ignite.internal.schema.marshaller.reflection;
 
-import java.util.List;
-import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
+import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
+import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
+import org.apache.ignite.table.mapper.Mapper;
 
 /**
- *
+ * Factory for reflection-based marshaller.
  */
-public class FieldsMetadataImpl implements FieldsMetadata {
-    /**
-     *
-     */
-    private final RelDataType rowType;
-
-    /**
-     *
-     */
-    private final List<List<String>> origins;
-
-    /**
-     *
-     */
-    public FieldsMetadataImpl(RelDataType rowType, List<List<String>> origins) {
-        this.rowType = rowType;
-        this.origins = origins;
-    }
-
+public class ReflectionMarshallerFactory implements MarshallerFactory {
     /** {@inheritDoc} */
-    @Override
-    public RelDataType rowType() {
-        return rowType;
+    @Override public <K, V> KvMarshaller<K, V> create(SchemaDescriptor schema, Mapper<K> keyMapper, Mapper<V> valueMapper) {
+        return new KvMarshallerImpl<>(schema, keyMapper, valueMapper);
     }
-
+    
     /** {@inheritDoc} */
-    @Override
-    public List<List<String>> origins() {
-        return origins;
+    @Override public <R> RecordMarshaller<R> create(SchemaDescriptor schema, Mapper<R> mapper) {
+        return new RecordMarshallerImpl<>(schema, mapper);
     }
 }

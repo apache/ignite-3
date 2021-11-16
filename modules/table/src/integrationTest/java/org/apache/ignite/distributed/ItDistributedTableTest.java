@@ -110,9 +110,6 @@ public class ItDistributedTableTest {
     /** Network factory. */
     private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
-    /**
-     *
-     */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
     /** Client. */
@@ -131,9 +128,6 @@ public class ItDistributedTableTest {
     /** Cluster. */
     private ArrayList<ClusterService> cluster = new ArrayList<>();
 
-    /**
-     *
-     */
     @WorkDirectory
     private Path dataPath;
 
@@ -333,7 +327,12 @@ public class ItDistributedTableTest {
             public SchemaDescriptor schema(int ver) {
                 return SCHEMA;
             }
-
+            
+            @Override
+            public SchemaDescriptor waitLatestSchema() {
+                return schema();
+            }
+    
             @Override
             public int lastSchemaVersion() {
                 return SCHEMA.version();
@@ -342,6 +341,10 @@ public class ItDistributedTableTest {
             @Override
             public Row resolve(BinaryRow row) {
                 return new Row(SCHEMA, row);
+            }
+
+            @Override public Collection<Row> resolve(Collection<BinaryRow> rows) {
+                return rows.stream().map(this::resolve).collect(Collectors.toList());
             }
         }, null);
 
@@ -555,6 +558,8 @@ public class ItDistributedTableTest {
     }
 
     /**
+     * Starts client.
+     *
      * @param testInfo   Test info.
      * @param port       Local port.
      * @param nodeFinder Node finder.
@@ -575,6 +580,8 @@ public class ItDistributedTableTest {
     }
 
     /**
+     * Wait for topology.
+     *
      * @param cluster  The cluster.
      * @param expected Expected count.
      * @param timeout  The timeout in millis.

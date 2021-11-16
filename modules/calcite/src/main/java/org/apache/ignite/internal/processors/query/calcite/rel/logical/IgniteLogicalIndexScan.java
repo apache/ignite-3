@@ -27,7 +27,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.processors.query.calcite.rel.AbstractIndexScan;
-import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
+import org.apache.ignite.internal.processors.query.calcite.schema.InternalIgniteTable;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
@@ -36,7 +36,8 @@ import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
- *
+ * IgniteLogicalIndexScan.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteLogicalIndexScan extends AbstractIndexScan {
     /** Creates a IgniteLogicalIndexScan. */
@@ -49,11 +50,11 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             @Nullable RexNode cond,
             @Nullable ImmutableBitSet requiredColumns
     ) {
-        IgniteTable tbl = table.unwrap(IgniteTable.class);
+        InternalIgniteTable tbl = table.unwrap(InternalIgniteTable.class);
         IgniteTypeFactory typeFactory = Commons.typeFactory(cluster);
         RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
         RelCollation collation = tbl.getIndex(idxName).collation();
-        
+
         if (requiredColumns != null) {
             Mappings.TargetMapping targetMapping = Commons.mapping(requiredColumns,
                     tbl.getRowType(typeFactory).getFieldCount());
@@ -62,9 +63,9 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
                 collation = TraitUtils.projectCollation(collation, proj, rowType);
             }
         }
-        
+
         IndexConditions idxCond = new IndexConditions();
-        
+
         if (collation != null && !collation.getFieldCollations().isEmpty()) {
             idxCond = RexUtils.buildSortedIndexConditions(
                     cluster,
@@ -73,7 +74,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
                     tbl.getRowType(typeFactory),
                     requiredColumns);
         }
-        
+
         return new IgniteLogicalIndexScan(
                 cluster,
                 traits,
@@ -84,7 +85,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
                 idxCond,
                 requiredColumns);
     }
-    
+
     /**
      * Creates a TableScan.
      *

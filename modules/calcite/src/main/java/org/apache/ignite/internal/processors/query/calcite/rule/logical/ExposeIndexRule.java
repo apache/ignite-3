@@ -28,30 +28,22 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelNode;
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
-import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
+import org.apache.ignite.internal.processors.query.calcite.schema.InternalIgniteTable;
 
 /**
- *
+ * ExposeIndexRule.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ExposeIndexRule extends RelOptRule {
-    /**
-     *
-     */
     public static final RelOptRule INSTANCE = new ExposeIndexRule();
 
-    /**
-     *
-     */
     public ExposeIndexRule() {
         super(operandJ(IgniteLogicalTableScan.class, null, ExposeIndexRule::preMatch, any()));
     }
 
-    /**
-     *
-     */
     private static boolean preMatch(IgniteLogicalTableScan scan) {
         return scan.simple() // was not modified by ProjectScanMergeRule or FilterScanMergeRule
-                && !scan.getTable().unwrap(IgniteTable.class).indexes().isEmpty(); // has indexes to expose
+                && !scan.getTable().unwrap(InternalIgniteTable.class).indexes().isEmpty(); // has indexes to expose
     }
 
     /** {@inheritDoc} */
@@ -61,7 +53,7 @@ public class ExposeIndexRule extends RelOptRule {
         RelOptCluster cluster = scan.getCluster();
 
         RelOptTable optTable = scan.getTable();
-        IgniteTable igniteTable = optTable.unwrap(IgniteTable.class);
+        InternalIgniteTable igniteTable = optTable.unwrap(InternalIgniteTable.class);
 
         List<IgniteLogicalIndexScan> indexes = igniteTable.indexes().keySet().stream()
                 .map(idxName -> igniteTable.toRel(cluster, optTable, idxName))
