@@ -233,13 +233,13 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             }
 
             @Override
-            public int lastSchemaVersion() {
-                return ACCOUNTS_SCHEMA.version();
+            public SchemaDescriptor schema(int ver) {
+                return ACCOUNTS_SCHEMA;
             }
 
             @Override
-            public SchemaDescriptor schema(int ver) {
-                return ACCOUNTS_SCHEMA;
+            public int lastSchemaVersion() {
+                return ACCOUNTS_SCHEMA.version();
             }
 
             @Override

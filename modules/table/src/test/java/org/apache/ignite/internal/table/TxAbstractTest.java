@@ -17,6 +17,17 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.tx.TxState.ABORTED;
+import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -62,17 +73,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-
-import static java.util.concurrent.CompletableFuture.allOf;
-import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITED;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * TODO asch validate zero locks after test finish.
@@ -224,8 +224,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         accounts.recordView().upsert(makeValue(1, BALANCE_1));
         accounts.recordView().upsert(makeValue(2, BALANCE_2));
 
-        igniteTransactions.beginAsync().thenApply(tx -> accounts.recordView().withTransaction(tx)).
-                thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
+        igniteTransactions.beginAsync().thenApply(tx -> accounts.recordView().withTransaction(tx))
+                .thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
                         .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
                         .thenCompose(pair -> allOf(
                                 txAcc.upsertAsync(makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
@@ -247,8 +247,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         accounts.recordView().upsert(makeValue(1, BALANCE_1));
         accounts.recordView().upsert(makeValue(2, BALANCE_2));
 
-        igniteTransactions.beginAsync().thenApply(tx -> accounts.keyValueView().withTransaction(tx)).
-                thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
+        igniteTransactions.beginAsync().thenApply(tx -> accounts.keyValueView().withTransaction(tx))
+                .thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
                         .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
                         .thenCompose(pair -> allOf(
                                 txAcc.putAsync(makeKey(1), makeValue(pair.getFirst().doubleValue("balance") - DELTA)),

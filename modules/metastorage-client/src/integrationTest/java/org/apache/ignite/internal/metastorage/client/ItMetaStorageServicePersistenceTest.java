@@ -30,8 +30,8 @@ import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.raft.client.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.raft.client.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.junit.jupiter.api.AfterEach;
@@ -44,17 +44,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItMetaStorageServicePersistenceTest extends
         ItAbstractListenerSnapshotTest<MetaStorageListener> {
     private static final ByteArray FIRST_KEY = ByteArray.fromString("first");
-    
+
     private static final byte[] FIRST_VALUE = "firstValue".getBytes(StandardCharsets.UTF_8);
-    
+
     private static final ByteArray SECOND_KEY = ByteArray.fromString("second");
-    
+
     private static final byte[] SECOND_VALUE = "secondValue".getBytes(StandardCharsets.UTF_8);
-    
+
     private MetaStorageServiceImpl metaStorage;
-    
+
     private KeyValueStorage storage;
-    
+
     /**
      * After each.
      */
@@ -64,22 +64,22 @@ public class ItMetaStorageServicePersistenceTest extends
             storage.close();
         }
     }
-    
+
     /**
      * {@inheritDoc}
      */
     @Override
     public void beforeFollowerStop(RaftGroupService service) throws Exception {
         metaStorage = new MetaStorageServiceImpl(service, null);
-        
+
         // Put some data in the metastorage
         metaStorage.put(FIRST_KEY, FIRST_VALUE).get();
-        
+
         // Check that data has been written successfully
         check(metaStorage, new EntryImpl(FIRST_KEY, FIRST_VALUE, 1, 1));
         ;
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -87,17 +87,17 @@ public class ItMetaStorageServicePersistenceTest extends
     public void afterFollowerStop(RaftGroupService service) throws Exception {
         // Remove the first key from the metastorage
         metaStorage.remove(FIRST_KEY).get();
-        
+
         // Check that data has been removed
         check(metaStorage, new EntryImpl(FIRST_KEY, null, 2, 2));
-        
+
         // Put same data again
         metaStorage.put(FIRST_KEY, FIRST_VALUE).get();
-        
+
         // Check that it has been written
         check(metaStorage, new EntryImpl(FIRST_KEY, FIRST_VALUE, 3, 3));
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -105,7 +105,7 @@ public class ItMetaStorageServicePersistenceTest extends
     public void afterSnapshot(RaftGroupService service) throws Exception {
         metaStorage.put(SECOND_KEY, SECOND_VALUE).get();
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -113,16 +113,16 @@ public class ItMetaStorageServicePersistenceTest extends
     public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted,
             boolean interactedAfterSnapshot) {
         KeyValueStorage storage = getListener(restarted, raftGroupId()).getStorage();
-        
+
         byte[] lastKey = interactedAfterSnapshot ? SECOND_KEY.bytes() : FIRST_KEY.bytes();
         byte[] lastValue = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
-        
+
         int expectedRevision = interactedAfterSnapshot ? 4 : 3;
         int expectedUpdateCounter = interactedAfterSnapshot ? 4 : 3;
-        
+
         EntryImpl expectedLastEntry = new EntryImpl(new ByteArray(lastKey), lastValue,
                 expectedRevision, expectedUpdateCounter);
-        
+
         return () -> {
             org.apache.ignite.internal.metastorage.server.Entry e = storage.get(lastKey);
             return e.empty() == expectedLastEntry.empty()
@@ -133,7 +133,7 @@ public class ItMetaStorageServicePersistenceTest extends
                     && Arrays.equals(e.value(), expectedLastEntry.value());
         };
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -141,19 +141,19 @@ public class ItMetaStorageServicePersistenceTest extends
     public Path getListenerPersistencePath(MetaStorageListener listener) {
         return ((RocksDbKeyValueStorage) listener.getStorage()).getDbPath();
     }
-    
+
     /**
      * {@inheritDoc}
      */
     @Override
     public RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath) {
         storage = new RocksDbKeyValueStorage(listenerPersistencePath);
-        
+
         storage.start();
-        
+
         return new MetaStorageListener(storage);
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -161,7 +161,7 @@ public class ItMetaStorageServicePersistenceTest extends
     public String raftGroupId() {
         return "metastorage";
     }
-    
+
     /**
      * Check meta storage entry.
      *
@@ -173,7 +173,7 @@ public class ItMetaStorageServicePersistenceTest extends
     private static void check(MetaStorageServiceImpl metaStorage, EntryImpl expected)
             throws ExecutionException, InterruptedException {
         Entry entry = metaStorage.get(expected.key()).get();
-        
+
         assertEquals(expected, entry);
     }
 }

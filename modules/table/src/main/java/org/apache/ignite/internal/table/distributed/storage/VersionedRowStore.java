@@ -461,7 +461,7 @@ public class VersionedRowStore {
         int l2 = value.oldRow == null ? 0 : (b2 = value.oldRow.bytes()).length;
 
         // TODO asch write only values.
-        ByteBuffer buf = ByteBuffer.allocate(4 + l1 + 4 + l2 + 16 /** Timestamp's length */);
+        ByteBuffer buf = ByteBuffer.allocate(4 + l1 + 4 + l2 + 16);
 
         buf.asIntBuffer().put(l1);
 
@@ -507,8 +507,7 @@ public class VersionedRowStore {
 
         BinaryRow cur;
 
-        if (state == TxState.ABORTED) // Was aborted and had written a temp value.
-        {
+        if (state == TxState.ABORTED) {// Was aborted and had written a temp value.
             cur = val.oldRow;
         } else {
             cur = val.newRow;

@@ -27,6 +27,7 @@ import org.apache.ignite.network.ClusterService;
 
 /**
  * A transaction manager extension for Ignite tables.
+ *
  * <p>Uses raft protocol to replicate tx finish state for a partition group.
  */
 public class TableTxManagerImpl extends TxManagerImpl {

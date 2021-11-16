@@ -93,7 +93,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Tests for {@link InternalTable#scan(int, org.apache.ignite.internal.tx.InternalTransaction)}
+ * Tests for {@link InternalTable#scan(int, org.apache.ignite.internal.tx.InternalTransaction)}.
  */
 @ExtendWith(MockitoExtension.class)
 public class ItInternalTableScanTest {
@@ -151,7 +151,7 @@ public class ItInternalTableScanTest {
         raftSrv = new RaftServerImpl(network, FACTORY);
 
         raftSrv.start();
-    
+
         String grpName = "test_part_grp";
 
         List<Peer> conf = List.of(new Peer(nodeNetworkAddress));
@@ -163,13 +163,14 @@ public class ItInternalTableScanTest {
         IgniteUuid tblId = new IgniteUuid(UUID.randomUUID(), 0);
 
         raftSrv.startRaftGroup(
-            grpName,
-            new PartitionListener(tblId, new VersionedRowStore(mockStorage, txManager) {
-                @Override protected Pair<BinaryRow, BinaryRow> versionedRow(@Nullable DataRow row, Timestamp ts) {
-                    return new Pair<>(new ByteBufferRow(row.valueBytes()), null); // Return as is.
-                }
-            }),
-            conf
+                grpName,
+                new PartitionListener(tblId, new VersionedRowStore(mockStorage, txManager) {
+                    @Override
+                    protected Pair<BinaryRow, BinaryRow> versionedRow(@Nullable DataRow row, Timestamp ts) {
+                        return new Pair<>(new ByteBufferRow(row.valueBytes()), null); // Return as is.
+                    }
+                }),
+                conf
         );
 
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
@@ -184,7 +185,7 @@ public class ItInternalTableScanTest {
                 200,
                 executor
         ).get(3, TimeUnit.SECONDS);
-    
+
         internalTbl = new InternalTableImpl(
                 TEST_TABLE_NAME,
                 tblId,

@@ -99,7 +99,7 @@ public class PartitionCommandListenerTest {
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(addr);
 
         commandListener = new PartitionListener(new IgniteUuid(UUID.randomUUID(), 0),
-            new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), new TxManagerImpl(clusterService, new HeapLockManager())));
+                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), new TxManagerImpl(clusterService, new HeapLockManager())));
     }
 
     /**

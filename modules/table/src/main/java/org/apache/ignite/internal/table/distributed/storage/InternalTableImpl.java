@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed.storage;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -70,9 +73,6 @@ import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
-
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 
 /**
  * Storage of table rows.
@@ -509,9 +509,8 @@ public class InternalTableImpl implements InternalTable {
         CompletableFuture<Void> fut0 = svc.leader() == null ? svc.refreshLeader() : completedFuture(null);
 
         // TODO asch fixme need to map to fixed topology.
-        // TODO a leader race is possible when enlisting different keys from the same partition.
-        return fut0.thenAccept(ignored -> tx.enlist(svc)).
-                thenApply(ignored -> svc); // Enlist the leaseholder.
+        // TODO asch a leader race is possible when enlisting different keys from the same partition.
+        return fut0.thenAccept(ignored -> tx.enlist(svc)).thenApply(ignored -> svc); // Enlist the leaseholder.
     }
 
     /**

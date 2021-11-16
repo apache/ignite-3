@@ -78,8 +78,8 @@ public interface TxManager extends IgniteComponent {
     public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts);
 
     /**
+     * @param lockId Lock id.
      * @param key The key.
-     * @param lockId
      * @param ts The timestamp.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
@@ -87,7 +87,7 @@ public interface TxManager extends IgniteComponent {
     public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts);
 
     /**
-     * @param timestamp The timestamp.
+     * @param ts The timestamp.
      * @return @{code null} if a transaction was created, or a current state.
      */
     @Nullable

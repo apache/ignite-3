@@ -32,11 +32,11 @@ import org.jetbrains.annotations.Nullable;
 abstract class AbstractTableView {
     /** Internal table. */
     protected final InternalTable tbl;
-    
+
     /** Schema registry. */
     protected final SchemaRegistry schemaReg;
-    
-    /** The transaction */
+
+    /** The transaction. */
     protected final @Nullable InternalTransaction tx;
 
     /**
@@ -51,7 +51,7 @@ abstract class AbstractTableView {
         this.schemaReg = schemaReg;
         this.tx = (InternalTransaction) tx;
     }
-    
+
     /**
      * Waits for operation completion.
      *
@@ -64,7 +64,7 @@ abstract class AbstractTableView {
             return fut.get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
-            
+
             throw convertException(e);
         } catch (ExecutionException e) {
             throw convertException(e.getCause());
@@ -72,7 +72,7 @@ abstract class AbstractTableView {
             throw convertException(e);
         }
     }
-    
+
     /**
      * Returns current transaction.
      */
@@ -86,7 +86,7 @@ abstract class AbstractTableView {
      * @deprecated TODO asch remove and replace with expicit TX argument in table API calls.
      */
     public abstract AbstractTableView withTransaction(Transaction tx);
-    
+
     /**
      * Converts an internal exception to a public one.
      *

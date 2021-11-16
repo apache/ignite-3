@@ -17,10 +17,10 @@
 
 package org.apache.ignite.distributed;
 
+import static org.junit.jupiter.api.Assertions.assertSame;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
-
-import static org.junit.jupiter.api.Assertions.assertSame;
 
 /**
  * Distributed transaction test using a single partition table, collocated on a leader.
@@ -40,7 +40,8 @@ public class ItTxDistributedTestSingleNodeCollocated extends ItTxDistributedTest
     }
 
     /** {@inheritDoc} */
-    @BeforeEach @Override
+    @BeforeEach
+    @Override
     public void before() throws Exception {
         super.before();
 

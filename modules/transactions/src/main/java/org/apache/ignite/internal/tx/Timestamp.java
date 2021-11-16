@@ -168,8 +168,7 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
 
         do {
             timestamp = Clock.systemUTC().instant().toEpochMilli() - EPOCH;
-        }
-        while (timestamp <= lastTimestamp); // Wall clock can go backward.
+        } while (timestamp <= lastTimestamp); // Wall clock can go backward.
 
         return timestamp;
     }

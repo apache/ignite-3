@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
@@ -32,17 +34,15 @@ import org.apache.ignite.internal.tx.Waiter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
-
 /**
  * A {@link LockManager} implementation which stores lock queues in the heap.
+ *
  * <p>Lock waiters are placed in the queue, ordered from oldest to yongest (highest Timestamp). When
- * a
- * new waiter is placed in the queue, it's validated against current lock owner: if where is an
- * owner with a higher timestamp lock request is denied.
+ * a new waiter is placed in the queue, it's validated against current lock owner: if where is an owner with a higher timestamp lock request
+ * is denied.
+ *
  * <p>Read lock can be upgraded to write lock (only available for the oldest read-locked entry of
- * the
- * queue)
+ * the queue)
  */
 public class HeapLockManager implements LockManager {
     private ConcurrentHashMap<Object, LockState> locks = new ConcurrentHashMap<>();
@@ -72,8 +72,7 @@ public class HeapLockManager implements LockManager {
     public void tryRelease(Object key, Timestamp timestamp) throws LockException {
         LockState state = lockState(key);
 
-        if (state.tryRelease(timestamp)) // Probably we should clean up empty keys asynchronously.
-        {
+        if (state.tryRelease(timestamp)) { // Probably we should clean up empty keys asynchronously.
             locks.remove(key, state);
         }
     }
@@ -169,8 +168,7 @@ public class HeapLockManager implements LockManager {
 
                 // Reenter
                 if (prev != null && prev.locked) {
-                    if (!prev.forRead) // Allow reenter.
-                    {
+                    if (!prev.forRead) { // Allow reenter.
                         return CompletableFuture.completedFuture(null);
                     } else {
                         waiter.upgraded = true;
@@ -224,10 +222,7 @@ public class HeapLockManager implements LockManager {
             synchronized (waiters) {
                 Map.Entry<Timestamp, WaiterImpl> first = waiters.firstEntry();
 
-                if (first == null ||
-                        !first.getKey().equals(timestamp) ||
-                        !first.getValue().locked() ||
-                        first.getValue().isForRead()) {
+                if (first == null || !first.getKey().equals(timestamp) || !first.getValue().locked() || first.getValue().isForRead()) {
                     throw new LockException("Not exclusively locked by " + timestamp);
                 }
 

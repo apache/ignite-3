@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.util.Map;
 import java.util.Set;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
+/**
+ * An extension of a transaction for internal usage.
+ */
 public interface InternalTransaction extends Transaction {
     /**
      * @return The timestamp.

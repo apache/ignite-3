@@ -39,6 +39,7 @@ public class ReplaceCommand extends SingleKeyCommand implements WriteCommand {
     /**
      * Creates a new instance of ReplaceCommand with the given two rows to be replaced each other.
      * Both rows should not be {@code null}.
+     *
      * @param oldRow Old Binary row.
      * @param row Binary row.
      * @param ts The timestamp.

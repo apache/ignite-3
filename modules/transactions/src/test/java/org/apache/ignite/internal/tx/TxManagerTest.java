@@ -51,6 +51,7 @@ public class TxManagerTest extends IgniteAbstractTest {
     @Mock
     private ClusterService clusterService;
 
+    /** Init test callback. */
     @BeforeEach
     public void before() {
         clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);

@@ -37,6 +37,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * The implementation of an internal transaction.
+ *
  * <p>Delegates state management to tx manager.
  */
 public class TransactionImpl implements InternalTransaction {
@@ -82,7 +83,8 @@ public class TransactionImpl implements InternalTransaction {
     }
 
     /** {@inheritDoc} */
-    @Nullable @Override
+    @Nullable
+    @Override
     public TxState state() {
         return txManager.state(timestamp);
     }

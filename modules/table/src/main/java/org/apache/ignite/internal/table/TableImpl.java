@@ -126,7 +126,7 @@ public class TableImpl implements Table {
      * @param raftGrpSvc Raft group service.
      */
     public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGrpSvc) {
-        ((InternalTableImpl)tbl).updateInternalTableRaftGroupService(p, raftGrpSvc);
+        ((InternalTableImpl) tbl).updateInternalTableRaftGroupService(p, raftGrpSvc);
     }
 
     /**
@@ -136,10 +136,11 @@ public class TableImpl implements Table {
     @TestOnly
     public int partition(Tuple t) {
         Objects.requireNonNull(t);
-    
+
         try {
-            final Row keyRow = new TupleMarshallerImpl(tblMgr, internalTable(), schemaReg).marshalKey(t); // TODO asch Convert to portable format to pass TX/storage layer.
-        
+            // TODO asch Convert to portable format to pass TX/storage layer.
+            final Row keyRow = new TupleMarshallerImpl(tblMgr, internalTable(), schemaReg).marshalKey(t);
+
             return tbl.partition(keyRow);
         } catch (TupleMarshallerException e) {
             throw new IgniteInternalException(e);

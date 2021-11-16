@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.lang.LoggerMessageHelper.format;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
@@ -51,6 +52,7 @@ import org.jetbrains.annotations.TestOnly;
 
 /**
  * A transaction manager implementation.
+ *
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
 public class TxManagerImpl implements TxManager, NetworkMessageHandler {
@@ -123,9 +125,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return completedFuture(null);
         }
 
-        return failedFuture(new TransactionException(
-                LoggerMessageHelper.format("Failed to commit a transaction [ts={}, " +
-                        "state={}]", ts, state(ts))));
+        return failedFuture(new TransactionException(format("Failed to commit a transaction [ts={}, state={}]", ts, state(ts))));
     }
 
     /** {@inheritDoc} */
@@ -138,9 +138,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return completedFuture(null);
         }
 
-        return failedFuture(new TransactionException(
-                LoggerMessageHelper.format("Failed to rollback a transaction [ts={}, " +
-                        "state={}]", ts, state(ts))));
+        return failedFuture(new TransactionException(format("Failed to rollback a transaction [ts={}, state={}]", ts, state(ts))));
     }
 
     /**
@@ -227,9 +225,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
                         if (mode == null) {
                             map.put(key, read);
-                        } else if (read == Boolean.FALSE
-                                && mode == Boolean.TRUE) // Override read lock.
-                        {
+                        } else if (read == Boolean.FALSE && mode == Boolean.TRUE) { // Override read lock.
                             map.put(key, Boolean.FALSE);
                         }
 
@@ -343,8 +339,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 return false;
             }
             LockKey key1 = (LockKey) o;
-            return id.equals(key1.id) &&
-                    key.equals(key1.key);
+            return id.equals(key1.id) && key.equals(key1.key);
         }
 
         /** {@inheritDoc} */

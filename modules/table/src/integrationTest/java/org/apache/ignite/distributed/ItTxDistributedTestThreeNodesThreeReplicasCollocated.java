@@ -17,10 +17,10 @@
 
 package org.apache.ignite.distributed;
 
+import static org.junit.jupiter.api.Assertions.assertSame;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
-
-import static org.junit.jupiter.api.Assertions.assertSame;
 
 /**
  * Distributed transaction test using a single partition table, 3 nodes and 3 replicas, collocated on a leader.

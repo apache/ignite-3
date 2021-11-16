@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
@@ -48,10 +52,6 @@ import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.mockito.Mockito;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
 
 /**
  * Dummy table storage implementation. TODO asch rename to local table

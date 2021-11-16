@@ -43,10 +43,10 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
     }
 
     /**
-     *
      * @throws Exception
      */
-    @Override @AfterEach
+    @Override
+    @AfterEach
     public void after() throws Exception {
         IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(accounts, 0), 5_000);
         IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(customers, 0), 5_000);

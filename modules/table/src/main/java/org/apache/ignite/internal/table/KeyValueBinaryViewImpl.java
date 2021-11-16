@@ -280,18 +280,18 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
+    public boolean replace(@NotNull Tuple key, Tuple oldVal, Tuple newVal) {
+        return sync(replaceAsync(key, oldVal, newVal));
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
 
         Row row = marshal(key, val); // Convert to portable format to pass TX/storage layer.
 
         return tbl.replace(row, tx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean replace(@NotNull Tuple key, Tuple oldVal, Tuple newVal) {
-        return sync(replaceAsync(key, oldVal, newVal));
     }
 
     /** {@inheritDoc} */
