@@ -32,7 +32,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
-import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
+import org.apache.ignite.internal.processors.query.calcite.schema.InternalIgniteTable;
 
 /**
  * ExposeIndexRule.
@@ -47,7 +47,7 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
 
     private static boolean preMatch(IgniteLogicalTableScan scan) {
         // has indexes to expose
-        return !scan.getTable().unwrap(IgniteTable.class).indexes().isEmpty();
+        return !scan.getTable().unwrap(InternalIgniteTable.class).indexes().isEmpty();
     }
 
     /** {@inheritDoc} */
@@ -57,7 +57,7 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
         RelOptCluster cluster = scan.getCluster();
 
         RelOptTable optTable = scan.getTable();
-        IgniteTable igniteTable = optTable.unwrap(IgniteTable.class);
+        IgniteTable igniteTable = optTable.unwrap(InternalIgniteTable.class);
         List<RexNode> proj = scan.projects();
         RexNode condition = scan.condition();
         ImmutableBitSet requiredCols = scan.requiredColumns();
