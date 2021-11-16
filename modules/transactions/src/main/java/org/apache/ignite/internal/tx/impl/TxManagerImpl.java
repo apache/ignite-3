@@ -325,6 +325,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         private final ByteBuffer key;
 
         /**
+         * The constructor.
+         *
          * @param id The id.
          * @param key The key.
          */

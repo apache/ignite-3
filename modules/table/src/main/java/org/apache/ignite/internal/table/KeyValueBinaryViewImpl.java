@@ -371,6 +371,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /**
+     * Returns a tuple marshaller.
+     *
      * @return Marshaller.
      */
     private TupleMarshaller marshaller() {

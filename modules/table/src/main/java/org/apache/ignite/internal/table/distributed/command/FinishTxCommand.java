@@ -29,6 +29,8 @@ public class FinishTxCommand implements WriteCommand {
     private boolean finish;
 
     /**
+     * The constructor.
+     *
      * @param timestamp The timestamp.
      * @param finish Commit or rollback state {@code True} to commit.
      */
@@ -38,6 +40,8 @@ public class FinishTxCommand implements WriteCommand {
     }
 
     /**
+     * Returns a timestamp.
+     *
      * @return The timestamp.
      */
     public Timestamp timestamp() {
@@ -45,6 +49,8 @@ public class FinishTxCommand implements WriteCommand {
     }
 
     /**
+     * Returns commit or rollback state.
+     *
      * @return Commit or rollback state.
      */
     public boolean finish() {

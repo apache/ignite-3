@@ -62,6 +62,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     private PartitionListener partitionListener;
 
     /**
+     * Creates a new local table.
+     *
      * @param store The store.
      * @param txManager Transaction manager.
      */

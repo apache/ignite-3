@@ -58,6 +58,8 @@ public class RecordBinaryViewOperationsTest {
     private ClusterService clusterService;
 
     /**
+     * Creates a table for tests.
+     *
      * @return The table instance for test.
      */
     private InternalTable createTable() {

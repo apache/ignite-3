@@ -51,6 +51,8 @@ public class StrictSchemaOperationsTest {
     private ClusterService clusterService;
 
     /**
+     * Creates a table for tests.
+     *
      * @return The test table.
      */
     private InternalTable createTable() {

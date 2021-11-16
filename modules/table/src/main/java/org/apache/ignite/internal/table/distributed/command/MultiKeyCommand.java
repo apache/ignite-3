@@ -41,6 +41,8 @@ public abstract class MultiKeyCommand implements TransactionalCommand, Serializa
     private byte[] rowsBytes;
 
     /**
+     * The constructor.
+     *
      * @param rows Rows.
      * @param ts The timestamp.
      */
@@ -68,6 +70,8 @@ public abstract class MultiKeyCommand implements TransactionalCommand, Serializa
     }
 
     /**
+     * Returns a timestamp.
+     *
      * @return The timestamp.
      */
     @Override

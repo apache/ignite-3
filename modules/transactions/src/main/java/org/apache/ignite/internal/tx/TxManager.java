@@ -111,7 +111,9 @@ public interface TxManager extends IgniteComponent {
     TxState getOrCreateTransaction(Timestamp ts);
 
     /**
-     * @param timestamp The timestamp.
+     * Finishes a dependant remote transactions.
+     *
+     * @param ts The timestamp.
      * @param addr The address.
      * @param commit {@code True} if a commit requested.
      * @param groups Enlisted partition groups.

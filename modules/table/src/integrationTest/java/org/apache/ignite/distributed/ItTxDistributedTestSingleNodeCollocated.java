@@ -27,6 +27,8 @@ import org.junit.jupiter.api.TestInfo;
  */
 public class ItTxDistributedTestSingleNodeCollocated extends ItTxDistributedTestSingleNode {
     /**
+     * The constructor.
+     *
      * @param testInfo Test info.
      */
     public ItTxDistributedTestSingleNodeCollocated(TestInfo testInfo) {

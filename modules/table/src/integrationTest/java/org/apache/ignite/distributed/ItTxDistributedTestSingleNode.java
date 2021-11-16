@@ -102,6 +102,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     private ScheduledThreadPoolExecutor executor;
 
     /**
+     * Returns a count of nodes.
+     *
      * @return Nodes.
      */
     protected int nodes() {
@@ -109,6 +111,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     }
 
     /**
+     * Returns a count of replicas.
+     *
      * @return Replicas.
      */
     protected int replicas() {
@@ -122,12 +126,11 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         return true;
     }
 
-    /**
-     *
-     */
     private final TestInfo testInfo;
 
     /**
+     * The constructor.
+     *
      * @param testInfo Test info.
      */
     public ItTxDistributedTestSingleNode(TestInfo testInfo) {
@@ -403,6 +406,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     }
 
     /**
+     * Starts a node.
+     *
      * @param name Node name.
      * @param port Local port.
      * @param nodeFinder Node finder.
@@ -444,17 +449,15 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         return manager;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    protected boolean assertPartitionsSame(Table t, int partId) {
+    protected boolean assertPartitionsSame(Table table, int partId) {
         int hash = 0;
 
         for (Map.Entry<ClusterNode, Loza> entry : raftServers.entrySet()) {
             Loza svc = (Loza) entry.getValue();
             JraftServerImpl server = (JraftServerImpl) svc.server();
-            org.apache.ignite.raft.jraft.RaftGroupService grp = server.raftGroupService(t.tableName() + "-part-" + partId);
+            org.apache.ignite.raft.jraft.RaftGroupService grp = server.raftGroupService(table.tableName() + "-part-" + partId);
             JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) grp
                     .getRaftNode().getOptions().getFsm();
             PartitionListener listener = (PartitionListener) fsm.getListener();

@@ -130,6 +130,8 @@ public class TableImpl implements Table {
     }
 
     /**
+     * Returns a partition for a tuple.
+     *
      * @param t The tuple.
      * @return The partition.
      */

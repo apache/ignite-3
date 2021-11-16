@@ -85,7 +85,7 @@ public class TxLocalTest extends TxAbstractTest {
     }
 
     @Override
-    protected boolean assertPartitionsSame(Table t, int partId) {
+    protected boolean assertPartitionsSame(Table table, int partId) {
         return true;
     }
 }

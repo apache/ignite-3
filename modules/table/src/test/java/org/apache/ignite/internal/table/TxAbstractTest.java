@@ -89,7 +89,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     /** Table ID test value. */
     public static final UUID tableId2 = java.util.UUID.randomUUID();
 
-    /** */
     protected static SchemaDescriptor CUSTOMERS_SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("accountNumber", NativeTypes.INT64, false)},
@@ -262,9 +261,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(BALANCE_2 + DELTA, accounts.recordView().get(makeKey(2)).doubleValue("balance"));
     }
 
-    /**
-     *
-     */
     @Test
     public void testSimpleConflict() throws Exception {
         accounts.recordView().upsert(makeValue(1, 100.));
@@ -301,9 +297,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(101., accounts.recordView().get(makeKey(1)).doubleValue("balance"));
     }
 
-    /**
-     *
-     */
     @Test
     public void testCommit() throws TransactionException {
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
@@ -327,9 +320,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(COMMITED, txManager(accounts).state(tx.timestamp()));
     }
 
-    /**
-     *
-     */
     @Test
     public void testAbort() throws TransactionException {
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
@@ -353,9 +343,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(ABORTED, txManager(accounts).state(tx.timestamp()));
     }
 
-    /**
-     *
-     */
     @Test
     public void testAbortNoUpdate() throws TransactionException {
         accounts.recordView().upsert(makeValue(1, 100.));
@@ -367,9 +354,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(100., accounts.recordView().get(makeKey(1)).doubleValue("balance"));
     }
 
-    /**
-     *
-     */
     @Test
     public void testConcurrent() throws TransactionException {
         Transaction tx = igniteTransactions.begin();
@@ -466,9 +450,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(101., accounts.recordView().get(key).doubleValue("balance"));
     }
 
-    /**
-     *
-     */
     @Test
     public void testAbortWithValue() throws TransactionException {
         accounts.recordView().upsert(makeValue(0, 100.));
@@ -484,9 +465,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(100., accounts.recordView().get(makeKey(0)).doubleValue("balance"));
     }
 
-    /**
-     *
-     */
     @Test
     public void testInsert() throws TransactionException {
         assertNull(accounts.recordView().get(makeKey(1)));
@@ -807,9 +785,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertFalse(fut2.isDone());
     }
 
-    /**
-     *
-     */
     @Test
     public void testCrossTable() throws TransactionException {
         customers.recordView().upsert(makeValue(1, "test"));
@@ -847,9 +822,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertTrue(lockManager(customers).isEmpty());
     }
 
-    /**
-     *
-     */
     @Test
     public void testTwoTables() throws TransactionException {
         customers.recordView().upsert(makeValue(1, "test"));
@@ -888,9 +860,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertTrue(lockManager(accounts).isEmpty());
     }
 
-    /**
-     *
-     */
     @Test
     public void testCrossTableKeyValueView() throws TransactionException {
         customers.recordView().upsert(makeValue(1L, "test"));
@@ -929,9 +898,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertTrue(lockManager(accounts).isEmpty());
     }
 
-    /**
-     *
-     */
     @Test
     public void testCrossTableAsync() throws TransactionException {
         customers.recordView().upsert(makeValue(1, "test"));
@@ -950,9 +916,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertTrue(lockManager(accounts).isEmpty());
     }
 
-    /**
-     *
-     */
     @Test
     public void testCrossTableAsyncRollback() throws TransactionException {
         customers.recordView().upsert(makeValue(1, "test"));
@@ -971,9 +934,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertTrue(lockManager(accounts).isEmpty());
     }
 
-    /**
-     *
-     */
     @Test
     public void testCrossTableAsyncKeyValueView() throws TransactionException {
         customers.recordView().upsert(makeValue(1, "test"));
@@ -993,9 +953,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertTrue(lockManager(accounts).isEmpty());
     }
 
-    /**
-     *
-     */
     @Test
     public void testCrossTableAsyncKeyValueViewRollback() throws TransactionException {
         customers.recordView().upsert(makeValue(1, "test"));
@@ -1015,25 +972,16 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertTrue(lockManager(accounts).isEmpty());
     }
 
-    /**
-     *
-     */
     @Test
     public void testBalance() throws InterruptedException {
         doTestSingleKeyMultithreaded(5_000, false);
     }
 
-    /**
-     *
-     */
     @Test
     public void testLockedTooLong() {
         // TODO asch if lock can't be acquired until timeout tx should be rolled back.
     }
 
-    /**
-     *
-     */
     @Test
     public void testScan() throws InterruptedException {
         accounts.recordView().upsertAll(List.of(makeValue(1, 100.), makeValue(2, 200.)));
@@ -1080,33 +1028,21 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(200., map.get(2L).doubleValue("balance"));
     }
 
-    /**
-     *
-     */
     @Test
     public void testComplexImplicit() {
         doTestComplex(accounts.recordView());
     }
 
-    /**
-     *
-     */
     @Test
     public void testComplexExplicit() throws TransactionException {
         doTestComplex(accounts.recordView().withTransaction(igniteTransactions.begin()));
     }
 
-    /**
-     *
-     */
     @Test
     public void testComplexImplicitKeyValueView() {
         doTestComplexKeyValue(accounts.keyValueView());
     }
 
-    /**
-     *
-     */
     @Test
     public void testComplexExplicitKeyValueView() throws TransactionException {
         doTestComplexKeyValue(accounts.keyValueView().withTransaction(igniteTransactions.begin()));
@@ -1269,6 +1205,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     /**
+     * Performs a test.
+     *
      * @param duration The duration.
      * @param verbose Verbose mode.
      * @throws InterruptedException If interrupted while waiting.
@@ -1407,6 +1345,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     /**
+     * Makes a key.
+     *
      * @param id The id.
      * @return The key tuple.
      */
@@ -1415,6 +1355,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     /**
+     * Makes a value.
+     *
      * @param id The id.
      * @param balance The balance.
      * @return The value tuple.
@@ -1424,6 +1366,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     /**
+     * Makes a tuple containing key and value.
+     *
      * @param id The id.
      * @param balance The balance.
      * @return The value tuple.
@@ -1433,6 +1377,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     /**
+     * Makes a tuple containing key and value.
+     *
      * @param id The id.
      * @param balance The balance.
      * @return The value tuple.
@@ -1469,13 +1415,17 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     /**
-     * @param t The table.
+     * Validates table partition equality by calculating a hash code over data.
+     *
+     * @param table The table.
      * @param partId Partition id.
      * @return {@code True} if a replicas are the same.
      */
-    protected abstract boolean assertPartitionsSame(Table t, int partId);
+    protected abstract boolean assertPartitionsSame(Table table, int partId);
 
     /**
+     * Validates a balances.
+     *
      * @param rows Rows.
      * @param expected Expected values.
      */

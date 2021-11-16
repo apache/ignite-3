@@ -26,6 +26,8 @@ import org.junit.jupiter.api.TestInfo;
  */
 public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedTestSingleNode {
     /**
+     * The constructor.
+     *
      * @param testInfo Test info.
      */
     public ItTxDistributedTestThreeNodesThreeReplicas(TestInfo testInfo) {

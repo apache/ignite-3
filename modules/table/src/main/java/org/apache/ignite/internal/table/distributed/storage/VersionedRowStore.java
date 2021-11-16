@@ -528,7 +528,7 @@ public class VersionedRowStore {
      * @param val The value.
      * @param ts The timestamp
      * @return New and old rows pair.
-     * @see {@link #versionedRow}
+     * @see #versionedRow
      */
     private Pair<BinaryRow, BinaryRow> resolve(Value val, Timestamp ts) {
         if (val.timestamp == null) { // New or after reset.
@@ -709,6 +709,8 @@ public class VersionedRowStore {
         private final BinaryRow sourceRow;
 
         /**
+         * The constructor.
+         *
          * @param row The search row.
          */
         BinarySearchRow(BinaryRow row) {

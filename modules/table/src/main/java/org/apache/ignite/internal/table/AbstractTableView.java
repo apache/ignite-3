@@ -81,6 +81,8 @@ abstract class AbstractTableView {
     }
 
     /**
+     * Enlists a table into a transaction.
+     *
      * @param tx The transaction.
      * @return Transactional view.
      * @deprecated TODO asch remove and replace with expicit TX argument in table API calls.

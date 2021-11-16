@@ -43,6 +43,8 @@ public interface InternalTransaction extends Transaction {
     Set<RaftGroupService> enlisted();
 
     /**
+     * Returns a transaction state.
+     *
      * @return The state.
      */
     TxState state();

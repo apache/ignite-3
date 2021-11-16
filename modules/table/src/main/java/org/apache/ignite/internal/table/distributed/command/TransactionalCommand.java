@@ -24,6 +24,8 @@ import org.apache.ignite.internal.tx.Timestamp;
  */
 public interface TransactionalCommand {
     /**
+     * Returns a timestamp.
+     *
      * @return The timestamp.
      */
     public Timestamp getTimestamp();

@@ -90,6 +90,8 @@ public class PartitionListener implements RaftGroupListener {
     private final TxManager txManager;
 
     /**
+     * The constructor.
+     *
      * @param lockId Lock id.
      * @param store The storage.
      */
@@ -171,6 +173,8 @@ public class PartitionListener implements RaftGroupListener {
     }
 
     /**
+     * Attempts to enlist a command into a transaction.
+     *
      * @param command The command.
      * @param clo The closure.
      * @return {@code true} if a command is compatible with a transaction state or a command is not transactional.

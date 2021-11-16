@@ -34,6 +34,8 @@ public class TableTxManagerImpl extends TxManagerImpl {
     private final Loza raftManager;
 
     /**
+     * The constructor.
+     *
      * @param clusterService Cluster service.
      * @param lockManager Lock manager.
      * @param raftManager Raft manager.

@@ -40,6 +40,8 @@ public abstract class SingleKeyCommand implements TransactionalCommand, Serializ
     private byte[] keyRowBytes;
 
     /**
+     * The constructor.
+     *
      * @param keyRow The row.
      * @param timestamp The timestamp.
      */

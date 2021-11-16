@@ -387,6 +387,8 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     }
 
     /**
+     * Maps a collection of tuples to binary rows.
+     *
      * @param rows Tuples.
      * @param key [@code True} to marshal only a key.
      * @return List of binary rows.
