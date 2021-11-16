@@ -25,6 +25,7 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.TranslatableTable;
@@ -32,6 +33,8 @@ import org.apache.calcite.schema.Wrapper;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
+import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -63,7 +66,7 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
     /** {@inheritDoc} */
     @Override
     default TableScan toRel(RelOptTable.ToRelContext context, RelOptTable relOptTable) {
-        return toRel(context.getCluster(), relOptTable);
+        return toRel(context.getCluster(), relOptTable, null, null, null);
     }
     
     /**
@@ -71,9 +74,38 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
      *
      * @param cluster   Custer.
      * @param relOptTbl Table.
+     * @param proj List of required projections.
+     * @param cond Conditions to filter rows.
+     * @param requiredColumns Set of columns to extract from original row.
      * @return Table relational expression.
      */
-    TableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl);
+    IgniteLogicalTableScan toRel(
+            RelOptCluster cluster,
+            RelOptTable relOptTbl,
+            @org.jetbrains.annotations.Nullable List<RexNode> proj,
+            @org.jetbrains.annotations.Nullable RexNode cond,
+            @org.jetbrains.annotations.Nullable ImmutableBitSet requiredColumns
+    );
+    
+    /**
+     * Converts table into relational expression.
+     *
+     * @param cluster   Custer.
+     * @param relOptTbl Table.
+     * @param idxName   Index name.
+     * @param proj List of required projections.
+     * @param cond Conditions to filter rows.
+     * @param requiredColumns Set of columns to extra
+     * @return Table relational expression.
+     */
+    IgniteLogicalIndexScan toRel(
+            RelOptCluster cluster,
+            RelOptTable relOptTbl,
+            String idxName,
+            @org.jetbrains.annotations.Nullable List<RexNode> proj,
+            @org.jetbrains.annotations.Nullable RexNode cond,
+            @org.jetbrains.annotations.Nullable ImmutableBitSet requiredColumns
+    );
     
     /**
      * Returns table distribution.

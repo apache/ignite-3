@@ -57,7 +57,7 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
         RelOptCluster cluster = scan.getCluster();
 
         RelOptTable optTable = scan.getTable();
-        IgniteTable igniteTable = optTable.unwrap(InternalIgniteTable.class);
+        InternalIgniteTable igniteTable = optTable.unwrap(InternalIgniteTable.class);
         List<RexNode> proj = scan.projects();
         RexNode condition = scan.condition();
         ImmutableBitSet requiredCols = scan.requiredColumns();
