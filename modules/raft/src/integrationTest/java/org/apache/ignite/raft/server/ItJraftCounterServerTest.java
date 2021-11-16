@@ -180,6 +180,12 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
 
             iterSrv.remove();
 
+            Set<String> grps = server.startedGroups();
+
+            for (String grp : grps) {
+                server.stopRaftGroup(grp);
+            }
+
             server.beforeNodeStop();
 
             server.stop();
@@ -712,7 +718,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
         Set<Thread> threads = Thread.getAllStackTraces().keySet();
 
         LOG.info("RAFT threads count {}", threads.stream().filter(t -> t.getName().contains("JRaft")).count());
-    
+
         List<Thread> timerThreads = threads.stream().filter(this::isTimer)
                 .sorted((o1, o2) -> o1.getName().compareTo(o2.getName())).collect(toList());
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft.server;
 
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
@@ -60,4 +61,11 @@ public interface RaftServer extends IgniteComponent {
      * @return Local peer or null if the group is not started.
      */
     @Nullable Peer localPeer(String groupId);
+
+    /**
+     * Returns a set of started partition groups.
+     *
+     * @return Started groups.
+     */
+    Set<String> startedGroups();
 }

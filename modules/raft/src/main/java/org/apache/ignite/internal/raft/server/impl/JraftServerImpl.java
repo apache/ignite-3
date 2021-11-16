@@ -17,17 +17,14 @@
 
 package org.apache.ignite.internal.raft.server.impl;
 
-import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -35,6 +32,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -66,6 +64,8 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.jetbrains.annotations.Nullable;
+
+import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
 
 /**
  * Raft server implementation on top of forked JRaft library.
@@ -211,17 +211,10 @@ public class JraftServerImpl implements RaftServer {
     /** {@inheritDoc} */
     @Override
     public void stop() {
+        assert groups.isEmpty() : LoggerMessageHelper.format("Raft groups are still running {}", groups.keySet());
+
         rpcServer.shutdown();
 
-        Collection<RaftGroupService> grps = new ArrayList<>(groups.values());
-        groups.clear();
-
-        // Stop all started groups.
-        for (RaftGroupService grp : grps) {
-            grp.shutdown();
-        }
-
-        // Release resources manually in shared pools mode.
         if (opts.getfSMCallerExecutorDisruptor() != null) {
             opts.getfSMCallerExecutorDisruptor().shutdown();
         }
@@ -377,6 +370,11 @@ public class JraftServerImpl implements RaftServer {
      */
     public RaftGroupService raftGroupService(String groupId) {
         return groups.get(groupId);
+    }
+
+    @Override
+    public Set<String> startedGroups() {
+        return groups.keySet();
     }
 
     /**
