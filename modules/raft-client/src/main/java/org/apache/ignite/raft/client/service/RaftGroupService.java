@@ -229,6 +229,8 @@ public interface RaftGroupService {
     void shutdown();
 
     /**
+     * Returns a cluster service.
+     *
      * @return Cluster service.
      */
     @TestOnly

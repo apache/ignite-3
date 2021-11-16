@@ -28,6 +28,8 @@ import org.jetbrains.annotations.TestOnly;
  */
 public interface InternalTransaction extends Transaction {
     /**
+     * Returns a timestamp.
+     *
      * @return The timestamp.
      */
     Timestamp timestamp();
@@ -46,6 +48,8 @@ public interface InternalTransaction extends Transaction {
     TxState state();
 
     /**
+     * Enlists a partition group into a transaction.
+     *
      * @param svc Partition service.
      * @return {@code True} if a partition is enlisted into the transaction.
      */
@@ -59,6 +63,8 @@ public interface InternalTransaction extends Transaction {
     void thread(Thread t);
 
     /**
+     * Return a thread of control.
+     *
      * @return The thread of control, if presents.
      */
     @Nullable Thread thread();

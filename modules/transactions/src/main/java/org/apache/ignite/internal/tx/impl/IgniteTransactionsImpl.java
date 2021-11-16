@@ -29,45 +29,36 @@ import org.apache.ignite.tx.Transaction;
  * Transaction's facade implementation.
  */
 public class IgniteTransactionsImpl implements IgniteTransactions {
-    /**
-     *
-     */
     private final TxManager txManager;
-    
+
     /**
+     * The constructor.
+     *
      * @param txManager The manager.
      */
     public IgniteTransactionsImpl(TxManager txManager) {
         this.txManager = txManager;
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public IgniteTransactions withTimeout(long timeout) {
         return null;
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public Transaction begin() {
         return txManager.begin();
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Transaction> beginAsync() {
         return CompletableFuture.completedFuture(txManager.begin());
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public void runInTransaction(Consumer<Transaction> clo) {
         runInTransaction(tx -> {
@@ -75,25 +66,23 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
             return null;
         });
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public <T> T runInTransaction(Function<Transaction, T> clo) {
         InternalTransaction tx = txManager.begin();
-        
+
         Thread th = Thread.currentThread();
-        
+
         txManager.setTx(tx);
-        
+
         tx.thread(th);
-        
+
         try {
             T ret = clo.apply(tx);
-            
+
             tx.commit();
-            
+
             return ret;
         } catch (Throwable t) {
             try {
@@ -101,7 +90,7 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
             } catch (Exception e) {
                 t.addSuppressed(e);
             }
-            
+
             throw t;
         } finally {
             txManager.clearTx();

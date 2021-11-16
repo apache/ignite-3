@@ -28,6 +28,8 @@ import org.jetbrains.annotations.Nullable;
 @Transferable(value = TxMessageGroup.TX_FINISH_RESPONSE, autoSerializable = false)
 public interface TxFinishResponse extends NetworkMessage, Serializable {
     /**
+     * Returns the error message.
+     *
      * @return Finish error message or null if finished normally.
      */
     @Nullable String errorMessage();

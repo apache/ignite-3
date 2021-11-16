@@ -487,7 +487,7 @@ public class VersionedRowStore {
      * @param val The value.
      * @param ts The transaction
      * @return New and old rows pair.
-     * @see {@link #versionedRow(DataRow, Timestamp)}
+     * @see {@link #versionedRow}
      */
     private Pair<BinaryRow, BinaryRow> resolve(Value val, Timestamp ts) {
         if (val.timestamp == null) { // New or after reset.

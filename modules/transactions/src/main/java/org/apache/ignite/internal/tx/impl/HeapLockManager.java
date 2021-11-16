@@ -47,9 +47,7 @@ import org.jetbrains.annotations.Nullable;
 public class HeapLockManager implements LockManager {
     private ConcurrentHashMap<Object, LockState> locks = new ConcurrentHashMap<>();
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> tryAcquire(Object key, Timestamp timestamp) {
         while (true) {
@@ -65,9 +63,7 @@ public class HeapLockManager implements LockManager {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void tryRelease(Object key, Timestamp timestamp) throws LockException {
         LockState state = lockState(key);
@@ -77,9 +73,7 @@ public class HeapLockManager implements LockManager {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> tryAcquireShared(Object key, Timestamp timestamp) {
         while (true) {
@@ -95,9 +89,7 @@ public class HeapLockManager implements LockManager {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void tryReleaseShared(Object key, Timestamp timestamp) throws LockException {
         LockState state = lockState(key);
@@ -118,17 +110,13 @@ public class HeapLockManager implements LockManager {
         return locks.computeIfAbsent(key, k -> new LockState());
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public Collection<Timestamp> queue(Object key) {
         return lockState(key).queue();
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public Waiter waiter(Object key, Timestamp timestamp) {
         return lockState(key).waiter(timestamp);
@@ -138,14 +126,10 @@ public class HeapLockManager implements LockManager {
      * A lock state.
      */
     private static class LockState {
-        /**
-         * Waiters.
-         */
+        /** Waiters. */
         private TreeMap<Timestamp, WaiterImpl> waiters = new TreeMap<>();
 
-        /**
-         * Marked for removal flag.
-         */
+        /** Marked for removal flag. */
         private boolean markedForRemove = false;
 
         /**
@@ -336,6 +320,8 @@ public class HeapLockManager implements LockManager {
         }
 
         /**
+         * Attempts to release a lock for the specified {@code key} in shared mode.
+         *
          * @param timestamp The timestamp.
          * @return {@code True} if the queue is empty.
          */
@@ -400,37 +386,27 @@ public class HeapLockManager implements LockManager {
     }
 
     /**
-     * The waiter implementation.
+     * A waiter implementation.
      */
     private static class WaiterImpl implements Comparable<WaiterImpl>, Waiter {
-        /**
-         * Locked future.
-         */
+        /** Locked future. */
         @IgniteToStringExclude
         private final CompletableFuture<Void> fut;
 
-        /**
-         * Waiter timestamp.
-         */
+        /** Waiter timestamp. */
         private final Timestamp timestamp;
 
-        /**
-         * Upgradede lock.
-         */
+        /** Upgradede lock. */
         public boolean upgraded;
 
-        /**
-         * {@code True} if a read request.
-         */
+        /** {@code True} if a read request. */
         private boolean forRead;
 
-        /**
-         * The state.
-         */
+        /** The state. */
         private boolean locked = false;
 
         /**
-         * Constructor.
+         * The constructor.
          *
          * @param timestamp The timestamp.
          * @param forRead {@code True} to request a read lock.
@@ -441,26 +417,20 @@ public class HeapLockManager implements LockManager {
             this.forRead = forRead;
         }
 
-        /**
-         * {@inheritDoc}
-         */
+        /** {@inheritDoc} */
         @Override
         public int compareTo(@NotNull WaiterImpl o) {
             return timestamp.compareTo(o.timestamp);
         }
 
-        /**
-         * Notifies a future listeners.
-         */
+        /** Notifies a future listeners. */
         private void notifyLocked() {
             assert locked;
 
             fut.complete(null);
         }
 
-        /**
-         * {@inheritDoc}
-         */
+        /** {@inheritDoc} */
         @Override
         public boolean locked() {
             return this.locked;
@@ -474,32 +444,24 @@ public class HeapLockManager implements LockManager {
             return this.locked && !forRead;
         }
 
-        /**
-         * Grant a lock.
-         */
+        /** Grant a lock. */
         private void lock() {
             locked = true;
         }
 
-        /**
-         * {@inheritDoc}
-         */
+        /** {@inheritDoc} */
         @Override
         public Timestamp timestamp() {
             return timestamp;
         }
 
-        /**
-         * Returns {@code true} if is locked for read.
-         */
+        /** Returns {@code true} if is locked for read. */
         @Override
         public boolean isForRead() {
             return forRead;
         }
 
-        /**
-         * {@inheritDoc}
-         */
+        /** {@inheritDoc} */
         @Override
         public boolean equals(Object o) {
             if (!(o instanceof WaiterImpl)) {
@@ -509,26 +471,20 @@ public class HeapLockManager implements LockManager {
             return compareTo((WaiterImpl) o) == 0;
         }
 
-        /**
-         * {@inheritDoc}
-         */
+        /** {@inheritDoc} */
         @Override
         public int hashCode() {
             return timestamp.hashCode();
         }
 
-        /**
-         * {@inheritDoc}
-         */
+        /** {@inheritDoc} */
         @Override
         public String toString() {
             return S.toString(WaiterImpl.class, this, "isDone", fut.isDone());
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean isEmpty() {
         return locks.isEmpty();

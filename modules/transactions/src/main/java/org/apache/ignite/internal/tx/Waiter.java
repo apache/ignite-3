@@ -25,13 +25,17 @@ public interface Waiter {
      * Returns associated timestamp.
      */
     Timestamp timestamp();
-    
+
     /**
+     * Returns lock state.
+     *
      * @return {@code true} if a waiter holds the lock.
      */
     boolean locked();
-    
+
     /**
+     * Returns lock type.
+     *
      * @return {@code True} if a read request.
      */
     boolean isForRead();

@@ -60,6 +60,8 @@ public class TransactionImpl implements InternalTransaction {
     private Thread thread;
 
     /**
+     * The constructor.
+     *
      * @param txManager The tx managert.
      * @param timestamp The timestamp.
      * @param address The local address.
@@ -140,7 +142,9 @@ public class TransactionImpl implements InternalTransaction {
     }
 
     /**
-     * @param commit {@code true} to commit.
+     * Finishes a transaction.
+     *
+     * @param commit {@code true} to commit, false to rollback.
      * @return The future.
      */
     private CompletableFuture<Void> finish(boolean commit) {

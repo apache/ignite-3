@@ -99,6 +99,8 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
     }
 
     /**
+     * Returns a timestamp.
+     *
      * @return The timestamp.
      */
     public long getTimestamp() {
@@ -106,15 +108,15 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
     }
 
     /**
+     * Return a node id.
+     *
      * @return Local node id.
      */
     public long getNodeId() {
         return nodeId;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof Timestamp)) {
@@ -124,9 +126,7 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         return compareTo((Timestamp) o) == 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         long hilo = timestamp ^ nodeId;
@@ -134,6 +134,7 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
     }
 
     /**
+     * Generates new monotonically increasing timestamp.
      * TODO https://issues.apache.org/jira/browse/IGNITE-15129
      *
      * @return Next timestamp (monotonically increasing).
@@ -160,7 +161,9 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
     }
 
     /**
-     * @param lastTimestamp Wait until this timestamp will pass.
+     * Waits until a time will pass after a timestamp.
+     *
+     * @param lastTimestamp The timestamp.
      * @return New timestamp.
      */
     private static long waitForNextMillisecond(long lastTimestamp) {
@@ -173,21 +176,22 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         return timestamp;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public String toString() {
         return new UUID(timestamp, nodeId).toString();
     }
 
     /**
+     * Generates a local node id.
+     *
      * @return Local node id as a long value.
      */
     private static long getLocalNodeId() {
         try {
             InetAddress localHost = InetAddress.getLocalHost();
 
+            // TODO asch make sure this always works. Can use random bytes if iface doesn't exists.
             NetworkInterface iface = NetworkInterface.getByInetAddress(localHost);
 
             byte[] bytes = iface.getHardwareAddress();

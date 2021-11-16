@@ -85,7 +85,7 @@ public interface LockManager {
     public Waiter waiter(Object key, Timestamp timestamp);
 
     /**
-     * @return {@code True} if no locks have been acquired.
+     * @return {@code true} if no locks have been held.
      */
     @TestOnly
     public boolean isEmpty();

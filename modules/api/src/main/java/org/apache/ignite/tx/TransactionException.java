@@ -22,6 +22,8 @@ import org.apache.ignite.lang.IgniteException;
 /** This exception is thrown when a transactional operation can't be finished by some reasons. */
 public class TransactionException extends IgniteException {
     /**
+     * Creates a new transaction exception with a message.
+     *
      * @param message The message.
      */
     public TransactionException(String message) {
@@ -29,6 +31,8 @@ public class TransactionException extends IgniteException {
     }
 
     /**
+     * Creates a new transaction exception with a cause.
+     *
      * @param cause The cause.
      */
     public TransactionException(Throwable cause) {

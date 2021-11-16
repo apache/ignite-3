@@ -85,6 +85,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private ThreadLocal<InternalTransaction> threadCtx = new ThreadLocal<>();
 
     /**
+     * The constructor.
+     *
      * @param clusterService Cluster service.
      * @param lockManager Lock manager.
      */
@@ -142,7 +144,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     /**
-     * @param tx The transaction.
+     * Unlocks all locks for the timestamp.
+     *
+     * @param ts The timestamp.
      */
     private void unlockAll(Timestamp ts) {
         Map<LockKey, Boolean> locks = this.locks.remove(ts);

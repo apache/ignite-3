@@ -29,16 +29,22 @@ import org.apache.ignite.network.annotations.Transferable;
 @Transferable(value = TxMessageGroup.TX_FINISH_REQUEST, autoSerializable = false)
 public interface TxFinishRequest extends NetworkMessage, Serializable {
     /**
+     * Returns the timestamp.
+     *
      * @return The timestamp.
      */
     Timestamp timestamp();
 
     /**
+     * Returns {@code True} if a commit request.
+     *
      * @return {@code True} to commit.
      */
     boolean commit();
 
     /**
+     * Returns enlisted partition groups.
+     *
      * @return Enlisted partition groups.
      */
     Set<String> groups();

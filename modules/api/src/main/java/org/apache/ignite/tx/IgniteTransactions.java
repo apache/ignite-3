@@ -26,6 +26,8 @@ import java.util.function.Function;
  */
 public interface IgniteTransactions {
     /**
+     * Returns a facade with new default timeout.
+     *
      * @param timeout The timeout.
      *
      * @return A facade using a new timeout.
