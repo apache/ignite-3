@@ -68,6 +68,8 @@ public abstract class SingleKeyCommand implements TransactionalCommand, Serializ
     }
 
     /**
+     * Returns a timestamp.
+     *
      * @return The timestamp.
      */
     @Override

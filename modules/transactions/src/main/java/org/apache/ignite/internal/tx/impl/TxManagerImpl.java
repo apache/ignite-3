@@ -356,6 +356,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     /**
+     * Returns a lock manager.
+     *
      * @return The lock manager.
      */
     @TestOnly

@@ -216,6 +216,8 @@ public interface InternalTable extends AutoCloseable {
             @Nullable InternalTransaction tx);
 
     /**
+     * Returns a partition for a key.
+     *
      * @param keyRow The key.
      * @return The partition.
      */

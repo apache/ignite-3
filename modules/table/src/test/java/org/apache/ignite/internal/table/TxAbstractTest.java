@@ -1355,7 +1355,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     /**
-     * Makes a value.
+     * Makes a tuple containing key and value.
      *
      * @param id The id.
      * @param balance The balance.
@@ -1377,7 +1377,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     /**
-     * Makes a tuple containing key and value.
+     * Makes a value.
      *
      * @param id The id.
      * @param balance The balance.
@@ -1388,6 +1388,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     /**
+     * Makes a value.
+     *
      * @param id The id.
      * @param name The name.
      * @return The value tuple.

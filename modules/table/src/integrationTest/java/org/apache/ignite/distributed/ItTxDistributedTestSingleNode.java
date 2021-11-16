@@ -120,7 +120,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     }
 
     /**
-     * @return {@code True} to disable collocation.
+     * Returns {@code true} to disable collocation by using dedicated client node.
+     *
+     * @return {@code true} to disable collocation.
      */
     protected boolean startClient() {
         return true;
@@ -285,6 +287,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     }
 
     /**
+     * Starts a table.
+     *
      * @param name The name.
      * @param tblId Table id.
      * @return Groups map.
@@ -352,6 +356,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     }
 
     /**
+     * Returns a raft manager for a group.
+     *
      * @param svc The service.
      * @return Raft manager hosting a leader for group.
      */

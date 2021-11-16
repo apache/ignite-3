@@ -458,6 +458,8 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
+     * Returns a transaction manager.
+     *
      * @return Transaction manager.
      */
     @TestOnly
