@@ -265,7 +265,7 @@ public interface FirstPolymorphicInstanceChange extends FirstPolymorphicInstance
 }
 ```
 
-Example of updating of all child nodes of the parent configuration in a single transaction:
+Example of updating all child nodes of the parent configuration in a single transaction:
 
 ```java
 ParentConfiguration parentCfg = ...;
