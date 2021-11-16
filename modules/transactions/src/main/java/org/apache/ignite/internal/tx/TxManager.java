@@ -39,12 +39,16 @@ public interface TxManager extends IgniteComponent {
     InternalTransaction begin();
 
     /**
+     * Returns a transaction state.
+     *
      * @param ts The timestamp.
      * @return The state or null if the state is unknown.
      */
     @Nullable TxState state(Timestamp ts);
 
     /**
+     * Atomically changes the state of a transaction.
+     *
      * @param ts The timestamp.
      * @param before Before state.
      * @param after After state.
@@ -53,24 +57,33 @@ public interface TxManager extends IgniteComponent {
     boolean changeState(Timestamp ts, @Nullable TxState before, TxState after);
 
     /**
+     * Forgets the transaction state. Intended for cleanup.
+     *
      * @param ts The timestamp.
      */
     void forget(Timestamp ts);
 
     /**
+     * Commits a transaction.
+     *
      * @param ts The timestamp.
      * @return The future.
      */
     CompletableFuture<Void> commitAsync(Timestamp ts);
 
     /**
+     * Aborts a transaction.
+     *
      * @param ts The timestamp.
      * @return The future.
      */
     CompletableFuture<Void> rollbackAsync(Timestamp ts);
 
     /**
+     * Acqures a write lock.
+     *
      * @param lockId Table ID.
+     * @param keyData The key data.
      * @param ts The timestamp.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
@@ -78,6 +91,8 @@ public interface TxManager extends IgniteComponent {
     public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts);
 
     /**
+     * Acqures a read lock.
+     *
      * @param lockId Lock id.
      * @param keyData The key data.
      * @param ts The timestamp.
@@ -87,6 +102,8 @@ public interface TxManager extends IgniteComponent {
     public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts);
 
     /**
+     * Returns a transaction state or starts a new in the PENDING state.
+     *
      * @param ts The timestamp.
      * @return @{code null} if a transaction was created, or a current state.
      */
@@ -102,12 +119,16 @@ public interface TxManager extends IgniteComponent {
     CompletableFuture<Void> finishRemote(NetworkAddress addr, Timestamp ts, boolean commit, Set<String> groups);
 
     /**
+     * Checks if a passed address belongs to a local node.
+     *
      * @param addr The address.
      * @return {@code True} if a local node.
      */
     boolean isLocal(NetworkAddress addr);
 
     /**
+     * Sets a thread local transaction.
+     *
      * @param tx The thread local transaction.
      * @deprecated Should be removed after table API adjustment TODO asch ticket.
      */
@@ -115,6 +136,8 @@ public interface TxManager extends IgniteComponent {
     void setTx(InternalTransaction tx);
 
     /**
+     * Returns a thread local transaction.
+     *
      * @return The thread local transaction.
      * @throws TransactionException Thrown on illegal access.
      * @deprecated Should be removed after table API adjustment TODO asch ticket.
@@ -123,12 +146,14 @@ public interface TxManager extends IgniteComponent {
     InternalTransaction tx() throws TransactionException;
 
     /**
-     * Clear thread local transaction.
+     * Clears thread local transaction.
      */
     @Deprecated
     void clearTx();
 
     /**
+     * Returns a number of finished transactions.
+     *
      * @return A number of finished transactions.
      */
     @TestOnly

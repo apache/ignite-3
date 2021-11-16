@@ -358,9 +358,6 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         doTestSingleKeyMultithreaded(5_000, readLocks, writeLocks, failedLocks, 2);
     }
 
-    /**
-     *
-     */
     @Test
     public void testLockUpgrade() throws LockException {
         Timestamp ts0 = Timestamp.nextVersion();
