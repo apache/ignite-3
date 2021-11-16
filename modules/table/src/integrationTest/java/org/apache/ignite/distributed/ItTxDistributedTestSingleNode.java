@@ -76,62 +76,29 @@ import org.junit.jupiter.api.TestInfo;
 import org.mockito.Mockito;
 
 /**
- *
+ * Distributed transaction test using a single partition table.
  */
-public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
-    /**
-     * Base network port.
-     */
+public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     public static final int NODE_PORT_BASE = 20_000;
 
-    /**
-     * Factory.
-     */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
-    /**
-     * Network factory.
-     */
     private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
-    /**
-     *
-     */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
-    /**
-     *
-     */
     private ClusterService client;
 
-    /**
-     *
-     */
     protected Map<ClusterNode, Loza> raftServers;
 
-    /**
-     *
-     */
     protected Map<ClusterNode, TxManager> txManagers;
 
-    /**
-     *
-     */
     protected Map<Integer, RaftGroupService> accRaftClients;
 
-    /**
-     *
-     */
     protected Map<Integer, RaftGroupService> custRaftClients;
 
-    /**
-     * Cluster.
-     */
     protected List<ClusterService> cluster = new CopyOnWriteArrayList<>();
 
-    /**
-     *
-     */
     private ScheduledThreadPoolExecutor executor;
 
     /**
@@ -163,7 +130,7 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
     /**
      * @param testInfo Test info.
      */
-    public ItTxDistributedTest_1_1_1(TestInfo testInfo) {
+    public ItTxDistributedTestSingleNode(TestInfo testInfo) {
         this.testInfo = testInfo;
     }
 
@@ -344,7 +311,7 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
                         grpId,
                         partNodes,
                         () -> new PartitionListener(tblId,
-                                new  VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManagers.get(node)))
+                                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManagers.get(node)))
                 );
             }
 
@@ -468,7 +435,8 @@ public class ItTxDistributedTest_1_1_1 extends TxAbstractTest {
             fail("Unknown table " + t.tableName());
         }
 
-        TxManager manager = txManagers.get(clients.get(0).clusterService().topologyService().getByAddress(clients.get(0).leader().address()));
+        TxManager manager = txManagers
+                .get(clients.get(0).clusterService().topologyService().getByAddress(clients.get(0).leader().address()));
 
         assertNotNull(manager);
 

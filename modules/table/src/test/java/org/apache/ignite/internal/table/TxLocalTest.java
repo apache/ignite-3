@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+
 import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -32,53 +34,58 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.mockito.Mockito;
 
-import static org.mockito.Answers.RETURNS_DEEP_STUBS;
-
-/** */
+/**
+ * Local table tests.
+ */
 public class TxLocalTest extends TxAbstractTest {
-    /** */
-    private HeapLockManager lockMgr;
+    private HeapLockManager lockManager;
 
-    /** */
-    private TxManagerImpl txMgr;
+    private TxManagerImpl txManager;
 
     /**
      * Initialize the test state.
      */
-    @Override @BeforeEach
+    @Override
+    @BeforeEach
     public void before() {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        lockMgr = new HeapLockManager();
+        lockManager = new HeapLockManager();
 
-        txMgr = new TxManagerImpl(clusterService, lockMgr);
+        txManager = new TxManagerImpl(clusterService, lockManager);
 
-        igniteTransactions = new IgniteTransactionsImpl(txMgr);
+        igniteTransactions = new IgniteTransactionsImpl(txManager);
 
-        InternalTable table = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txMgr), txMgr);
+        InternalTable table = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager),
+                txManager);
 
         accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), null);
 
-        InternalTable table2 = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txMgr), txMgr);
+        InternalTable table2 = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager),
+                txManager);
 
         customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), null);
     }
 
     @Disabled
-    @Override public void testScan() throws InterruptedException {
+    @Override
+    public void testScan() throws InterruptedException {
         // TODO asch implement local scan
     }
 
-    @Override protected TxManager txManager(Table t) {
-        return txMgr;
+    @Override
+    protected TxManager txManager(Table t) {
+        return txManager;
     }
 
-    @Override protected LockManager lockManager(Table t) {
-        return lockMgr;
+    @Override
+    protected LockManager lockManager(Table t) {
+        return lockManager;
     }
 
-    @Override protected boolean assertPartitionsSame(Table t, int partId) {
+    @Override
+    protected boolean assertPartitionsSame(Table t, int partId) {
         return true;
     }
 }

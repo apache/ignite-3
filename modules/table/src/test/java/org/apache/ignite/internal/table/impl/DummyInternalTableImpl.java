@@ -54,14 +54,11 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
 /**
- * Dummy table storage implementation.
- * TODO asch rename to local table
+ * Dummy table storage implementation. TODO asch rename to local table
  */
 public class DummyInternalTableImpl extends InternalTableImpl {
-    /** */
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
-    /** */
     private PartitionListener partitionListener;
 
     /**
@@ -79,103 +76,112 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         // Delegate directly to listener.
         doAnswer(
-            invocationClose -> {
-                Command cmd = invocationClose.getArgument(0);
+                invocationClose -> {
+                    Command cmd = invocationClose.getArgument(0);
 
-                CompletableFuture res = new CompletableFuture();
+                    CompletableFuture res = new CompletableFuture();
 
-                CompletableFuture<Void> fut = partitionListener.onBeforeApply(cmd);
+                    CompletableFuture<Void> fut = partitionListener.onBeforeApply(cmd);
 
-                fut.handle(new BiFunction<Void, Throwable, Void>() {
-                    @Override public Void apply(Void ignored, Throwable err) {
-                        if (err == null) {
-                            if (cmd instanceof GetCommand || cmd instanceof GetAllCommand) {
-                                CommandClosure<ReadCommand> clo = new CommandClosure<>() {
-                                    @Override public ReadCommand command() {
-                                        return (ReadCommand) cmd;
+                    fut.handle(new BiFunction<Void, Throwable, Void>() {
+                        @Override
+                        public Void apply(Void ignored, Throwable err) {
+                            if (err == null) {
+                                if (cmd instanceof GetCommand || cmd instanceof GetAllCommand) {
+                                    CommandClosure<ReadCommand> clo = new CommandClosure<>() {
+                                        @Override
+                                        public ReadCommand command() {
+                                            return (ReadCommand) cmd;
+                                        }
+
+                                        @Override
+                                        public void result(@Nullable Serializable r) {
+                                            res.complete(r);
+                                        }
+                                    };
+
+                                    try {
+                                        partitionListener.onRead(List.of(clo).iterator());
+                                    } catch (Throwable e) {
+                                        res.completeExceptionally(new TransactionException(e));
                                     }
+                                } else {
+                                    CommandClosure<WriteCommand> clo = new CommandClosure<>() {
+                                        @Override
+                                        public WriteCommand command() {
+                                            return (WriteCommand) cmd;
+                                        }
 
-                                    @Override public void result(@Nullable Serializable r) {
-                                        res.complete(r);
+                                        @Override
+                                        public void result(@Nullable Serializable r) {
+                                            res.complete(r);
+                                        }
+                                    };
+
+                                    try {
+                                        partitionListener.onWrite(List.of(clo).iterator());
+                                    } catch (Throwable e) {
+                                        res.completeExceptionally(new TransactionException(e));
                                     }
-                                };
-
-                                try {
-                                    partitionListener.onRead(List.of(clo).iterator());
                                 }
-                                catch (Throwable e) {
-                                    res.completeExceptionally(new TransactionException(e));
-                                }
+                            } else {
+                                res.completeExceptionally(err);
                             }
-                            else {
-                                CommandClosure<WriteCommand> clo = new CommandClosure<>() {
-                                    @Override public WriteCommand command() {
-                                        return (WriteCommand) cmd;
-                                    }
 
-                                    @Override public void result(@Nullable Serializable r) {
-                                        res.complete(r);
-                                    }
-                                };
-
-                                try {
-                                    partitionListener.onWrite(List.of(clo).iterator());
-                                }
-                                catch (Throwable e) {
-                                    res.completeExceptionally(new TransactionException(e));
-                                }
-                            }
+                            return null;
                         }
-                        else {
-                            res.completeExceptionally(err);
-                        }
+                    });
 
-                        return null;
-                    }
-                });
-
-                return res;
-            }
+                    return res;
+                }
         ).when(svc).run(any());
 
         partitionListener = new PartitionListener(new IgniteUuid(UUID.randomUUID(), 0), store);
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteUuid tableId() {
+    @Override
+    public @NotNull IgniteUuid tableId() {
         return new IgniteUuid(UUID.randomUUID(), 0);
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull String tableName() {
+    @Override
+    public @NotNull String tableName() {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull SchemaManagementMode schemaMode() {
+    @Override
+    public @NotNull SchemaManagementMode schemaMode() {
         return SchemaManagementMode.STRICT;
     }
 
     /** {@inheritDoc} */
-    @Override public void schema(SchemaManagementMode schemaMode) {
+    @Override
+    public void schema(SchemaManagementMode schemaMode) {
     }
 
-    @Override public CompletableFuture<BinaryRow> get(BinaryRow keyRow, InternalTransaction tx) {
+    @Override
+    public CompletableFuture<BinaryRow> get(BinaryRow keyRow, InternalTransaction tx) {
         return super.get(keyRow, tx);
     }
 
     /** {@inheritDoc} */
-    @Override public Flow.Publisher<BinaryRow> scan(int p, InternalTransaction tx) {
+    @Override
+    public Flow.Publisher<BinaryRow> scan(int p, InternalTransaction tx) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull List<String> assignments() {
+    @Override
+    public @NotNull List<String> assignments() {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     /** {@inheritDoc} */
-    @Override public int partition(BinaryRow keyRow) {
+    @Override
+    public int partition(BinaryRow keyRow) {
         return 0;
     }
 }

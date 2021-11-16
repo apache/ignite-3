@@ -17,34 +17,40 @@
 
 package org.apache.ignite.distributed;
 
-import org.junit.jupiter.api.BeforeEach;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.TestInfo;
 
-import static org.junit.jupiter.api.Assertions.assertSame;
-
-/** Tests a tx suite on a cluster node collocated to accounts and customers leader. */
-public class ItTxDistributedTest_Collocated_1_1_1 extends ItTxDistributedTest_1_1_1 {
+/**
+ * Distributed transaction test using a single partition table, 3 nodes and 3 replicas.
+ */
+public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedTestSingleNode {
     /**
      * @param testInfo Test info.
      */
-    public ItTxDistributedTest_Collocated_1_1_1(TestInfo testInfo) {
+    public ItTxDistributedTestThreeNodesThreeReplicas(TestInfo testInfo) {
         super(testInfo);
     }
 
     /** {@inheritDoc} */
-    @Override protected boolean startClient() {
-        return false;
+    @Override protected int nodes() {
+        return 3;
     }
 
     /** {@inheritDoc} */
-    @BeforeEach
-    @Override public void before() throws Exception {
-        super.before();
+    @Override protected int replicas() {
+        return 3;
+    }
 
-        assertSame(accRaftClients.get(0).clusterService(), getLeader(accRaftClients.get(0)).service());
-        assertSame(custRaftClients.get(0).clusterService(), getLeader(custRaftClients.get(0)).service());
+    /**
+     *
+     * @throws Exception
+     */
+    @Override @AfterEach
+    public void after() throws Exception {
+        IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(accounts, 0), 5_000);
+        IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(customers, 0), 5_000);
+
+        super.after();
     }
 }
-
-
-

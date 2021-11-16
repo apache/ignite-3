@@ -22,25 +22,32 @@ import org.junit.jupiter.api.TestInfo;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-/** Tests a tx suite on a cluster node collocated to accounts leader. */
-public class ItTxDistributedTest_Collocated_3_1_3 extends ItTxDistributedTest_3_1_3 {
+/**
+ * Distributed transaction test using a single partition table, collocated on a leader.
+ */
+public class ItTxDistributedTestSingleNodeCollocated extends ItTxDistributedTestSingleNode {
     /**
      * @param testInfo Test info.
      */
-    public ItTxDistributedTest_Collocated_3_1_3(TestInfo testInfo) {
+    public ItTxDistributedTestSingleNodeCollocated(TestInfo testInfo) {
         super(testInfo);
     }
 
     /** {@inheritDoc} */
-    @Override protected boolean startClient() {
+    @Override
+    protected boolean startClient() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @BeforeEach
-    @Override public void before() throws Exception {
+    @BeforeEach @Override
+    public void before() throws Exception {
         super.before();
 
         assertSame(accRaftClients.get(0).clusterService(), getLeader(accRaftClients.get(0)).service());
+        assertSame(custRaftClients.get(0).clusterService(), getLeader(custRaftClients.get(0)).service());
     }
 }
+
+
+
