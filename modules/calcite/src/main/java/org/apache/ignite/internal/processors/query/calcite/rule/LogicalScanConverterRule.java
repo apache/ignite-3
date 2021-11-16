@@ -42,6 +42,7 @@ import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLog
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteIndex;
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
+import org.apache.ignite.internal.processors.query.calcite.schema.InternalIgniteTable;
 import org.apache.ignite.internal.processors.query.calcite.trait.CorrelationTrait;
 import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
@@ -63,7 +64,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                         IgniteLogicalIndexScan rel
                 ) {
                     RelOptCluster cluster = rel.getCluster();
-                    IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
+                    InternalIgniteTable table = rel.getTable().unwrap(InternalIgniteTable.class);
                     IgniteIndex index = table.getIndex(rel.indexName());
 
                     RelDistribution distribution = table.distribution();
@@ -114,7 +115,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                         IgniteLogicalTableScan rel
                 ) {
                     RelOptCluster cluster = rel.getCluster();
-                    IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
+                    InternalIgniteTable table = rel.getTable().unwrap(InternalIgniteTable.class);
 
                     RelDistribution distribution = table.distribution();
                     if (rel.requiredColumns() != null) {
