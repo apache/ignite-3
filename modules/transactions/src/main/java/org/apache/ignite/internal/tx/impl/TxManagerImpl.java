@@ -54,9 +54,7 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
 public class TxManagerImpl implements TxManager, NetworkMessageHandler {
-    /**
-     * Tx messages factory.
-     */
+    /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
     /** Tx finish timeout. */
@@ -69,15 +67,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final LockManager lockManager;
 
     /**
-     * The storage for tx states.
-     * TODO asch use Storage for states, implement max size, implement replication.
+     * The storage for tx states. TODO asch use Storage for states, implement max size, implement replication.
      */
     private final ConcurrentHashMap<Timestamp, TxState> states = new ConcurrentHashMap<>();
 
     /**
-     * The storage for locks acquired by transactions. Each key is mapped to lock type where true is
-     * for read. TODO asch use Storage for locks. Introduce limits, deny lock operation if the limit
-     * is exceeded.
+     * The storage for locks acquired by transactions. Each key is mapped to lock type where true is for read. TODO asch use Storage for
+     * locks. Introduce limits, deny lock operation if the limit is exceeded.
      */
     private final ConcurrentHashMap<Timestamp, Map<LockKey, Boolean>> locks = new ConcurrentHashMap<>();
 
@@ -112,9 +108,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         return states.get(ts);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void forget(Timestamp ts) {
         states.remove(ts);
@@ -182,7 +176,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts) {
         // TODO asch process tx messages in striped fasion to avoid races. But locks can be acquired from any thread !
-        if (state(ts) != TxState.PENDING) {
+        TxState state = state(ts);
+
+        if (state != null && state != TxState.PENDING) {
             return failedFuture(new TransactionException(
                     "The operation is attempted for completed transaction"));
         }
@@ -197,7 +193,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts) {
-        if (state(ts) != TxState.PENDING) {
+        TxState state = state(ts);
+
+        if (state != null && state != TxState.PENDING) {
             return failedFuture(new TransactionException(
                     "The operation is attempted for completed transaction"));
         }
@@ -242,9 +240,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** {@inheritDoc} */
     @Override
-    public boolean getOrCreateTransaction(Timestamp ts) {
+    public TxState getOrCreateTransaction(Timestamp ts) {
         // TODO asch track originator or use broadcast recovery ?
-        return states.putIfAbsent(ts, TxState.PENDING) == null;
+        return states.putIfAbsent(ts, TxState.PENDING);
     }
 
     /** {@inheritDoc} */
@@ -273,11 +271,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         return clusterService.topologyService().localMember().address().equals(node);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void setTx(InternalTransaction tx) {
         threadCtx.set(tx);
     }
 
+    /** {@inheritDoc} */
     @Override
     @Nullable
     public InternalTransaction tx() throws TransactionException {
@@ -314,7 +314,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // No-op.
     }
 
-    /** Lock key. */
+    /**
+     * Lock key.
+     */
     private static class LockKey {
         /** The id. */
         private final IgniteUuid id;
@@ -366,12 +368,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param groupId Group id.
      * @param ts The timestamp.
      * @param commit {@code True} to commit, false to abort.
-     *
      * @return The future.
      */
     protected CompletableFuture<?> finish(String groupId, Timestamp ts, boolean commit) {
         return CompletableFuture.completedFuture(null);
-    };
+    }
 
     /** {@inheritDoc} */
     @Override

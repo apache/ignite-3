@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import static org.apache.ignite.lang.LoggerMessageHelper.format;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -47,6 +49,7 @@ import org.apache.ignite.internal.table.distributed.command.MultiKeyCommand;
 import org.apache.ignite.internal.table.distributed.command.ReplaceCommand;
 import org.apache.ignite.internal.table.distributed.command.ReplaceIfExistCommand;
 import org.apache.ignite.internal.table.distributed.command.SingleKeyCommand;
+import org.apache.ignite.internal.table.distributed.command.TransactionalCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
@@ -61,12 +64,12 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.TestOnly;
 
@@ -101,9 +104,14 @@ public class PartitionListener implements RaftGroupListener {
     @Override
     public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends ReadCommand> clo) -> {
-            if (clo.command() instanceof GetCommand) {
+            Command command = clo.command();
+
+            if (!tryEnlistIntoTransaction(command, clo))
+                return;
+
+            if (command instanceof GetCommand) {
                 handleGetCommand((CommandClosure<GetCommand>) clo);
-            } else if (clo.command() instanceof GetAllCommand) {
+            } else if (command instanceof GetAllCommand) {
                 handleGetAllCommand((CommandClosure<GetAllCommand>) clo);
             } else {
                 assert false : "Command was not found [cmd=" + clo.command() + ']';
@@ -116,6 +124,9 @@ public class PartitionListener implements RaftGroupListener {
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
             Command command = clo.command();
+
+            if (!tryEnlistIntoTransaction(command, clo))
+                return;
 
             if (command instanceof InsertCommand) {
                 handleInsertCommand((CommandClosure<InsertCommand>) clo);
@@ -155,6 +166,27 @@ public class PartitionListener implements RaftGroupListener {
                 assert false : "Command was not found [cmd=" + command + ']';
             }
         });
+    }
+
+    /**
+     * @param command The command.
+     * @param clo The closure.
+     * @return {@code true} if a command is compatible with a transaction state or a command is not transactional.
+     */
+    private boolean tryEnlistIntoTransaction(Command command, CommandClosure<?> clo) {
+        if (command instanceof TransactionalCommand) {
+            Timestamp ts = ((TransactionalCommand) command).getTimestamp();
+
+            TxState state = txManager.getOrCreateTransaction(ts);
+
+            if (state != null && state != TxState.PENDING) {
+                clo.result(new TransactionException(format("Failed to enlist a key into a transaction, state={}", state)));
+
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -418,7 +450,7 @@ public class PartitionListener implements RaftGroupListener {
         CursorMeta cursorDesc = cursors.get(clo.command().scanId());
 
         if (cursorDesc == null) {
-            clo.result(new NoSuchElementException(LoggerMessageHelper.format(
+            clo.result(new NoSuchElementException(format(
                     "Cursor with id={} is not found on server side.", clo.command().scanId())));
 
             return;
@@ -491,15 +523,11 @@ public class PartitionListener implements RaftGroupListener {
         if (command instanceof SingleKeyCommand) {
             SingleKeyCommand cmd0 = (SingleKeyCommand) command;
 
-            txManager.getOrCreateTransaction(cmd0.getTimestamp()); // TODO asch handle race between rollback and lock.
-
             return cmd0 instanceof ReadCommand ? txManager.readLock(lockId, cmd0.getRow().keySlice(), cmd0.getTimestamp()) :
                 txManager.writeLock(lockId, cmd0.getRow().keySlice(), cmd0.getTimestamp());
         }
         else if (command instanceof MultiKeyCommand) {
             MultiKeyCommand cmd0 = (MultiKeyCommand) command;
-
-            txManager.getOrCreateTransaction(cmd0.getTimestamp());
 
             Collection<BinaryRow> rows = cmd0.getRows();
 

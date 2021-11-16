@@ -54,8 +54,8 @@ public class TransactionImpl implements InternalTransaction {
     /** Enlisted groups. */
     private Set<RaftGroupService> set = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-    /** Bound thread. */
-    private Thread t;
+    /** Bounded thread. */
+    private Thread thread;
 
     /**
      * @param txManager The tx managert.
@@ -175,12 +175,12 @@ public class TransactionImpl implements InternalTransaction {
     /** {@inheritDoc} */
     @Override
     public void thread(Thread t) {
-        this.t = t;
+        this.thread = t;
     }
 
     /** {@inheritDoc} */
     @Override
     public @Nullable Thread thread() {
-        return t;
+        return thread;
     }
 }

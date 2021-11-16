@@ -30,51 +30,51 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * The timestamp. Has the following structure:
- * <p>
- * Local Time(48 bit) Local counter (16 bit) Local node id (48 bits) Not used (16 bits)
+ *
+ * <p>Local Time(48 bit) Local counter (16 bit) Local node id (48 bits) Not used (16 bits)
  */
 public class Timestamp implements Comparable<Timestamp>, Serializable {
     /**
      * Serial version.
      */
     private static final long serialVersionUID = 1L;
-    
+
     /**
      * Epoch start for the generation purposes.
      */
     private static final long EPOCH = LocalDateTime.of(2021, 1, 1, 0, 0, 0)
             .toInstant(ZoneOffset.UTC).toEpochMilli();
-    
+
     /**
      * A max value for a counter before rollover.
      */
     public static final short MAX_CNT = Short.MAX_VALUE;
-    
+
     /**
      * Local time.
      */
     private static long localTime;
-    
+
     /**
      * The counter.
      */
     private static long cntr;
-    
+
     /**
      * Local node id.
      */
     private static long localNodeId = getLocalNodeId();
-    
+
     /**
      * The offset and counter part of a timestamp.
      */
     private final long timestamp;
-    
+
     /**
      * The node id part of a timestamp.
      */
     private final long nodeId;
-    
+
     /**
      * Constructor.
      *
@@ -85,7 +85,7 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         this.timestamp = timestamp;
         this.nodeId = nodeId;
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -97,21 +97,21 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
                                 (this.nodeId > other.nodeId ? 1 :
                                         0))));
     }
-    
+
     /**
      * @return The timestamp.
      */
     public long getTimestamp() {
         return timestamp;
     }
-    
+
     /**
      * @return Local node id.
      */
     public long getNodeId() {
         return nodeId;
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -120,10 +120,10 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         if (!(o instanceof Timestamp)) {
             return false;
         }
-        
+
         return compareTo((Timestamp) o) == 0;
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -132,7 +132,7 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         long hilo = timestamp ^ nodeId;
         return ((int) (hilo >> 32)) ^ (int) hilo;
     }
-    
+
     /**
      * TODO https://issues.apache.org/jira/browse/IGNITE-15129
      *
@@ -140,40 +140,40 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
      */
     public static synchronized Timestamp nextVersion() {
         long timestamp = Clock.systemUTC().instant().toEpochMilli() - EPOCH;
-        
+
         long newTime = Math.max(localTime, timestamp);
-        
+
         if (newTime == localTime) {
             cntr = (cntr + 1) & 0xFFFF;
-            
+
             if (cntr == 0) {
                 newTime = waitForNextMillisecond(newTime);
             }
         } else {
             cntr = 0;
         }
-        
+
         localTime = newTime;
-        
+
         // Will overflow in a late future.
         return new Timestamp(newTime << 16 | cntr, localNodeId);
     }
-    
+
     /**
      * @param lastTimestamp Wait until this timestamp will pass.
      * @return New timestamp.
      */
     private static long waitForNextMillisecond(long lastTimestamp) {
         long timestamp;
-        
+
         do {
             timestamp = Clock.systemUTC().instant().toEpochMilli() - EPOCH;
         }
         while (timestamp <= lastTimestamp); // Wall clock can go backward.
-        
+
         return timestamp;
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -181,27 +181,27 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
     public String toString() {
         return new UUID(timestamp, nodeId).toString();
     }
-    
+
     /**
      * @return Local node id as a long value.
      */
     private static long getLocalNodeId() {
         try {
             InetAddress localHost = InetAddress.getLocalHost();
-            
+
             NetworkInterface iface = NetworkInterface.getByInetAddress(localHost);
-            
+
             byte[] bytes = iface.getHardwareAddress();
-            
+
             ByteBuffer buffer = ByteBuffer.allocate(Byte.SIZE);
             buffer.put(bytes);
-            
+
             for (int i = bytes.length; i < Byte.SIZE; i++) {
                 buffer.put((byte) 0);
             }
-            
+
             buffer.flip();
-            
+
             return buffer.getLong();
         } catch (Exception e) {
             throw new IgniteException("Failed to get local node id", e);

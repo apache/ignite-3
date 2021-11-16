@@ -25,7 +25,7 @@ import org.apache.ignite.internal.tx.Timestamp;
 /**
  * A single key transactional command.
  */
-public abstract class SingleKeyCommand implements Serializable {
+public abstract class SingleKeyCommand implements TransactionalCommand, Serializable {
     /** Binary key row. */
     private transient BinaryRow keyRow;
 
@@ -68,6 +68,7 @@ public abstract class SingleKeyCommand implements Serializable {
     /**
      * @return The timestamp.
      */
+    @Override
     public Timestamp getTimestamp() {
         return timestamp;
     }

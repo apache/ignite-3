@@ -57,13 +57,13 @@ public interface IgniteTransactions {
     /**
      * Executes a closure within a transaction and returns a result.
      * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed.
+     *
      * <p>This method will automatically enlist all tables into the transaction, but the execution of
      * the transaction shouldn't leave starting thread or an exception will be thrown.
      *
      * @param clo The closure.
+     * @param <T> Closure result type.
      * @return The result.
-     *
-     * <T> Closure result type.
      */
     <T> T runInTransaction(Function<Transaction, T> clo);
 }

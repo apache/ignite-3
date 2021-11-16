@@ -26,7 +26,7 @@ import org.apache.ignite.internal.tx.Timestamp;
 /**
  * A multi key transactional command.
  */
-public abstract class MultiKeyCommand implements Serializable {
+public abstract class MultiKeyCommand implements TransactionalCommand, Serializable {
     /** Binary rows. */
     private transient Collection<BinaryRow> rows;
 
@@ -70,6 +70,7 @@ public abstract class MultiKeyCommand implements Serializable {
     /**
      * @return The timestamp.
      */
+    @Override
     public Timestamp getTimestamp() {
         return timestamp;
     }
