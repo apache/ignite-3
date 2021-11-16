@@ -18,12 +18,12 @@ All schema classes must end with the `ConfigurationSchema` suffix.
 
 This is the ability to create various forms of the same configuration. 
 
-Let's take an example of a sql column configuration, suppose it can be of the following types:
-* varchar(max) - string with the maximum length;
-* decimal(p,s) - decimal number with fixed precision(p) and scale(s);
-* datetime(fsp) - date and time with fractional seconds precision(fsp).
+Let's take an example of an SQL column configuration, suppose it can be one of the following types:
+* varchar(max) - string with a maximum length;
+* decimal(p,s) - decimal number with a fixed precision (p) and a scale (s);
+* datetime(fsp) - date and time with a fractional seconds precision (fsp).
 
-If you do not use polymorphic configuration, then the scheme will be something like this:
+If you do not use polymorphic configuration, then the scheme will look something like this:
 
 ```java
 @Config
@@ -49,7 +49,7 @@ public static class ColumnConfigurationSchema {
 ```
 
 Such a scheme is redundant and can be confusing when using it, since it is not obvious which fields 
-are needed for each type of column, to solve these problems, you can use a polymorphic configuration 
+are needed for each type of column. Instead, one can use a polymorphic configuration 
 that will look something like this:
 
 ```java
@@ -147,8 +147,8 @@ public static class FirstPolymorphicInstanceConfigurationSchema extends Polymorp
   * `rootName` property assigns a _key_ to the root node of the tree that will represent 
     the corresponding configuration schema;
 * `@Config` is similar to the `@ConfigurationRoot` but represents an inner configuration node;
-* `@PolymorphicConfig` is similar to the `@Config` and abstract class in java i.e. cannot be instantiated, but they can be subclassed;
-* `@PolymorphicConfigInstance` marks the inheritor of a polymorphic configuration, has the only property `value`, which is a unique identifier;
+* `@PolymorphicConfig` is similar to the `@Config` and an abstract class in java, i.e. it cannot be instantiated, but it can be subclassed;
+* `@PolymorphicConfigInstance` marks an inheritor of a polymorphic configuration. This annotation has a single property called `value`, which is a unique identifier;
 * `@ConfigValue` marks a nested schema field. Cyclic dependencies are not allowed;
 * `@NamedConfigValue` is similar to `@ConfigValue`, but such fields represent a collection of properties, not a single
   instance. Every element of the collection will have a `String` name, similar to a `Map`.
@@ -158,7 +158,7 @@ public static class FirstPolymorphicInstanceConfigurationSchema extends Polymorp
   has been provided explicitly. This annotation can only be present on fields of the Java primitive or `String` type.
     
   All _leaves_ must be public and corresponding configuration values **must not be null**;
-* `@PolymorphicId` is similar to the `@Value` but is used to storing the type of polymorphic configuration (`@PolymorphicConfigInstance#value`), must be `String` and first in the schema;
+* `@PolymorphicId` is similar to the `@Value`, but is used to store the type of polymorphic configuration (`@PolymorphicConfigInstance#value`), must be a `String` and placed as the first field in a schema;
 * `@Immutable` annotation can only be present on fields marked with the `@Value` annotation. Annotated fields cannot be 
   changed after they have been initialized (either manually or by assigning a default value).
 
@@ -265,7 +265,7 @@ public interface FirstPolymorphicInstanceChange extends FirstPolymorphicInstance
 }
 ```
 
-Example of updating of all child nodes of the parent configuration in a single transaction:
+Example of updating all child nodes of the parent configuration in a single transaction:
 
 ```java
 ParentConfiguration parentCfg = ...;
@@ -281,7 +281,7 @@ ChildConfiguration childCfg = parentCfg.child();
 childCfg.changeStr("newStr2").get();
 ```
 
-Example of changing the type of polymorphic configuration:
+Example of changing the type of a polymorphic configuration:
 
 ```java
 ParentConfiguration parentCfg = ...;
