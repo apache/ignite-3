@@ -19,7 +19,7 @@ All schema classes must end with the `ConfigurationSchema` suffix.
 This is the ability to create various forms of the same configuration. 
 
 Let's take an example of an SQL column configuration, suppose it can be one of the following types:
-* varchar(max) - string with the maximum length;
+* varchar(max) - string with a maximum length;
 * decimal(p,s) - decimal number with fixed precision(p) and scale(s);
 * datetime(fsp) - date and time with fractional seconds precision(fsp).
 
