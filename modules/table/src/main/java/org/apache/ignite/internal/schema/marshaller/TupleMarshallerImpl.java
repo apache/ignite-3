@@ -45,7 +45,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     
     /** Schema manager. */
     private final SchemaRegistry schemaReg;
-    
+
     /**
      * Creates tuple marshaller.
      *
@@ -69,7 +69,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                         String.format("Tuple doesn't match schema: schemaVersion=%s, extraColumns=%s",
                                 schema.version(), extraColumnNames(tuple, schema)));
             }
-            
+
             return buildRow(schema, keyTuple0, valTuple0);
         } catch (Exception ex) {
             throw new TupleMarshallerException("Failed to marshal tuple.", ex);
@@ -90,7 +90,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                         String.format("Key tuple doesn't match schema: schemaVersion=%s, extraColumns=%s",
                                 schema.version(), extraColumnNames(keyTuple, true, schema)));
             }
-            
+
             if (valTuple != null && valTuple0.knownColumns() != valTuple.columnCount()) {
                 throw new SchemaMismatchException(
                         String.format("Value tuple doesn't match schema: schemaVersion=%s, extraColumns=%s",
@@ -144,7 +144,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             final SchemaDescriptor schema = schemaReg.schema();
             
             InternalTuple keyTuple0 = toInternalTuple(schema, keyTuple, true);
-            
+
             if (keyTuple0.knownColumns() < keyTuple.columnCount()) {
                 throw new SchemaMismatchException("Key tuple contains extra columns: " + extraColumnNames(keyTuple, true, schema));
             }
@@ -193,7 +193,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 Object val = tuple.valueOrDefault(col.name(), POISON_OBJECT);
                 
                 assert val != POISON_OBJECT;
-                
+
                 if (val == null || columns.firstVarlengthColumn() < i) {
                     continue;
                 }
@@ -206,21 +206,21 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 final Column col = columns.column(i);
                 
                 Object val = tuple.valueOrDefault(col.name(), POISON_OBJECT);
-                
+
                 if (val == POISON_OBJECT) {
                     if (keyFlag) {
                         throw new SchemaMismatchException("Missed key column: " + col.name());
                     }
-                    
+
                     val = col.defaultValue();
-                    
+
                     defaults.put(col.name(), val);
                 } else {
                     knownColumns++;
                 }
                 
                 col.validate(val);
-                
+
                 if (val == null || columns.isFixedSize(i)) {
                     continue;
                 }
@@ -245,7 +245,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         
         for (int i = 0, len = tuple.columnCount(); i < len; i++) {
             String colName = tuple.columnName(i);
-            
+
             if (schema.column(colName) == null) {
                 cols.add(colName);
             }
@@ -270,7 +270,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             String colName = tuple.columnName(i);
             
             Column col = schema.column(colName);
-            
+
             if (col == null || schema.isKeyColumn(col.schemaIndex()) ^ keyTuple) {
                 cols.add(colName);
             }
@@ -278,7 +278,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         
         return cols;
     }
-    
+
     /**
      * Creates {@link RowAssembler} for key-value tuples.
      *
@@ -307,7 +307,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     private void writeColumn(RowAssembler rowAsm, Column col, InternalTuple tup) throws SchemaMismatchException {
         RowAssembler.writeValue(rowAsm, col, tup.value(col.name()));
     }
-    
+
     /**
      * Internal tuple enriched original tuple with additional info.
      */
@@ -361,7 +361,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
          */
         Object value(String columnName) {
             Object val = tuple.valueOrDefault(columnName, POISON_OBJECT);
-            
+
             if (val == POISON_OBJECT) {
                 return defaults.get(columnName);
             }

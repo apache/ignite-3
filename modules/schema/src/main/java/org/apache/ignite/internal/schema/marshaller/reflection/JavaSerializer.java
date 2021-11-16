@@ -25,7 +25,7 @@ import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.AbstractSerializer;
-import org.apache.ignite.internal.schema.marshaller.SerializationException;
+import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.util.Pair;
@@ -34,6 +34,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Reflection based (de)serializer.
  */
+//TODO: IGNITE-15907 drop
+@Deprecated(forRemoval = true)
 public class JavaSerializer extends AbstractSerializer {
     /** Key class. */
     private final Class<?> keyClass;
@@ -65,7 +67,7 @@ public class JavaSerializer extends AbstractSerializer {
     
     /** {@inheritDoc} */
     @Override
-    public BinaryRow serialize(Object key, @Nullable Object val) throws SerializationException {
+    public BinaryRow serialize(Object key, @Nullable Object val) throws MarshallerException {
         assert keyClass.isInstance(key);
         assert val == null || valClass.isInstance(val);
         
@@ -82,7 +84,7 @@ public class JavaSerializer extends AbstractSerializer {
     
     /** {@inheritDoc} */
     @Override
-    public <K> K deserializeKey(Row row) throws SerializationException {
+    public <K> K deserializeKey(Row row) throws MarshallerException {
         final Object o = keyMarsh.readObject(row);
         
         assert keyClass.isInstance(o);
@@ -92,7 +94,7 @@ public class JavaSerializer extends AbstractSerializer {
     
     /** {@inheritDoc} */
     @Override
-    public <V> V deserializeValue(Row row) throws SerializationException {
+    public <V> V deserializeValue(Row row) throws MarshallerException {
         if (!row.hasValue()) {
             return null;
         }
@@ -106,7 +108,7 @@ public class JavaSerializer extends AbstractSerializer {
     
     /** {@inheritDoc} */
     @Override
-    public <K, V> Pair<K, V> deserialize(Row row) throws SerializationException {
+    public <K, V> Pair<K, V> deserialize(Row row) throws MarshallerException {
         return new Pair<>(deserializeKey(row), deserializeValue(row));
     }
     
