@@ -62,63 +62,33 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener> {
-    /**
-     * Starting server port.
-     */
+    /** Starting server port. */
     private static final int PORT = 5003;
 
-    /**
-     * Starting client port.
-     */
+    /** Starting client port. */
     private static final int CLIENT_PORT = 6003;
 
-    /**
-     * Peers list.
-     */
+    /** Peers list. */
     private static final List<Peer> INITIAL_CONF = IntStream.rangeClosed(0, 2)
             .mapToObj(i -> new NetworkAddress(getLocalAddress(), PORT + i))
             .map(Peer::new)
             .collect(Collectors.toUnmodifiableList());
 
-    /**
-     * Factory.
-     */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
-    /**
-     * Network factory.
-     */
     private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
-    /**
-     *
-     */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
-    /**
-     *
-     */
     @WorkDirectory
     private Path workDir;
 
-    /**
-     * Cluster.
-     */
     private final List<ClusterService> cluster = new ArrayList<>();
 
-    /**
-     * Servers.
-     */
     protected final List<JraftServerImpl> servers = new ArrayList<>();
 
-    /**
-     * Clients.
-     */
     private final List<RaftGroupService> clients = new ArrayList<>();
 
-    /**
-     * Executor for raft group services.
-     */
     private ScheduledExecutorService executor;
 
     /**
@@ -450,6 +420,8 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     }
 
     /**
+     * Returns a client service.
+     *
      * @return The client service.
      */
     protected ClusterService clientService() {
@@ -458,6 +430,8 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
     /**
      * Starts a client with a specific address.
+     *
+     * @return The service.
      */
     private RaftGroupService startClient(TestInfo testInfo, String groupId, NetworkAddress addr)
             throws Exception {

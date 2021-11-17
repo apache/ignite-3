@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;

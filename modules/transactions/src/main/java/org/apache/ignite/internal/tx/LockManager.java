@@ -19,7 +19,6 @@ package org.apache.ignite.internal.tx;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.jetbrains.annotations.TestOnly;
 
 /**

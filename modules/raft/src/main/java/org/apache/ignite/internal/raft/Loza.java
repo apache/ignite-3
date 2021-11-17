@@ -83,7 +83,8 @@ public class Loza implements IgniteComponent {
     private final ScheduledExecutorService executor;
 
     /**
-     * Constructor.
+     * The constructor.
+     *
      * @param clusterNetSvc Cluster network service.
      * @param dataPath Data path.
      */
@@ -100,7 +101,9 @@ public class Loza implements IgniteComponent {
     }
 
     /**
-     * @param srv Pre-started raft server. Used for testing purposes.
+     * The constructor. Used for testing purposes.
+     *
+     * @param srv Pre-started raft server.
      */
     @TestOnly
     public Loza(JraftServerImpl srv) {
@@ -273,6 +276,8 @@ public class Loza implements IgniteComponent {
     }
 
     /**
+     * Returns a cluster service.
+     *
      * @return An underlying network service.
      */
     @TestOnly
@@ -281,6 +286,8 @@ public class Loza implements IgniteComponent {
     }
 
     /**
+     * Returns a raft server.
+     *
      * @return An underlying raft server.
      */
     @TestOnly
@@ -289,6 +296,8 @@ public class Loza implements IgniteComponent {
     }
 
     /**
+     * Returns started groups.
+     *
      * @return Started groups.
      */
     @TestOnly
