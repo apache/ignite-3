@@ -260,7 +260,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         CompletableFuture<NetworkMessage> fut = clusterService.messagingService()
                 .invoke(addr, req, TIMEOUT);
 
-        return fut.thenApply(resp -> ((TxFinishResponse) resp).errorMessage()).thenCompose(msg ->
+        // Submit response to a dedicated pool to avoid deadlocks.
+        return fut.thenApplyAsync(resp -> ((TxFinishResponse) resp).errorMessage()).thenCompose(msg ->
                 msg == null ? completedFuture(null) : failedFuture(new TransactionException(msg)));
     }
 
