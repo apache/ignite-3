@@ -198,7 +198,7 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
             byte[] bytes;
             
             if (iface == null) {
-                bytes = new byte[8];
+                bytes = new byte[Byte.SIZE];
     
                 ThreadLocalRandom.current().nextBytes(bytes);
             }
