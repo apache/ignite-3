@@ -32,12 +32,14 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCost;
+import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions;
+import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 
 /**
  * IgniteLimit.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class IgniteLimit extends SingleRel implements IgniteRel {
+public class IgniteLimit extends SingleRel implements InternalIgniteRel {
     /** In case the fetch value is a DYNAMIC_PARAM. */
     private static final double FETCH_IS_PARAM_FACTOR = 0.01;
 
@@ -114,6 +116,14 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
             return null;
         }
 
+        if (TraitUtils.distribution(required) != IgniteDistributions.single()) {
+            return null;
+        }
+
+        if (!TraitUtils.collation(required).satisfies(TraitUtils.collation(traitSet))) {
+            return null;
+        }
+
         return Pair.of(required, List.of(required));
     }
 
@@ -123,6 +133,14 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
         assert childId == 0;
 
         if (childTraits.getConvention() != IgniteConvention.INSTANCE) {
+            return null;
+        }
+
+        if (TraitUtils.distribution(childTraits) != IgniteDistributions.single()) {
+            return null;
+        }
+
+        if (!TraitUtils.collation(childTraits).satisfies(TraitUtils.collation(traitSet))) {
             return null;
         }
 

@@ -81,6 +81,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     private final String localNodeId;
 
     /**
+     * Constructor.
+     *
      * @param metaStorageRaftGrpSvc Meta storage raft group service.
      * @param localNodeId           Local node id.
      */
@@ -244,9 +246,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return metaStorageRaftGrpSvc.run(new CursorsCloseCommand(nodeId));
     }
 
-    /**
-     *
-     */
     private static List<OperationInfo> toOperationInfos(Collection<Operation> ops) {
         List<OperationInfo> res = new ArrayList<>(ops.size());
 
@@ -271,9 +270,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return res;
     }
 
-    /**
-     *
-     */
     private static ConditionInfo toConditionInfo(@NotNull Condition condition) {
         ConditionInfo cnd = null;
 
@@ -302,9 +298,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return cnd;
     }
 
-    /**
-     *
-     */
     private static Map<ByteArray, Entry> multipleEntryResult(Object obj) {
         MultipleEntryResponse resp = (MultipleEntryResponse) obj;
 
@@ -319,18 +312,12 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return res;
     }
 
-    /**
-     *
-     */
     private static Entry singleEntryResult(Object obj) {
         SingleEntryResponse resp = (SingleEntryResponse) obj;
 
         return new EntryImpl(new ByteArray(resp.key()), resp.value(), resp.revision(), resp.updateCounter());
     }
 
-    /**
-     *
-     */
     private static WatchEvent watchResponse(Object obj) {
         MultipleEntryResponse resp = (MultipleEntryResponse) obj;
 

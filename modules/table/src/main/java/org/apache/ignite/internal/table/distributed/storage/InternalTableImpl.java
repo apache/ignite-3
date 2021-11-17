@@ -63,7 +63,6 @@ import org.apache.ignite.raft.client.scan.ScanCloseCommand;
 import org.apache.ignite.raft.client.scan.ScanInitCommand;
 import org.apache.ignite.raft.client.scan.ScanRetrieveBatchCommand;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -94,13 +93,12 @@ public class InternalTableImpl implements InternalTable {
     /** Resolver that resolves a network address to node id. */
     private final Function<NetworkAddress, String> netAddrResolver;
 
-    /** Table schema mode. */
-    private volatile SchemaManagementMode schemaMode;
-
     /** Storage for table data. */
     private final TableStorage tableStorage;
 
     /**
+     * Constructor.
+     *
      * @param tableName  Table name.
      * @param tableId    Table id.
      * @param partMap    Map partition id to raft group.
@@ -120,8 +118,6 @@ public class InternalTableImpl implements InternalTable {
         this.partitions = partitions;
         this.netAddrResolver = netAddrResolver;
         this.tableStorage = tableStorage;
-
-        this.schemaMode = SchemaManagementMode.STRICT;
     }
 
     /** {@inheritDoc} */
@@ -146,18 +142,6 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public String tableName() {
         return tableName;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public SchemaManagementMode schemaMode() {
-        return schemaMode;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void schema(SchemaManagementMode schemaMode) {
-        this.schemaMode = schemaMode;
     }
 
     /** {@inheritDoc} */
@@ -433,9 +417,6 @@ public class InternalTableImpl implements InternalTable {
         /** {@link Publisher} that relatively notifies about partition rows. */
         private final RaftGroupService raftGrpSvc;
 
-        /**
-         *
-         */
         private AtomicBoolean subscribed;
 
         /**
@@ -468,14 +449,8 @@ public class InternalTableImpl implements InternalTable {
          * Partition Scan Subscription.
          */
         private class PartitionScanSubscription implements Subscription {
-            /**
-             *
-             */
             private final Subscriber<? super BinaryRow> subscriber;
 
-            /**
-             *
-             */
             private final AtomicBoolean canceled;
 
             /** Scan id to uniquely identify it on server side. */

@@ -106,9 +106,6 @@ public class ItMetaStorageServiceTest {
     /** Nodes. */
     private static final int NODES = 2;
 
-    /**
-     *
-     */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "METASTORAGE_RAFT_GROUP";
 
     /** Factory. */
@@ -117,9 +114,6 @@ public class ItMetaStorageServiceTest {
     /** Network factory. */
     private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
-    /**
-     *
-     */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
     /** Expected server result entry. */
@@ -172,9 +166,6 @@ public class ItMetaStorageServiceTest {
     /** Metastorage service. */
     private MetaStorageService metaStorageSvc;
 
-    /**
-     *
-     */
     @WorkDirectory
     private Path dataPath;
 
@@ -926,6 +917,8 @@ public class ItMetaStorageServiceTest {
 //    }
 
     /**
+     * Wait for topology.
+     *
      * @param cluster The cluster.
      * @param exp     Expected count.
      * @param timeout The timeout in millis.

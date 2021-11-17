@@ -39,6 +39,7 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
+import org.apache.ignite.schema.definition.builder.TableDefinitionBuilder;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -48,14 +49,11 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- *
+ * Abstract basic integration test.
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class AbstractBasicIntegrationTest {
-    /**
-     *
-     */
     private static final IgniteLogger LOG = IgniteLogger.forClass(AbstractBasicIntegrationTest.class);
     
     /** Nodes bootstrap configuration. */
@@ -102,12 +100,12 @@ public class AbstractBasicIntegrationTest {
     /** Cluster nodes. */
     protected static final List<Ignite> CLUSTER_NODES = new ArrayList<>();
     
-    /** Work directory */
+    /** Work directory. */
     @WorkDirectory
     private static Path WORK_DIR;
     
     /**
-     *
+     * Before all.
      */
     @BeforeAll
     static void startNodes() {
@@ -117,7 +115,7 @@ public class AbstractBasicIntegrationTest {
     }
     
     /**
-     *
+     * After all.
      */
     @AfterAll
     static void stopNodes() throws Exception {
@@ -129,10 +127,7 @@ public class AbstractBasicIntegrationTest {
         
         LOG.info("End tearDown()");
     }
-    
-    /**
-     *
-     */
+
     protected static QueryChecker assertQuery(String qry) {
         return new QueryChecker(qry) {
             @Override
@@ -141,10 +136,7 @@ public class AbstractBasicIntegrationTest {
             }
         };
     }
-    
-    /**
-     *
-     */
+
     protected static Table createAndPopulateTable() {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "PERSON").columns(
                 SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
@@ -171,9 +163,20 @@ public class AbstractBasicIntegrationTest {
         return tbl;
     }
     
-    /**
-     *
-     */
+    protected static void createTable(TableDefinitionBuilder tblBld) {
+        TableDefinition schTbl1 = tblBld.build();
+        
+        CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
+                SchemaConfigurationConverter.convert(schTbl1, tblCh)
+                        .changeReplicas(1)
+                        .changePartitions(10)
+        );
+    }
+
+    protected static void insertData(String tblName, String[] columnNames, Object[]... tuples) {
+        insertData(CLUSTER_NODES.get(0).tables().table(tblName), columnNames, tuples);
+    }
+
     protected static void insertData(Table table, String[] columnNames, Object[]... tuples) {
         RecordView<Tuple> view = table.recordView();
         
@@ -208,10 +211,7 @@ public class AbstractBasicIntegrationTest {
             batch.clear();
         }
     }
-    
-    /**
-     *
-     */
+
     protected static List<List<?>> sql(String sql, Object... args) {
         return getAllFromCursor(
                 ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine().query("PUBLIC", sql, args).get(0)

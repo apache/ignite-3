@@ -72,7 +72,9 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * MetaStorage manager is responsible for:
+ * MetaStorage manager.
+ *
+ * <p>Responsible for:
  * <ul>
  *     <li>Handling cluster init message.</li>
  *     <li>Managing meta storage lifecycle including instantiation meta storage raft group.</li>
@@ -143,7 +145,7 @@ public class MetaStorageManager implements IgniteComponent {
      */
     private boolean deployed;
 
-    /** Flag indicates if meta storage nodes were set on start */
+    /** Flag indicates if meta storage nodes were set on start. */
     private boolean metaStorageNodesOnStart;
 
     /** Actual storage for the Metastorage. */
@@ -434,6 +436,8 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Retrieves an entry for the given key.
+     *
      * @see MetaStorageService#get(ByteArray)
      */
     public @NotNull CompletableFuture<Entry> get(@NotNull ByteArray key) {
@@ -449,6 +453,8 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Retrieves an entry for the given key and the revision upper bound.
+     *
      * @see MetaStorageService#get(ByteArray, long)
      */
     public @NotNull CompletableFuture<Entry> get(@NotNull ByteArray key, long revUpperBound) {
@@ -464,6 +470,8 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Retrieves entries for given keys.
+     *
      * @see MetaStorageService#getAll(Set)
      */
     public @NotNull CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys) {
@@ -479,6 +487,8 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Retrieves entries for given keys and the revision upper bound.
+     *
      * @see MetaStorageService#getAll(Set, long)
      */
     public @NotNull CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys, long revUpperBound) {
@@ -494,6 +504,8 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Inserts or updates an entry with the given key and the given value.
+     *
      * @see MetaStorageService#put(ByteArray, byte[])
      */
     public @NotNull CompletableFuture<Void> put(@NotNull ByteArray key, byte[] val) {
@@ -509,6 +521,8 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Inserts or updates an entry with the given key and the given value and retrieves a previous entry for the given key.
+     *
      * @see MetaStorageService#getAndPut(ByteArray, byte[])
      */
     public @NotNull CompletableFuture<Entry> getAndPut(@NotNull ByteArray key, byte[] val) {
@@ -524,6 +538,8 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Inserts or updates entries with given keys and given values.
+     *
      * @see MetaStorageService#putAll(Map)
      */
     public @NotNull CompletableFuture<Void> putAll(@NotNull Map<ByteArray, byte[]> vals) {
@@ -539,6 +555,8 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Inserts or updates entries with given keys and given values and retrieves a previous entries for given keys.
+     *
      * @see MetaStorageService#getAndPutAll(Map)
      */
     public @NotNull CompletableFuture<Map<ByteArray, Entry>> getAndPutAll(@NotNull Map<ByteArray, byte[]> vals) {
@@ -554,6 +572,8 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Removes an entry for the given key.
+     *
      * @see MetaStorageService#remove(ByteArray)
      */
     public @NotNull CompletableFuture<Void> remove(@NotNull ByteArray key) {
@@ -569,6 +589,8 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Removes an entry for the given key.
+     *
      * @see MetaStorageService#getAndRemove(ByteArray)
      */
     public @NotNull CompletableFuture<Entry> getAndRemove(@NotNull ByteArray key) {
@@ -584,6 +606,8 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Removes entries for given keys.
+     *
      * @see MetaStorageService#removeAll(Set)
      */
     public @NotNull CompletableFuture<Void> removeAll(@NotNull Set<ByteArray> keys) {
@@ -599,6 +623,8 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Removes entries for given keys and retrieves previous entries.
+     *
      * @see MetaStorageService#getAndRemoveAll(Set)
      */
     public @NotNull CompletableFuture<Map<ByteArray, Entry>> getAndRemoveAll(@NotNull Set<ByteArray> keys) {
@@ -635,6 +661,8 @@ public class MetaStorageManager implements IgniteComponent {
     }
     
     /**
+     * Updates an entry for the given key conditionally.
+     *
      * @see MetaStorageService#invoke(Condition, Collection, Collection)
      */
     public @NotNull CompletableFuture<Boolean> invoke(
@@ -654,6 +682,9 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Retrieves entries for the given key range in lexicographic order.
+     * Entries will be filtered out by upper bound of given revision number.
+     *
      * @see MetaStorageService#range(ByteArray, ByteArray, long)
      */
     public @NotNull Flow.Publisher<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound)
@@ -670,6 +701,8 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Retrieves entries for the given key range in lexicographic order.
+     *
      * @see MetaStorageService#range(ByteArray, ByteArray)
      */
     public @NotNull Flow.Publisher<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo) throws NodeStoppingException {
@@ -780,6 +813,8 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Compacts meta storage (removes all tombstone entries and old entries except of entries with latest revision).
+     *
      * @see MetaStorageService#compact()
      */
     public @NotNull CompletableFuture<Void> compact() {
@@ -795,7 +830,7 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
-     * @return Applied revision for {@link VaultManager#putAll} operation.
+     * Returns applied revision for {@link VaultManager#putAll} operation.
      */
     private long appliedRevision() {
         byte[] appliedRevision = vaultMgr.get(APPLIED_REV).join().value();
@@ -852,8 +887,9 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
-     * @param id of watch to redeploy.
-     * @return future, which will be completed after redeploy finished.
+     * Returns future, which will be completed after redeploy finished.
+     *
+     * @param id Id of watch to redeploy.
      */
     private CompletableFuture<Long> waitForReDeploy(long id) {
         if (deployed) {
@@ -913,6 +949,8 @@ public class MetaStorageManager implements IgniteComponent {
         private final InnerIterator it = new InnerIterator();
 
         /**
+         * Constructor.
+         *
          * @param innerCursorFut Inner cursor future.
          */
         CursorWrapper(

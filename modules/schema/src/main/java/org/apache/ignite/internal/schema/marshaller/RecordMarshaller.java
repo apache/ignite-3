@@ -17,31 +17,45 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.row.Row;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Record serializer interface.
+ * Record marshaller interface provides method to marshal/unmarshal record objects to/from a row.
+ *
+ * @param <R> Record type.
  */
-public interface RecordSerializer<R> {
+public interface RecordMarshaller<R> {
     /**
-     * @param red Record to serialize.
+     * Returns marshaller schema version.
+     */
+    int schemaVersion();
+    
+    /**
+     * Marshals given record to a row.
+     *
+     * @param rec Record to marshal.
      * @return Table row with columns set from given object.
+     * @throws MarshallerException If failed to marshal record.
      */
-    Row serialize(@NotNull R red);
-
+    BinaryRow marshal(@NotNull R rec) throws MarshallerException;
+    
     /**
-     * @param row Table row.
-     * @return Deserialized record object.
+     * Marshals key part of given record to a row.
+     *
+     * @param keyRec Record to marshal.
+     * @return Table row with key columns set from given object.
+     * @throws MarshallerException If failed to marshal record.
      */
-    R deserialize(@NotNull Row row);
-
+    BinaryRow marshalKey(@NotNull R keyRec) throws MarshallerException;
+    
     /**
-     * Deserializes row and fills given record object fields.
+     * Unmarshal given row to a record object.
      *
      * @param row Table row.
-     * @param rec Record object to fill.
-     * @return Given record with filled fields from the given row.
+     * @return Record object.
+     * @throws MarshallerException If failed to unmarshal row.
      */
-    R deserialize(@NotNull Row row, @NotNull R rec);
+    R unmarshal(@NotNull Row row) throws MarshallerException;
 }

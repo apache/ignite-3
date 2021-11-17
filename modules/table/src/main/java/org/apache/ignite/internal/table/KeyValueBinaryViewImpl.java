@@ -60,7 +60,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         
         this.tblMgr = tblMgr;
         
-        marsh = new TupleMarshallerImpl(tblMgr, tbl, schemaReg);
+        marsh = new TupleMarshallerImpl(schemaReg);
     }
     
     /** {@inheritDoc} */
@@ -377,8 +377,9 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
     
     /**
+     * Returns row.
+     *
      * @param row Binary row.
-     * @return Row.
      */
     protected Row wrap(BinaryRow row) {
         if (row == null) {

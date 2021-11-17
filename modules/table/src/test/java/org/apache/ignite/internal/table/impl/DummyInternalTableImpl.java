@@ -33,7 +33,6 @@ import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -117,17 +116,6 @@ public class DummyInternalTableImpl implements InternalTable {
     @Override
     public @NotNull String tableName() {
         return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull SchemaManagementMode schemaMode() {
-        return SchemaManagementMode.STRICT;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void schema(SchemaManagementMode schemaMode) {
     }
 
     /** {@inheritDoc} */
@@ -301,8 +289,9 @@ public class DummyInternalTableImpl implements InternalTable {
     }
 
     /**
+     * Returns extracted key.
+     *
      * @param row Row.
-     * @return Extracted key.
      */
     @NotNull
     private DummyInternalTableImpl.KeyWrapper extractAndWrapKey(@NotNull BinaryRow row) {
@@ -313,8 +302,9 @@ public class DummyInternalTableImpl implements InternalTable {
     }
 
     /**
+     * Returns extracted key.
+     *
      * @param row Row.
-     * @return Extracted key.
      */
     @NotNull
     private boolean equalValues(@NotNull BinaryRow row, @NotNull BinaryRow row2) {
