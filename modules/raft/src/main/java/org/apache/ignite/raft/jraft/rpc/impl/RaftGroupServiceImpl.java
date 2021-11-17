@@ -493,7 +493,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         CompletableFuture<?> fut0 = cluster.messagingService().invoke(peer.address(), (NetworkMessage) req, networkTimeout);
 
         //TODO: IGNITE-15389 org.apache.ignite.internal.metastorage.client.CursorImpl has potential deadlock inside
-        fut0.whenCompleteAsync(new BiConsumer<Object, Throwable>() {
+        fut0.whenComplete(new BiConsumer<Object, Throwable>() {
             @Override public void accept(Object resp, Throwable err) {
                 if (err != null) {
                     if (recoverable(err)) {
