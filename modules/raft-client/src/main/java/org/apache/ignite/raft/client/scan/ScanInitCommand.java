@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command.scan;
+package org.apache.ignite.raft.client.scan;
 
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Scan init command for PartitionListener that prepares server-side scan for further iteration over it.
+ * Scan init command that prepares server-side scan for further iteration over it.
  */
 public class ScanInitCommand implements WriteCommand {
     /** Id of the node that requests scan. */

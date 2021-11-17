@@ -15,33 +15,48 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command.scan;
+package org.apache.ignite.raft.client.scan;
 
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Scan close command for PartitionListener that closes scan with given id.
+ * Scan retrieve batch command that retrieves batch of data from previously prepared server scan, see {@link
+ * ScanInitCommand} for more details.
  */
-public class ScanCloseCommand implements WriteCommand {
+public class ScanRetrieveBatchCommand implements WriteCommand {
+    /** Amount of items to retrieve. */
+    private final int itemsToRetrieveCnt;
+
     /** Id of scan that is associated with the current command. */
     @NotNull
     private final IgniteUuid scanId;
 
     /**
-     * The Constructor.
-     *
-     * @param scanId Id of scan that is associated with the current command.
+     * @param itemsToRetrieveCnt Amount of items to retrieve.
+     * @param scanId             Id of scan that is associated with the current command.
      */
-    public ScanCloseCommand(@NotNull IgniteUuid scanId) {
+    public ScanRetrieveBatchCommand(
+            int itemsToRetrieveCnt,
+            @NotNull IgniteUuid scanId
+    ) {
+        this.itemsToRetrieveCnt = itemsToRetrieveCnt;
         this.scanId = scanId;
+    }
+
+    /**
+     * @return Amount of items to retrieve.
+     */
+    public int itemsToRetrieveCount() {
+        return itemsToRetrieveCnt;
     }
 
     /**
      * @return Id of scan that is associated with the current command.
      */
-    public @NotNull IgniteUuid scanId() {
+    @NotNull
+    public IgniteUuid scanId() {
         return scanId;
     }
 }

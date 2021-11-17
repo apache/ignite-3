@@ -23,6 +23,9 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Flow;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -40,6 +43,7 @@ import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -114,33 +118,64 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override
     public Map<String, Serializable> readAllLatest(String prefix) {
         var data = new HashMap<String, Serializable>();
-        
-        var rangeStart = new ByteArray(DISTRIBUTED_PREFIX + prefix);
-        
-        var rangeEnd = new ByteArray(incrementLastChar(DISTRIBUTED_PREFIX + prefix));
-        
-        try (Cursor<Entry> entries = metaStorageMgr.range(rangeStart, rangeEnd)) {
-            for (Entry entry : entries) {
-                ByteArray key = entry.key();
-                byte[] value = entry.value();
     
-                if (entry.tombstone()) {
-                    continue;
+        var rangeStart = new ByteArray(DISTRIBUTED_PREFIX + prefix);
+    
+        var rangeEnd = new ByteArray(incrementLastChar(DISTRIBUTED_PREFIX + prefix));
+
+        CountDownLatch latch  = new CountDownLatch(1);
+        
+        try {
+            metaStorageMgr.range(rangeStart, rangeEnd).subscribe(new Flow.Subscriber<Entry>() {
+                volatile Subscription subscription;
+                
+                @Override
+                public void onSubscribe(Flow.Subscription subscription) {
+                    this.subscription = subscription;
+                    subscription.request(1);
                 }
+            
+                @Override
+                public void onNext(Entry item) {
+                    ByteArray key = item.key();
+                    byte[] value = item.value();
+    
+                    if (item.tombstone()) {
+                        return;
+                    }
                 
-                // Meta Storage should not return nulls as values
-                assert value != null;
+                    // Meta Storage should not return nulls as values
+                    assert value != null;
+    
+                    if (key.equals(MASTER_KEY)) {
+                        return;
+                    }
                 
-                if (key.equals(MASTER_KEY)) {
-                    continue;
+                    String dataKey = key.toString().substring(DISTRIBUTED_PREFIX.length());
+
+                    data.put(dataKey, (Serializable) ByteUtils.fromBytes(value));
+    
+                    subscription.request(1);
                 }
-                
-                String dataKey = key.toString().substring(DISTRIBUTED_PREFIX.length());
-                
-                data.put(dataKey, (Serializable) ByteUtils.fromBytes(value));
-            }
-        } catch (Exception e) {
+            
+                @Override
+                public void onError(Throwable throwable) {
+                    throw new StorageException("Exception when closing a Meta Storage cursor", throwable);
+                }
+            
+                @Override
+                public void onComplete() {
+                    latch.countDown();
+                }
+            });
+        } catch (NodeStoppingException e) {
             throw new StorageException("Exception when closing a Meta Storage cursor", e);
+        }
+    
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            throw new StorageException("Internal storage exception", e);
         }
         
         return data;

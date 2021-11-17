@@ -238,7 +238,7 @@ public interface MetaStorageService {
      * @see Entry
      */
     @NotNull
-    Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound);
+    Flow.Publisher<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound);
 
     /**
      * Retrieves entries for the given key range in lexicographic order. Short cut for {@link #range(ByteArray, ByteArray, long)} where
@@ -253,7 +253,7 @@ public interface MetaStorageService {
      * @see Entry
      */
     @NotNull
-    Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo);
+    Flow.Publisher<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo);
 
     /**
      * Subscribes on meta storage updates matching the parameters.

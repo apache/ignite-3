@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
+import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -655,16 +656,14 @@ public class MetaStorageManager implements IgniteComponent {
     /**
      * @see MetaStorageService#range(ByteArray, ByteArray, long)
      */
-    public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound)
+    public @NotNull Flow.Publisher<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound)
             throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return new CursorWrapper<>(
-                metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, revUpperBound))
-            );
+            return new RangePublisher(keyFrom, keyTo, revUpperBound, metaStorageSvcFut);
         } finally {
             busyLock.leaveBusy();
         }
@@ -673,15 +672,13 @@ public class MetaStorageManager implements IgniteComponent {
     /**
      * @see MetaStorageService#range(ByteArray, ByteArray)
      */
-    public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo) throws NodeStoppingException {
+    public @NotNull Flow.Publisher<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return new CursorWrapper<>(
-                metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo))
-            );
+            return new RangePublisher(keyFrom, keyTo, -1, metaStorageSvcFut);
         } finally {
             busyLock.leaveBusy();
         }
@@ -699,16 +696,14 @@ public class MetaStorageManager implements IgniteComponent {
      * @see ByteArray
      * @see Entry
      */
-    public @NotNull Cursor<Entry> rangeWithAppliedRevision(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo)
+    public @NotNull Flow.Publisher<Entry> rangeWithAppliedRevision(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo)
             throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return new CursorWrapper<>(
-                metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, appliedRevision()))
-            );
+            return new RangePublisher(keyFrom, keyTo, appliedRevision(), metaStorageSvcFut);
         } finally {
             busyLock.leaveBusy();
         }
@@ -727,17 +722,15 @@ public class MetaStorageManager implements IgniteComponent {
      * @see ByteArray
      * @see Entry
      */
-    public @NotNull Cursor<Entry> prefixWithAppliedRevision(@NotNull ByteArray keyPrefix) throws NodeStoppingException {
+    public @NotNull Flow.Publisher<Entry> prefixWithAppliedRevision(@NotNull ByteArray keyPrefix) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
             var rangeCriterion = KeyCriterion.RangeCriterion.fromPrefixKey(keyPrefix);
-
-            return new CursorWrapper<>(
-                metaStorageSvcFut.thenApply(svc -> svc.range(rangeCriterion.from(), rangeCriterion.to(), appliedRevision()))
-            );
+    
+            return new RangePublisher(rangeCriterion.from(), rangeCriterion.to(), appliedRevision(), metaStorageSvcFut);
         } finally {
             busyLock.leaveBusy();
         }
@@ -754,7 +747,7 @@ public class MetaStorageManager implements IgniteComponent {
      * @see ByteArray
      * @see Entry
      */
-    public @NotNull Cursor<Entry> prefix(@NotNull ByteArray keyPrefix) throws NodeStoppingException {
+    public @NotNull Flow.Publisher<Entry> prefix(@NotNull ByteArray keyPrefix) throws NodeStoppingException {
         return prefix(keyPrefix, -1);
     }
 
@@ -772,16 +765,15 @@ public class MetaStorageManager implements IgniteComponent {
      * @see ByteArray
      * @see Entry
      */
-    public @NotNull Cursor<Entry> prefix(@NotNull ByteArray keyPrefix, long revUpperBound) throws NodeStoppingException {
+    public @NotNull Flow.Publisher<Entry> prefix(@NotNull ByteArray keyPrefix, long revUpperBound) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
             var rangeCriterion = KeyCriterion.RangeCriterion.fromPrefixKey(keyPrefix);
-            return new CursorWrapper<>(
-                metaStorageSvcFut.thenApply(svc -> svc.range(rangeCriterion.from(), rangeCriterion.to(), revUpperBound))
-            );
+    
+            return new RangePublisher(rangeCriterion.from(), rangeCriterion.to(), appliedRevision(), metaStorageSvcFut);
         } finally {
             busyLock.leaveBusy();
         }
@@ -1118,5 +1110,51 @@ public class MetaStorageManager implements IgniteComponent {
                 .collect(Collectors.toList());
 
         return metaStorageMembers;
+    }
+    
+    /**
+     * Range publisher.
+     */
+    private class RangePublisher implements Publisher<Entry> {
+        /** Start key of range (inclusive). Couldn't be {@code null}. */
+        @NotNull
+        private final ByteArray keyFrom;
+    
+        /** End key of range (exclusive). Could be {@code null}. */
+        @Nullable
+        private final ByteArray keyTo;
+    
+        /** The upper bound for entry revision. {@code -1} means latest revision. */
+        private final long revUpperBound;
+    
+        /** Meta storage service. */
+        @NotNull
+        private volatile CompletableFuture<MetaStorageService> metaStorageSvcFut;
+    
+        /**
+         * The constructor.
+         *
+         * @param keyFrom Start key of range (inclusive). Couldn't be {@code null}.
+         * @param keyTo End key of range (exclusive). Could be {@code null}.
+         * @param revUpperBound The upper bound for entry revision. {@code -1} means latest revision.
+         * @param metaStorageSvcFut Meta storage service.
+         */
+        public RangePublisher(
+                @NotNull ByteArray keyFrom,
+                @Nullable ByteArray keyTo,
+                long revUpperBound,
+                @NotNull CompletableFuture<MetaStorageService> metaStorageSvcFut
+        ) {
+            this.keyFrom = keyFrom;
+            this.keyTo = keyTo;
+            this.revUpperBound = revUpperBound;
+            this.metaStorageSvcFut = metaStorageSvcFut;
+        }
+        
+        /** {@inheritDoc} */
+        @Override
+        public void subscribe(Flow.Subscriber<? super Entry> subscriber) {
+            metaStorageSvcFut.thenAccept(svc -> svc.range(keyFrom, keyTo, revUpperBound).subscribe(subscriber));
+        }
     }
 }

@@ -27,6 +27,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
@@ -51,14 +54,12 @@ import org.apache.ignite.internal.metastorage.common.command.cursor.CursorCloseC
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorHasNextCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorsCloseCommand;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.lang.LoggerMessageHelper;
-import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.raft.client.scan.ScanRetrieveBatchCommand;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -191,24 +192,14 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound) {
-        return new CursorImpl<>(
-                metaStorageRaftGrpSvc,
-                metaStorageRaftGrpSvc.run(
-                        new RangeCommand(keyFrom, keyTo, revUpperBound, localNodeId, UUID_GENERATOR.randomUuid())),
-                MetaStorageServiceImpl::singleEntryResult
-        );
+    public @NotNull Publisher<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound) {
+        return new RangePublisher(keyFrom, keyTo, revUpperBound);
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo) {
-        return new CursorImpl<>(
-                metaStorageRaftGrpSvc,
-                metaStorageRaftGrpSvc.run(
-                        new RangeCommand(keyFrom, keyTo, localNodeId, UUID_GENERATOR.randomUuid())),
-                MetaStorageServiceImpl::singleEntryResult
-        );
+    public @NotNull Publisher<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo) {
+        return new RangePublisher(keyFrom, keyTo, -1);
     }
 
     /** {@inheritDoc} */
@@ -340,7 +331,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /**
      *
      */
-    // TODO: sanpwc Do we really need this?
     private static WatchEvent watchResponse(Object obj) {
         MultipleEntryResponse resp = (MultipleEntryResponse) obj;
 
@@ -577,6 +567,188 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                                 retrieveNextWatchEvent();
                             }
                         });
+            }
+        }
+    }
+    
+    /**
+     * Range publisher.
+     */
+    private class RangePublisher implements Publisher<Entry> {
+        /** Start key of range (inclusive). Couldn't be {@code null}. */
+        @NotNull
+        private final ByteArray keyFrom;
+        
+        /** End key of range (exclusive). Could be {@code null}. */
+        @Nullable
+        private final ByteArray keyTo;
+        
+        /** The upper bound for entry revision. {@code -1} means latest revision. */
+        private final long revUpperBound;
+    
+        /** */
+        private AtomicBoolean subscribed;
+    
+        /**
+         * The constructor.
+         *
+         * @param keyFrom Start key of range (inclusive). Couldn't be {@code null}.
+         * @param keyTo End key of range (exclusive). Could be {@code null}.
+         * @param revUpperBound The upper bound for entry revision. {@code -1} means latest revision.
+         */
+        RangePublisher(
+                @NotNull ByteArray keyFrom,
+                @Nullable ByteArray keyTo,
+                long revUpperBound
+        ) {
+            this.keyFrom = keyFrom;
+            this.keyTo = keyTo;
+            this.revUpperBound = revUpperBound;
+            this.subscribed = new AtomicBoolean(false);
+        }
+        
+        /** {@inheritDoc} */
+        @Override
+        public void subscribe(Flow.Subscriber<? super Entry> subscriber) {
+            if (subscriber == null) {
+                throw new NullPointerException("Subscriber is null");
+            }
+            
+            if (!subscribed.compareAndSet(false, true)) {
+                subscriber.onError(new IllegalStateException("Range publisher does not support multiple subscriptions."));
+            }
+            
+            RangeSubscription subscription = new RangeSubscription(subscriber);
+            
+            subscriber.onSubscribe(subscription);
+        }
+        
+        /**
+         * Partition Scan Subscription.
+         */
+        private class RangeSubscription implements Subscription {
+            /** */
+            private final Subscriber<? super Entry> subscriber;
+    
+            /** */
+            private final AtomicBoolean canceled;
+            
+            /**
+             * Scan id to uniquely identify it on server side.
+             */
+            private final IgniteUuid scanId;
+            
+            /**
+             * Scan initial operation that created server cursor.
+             */
+            private final CompletableFuture<Void> scanInitOp;
+            
+            /**
+             * The constructor.
+             *
+             * @param subscriber The subscriber.
+             */
+            private RangeSubscription(Subscriber<? super Entry> subscriber) {
+                this.subscriber = subscriber;
+                this.canceled = new AtomicBoolean(false);
+                this.scanId = UUID_GENERATOR.randomUuid();
+                this.scanInitOp = revUpperBound == -1 ?
+                        metaStorageRaftGrpSvc.run(new RangeCommand(keyFrom, keyTo, localNodeId, scanId)) :
+                        metaStorageRaftGrpSvc.run(new RangeCommand(keyFrom, keyTo, revUpperBound, localNodeId, scanId));
+            }
+            
+            /** {@inheritDoc} */
+            @Override
+            public void request(long n) {
+                if (n <= 0) {
+                    cancel();
+                    
+                    subscriber.onError(new IllegalArgumentException(LoggerMessageHelper
+                            .format("Invalid requested amount of items [requested={}, minValue=1]", n))
+                    );
+                }
+                
+                if (canceled.get()) {
+                    return;
+                }
+                
+                final int internalBatchSize = Integer.MAX_VALUE;
+                
+                for (int intBatchCnr = 0; intBatchCnr < (n / internalBatchSize); intBatchCnr++) {
+                    if (canceled.get()) {
+                        return;
+                    }
+                    
+                    scanBatch(internalBatchSize);
+                }
+                
+                scanBatch((int) (n % internalBatchSize));
+            }
+    
+            /** {@inheritDoc} */
+            @Override
+            public void cancel() {
+                cancel(true);
+            }
+            
+            /**
+             * Cancels given subscription and closes cursor if necessary.
+             *
+             * @param closeCursor If {@code true} closes inner storage scan.
+             */
+            private void cancel(boolean closeCursor) {
+                if (!canceled.compareAndSet(false, true)) {
+                    return;
+                }
+                
+                if (closeCursor) {
+                    scanInitOp.thenRun(() -> metaStorageRaftGrpSvc.run(new CursorCloseCommand(scanId))).exceptionally(closeT -> {
+                        LOG.warn("Unable to close scan.", closeT);
+                        
+                        return null;
+                    });
+                }
+            }
+            
+            /**
+             * Requests and processes n requested elements where n is an integer.
+             *
+             * @param n Requested amount of items.
+             */
+            private void scanBatch(int n) {
+                if (canceled.get()) {
+                    return;
+                }
+
+                scanInitOp.thenRun(() -> {
+                    metaStorageRaftGrpSvc.<MultipleEntryResponse>run(new ScanRetrieveBatchCommand(n, scanId))
+                            .thenAccept(
+                                    res -> {
+                                        if (res.entries() == null) {
+                                            cancel();
+
+                                            subscriber.onComplete();
+
+                                            return;
+                                        } else {
+                                            res.entries().forEach(entry -> subscriber.onNext(singleEntryResult(entry)));
+                                        }
+
+                                        if (res.entries().size() < n) {
+                                            cancel();
+
+                                            subscriber.onComplete();
+                                        }
+                                    })
+                            .exceptionally(
+                                    t -> {
+                                        cancel(!scanInitOp.isCompletedExceptionally());
+
+                                        subscriber.onError(t);
+
+                                        return null;
+                                    });
+                });
             }
         }
     }
