@@ -31,7 +31,6 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -96,26 +95,8 @@ public class FakeInternalTable implements InternalTable {
     public @NotNull String tableName() {
         return tableName;
     }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public @NotNull SchemaManagementMode schemaMode() {
-        return SchemaManagementMode.STRICT;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void schema(SchemaManagementMode schemaMode) {
-        // No-op.
-    }
-
-    /**
-     * {@inheritDoc}
-     */
+    
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRow keyRow, @Nullable InternalTransaction tx) {
         return CompletableFuture.completedFuture(data.get(keyRow.keySlice()));

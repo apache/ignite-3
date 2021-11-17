@@ -42,14 +42,14 @@ import org.junit.jupiter.api.function.Executable;
 import org.mockito.Mockito;
 
 /**
- * Check data by strict schema.
+ * Checks if data compliant with the schema, otherwise the correct exception is thrown.
  */
-public class StrictSchemaOperationsTest {
+public class SchemaValidationTest {
     /** Table ID test value. */
     public final java.util.UUID tableId = java.util.UUID.randomUUID();
-
+    
     private ClusterService clusterService;
-
+    
     /**
      * Creates a table for tests.
      *
@@ -58,12 +58,12 @@ public class StrictSchemaOperationsTest {
     private InternalTable createTable() {
         clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
-
+        
         TxManagerImpl txManager = new TxManagerImpl(clusterService, new HeapLockManager());
-
+        
         return new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
     }
-
+    
     @Test
     public void columnNotExist() {
         SchemaDescriptor schema = new SchemaDescriptor(

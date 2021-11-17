@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -24,21 +25,26 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -48,46 +54,14 @@ import org.mockito.Mockito;
  * <p>TODO: IGNITE-14487 Add bulk operations tests.
  * TODO: IGNITE-14487 Add async operations tests.
  */
-public class KeyValueOperationsTest {
-    /**
-     * Default mapper.
-     */
-    private final Mapper<Long> mapper = new Mapper<>() {
-        @Override
-        public Class<Long> getType() {
-            return Long.class;
-        }
-    };
-    
-    /**
-     * Simple schema.
-     */
-    private SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[]{new Column("id", NativeTypes.INT64, false)},
-            new Column[]{new Column("val", NativeTypes.INT64, false)}
-    );
-    
+public class KeyValueViewOperationsSimpleSchemaTest {
     /**
      * Creates table view.
      *
      * @return Table KV-view.
      */
     private KeyValueView<Long, Long> kvView() {
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address())
-                .thenReturn(DummyInternalTableImpl.ADDR);
-        
-        LockManager lockManager = new HeapLockManager();
-        
-        TxManager txManager = new TxManagerImpl(clusterService, lockManager);
-        
-        DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager),
-                txManager);
-        
-        return new KeyValueViewImpl<>(table, new DummySchemaManagerImpl(schema), mapper, mapper,
-                null);
+        return kvViewForValueType(NativeTypes.INT64, Long.class);
     }
 
     @Test
@@ -293,5 +267,85 @@ public class KeyValueOperationsTest {
         // Fail on replace with null.
         assertThrows(Throwable.class, () -> tbl.replace(1L, null, 33L));
         assertEquals(22L, tbl.get(1L));
+    }
+    
+    @Test
+    public void putGetAllTypes() {
+        Random rnd = new Random();
+        Long key = 42L;
+        
+        List<NativeType> allTypes = List.of(
+                NativeTypes.INT8,
+                NativeTypes.INT16,
+                NativeTypes.INT32,
+                NativeTypes.INT64,
+                NativeTypes.FLOAT,
+                NativeTypes.DOUBLE,
+                NativeTypes.DATE,
+                NativeTypes.UUID,
+                NativeTypes.numberOf(20),
+                NativeTypes.decimalOf(25, 5),
+                NativeTypes.bitmaskOf(22),
+                NativeTypes.time(),
+                NativeTypes.datetime(),
+                NativeTypes.timestamp(),
+                NativeTypes.BYTES,
+                NativeTypes.STRING);
+        
+        // Validate all types are tested.
+        assertEquals(Set.of(NativeTypeSpec.values()),
+                allTypes.stream().map(NativeType::spec).collect(Collectors.toSet()));
+        
+        for (NativeType type : allTypes) {
+            final Object val = SchemaTestUtils.generateRandomValue(rnd, type);
+            
+            assertFalse(type.mismatch(NativeTypes.fromObject(val)));
+            
+            KeyValueViewImpl<Long, Object> kvView = kvViewForValueType(NativeTypes.fromObject(val),
+                    (Class<Object>) val.getClass());
+            
+            kvView.put(key, val);
+    
+            if (val instanceof byte[]) {
+                assertArrayEquals((byte[]) val, (byte[]) kvView.get(key));
+            } else {
+                assertEquals(val, kvView.get(key));
+            }
+        }
+    }
+    
+    /**
+     * Creates key-value view.
+     *
+     * @param type   Value column native type.
+     * @param valueClass Value class.
+     */
+    private <T> KeyValueViewImpl<Long, T> kvViewForValueType(NativeType type, Class<T> valueClass) {
+        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.topologyService().localMember().address())
+                .thenReturn(DummyInternalTableImpl.ADDR);
+    
+        TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager());
+    
+        DummyInternalTableImpl table = new DummyInternalTableImpl(
+                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager),
+                txManager);
+        
+        Mapper<Long> keyMapper = Mapper.identity(Long.class);
+        Mapper<T> valMapper = Mapper.identity(valueClass);
+        
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("val", type, false)}
+        );
+        
+        return new KeyValueViewImpl<>(
+                table,
+                new DummySchemaManagerImpl(schema),
+                keyMapper,
+                valMapper,
+                null
+        );
     }
 }

@@ -27,7 +27,6 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -111,15 +110,6 @@ public class TableImpl implements Table {
     }
 
     /**
-     * Sets new schema management mode.
-     *
-     * @param schemaMode New schema management mode.
-     */
-    public void schemaMode(SchemaManagementMode schemaMode) {
-        this.tbl.schema(schemaMode);
-    }
-
-    /**
      * Updates internal table raft group service for given partition.
      *
      * @param p Partition.
@@ -141,7 +131,7 @@ public class TableImpl implements Table {
 
         try {
             // TODO asch Convert to portable format to pass TX/storage layer.
-            final Row keyRow = new TupleMarshallerImpl(tblMgr, internalTable(), schemaReg).marshalKey(t);
+            final Row keyRow = new TupleMarshallerImpl(schemaReg).marshalKey(t);
 
             return tbl.partition(keyRow);
         } catch (TupleMarshallerException e) {

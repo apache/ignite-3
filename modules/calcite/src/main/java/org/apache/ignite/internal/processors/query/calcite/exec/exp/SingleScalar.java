@@ -15,30 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller;
+package org.apache.ignite.internal.processors.query.calcite.exec.exp;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 
 /**
- * Serialization exception.
+ * Single scalar used for single input and single output.
  */
-public class SerializationException extends IgniteInternalCheckedException {
-    /**
-     * Constructor.
-     *
-     * @param cause Cause.
-     */
-    public SerializationException(Throwable cause) {
-        super(cause);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param message Message.
-     * @param cause   Cause.
-     */
-    public SerializationException(String message, Throwable cause) {
-        super(message, cause);
-    }
+@FunctionalInterface
+public interface SingleScalar extends Scalar {
+    /** Single input and single output. */
+    void execute(ExecutionContext ctx, Object in, Object out);
 }

@@ -68,7 +68,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -99,9 +98,6 @@ public class InternalTableImpl implements InternalTable {
 
     /** Resolver that resolves a network address to node id. */
     private final Function<NetworkAddress, String> netAddrResolver;
-
-    /** Table schema mode. */
-    private volatile SchemaManagementMode schemaMode;
 
     /** Transactional manager. */
     private final TxManager txManager;
@@ -135,8 +131,6 @@ public class InternalTableImpl implements InternalTable {
         this.netAddrResolver = netAddrResolver;
         this.txManager = txManager;
         this.tableStorage = tableStorage;
-
-        this.schemaMode = SchemaManagementMode.STRICT;
     }
 
     /** {@inheritDoc} */
@@ -161,18 +155,6 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public String tableName() {
         return tableName;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public SchemaManagementMode schemaMode() {
-        return schemaMode;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void schema(SchemaManagementMode schemaMode) {
-        this.schemaMode = schemaMode;
     }
 
     /**

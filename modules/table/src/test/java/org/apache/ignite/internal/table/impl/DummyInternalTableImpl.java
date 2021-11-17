@@ -47,7 +47,6 @@ import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -154,16 +153,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     }
 
     /** {@inheritDoc} */
-    @Override
-    public @NotNull SchemaManagementMode schemaMode() {
-        return SchemaManagementMode.STRICT;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void schema(SchemaManagementMode schemaMode) {
-    }
-
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRow keyRow, InternalTransaction tx) {
         return super.get(keyRow, tx);

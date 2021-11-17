@@ -26,7 +26,6 @@ import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,18 +54,6 @@ public interface InternalTable extends AutoCloseable {
      * @return Table name.
      */
     @NotNull String tableName();
-
-    /**
-     * Gets a schema mode of the table.
-     *
-     * @return Schema mode.
-     */
-    @NotNull SchemaManagementMode schemaMode();
-
-    /**
-     * Sets schema mode for the table.
-     */
-    void schema(SchemaManagementMode schemaMode);
 
     /**
      * Asynchronously gets a row with same key columns values as given one from the table.

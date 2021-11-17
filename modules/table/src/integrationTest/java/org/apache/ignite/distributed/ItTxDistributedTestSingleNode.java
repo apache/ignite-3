@@ -35,10 +35,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.TableImpl;
@@ -47,6 +43,7 @@ import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
+import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -231,27 +228,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 NetworkAddress::toString,
                 txMgr,
                 Mockito.mock(TableStorage.class)
-        ), new SchemaRegistry() {
-            @Override
-            public SchemaDescriptor schema() {
-                return ACCOUNTS_SCHEMA;
-            }
-
-            @Override
-            public SchemaDescriptor schema(int ver) {
-                return ACCOUNTS_SCHEMA;
-            }
-
-            @Override
-            public int lastSchemaVersion() {
-                return ACCOUNTS_SCHEMA.version();
-            }
-
-            @Override
-            public Row resolve(BinaryRow row) {
-                return new Row(ACCOUNTS_SCHEMA, row);
-            }
-        }, null);
+        ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), null);
 
         this.customers = new TableImpl(new InternalTableImpl(
                 customersName,
@@ -261,27 +238,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 NetworkAddress::toString,
                 txMgr,
                 Mockito.mock(TableStorage.class)
-        ), new SchemaRegistry() {
-            @Override
-            public SchemaDescriptor schema() {
-                return CUSTOMERS_SCHEMA;
-            }
-
-            @Override
-            public SchemaDescriptor schema(int ver) {
-                return CUSTOMERS_SCHEMA;
-            }
-
-            @Override
-            public int lastSchemaVersion() {
-                return CUSTOMERS_SCHEMA.version();
-            }
-
-            @Override
-            public Row resolve(BinaryRow row) {
-                return new Row(CUSTOMERS_SCHEMA, row);
-            }
-        }, null);
+        ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), null);
 
         log.info("Tables have been started");
     }

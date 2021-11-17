@@ -35,12 +35,13 @@ import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 
 /**
  * Ignite sort operator.
  */
-public class IgniteSort extends Sort implements IgniteRel {
+public class IgniteSort extends Sort implements InternalIgniteRel {
     /**
      * Constructor.
      *
@@ -125,7 +126,14 @@ public class IgniteSort extends Sort implements IgniteRel {
 
         IgniteCostFactory costFactory = (IgniteCostFactory) planner.getCostFactory();
 
-        return costFactory.makeCost(rows, cpuCost, 0, memory, 0);
+        RelOptCost cost = costFactory.makeCost(rows, cpuCost, 0, memory, 0);
+
+        // Distributed sorting is more preferable than sorting on the single node.
+        if (TraitUtils.distribution(traitSet).satisfies(IgniteDistributions.single())) {
+            cost.plus(costFactory.makeTinyCost());
+        }
+
+        return cost;
     }
 
     /** {@inheritDoc} */
