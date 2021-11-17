@@ -424,9 +424,9 @@ public class RecordMarshallerTest {
                 new Column("primitiveByteCol", INT8, false, () -> (byte) 0x42),
                 new Column("primitiveShortCol", INT16, false, () -> (short) 0x4242),
                 new Column("primitiveIntCol", INT32, false, () -> 0x42424242),
-                new Column("primitiveFloatCol", FLOAT, false),
-                new Column("primitiveDoubleCol", DOUBLE, false),
-                
+                new Column("primitiveFloatCol", FLOAT, false, () -> 100.100),
+                new Column("primitiveDoubleCol", DOUBLE, false, () -> 1000.1000),
+
                 new Column("byteCol", INT8, true),
                 new Column("shortCol", INT16, true),
                 new Column("longCol", INT64, true),
@@ -478,7 +478,7 @@ public class RecordMarshallerTest {
             if (this == o) {
                 return true;
             }
-            
+
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
@@ -504,7 +504,7 @@ public class RecordMarshallerTest {
     public static class TestTruncatedObject {
         static TestTruncatedObject randomObject(Random rnd) {
             final TestTruncatedObject obj = new TestTruncatedObject();
-            
+
             obj.primitiveIntCol = rnd.nextInt();
             obj.primitiveLongCol = rnd.nextLong();
             obj.primitiveDoubleCol = rnd.nextDouble();
@@ -514,7 +514,9 @@ public class RecordMarshallerTest {
             
             return obj;
         }
-        
+
+        private Integer intCol;
+
         // Primitive typed
         private int primitiveIntCol;
         
@@ -544,7 +546,8 @@ public class RecordMarshallerTest {
                     && Float.compare(object.primitiveFloatCol, primitiveFloatCol) == 0
                     && Double.compare(object.primitiveDoubleCol, primitiveDoubleCol) == 0
                     && Objects.equals(stringCol, ((TestTruncatedObject) o).stringCol)
-                    && Objects.equals(uuidCol, ((TestTruncatedObject) o).uuidCol);
+                    && Objects.equals(uuidCol, ((TestTruncatedObject) o).uuidCol)
+                    && Objects.equals(intCol, ((TestTruncatedObject) o).intCol);
         }
         
         @Override

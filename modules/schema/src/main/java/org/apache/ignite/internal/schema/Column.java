@@ -30,6 +30,9 @@ import org.jetbrains.annotations.NotNull;
  * user-defined order ({@link #columnOrder}).
  */
 public class Column implements Serializable {
+    /** Default "default value supplier". */
+    private static final Supplier<Object> NULL_SUPPLIER = () -> null;
+
     /** Absolute index in schema descriptor. */
     private final int schemaIndex;
 
@@ -69,7 +72,7 @@ public class Column implements Serializable {
             NativeType type,
             boolean nullable
     ) {
-        this(-1, -1, name, type, nullable, (Supplier<Object> & Serializable) () -> null);
+        this(-1, -1, name, type, nullable, NULL_SUPPLIER);
     }
 
     /**
@@ -124,7 +127,7 @@ public class Column implements Serializable {
             String name,
             NativeType type,
             boolean nullable,
-            @NotNull Supplier<Object> defValSup
+            Supplier<Object> defValSup
     ) {
         this.schemaIndex = schemaIndex;
         this.columnOrder = columnOrder;
@@ -176,6 +179,15 @@ public class Column implements Serializable {
      */
     public Object defaultValue() {
         return defValSup.get();
+    }
+
+    /**
+     * Get no default value falg: {@code true} if column hasn't default value, {@code false} - otherwise.
+     *
+     * @return {@code true} if column hasn't default value, {@code false} - otherwise.
+     */
+    public boolean noDefaultValue() {
+        return defValSup == NULL_SUPPLIER;
     }
 
     /** {@inheritDoc} */

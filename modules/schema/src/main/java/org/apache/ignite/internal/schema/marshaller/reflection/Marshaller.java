@@ -57,17 +57,20 @@ public abstract class Marshaller {
         FieldAccessor[] fieldAccessors = new FieldAccessor[cols.length];
         
         // Build handlers.
+        boolean readOnly = false;
+
         for (int i = 0; i < cols.length; i++) {
             final Column col = cols[i];
             
             String fieldName = mapper.columnToField(col.name());
-            
-            // TODO: IGNITE-15785 validate key marshaller has no NoopAccessors.
+
+            readOnly |= (fieldName == null && !col.nullable() && col.noDefaultValue());
+
             fieldAccessors[i] = (fieldName == null) ? FieldAccessor.noopAccessor(col) :
                     FieldAccessor.create(mapper.targetType(), fieldName, col, col.schemaIndex());
         }
-        
-        return new PojoMarshaller(new ObjectFactory<>(mapper.targetType()), fieldAccessors);
+
+        return new PojoMarshaller(new ObjectFactory<>(mapper.targetType()), fieldAccessors, readOnly);
     }
     
     /**
@@ -75,11 +78,12 @@ public abstract class Marshaller {
      *
      * @param cols Columns.
      * @param cls  Type.
+     * @param requireAllFields If specified class should contain fields for all columns.
      * @return Marshaller.
      */
     //TODO: IGNITE-15907 drop
     @Deprecated
-    public static Marshaller createMarshaller(Columns cols, Class<? extends Object> cls) {
+    public static Marshaller createMarshaller(Columns cols, Class<? extends Object> cls, boolean requireAllFields) {
         final BinaryMode mode = MarshallerUtil.mode(cls);
         
         if (mode != null) {
@@ -93,15 +97,24 @@ public abstract class Marshaller {
         }
         
         FieldAccessor[] fieldAccessors = new FieldAccessor[cols.length()];
-        
+
+        boolean readOnly = false;
         // Build accessors
         for (int i = 0; i < cols.length(); i++) {
             final Column col = cols.column(i);
-            
+
+            if (!requireAllFields) {
+                try {
+                    cls.getDeclaredField(col.name());
+                } catch (NoSuchFieldException e) {
+                    readOnly = true;
+                }
+            }
+
             fieldAccessors[i] = FieldAccessor.create(cls, col.name(), col, col.schemaIndex());
         }
-        
-        return new PojoMarshaller(new ObjectFactory<>(cls), fieldAccessors);
+
+        return new PojoMarshaller(new ObjectFactory<>(cls), fieldAccessors, readOnly);
     }
     
     /**
@@ -162,7 +175,6 @@ public abstract class Marshaller {
             return fieldAccessor.read(reader);
         }
         
-        
         /** {@inheritDoc} */
         @Override
         public void writeObject(Object obj, RowAssembler writer) throws MarshallerException {
@@ -179,17 +191,22 @@ public abstract class Marshaller {
         
         /** Object factory. */
         private final Factory<?> factory;
-        
+
+        /** Read only marshaller (row has fields without default value supplier which not exists in POJO class). */
+        private final boolean readOnly;
+
         /**
          * Creates a marshaller for POJOs.
          *
          * @param factory        Object factory.
          * @param fieldAccessors Object field accessors for mapped columns.
+         * @param readOnly       Read only marshaller flag.
          */
         @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-        PojoMarshaller(Factory<?> factory, FieldAccessor[] fieldAccessors) {
+        PojoMarshaller(Factory<?> factory, FieldAccessor[] fieldAccessors, boolean readOnly) {
             this.fieldAccessors = fieldAccessors;
             this.factory = Objects.requireNonNull(factory);
+            this.readOnly = readOnly;
         }
         
         /** {@inheritDoc} */
@@ -215,6 +232,10 @@ public abstract class Marshaller {
         @Override
         public void writeObject(Object obj, RowAssembler writer)
                 throws MarshallerException {
+            if (readOnly) {
+                throw new IllegalStateException("Can't assemple row by object " + obj.getClass());
+            }
+
             for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
                 fieldAccessors[fldIdx].write(writer, obj);
             }
