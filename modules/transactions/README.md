@@ -176,7 +176,7 @@ Key -> Tuple (newVal, oldVal, ts) will change after resetting to Key -> Tuple (n
 
 # One phase commit
 
-Implicit tx can be fast committed if all keys belongs to the same partition. TODO asch create ticket
+Implicit tx can be fast committed if all keys belongs to the same partition. TODO IGNITE-15927
 
 # SQL and indexes.
 
@@ -187,7 +187,7 @@ The locking rules are same as for get/put operations.
 Then values are removed from indexes on step 2, they are written as tombstones to avoid read inconsistency and should be 
 cleaned up after tx finish.
 
-TODO: tx example flow with enabled index(es)
+TODO IGNITE-15087: tx example flow with enabled index(es)
 
 # Failover handling
 Failover protocol is similar to Ignite 2 with a main difference: until tx is sure it can commit or rollback, it holds

@@ -75,7 +75,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 /**
- * TODO asch validate zero locks after test finish.
+ * TODO asch IGNITE-15928 validate zero locks after test finish.
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -180,7 +180,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             CompletableFuture<Tuple> read1 = view.getAsync(makeKey(1));
             CompletableFuture<Tuple> read2 = view.getAsync(makeKey(2));
 
-            // TODO asch must ensure a commit happens after all pending tx async ops.
+            // TODO asch IGNITE-15938 must ensure a commit happens after all pending tx async ops.
             view.upsertAsync(makeValue(1, read1.join().doubleValue("balance") - DELTA)).join();
             view.upsertAsync(makeValue(2, read2.join().doubleValue("balance") + DELTA)).join();
         });
@@ -397,7 +397,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         double valTx2 = table2.get(key).doubleValue("balance");
 
         // Write in tx (out of order)
-        // TODO asch fix exception model.
+        // TODO asch IGNITE-15937 fix exception model.
         Exception err = assertThrows(Exception.class, () -> table.upsert(makeValue(1, valTx + 1)));
 
         assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
@@ -979,7 +979,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testLockedTooLong() {
-        // TODO asch if lock can't be acquired until timeout tx should be rolled back.
+        // TODO asch IGNITE-15936 if lock can't be acquired until timeout tx should be rolled back.
     }
 
     @Test

@@ -218,7 +218,7 @@ public class PartitionListener implements RaftGroupListener {
 
         assert keyRows != null && !keyRows.isEmpty();
 
-        // TODO asch all reads are sequetial
+        // TODO asch IGNITE-15934 all reads are sequential, can be parallelized ?
         clo.result(new MultiRowsResponse(storage.getAll(keyRows, cmd.getTimestamp())));
     }
 

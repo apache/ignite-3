@@ -53,7 +53,7 @@ import org.jetbrains.annotations.Nullable;
 import org.mockito.Mockito;
 
 /**
- * Dummy table storage implementation. TODO asch rename to local table
+ * Dummy table storage implementation.
  */
 public class DummyInternalTableImpl extends InternalTableImpl {
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);

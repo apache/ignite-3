@@ -130,7 +130,6 @@ public class TableImpl implements Table {
         Objects.requireNonNull(t);
 
         try {
-            // TODO asch Convert to portable format to pass TX/storage layer.
             final Row keyRow = new TupleMarshallerImpl(schemaReg).marshalKey(t);
 
             return tbl.partition(keyRow);

@@ -191,7 +191,7 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         try {
             InetAddress localHost = InetAddress.getLocalHost();
 
-            // TODO asch make sure this always works. Can use random bytes if iface doesn't exists.
+            // TODO IGNITE-15929 make sure this always works. Can use random bytes if iface doesn't exists.
             NetworkInterface iface = NetworkInterface.getByInetAddress(localHost);
 
             byte[] bytes = iface.getHardwareAddress();

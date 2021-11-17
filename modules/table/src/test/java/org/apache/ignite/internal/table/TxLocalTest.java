@@ -71,7 +71,7 @@ public class TxLocalTest extends TxAbstractTest {
     @Disabled
     @Override
     public void testScan() throws InterruptedException {
-        // TODO asch implement local scan
+        // TODO asch IGNITE-15928 implement local scan
     }
 
     @Override

@@ -132,7 +132,7 @@ public interface TxManager extends IgniteComponent {
      * Sets a thread local transaction.
      *
      * @param tx The thread local transaction.
-     * @deprecated Should be removed after table API adjustment TODO asch ticket.
+     * @deprecated Should be removed after table API adjustment TODO IGNITE-15930.
      */
     @Deprecated
     void setTx(InternalTransaction tx);
@@ -142,7 +142,7 @@ public interface TxManager extends IgniteComponent {
      *
      * @return The thread local transaction.
      * @throws TransactionException Thrown on illegal access.
-     * @deprecated Should be removed after table API adjustment TODO asch ticket.
+     * @deprecated Should be removed after table API adjustment TODO IGNITE-15930.
      */
     @Deprecated
     InternalTransaction tx() throws TransactionException;

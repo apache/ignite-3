@@ -42,9 +42,9 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * TODO asch use read only buffers ? replace Pair from ignite-schema
- * TODO asch can use some sort of a cache on tx coordinator to avoid network IO.
- * TODO asch invokes on storage not used for now ?
+ * TODO asch IGNITE-15934 use read only buffers ? replace Pair from ignite-schema
+ * TODO asch IGNITE-15935 can use some sort of a cache on tx coordinator to avoid network IO.
+ * TODO asch IGNITE-15934 invokes on storage not used for now, can it be changed ?
  */
 public class VersionedRowStore {
     /** Storage delegate. */
@@ -66,7 +66,7 @@ public class VersionedRowStore {
 
     /**
      * Decodes a storage row to a pair where the first is an actual value (visible to a current transaction) and the second is an old value
-     * used for rollback. TODO asch refactor to use this method in this class when possible.
+     * used for rollback.
      *
      * @param row The row.
      * @param ts Timestamp ts.
@@ -416,7 +416,7 @@ public class VersionedRowStore {
      */
     @NotNull
     private static SearchRow extractAndWrapKey(@NotNull BinaryRow row) {
-        // TODO asch can reuse thread local byte buffer
+        // TODO asch IGNITE-15934 can reuse thread local byte buffer
         byte[] key = new byte[row.keySlice().capacity()];
         row.keySlice().get(key);
 
@@ -424,7 +424,7 @@ public class VersionedRowStore {
     }
 
     /**
-     * Unpacks a raw value into (cur, old, ts) triplet. TODO asch not very efficient.
+     * Unpacks a raw value into (cur, old, ts) triplet. TODO asch IGNITE-15934 not very efficient.
      *
      * @param row The row.
      * @return The value.
@@ -446,7 +446,7 @@ public class VersionedRowStore {
         buf.position(pos);
 
         if (l1 != 0) {
-            // TODO asch get rid of copying
+            // TODO asch IGNITE-15934 get rid of copying
             byte[] tmp = new byte[l1];
 
             buf.get(tmp);

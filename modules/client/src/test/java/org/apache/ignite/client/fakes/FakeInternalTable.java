@@ -35,7 +35,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Fake internal table. TODO asch client tests are not transactional right now.
+ * Fake internal table.
  */
 public class FakeInternalTable implements InternalTable {
     /**

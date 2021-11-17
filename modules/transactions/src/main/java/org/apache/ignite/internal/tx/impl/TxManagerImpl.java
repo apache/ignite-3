@@ -68,18 +68,21 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final LockManager lockManager;
 
     /**
-     * The storage for tx states. TODO asch use Storage for states, implement max size, implement replication.
+     * The storage for tx states.
+     *
+     * <p>TODO IGNITE-15931 use Storage for states, implement max size, implement replication.
      */
     private final ConcurrentHashMap<Timestamp, TxState> states = new ConcurrentHashMap<>();
 
     /**
-     * The storage for locks acquired by transactions. Each key is mapped to lock type where true is for read. TODO asch use Storage for
-     * locks. Introduce limits, deny lock operation if the limit is exceeded.
+     * The storage for locks acquired by transactions. Each key is mapped to lock type where true is for read.
+     *
+     * <p>TODO IGNITE-15932 use Storage for locks. Introduce limits, deny lock operation if the limit is exceeded.
      */
     private final ConcurrentHashMap<Timestamp, Map<LockKey, Boolean>> locks = new ConcurrentHashMap<>();
 
     /**
-     * TODO asch remove and replace with expicit TX argument in table API calls.
+     * TODO IGNITE-15930.
      */
     private ThreadLocal<InternalTransaction> threadCtx = new ThreadLocal<>();
 
@@ -132,7 +135,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync(Timestamp ts) {
-        // TODO asch split to tx coordinator and tx manager ?
         if (changeState(ts, TxState.PENDING, TxState.ABORTED) || state(ts) == TxState.ABORTED) {
             unlockAll(ts);
 
@@ -176,7 +178,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts) {
-        // TODO asch process tx messages in striped fasion to avoid races. But locks can be acquired from any thread !
+        // TODO IGNITE-15933 process tx messages in striped fasion to avoid races. But locks can be acquired from any thread !
         TxState state = state(ts);
 
         if (state != null && state != TxState.PENDING) {
@@ -240,7 +242,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** {@inheritDoc} */
     @Override
     public TxState getOrCreateTransaction(Timestamp ts) {
-        // TODO asch track originator or use broadcast recovery ?
         return states.putIfAbsent(ts, TxState.PENDING);
     }
 
