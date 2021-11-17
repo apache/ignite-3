@@ -347,19 +347,31 @@ public class MetaStorageServiceImpl implements MetaStorageService {
      * Watch events publisher.
      */
     private class WatchEventsPublisher implements Flow.Publisher<WatchEvent> {
-        /** */
+        /** Flag that denotes that there's an active subscription. */
         private final AtomicBoolean subscribed;
-        
+
+        /** Start key of range (inclusive). Could be {@code null}. */
         private final ByteArray keyFrom;
         
+        /** End key of range (exclusive). Could be {@code null}. */
         private final ByteArray keyTo;
         
+        /** Set of target keys. Couldn't be {@code null} or empty. */
         private final Set<ByteArray> keys;
-        
+
+        /**
+         * Start revision inclusive. {@code 0} - all revisions, {@code -1} - latest revision (accordingly to current meta
+         * storage state).
+         */
         private long revision;
         
         /**
          * The constructor.
+         *
+         * @param keyFrom  Start key of range (inclusive). Could be {@code null}.
+         * @param keyTo    End key of range (exclusive). Could be {@code null}.
+         * @param revision Start revision inclusive. {@code 0} - all revisions, {@code -1} - latest revision (accordingly to current meta
+         *                 storage state).
          */
         WatchEventsPublisher(
                 @Nullable ByteArray keyFrom,
@@ -369,13 +381,16 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             this.subscribed = new AtomicBoolean(false);
             this.keyFrom = keyFrom;
             this.keyTo = keyTo;
-            // TODO: sanpwc Consider better solution here.
             this.keys = null;
             this.revision = revision;
         }
-        
+
         /**
          * The constructor.
+         *
+         * @param keys     Set of target keys. Couldn't be {@code null} or empty.
+         * @param revision Start revision inclusive. {@code 0} - all revisions, {@code -1} - latest revision (accordingly to current meta
+         *                 storage state).
          */
         WatchEventsPublisher(
                 @NotNull Set<ByteArray> keys,
@@ -414,20 +429,16 @@ public class MetaStorageServiceImpl implements MetaStorageService {
          * Watch events subscription.
          */
         private class WatchEventsSubscription implements Flow.Subscription {
-            /** */
+            /** Subscriber. */
             private final Flow.Subscriber<? super WatchEvent> subscriber;
             
-            /** */
+            /** Flag that denotes that subscription was canceled. */
             private final AtomicBoolean canceled;
-            
-            /**
-             * Watch id to uniquely identify it on server side.
-             */
+
+            /** Watch id to uniquely identify it on server side. */
             private final IgniteUuid watchId;
-            
-            /**
-             * Watch initial operation that created server cursor.
-             */
+
+            /** Watch initial operation that created server cursor. */
             private final CompletableFuture<Void> watchInitOp;
     
             /**
@@ -573,8 +584,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         /** The upper bound for entry revision. {@code -1} means latest revision. */
         private final long revUpperBound;
     
-        /** */
-        private AtomicBoolean subscribed;
+        /** Flag that denotes that there's an active subscription. */
+        private final AtomicBoolean subscribed;
     
         /**
          * The constructor.
@@ -614,20 +625,16 @@ public class MetaStorageServiceImpl implements MetaStorageService {
          * Partition Scan Subscription.
          */
         private class RangeSubscription implements Subscription {
-            /** */
+            /** Subscriber. */
             private final Subscriber<? super Entry> subscriber;
     
-            /** */
+            /** Flag that denotes that subscription was canceled. */
             private final AtomicBoolean canceled;
             
-            /**
-             * Scan id to uniquely identify it on server side.
-             */
+            /** Scan id to uniquely identify it on server side. */
             private final IgniteUuid scanId;
-            
-            /**
-             * Scan initial operation that created server cursor.
-             */
+
+            /** Scan initial operation that created server cursor. */
             private final CompletableFuture<Void> scanInitOp;
             
             /**
@@ -639,7 +646,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 this.subscriber = subscriber;
                 this.canceled = new AtomicBoolean(false);
                 this.scanId = UUID_GENERATOR.randomUuid();
-                this.scanInitOp = revUpperBound == -1 ?
+                this.scanInitOp = revUpperBound == -1
+                        ?
                         metaStorageRaftGrpSvc.run(new RangeCommand(keyFrom, keyTo, localNodeId, scanId)) :
                         metaStorageRaftGrpSvc.run(new RangeCommand(keyFrom, keyTo, revUpperBound, localNodeId, scanId));
             }

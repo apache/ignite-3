@@ -24,28 +24,23 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ScheduledExecutorService;
@@ -54,7 +49,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.OperationType;
-import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Loza;
@@ -67,7 +61,6 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
@@ -80,7 +73,6 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -660,7 +652,8 @@ public class ItMetaStorageServiceTest {
     
         final AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
     
-        final AtomicReference<Entry> gotEntry= new AtomicReference<>();
+        final AtomicReference<Entry> gotEntry = new AtomicReference<>();
+
         metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null).subscribe(
                 new Subscriber<>() {
                     @Override
@@ -710,7 +703,8 @@ public class ItMetaStorageServiceTest {
     
         final AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
     
-        final AtomicReference<Throwable> gotException= new AtomicReference<>();
+        final AtomicReference<Throwable> gotException = new AtomicReference<>();
+
         metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null).subscribe(
                 new Subscriber<>() {
                     @Override
@@ -736,7 +730,8 @@ public class ItMetaStorageServiceTest {
                     }
                 });
     
-        assertTrue(waitForCondition(() -> gotException.get() != null && NoSuchElementException.class.equals(gotException.get().getClass()), 1_000));
+        assertTrue(waitForCondition(() -> gotException.get() != null && NoSuchElementException.class.equals(gotException.get().getClass()),
+                1_000));
     
         subscriptionRef.get().cancel();
     }
@@ -865,56 +860,6 @@ public class ItMetaStorageServiceTest {
 
         assertThrows(OperationTimeoutException.class, () -> metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key()).get());
     }
-
-//    /**
-//     * Tests {@link MetaStorageService#closeCursors(String)}.
-//     *
-//     * @throws Exception If failed.
-//     */
-//    @Test
-//    public void testCursorsCleanup() throws Exception {
-//        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key().bytes(), null)).thenAnswer(invocation -> {
-//            var cursor = mock(Cursor.class);
-//
-//            when(cursor.hasNext()).thenReturn(true);
-//            when(cursor.next()).thenReturn(EXPECTED_SRV_RESULT_ENTRY);
-//
-//            return cursor;
-//        });
-//
-//        List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
-//
-//        RaftGroupService metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
-//                METASTORAGE_RAFT_GROUP_NAME,
-//                cluster.get(1),
-//                FACTORY,
-//                10_000,
-//                peers,
-//                true,
-//                200,
-//                executor
-//        ).get(3, TimeUnit.SECONDS);
-//
-//        try {
-//            MetaStorageService metaStorageSvc2 = new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_1);
-//
-//            Cursor<Entry> cursorNode0 = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
-//
-//            Cursor<Entry> cursor2Node0 = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
-//
-//            final Cursor<Entry> cursorNode1 = metaStorageSvc2.range(EXPECTED_RESULT_ENTRY.key(), null);
-//
-//            metaStorageSvc.closeCursors(NODE_ID_0).get();
-//
-//            assertThrows(NoSuchElementException.class, () -> cursorNode0.iterator().next());
-//
-//            assertThrows(NoSuchElementException.class, () -> cursor2Node0.iterator().next());
-//
-//            assertEquals(EXPECTED_RESULT_ENTRY, (cursorNode1.iterator().next()));
-//        } finally {
-//            metaStorageRaftGrpSvc.shutdown();
-//        }
-//    }
 
     /**
      * Wait for topology.

@@ -315,8 +315,8 @@ public class MetaStorageListener implements RaftGroupListener {
                     clo.result(e);
                 }
     
-                clo.result(new MultipleEntryResponse(res.stream().map(e -> new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter())).collect(
-                        Collectors.toList())));
+                clo.result(new MultipleEntryResponse(res.stream().map(
+                        e -> new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter())).collect(Collectors.toList())));
     
                 return;
             } else if (clo.command() instanceof WatchRangeKeysCommand) {

@@ -417,7 +417,8 @@ public class InternalTableImpl implements InternalTable {
         /** {@link Publisher} that relatively notifies about partition rows. */
         private final RaftGroupService raftGrpSvc;
 
-        private AtomicBoolean subscribed;
+        /** Flag that denotes that there's an active subscription. */
+        private final AtomicBoolean subscribed;
 
         /**
          * The constructor.
@@ -449,8 +450,10 @@ public class InternalTableImpl implements InternalTable {
          * Partition Scan Subscription.
          */
         private class PartitionScanSubscription implements Subscription {
+            /** Subscriber. */
             private final Subscriber<? super BinaryRow> subscriber;
-
+    
+            /** Flag that denotes that subscription was canceled. */
             private final AtomicBoolean canceled;
 
             /** Scan id to uniquely identify it on server side. */
