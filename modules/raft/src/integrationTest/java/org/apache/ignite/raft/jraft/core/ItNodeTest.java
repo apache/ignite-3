@@ -208,7 +208,7 @@ public class ItNodeTest {
         startedCounter.set(0);
         stoppedCounter.set(0);
 
-        TestUtils.assertAllThreadsStopped();
+        TestUtils.assertAllJraftThreadsStopped();
 
         LOG.info(">>>>>>>>>>>>>>> End test method: " + testInfo.getDisplayName() + ", cost:"
             + (Utils.monotonicMs() - testStartMs) + " ms.");

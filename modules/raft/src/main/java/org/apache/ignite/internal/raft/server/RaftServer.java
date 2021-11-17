@@ -63,7 +63,7 @@ public interface RaftServer extends IgniteComponent {
     @Nullable Peer localPeer(String groupId);
 
     /**
-     * Returns a set of started partition groups.
+     * Returns a set of started groups.
      *
      * @return Started groups.
      */

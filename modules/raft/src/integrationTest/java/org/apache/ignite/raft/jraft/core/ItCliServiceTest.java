@@ -154,7 +154,7 @@ public class ItCliServiceTest {
         cluster.stopAll();
         ExecutorServiceHelper.shutdownAndAwaitTermination(clientExecutor);
 
-        TestUtils.assertAllThreadsStopped();
+        TestUtils.assertAllJraftThreadsStopped();
 
         LOG.info(">>>>>>>>>>>>>>> End test method: " + testInfo.getDisplayName());
     }

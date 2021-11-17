@@ -17,6 +17,7 @@
 
 package org.apache.ignite.raft.server;
 
+import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.raft.jraft.core.State.STATE_ERROR;
@@ -193,7 +194,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
-        TestUtils.assertAllThreadsStopped();
+        TestUtils.assertAllJraftThreadsStopped();
 
         LOG.info(">>>>>>>>>>>>>>> End test method: {}", testInfo.getTestMethod().orElseThrow().getName());
     }
@@ -720,19 +721,20 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
         LOG.info("RAFT threads count {}", threads.stream().filter(t -> t.getName().contains("JRaft")).count());
 
         List<Thread> timerThreads = threads.stream().filter(this::isTimer)
-                .sorted((o1, o2) -> o1.getName().compareTo(o2.getName())).collect(toList());
+                .sorted(comparing(Thread::getName)).collect(toList());
 
-        assertTrue(timerThreads.size() <= 15, "New timer threads: " + timerThreads.toString());
+        assertTrue(timerThreads.size() <= 15, // This is a maximum possible number of a timer threads for 3 nodes in this test.
+                "New timer threads: " + timerThreads.toString());
     }
 
     /**
      * Returns {@code true} if thread is related to timers.
      *
-     * @param name The name.
+     * @param thread The thread.
      * @return {@code True} if a timer thread.
      */
-    private boolean isTimer(Thread t) {
-        String name = t.getName();
+    private boolean isTimer(Thread thread) {
+        String name = thread.getName();
 
         return name.contains("ElectionTimer") || name.contains("VoteTimer")
                 || name.contains("StepDownTimer") || name.contains("SnapshotTimer") || name.contains("Node-Scheduler");
