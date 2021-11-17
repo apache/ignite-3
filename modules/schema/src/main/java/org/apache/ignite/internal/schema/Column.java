@@ -99,16 +99,16 @@ public class Column implements Serializable {
      * @param name        Column name.
      * @param type        An instance of column data type.
      * @param nullable    If {@code false}, null values will not be allowed for this column.
-     * @param defValSup   Default value supplier.
+     * @param defValSup   Default value supplier or {@code null} - if there is no default value supplier specified.
      */
     public Column(
             int columnOrder,
             String name,
             NativeType type,
             boolean nullable,
-            @NotNull Supplier<Object> defValSup
+            Supplier<Object> defValSup
     ) {
-        this(-1, columnOrder, name, type, nullable, defValSup);
+        this(-1, columnOrder, name, type, nullable, (defValSup == null) ? NULL_SUPPLIER : defValSup);
     }
 
     /**
@@ -127,7 +127,7 @@ public class Column implements Serializable {
             String name,
             NativeType type,
             boolean nullable,
-            Supplier<Object> defValSup
+            @NotNull Supplier<Object> defValSup
     ) {
         this.schemaIndex = schemaIndex;
         this.columnOrder = columnOrder;
@@ -182,7 +182,7 @@ public class Column implements Serializable {
     }
 
     /**
-     * Get no default value falg: {@code true} if column hasn't default value, {@code false} - otherwise.
+     * Get no default value flag: {@code true} if column hasn't default value, {@code false} - otherwise.
      *
      * @return {@code true} if column hasn't default value, {@code false} - otherwise.
      */
