@@ -40,7 +40,7 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableModify
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableSpool;
 import org.apache.ignite.internal.processors.query.calcite.schema.ColumnDescriptor;
-import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
+import org.apache.ignite.internal.processors.query.calcite.schema.InternalIgniteTable;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.internal.processors.query.calcite.util.HintUtils;
@@ -80,7 +80,12 @@ public class PlannerHelper {
             }
 
             // Transformation chain
-            rel = planner.transform(PlannerPhase.HEURISTIC_OPTIMIZATION, rel.getTraitSet(), rel);
+            // Transformation chain
+            rel = planner.transform(PlannerPhase.HEP_DECORRELATE, rel.getTraitSet(), rel);
+
+            rel = planner.transform(PlannerPhase.HEP_FILTER_PUSH_DOWN, rel.getTraitSet(), rel);
+
+            rel = planner.transform(PlannerPhase.HEP_PROJECT_PUSH_DOWN, rel.getTraitSet(), rel);
 
             RelTraitSet desired = rel.getCluster().traitSet()
                     .replace(IgniteConvention.INSTANCE)
@@ -202,9 +207,10 @@ public class PlannerHelper {
          * @return The input rel.
          */
         private IgniteRel processScan(TableScan scan) {
-            IgniteTable tbl = modifyNode != null ? modifyNode.getTable().unwrap(IgniteTable.class) : null;
+            InternalIgniteTable tbl = modifyNode != null ? modifyNode.getTable().unwrap(
+                    InternalIgniteTable.class) : null;
 
-            if (tbl == null || scan.getTable().unwrap(IgniteTable.class) != tbl) {
+            if (tbl == null || scan.getTable().unwrap(InternalIgniteTable.class) != tbl) {
                 return (IgniteRel) scan;
             }
 
