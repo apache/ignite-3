@@ -25,6 +25,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.NotNull;
 
@@ -193,8 +194,17 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
 
             // TODO IGNITE-15929 make sure this always works. Can use random bytes if iface doesn't exists.
             NetworkInterface iface = NetworkInterface.getByInetAddress(localHost);
-
-            byte[] bytes = iface.getHardwareAddress();
+            
+            byte[] bytes;
+            
+            if (iface == null) {
+                bytes = new byte[8];
+    
+                ThreadLocalRandom.current().nextBytes(bytes);
+            }
+            else {
+                bytes = iface.getHardwareAddress();
+            }
 
             ByteBuffer buffer = ByteBuffer.allocate(Byte.SIZE);
             buffer.put(bytes);
