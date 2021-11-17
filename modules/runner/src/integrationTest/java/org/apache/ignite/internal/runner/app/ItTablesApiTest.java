@@ -193,8 +193,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
             }
         }
 
-        Thread.sleep(10_000);
-
         assertFalse(createTblFut.isDone());
         assertFalse(createTblIfNotExistsFut.isDone());
 
@@ -266,8 +264,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
             }
         }
         
-        Thread.sleep(10_000);
-        
         assertFalse(addIndesFut.isDone());
         assertFalse(addIndesIfNotExistsFut.isDone());
     
@@ -338,8 +334,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
                 addColumnIfNotExists(ignite, SCHEMA, SHORT_TABLE_NAME);
             }
         }
-        
-        Thread.sleep(10_000);
         
         assertFalse(addColFut.isDone());
         assertFalse(addColIfNotExistsFut.isDone());
