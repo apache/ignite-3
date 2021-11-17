@@ -319,8 +319,8 @@ public class KeyValueViewOperationsTest {
      * Creates key-value view.
      */
     private KeyValueViewImpl<TestKeyObject, TestObjectWithAllTypes> kvView() {
-        Mapper<TestKeyObject> keyMapper = Mapper.identity(TestKeyObject.class);
-        Mapper<TestObjectWithAllTypes> valMapper = Mapper.identity(TestObjectWithAllTypes.class);
+        Mapper<TestKeyObject> keyMapper = Mapper.of(TestKeyObject.class);
+        Mapper<TestObjectWithAllTypes> valMapper = Mapper.of(TestObjectWithAllTypes.class);
         
         Column[] valCols = {
                 new Column("primitiveByteCol", INT8, false),

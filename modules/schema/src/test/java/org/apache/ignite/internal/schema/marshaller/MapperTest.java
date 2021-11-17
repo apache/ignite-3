@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.testobjects.TestOuterObject;
+import org.apache.ignite.internal.schema.testobjects.TestOuterObject.NestedObject;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.MapperBuilder;
 import org.junit.jupiter.api.Test;
@@ -35,15 +36,15 @@ public class MapperTest {
     @Test
     public void misleadingMapperUsage() {
         // Empty mapping.
-        assertThrows(IllegalStateException.class, () -> Mapper.builderFor(TestObject.class).build());
+        assertThrows(IllegalStateException.class, () -> Mapper.buildFrom(TestObject.class).build());
 
         // Many fields to one column.
-        assertThrows(IllegalArgumentException.class, () -> Mapper.builderFor(TestObject.class)
+        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(TestObject.class)
                 .map("id", "key")
                 .map("longCol", "key"));
 
         // One field to many columns.
-        assertThrows(IllegalStateException.class, () -> Mapper.builderFor(TestObject.class)
+        assertThrows(IllegalStateException.class, () -> Mapper.buildFrom(TestObject.class)
                 .map("id", "key")
                 .map("id", "val1")
                 .map("stringCol", "val2")
@@ -51,7 +52,7 @@ public class MapperTest {
 
         // Mapper builder reuse fails.
         assertThrows(IllegalStateException.class, () -> {
-            MapperBuilder<TestObject> builder = Mapper.builderFor(TestObject.class)
+            MapperBuilder<TestObject> builder = Mapper.buildFrom(TestObject.class)
                     .map("id", "key");
 
             builder.build();
@@ -68,21 +69,29 @@ public class MapperTest {
 
         Function anonymous = (i) -> i;
 
-        Mapper.builderFor(TestOuterObject.class);
-        Mapper.builderFor(TestOuterObject.NestedObect.class);
+        Mapper.buildFrom(TestOuterObject.class);
+        Mapper.buildFrom(NestedObject.class);
 
-        assertThrows(IllegalArgumentException.class, () -> Mapper.builderFor(Long.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.builderFor(TestOuterObject.InnerObject.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.builderFor(LocalClass.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.builderFor(anonymous.getClass()));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(Long.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(TestOuterObject.InnerObject.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(LocalClass.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(anonymous.getClass()));
 
-        Mapper.of("key", Long.class);
-        Mapper.of("key", TestOuterObject.class);
-        Mapper.of("key", TestOuterObject.NestedObect.class);
+        Mapper.of("column", Long.class);
+        Mapper.of("column", TestOuterObject.class);
+        Mapper.of("column", NestedObject.class);
 
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of("key", TestOuterObject.InnerObject.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of("key", LocalClass.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of("key", anonymous.getClass()));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of("column", TestOuterObject.InnerObject.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of("column", LocalClass.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of("column", anonymous.getClass()));
+
+        Mapper.of(Long.class);
+        Mapper.of(TestOuterObject.class);
+        Mapper.of(NestedObject.class);
+
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of(TestOuterObject.InnerObject.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of(LocalClass.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of(anonymous.getClass()));
     }
 
     @Test

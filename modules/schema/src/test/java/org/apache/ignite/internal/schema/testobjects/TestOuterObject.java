@@ -23,11 +23,18 @@ package org.apache.ignite.internal.schema.testobjects;
 public class TestOuterObject {
     private long id;
 
+    /**
+     * Inner class.
+     */
+    @SuppressWarnings("InnerClassMayBeStatic")
     public class InnerObject {
         private long id1;
     }
 
-    public static class NestedObect {
+    /**
+     * Nested class.
+     */
+    public static class NestedObject {
         private long id2;
     }
 }

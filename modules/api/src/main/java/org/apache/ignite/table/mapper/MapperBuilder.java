@@ -17,7 +17,6 @@
 
 package org.apache.ignite.table.mapper;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -37,8 +36,6 @@ public final class MapperBuilder<T> {
 
     /** Column-to-field name mapping. */
     private Map<String, String> columnToFields;
-
-    private String rawPojoColumnName;
 
     private boolean isStale;
 
@@ -92,25 +89,6 @@ public final class MapperBuilder<T> {
      */
     public MapperBuilder<T> map(@NotNull String fieldName, Function<Tuple, Object> mappingFunction) {
         throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /**
-     * Map an object to a binary column.
-     *
-     * @param columnName Column name.
-     * @return {@code this} for chaining.
-     */
-    public MapperBuilder<T> toBinaryColumn(String columnName) {
-        if (isStale) {
-            throw new IllegalStateException("Mapper builder can't be reused.");
-        } else if (!columnToFields.isEmpty()) {
-            throw new IllegalStateException(
-                    "Can't map object to a binary column because the mapping for it`s individual fields is already defined.");
-        }
-
-        columnToFields = null;
-
-        return this;
     }
 
     /**

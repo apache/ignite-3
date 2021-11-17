@@ -243,7 +243,7 @@ public class Example {
         }
 
         KeyValueView<OrderKey, OrderValue> orderKvView = t
-                .keyValueView(Mapper.of("key", OrderKey.class), Mapper.builderFor(OrderValue.class).map("billingDetails", (row) -> {
+                .keyValueView(Mapper.of("key", OrderKey.class), Mapper.buildFrom(OrderValue.class).map("billingDetails", (row) -> {
                     BinaryObject binObj = row.binaryObjectValue("conditionalDetails");
                     int type = row.intValue("type");
 
@@ -352,10 +352,10 @@ public class Example {
         }
 
         RecordView<TruncatedRecord> truncatedView = t
-                .recordView(Mapper.builderFor(TruncatedRecord.class).map("upgradedObject", JavaPersonV2.class).build());
+                .recordView(Mapper.buildFrom(TruncatedRecord.class).map("upgradedObject", JavaPersonV2.class).build());
 
         // Or we can have a custom conditional type selection.
-        RecordView<TruncatedRecord> truncatedView2 = t.recordView(Mapper.builderFor(TruncatedRecord.class).map("upgradedObject", (row) -> {
+        RecordView<TruncatedRecord> truncatedView2 = t.recordView(Mapper.buildFrom(TruncatedRecord.class).map("upgradedObject", (row) -> {
             BinaryObject binObj1 = row.binaryObjectValue("upgradedObject");
             int dept = row.intValue("department");
 
@@ -420,7 +420,7 @@ public class Example {
 
         employeeView.put(1L, BinaryObjects.wrap(new byte[0] /* serialized Employee */));
 
-        t.keyValueView(Mapper.identity(Long.class), Mapper.of("value", Employee.class));
+        t.keyValueView(Mapper.of(Long.class), Mapper.of("value", Employee.class));
     }
 
     /**
@@ -433,8 +433,8 @@ public class Example {
         new SchemaDescriptor(
                 1,
                 new Column[]{new Column("key", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.BYTES, true),
-        });
+                new Column[]{new Column("val", NativeTypes.BYTES, true)}
+        );
 
         class UserObject {
         }
@@ -451,12 +451,13 @@ public class Example {
         KeyValueView<Long, Employee> v1 = t.keyValueView(Long.class, Employee.class);
 
         KeyValueView<Long, Employee> v2 = t.keyValueView(
-                Mapper.of(Long.class), // Class usage without a column name can work correctly only and only when the key part is single column.
-                Mapper.builderFor(Employee.class).map("data", "val").build());
+                Mapper.of(Long.class),
+                // Class usage without a column name can work correctly only and only when the key part is single column.
+                Mapper.buildFrom(Employee.class).map("data", "val").build());
 
         KeyValueView<Long, Employee> v3 = t.keyValueView(
                 Mapper.of("key", Long.class),
-                Mapper.builderFor(Employee.class).map("data", "val").build());
+                Mapper.buildFrom(Employee.class).map("data", "val").build());
 
         KeyValueView<Long, UserObject> v4 = t.keyValueView(
                 Mapper.of("key", Long.class),

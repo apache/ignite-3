@@ -243,11 +243,11 @@ public class KvMarshallerTest {
                         new Column("col3", STRING, false)
                 });
 
-        Mapper<TestKeyObject> keyMapper = Mapper.builderFor(TestKeyObject.class)
+        Mapper<TestKeyObject> keyMapper = Mapper.buildFrom(TestKeyObject.class)
                 .map("id", "key")
                 .build();
 
-        Mapper<TestObject> valMapper = Mapper.builderFor(TestObject.class)
+        Mapper<TestObject> valMapper = Mapper.buildFrom(TestObject.class)
                 .map("longCol", "col1")
                 .map("stringCol", "col3")
                 .build();
@@ -441,13 +441,13 @@ public class KvMarshallerTest {
         final KvMarshaller<Long, byte[]> marshaller2 = factory.create(schema,
                 Mapper.of("key", Long.class), Mapper.of("val", byte[].class));
         final KvMarshaller<Long, TestPojoWrapper> marshaller3 = factory.create(schema,
-                Mapper.of("key", Long.class), Mapper.builderFor(TestPojoWrapper.class).map("pojoField", "val").build());
+                Mapper.of("key", Long.class), Mapper.buildFrom(TestPojoWrapper.class).map("pojoField", "val").build());
         final KvMarshaller<Long, TestPojoWrapper> marshaller4 = factory.create(schema,
-                Mapper.of("key", Long.class), Mapper.builderFor(TestPojoWrapper.class).map("rawField", "val").build());
+                Mapper.of("key", Long.class), Mapper.buildFrom(TestPojoWrapper.class).map("rawField", "val").build());
 
         BinaryRow row = marshaller1.marshal(1L, pojo);
         BinaryRow row2 = marshaller2.marshal(1L, serializedPojo);
-        BinaryRow row3= marshaller3.marshal(1L, new TestPojoWrapper(pojo));
+        BinaryRow row3 = marshaller3.marshal(1L, new TestPojoWrapper(pojo));
         BinaryRow row4 = marshaller4.marshal(1L, new TestPojoWrapper(serializedPojo));
 
         // Verify all rows are equivalent.
@@ -462,17 +462,19 @@ public class KvMarshallerTest {
         assertEquals(1L, marshaller4.unmarshalKey(new Row(schema, row)));
 
         // Check values.
-        assertEquals(pojo,  marshaller1.unmarshalValue(new Row(schema, row)));
-        assertArrayEquals(serializedPojo,  marshaller2.unmarshalValue(new Row(schema, row)));
-        assertEquals(new TestPojoWrapper(pojo),  marshaller3.unmarshalValue(new Row(schema, row)));
-        assertEquals(new TestPojoWrapper(serializedPojo),  marshaller4.unmarshalValue(new Row(schema, row)));
+        assertEquals(pojo, marshaller1.unmarshalValue(new Row(schema, row)));
+        assertArrayEquals(serializedPojo, marshaller2.unmarshalValue(new Row(schema, row)));
+        assertEquals(new TestPojoWrapper(pojo), marshaller3.unmarshalValue(new Row(schema, row)));
+        assertEquals(new TestPojoWrapper(serializedPojo), marshaller4.unmarshalValue(new Row(schema, row)));
     }
 
-    public byte[] serializeObject(TestPojo obj) throws IOException {
+    private byte[] serializeObject(TestPojo obj) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream(512);
+
         try (ObjectOutputStream dos = new ObjectOutputStream(baos)) {
             dos.writeObject(obj);
         }
+
         return baos.toByteArray();
     }
 
@@ -860,8 +862,8 @@ public class KvMarshallerTest {
                 return false;
             }
             TestPojoWrapper that = (TestPojoWrapper) o;
-            return Objects.equals(pojoField, that.pojoField) &&
-                    Arrays.equals(rawField, that.rawField);
+            return Objects.equals(pojoField, that.pojoField)
+                    && Arrays.equals(rawField, that.rawField);
         }
 
         @Override

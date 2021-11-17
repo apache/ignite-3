@@ -26,6 +26,8 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <T> Mapped type.
  */
+//TODO: IGNITE-15784 Do we want to support custom user serializer here? Will it be mandatory?
+// What about cross-platform compatibility? Is it up to user or no guarantees?
 public interface Mapper<T> {
     /**
      * Creates a mapper for a case when object individual fields map to the column with the same names.
@@ -33,8 +35,13 @@ public interface Mapper<T> {
      * @param cls Target object class.
      * @return Mapper.
      */
+    //TODO: Method has unclear semantic in case of natively supported type, due to ommited column name.
+    // As column name is missed, we are trying to map object to the single column,
+    // and failed when there is more than one column to map.
+    // So, method must be dropped or it's purpose must be clearly described.
+    //TODO: IGNITE-15787 Maybe, the method must be used only for annotation mapper purposes.
     static <O> Mapper<O> of(Class<O> cls) {
-        return identity(cls);
+        return new IdentityMapper<O>(ensureValidKind(cls));
     }
 
     /**
@@ -51,25 +58,14 @@ public interface Mapper<T> {
     /**
      * Creates a mapper builder for objects of given class.
      *
+     * <p>Note: the class MUST have a default constructor.
+     *
      * @param cls Target object class.
      * @return Mapper builder.
      * @throws IllegalArgumentException If class is of unsupported kind. E.g. inner, anonymous or local.
      */
-    static <O> MapperBuilder<O> builderFor(Class<O> cls) {
-        ensureDefaultConsturctor(ensureValidKind(cls));
-
-        return new MapperBuilder<>(cls);
-    }
-
-    /**
-     * Creates identity mapper which is used for simple types that have native support or objects with field names that match column names.
-     *
-     * @param cls Target type class.
-     * @param <T>         Target type.
-     * @return Mapper.
-     */
-    static <T> Mapper<T> identity(Class<T> cls) {
-        return new IdentityMapper<T>(ensureValidKind(cls));
+    static <O> MapperBuilder<O> buildFrom(Class<O> cls) {
+        return new MapperBuilder<>(ensureDefaultConsturctor(ensureValidKind(cls)));
     }
 
     /**
@@ -79,9 +75,9 @@ public interface Mapper<T> {
      * @return {@code cls} if it is valid.
      * @throws IllegalArgumentException If {@code cls} is invalid and can't be used in mapping.
      */
-    private static <T> Class<T> ensureValidKind(Class<T> cls) {
-        if (cls.isAnonymousClass() || cls.isLocalClass() || cls.isSynthetic() || cls.isPrimitive() ||
-                (cls.isMemberClass() && !Modifier.isStatic(cls.getModifiers()))) {
+    private static <O> Class<O> ensureValidKind(Class<O> cls) {
+        if (cls.isAnonymousClass() || cls.isLocalClass() || cls.isSynthetic() || cls.isPrimitive()
+                || (cls.isMemberClass() && !Modifier.isStatic(cls.getModifiers()))) {
             throw new IllegalArgumentException("Class is of unsupported kind.");
         }
 
@@ -92,11 +88,14 @@ public interface Mapper<T> {
      * Ensures class has default constructor.
      *
      * @param cls Class to validate.
+     * @return {@code cls} if it is valid.
      * @throws IllegalArgumentException If {@code cls} can't be used in mapping.
      */
-    static <O> void ensureDefaultConsturctor(Class<O> cls) {
+    static <O> Class<O> ensureDefaultConsturctor(Class<O> cls) {
         try {
-            cls.getDeclaredConstructor(new Class[0]);
+            cls.getDeclaredConstructor();
+
+            return cls;
         } catch (NoSuchMethodException e) {
             throw new IllegalArgumentException("Class must have default constructor.");
         }
@@ -111,7 +110,7 @@ public interface Mapper<T> {
 
     /**
      * Returns a column name if the whole object is mapped to the single column, otherwise, returns {@code null} and individual column
-     * mapping (see {@link #mappedField(String)) should be used}.
+     * mapping (see {@link #mappedField(String)}) should be used.
      *
      * @return Column name that a whole object is mapped to, or {@code null}.
      */

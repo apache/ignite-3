@@ -183,7 +183,7 @@ public class RecordMarshallerTest {
                         new Column("col3", STRING, false)
                 });
         
-        Mapper<TestObject> mapper = Mapper.builderFor(TestObject.class)
+        Mapper<TestObject> mapper = Mapper.buildFrom(TestObject.class)
                 .map("id", "key")
                 .map("intCol", "col1")
                 .map("stringCol", "col3")

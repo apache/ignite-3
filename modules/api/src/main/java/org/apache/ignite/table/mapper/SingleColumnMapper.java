@@ -32,7 +32,7 @@ class SingleColumnMapper<T> implements Mapper<T> {
     /** Column name. */
     private final String mappedColumn;
 
-    SingleColumnMapper(Class<T> targetType, @NotNull String mappedColumn) {
+    SingleColumnMapper(Class<T> targetType, String mappedColumn) {
         this.targetType = targetType;
         this.mappedColumn = mappedColumn;
     }
