@@ -424,7 +424,8 @@ public class Example {
     }
 
     /**
-     * Use case 8: Here we show how to use mapper for single column case.
+     * Use case 8: Here we show how to use mapper to represent the same data in different ways.
+     * Single column case is just for simplicity.
      */
     @Disabled
     @ParameterizedTest
@@ -455,9 +456,9 @@ public class Example {
                 // Class usage without a column name can work correctly only and only when the key part is single column.
                 Mapper.buildFrom(Employee.class).map("data", "val").build());
 
-        KeyValueView<Long, Employee> v3 = t.keyValueView(
+        KeyValueView<Long, Employee2> v3 = t.keyValueView(
                 Mapper.of("key", Long.class),
-                Mapper.buildFrom(Employee.class).map("data", "val").build());
+                Mapper.buildFrom(Employee2.class).map("data", "val").build());
 
         KeyValueView<Long, UserObject> v4 = t.keyValueView(
                 Mapper.of("key", Long.class),
@@ -466,5 +467,16 @@ public class Example {
         KeyValueView<Long, byte[]> v5 = t.keyValueView(
                 Mapper.of("key", Long.class),
                 Mapper.of("data", byte[].class));
+
+        // The values in next operations are equivalent, and lead to the same row value part content.
+        v1.put(1L, new Employee());
+        v2.put(2L, new Employee());
+        v3.put(3L, new Employee2());
+        v4.put(4L, new UserObject());
+        v5.put(5L, new byte[]{/* serialized UserObject bytes */});
+
+        // Get operations return the same result for all keys for each of row.
+        // for 1 in 1..5
+        //      v1.get(iL) == v1.get(1L);
     }
 }

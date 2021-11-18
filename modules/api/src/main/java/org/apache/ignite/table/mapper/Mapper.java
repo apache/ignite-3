@@ -17,7 +17,10 @@
 
 package org.apache.ignite.table.mapper;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -41,7 +44,8 @@ public interface Mapper<T> {
     // So, method must be dropped or it's purpose must be clearly described.
     //TODO: IGNITE-15787 Maybe, the method must be used only for annotation mapper purposes.
     static <O> Mapper<O> of(Class<O> cls) {
-        return new IdentityMapper<O>(ensureValidKind(cls));
+        return new DefaultColumnMapper<>(ensureValidKind(cls),
+                Arrays.stream(cls.getDeclaredFields()).collect(Collectors.toMap(Field::getName, Field::getName)));
     }
 
     /**
