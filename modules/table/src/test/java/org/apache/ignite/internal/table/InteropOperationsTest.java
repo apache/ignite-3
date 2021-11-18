@@ -21,10 +21,19 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -33,6 +42,7 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.marshaller.RecordMarshallerTest;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.table.KeyValueView;
@@ -69,10 +79,14 @@ public class InteropOperationsTest {
 
     /** Record binary view for test. */
     private static final RecordView<Tuple> R_BIN_VIEW;
-
+    
     static {
-        NativeType[] types = {NativeTypes.INT8, NativeTypes.INT16, NativeTypes.INT32, NativeTypes.INT64,
-            NativeTypes.FLOAT, NativeTypes.DOUBLE, NativeTypes.UUID, NativeTypes.STRING, NativeTypes.BYTES};
+        NativeType[] types = {
+                NativeTypes.INT8, NativeTypes.INT16, NativeTypes.INT32, NativeTypes.INT64,
+                NativeTypes.FLOAT, NativeTypes.DOUBLE, NativeTypes.UUID, NativeTypes.STRING,
+                NativeTypes.BYTES, NativeTypes.DATE, NativeTypes.time(), NativeTypes.timestamp(), NativeTypes.datetime(),
+                NativeTypes.numberOf(2), NativeTypes.decimalOf(5, 2), NativeTypes.bitmaskOf(8)
+        };
 
         List<Column> valueCols = new ArrayList<>(types.length * 2);
 
@@ -82,6 +96,7 @@ public class InteropOperationsTest {
             valueCols.add(new Column(colName, type, false));
             valueCols.add(new Column(colName + "N", type, true));
         }
+        
         SCHEMA = new SchemaDescriptor(1,
                 new Column[]{new Column("id", NativeTypes.INT64, false)},
                 valueCols.toArray(Column[]::new)
@@ -100,13 +115,21 @@ public class InteropOperationsTest {
         R_BIN_VIEW = TABLE.recordView();
         R_VIEW = TABLE.recordView(Mapper.identity(Row.class));
     }
-
+    
+    /**
+     * Validate all types are tested.
+     */
+    @Test
+    public void ensureAllTypesTested() {
+        RecordMarshallerTest.ensureAllTypesChecked(Arrays.stream(SCHEMA.valueColumns().columns()));
+    }
+    
     @AfterEach
     public void clearTable() {
         TABLE.recordView().delete(Tuple.create().set("id", 1L));
         TABLE.recordView().delete(Tuple.create().set("id", 2L));
     }
-
+    
     /**
      * Write through key value API and test records.
      */
@@ -157,19 +180,19 @@ public class InteropOperationsTest {
     private void readback() {
         assertTrue(readKeyValue(1, false));
         assertTrue(readKeyValue(2, true));
-        assertFalse(readKeyValue(0, false));
+        assertFalse(readKeyValue(3, false));
 
         assertTrue(readKeyValueBinary(1, false));
         assertTrue(readKeyValueBinary(2, true));
-        assertFalse(readKeyValueBinary(0, false));
+        assertFalse(readKeyValueBinary(3, false));
 
         assertTrue(readRecord(1, false));
         assertTrue(readRecord(2, true));
-        assertFalse(readRecord(0, false));
+        assertFalse(readRecord(3, false));
 
         assertTrue(readRecordBinary(1, false));
         assertTrue(readRecordBinary(2, true));
-        assertFalse(readRecordBinary(0, false));
+        assertFalse(readRecordBinary(3, false));
     }
 
     /**
@@ -322,10 +345,10 @@ public class InteropOperationsTest {
             if (!nulls && col.nullable()) {
                 continue;
             }
-
+    
             String colName = col.name();
             NativeType type = col.type();
-
+    
             if (NativeTypes.INT8.equals(type)) {
                 res.set(colName, (byte) id);
             } else if (NativeTypes.INT16.equals(type)) {
@@ -344,10 +367,27 @@ public class InteropOperationsTest {
                 res.set(colName, String.valueOf(id));
             } else if (NativeTypes.UUID.equals(type)) {
                 res.set(colName, new UUID(0L, (long) id));
+            } else if (NativeTypes.DATE.equals(type)) {
+                res.set(colName, LocalDate.ofYearDay(2021, id));
+            } else if (NativeTypes.time().equals(type)) {
+                res.set(colName, LocalTime.ofSecondOfDay(id));
+            } else if (NativeTypes.datetime().equals(type)) {
+                res.set(colName, LocalDateTime.ofEpochSecond(id, 0, ZoneOffset.UTC));
+            } else if (NativeTypes.timestamp().equals(type)) {
+                res.set(colName, Instant.ofEpochSecond(id));
+            } else if (NativeTypes.numberOf(2).equals(type)) {
+                res.set(colName, BigInteger.valueOf(id));
+            } else if (NativeTypes.decimalOf(5, 2).equals(type)) {
+                res.set(colName, BigDecimal.valueOf(id * 100).movePointLeft(2));
+            } else if (NativeTypes.bitmaskOf(8).equals(type)) {
+                BitSet bitSet = new BitSet();
+                bitSet.set(id);
+                res.set(colName, bitSet);
+            } else {
+                fail("Unable to fullfill value of type " + type);
             }
-
         }
-
+        
         return res;
     }
 
@@ -392,8 +432,26 @@ public class InteropOperationsTest {
                 assertEquals(expected.stringValue(colName), t.stringValue(colName));
             } else if (NativeTypes.UUID.equals(type)) {
                 assertEquals(expected.uuidValue(colName), t.uuidValue(colName));
+            } else if (NativeTypes.DATE.equals(type)) {
+                assertEquals(expected.dateValue(colName), t.dateValue(colName));
+            } else if (NativeTypes.time().equals(type)) {
+                assertEquals(expected.timeValue(colName), t.timeValue(colName));
+            } else if (NativeTypes.datetime().equals(type)) {
+                assertEquals(expected.datetimeValue(colName), t.datetimeValue(colName));
+            } else if (NativeTypes.timestamp().equals(type)) {
+                assertEquals(expected.timestampValue(colName), expected.timestampValue(colName));
+            } else if (NativeTypes.numberOf(2).equals(type)) {
+                assertEquals((BigInteger)expected.value(colName), t.value(colName));
+            } else if (NativeTypes.decimalOf(5, 2).equals(type)) {
+                assertEquals((BigDecimal)expected.value(colName), t.value(colName));
+            } else if (NativeTypes.bitmaskOf(8).equals(type)) {
+                assertEquals(expected.bitmaskValue(colName), t.bitmaskValue(colName));
+            } else {
+                fail("Unable to validate value of type " + type);
             }
         }
+        
+        assertTrue(!nulls ^ expected.equals(t), "nulls = " + nulls + ", id = " + id);
     }
 
     /**
@@ -418,8 +476,23 @@ public class InteropOperationsTest {
         private String fstringN;
         private byte[] fbytes;
         private byte[] fbytesN;
+        private LocalDate fdate;
+        private LocalDate fdateN;
+        private LocalTime ftime;
+        private LocalTime ftimeN;
+        private LocalDateTime fdatetime;
+        private LocalDateTime fdatetimeN;
+        private Instant ftimestamp;
+        private Instant ftimestampN;
+        private BigInteger fnumber;
+        private BigInteger fnumberN;
+        private BigDecimal fdecimal;
+        private BigDecimal fdecimalN;
+        private BitSet fbitmask;
+        private BitSet fbitmaskN;
 
         public Value() {
+        
         }
 
         public Value(int id, boolean nulls) {
@@ -441,8 +514,26 @@ public class InteropOperationsTest {
             fstringN = (nulls) ? String.valueOf(id) : null;
             fbytes = String.valueOf(id).getBytes(StandardCharsets.UTF_8);
             fbytesN = (nulls) ? String.valueOf(id).getBytes(StandardCharsets.UTF_8) : null;
+            fdate = LocalDate.ofYearDay(2021, id);
+            fdateN = (nulls) ? LocalDate.ofYearDay(2021, id) : null;
+            ftime = LocalTime.ofSecondOfDay(id);
+            ftimeN = (nulls) ? LocalTime.ofSecondOfDay(id) : null;
+            fdatetime = LocalDateTime.ofEpochSecond(id, 0, ZoneOffset.UTC);
+            fdatetimeN = (nulls) ? LocalDateTime.ofEpochSecond(id, 0, ZoneOffset.UTC) : null;
+            ftimestamp = Instant.ofEpochSecond(id);
+            ftimestampN = (nulls) ? Instant.ofEpochSecond(id) : null;
+            fnumber = BigInteger.valueOf(id);
+            fnumberN = (nulls) ? BigInteger.valueOf(id) : null;
+            fdecimal = BigDecimal.valueOf(id * 100).movePointLeft(2);
+            fdecimalN = (nulls) ? BigDecimal.valueOf(id * 100).movePointLeft(2) : null;
+            fbitmask = new BitSet();
+            fbitmask.set(id);
+            if (nulls) {
+                fbitmaskN = new BitSet();
+                fbitmaskN.set(id);
+            }
         }
-
+    
         @Override
         public boolean equals(Object o) {
             if (this == o) {
@@ -457,7 +548,15 @@ public class InteropOperationsTest {
                     && Objects.equals(fint8N, value.fint8N) && Objects.equals(fint16N, value.fint16N)
                     && Objects.equals(fint32N, value.fint32N) && Objects.equals(fint64N, value.fint64N)
                     && Objects.equals(ffloatN, value.ffloatN) && Objects.equals(fdoubleN, value.fdoubleN)
-                    && Objects.equals(fuuid, value.fuuid) && Objects.equals(fuuidN, value.fuuidN);
+                    && Objects.equals(fuuid, value.fuuid) && Objects.equals(fuuidN, value.fuuidN) && Objects.equals(
+                    fstring, value.fstring) && Objects.equals(fstringN, value.fstringN) && Arrays.equals(fbytes, value.fbytes)
+                    && Arrays.equals(fbytesN, value.fbytesN) && Objects.equals(fdate, value.fdate) && Objects.equals(
+                    fdateN, value.fdateN) && Objects.equals(ftime, value.ftime) && Objects.equals(ftimeN, value.ftimeN)
+                    && Objects.equals(fdatetime, value.fdatetime) && Objects.equals(fdatetimeN, value.fdatetimeN)
+                    && Objects.equals(ftimestamp, value.ftimestamp) && Objects.equals(ftimestampN, value.ftimestampN)
+                    && Objects.equals(fnumber, value.fnumber) && Objects.equals(fnumberN, value.fnumberN)
+                    && Objects.equals(fdecimal, value.fdecimal) && Objects.equals(fdecimalN, value.fdecimalN)
+                    && Objects.equals(fbitmask, value.fbitmask) && Objects.equals(fbitmaskN, value.fbitmaskN);
         }
     }
 
@@ -484,6 +583,20 @@ public class InteropOperationsTest {
         private String fstringN;
         private byte[] fbytes;
         private byte[] fbytesN;
+        private LocalDate fdate;
+        private LocalDate fdateN;
+        private LocalTime ftime;
+        private LocalTime ftimeN;
+        private LocalDateTime fdatetime;
+        private LocalDateTime fdatetimeN;
+        private Instant ftimestamp;
+        private Instant ftimestampN;
+        private BigInteger fnumber;
+        private BigInteger fnumberN;
+        private BigDecimal fdecimal;
+        private BigDecimal fdecimalN;
+        private BitSet fbitmask;
+        private BitSet fbitmaskN;
 
         public Row() {
         }
@@ -511,8 +624,28 @@ public class InteropOperationsTest {
 
             fbytes = String.valueOf(id).getBytes(StandardCharsets.UTF_8);
             fbytesN = (nulls) ? String.valueOf(id).getBytes(StandardCharsets.UTF_8) : null;
+    
+            fdate = LocalDate.ofYearDay(2021, id);
+            fdateN = (nulls) ? LocalDate.ofYearDay(2021, id) : null;
+            ftime = LocalTime.ofSecondOfDay(id);
+            ftimeN = (nulls) ? LocalTime.ofSecondOfDay(id) : null;
+            fdatetime = LocalDateTime.ofEpochSecond(id, 0, ZoneOffset.UTC);
+            fdatetimeN = (nulls) ? LocalDateTime.ofEpochSecond(id, 0, ZoneOffset.UTC) : null;
+            ftimestamp = Instant.ofEpochSecond(id);
+            ftimestampN = (nulls) ? Instant.ofEpochSecond(id) : null;
+            fnumber = BigInteger.valueOf(id);
+            fnumberN = (nulls) ? BigInteger.valueOf(id) : null;
+            new BigDecimal(fnumber, 2);
+            fdecimal = BigDecimal.valueOf(id * 100).movePointLeft(2);
+            fdecimalN = (nulls) ? BigDecimal.valueOf(id * 100).movePointLeft(2) : null;
+            fbitmask = new BitSet();
+            fbitmask.set(id);
+            if (nulls) {
+                fbitmaskN = new BitSet();
+                fbitmaskN.set(id);
+            }
         }
-
+    
         @Override
         public boolean equals(Object o) {
             if (this == o) {
@@ -528,7 +661,14 @@ public class InteropOperationsTest {
                     fint32N, row.fint32N) && Objects.equals(fint64N, row.fint64N) && Objects.equals(ffloatN, row.ffloatN)
                     && Objects.equals(fdoubleN, row.fdoubleN) && Objects.equals(fuuid, row.fuuid) && Objects.equals(
                     fuuidN, row.fuuidN) && Objects.equals(fstring, row.fstring) && Objects.equals(fstringN, row.fstringN)
-                    && Arrays.equals(fbytes, row.fbytes) && Arrays.equals(fbytesN, row.fbytesN);
+                    && Arrays.equals(fbytes, row.fbytes) && Arrays.equals(fbytesN, row.fbytesN) && Objects.equals(
+                    fdate, row.fdate) && Objects.equals(fdateN, row.fdateN) && Objects.equals(ftime, row.ftime)
+                    && Objects.equals(ftimeN, row.ftimeN) && Objects.equals(fdatetime, row.fdatetime)
+                    && Objects.equals(fdatetimeN, row.fdatetimeN) && Objects.equals(ftimestamp, row.ftimestamp)
+                    && Objects.equals(ftimestampN, row.ftimestampN) && Objects.equals(fnumber, row.fnumber)
+                    && Objects.equals(fnumberN, row.fnumberN) && Objects.equals(fdecimal, row.fdecimal)
+                    && Objects.equals(fdecimalN, row.fdecimalN) && Objects.equals(fbitmask, row.fbitmask)
+                    && Objects.equals(fbitmaskN, row.fbitmaskN);
         }
     }
 }
