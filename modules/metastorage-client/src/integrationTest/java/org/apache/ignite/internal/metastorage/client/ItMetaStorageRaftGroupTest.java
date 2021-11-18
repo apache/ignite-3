@@ -92,7 +92,7 @@ public class ItMetaStorageRaftGroupTest {
     /** Nodes. */
     private static final int NODES = 3;
     
-    /** Meta Storage raft group name */
+    /** Meta Storage raft group name. */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "METASTORAGE_RAFT_GROUP";
     
     /** Factory. */
