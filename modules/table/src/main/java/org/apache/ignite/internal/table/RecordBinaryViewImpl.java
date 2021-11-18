@@ -383,7 +383,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
             return null;
         }
 
-        return rows.stream().map(this::wrap).collect(toList());
+        return schemaReg.resolve(rows).stream().map(TableRow::tuple).collect(toList());
     }
 
     /**
