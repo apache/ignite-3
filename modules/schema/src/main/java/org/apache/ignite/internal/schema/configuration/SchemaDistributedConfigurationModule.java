@@ -23,11 +23,11 @@ import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.table.ColumnTypeValidator;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
-import org.apache.ignite.configuration.validation.ConfigurationModule;
 import org.apache.ignite.configuration.validation.Validator;
 
 /**

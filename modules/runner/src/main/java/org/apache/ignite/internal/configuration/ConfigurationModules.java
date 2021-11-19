@@ -19,8 +19,8 @@ package org.apache.ignite.internal.configuration;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.validation.ConfigurationModule;
 
 /**
  * An ensemble of {@link ConfigurationModule}s used to easily pick node-local and cluster-wide configuration

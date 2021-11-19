@@ -28,9 +28,9 @@ import static org.hamcrest.Matchers.is;
 
 import java.util.Optional;
 import java.util.ServiceLoader;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.schemas.table.ColumnTypeValidator;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
-import org.apache.ignite.configuration.validation.ConfigurationModule;
 import org.junit.jupiter.api.Test;
 
 /**

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.validation;
+package org.apache.ignite.configuration;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
@@ -24,8 +24,8 @@ import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.validation.Validator;
 
 /**
  * TODO: javadoc.

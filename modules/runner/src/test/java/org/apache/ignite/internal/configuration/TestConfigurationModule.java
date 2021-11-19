@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.configuration;
 
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.validation.ConfigurationModule;
 
 /**
  * A test {@link ConfigurationModule} implementation used to test loading by {@link ServiceLoaderModulesProvider}.

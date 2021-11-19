@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.configuration;
 
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.validation.ConfigurationModule;
+import org.apache.ignite.configuration.ConfigurationModule;
 
 /**
  * TODO: add javadoc.
