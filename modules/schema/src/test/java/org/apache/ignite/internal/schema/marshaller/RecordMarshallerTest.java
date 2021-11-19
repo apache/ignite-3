@@ -502,6 +502,21 @@ public class RecordMarshallerTest {
      */
     @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     public static class TestTruncatedObject {
+        private Integer intCol;
+    
+        // Primitive typed
+        private int primitiveIntCol;
+    
+        private long primitiveLongCol;
+    
+        private float primitiveFloatCol;
+    
+        private double primitiveDoubleCol;
+    
+        private String stringCol;
+    
+        private java.util.UUID uuidCol;
+        
         static TestTruncatedObject randomObject(Random rnd) {
             final TestTruncatedObject obj = new TestTruncatedObject();
 
@@ -514,21 +529,6 @@ public class RecordMarshallerTest {
             
             return obj;
         }
-
-        private Integer intCol;
-
-        // Primitive typed
-        private int primitiveIntCol;
-        
-        private long primitiveLongCol;
-        
-        private float primitiveFloatCol;
-        
-        private double primitiveDoubleCol;
-        
-        private String stringCol;
-        
-        private java.util.UUID uuidCol;
         
         @Override
         public boolean equals(Object o) {

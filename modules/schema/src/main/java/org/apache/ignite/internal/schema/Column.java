@@ -87,9 +87,9 @@ public class Column implements Serializable {
             String name,
             NativeType type,
             boolean nullable,
-            @NotNull Supplier<Object> defValSup
+            Supplier<Object> defValSup
     ) {
-        this(-1, -1, name, type, nullable, defValSup);
+        this(-1, -1, name, type, nullable, (defValSup == null) ? NULL_SUPPLIER : defValSup);
     }
 
     /**
