@@ -17,14 +17,8 @@
 
 package org.apache.ignite.internal.configuration;
 
-import java.lang.annotation.Annotation;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.ConfigurationModule;
-import org.apache.ignite.configuration.validation.Validator;
 
 /**
  * A test {@link ConfigurationModule} implementation used to test loading by {@link ServiceLoaderModulesProvider}.
@@ -32,30 +26,6 @@ import org.apache.ignite.configuration.validation.Validator;
 public class TestConfigurationModule implements ConfigurationModule {
     @Override
     public ConfigurationType type() {
-        throw new UnsupportedOperationException("Not to be invoked");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        throw new UnsupportedOperationException("Not to be invoked");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        throw new UnsupportedOperationException("Not to be invoked");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Collection<Class<?>> internalSchemaExtensions() {
-        throw new UnsupportedOperationException("Not to be invoked");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Collection<Class<?>> polymorphicSchemaExtensions() {
-        throw new UnsupportedOperationException("Not to be invoked");
+        return ConfigurationType.LOCAL;
     }
 }
