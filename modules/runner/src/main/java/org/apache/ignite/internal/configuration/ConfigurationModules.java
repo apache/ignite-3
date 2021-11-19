@@ -31,6 +31,11 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 public class ConfigurationModules {
     private final List<ConfigurationModule> modules;
 
+    /**
+     * Creates a new instance of {@link ConfigurationModules} wrapping modules passed to it.
+     *
+     * @param modules modules to wrap; they may be of different types
+     */
     public ConfigurationModules(List<ConfigurationModule> modules) {
         this.modules = List.copyOf(modules);
     }
