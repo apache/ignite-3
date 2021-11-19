@@ -22,6 +22,8 @@ import org.apache.ignite.configuration.ConfigurationModule;
 
 /**
  * Provider of {@link ConfigurationModule}s.
+ *
+ * @see ConfigurationModule
  */
 public interface ConfigurationModulesProvider {
     /**

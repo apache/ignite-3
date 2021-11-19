@@ -22,7 +22,10 @@ import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationModule;
 
 /**
- * TODO: javadoc.
+ * Provides {@link ConfigurationModule}s using {@link ServiceLoader} mechanism.
+ * Uses {@link ConfigurationModule} interface to query the ServiceLoader.
+ *
+ * @see ConfigurationModule
  */
 public class ServiceLoaderModulesProvider implements ConfigurationModulesProvider {
     @Override
