@@ -25,26 +25,74 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.validation.Validator;
 
 /**
- * TODO: javadoc.
+ * A module of configuration provided by a JAR file (or, in its source form, by a Maven/Gradle/... module).
+ * <p>Each configuration module only supplies configuration of only one {@link ConfigurationType}, so,
+ * if a library needs to provide both node-local and cluster-wide configuration, it needs to supply
+ * two {@link ConfigurationModule} instances.
+ * <p>Designed for integration with {@link java.util.ServiceLoader} mechanism, so ConfigurationModule instances
+ * provided by a library are to be defined as services either in
+ * <tt>META-INF/services/org.apache.ignite.configuration.ConfigurationModule</tt>, or in a {@code module-info.java}.
+ * <p>Supplies the following configuration components:
+ * <ul>
+ *     <li><b>rootKeys</b> ({@link RootKey} instances)</li>
+ *     <li><b>validators</b> ({@link Validator} instances)</li>
+ *     <li><b>internalSchemaExtensions</b> (classes annotated with {@link InternalConfiguration})</li>
+ *     <li><b>polymorphicSchemaExtensions</b> (classes annotataed with {@link PolymorphicConfig})</li>
+ * </ul>
+ *
+ * @see ConfigurationType
+ * @see RootKey
+ * @see Validator
+ * @see InternalConfiguration
+ * @see PolymorphicConfig
  */
 public interface ConfigurationModule {
+    /**
+     * Type of the configuration provided by this module.
+     *
+     * @return configuration type
+     */
     ConfigurationType type();
 
+    /**
+     * Returns keys of configuration roots provided by this module.
+     *
+     * @return root keys
+     */
     default Collection<RootKey<?, ?>> rootKeys() {
         return emptySet();
     }
 
+    /**
+     * Returns configuration validators provided by this module.
+     *
+     * @return configuration validators
+     */
     default Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
         return emptyMap();
     }
 
+    /**
+     * Returns classes of internal schema extensions (annotated with {@link InternalConfiguration})
+     * provided by this module.
+     *
+     * @return internal schema extensions' classes
+     */
     default Collection<Class<?>> internalSchemaExtensions() {
         return emptySet();
     }
 
+    /**
+     * Returns classes of polymorphic schema extensions (annotated with {@link PolymorphicConfig})
+     * provided by this module.
+     *
+     * @return polymorphic schema extensions' classes
+     */
     default Collection<Class<?>> polymorphicSchemaExtensions() {
         return emptySet();
     }
