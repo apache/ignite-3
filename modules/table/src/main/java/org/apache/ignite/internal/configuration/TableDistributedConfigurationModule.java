@@ -17,18 +17,10 @@
 
 package org.apache.ignite.internal.configuration;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
-
-import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 
 /**
@@ -41,22 +33,7 @@ public class TableDistributedConfigurationModule implements ConfigurationModule 
     }
 
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return emptyList();
-    }
-
-    @Override
-    public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        return emptyMap();
-    }
-
-    @Override
     public Collection<Class<?>> internalSchemaExtensions() {
         return List.of(ExtendedTableConfigurationSchema.class);
-    }
-
-    @Override
-    public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return emptyList();
     }
 }

@@ -17,14 +17,8 @@
 
 package org.apache.ignite.configuration;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
-
-import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
@@ -32,7 +26,6 @@ import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchem
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.validation.Validator;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-api.
@@ -52,18 +45,6 @@ public class CoreDistributedConfigurationModule implements ConfigurationModule {
                 TablesConfiguration.KEY,
                 DataStorageConfiguration.KEY
         );
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        return emptyMap();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Collection<Class<?>> internalSchemaExtensions() {
-        return emptyList();
     }
 
     /** {@inheritDoc} */

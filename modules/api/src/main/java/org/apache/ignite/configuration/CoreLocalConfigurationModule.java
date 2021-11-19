@@ -17,20 +17,13 @@
 
 package org.apache.ignite.configuration;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
-
-import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
-import org.apache.ignite.configuration.validation.Validator;
 
 /**
  * {@link ConfigurationModule} for node-local configuration provided by ignite-api.
@@ -51,23 +44,5 @@ public class CoreLocalConfigurationModule implements ConfigurationModule {
                 RestConfiguration.KEY,
                 ClientConnectorConfiguration.KEY
         );
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        return emptyMap();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Collection<Class<?>> internalSchemaExtensions() {
-        return emptyList();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return emptyList();
     }
 }
