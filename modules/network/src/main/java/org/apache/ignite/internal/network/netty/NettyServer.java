@@ -174,6 +174,7 @@ public class NettyServer {
             
             InboundView inboundConfiguration = configuration.inbound();
             
+            // TODO: Reuse part of this logic and move to ConnectionManager.createServerBootstrap.
             bootstrap.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
                     .childHandler(new ChannelInitializer<SocketChannel>() {
