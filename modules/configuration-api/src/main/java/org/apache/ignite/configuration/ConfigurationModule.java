@@ -38,7 +38,7 @@ import org.apache.ignite.configuration.validation.Validator;
  *
  * <p>Designed for integration with {@link java.util.ServiceLoader} mechanism, so ConfigurationModule instances
  * provided by a library are to be defined as services either in
- * <tt>META-INF/services/org.apache.ignite.configuration.ConfigurationModule</tt>, or in a {@code module-info.java}.
+ * {@code META-INF/services/org.apache.ignite.configuration.ConfigurationModule}, or in a {@code module-info.java}.
  *
  * <p>Supplies the following configuration components:
  * <ul>
