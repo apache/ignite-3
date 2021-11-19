@@ -35,49 +35,33 @@ import org.jetbrains.annotations.NotNull;
  * <p>Local Time(48 bit) Local counter (16 bit) Local node id (48 bits) Not used (16 bits)
  */
 public class Timestamp implements Comparable<Timestamp>, Serializable {
-    /**
-     * Serial version.
-     */
+    /** Serial version. */
     private static final long serialVersionUID = 1L;
 
-    /**
-     * Epoch start for the generation purposes.
-     */
+    /** Epoch start for the generation purposes. */
     private static final long EPOCH = LocalDateTime.of(2021, 1, 1, 0, 0, 0)
             .toInstant(ZoneOffset.UTC).toEpochMilli();
 
-    /**
-     * A max value for a counter before rollover.
-     */
+    /** A max value for a counter before rollover. */
     public static final short MAX_CNT = Short.MAX_VALUE;
 
-    /**
-     * Local time.
-     */
+    /** Local time. */
     private static long localTime;
 
-    /**
-     * The counter.
-     */
+    /** The counter. */
     private static long cntr;
 
-    /**
-     * Local node id.
-     */
+    /** Local node id. */
     private static long localNodeId = getLocalNodeId();
 
-    /**
-     * The offset and counter part of a timestamp.
-     */
+    /** The offset and counter part of a timestamp. */
     private final long timestamp;
 
-    /**
-     * The node id part of a timestamp.
-     */
+    /** The node id part of a timestamp. */
     private final long nodeId;
 
     /**
-     * Constructor.
+     * The constructor.
      *
      * @param timestamp The timestamp.
      * @param nodeId Node id.
@@ -87,9 +71,7 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         this.nodeId = nodeId;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public int compareTo(@NotNull Timestamp other) {
         return (this.timestamp < other.timestamp ? -1 :
@@ -192,19 +174,18 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         try {
             InetAddress localHost = InetAddress.getLocalHost();
 
-            // TODO IGNITE-15929 make sure this always works. Can use random bytes if iface doesn't exists.
             NetworkInterface iface = NetworkInterface.getByInetAddress(localHost);
             
-            byte[] bytes;
+            byte[] bytes = null;
             
-            if (iface == null) {
-                bytes = new byte[Byte.SIZE];
-    
-                ThreadLocalRandom.current().nextBytes(bytes);
-            } else {
+            if (iface != null) {
                 bytes = iface.getHardwareAddress();
             }
-
+    
+            if (bytes == null) {
+                ThreadLocalRandom.current().nextBytes(bytes = new byte[Byte.SIZE]);
+            }
+    
             ByteBuffer buffer = ByteBuffer.allocate(Byte.SIZE);
             buffer.put(bytes);
 
