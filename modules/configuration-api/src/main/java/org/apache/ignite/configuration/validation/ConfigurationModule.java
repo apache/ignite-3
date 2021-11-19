@@ -17,6 +17,9 @@
 
 package org.apache.ignite.configuration.validation;
 
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
+
 import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.Map;
@@ -30,11 +33,19 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 public interface ConfigurationModule {
     ConfigurationType type();
 
-    Collection<RootKey<?, ?>> rootKeys();
+    default Collection<RootKey<?, ?>> rootKeys() {
+        return emptySet();
+    }
 
-    Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators();
+    default Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
+        return emptyMap();
+    }
 
-    Collection<Class<?>> internalSchemaExtensions();
+    default Collection<Class<?>> internalSchemaExtensions() {
+        return emptySet();
+    }
 
-    Collection<Class<?>> polymorphicSchemaExtensions();
+    default Collection<Class<?>> polymorphicSchemaExtensions() {
+        return emptySet();
+    }
 }
