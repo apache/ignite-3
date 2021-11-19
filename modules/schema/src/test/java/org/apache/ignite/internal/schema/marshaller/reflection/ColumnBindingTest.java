@@ -57,9 +57,9 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 /**
- * Check field accessor correctness.
+ * Check field binding correctness.
  */
-public class FieldAccessorTest {
+public class ColumnBindingTest {
     /** Random. */
     private Random rnd;
 
@@ -76,12 +76,12 @@ public class FieldAccessorTest {
     }
 
     /**
-     * FieldAccessor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * FieldBinding. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @throws Exception If failed.
      */
     @Test
-    public void fieldAccessor() throws Exception {
+    public void fieldBinding() throws Exception {
         Column[] cols = new Column[]{
                 new Column("primitiveByteCol", INT8, false),
                 new Column("primitiveShortCol", INT16, false),
@@ -118,31 +118,25 @@ public class FieldAccessorTest {
         final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
 
         for (int i = 0; i < cols.length; i++) {
-            ColumnBinding accessor = ColumnBinding
-                    .createFieldBinding(cols[i], TestObjectWithAllTypes.class, cols[i].name());
-
-            accessor.write(rowAssembler, obj);
+            ColumnBinding.createFieldBinding(cols[i].copy(i), TestObjectWithAllTypes.class, cols[i].name()).write(rowAssembler, obj);
         }
 
         final TestObjectWithAllTypes restoredObj = new TestObjectWithAllTypes();
 
         for (int i = 0; i < cols.length; i++) {
-            ColumnBinding accessor = ColumnBinding
-                    .createFieldBinding(cols[i], TestObjectWithAllTypes.class, cols[i].name());
-
-            accessor.read(row, restoredObj);
+            ColumnBinding.createFieldBinding(cols[i].copy(i), TestObjectWithAllTypes.class, cols[i].name()).read(row, restoredObj);
         }
 
         assertEquals(obj, restoredObj);
     }
 
     /**
-     * NullableFieldsAccessor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * NullableFieldsBinding. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @throws Exception If failed.
      */
     @Test
-    public void nullableFieldsAccessor() throws Exception {
+    public void nullableFieldsBinding() throws Exception {
         Column[] cols = new Column[]{
                 new Column("intCol", INT32, true),
                 new Column("longCol", INT64, true),
@@ -159,84 +153,55 @@ public class FieldAccessorTest {
         final TestSimpleObject obj = TestSimpleObject.randomObject(rnd);
 
         for (int i = 0; i < cols.length; i++) {
-            ColumnBinding accessor = ColumnBinding
-                    .createFieldBinding(cols[i], TestSimpleObject.class, cols[i].name());
-
-            accessor.write(rowAssembler, obj);
+            ColumnBinding.createFieldBinding(cols[i].copy(i), TestSimpleObject.class, cols[i].name()).write(rowAssembler, obj);
         }
 
         final TestSimpleObject restoredObj = new TestSimpleObject();
 
         for (int i = 0; i < cols.length; i++) {
-            ColumnBinding accessor = ColumnBinding
-                    .createFieldBinding(cols[i], TestSimpleObject.class, cols[i].name());
-
-            accessor.read(row, restoredObj);
+            ColumnBinding.createFieldBinding(cols[i].copy(i), TestSimpleObject.class, cols[i].name()).read(row, restoredObj);
         }
 
         assertEquals(obj, restoredObj);
     }
 
     /**
-     * IdentityAccessor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Identity binding.. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @throws Exception If failed.
      */
     @Test
-    public void identityAccessor() throws Exception {
-        final ColumnBinding accessor = ColumnBinding.createIdentityBinding(
-                new Column("val", STRING, true),
+    public void identityBinding() throws Exception {
+        final ColumnBinding binding = ColumnBinding.createIdentityBinding(
+                new Column("val", STRING, true).copy(0),
                 String.class);
 
-        assertEquals("Some string", accessor.value("Some string"));
+        assertEquals("Some string", binding.value("Some string"));
 
         final Pair<RowAssembler, Row> mocks = createMocks();
 
-        accessor.write(mocks.getFirst(), "Other string");
-        assertEquals("Other string", accessor.columnValue(mocks.getSecond()));
+        binding.write(mocks.getFirst(), "Other string");
+        assertEquals("Other string", binding.columnValue(mocks.getSecond()));
     }
 
     /**
-     * WrongIdentityAccessor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Wrong identity binding. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Test
-    public void wrongIdentityAccessor() {
-        final ColumnBinding accessor = ColumnBinding.createIdentityBinding(
-                new Column("val", UUID, true),
+    public void wrongIdentityBinding() {
+        final ColumnBinding binding = ColumnBinding.createIdentityBinding(
+                new Column("val", UUID, true).copy(0),
                 java.util.UUID.class);
 
         assertThrows(
-                IllegalArgumentException.class,
-                () -> accessor.value("Some string"));
+                MarshallerException.class,
+                () -> binding.value("Some string"));
 
         final Pair<RowAssembler, Row> mocks = createMocks();
 
         assertThrows(
                 MarshallerException.class,
-                () -> accessor.write(mocks.getFirst(), "Other string"),
-                "Failed to write field [id=42]"
-        );
-    }
-
-    /**
-     * WrongIdentityAccessor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    @Test
-    public void wrongIdentityAccessor2() {
-        final ColumnBinding accessor = ColumnBinding.createIdentityBinding(
-                new Column("val", UUID, true),
-                String.class);
-
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> accessor.value("Some string"));
-
-        final Pair<RowAssembler, Row> mocks = createMocks();
-
-        assertThrows(
-                MarshallerException.class,
-                () -> accessor.write(mocks.getFirst(), "Other string"),
-                "Failed to write field [id=42]"
+                () -> binding.write(mocks.getFirst(), "Other string")
         );
     }
 

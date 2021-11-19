@@ -515,15 +515,16 @@ public class RecordMarshallerTest {
             return obj;
         }
         
-        // Primitive typed
         private int primitiveIntCol;
-        
+
         private long primitiveLongCol;
         
         private float primitiveFloatCol;
         
         private double primitiveDoubleCol;
-        
+
+        private Integer intCol;
+
         private String stringCol;
         
         private java.util.UUID uuidCol;

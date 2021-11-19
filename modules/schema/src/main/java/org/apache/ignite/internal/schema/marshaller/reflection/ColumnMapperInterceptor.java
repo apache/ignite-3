@@ -20,10 +20,10 @@ package org.apache.ignite.internal.schema.marshaller.reflection;
 /**
  * An interceptor provides method for additional transformation of a column data on before write/after read.
  *
- * @param <TargetType> Object type.
- * @param <ColumnType> Column type.
+ * @param <TargetT> Object type.
+ * @param <ColumnT> Column type.
  */
-public interface ColumnAccessInterceptor<TargetType, ColumnType> {
+public interface ColumnMapperInterceptor<TargetT, ColumnT> {
     /**
      * Transforms object to a column type. Called before write data to a column.
      *
@@ -31,7 +31,7 @@ public interface ColumnAccessInterceptor<TargetType, ColumnType> {
      * @return Data to write.
      * @throws Exception If transformation failed.
      */
-    ColumnType beforeWrite(TargetType obj) throws Exception;
+    ColumnT beforeWrite(TargetT obj) throws Exception;
 
     /**
      * Transforms to an object of the target type. Called after data read from a column.
@@ -40,5 +40,5 @@ public interface ColumnAccessInterceptor<TargetType, ColumnType> {
      * @return Object of the target type.
      * @throws Exception If transformation failed.
      */
-    TargetType afterRead(ColumnType data) throws Exception;
+    TargetT afterRead(ColumnT data) throws Exception;
 }

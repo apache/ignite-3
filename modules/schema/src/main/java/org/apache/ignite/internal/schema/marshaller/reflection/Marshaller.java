@@ -63,7 +63,7 @@ public abstract class Marshaller {
             return new SimpleMarshaller(ColumnBinding.createIdentityBinding(col, mapper.targetType()));
         }
 
-        ColumnBinding[] fieldAccessors = new ColumnBinding[cols.length];
+        ColumnBinding[] columnBindings = new ColumnBinding[cols.length];
 
         // Build handlers.
         for (int i = 0; i < cols.length; i++) {
@@ -71,12 +71,12 @@ public abstract class Marshaller {
 
             String fieldName = mapper.mappedField(col.name());
 
-            // TODO: IGNITE-15785 validate key marshaller has no NoopAccessors.
-            fieldAccessors[i] = (fieldName == null) ? ColumnBinding.noopAccessor(col) :
+            // TODO: IGNITE-15785 validate key marshaller has no DummyBinding.
+            columnBindings[i] = (fieldName == null) ? ColumnBinding.unmappedFieldBinding(col) :
                     ColumnBinding.createFieldBinding(col, mapper.targetType(), fieldName);
         }
 
-        return new ObjectMarshaller(new ObjectFactory<>(mapper.targetType()), fieldAccessors);
+        return new ObjectMarshaller(new ObjectFactory<>(mapper.targetType()), columnBindings);
     }
 
     /**
@@ -88,7 +88,7 @@ public abstract class Marshaller {
      */
     //TODO: IGNITE-15907 drop
     @Deprecated
-    public static Marshaller createMarshaller(Columns cols, Class<? extends Object> cls) {
+    public static Marshaller createMarshaller(Columns cols, Class<?> cls) {
         final BinaryMode mode = MarshallerUtil.mode(cls);
 
         if (mode != BinaryMode.POJO) {
@@ -145,16 +145,16 @@ public abstract class Marshaller {
      * Marshaller for key/value objects of natively supported types. The case when a whole object maps to a single column.
      */
     static class SimpleMarshaller extends Marshaller {
-        /** Identity accessor. */
-        private final ColumnBinding fieldAccessor;
+        /** Individual column binding. */
+        private final ColumnBinding columnBinding;
 
         /**
          * Creates a marshaller for objects of natively supported type.
          *
-         * @param FieldAccessor Identity field accessor for objects of natively supported type.
+         * @param columnBinding Identity field binding for objects of natively supported type.
          */
-        SimpleMarshaller(ColumnBinding FieldAccessor) {
-            this.fieldAccessor = FieldAccessor;
+        SimpleMarshaller(ColumnBinding columnBinding) {
+            this.columnBinding = columnBinding;
         }
 
         /** {@inheritDoc} */
@@ -162,16 +162,16 @@ public abstract class Marshaller {
         public @Nullable Object value(Object obj, int fldIdx) throws MarshallerException {
             assert fldIdx == 0;
 
-            return fieldAccessor.value(obj);
+            return columnBinding.value(obj);
         }
 
         /** {@inheritDoc} */
         @Override
         public Object readObject(Row reader) throws MarshallerException {
             try {
-                return fieldAccessor.columnValue(reader);
+                return columnBinding.columnValue(reader);
             } catch (Throwable e) {
-                throw new MarshallerException("Failed to read column: colIdx" + fieldAccessor.colIdx, e);
+                throw new MarshallerException("Failed to read column: colIdx" + columnBinding.colIdx, e);
             }
         }
 
@@ -180,9 +180,9 @@ public abstract class Marshaller {
         @Override
         public void writeObject(Object obj, RowAssembler writer) throws MarshallerException {
             try {
-                fieldAccessor.write(writer, obj);
+                columnBinding.write(writer, obj);
             } catch (Throwable e) {
-                throw new MarshallerException("Failed to write column: colIdx" + fieldAccessor.colIdx, e);
+                throw new MarshallerException("Failed to write column: colIdx" + columnBinding.colIdx, e);
             }
         }
     }
@@ -191,8 +191,8 @@ public abstract class Marshaller {
      * Marshaller for POJOs/ The case when an object fields map to the columns.
      */
     static class ObjectMarshaller extends Marshaller {
-        /** Field accessors for mapped columns. Array has same size and order as columns. */
-        private final ColumnBinding[] fieldAccessors;
+        /** Column bindings. Array has same size and order as columns. */
+        private final ColumnBinding[] columnBindings;
 
         /** Object factory. */
         private final Factory<?> factory;
@@ -201,18 +201,18 @@ public abstract class Marshaller {
          * Creates a marshaller for POJOs.
          *
          * @param factory        Object factory.
-         * @param fieldAccessors Object field accessors for mapped columns.
+         * @param columnBindings Column bindings.
          */
         @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-        ObjectMarshaller(Factory<?> factory, ColumnBinding[] fieldAccessors) {
-            this.fieldAccessors = fieldAccessors;
+        ObjectMarshaller(Factory<?> factory, ColumnBinding[] columnBindings) {
+            this.columnBindings = columnBindings;
             this.factory = Objects.requireNonNull(factory);
         }
 
         /** {@inheritDoc} */
         @Override
         public @Nullable Object value(Object obj, int fldIdx) throws MarshallerException {
-            return fieldAccessors[fldIdx].value(obj);
+            return columnBindings[fldIdx].value(obj);
         }
 
         /** {@inheritDoc} */
@@ -221,8 +221,8 @@ public abstract class Marshaller {
             try {
                 final Object obj = factory.create();
 
-                for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
-                    fieldAccessors[fldIdx].read(reader, obj);
+                for (int fldIdx = 0; fldIdx < columnBindings.length; fldIdx++) {
+                    columnBindings[fldIdx].read(reader, obj);
                 }
 
                 return obj;
@@ -237,8 +237,8 @@ public abstract class Marshaller {
         @Override
         public void writeObject(Object obj, RowAssembler writer) throws MarshallerException {
             try {
-                for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
-                    fieldAccessors[fldIdx].write(writer, obj);
+                for (int fldIdx = 0; fldIdx < columnBindings.length; fldIdx++) {
+                    columnBindings[fldIdx].write(writer, obj);
                 }
             } catch (MarshallerException e) {
                 throw e;

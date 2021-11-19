@@ -29,12 +29,14 @@ import org.jetbrains.annotations.NotNull;
  */
 public class ReflectionMarshallerFactory implements MarshallerFactory {
     /** {@inheritDoc} */
-    @Override public <K, V> KvMarshaller<K, V> create(SchemaDescriptor schema, @NotNull Mapper<K> keyMapper, @NotNull Mapper<V> valueMapper) {
+    @Override
+    public <K, V> KvMarshaller<K, V> create(SchemaDescriptor schema, @NotNull Mapper<K> keyMapper, @NotNull Mapper<V> valueMapper) {
         return new KvMarshallerImpl<>(schema, keyMapper, valueMapper);
     }
-    
+
     /** {@inheritDoc} */
-    @Override public <R> RecordMarshaller<R> create(SchemaDescriptor schema, @NotNull Mapper<R> mapper) {
+    @Override
+    public <R> RecordMarshaller<R> create(SchemaDescriptor schema, @NotNull Mapper<R> mapper) {
         return new RecordMarshallerImpl<>(schema, mapper);
     }
 }

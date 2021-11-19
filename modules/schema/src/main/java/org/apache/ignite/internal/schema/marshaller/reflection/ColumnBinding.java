@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -155,24 +151,24 @@ abstract class ColumnBinding {
             TIMESTAMP_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendTimestamp", Instant.class));
             DATETIME_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendDateTime", LocalDateTime.class));
 
-            TRANSFORM_AFTER_READ = lookup.unreflect(ColumnAccessInterceptor.class.getMethod("afterRead", Object.class));
-            TRANSFORM_BEFORE_WRITE = lookup.unreflect(ColumnAccessInterceptor.class.getMethod("beforeWrite", Object.class));
+            TRANSFORM_AFTER_READ = lookup.unreflect(ColumnMapperInterceptor.class.getMethod("afterRead", Object.class));
+            TRANSFORM_BEFORE_WRITE = lookup.unreflect(ColumnMapperInterceptor.class.getMethod("beforeWrite", Object.class));
         } catch (IllegalAccessException | NoSuchMethodException e) {
             throw new IllegalStateException(e);
         }
     }
 
-    /** Set method for a bind field (if applicable, otherwise {@code null}). */
-    protected final MethodHandle setterHnd;
-
     /** Get method for a bind field (if applicable, otherwise {@code null}). */
     protected final MethodHandle getterHnd;
 
-    /** {@link RowAssembler} write method for a bind column. */
-    protected final MethodHandle writerHnd;
+    /** Set method for a bind field (if applicable, otherwise {@code null}). */
+    protected final MethodHandle setterHnd;
 
     /** {@link Row} read method for a bind column. */
     protected final MethodHandle readerHnd;
+
+    /** {@link RowAssembler} write method for a bind column. */
+    protected final MethodHandle writerHnd;
 
     /**
      * Mapped column position in the schema.
@@ -181,18 +177,20 @@ abstract class ColumnBinding {
      */
     protected final int colIdx;
 
-    //TODO: rename -> dummyBinder().
-    static ColumnBinding noopAccessor(Column col) {
+    /**
+     * Creates a dummy binder that materializes column default value on write and ignores the column on read.
+     */
+    static ColumnBinding unmappedFieldBinding(Column col) {
         return new UnmappedFieldBinding(col);
     }
 
     /**
-     * Create accessor for the individual field.
+     * Binds the individual object field with a column.
      *
      * @param col     A column the field is mapped to.
      * @param type    Object class.
      * @param fldName Object field name.
-     * @return Accessor.
+     * @return Column to field binding.
      */
     static ColumnBinding createFieldBinding(Column col, Class<?> type, @NotNull String fldName) {
         try {
@@ -217,26 +215,24 @@ abstract class ColumnBinding {
     }
 
     /**
-     * Binds an individual column to an object of given type.
+     * Binds a column with an object of given type.
      *
      * @param col  Column.
      * @param type Object type.
-     * @return Accessor.
+     * @return Column to object binding.
      */
     static @NotNull ColumnBinding createIdentityBinding(Column col, Class<?> type) {
-        final MethodHandle identity = MethodHandles.identity(type);
-
-        return createFieldBinding(col, type, identity, identity);
+        return createFieldBinding(col, type, MethodHandles.identity(type), MethodHandles.identity(type));
     }
 
     /**
-     * Binds an column to an field of object of given type.
+     * Binds a column with an object`s field of given type.
      *
      * @param col          Column.
      * @param type         Object type.
      * @param getterHandle Field getter handle.
-     * @param getterHandle Field setter handle.
-     * @return Accessor.
+     * @param setterHandle Field setter handle.
+     * @return Column binding.
      */
     private static @NotNull ColumnBinding createFieldBinding(Column col, Class<?> type, MethodHandle getterHandle,
             MethodHandle setterHandle) {
@@ -254,19 +250,19 @@ abstract class ColumnBinding {
             case P_FLOAT:
                 return new PrimitiveFieldBinding(colIdx, getterHandle, setterHandle, P_FLOAT_READER, FLOAT_WRITER);
             case P_DOUBLE:
-                return new PrimitiveFieldBinding(colIdx, getterHandle, setterHandle, P_DOUBLE_READER, DOUBLE_READER);
+                return new PrimitiveFieldBinding(colIdx, getterHandle, setterHandle, P_DOUBLE_READER, DOUBLE_WRITER);
             case BYTE:
-                return new PrimitiveFieldBinding(colIdx, getterHandle, setterHandle, BYTE_READER, BYTE_WRITER);
+                return new DefaultBinding(colIdx, getterHandle, setterHandle, BYTE_READER, BYTE_WRITER);
             case SHORT:
-                return new PrimitiveFieldBinding(colIdx, getterHandle, setterHandle, SHORT_READER, SHORT_WRITER);
+                return new DefaultBinding(colIdx, getterHandle, setterHandle, SHORT_READER, SHORT_WRITER);
             case INT:
-                return new PrimitiveFieldBinding(colIdx, getterHandle, setterHandle, INT_READER, INT_WRITER);
+                return new DefaultBinding(colIdx, getterHandle, setterHandle, INT_READER, INT_WRITER);
             case LONG:
-                return new PrimitiveFieldBinding(colIdx, getterHandle, setterHandle, LONG_READER, LONG_WRITER);
+                return new DefaultBinding(colIdx, getterHandle, setterHandle, LONG_READER, LONG_WRITER);
             case FLOAT:
-                return new PrimitiveFieldBinding(colIdx, getterHandle, setterHandle, FLOAT_READER, FLOAT_WRITER);
+                return new DefaultBinding(colIdx, getterHandle, setterHandle, FLOAT_READER, FLOAT_WRITER);
             case DOUBLE:
-                return new PrimitiveFieldBinding(colIdx, getterHandle, setterHandle, DOUBLE_READER, DOUBLE_WRITER);
+                return new DefaultBinding(colIdx, getterHandle, setterHandle, DOUBLE_READER, DOUBLE_WRITER);
             case STRING:
                 return new DefaultBinding(colIdx, getterHandle, setterHandle, STRING_READER, STRING_WRITER);
             case UUID:
@@ -333,15 +329,6 @@ abstract class ColumnBinding {
     }
 
     /**
-     * Write object field value to row.
-     *
-     * @param writer Row writer.
-     * @param obj    Source object.
-     * @throws Exception If write failed.
-     */
-    protected abstract void write0(RowAssembler writer, Object obj) throws Throwable;
-
-    /**
      * Reads value fom row to object field.
      *
      * @param reader Row reader.
@@ -357,6 +344,24 @@ abstract class ColumnBinding {
     }
 
     /**
+     * Write object field value to row.
+     *
+     * @param writer Row writer.
+     * @param obj    Source object.
+     * @throws Exception If write failed.
+     */
+    protected abstract void write0(RowAssembler writer, Object obj) throws Throwable;
+
+    /**
+     * Reads value fom row to object field.
+     *
+     * @param reader Row reader.
+     * @param obj    Target object.
+     * @throws Exception If failed.
+     */
+    protected abstract void read0(Row reader, Object obj) throws Throwable;
+
+    /**
      * Read an object from a row.
      *
      * @param reader Row reader.
@@ -370,14 +375,6 @@ abstract class ColumnBinding {
         }
     }
 
-    /**
-     * Reads value fom row to object field.
-     *
-     * @param reader Row reader.
-     * @param obj    Target object.
-     * @throws Exception If failed.
-     */
-    protected abstract void read0(Row reader, Object obj) throws Throwable;
 
     /**
      * Reads object field value.
@@ -501,40 +498,6 @@ abstract class ColumnBinding {
     }
 
     /**
-     * Serializes an arbitrary user object (that extends Serializable) into a byte[] before write to the column, and deserializes back after
-     * read.
-     */
-    static class SerializingInterceptor implements ColumnAccessInterceptor<Object, byte[]> {
-        /** {@inheritDoc} */
-        @Override
-        public byte[] beforeWrite(Object obj) throws Exception {
-            if (obj == null) {
-                return null;
-            }
-
-            ByteArrayOutputStream out = new ByteArrayOutputStream(512);
-
-            try (ObjectOutputStream oos = new ObjectOutputStream(out)) {
-                oos.writeObject(obj);
-            }
-
-            return out.toByteArray();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Object afterRead(byte[] data) throws Exception {
-            if (data == null) {
-                return null;
-            }
-
-            try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(data))) {
-                return ois.readObject();
-            }
-        }
-    }
-
-    /**
      * Binding implies an additional data transformation on before write/after read a column.
      */
     private static class TransformingFieldAccessor extends ColumnBinding {
@@ -553,7 +516,7 @@ abstract class ColumnBinding {
          */
         TransformingFieldAccessor(int colIdx, MethodHandle getterMtd, MethodHandle setterMtd, MethodHandle readerHnd,
                 MethodHandle writerHnd,
-                ColumnAccessInterceptor<?, ?> interceptor) {
+                ColumnMapperInterceptor<?, ?> interceptor) {
             super(colIdx, getterMtd, setterMtd, readerHnd, writerHnd);
 
             afterReadHnd = TRANSFORM_AFTER_READ.bindTo(interceptor);
