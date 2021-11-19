@@ -21,8 +21,13 @@ import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationModule;
 
 /**
- * TODO: add javadoc.
+ * Provider of {@link ConfigurationModule}s.
  */
 public interface ConfigurationModulesProvider {
+    /**
+     * Returns configuration modules provided by this provider.
+     *
+     * @return configuration modules
+     */
     Stream<ConfigurationModule> modules();
 }
