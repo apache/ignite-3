@@ -441,9 +441,9 @@ public class InteropOperationsTest {
             } else if (NativeTypes.timestamp().equals(type)) {
                 assertEquals(expected.timestampValue(colName), expected.timestampValue(colName));
             } else if (NativeTypes.numberOf(2).equals(type)) {
-                assertEquals((BigInteger)expected.value(colName), t.value(colName));
+                assertEquals((BigInteger) expected.value(colName), t.value(colName));
             } else if (NativeTypes.decimalOf(5, 2).equals(type)) {
-                assertEquals((BigDecimal)expected.value(colName), t.value(colName));
+                assertEquals((BigDecimal) expected.value(colName), t.value(colName));
             } else if (NativeTypes.bitmaskOf(8).equals(type)) {
                 assertEquals(expected.bitmaskValue(colName), t.bitmaskValue(colName));
             } else {
