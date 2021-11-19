@@ -233,7 +233,7 @@ public abstract class Marshaller {
         public void writeObject(Object obj, RowAssembler writer)
                 throws MarshallerException {
             if (readOnly) {
-                throw new IllegalStateException("Can't assemple row by object " + obj.getClass());
+                throw new IllegalStateException("Can't assemble row by object " + obj.getClass());
             }
 
             for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
