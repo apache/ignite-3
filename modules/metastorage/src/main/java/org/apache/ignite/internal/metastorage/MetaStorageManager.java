@@ -188,6 +188,11 @@ public class MetaStorageManager implements IgniteComponent {
                 throw new IgniteException(
                         "Cannot start meta storage manager because there is no node in the cluster that hosts meta storage.");
             }
+            
+            if (metaStorageMembers.size() < metastorageNodes.length) {
+                throw new IgniteException(
+                        "Cannot start meta storage manager because not all nodes in the cluster that hosts meta storage are started.");
+            }
 
             storage.start();
 
