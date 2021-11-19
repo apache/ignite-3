@@ -18,26 +18,20 @@
 package org.apache.ignite.internal.schema.configuration;
 
 import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 
 import java.lang.annotation.Annotation;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
-import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.ColumnTypeValidator;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.validation.ConfigurationModule;
 import org.apache.ignite.configuration.validation.Validator;
 
 /**
- *
+ * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-schema.
  */
 public class SchemaDistributedConfigurationModule implements ConfigurationModule {
     @Override

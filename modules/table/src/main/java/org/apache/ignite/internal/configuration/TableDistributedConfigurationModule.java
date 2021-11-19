@@ -32,7 +32,7 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 
 /**
- *
+ * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-table.
  */
 public class TableDistributedConfigurationModule implements ConfigurationModule {
     @Override

@@ -36,7 +36,7 @@ import org.apache.ignite.configuration.validation.ConfigurationModule;
 import org.apache.ignite.configuration.validation.Validator;
 
 /**
- *
+ * {@link ConfigurationModule} that merges a few {@code ConfigurationModule}s of the same type.
  */
 public class CompoundModule implements ConfigurationModule {
     private final ConfigurationType type;

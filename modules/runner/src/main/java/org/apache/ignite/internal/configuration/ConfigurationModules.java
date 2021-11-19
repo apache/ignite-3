@@ -23,7 +23,8 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.ConfigurationModule;
 
 /**
- *
+ * An ensemble of {@link ConfigurationModule}s used to easily pick node-local and cluster-wide configuration
+ * and merge modules for convenience.
  */
 public class ConfigurationModules {
     private final List<ConfigurationModule> modules;
