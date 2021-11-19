@@ -32,9 +32,11 @@ import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorCo
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.Nullable;
 
@@ -56,22 +58,35 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** Processor. */
     private QueryProcessor processor;
-
+    
+    /** Connection manager. */
+    private ConnectionManager connectionManager;
+    
+    /** Netty bootstrap factory. */
+    private NettyBootstrapFactory bootstrapFactory;
+    
     /**
      * Constructor.
      *
-     * @param processor    Sql query processor.
-     * @param igniteTables Ignite.
-     * @param registry     Configuration registry.
+     * @param processor         Sql query processor.
+     * @param igniteTables      Ignite.
+     * @param registry          Configuration registry.
+     * @param bootstrapFactory  Bootstrap factory.
      */
-    public ClientHandlerModule(QueryProcessor processor, IgniteTables igniteTables, ConfigurationRegistry registry) {
+    public ClientHandlerModule(
+            QueryProcessor processor,
+            IgniteTables igniteTables,
+            ConfigurationRegistry registry,
+            NettyBootstrapFactory bootstrapFactory) {
         assert igniteTables != null;
         assert registry != null;
         assert processor != null;
-
+        assert bootstrapFactory != null;
+        
         this.processor = processor;
         this.igniteTables = igniteTables;
         this.registry = registry;
+        this.bootstrapFactory = bootstrapFactory;
     }
 
     /** {@inheritDoc} */
