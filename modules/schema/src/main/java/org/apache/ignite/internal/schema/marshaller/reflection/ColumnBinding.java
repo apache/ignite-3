@@ -203,7 +203,7 @@ abstract class ColumnBinding {
                         + "columnName=%s, fieldName=%s, class=%s", col.name(), fldName, type.getName()));
             }
 
-            return createFieldBinding(
+            return create(
                     col,
                     varHandle.varType(),
                     varHandle.toMethodHandle(VarHandle.AccessMode.GET),
@@ -222,7 +222,8 @@ abstract class ColumnBinding {
      * @return Column to object binding.
      */
     static @NotNull ColumnBinding createIdentityBinding(Column col, Class<?> type) {
-        return createFieldBinding(col, type, MethodHandles.identity(type), MethodHandles.identity(type));
+        final MethodHandle identityHandle = MethodHandles.identity(type);
+        return create(col, type, identityHandle, identityHandle);
     }
 
     /**
@@ -234,7 +235,7 @@ abstract class ColumnBinding {
      * @param setterHandle Field setter handle.
      * @return Column binding.
      */
-    private static @NotNull ColumnBinding createFieldBinding(Column col, Class<?> type, MethodHandle getterHandle,
+    private static @NotNull ColumnBinding create(Column col, Class<?> type, MethodHandle getterHandle,
             MethodHandle setterHandle) {
         final int colIdx = col.schemaIndex();
 
