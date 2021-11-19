@@ -29,6 +29,7 @@ import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.util.ObjectFactory;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Marshaller utility class.
@@ -69,9 +70,7 @@ public final class MarshallerUtil {
      * @param cls Type.
      * @return Binary mode.
      */
-    public static BinaryMode mode(Class<?> cls) {
-        assert cls != null;
-
+    public static @NotNull BinaryMode mode(@NotNull Class<?> cls) {
         // Primitives.
         if (cls == byte.class) {
             return BinaryMode.P_BYTE;

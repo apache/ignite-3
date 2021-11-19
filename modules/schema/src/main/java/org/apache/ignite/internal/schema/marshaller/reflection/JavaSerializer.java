@@ -118,8 +118,9 @@ public class JavaSerializer extends AbstractSerializer {
      * @param key Key object.
      * @param val Value object.
      * @return Row assembler.
+     * @throws MarshallerException If failed to read key or value object content.
      */
-    private RowAssembler createAssembler(Object key, Object val) {
+    private RowAssembler createAssembler(Object key, Object val) throws MarshallerException {
         ObjectStatistic keyStat = collectObjectStats(schema.keyColumns(), keyMarsh, key);
         ObjectStatistic valStat = collectObjectStats(schema.valueColumns(), valMarsh, val);
         
@@ -133,8 +134,9 @@ public class JavaSerializer extends AbstractSerializer {
      * @param marsh Marshaller.
      * @param obj   Object.
      * @return Object statistic.
+     * @throws MarshallerException If failed to read key or value object content.
      */
-    private ObjectStatistic collectObjectStats(Columns cols, Marshaller marsh, Object obj) {
+    private ObjectStatistic collectObjectStats(Columns cols, Marshaller marsh, Object obj) throws MarshallerException {
         if (obj == null || !cols.hasVarlengthColumns()) {
             return ObjectStatistic.ZERO_VARLEN_STATISTICS;
         }
