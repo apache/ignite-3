@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.configuration;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static java.util.stream.Collectors.toUnmodifiableSet;
 
 import java.lang.annotation.Annotation;
 import java.util.Collection;
@@ -26,17 +25,15 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
 
 /**
- * {@link ConfigurationModule} that merges a few {@code ConfigurationModule}s of the same type.
+ * {@link ConfigurationModule} that merges a few {@code ConfigurationModule}s.
  */
 public class CompoundModule implements ConfigurationModule {
     private final ConfigurationType type;
@@ -54,10 +51,11 @@ public class CompoundModule implements ConfigurationModule {
 
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return unionFromAllModules(ConfigurationModule::rootKeys);
+        return unionFromModulesExtractedWith(ConfigurationModule::rootKeys);
     }
 
-    private <T> List<T> unionFromAllModules(Function<? super ConfigurationModule, ? extends Collection<T>> extractor) {
+    private <T> List<T> unionFromModulesExtractedWith(
+            Function<? super ConfigurationModule, ? extends Collection<T>> extractor) {
         return modules.stream()
                 .flatMap(module -> extractor.apply(module).stream())
                 .collect(toUnmodifiableList());
@@ -65,22 +63,13 @@ public class CompoundModule implements ConfigurationModule {
 
     @Override
     public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        List<Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>>> validatorMaps = modules.stream()
-                .map(ConfigurationModule::validators)
-                .collect(toUnmodifiableList());
-
-        Set<Class<? extends Annotation>> allMapKeys = validatorMaps.stream()
-                .flatMap(map -> map.keySet().stream())
-                .collect(toUnmodifiableSet());
-
         Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> result = new HashMap<>();
-        allMapKeys.forEach(key -> {
-            Stream<Set<Validator<? extends Annotation, ?>>> setsUnderKey = validatorMaps.stream()
-                    .map(map -> map.get(key))
-                    .filter(Objects::nonNull);
-            setsUnderKey.forEach(set -> {
+
+        var validatorsMaps = modules.stream().map(ConfigurationModule::validators);
+        validatorsMaps.forEach(validatorsMap -> {
+            validatorsMap.forEach((key, validatorsSet) -> {
                 var runningUnionUnderKey = result.computeIfAbsent(key, ignored -> new HashSet<>());
-                runningUnionUnderKey.addAll(set);
+                runningUnionUnderKey.addAll(validatorsSet);
             });
         });
 
@@ -89,11 +78,11 @@ public class CompoundModule implements ConfigurationModule {
 
     @Override
     public Collection<Class<?>> internalSchemaExtensions() {
-        return unionFromAllModules(ConfigurationModule::internalSchemaExtensions);
+        return unionFromModulesExtractedWith(ConfigurationModule::internalSchemaExtensions);
     }
 
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return unionFromAllModules(ConfigurationModule::polymorphicSchemaExtensions);
+        return unionFromModulesExtractedWith(ConfigurationModule::polymorphicSchemaExtensions);
     }
 }
