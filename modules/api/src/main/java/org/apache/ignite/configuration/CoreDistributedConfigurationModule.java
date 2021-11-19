@@ -38,11 +38,13 @@ import org.apache.ignite.configuration.validation.Validator;
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-api.
  */
 public class CoreDistributedConfigurationModule implements ConfigurationModule {
+    /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
         return ConfigurationType.DISTRIBUTED;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
         return List.of(
@@ -52,19 +54,25 @@ public class CoreDistributedConfigurationModule implements ConfigurationModule {
         );
     }
 
+    /** {@inheritDoc} */
     @Override
     public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
         return emptyMap();
     }
 
+    /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> internalSchemaExtensions() {
         return emptyList();
     }
 
+    /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return List.of(HashIndexConfigurationSchema.class, SortedIndexConfigurationSchema.class,
-                PartialIndexConfigurationSchema.class);
+        return List.of(
+                HashIndexConfigurationSchema.class,
+                SortedIndexConfigurationSchema.class,
+                PartialIndexConfigurationSchema.class
+        );
     }
 }
