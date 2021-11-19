@@ -201,8 +201,7 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
                 bytes = new byte[Byte.SIZE];
     
                 ThreadLocalRandom.current().nextBytes(bytes);
-            }
-            else {
+            } else {
                 bytes = iface.getHardwareAddress();
             }
 
