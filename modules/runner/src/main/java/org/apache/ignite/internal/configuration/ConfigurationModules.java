@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static java.util.stream.Collectors.toUnmodifiableList;
+
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -33,18 +35,28 @@ public class ConfigurationModules {
         this.modules = List.copyOf(modules);
     }
 
+    /**
+     * Return a module representing the result of merge of modules of type {@link ConfigurationType#LOCAL}.
+     *
+     * @return node-local configuration merge result
+     */
     public ConfigurationModule local() {
         return compoundOfType(ConfigurationType.LOCAL);
     }
 
+    /**
+     * Return a module representing the result of merge of modules of type {@link ConfigurationType#DISTRIBUTED}.
+     *
+     * @return cluster-wide configuration merge result
+     */
     public ConfigurationModule distributed() {
         return compoundOfType(ConfigurationType.DISTRIBUTED);
     }
 
-    private CompoundModule compoundOfType(ConfigurationType configurationType) {
-        List<ConfigurationModule> modulesOfType = modules.stream()
-                .filter(module -> module.type() == configurationType)
-                .collect(Collectors.toUnmodifiableList());
-        return new CompoundModule(configurationType, modulesOfType);
+    private CompoundModule compoundOfType(ConfigurationType type) {
+        List<ConfigurationModule> modulesOfGivenType = modules.stream()
+                .filter(module -> module.type() == type)
+                .collect(toUnmodifiableList());
+        return new CompoundModule(type, modulesOfGivenType);
     }
 }
