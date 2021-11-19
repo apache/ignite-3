@@ -22,8 +22,8 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.stream.ChunkedWriteHandler;
@@ -55,10 +55,10 @@ public class NettyServer {
     private final ServerBootstrap bootstrap;
     
     /** Socket accepter event loop group. */
-    private final NioEventLoopGroup bossGroup;
+    private final EventLoopGroup bossGroup;
     
     /** Socket handler event loop group. */
-    private final NioEventLoopGroup workerGroup;
+    private final EventLoopGroup workerGroup;
     
     /** Server socket configuration. */
     private final NetworkView configuration;
@@ -104,7 +104,9 @@ public class NettyServer {
             Supplier<HandshakeManager> handshakeManager,
             Consumer<NettySender> newConnectionListener,
             BiConsumer<SocketAddress, NetworkMessage> messageListener,
-            MessageSerializationRegistry serializationRegistry
+            MessageSerializationRegistry serializationRegistry,
+            EventLoopGroup bossGroup,
+            EventLoopGroup workerGroup
     ) {
         this(
                 consistentId,
@@ -113,7 +115,9 @@ public class NettyServer {
                 handshakeManager,
                 newConnectionListener,
                 messageListener,
-                serializationRegistry
+                serializationRegistry,
+                bossGroup,
+                workerGroup
         );
     }
     
@@ -135,7 +139,9 @@ public class NettyServer {
             Supplier<HandshakeManager> handshakeManager,
             Consumer<NettySender> newConnectionListener,
             BiConsumer<SocketAddress, NetworkMessage> messageListener,
-            MessageSerializationRegistry serializationRegistry
+            MessageSerializationRegistry serializationRegistry,
+            EventLoopGroup bossGroup,
+            EventLoopGroup workerGroup
     ) {
         this.bootstrap = bootstrap;
         this.configuration = configuration;
@@ -143,8 +149,8 @@ public class NettyServer {
         this.newConnectionListener = newConnectionListener;
         this.messageListener = messageListener;
         this.serializationRegistry = serializationRegistry;
-        this.bossGroup = NamedNioEventLoopGroup.create(consistentId + "-srv-accept");
-        this.workerGroup = NamedNioEventLoopGroup.create(consistentId + "-srv-worker");
+        this.bossGroup = bossGroup;
+        this.workerGroup = workerGroup;
         serverCloseFuture = CompletableFuture.allOf(
                 NettyUtils.toCompletableFuture(bossGroup.terminationFuture()),
                 NettyUtils.toCompletableFuture(workerGroup.terminationFuture())
@@ -361,7 +367,7 @@ public class NettyServer {
      * @return Acceptor event loop group.
      */
     @TestOnly
-    public NioEventLoopGroup getBossGroup() {
+    public EventLoopGroup getBossGroup() {
         return bossGroup;
     }
     
@@ -371,7 +377,7 @@ public class NettyServer {
      * @return Worker event loop group.
      */
     @TestOnly
-    public NioEventLoopGroup getWorkerGroup() {
+    public EventLoopGroup getWorkerGroup() {
         return workerGroup;
     }
 }

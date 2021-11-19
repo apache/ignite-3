@@ -221,7 +221,9 @@ public class NettyServerTest {
                 },
                 (socketAddress, message) -> {
                 },
-                registry
+                registry,
+                NamedNioEventLoopGroup.create("boss-"),
+                NamedNioEventLoopGroup.create("worker-")
         );
         
         server.start().get(3, TimeUnit.SECONDS);
@@ -289,7 +291,9 @@ public class NettyServerTest {
                 () -> mock(HandshakeManager.class),
                 null,
                 null,
-                null
+                null,
+                NamedNioEventLoopGroup.create("boss-"),
+                NamedNioEventLoopGroup.create("worker-")
         );
         
         try {

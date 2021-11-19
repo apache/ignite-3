@@ -59,6 +59,12 @@ public class ConnectionManager {
     /** Client bootstrap. */
     private final Bootstrap clientBootstrap;
     
+    /** Server boss socket channel handler event loop group. */
+    private final EventLoopGroup bossGroup;
+    
+    /** Server work socket channel handler event loop group. */
+    private final EventLoopGroup workerGroup;
+    
     /** Client socket channel handler event loop group. */
     private final EventLoopGroup clientWorkerGroup;
     
@@ -108,15 +114,21 @@ public class ConnectionManager {
         this.serializationRegistry = registry;
         this.consistentId = consistentId;
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
+        
+        this.bossGroup = NamedNioEventLoopGroup.create(consistentId + "-srv-accept");
+        this.workerGroup = NamedNioEventLoopGroup.create(consistentId + "-srv-worker");
+        this.clientWorkerGroup = NamedNioEventLoopGroup.create(consistentId + "-client");
+    
         this.server = new NettyServer(
                 consistentId,
                 networkConfiguration,
                 serverHandshakeManagerFactory,
                 this::onNewIncomingChannel,
                 this::onMessage,
-                serializationRegistry
+                serializationRegistry,
+                bossGroup,
+                workerGroup
         );
-        this.clientWorkerGroup = NamedNioEventLoopGroup.create(consistentId + "-client");
         this.clientBootstrap = createClientBootstrap(clientWorkerGroup, networkConfiguration.outbound());
     }
     
