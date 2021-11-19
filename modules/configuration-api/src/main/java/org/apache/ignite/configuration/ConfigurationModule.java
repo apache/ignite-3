@@ -31,12 +31,15 @@ import org.apache.ignite.configuration.validation.Validator;
 
 /**
  * A module of configuration provided by a JAR file (or, in its source form, by a Maven/Gradle/... module).
+ *
  * <p>Each configuration module only supplies configuration of only one {@link ConfigurationType}, so,
  * if a library needs to provide both node-local and cluster-wide configuration, it needs to supply
  * two {@link ConfigurationModule} instances.
+ *
  * <p>Designed for integration with {@link java.util.ServiceLoader} mechanism, so ConfigurationModule instances
  * provided by a library are to be defined as services either in
  * <tt>META-INF/services/org.apache.ignite.configuration.ConfigurationModule</tt>, or in a {@code module-info.java}.
+ *
  * <p>Supplies the following configuration components:
  * <ul>
  *     <li><b>rootKeys</b> ({@link RootKey} instances)</li>
