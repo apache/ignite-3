@@ -21,6 +21,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
+import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -55,6 +58,8 @@ import org.apache.ignite.raft.jraft.rpc.impl.core.TimeoutNowRequestProcessor;
  * TODO https://issues.apache.org/jira/browse/IGNITE-14519 Unsubscribe on shutdown
  */
 public class IgniteRpcServer implements RpcServer<Void> {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteRpcServer.class);
+    
     private final ClusterService service;
 
     private final NodeManager nodeManager;
@@ -159,28 +164,33 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 executor = rpcExecutor;
 
             RpcProcessor<NetworkMessage> finalPrc = prc;
-
-            executor.execute(() -> {
-                var context = new RpcContext() {
-                    @Override public NodeManager getNodeManager() {
-                        return nodeManager;
-                    }
-
-                    @Override public void sendResponse(Object responseObj) {
-                        service.messagingService().send(senderAddr, (NetworkMessage) responseObj, correlationId);
-                    }
-
-                    @Override public NetworkAddress getRemoteAddress() {
-                        return senderAddr;
-                    }
-
-                    @Override public NetworkAddress getLocalAddress() {
-                        return service.topologyService().localMember().address();
-                    }
-                };
-
-                finalPrc.handleRequest(context, message);
-            });
+    
+            try {
+                executor.execute(() -> {
+                    var context = new RpcContext() {
+                        @Override public NodeManager getNodeManager() {
+                            return nodeManager;
+                        }
+    
+                        @Override public void sendResponse(Object responseObj) {
+                            service.messagingService().send(senderAddr, (NetworkMessage) responseObj, correlationId);
+                        }
+    
+                        @Override public NetworkAddress getRemoteAddress() {
+                            return senderAddr;
+                        }
+    
+                        @Override public NetworkAddress getLocalAddress() {
+                            return service.topologyService().localMember().address();
+                        }
+                    };
+    
+                    finalPrc.handleRequest(context, message);
+                });
+            } catch (RejectedExecutionException e) {
+                // The rejection is OK if an executor has been stopped.
+                LOG.warn("A request execution was rejected [sender={} req={} reason={}]", senderAddr, S.toString(message), e.getMessage());
+            }
         }
     }
 

@@ -1508,10 +1508,8 @@ public class ItNodeTest {
         PeerId oldLeader = leader.getNodeId().getPeerId();
         assertTrue(cluster.stop(leader.getNodeId().getPeerId().getEndpoint()));
 
-        // apply something when follower
-        //final List<Node> followers = cluster.getFollowers();
         assertFalse(followers.isEmpty());
-        sendTestTaskAndWait("follower apply ", followers.get(0), -1);
+        sendTestTaskAndWait("follower apply ", followers.get(0), -1); // Should fail, because no leader.
 
         for (Node follower : followers) {
             NodeImpl follower0 = (NodeImpl) follower;
@@ -1550,7 +1548,7 @@ public class ItNodeTest {
         cluster.clean(oldLeader.getEndpoint());
 
         // restart old leader
-        LOG.info("restart old leader {}", oldLeader);
+        LOG.info("Restart old leader with cleanup {}", oldLeader);
         assertTrue(cluster.start(oldLeader.getEndpoint()));
         cluster.ensureSame();
 

@@ -222,9 +222,9 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
             public void stop() {
                 servers.remove(this);
 
-                service.stop();
-
                 super.stop();
+    
+                service.stop();
             }
         };
 
@@ -720,11 +720,10 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
 
         LOG.info("RAFT threads count {}", threads.stream().filter(t -> t.getName().contains("JRaft")).count());
 
-        List<Thread> timerThreads = threads.stream().filter(this::isTimer)
-                .sorted(comparing(Thread::getName)).collect(toList());
+        List<Thread> timerThreads = threads.stream().filter(this::isTimer).sorted(comparing(Thread::getName)).collect(toList());
 
         assertTrue(timerThreads.size() <= 15, // This is a maximum possible number of a timer threads for 3 nodes in this test.
-                "New timer threads: " + timerThreads.toString());
+                "All timer threads: " + timerThreads.toString());
     }
 
     /**

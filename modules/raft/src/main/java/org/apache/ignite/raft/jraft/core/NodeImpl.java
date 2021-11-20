@@ -1196,22 +1196,25 @@ public class NodeImpl implements Node, RaftServerService {
                 if (peer.equals(this.serverId)) {
                     continue;
                 }
-                if (!this.rpcClientService.connect(peer.getEndpoint())) {
-                    LOG.warn("Node {} channel init failed, address={}.", getNodeId(), peer.getEndpoint());
-                    continue;
-                }
-                final OnRequestVoteRpcDone done = new OnRequestVoteRpcDone(peer, this.currTerm, this);
-                done.request = raftOptions.getRaftMessagesFactory()
-                    .requestVoteRequest()
-                    .preVote(false) // It's not a pre-vote request.
-                    .groupId(this.groupId)
-                    .serverId(this.serverId.toString())
-                    .peerId(peer.toString())
-                    .term(this.currTerm)
-                    .lastLogIndex(lastLogId.getIndex())
-                    .lastLogTerm(lastLogId.getTerm())
-                    .build();
-                this.rpcClientService.requestVote(peer.getEndpoint(), done.request, done);
+    
+                rpcClientService.connectAsync(peer.getEndpoint()).thenAccept(ok -> {
+                    if (!ok) {
+                        LOG.warn("Node {} connection attempt has failed, address={}.", getNodeId(), peer.getEndpoint());
+                        return ;
+                    }
+                    final OnRequestVoteRpcDone done = new OnRequestVoteRpcDone(peer, this.currTerm, this);
+                    done.request = raftOptions.getRaftMessagesFactory()
+                            .requestVoteRequest()
+                            .preVote(false) // It's not a pre-vote request.
+                            .groupId(this.groupId)
+                            .serverId(this.serverId.toString())
+                            .peerId(peer.toString())
+                            .term(this.currTerm)
+                            .lastLogIndex(lastLogId.getIndex())
+                            .lastLogTerm(lastLogId.getTerm())
+                            .build();
+                    this.rpcClientService.requestVote(peer.getEndpoint(), done.request, done);
+                });
             }
 
             this.metaStorage.setTermAndVotedFor(this.currTerm, this.serverId);
@@ -2701,9 +2704,10 @@ public class NodeImpl implements Node, RaftServerService {
 
         @Override
         public void run(final Status status) {
-            NodeImpl.this.metrics.recordLatency("pre-vote", Utils.monotonicMs() - this.startMs);
+            long latency = Utils.monotonicMs() - this.startMs;
+            NodeImpl.this.metrics.recordLatency("pre-vote", latency);
             if (!status.isOk()) {
-                LOG.warn("Node {} PreVote to {} error: {}.", getNodeId(), this.peer, status);
+                LOG.warn("Node {} PreVote to {} latency={} error: {}.", getNodeId(), this.peer, status, latency);
             }
             else {
                 handlePreVoteResponse(this.peer, this.term, getResponse());
@@ -2747,22 +2751,25 @@ public class NodeImpl implements Node, RaftServerService {
                 if (peer.equals(this.serverId)) {
                     continue;
                 }
-                if (!this.rpcClientService.connect(peer.getEndpoint())) {
-                    LOG.warn("Node {} channel init failed, address={}.", getNodeId(), peer.getEndpoint());
-                    continue;
-                }
-                final OnPreVoteRpcDone done = new OnPreVoteRpcDone(peer, this.currTerm);
-                done.request = raftOptions.getRaftMessagesFactory()
-                    .requestVoteRequest()
-                    .preVote(true) // it's a pre-vote request.
-                    .groupId(this.groupId)
-                    .serverId(this.serverId.toString())
-                    .peerId(peer.toString())
-                    .term(this.currTerm + 1) // next term
-                    .lastLogIndex(lastLogId.getIndex())
-                    .lastLogTerm(lastLogId.getTerm())
-                    .build();
-                this.rpcClientService.preVote(peer.getEndpoint(), done.request, done);
+    
+                rpcClientService.connectAsync(peer.getEndpoint()).thenAccept(ok -> {
+                    if (!ok) {
+                        LOG.warn("Node {} connection attempt has failed, address={}.", getNodeId(), peer.getEndpoint());
+                        return;
+                    }
+                    final OnPreVoteRpcDone done = new OnPreVoteRpcDone(peer, this.currTerm);
+                    done.request = raftOptions.getRaftMessagesFactory()
+                            .requestVoteRequest()
+                            .preVote(true) // it's a pre-vote request.
+                            .groupId(this.groupId)
+                            .serverId(this.serverId.toString())
+                            .peerId(peer.toString())
+                            .term(this.currTerm + 1) // next term
+                            .lastLogIndex(lastLogId.getIndex())
+                            .lastLogTerm(lastLogId.getTerm())
+                            .build();
+                    this.rpcClientService.preVote(peer.getEndpoint(), done.request, done);
+                });
             }
             this.prevVoteCtx.grant(this.serverId);
             if (this.prevVoteCtx.isGranted()) {
@@ -3391,9 +3398,11 @@ public class NodeImpl implements Node, RaftServerService {
             // Parallelize response and election
             done.sendResponse(resp);
             doUnlock = false;
+    
+            LOG.info("Node {} received TimeoutNowRequest from {}, term={} and starts voting.", getNodeId(), request.serverId(),
+                    savedTerm);
+            
             electSelf();
-            LOG.info("Node {} received TimeoutNowRequest from {}, term={}.", getNodeId(), request.serverId(),
-                savedTerm);
         }
         finally {
             if (doUnlock) {

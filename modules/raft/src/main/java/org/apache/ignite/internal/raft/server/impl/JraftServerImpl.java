@@ -118,6 +118,10 @@ public class JraftServerImpl implements RaftServer {
         this.dataPath = dataPath;
         this.nodeManager = new NodeManager();
         this.opts = opts;
+        
+        // Auto-adjust options.
+        this.opts.setRpcConnectTimeoutMs(this.opts.getElectionTimeoutMs() / 10);
+        this.opts.setRpcDefaultTimeout(this.opts.getElectionTimeoutMs() / 2);
         this.opts.setSharedPools(true);
 
         if (opts.getServerName() == null) {

@@ -224,7 +224,11 @@ public class TestCluster {
             nodeOptions.setRaftMetaUri(serverDataPath + File.separator + "meta");
             nodeOptions.setSnapshotUri(serverDataPath + File.separator + "snapshot");
             nodeOptions.setElectionPriority(priority);
-
+    
+            // Align rpc options with election timeout.
+            nodeOptions.setRpcConnectTimeoutMs(this.electionTimeoutMs / 10);
+            nodeOptions.setRpcDefaultTimeout(this.electionTimeoutMs / 2);
+    
             MockStateMachine fsm = new MockStateMachine(listenAddr);
             nodeOptions.setFsm(fsm);
 
@@ -263,13 +267,15 @@ public class TestCluster {
                 nodeOptions, rpcServer, nodeManager) {
                 @Override public synchronized void shutdown() {
                     // This stop order is consistent with JRaftServerImpl
-                    clusterService.stop();
-
                     rpcServer.shutdown();
 
                     ExecutorServiceHelper.shutdownAndAwaitTermination(requestExecutor);
 
                     super.shutdown();
+    
+                    // Network service must be stopped after a node because raft initiates timeoutnowrequest on stop for faster
+                    // leader election.
+                    clusterService.stop();
                 }
             };
 
