@@ -316,7 +316,8 @@ public class ItCliServiceTest {
         assertNotNull(oldLeaderNode);
         PeerId oldLeader = oldLeaderNode.getNodeId().getPeerId();
         assertNotNull(oldLeader);
-        assertTrue(cliService.changePeers(groupId, conf, new Configuration(newPeers)).isOk());
+        Status status = cliService.changePeers(groupId, conf, new Configuration(newPeers));
+        assertTrue(status.isOk(), status.getErrorMsg());
         cluster.waitLeader();
         PeerId newLeader = cluster.getLeader().getNodeId().getPeerId();
         assertNotEquals(oldLeader, newLeader);
