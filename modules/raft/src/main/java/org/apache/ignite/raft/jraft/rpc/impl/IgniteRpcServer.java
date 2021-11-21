@@ -135,7 +135,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
     public class RpcMessageHandler implements NetworkMessageHandler {
         /** {@inheritDoc} */
         @Override public void onReceived(NetworkMessage message, NetworkAddress senderAddr, String correlationId) {
-            if (service.topologyService().localMember().address().port() == 5012 && !(message instanceof AppendEntriesRequest)) {
+            boolean trace = service.topologyService().localMember().address().port() == 5012 && !(message instanceof AppendEntriesRequest);
+            if (trace) {
                 LOG.info("DBG: onReceived from={} msg={}", senderAddr, S.toString(message));
             }
     
@@ -152,8 +153,13 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 }
             }
 
-            if (prc == null)
+            if (prc == null) {
+                if (trace) {
+                    LOG.info("DBG: 2");
+                }
+                
                 return;
+            }
 
             RpcProcessor.ExecutorSelector selector = prc.executorSelector();
 
@@ -171,6 +177,10 @@ public class IgniteRpcServer implements RpcServer<Void> {
             RpcProcessor<NetworkMessage> finalPrc = prc;
     
             try {
+                if (trace) {
+                    LOG.info("DBG: 3");
+                }
+                
                 executor.execute(() -> {
                     var context = new RpcContext() {
                         @Override public NodeManager getNodeManager() {
@@ -178,6 +188,10 @@ public class IgniteRpcServer implements RpcServer<Void> {
                         }
     
                         @Override public void sendResponse(Object responseObj) {
+                            if (trace) {
+                                LOG.info("DBG: 4 {}", S.toString(responseObj));
+                            }
+                            
                             service.messagingService().send(senderAddr, (NetworkMessage) responseObj, correlationId);
                         }
     
