@@ -35,6 +35,7 @@ import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.AddLearnersRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.AddPeerRequestProcessor;
@@ -134,6 +135,10 @@ public class IgniteRpcServer implements RpcServer<Void> {
     public class RpcMessageHandler implements NetworkMessageHandler {
         /** {@inheritDoc} */
         @Override public void onReceived(NetworkMessage message, NetworkAddress senderAddr, String correlationId) {
+            if (service.topologyService().localMember().address().port() == 5012 && !(message instanceof AppendEntriesRequest)) {
+                LOG.info("DBG: onReceived from={} msg={}", senderAddr, S.toString(message));
+            }
+    
             Class<? extends NetworkMessage> cls = message.getClass();
             RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
 

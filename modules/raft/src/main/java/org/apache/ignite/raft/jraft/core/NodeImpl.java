@@ -1199,7 +1199,7 @@ public class NodeImpl implements Node, RaftServerService {
     
                 rpcClientService.connectAsync(peer.getEndpoint()).thenAccept(ok -> {
                     if (!ok) {
-                        LOG.warn("Node {} connection attempt has failed, address={}.", getNodeId(), peer.getEndpoint());
+                        LOG.warn("Node {} failed to init channel, address={}.", getNodeId(), peer.getEndpoint());
                         return ;
                     }
                     final OnRequestVoteRpcDone done = new OnRequestVoteRpcDone(peer, this.currTerm, this);
@@ -2754,7 +2754,7 @@ public class NodeImpl implements Node, RaftServerService {
     
                 rpcClientService.connectAsync(peer.getEndpoint()).thenAccept(ok -> {
                     if (!ok) {
-                        LOG.warn("Node {} connection attempt has failed, address={}.", getNodeId(), peer.getEndpoint());
+                        LOG.warn("Node {} failed to init channel, address={}.", getNodeId(), peer.getEndpoint());
                         return;
                     }
                     final OnPreVoteRpcDone done = new OnPreVoteRpcDone(peer, this.currTerm);
