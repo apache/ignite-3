@@ -226,7 +226,7 @@ public class TestCluster {
             nodeOptions.setElectionPriority(priority);
     
             // Align rpc options with election timeout.
-            nodeOptions.setRpcConnectTimeoutMs(this.electionTimeoutMs / 10);
+            nodeOptions.setRpcConnectTimeoutMs(this.electionTimeoutMs / 3);
             nodeOptions.setRpcDefaultTimeout(this.electionTimeoutMs / 2);
     
             MockStateMachine fsm = new MockStateMachine(listenAddr);

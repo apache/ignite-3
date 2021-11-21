@@ -113,7 +113,6 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
 
                 // resolve cyclic dependencies
                 messagingService.setCluster(cluster);
-                topologyService.setCluster(cluster);
 
                 connectionMgr.start();
 

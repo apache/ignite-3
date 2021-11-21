@@ -35,7 +35,6 @@ import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.AddLearnersRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.AddPeerRequestProcessor;
@@ -135,11 +134,6 @@ public class IgniteRpcServer implements RpcServer<Void> {
     public class RpcMessageHandler implements NetworkMessageHandler {
         /** {@inheritDoc} */
         @Override public void onReceived(NetworkMessage message, NetworkAddress senderAddr, String correlationId) {
-            boolean trace = service.topologyService().localMember().address().port() == 5012 && !(message instanceof AppendEntriesRequest);
-            if (trace) {
-                LOG.info("DBG: onReceived from={} msg={}", senderAddr, S.toString(message));
-            }
-    
             Class<? extends NetworkMessage> cls = message.getClass();
             RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
 
@@ -153,13 +147,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 }
             }
 
-            if (prc == null) {
-                if (trace) {
-                    LOG.info("DBG: 2");
-                }
-                
+            if (prc == null)
                 return;
-            }
 
             RpcProcessor.ExecutorSelector selector = prc.executorSelector();
 
@@ -177,10 +166,6 @@ public class IgniteRpcServer implements RpcServer<Void> {
             RpcProcessor<NetworkMessage> finalPrc = prc;
     
             try {
-                if (trace) {
-                    LOG.info("DBG: 3");
-                }
-                
                 executor.execute(() -> {
                     var context = new RpcContext() {
                         @Override public NodeManager getNodeManager() {
@@ -188,10 +173,6 @@ public class IgniteRpcServer implements RpcServer<Void> {
                         }
     
                         @Override public void sendResponse(Object responseObj) {
-                            if (trace) {
-                                LOG.info("DBG: 4 {}", S.toString(responseObj));
-                            }
-                            
                             service.messagingService().send(senderAddr, (NetworkMessage) responseObj, correlationId);
                         }
     

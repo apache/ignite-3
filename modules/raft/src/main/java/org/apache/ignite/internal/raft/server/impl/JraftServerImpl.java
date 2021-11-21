@@ -120,7 +120,7 @@ public class JraftServerImpl implements RaftServer {
         this.opts = opts;
         
         // Auto-adjust options.
-        this.opts.setRpcConnectTimeoutMs(this.opts.getElectionTimeoutMs() / 10);
+        this.opts.setRpcConnectTimeoutMs(this.opts.getElectionTimeoutMs() / 3);
         this.opts.setRpcDefaultTimeout(this.opts.getElectionTimeoutMs() / 2);
         this.opts.setSharedPools(true);
 
