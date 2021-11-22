@@ -57,8 +57,8 @@ public class ConnectionManager {
     /** Latest version of the direct marshalling protocol. */
     public static final byte DIRECT_PROTOCOL_VERSION = 1;
     
-    /** Bootstrap factory. */
-    private final NettyBootstrapFactory bootstrapFactory;
+    /** Client bootstrap. */
+    private final Bootstrap clientBootstrap;
     
     /** Server. */
     private final NettyServer server;
@@ -109,17 +109,17 @@ public class ConnectionManager {
         this.consistentId = consistentId;
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
 
-        this.bootstrapFactory = bootstrapFactory;
-    
         this.server = new NettyServer(
                 consistentId,
                 networkConfiguration,
                 serverHandshakeManagerFactory,
                 this::onNewIncomingChannel,
                 this::onMessage,
-                serializationRegistry
+                serializationRegistry,
+                bootstrapFactory
         );
-        this.clientBootstrap = createClientBootstrap(clientWorkerGroup, networkConfiguration.outbound());
+        
+        this.clientBootstrap = bootstrapFactory.createClientBootstrap();
     }
     
     /**
@@ -271,8 +271,6 @@ public class ConnectionManager {
         
         try {
             stopFut.join();
-            // TODO: IGNITE-14538 quietPeriod and timeout should be configurable.
-            clientWorkerGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS).sync();
         } catch (Exception e) {
             LOG.warn("Failed to stop the ConnectionManager: {}", e.getMessage());
         }

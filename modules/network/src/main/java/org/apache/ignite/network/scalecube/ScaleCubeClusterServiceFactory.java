@@ -37,7 +37,6 @@ import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManage
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
@@ -45,11 +44,10 @@ import org.apache.ignite.network.NodeFinderFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
- * {@link ClusterServiceFactory} implementation that uses ScaleCube for messaging and topology services.
+ * ScaleCube cluster service factory for messaging and topology services.
  */
-public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
+public class ScaleCubeClusterServiceFactory {
     /** {@inheritDoc} */
-    @Override
     public ClusterService createClusterService(
             ClusterLocalConfiguration context,
             NetworkConfiguration networkConfiguration,

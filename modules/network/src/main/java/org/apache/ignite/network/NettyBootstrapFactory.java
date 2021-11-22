@@ -62,6 +62,10 @@ public class NettyBootstrapFactory {
         bossGroup = NamedNioEventLoopGroup.create(consistentId + "-srv-accept");
         workerGroup = NamedNioEventLoopGroup.create(consistentId + "-srv-worker");
         clientWorkerGroup = NamedNioEventLoopGroup.create(consistentId + "-client");
+        
+        // TODO: When do we stop everything?
+        // TODO: IGNITE-14538 quietPeriod and timeout should be configurable.
+        // clientWorkerGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS).sync();
     }
     
     /**

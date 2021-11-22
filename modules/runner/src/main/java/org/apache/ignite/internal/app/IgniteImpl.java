@@ -231,10 +231,12 @@ public class IgniteImpl implements Ignite {
 
         restModule = new RestModule(nodeCfgMgr, clusterCfgMgr);
 
-        // TODO: Create a common class to hold EventLoopGroup, and create all bootstraps.
-        // - Put it into network-api
-        // - Inject where needed
-        clientHandlerModule = new ClientHandlerModule(qryEngine, distributedTblMgr, nodeCfgMgr.configurationRegistry(), null);
+        clientHandlerModule = new ClientHandlerModule(
+                qryEngine,
+                distributedTblMgr,
+                nodeCfgMgr.configurationRegistry(),
+                nettyBootstrapFactory
+        );
     }
 
     /**
