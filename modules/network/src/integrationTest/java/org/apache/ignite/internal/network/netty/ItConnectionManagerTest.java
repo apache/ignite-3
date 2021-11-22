@@ -217,6 +217,7 @@ public class ItConnectionManagerTest {
         TestMessage testMessage = messageFactory.testMessage().msg(msgText).build();
 
         manager2.stop();
+        manager2.bootstrapFactory().stop();
 
         final NettySender finalSender = sender;
 
