@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.query.calcite;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.manager.EventListener;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionService
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.processors.query.calcite.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.processors.query.calcite.exec.QueryTaskExecutorImpl;
+import org.apache.ignite.internal.processors.query.calcite.extension.SqlExtension;
 import org.apache.ignite.internal.processors.query.calcite.message.MessageService;
 import org.apache.ignite.internal.processors.query.calcite.message.MessageServiceImpl;
 import org.apache.ignite.internal.processors.query.calcite.prepare.QueryPlanCache;
@@ -52,12 +54,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Size of the cache for query plans. */
     public static final int PLAN_CACHE_SIZE = 1024;
 
-    private volatile ExecutionService executionSrvc;
-
-    private volatile MessageService msgSrvc;
-
-    private volatile QueryTaskExecutor taskExecutor;
-
     private final ClusterService clusterSrvc;
 
     private final TableManager tableManager;
@@ -69,7 +65,13 @@ public class SqlQueryProcessor implements QueryProcessor {
     private final QueryPlanCache planCache = new QueryPlanCacheImpl(PLAN_CACHE_SIZE);
 
     /** Event listeners to close. */
-    private final List<Pair<TableEvent, EventListener>> evtLsnrs = new ArrayList<>();
+    private final List<Pair<TableEvent, EventListener<TableEventParameters>>> evtLsnrs = new ArrayList<>();
+
+    private volatile ExecutionService executionSrvc;
+
+    private volatile MessageService msgSrvc;
+
+    private volatile QueryTaskExecutor taskExecutor;
 
     public SqlQueryProcessor(
             ClusterService clusterSrvc,
@@ -90,6 +92,10 @@ public class SqlQueryProcessor implements QueryProcessor {
                 taskExecutor
         );
 
+        List<SqlExtension> extensions = new ArrayList<>();
+
+        ServiceLoader.load(SqlExtension.class).forEach(extensions::add);
+
         SchemaHolderImpl schemaHolder = new SchemaHolderImpl(planCache::clear);
 
         executionSrvc = new ExecutionServiceImpl<>(
@@ -98,7 +104,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 planCache,
                 schemaHolder,
                 taskExecutor,
-                ArrayRowHandler.INSTANCE
+                ArrayRowHandler.INSTANCE,
+                extensions
         );
 
         registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaHolder));
@@ -109,6 +116,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         msgSrvc.start();
         executionSrvc.start();
         planCache.start();
+
+        extensions.forEach(ext -> ext.init(catalog -> schemaHolder.registerExternalCatalog(ext.name(), catalog)));
     }
 
     private void registerTableListener(TableEvent evt, AbstractTableEventListener lsnr) {
@@ -118,7 +127,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("unchecked")
     @Override
     public void stop() throws Exception {
         busyLock.block();

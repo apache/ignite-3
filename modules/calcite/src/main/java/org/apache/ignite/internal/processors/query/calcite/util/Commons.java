@@ -827,6 +827,6 @@ public final class Commons {
     }
 
     public static MappingQueryContext mapContext(String locNodeId, long topVer) {
-        return new MappingQueryContext(locNodeId, topVer);
+        return new MappingQueryContext(null, locNodeId, topVer);
     }
 }
