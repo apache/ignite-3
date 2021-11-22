@@ -170,7 +170,8 @@ public class ItTransferableObjectProcessorTest {
         Compilation compilation = compiler.compile(sources("AllTypesMessage"));
 
         assertThat(compilation).hadErrorContaining(
-                "No message groups (classes annotated with @MessageGroup) found"
+                "No message groups (classes annotated with @MessageGroup) found while processing messages from the "
+                        + "following packages: [org.apache.ignite.internal.network.processor]"
         );
     }
 
