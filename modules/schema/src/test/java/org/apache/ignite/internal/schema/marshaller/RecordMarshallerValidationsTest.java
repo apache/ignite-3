@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import static org.apache.ignite.internal.schema.NativeTypes.INT32;
+import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -58,13 +59,13 @@ public class RecordMarshallerValidationsTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(1, KEY_COLS, valCols);
 
-        final RecClass rec = new RecClass(1, 1);
+        final TruncatedRecClass rec = new TruncatedRecClass(1, 1);
 
-        RecordMarshaller<RecClass> marshaller = factory.create(schema, RecClass.class);
+        RecordMarshaller<TruncatedRecClass> marshaller = factory.create(schema, TruncatedRecClass.class);
 
         BinaryRow row = marshaller.marshal(rec);
 
-        RecClass restoredRec = marshaller.unmarshal(new Row(schema, row));
+        TruncatedRecClass restoredRec = marshaller.unmarshal(new Row(schema, row));
 
         assertTrue(rec.getClass().isInstance(restoredRec));
 
@@ -84,13 +85,13 @@ public class RecordMarshallerValidationsTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(1, KEY_COLS, valCols);
 
-        final RecClass rec = new RecClass(1, 1);
+        final TruncatedRecClass rec = new TruncatedRecClass(1, 1);
 
-        RecordMarshaller<RecClass> marshaller = factory.create(schema, RecClass.class);
+        RecordMarshaller<TruncatedRecClass> marshaller = factory.create(schema, TruncatedRecClass.class);
 
         BinaryRow row = marshaller.marshal(rec);
 
-        RecClass restoredRec = marshaller.unmarshal(new Row(schema, row));
+        TruncatedRecClass restoredRec = marshaller.unmarshal(new Row(schema, row));
 
         assertTrue(rec.getClass().isInstance(restoredRec));
 
@@ -117,27 +118,48 @@ public class RecordMarshallerValidationsTest {
 
         BinaryRow row = marshallerFull.marshal(rec);
 
-        RecordMarshaller<RecClass> marshaller = factory.create(schema, RecClass.class);
+        RecordMarshaller<TruncatedRecClass> marshaller = factory.create(schema, TruncatedRecClass.class);
 
-        RecClass restoredRec = marshaller.unmarshal(new Row(schema, row));
+        TruncatedRecClass restoredRec = marshaller.unmarshal(new Row(schema, row));
 
         assertEquals(rec.id, restoredRec.id);
         assertEquals(rec.fbyte1, restoredRec.fbyte1);
 
-        assertThrows(IllegalStateException.class, () -> marshaller.marshal(restoredRec));
+        assertThrows(MarshallerException.class, () -> marshaller.marshal(restoredRec));
+    }
+    
+    @ParameterizedTest
+    @MethodSource("marshallerFactoryProvider")
+    public void truncatedKey(MarshallerFactory factory) throws MarshallerException {
+        SchemaDescriptor schema = new SchemaDescriptor(1, new Column[]{
+                new Column("k1", INT32, false),
+                new Column("k2", INT32, false)},
+                new Column[]{new Column("v1", STRING, false)}
+        );
+        RecordMarshaller<TestK1K2V1> marshallerFull = factory.create(schema, TestK1K2V1.class);
+        
+        TestK1K2V1 fullRec = new TestK1K2V1(1, 1, "v1");
+        
+        BinaryRow row = marshallerFull.marshal(fullRec);
+        
+        Object restoredRec = marshallerFull.unmarshal(new Row(schema, row));
+        
+        assertTrue(fullRec.getClass().isInstance(restoredRec));
+        
+        assertThrows(IllegalArgumentException. class, () -> factory.create(schema, TestK2V1.class), "No field found for column k1");
     }
     
     /**
      * Test class with only one field.
      */
-    public static class RecClass {
+    public static class TruncatedRecClass {
         int id;
         int fbyte1;
 
-        public RecClass() {
+        public TruncatedRecClass() {
         }
 
-        public RecClass(int id, int fbyte1) {
+        public TruncatedRecClass(int id, int fbyte1) {
             this.id = id;
             this.fbyte1 = fbyte1;
         }
@@ -150,8 +172,8 @@ public class RecordMarshallerValidationsTest {
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            RecClass recClass = (RecClass) o;
-            return id == recClass.id && fbyte1 == recClass.fbyte1;
+            TruncatedRecClass truncatedRecClass = (TruncatedRecClass) o;
+            return id == truncatedRecClass.id && fbyte1 == truncatedRecClass.fbyte1;
         }
     }
     
@@ -185,6 +207,35 @@ public class RecordMarshallerValidationsTest {
             return id == that.id && fbyte1 == that.fbyte1 && fbyte2 == that.fbyte2;
         }
     }
-
+    
+    private static class TestK1K2V1 {
+        private int k1;
+        private int k2;
+        private String v1;
+        
+        public TestK1K2V1() {
+        
+        }
+        
+        public TestK1K2V1(int k1, int k2, String v1) {
+            this.k1 = k1;
+            this.k2 = k2;
+            this.v1 = v1;
+        }
+    }
+    
+    private static class TestK2V1 {
+        private int k2;
+        private String v1;
+        
+        public TestK2V1() {
+        
+        }
+        
+        public TestK2V1(int k2, String v1) {
+            this.k2 = k2;
+            this.v1 = v1;
+        }
+    }
 }
 

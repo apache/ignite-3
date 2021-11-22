@@ -120,27 +120,6 @@ public class RecordMarshallerTest {
     
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
-    public void truncatedKey(MarshallerFactory factory) throws MarshallerException {
-        SchemaDescriptor schema = new SchemaDescriptor(1, new Column[]{
-                new Column("k1", INT32, false),
-                new Column("k2", INT32, false)},
-                new Column[]{new Column("v1", STRING, false)}
-                );
-        RecordMarshaller<TestK1K2V1> marshallerFull = factory.create(schema, TestK1K2V1.class);
-        
-        TestK1K2V1 fullRec = new TestK1K2V1(1, 1, "v1");
-    
-        BinaryRow row = marshallerFull.marshal(fullRec);
-    
-        Object restoredRec = marshallerFull.unmarshal(new Row(schema, row));
-    
-        assertTrue(fullRec.getClass().isInstance(restoredRec));
-    
-        assertThrows(IllegalArgumentException. class, () -> factory.create(schema, TestK2V1.class), "No field found for column k1");
-    }
-    
-    @ParameterizedTest
-    @MethodSource("marshallerFactoryProvider")
     public void truncatedType(MarshallerFactory factory) throws MarshallerException {
         SchemaDescriptor schema = new SchemaDescriptor(1, keyColumns(), valueColumnsAllTypes());
         
@@ -445,9 +424,9 @@ public class RecordMarshallerTest {
                 new Column("primitiveByteCol", INT8, false, () -> (byte) 0x42),
                 new Column("primitiveShortCol", INT16, false, () -> (short) 0x4242),
                 new Column("primitiveIntCol", INT32, false, () -> 0x42424242),
-                new Column("primitiveFloatCol", FLOAT, false, () -> 100.100),
-                new Column("primitiveDoubleCol", DOUBLE, false, () -> 1000.1000),
-
+                new Column("primitiveFloatCol", FLOAT, false),
+                new Column("primitiveDoubleCol", DOUBLE, false),
+                
                 new Column("byteCol", INT8, true),
                 new Column("shortCol", INT16, true),
                 new Column("longCol", INT64, true),
@@ -616,36 +595,6 @@ public class RecordMarshallerTest {
         @Override
         public int hashCode() {
             return Objects.hash(primLongCol);
-        }
-    }
-    
-    private static class TestK1K2V1 {
-        private int k1;
-        private int k2;
-        private String v1;
-        
-        public TestK1K2V1() {
-        
-        }
-    
-        public TestK1K2V1(int k1, int k2, String v1) {
-            this.k1 = k1;
-            this.k2 = k2;
-            this.v1 = v1;
-        }
-    }
-    
-    private static class TestK2V1 {
-        private int k2;
-        private String v1;
-        
-        public TestK2V1() {
-        
-        }
-        
-        public TestK2V1(int k2, String v1) {
-            this.k2 = k2;
-            this.v1 = v1;
         }
     }
 }
