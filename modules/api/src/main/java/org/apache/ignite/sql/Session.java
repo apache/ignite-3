@@ -83,10 +83,9 @@ public interface Session extends AsyncSession, ReactiveSession {
      *
      * @param query     SQL query template.
      * @param arguments Arguments for the template (optional).
-     * @return SQL query results set.
      * @throws SqlException If failed.
      */
-    MultiResultSet executeScript(@NotNull String query, Object... arguments);
+    void executeScript(@NotNull String query, Object... arguments);
 
     /**
      * Sets session property.

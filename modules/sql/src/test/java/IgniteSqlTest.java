@@ -35,7 +35,6 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.MultiResultSet;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
@@ -130,18 +129,11 @@ public class IgniteSqlTest {
     public void testSyncMultiStatementSql() {
         Session sess = queryMgr.newSession();
 
-        MultiResultSet multiRs = sess.executeScript(
+        sess.executeScript(
                 "CREATE TABLE tbl(id INTEGER PRIMARY KEY, val VARCHAR);"
                         + "INSERT INTO tbl VALUES (1, 2);"
-                        + "SELECT id, val FROM tbl WHERE id == {};"
+                        + "INSERT INTO tbl2 (SELECT id, val FROM tbl WHERE id == {});"
                         + "DROP TABLE tbl", 10);
-
-        Iterator<ResultSet> iterator = multiRs.iterator();
-        //TODO: Closable iterator.
-
-        ResultSet rs = iterator.next();
-
-        String str = rs.iterator().next().stringValue("val");
     }
 
     @Disabled
@@ -323,21 +315,6 @@ public class IgniteSqlTest {
                     return CompletableFuture.completedFuture(page1);
                 });
 
-        Mockito.when(session.executeScript(Mockito.any(), Mockito.any()))
-                .thenAnswer(
-                        ans0 -> Mockito.when(Mockito.mock(MultiResultSet.class).iterator())
-                                .thenAnswer(
-                                        ans1 -> Mockito.when(Mockito.mock(Iterator.class).next())
-                                                .thenAnswer(
-                                                        ans2 -> Mockito
-                                                                .when(Mockito.mock(ResultSet.class)
-                                                                        .iterator())
-                                                                .thenReturn(query1Resuls.iterator())
-                                                                .getMock()
-                                                ).getMock()
-                                ).getMock()
-                );
-
         Mockito.when(session.executeReactive(
                 Mockito.startsWith("SELECT id, val FROM tbl WHERE id < {} AND val LIKE {};"),
                 Mockito.nullable(Transaction.class), Mockito.any(), Mockito.any()))
@@ -369,7 +346,6 @@ public class IgniteSqlTest {
 
         Mockito.when(igniteTx.beginAsync()).thenReturn(CompletableFuture.completedFuture(transaction));
     }
-
 
 
     static class SqlRowSubscriber extends CompletableFuture<Void> implements
