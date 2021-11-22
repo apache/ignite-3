@@ -33,7 +33,7 @@ import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup;
  */
 public class NettyBootstrapFactory {
     /** Network configuration. */
-    private NetworkView networkConfiguration;
+    private final NetworkView networkConfiguration;
     
     /** Server boss socket channel handler event loop group. */
     private final EventLoopGroup bossGroup;
@@ -59,9 +59,9 @@ public class NettyBootstrapFactory {
         
         this.networkConfiguration = networkConfiguration;
         
-        this.bossGroup = NamedNioEventLoopGroup.create(consistentId + "-srv-accept");
-        this.workerGroup = NamedNioEventLoopGroup.create(consistentId + "-srv-worker");
-        this.clientWorkerGroup = NamedNioEventLoopGroup.create(consistentId + "-client");
+        bossGroup = NamedNioEventLoopGroup.create(consistentId + "-srv-accept");
+        workerGroup = NamedNioEventLoopGroup.create(consistentId + "-srv-worker");
+        clientWorkerGroup = NamedNioEventLoopGroup.create(consistentId + "-client");
     }
     
     /**
