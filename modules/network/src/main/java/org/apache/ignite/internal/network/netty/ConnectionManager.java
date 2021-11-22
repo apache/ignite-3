@@ -41,6 +41,7 @@ import org.apache.ignite.configuration.schemas.network.OutboundView;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.jetbrains.annotations.Nullable;
@@ -56,17 +57,8 @@ public class ConnectionManager {
     /** Latest version of the direct marshalling protocol. */
     public static final byte DIRECT_PROTOCOL_VERSION = 1;
     
-    /** Client bootstrap. */
-    private final Bootstrap clientBootstrap;
-    
-    /** Server boss socket channel handler event loop group. */
-    private final EventLoopGroup bossGroup;
-    
-    /** Server work socket channel handler event loop group. */
-    private final EventLoopGroup workerGroup;
-    
-    /** Client socket channel handler event loop group. */
-    private final EventLoopGroup clientWorkerGroup;
+    /** Bootstrap factory. */
+    private final NettyBootstrapFactory bootstrapFactory;
     
     /** Server. */
     private final NettyServer server;
@@ -103,21 +95,21 @@ public class ConnectionManager {
      * @param consistentId                  Consistent id of this node.
      * @param serverHandshakeManagerFactory Server handshake manager factory.
      * @param clientHandshakeManagerFactory Client handshake manager factory.
+     * @param bootstrapFactory              Bootstrap factory.
      */
     public ConnectionManager(
             NetworkView networkConfiguration,
             MessageSerializationRegistry registry,
             String consistentId,
             Supplier<HandshakeManager> serverHandshakeManagerFactory,
-            Supplier<HandshakeManager> clientHandshakeManagerFactory
+            Supplier<HandshakeManager> clientHandshakeManagerFactory,
+            NettyBootstrapFactory bootstrapFactory
     ) {
         this.serializationRegistry = registry;
         this.consistentId = consistentId;
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
-        
-        this.bossGroup = NamedNioEventLoopGroup.create(consistentId + "-srv-accept");
-        this.workerGroup = NamedNioEventLoopGroup.create(consistentId + "-srv-worker");
-        this.clientWorkerGroup = NamedNioEventLoopGroup.create(consistentId + "-client");
+
+        this.bootstrapFactory = bootstrapFactory;
     
         this.server = new NettyServer(
                 consistentId,
