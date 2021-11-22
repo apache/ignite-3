@@ -76,8 +76,11 @@ public class ItRecoveryHandshakeTest {
      * After each.
      */
     @AfterEach
-    final void tearDown() {
-        startedManagers.forEach(ConnectionManager::stop);
+    final void tearDown() throws Exception {
+        for (ConnectionManager startedManager : startedManagers) {
+            startedManager.stop();
+            startedManager.bootstrapFactory().stop();
+        }
     }
 
     /**
@@ -381,7 +384,7 @@ public class ItRecoveryHandshakeTest {
     /**
      * Starts a {@link ConnectionManager} adding it to the {@link #startedManagers} list.
      *
-     * @param port                  Port for the {@link ConnectionManager#server}.
+     * @param port                  Port for the server.
      * @param serverHandshakeFailAt At what stage to fail server handshake.
      * @param clientHandshakeFailAt At what stage to fail client handshake.
      * @return Connection manager.
@@ -401,14 +404,17 @@ public class ItRecoveryHandshakeTest {
         networkConfiguration.port().update(port).join();
 
         NetworkView cfg = networkConfiguration.value();
-
+    
+        NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(cfg, consistentId);
+        bootstrapFactory.start();
+        
         var manager = new ConnectionManager(
                 cfg,
                 registry,
                 consistentId,
                 () -> new FailingRecoveryServerHandshakeManager(launchId, consistentId, serverHandshakeFailAt, messageFactory),
                 () -> new FailingRecoveryClientHandshakeManager(launchId, consistentId, clientHandshakeFailAt, messageFactory),
-                new NettyBootstrapFactory(cfg, consistentId)
+                bootstrapFactory
         );
 
         manager.start();
@@ -435,13 +441,17 @@ public class ItRecoveryHandshakeTest {
         networkConfiguration.port().update(port).join();
 
         NetworkView cfg = networkConfiguration.value();
-
+    
+        NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(cfg, consistentId);
+        bootstrapFactory.start();
+        
         var manager = new ConnectionManager(
                 cfg,
                 registry,
                 consistentId,
                 () -> new RecoveryServerHandshakeManager(launchId, consistentId, messageFactory),
-                () -> new RecoveryClientHandshakeManager(launchId, consistentId, messageFactory)
+                () -> new RecoveryClientHandshakeManager(launchId, consistentId, messageFactory),
+                bootstrapFactory
         );
 
         manager.start();

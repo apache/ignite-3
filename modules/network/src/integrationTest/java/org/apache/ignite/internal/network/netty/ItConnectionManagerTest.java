@@ -48,6 +48,7 @@ import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TestMessage;
 import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
@@ -76,8 +77,11 @@ public class ItConnectionManagerTest {
      * After each.
      */
     @AfterEach
-    final void tearDown() {
-        startedManagers.forEach(ConnectionManager::stop);
+    final void tearDown() throws Exception {
+        for (ConnectionManager startedManager : startedManagers) {
+            startedManager.stop();
+            startedManager.bootstrapFactory().stop();
+        }
     }
 
     /**
@@ -330,13 +334,17 @@ public class ItConnectionManagerTest {
         networkConfiguration.port().update(port).join();
 
         NetworkView cfg = networkConfiguration.value();
-
+    
+        NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(cfg, consistentId);
+        bootstrapFactory.start();
+        
         var manager = new ConnectionManager(
                 cfg,
                 registry,
                 consistentId,
                 () -> new RecoveryServerHandshakeManager(launchId, consistentId, messageFactory),
-                () -> new RecoveryClientHandshakeManager(launchId, consistentId, messageFactory)
+                () -> new RecoveryClientHandshakeManager(launchId, consistentId, messageFactory),
+                bootstrapFactory
         );
 
         manager.start();

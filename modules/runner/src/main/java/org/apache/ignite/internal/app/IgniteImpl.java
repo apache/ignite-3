@@ -289,6 +289,7 @@ public class IgniteImpl implements Ignite {
 
             // Start the remaining components.
             List<IgniteComponent> otherComponents = List.of(
+                    nettyBootstrapFactory,
                     clusterSvc,
                     raftMgr,
                     metaStorageMgr,
