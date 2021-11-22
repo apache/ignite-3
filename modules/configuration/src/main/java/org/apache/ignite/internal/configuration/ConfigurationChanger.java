@@ -383,59 +383,68 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         StorageRoots localRoots = storageRoots;
         
         return CompletableFuture
-                .supplyAsync(() -> {
-                    SuperRoot curRoots = localRoots.roots;
-                    
-                    SuperRoot changes = curRoots.copy();
-                    
-                    src.reset();
-                    
-                    src.descend(changes);
-                    
-                    addDefaults(changes);
-                    
-                    Map<String, Serializable> allChanges = createFlattenedUpdatesMap(curRoots, changes);
-                    
-                    // Unlikely but still possible.
-                    if (allChanges.isEmpty()) {
-                        return null;
+                .supplyAsync(() -> applyAndValidateChangesAndCalcDiff(src, localRoots), pool)
+                .thenCompose(allChanges -> persistChanges(src, localRoots, allChanges));
+    }
+
+    @Nullable
+    private Map<String, Serializable> applyAndValidateChangesAndCalcDiff(ConfigurationSource src,
+                                                                         StorageRoots localRoots) {
+        SuperRoot curRoots = localRoots.roots;
+
+        SuperRoot changes = curRoots.copy();
+
+        src.reset();
+
+        src.descend(changes);
+
+        addDefaults(changes);
+
+        Map<String, Serializable> allChanges = createFlattenedUpdatesMap(curRoots, changes);
+
+        // Unlikely but still possible.
+        if (allChanges.isEmpty()) {
+            return null;
+        }
+
+        dropNulls(changes);
+
+        List<ValidationIssue> validationIssues = ValidationUtil.validate(
+                curRoots,
+                changes,
+                this::getRootNode,
+                cachedAnnotations,
+                validators
+        );
+
+        if (!validationIssues.isEmpty()) {
+            throw new ConfigurationValidationException(validationIssues);
+        }
+
+        return allChanges;
+    }
+
+    private CompletableFuture<Void> persistChanges(ConfigurationSource src, StorageRoots localRoots,
+                                                   Map<String, Serializable> allChanges) {
+        if (allChanges == null) {
+            return completedFuture(null);
+        }
+
+        return storage.write(allChanges, localRoots.version)
+                .thenCompose(casWroteSuccessfully -> {
+                    if (casWroteSuccessfully) {
+                        return localRoots.changeFuture;
+                    } else {
+                        // Here we go to next iteration of an implicit spin loop; we have to do it via recursion
+                        // because we work with async code (futures).
+                        return localRoots.changeFuture.thenCompose(v -> changeInternally(src));
                     }
-                    
-                    dropNulls(changes);
-                    
-                    List<ValidationIssue> validationIssues = ValidationUtil.validate(
-                            curRoots,
-                            changes,
-                            this::getRootNode,
-                            cachedAnnotations,
-                            validators
-                    );
-    
-                    if (!validationIssues.isEmpty()) {
-                        throw new ConfigurationValidationException(validationIssues);
-                    }
-                    
-                    return allChanges;
-                }, pool)
-                .thenCompose(allChanges -> {
-                    if (allChanges == null) {
-                        return completedFuture(null);
-                    }
-                    
-                    return storage.write(allChanges, localRoots.version)
-                            .thenCompose(casResult -> {
-                                if (casResult) {
-                                    return localRoots.changeFuture;
-                                } else {
-                                    return localRoots.changeFuture.thenCompose(v -> changeInternally(src));
-                                }
-                            })
-                            .exceptionally(throwable -> {
-                                throw new ConfigurationChangeException("Failed to change configuration", throwable);
-                            });
+                })
+                .exceptionally(throwable -> {
+                    throw new ConfigurationChangeException("Failed to change configuration", throwable);
                 });
     }
-    
+
     /**
      * Updates configuration from storage listener.
      *
