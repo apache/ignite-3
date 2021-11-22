@@ -583,6 +583,7 @@ public class ItMetaStorageServiceTest {
                         cursorAwaitLatch.countDown();
 
                     }
+
                     @Override
                     public void onNext(Entry item) {
                     
@@ -709,7 +710,6 @@ public class ItMetaStorageServiceTest {
         subscriptionRef.get().cancel();
     }
 
-
     /**
      * Tests {@link MetaStorageService#range(ByteArray, ByteArray, long)}'s cursor exceptional case.
      *
@@ -808,19 +808,19 @@ public class ItMetaStorageServiceTest {
                                 )
                         )
                 ));
-    
+
         ByteArray keyFrom = new ByteArray(new byte[]{1});
-    
+
         ByteArray keyTo = new ByteArray(new byte[]{10});
-    
+
         long rev = 2;
-    
+
         when(mockStorage.watch(keyFrom.bytes(), keyTo.bytes(), rev)).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
-        
+
             when(cursor.hasNext()).thenReturn(true);
             when(cursor.next()).thenReturn(expectedEvent);
-        
+
             return cursor;
         });
         
