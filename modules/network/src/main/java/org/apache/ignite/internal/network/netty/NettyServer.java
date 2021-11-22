@@ -203,7 +203,7 @@ public class NettyServer {
             } else if (future.isCancelled()) {
                 fut.cancel(true);
             } else {
-                tryBind(bootstrap,port + 1, endPort, fut);
+                tryBind(bootstrap, port + 1, endPort, fut);
             }
         });
     }

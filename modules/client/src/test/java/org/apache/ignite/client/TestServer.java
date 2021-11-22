@@ -40,6 +40,13 @@ public class TestServer implements AutoCloseable {
     
     private final NettyBootstrapFactory bootstrapFactory;
     
+    /**
+     * Constructor.
+     *
+     * @param port Port.
+     * @param portRange Port range.
+     * @param ignite Ignite.
+     */
     public TestServer(
             int port,
             int portRange,
