@@ -95,15 +95,4 @@ public interface Table {
     default <K, V> KeyValueView<K, V> keyValueView(Class<K> keyCls, Class<V> valCls) {
         return keyValueView(Mapper.of(keyCls), Mapper.of(valCls));
     }
-    
-    /**
-     * Returns statistics facade for table statistics management.
-     *
-     * <p>Note: SQL engine uses table statistics for SQL queries planning.
-     *
-     * @return Statistics facade.
-     */
-    default IgniteTableStatistics statistics() {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
 }

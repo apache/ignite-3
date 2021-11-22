@@ -20,6 +20,9 @@ package org.apache.ignite.sql.async;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Async Session provides methods for asynchronous query execution.
@@ -28,19 +31,21 @@ public interface AsyncSession {
     /**
      * Executes SQL query in async way.
      *
-     * @param query     SQL query template.
-     * @param arguments Arguments for the template (optional).
+     * @param query       SQL query template.
+     * @param transaction Transaction to execute the query within or {@code null}.
+     * @param arguments   Arguments for the template (optional).
      * @return Operation future.
      * @throws SqlException If failed.
      */
-    CompletableFuture<AsyncResultSet> executeAsync(String query, Object... arguments);
-    
+    CompletableFuture<AsyncResultSet> executeAsync(@NotNull String query, @Nullable Transaction transaction, Object... arguments);
+
     /**
      * Executes SQL statement in async way.
      *
-     * @param statement SQL statement to execute.
+     * @param statement   SQL statement to execute.
+     * @param transaction Transaction to execute the statement within or {@code null}.
      * @return Operation future.
      * @throws SqlException If failed.
      */
-    CompletableFuture<AsyncResultSet> executeAsync(Statement statement);
+    CompletableFuture<AsyncResultSet> executeAsync(@NotNull Statement statement, @Nullable Transaction transaction);
 }

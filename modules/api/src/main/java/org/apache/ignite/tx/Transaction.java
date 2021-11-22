@@ -47,20 +47,4 @@ public interface Transaction {
      * @return The future.
      */
     CompletableFuture<Void> rollbackAsync();
-    
-    /**
-     * Enlists SQL session into a transaction.
-     *
-     * @param session SQL session.
-     * @return Enlisted session.
-     */
-    Session wrap(Session session);
-    
-    /**
-     * Enlists SQL session into a transaction.
-     *
-     * @param session SQL session.
-     * @return Enlisted session.
-     */
-    CompletableFuture<Session> wrapAsync(Session session);
 }

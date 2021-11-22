@@ -22,6 +22,7 @@ import org.apache.ignite.sql.async.AsyncSession;
 import org.apache.ignite.sql.reactive.ReactiveSession;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * SQL Session provides methods for query execution.
@@ -33,8 +34,8 @@ public interface Session extends AsyncSession, ReactiveSession {
      * @param timeout  Query timeout value.
      * @param timeUnit Timeunit.
      */
-    void defaultTimeout(int timeout, TimeUnit timeUnit);
-    
+    void defaultTimeout(long timeout, TimeUnit timeUnit);
+
     /**
      * Gets default query timeout.
      *
@@ -42,41 +43,43 @@ public interface Session extends AsyncSession, ReactiveSession {
      * @return Default query timeout.
      */
     long defaultTimeout(TimeUnit timeUnit);
-    
+
     /**
      * Sets default query schema.
      *
      * @param schema Default schema.
      */
     void defaultSchema(@NotNull String schema);
-    
+
     /**
      * Gets default query schema.
      *
      * @return Default query schema.
      */
     String defaultSchema();
-    
+
     /**
      * Executes single SQL query.
      *
-     * @param query     SQL query template.
-     * @param arguments Arguments for the template (optional).
+     * @param query       SQL query template.
+     * @param arguments   Arguments for the template (opti
+     * @param transaction Transaction to execute the query within or {@code null}.onal).
      * @return SQL query results set.
      * @throws SqlException If failed.
      */
-    ResultSet execute(@NotNull String query, Object... arguments);
-    
+    ResultSet execute(@NotNull String query, @Nullable Transaction transaction, Object... arguments);
+
     /**
      * Executes single SQL statement.
      *
-     * @param statement SQL statement to execute.
+     * @param statement   SQL statement to execute.
+     * @param transaction Transaction to execute the statement within or {@code null}.
      * @return SQL query results set.
      */
-    ResultSet execute(@NotNull Statement statement);
-    
+    ResultSet execute(@NotNull Statement statement, @Nullable Transaction transaction);
+
     /**
-     * Executes multi-statement SQL query.
+     * Executes multi-statement non-transactional SQL query.
      *
      * @param query     SQL query template.
      * @param arguments Arguments for the template (optional).
@@ -84,7 +87,7 @@ public interface Session extends AsyncSession, ReactiveSession {
      * @throws SqlException If failed.
      */
     MultiResultSet executeScript(@NotNull String query, Object... arguments);
-    
+
     /**
      * Sets session property.
      *
@@ -93,11 +96,4 @@ public interface Session extends AsyncSession, ReactiveSession {
      * @return {@code this} for chaining.
      */
     Session property(@NotNull String name, Object value);
-    
-    /**
-     * Returns current transaction.
-     *
-     * @return Transaction or {@code null} if wasn't set.
-     */
-    Transaction transaction();
 }

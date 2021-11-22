@@ -19,6 +19,9 @@ package org.apache.ignite.sql.reactive;
 
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Reactive Session provides methods for reactive query execution.
@@ -27,19 +30,21 @@ public interface ReactiveSession {
     /**
      * Executes SQL query in reactive way.
      *
-     * @param sql  SQL query template.
-     * @param args Arguments for the template (optional).
+     * @param query       SQL query template.
+     * @param transaction Transaction to execute the query within or {@code null}.
+     * @param arguments   Arguments for the template (optional).
      * @return Reactive result.
      * @throws SqlException If failed.
      */
-    ReactiveResultSet executeReactive(String sql, Object... args);
-    
+    ReactiveResultSet executeReactive(@NotNull String query, @Nullable Transaction transaction, Object... arguments);
+
     /**
      * Executes SQL query in reactive way.
      *
-     * @param statement SQL statement.
+     * @param statement   SQL statement.
+     * @param transaction Transaction to execute the statement within or {@code null}.
      * @return Reactive result.
      * @throws SqlException If failed.
      */
-    ReactiveResultSet executeReactive(Statement statement);
+    ReactiveResultSet executeReactive(@NotNull Statement statement, @Nullable Transaction transaction);
 }

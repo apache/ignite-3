@@ -47,13 +47,13 @@ public interface Statement {
     Statement parameters(Object... parameters);
     
     /**
-     * Sets a SQL statement parameter value by the parameter index.
+     * Sets SQL statement parameter value by the parameter index.
      *
-     * @param parameterIndex Parameter index.
-     * @param parameterValue Parameter value.
+     * @param index Parameter index.
+     * @param value Parameter value.
      * @return {@code this} for chaining.
      */
-    Statement parameter(int parameterIndex, Object parameterValue);
+    Statement parameter(int index, Object value);
     
     /**
      * Resets batch state and clears query parameters.
@@ -75,7 +75,7 @@ public interface Statement {
      * @param timeout  Query timeout value.
      * @param timeUnit Timeunit.
      */
-    void queryTimeout(int timeout, TimeUnit timeUnit);
+    void queryTimeout(long timeout, TimeUnit timeUnit);
     
     /**
      * Gets query timeout.
@@ -84,13 +84,4 @@ public interface Statement {
      * @return Query timeout.
      */
     long queryTimeout(TimeUnit timeUnit);
-    
-    /**
-     * Sets statement property.
-     *
-     * @param name  Property name.
-     * @param value Property value.
-     * @return {@code this} for chaining.
-     */
-    Statement property(@NotNull String name, Object value);
 }

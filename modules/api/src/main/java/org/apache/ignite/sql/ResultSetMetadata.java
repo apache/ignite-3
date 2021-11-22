@@ -24,7 +24,7 @@ import java.util.List;
  */
 public interface ResultSetMetadata {
     /**
-     * Returns number of column that every row in a result set.
+     * Returns number of column that every row in a result set contains.
      *
      * @return Number of columns.
      */

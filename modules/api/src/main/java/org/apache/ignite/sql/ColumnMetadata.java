@@ -41,9 +41,9 @@ public interface ColumnMetadata {
     ColumnType type();
     
     /**
-     * Returns column value type.
+     * Returns column value class.
      *
-     * @return Value type.
+     * @return Value class.
      */
     Class<?> valueClass();
     

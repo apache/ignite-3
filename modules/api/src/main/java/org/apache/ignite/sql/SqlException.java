@@ -23,7 +23,6 @@ import org.jetbrains.annotations.Nullable;
 /**
  * SQL exception base class.
  */
-//TODO: Do we want to use this instead of java.sql.SQLException ?
 public class SqlException extends IgniteException {
     /**
      * Creates an empty exception.

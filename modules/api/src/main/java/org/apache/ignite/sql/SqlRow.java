@@ -22,7 +22,7 @@ import org.apache.ignite.table.Tuple;
 /**
  * SQL row provides methods to access row data by column name or id.
  *
- * <p>Column description can be retrived from {@link ResultSet#metadata()}.
+ * <p>Column description can be retrieved from {@link ResultSet#metadata()}.
  *
  * @see ColumnMetadata
  */

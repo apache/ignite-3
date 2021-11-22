@@ -40,7 +40,7 @@ public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
     boolean hasRowSet();
     
     /**
-     * Returns number of row affected by DML query.
+     * Returns number of row affected by the query.
      *
      * @return Number of rows or {@code -1} if unapplicable.
      */
