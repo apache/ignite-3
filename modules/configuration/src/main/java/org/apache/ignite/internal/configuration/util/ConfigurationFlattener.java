@@ -211,7 +211,7 @@ public class ConfigurationFlattener {
                     Integer oldIdx = oldKeysToOrderIdxMap == null ? null : oldKeysToOrderIdxMap.get(newNodeKey);
                     
                     // We should "persist" changed indexes only.
-                    if (newIdx != oldIdx || singleTreeTraversal || newNamedElement == null) {
+                    if (!Objects.equals(newIdx, oldIdx) || singleTreeTraversal || newNamedElement == null) {
                         String orderKey = currentKey() + NamedListNode.ORDER_IDX;
                         
                         resMap.put(orderKey, deletion || newNamedElement == null ? null : newIdx);
