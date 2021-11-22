@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -34,6 +35,7 @@ import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +43,7 @@ import java.util.NavigableMap;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ScheduledExecutorService;
@@ -80,6 +83,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -560,12 +564,14 @@ public class ItMetaStorageServiceTest {
      * Tests {@link MetaStorageService#range(ByteArray, ByteArray, long)}} with not null keyTo.
      */
     @Test
-    public void testRangeWitKeyTo() {
+    public void testRangeWitKeyTo() throws Exception {
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
         ByteArray expKeyTo = new ByteArray(new byte[]{3});
 
         when(mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes())).thenReturn(mock(Cursor.class));
+    
+        CountDownLatch cursorAwaitLatch = new CountDownLatch(1);
 
         final AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
         
@@ -574,8 +580,9 @@ public class ItMetaStorageServiceTest {
                     @Override
                     public void onSubscribe(Subscription subscription) {
                         subscriptionRef.set(subscription);
+                        cursorAwaitLatch.countDown();
+
                     }
-                
                     @Override
                     public void onNext(Entry item) {
                     
@@ -591,7 +598,11 @@ public class ItMetaStorageServiceTest {
                     
                     }
                 });
+        
+        cursorAwaitLatch.await(1000, TimeUnit.MILLISECONDS);
     
+        verify(mockStorage).range(expKeyFrom.bytes(), expKeyTo.bytes());
+        
         subscriptionRef.get().cancel();
     }
 
@@ -605,6 +616,8 @@ public class ItMetaStorageServiceTest {
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
         when(mockStorage.range(expKeyFrom.bytes(), null)).thenReturn(mock(Cursor.class));
+    
+        CountDownLatch cursorAwaitLatch = new CountDownLatch(1);
 
         final AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
         
@@ -613,6 +626,7 @@ public class ItMetaStorageServiceTest {
                     @Override
                     public void onSubscribe(Subscription subscription) {
                         subscriptionRef.set(subscription);
+                        cursorAwaitLatch.countDown();
                     }
             
                     @Override
@@ -630,6 +644,10 @@ public class ItMetaStorageServiceTest {
                 
                     }
                 });
+    
+        cursorAwaitLatch.await(1000, TimeUnit.MILLISECONDS);
+    
+        verify(mockStorage).range(ArgumentMatchers.eq(expKeyFrom.bytes()), isNull());
     
         subscriptionRef.get().cancel();
     }
@@ -678,8 +696,15 @@ public class ItMetaStorageServiceTest {
                     
                     }
                 });
+
+        assertTrue(waitForCondition(
+                () -> gotEntry.get() != null && Arrays.equals(EXPECTED_SRV_RESULT_ENTRY.key(), gotEntry.get().key().bytes()),
+                1_000)
+        );
         
-        assertTrue(waitForCondition(() -> EXPECTED_SRV_RESULT_ENTRY.equals(gotEntry.get()), 1_000));
+        assertTrue(Arrays.equals(EXPECTED_SRV_RESULT_ENTRY.value(), gotEntry.get().value()));
+        assertEquals(EXPECTED_SRV_RESULT_ENTRY.revision(), gotEntry.get().revision());
+        assertEquals(EXPECTED_SRV_RESULT_ENTRY.updateCounter(), gotEntry.get().updateCounter());
     
         subscriptionRef.get().cancel();
     }
@@ -798,7 +823,35 @@ public class ItMetaStorageServiceTest {
         
             return cursor;
         });
-        // TODO: sanpwc Implement.
+        
+        List<WatchEvent> gotEvent = new ArrayList<>();
+        
+        metaStorageSvc.watch(keyFrom, keyTo, rev).subscribe(new Subscriber<WatchEvent>() {
+            private volatile Subscription subscription;
+            
+            @Override
+            public void onSubscribe(Subscription subscription) {
+                this.subscription = subscription;
+                subscription.request(1);
+            }
+    
+            @Override
+            public void onNext(WatchEvent item) {
+                gotEvent.add(item);
+            }
+    
+            @Override
+            public void onError(Throwable throwable) {
+        
+            }
+    
+            @Override
+            public void onComplete() {
+        
+            }
+        });
+    
+        waitForCondition(() -> gotEvent.equals(expectedEvent), 1000);
     }
 
     @Test

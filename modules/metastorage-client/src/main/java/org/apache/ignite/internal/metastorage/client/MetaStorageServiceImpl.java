@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
@@ -549,8 +550,12 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                                         .exceptionally(
                                                 t -> {
                                                     cancel(!watchInitOp.isCompletedExceptionally());
-                                                    
-                                                    subscriber.onError(t);
+    
+                                                    if (t instanceof CompletionException) {
+                                                        subscriber.onError(t.getCause());
+                                                    } else {
+                                                        subscriber.onError(t);
+                                                    }
                                                     
                                                     return null;
                                                 }
@@ -559,7 +564,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                                 try {
                                     Thread.sleep(10);
                                 } catch (InterruptedException e) {
-                                    
                                     subscriber.onError(e);
                                 }
                                 retrieveNextWatchEvent();
@@ -738,8 +742,12 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                             .exceptionally(
                                     t -> {
                                         cancel(!scanInitOp.isCompletedExceptionally());
-
-                                        subscriber.onError(t);
+    
+                                        if (t instanceof CompletionException) {
+                                            subscriber.onError(t.getCause());
+                                        } else {
+                                            subscriber.onError(t);
+                                        }
 
                                         return null;
                                     });
