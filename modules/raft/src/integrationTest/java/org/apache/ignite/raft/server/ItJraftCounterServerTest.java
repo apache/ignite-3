@@ -84,6 +84,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Jraft server.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@Disabled
 class ItJraftCounterServerTest extends RaftServerAbstractTest {
     /**
      * The logger.

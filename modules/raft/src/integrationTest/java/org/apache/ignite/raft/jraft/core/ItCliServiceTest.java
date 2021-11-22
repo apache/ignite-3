@@ -71,6 +71,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Jraft cli tests.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@Disabled
 public class ItCliServiceTest {
     /**
      * The logger.

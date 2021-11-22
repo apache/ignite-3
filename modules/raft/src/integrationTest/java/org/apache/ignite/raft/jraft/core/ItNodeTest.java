@@ -3365,6 +3365,363 @@ public class ItNodeTest {
             assertEquals(10, fsm.getLogs().size());
         }
     }
+    
+    @Test
+    public void testChangePeers10() throws Exception {
+        PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
+        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
+        assertTrue(cluster.start(peer0.getEndpoint()));
+        
+        cluster.waitLeader();
+        Node leader = cluster.getLeader();
+        sendTestTaskAndWait(leader);
+        
+        for (int i = 1; i < 10; i++) {
+            PeerId peer = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + i);
+            assertTrue(cluster.start(peer.getEndpoint(), false, 300));
+        }
+        for (int i = 0; i < 9; i++) {
+            cluster.waitLeader();
+            leader = cluster.getLeader();
+            assertNotNull(leader);
+            
+            RpcClientEx client = clientEx(leader);
+            client.recordMessages((msg, node) -> true);
+            
+            PeerId peer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i);
+            assertEquals(peer, leader.getNodeId().getPeerId());
+            peer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i + 1);
+            SynchronizedClosure done = new SynchronizedClosure();
+            leader.changePeers(new Configuration(Collections.singletonList(peer)), done);
+            Status status = done.await();
+            
+            if (!status.isOk()) {
+                LOG.info("DBG: Start sleep");
+                Thread.sleep(3000);
+                LOG.info("DBG: Stop sleep");
+                
+                Queue<Object[]> objects = client.recordedMessages();
+                
+                for (Object[] object : objects) {
+                    LOG.info("DBG: {} {} {} {} {}", S.toString(object[0]), object[1], object[2], object[3], object[4]);
+                }
+            }
+            
+            assertTrue(status.isOk(), status.getRaftError().toString());
+        }
+        
+        cluster.waitLeader();
+        
+        for (MockStateMachine fsm : cluster.getFsms()) {
+            assertEquals(10, fsm.getLogs().size());
+        }
+    }
+    
+    @Test
+    public void testChangePeers11() throws Exception {
+        PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
+        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
+        assertTrue(cluster.start(peer0.getEndpoint()));
+        
+        cluster.waitLeader();
+        Node leader = cluster.getLeader();
+        sendTestTaskAndWait(leader);
+        
+        for (int i = 1; i < 10; i++) {
+            PeerId peer = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + i);
+            assertTrue(cluster.start(peer.getEndpoint(), false, 300));
+        }
+        for (int i = 0; i < 9; i++) {
+            cluster.waitLeader();
+            leader = cluster.getLeader();
+            assertNotNull(leader);
+            
+            RpcClientEx client = clientEx(leader);
+            client.recordMessages((msg, node) -> true);
+            
+            PeerId peer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i);
+            assertEquals(peer, leader.getNodeId().getPeerId());
+            peer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i + 1);
+            SynchronizedClosure done = new SynchronizedClosure();
+            leader.changePeers(new Configuration(Collections.singletonList(peer)), done);
+            Status status = done.await();
+            
+            if (!status.isOk()) {
+                LOG.info("DBG: Start sleep");
+                Thread.sleep(3000);
+                LOG.info("DBG: Stop sleep");
+                
+                Queue<Object[]> objects = client.recordedMessages();
+                
+                for (Object[] object : objects) {
+                    LOG.info("DBG: {} {} {} {} {}", S.toString(object[0]), object[1], object[2], object[3], object[4]);
+                }
+            }
+            
+            assertTrue(status.isOk(), status.getRaftError().toString());
+        }
+        
+        cluster.waitLeader();
+        
+        for (MockStateMachine fsm : cluster.getFsms()) {
+            assertEquals(10, fsm.getLogs().size());
+        }
+    }
+    
+    @Test
+    public void testChangePeers12() throws Exception {
+        PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
+        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
+        assertTrue(cluster.start(peer0.getEndpoint()));
+        
+        cluster.waitLeader();
+        Node leader = cluster.getLeader();
+        sendTestTaskAndWait(leader);
+        
+        for (int i = 1; i < 10; i++) {
+            PeerId peer = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + i);
+            assertTrue(cluster.start(peer.getEndpoint(), false, 300));
+        }
+        for (int i = 0; i < 9; i++) {
+            cluster.waitLeader();
+            leader = cluster.getLeader();
+            assertNotNull(leader);
+            
+            RpcClientEx client = clientEx(leader);
+            client.recordMessages((msg, node) -> true);
+            
+            PeerId peer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i);
+            assertEquals(peer, leader.getNodeId().getPeerId());
+            peer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i + 1);
+            SynchronizedClosure done = new SynchronizedClosure();
+            leader.changePeers(new Configuration(Collections.singletonList(peer)), done);
+            Status status = done.await();
+            
+            if (!status.isOk()) {
+                LOG.info("DBG: Start sleep");
+                Thread.sleep(3000);
+                LOG.info("DBG: Stop sleep");
+                
+                Queue<Object[]> objects = client.recordedMessages();
+                
+                for (Object[] object : objects) {
+                    LOG.info("DBG: {} {} {} {} {}", S.toString(object[0]), object[1], object[2], object[3], object[4]);
+                }
+            }
+            
+            assertTrue(status.isOk(), status.getRaftError().toString());
+        }
+        
+        cluster.waitLeader();
+        
+        for (MockStateMachine fsm : cluster.getFsms()) {
+            assertEquals(10, fsm.getLogs().size());
+        }
+    }
+    
+    @Test
+    public void testChangePeers13() throws Exception {
+        PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
+        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
+        assertTrue(cluster.start(peer0.getEndpoint()));
+        
+        cluster.waitLeader();
+        Node leader = cluster.getLeader();
+        sendTestTaskAndWait(leader);
+        
+        for (int i = 1; i < 10; i++) {
+            PeerId peer = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + i);
+            assertTrue(cluster.start(peer.getEndpoint(), false, 300));
+        }
+        for (int i = 0; i < 9; i++) {
+            cluster.waitLeader();
+            leader = cluster.getLeader();
+            assertNotNull(leader);
+            
+            RpcClientEx client = clientEx(leader);
+            client.recordMessages((msg, node) -> true);
+            
+            PeerId peer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i);
+            assertEquals(peer, leader.getNodeId().getPeerId());
+            peer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i + 1);
+            SynchronizedClosure done = new SynchronizedClosure();
+            leader.changePeers(new Configuration(Collections.singletonList(peer)), done);
+            Status status = done.await();
+            
+            if (!status.isOk()) {
+                LOG.info("DBG: Start sleep");
+                Thread.sleep(3000);
+                LOG.info("DBG: Stop sleep");
+                
+                Queue<Object[]> objects = client.recordedMessages();
+                
+                for (Object[] object : objects) {
+                    LOG.info("DBG: {} {} {} {} {}", S.toString(object[0]), object[1], object[2], object[3], object[4]);
+                }
+            }
+            
+            assertTrue(status.isOk(), status.getRaftError().toString());
+        }
+        
+        cluster.waitLeader();
+        
+        for (MockStateMachine fsm : cluster.getFsms()) {
+            assertEquals(10, fsm.getLogs().size());
+        }
+    }
+    
+    @Test
+    public void testChangePeers14() throws Exception {
+        PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
+        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
+        assertTrue(cluster.start(peer0.getEndpoint()));
+        
+        cluster.waitLeader();
+        Node leader = cluster.getLeader();
+        sendTestTaskAndWait(leader);
+        
+        for (int i = 1; i < 10; i++) {
+            PeerId peer = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + i);
+            assertTrue(cluster.start(peer.getEndpoint(), false, 300));
+        }
+        for (int i = 0; i < 9; i++) {
+            cluster.waitLeader();
+            leader = cluster.getLeader();
+            assertNotNull(leader);
+            
+            RpcClientEx client = clientEx(leader);
+            client.recordMessages((msg, node) -> true);
+            
+            PeerId peer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i);
+            assertEquals(peer, leader.getNodeId().getPeerId());
+            peer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i + 1);
+            SynchronizedClosure done = new SynchronizedClosure();
+            leader.changePeers(new Configuration(Collections.singletonList(peer)), done);
+            Status status = done.await();
+            
+            if (!status.isOk()) {
+                LOG.info("DBG: Start sleep");
+                Thread.sleep(3000);
+                LOG.info("DBG: Stop sleep");
+                
+                Queue<Object[]> objects = client.recordedMessages();
+                
+                for (Object[] object : objects) {
+                    LOG.info("DBG: {} {} {} {} {}", S.toString(object[0]), object[1], object[2], object[3], object[4]);
+                }
+            }
+            
+            assertTrue(status.isOk(), status.getRaftError().toString());
+        }
+        
+        cluster.waitLeader();
+        
+        for (MockStateMachine fsm : cluster.getFsms()) {
+            assertEquals(10, fsm.getLogs().size());
+        }
+    }
+    
+    @Test
+    public void testChangePeers15() throws Exception {
+        PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
+        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
+        assertTrue(cluster.start(peer0.getEndpoint()));
+        
+        cluster.waitLeader();
+        Node leader = cluster.getLeader();
+        sendTestTaskAndWait(leader);
+        
+        for (int i = 1; i < 10; i++) {
+            PeerId peer = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + i);
+            assertTrue(cluster.start(peer.getEndpoint(), false, 300));
+        }
+        for (int i = 0; i < 9; i++) {
+            cluster.waitLeader();
+            leader = cluster.getLeader();
+            assertNotNull(leader);
+            
+            RpcClientEx client = clientEx(leader);
+            client.recordMessages((msg, node) -> true);
+            
+            PeerId peer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i);
+            assertEquals(peer, leader.getNodeId().getPeerId());
+            peer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i + 1);
+            SynchronizedClosure done = new SynchronizedClosure();
+            leader.changePeers(new Configuration(Collections.singletonList(peer)), done);
+            Status status = done.await();
+            
+            if (!status.isOk()) {
+                LOG.info("DBG: Start sleep");
+                Thread.sleep(3000);
+                LOG.info("DBG: Stop sleep");
+                
+                Queue<Object[]> objects = client.recordedMessages();
+                
+                for (Object[] object : objects) {
+                    LOG.info("DBG: {} {} {} {} {}", S.toString(object[0]), object[1], object[2], object[3], object[4]);
+                }
+            }
+            
+            assertTrue(status.isOk(), status.getRaftError().toString());
+        }
+        
+        cluster.waitLeader();
+        
+        for (MockStateMachine fsm : cluster.getFsms()) {
+            assertEquals(10, fsm.getLogs().size());
+        }
+    }
+    
+    @Test
+    public void testChangePeers16() throws Exception {
+        PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
+        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
+        assertTrue(cluster.start(peer0.getEndpoint()));
+        
+        cluster.waitLeader();
+        Node leader = cluster.getLeader();
+        sendTestTaskAndWait(leader);
+        
+        for (int i = 1; i < 10; i++) {
+            PeerId peer = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + i);
+            assertTrue(cluster.start(peer.getEndpoint(), false, 300));
+        }
+        for (int i = 0; i < 9; i++) {
+            cluster.waitLeader();
+            leader = cluster.getLeader();
+            assertNotNull(leader);
+            
+            RpcClientEx client = clientEx(leader);
+            client.recordMessages((msg, node) -> true);
+            
+            PeerId peer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i);
+            assertEquals(peer, leader.getNodeId().getPeerId());
+            peer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i + 1);
+            SynchronizedClosure done = new SynchronizedClosure();
+            leader.changePeers(new Configuration(Collections.singletonList(peer)), done);
+            Status status = done.await();
+            
+            if (!status.isOk()) {
+                LOG.info("DBG: Start sleep");
+                Thread.sleep(3000);
+                LOG.info("DBG: Stop sleep");
+                
+                Queue<Object[]> objects = client.recordedMessages();
+                
+                for (Object[] object : objects) {
+                    LOG.info("DBG: {} {} {} {} {}", S.toString(object[0]), object[1], object[2], object[3], object[4]);
+                }
+            }
+            
+            assertTrue(status.isOk(), status.getRaftError().toString());
+        }
+        
+        cluster.waitLeader();
+        
+        for (MockStateMachine fsm : cluster.getFsms()) {
+            assertEquals(10, fsm.getLogs().size());
+        }
+    }
 
 //    @Test
 //    public void testChangePeersAddMultiNodes() throws Exception {
