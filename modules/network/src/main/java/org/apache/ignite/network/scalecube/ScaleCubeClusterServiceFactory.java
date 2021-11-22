@@ -37,7 +37,6 @@ import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManage
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
@@ -45,21 +44,9 @@ import org.apache.ignite.network.NodeFinderFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
- * {@link ClusterServiceFactory} implementation that uses ScaleCube for messaging and topology services.
+ * Cluster service factory that uses ScaleCube for messaging and topology services.
  */
-public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
-    /** {@inheritDoc} */
-    @Override
-    public ClusterService createClusterService(ClusterLocalConfiguration context, NetworkConfiguration networkConfiguration) {
-        final String consistentId = context.getName();
-    
-        // TOOD: How do we stop it? This method is only used from tests, we should remove it?
-        var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, consistentId);
-        nettyBootstrapFactory.start();
-        
-        return createClusterService(context, networkConfiguration, nettyBootstrapFactory);
-    }
-    
+public class ScaleCubeClusterServiceFactory {
     /**
      * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
      *
