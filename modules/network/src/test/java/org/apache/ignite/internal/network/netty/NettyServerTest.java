@@ -36,7 +36,6 @@ import io.netty.channel.ServerChannel;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
@@ -89,9 +88,7 @@ public class NettyServerTest {
      */
     @Test
     public void testSuccessfulServerStart() throws Exception {
-        var channel = new EmbeddedServerChannel();
-        
-        server = getServer(channel.newSucceededFuture(), true);
+        server = getServer(true);
         
         assertTrue(server.isRunning());
     }
@@ -103,37 +100,9 @@ public class NettyServerTest {
      */
     @Test
     public void testServerGracefulShutdown() throws Exception {
-        var channel = new EmbeddedServerChannel();
-        
-        server = getServer(channel.newSucceededFuture(), true);
+        server = getServer(true);
         
         server.stop().join();
-    }
-    
-    /**
-     * Tests an unsuccessful server start scenario.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testServerFailedToStart() throws Exception {
-        var channel = new EmbeddedServerChannel();
-        
-        server = getServer(channel.newFailedFuture(new ClosedChannelException()), false);
-    }
-    
-    /**
-     * Tests a non-graceful server shutdown scenario.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testServerChannelClosedAbruptly() throws Exception {
-        var channel = new EmbeddedServerChannel();
-        
-        server = getServer(channel.newSucceededFuture(), true);
-        
-        channel.close();
     }
     
     /**
@@ -147,7 +116,7 @@ public class NettyServerTest {
         
         ChannelPromise future = channel.newPromise();
         
-        server = getServer(future, false);
+        server = getServer(false);
         
         CompletableFuture<Void> stop = server.stop();
         
@@ -161,9 +130,7 @@ public class NettyServerTest {
      */
     @Test
     public void testStartTwice() {
-        var channel = new EmbeddedServerChannel();
-        
-        server = getServer(channel.newSucceededFuture(), true);
+        server = getServer(true);
         
         assertThrows(IgniteInternalException.class, server::start);
     }
@@ -269,11 +236,10 @@ public class NettyServerTest {
     /**
      * Creates a server from a backing {@link ChannelFuture}.
      *
-     * @param future      Server channel future.
      * @param shouldStart {@code true} if a server should start successfully
      * @return NettyServer.
      */
-    private NettyServer getServer(ChannelFuture future, boolean shouldStart) {
+    private NettyServer getServer(boolean shouldStart) {
         bootstrapFactory = new NettyBootstrapFactory(serverCfg.value(), "");
         bootstrapFactory.start();
         
