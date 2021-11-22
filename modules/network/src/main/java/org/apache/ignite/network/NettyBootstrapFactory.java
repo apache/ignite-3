@@ -25,7 +25,7 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.schemas.network.InboundView;
-import org.apache.ignite.configuration.schemas.network.NetworkView;
+import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.OutboundView;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup;
@@ -35,7 +35,7 @@ import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup;
  */
 public class NettyBootstrapFactory implements IgniteComponent {
     /** Network configuration. */
-    private final NetworkView networkConfiguration;
+    private final NetworkConfiguration networkConfiguration;
     
     /** Prefix for event loop group names. */
     private final String eventLoopGroupNamePrefix;
@@ -56,7 +56,7 @@ public class NettyBootstrapFactory implements IgniteComponent {
      * @param eventLoopGroupNamePrefix Prefix for event loop group names.
      */
     public NettyBootstrapFactory(
-            NetworkView networkConfiguration,
+            NetworkConfiguration networkConfiguration,
             String eventLoopGroupNamePrefix
     ) {
         assert eventLoopGroupNamePrefix != null;
@@ -72,7 +72,7 @@ public class NettyBootstrapFactory implements IgniteComponent {
      * @return Bootstrap.
      */
     public Bootstrap createClientBootstrap() {
-        OutboundView clientConfiguration = networkConfiguration.outbound();
+        OutboundView clientConfiguration = networkConfiguration.value().outbound();
         Bootstrap clientBootstrap = new Bootstrap();
         
         clientBootstrap.group(clientWorkerGroup)
@@ -91,7 +91,7 @@ public class NettyBootstrapFactory implements IgniteComponent {
      * @return Bootstrap.
      */
     public ServerBootstrap createServerBootstrap() {
-        InboundView inboundConfiguration = networkConfiguration.inbound();
+        InboundView inboundConfiguration = networkConfiguration.value().inbound();
         ServerBootstrap serverBootstrap = new ServerBootstrap();
         
         serverBootstrap.group(bossGroup, workerGroup)

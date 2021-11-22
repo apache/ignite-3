@@ -176,7 +176,7 @@ public class IgniteImpl implements Ignite {
         
         var consistentId = clusterLocalConfiguration.getName();
         
-        nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration.value(), consistentId);
+        nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, consistentId);
 
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
                 clusterLocalConfiguration,

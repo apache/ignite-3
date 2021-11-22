@@ -405,7 +405,7 @@ public class ItRecoveryHandshakeTest {
 
         NetworkView cfg = networkConfiguration.value();
     
-        NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(cfg, consistentId);
+        NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, consistentId);
         bootstrapFactory.start();
         
         var manager = new ConnectionManager(
@@ -442,7 +442,7 @@ public class ItRecoveryHandshakeTest {
 
         NetworkView cfg = networkConfiguration.value();
     
-        NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(cfg, consistentId);
+        NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, consistentId);
         bootstrapFactory.start();
         
         var manager = new ConnectionManager(

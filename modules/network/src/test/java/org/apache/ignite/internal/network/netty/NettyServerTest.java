@@ -172,7 +172,7 @@ public class NettyServerTest {
                     }
                 });
     
-        bootstrapFactory = new NettyBootstrapFactory(serverCfg.value(), "");
+        bootstrapFactory = new NettyBootstrapFactory(serverCfg, "");
         bootstrapFactory.start();
         
         server = new NettyServer(
@@ -240,7 +240,7 @@ public class NettyServerTest {
      * @return NettyServer.
      */
     private NettyServer getServer(boolean shouldStart) {
-        bootstrapFactory = new NettyBootstrapFactory(serverCfg.value(), "");
+        bootstrapFactory = new NettyBootstrapFactory(serverCfg, "");
         bootstrapFactory.start();
         
         var server = new NettyServer(

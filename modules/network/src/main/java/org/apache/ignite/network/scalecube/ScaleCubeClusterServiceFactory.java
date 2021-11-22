@@ -53,7 +53,9 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
     public ClusterService createClusterService(ClusterLocalConfiguration context, NetworkConfiguration networkConfiguration) {
         final String consistentId = context.getName();
     
-        var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration.value(), consistentId);
+        // TOOD: How do we stop it? This method is only used from tests, we should remove it?
+        var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, consistentId);
+        nettyBootstrapFactory.start();
         
         return createClusterService(context, networkConfiguration, nettyBootstrapFactory);
     }
