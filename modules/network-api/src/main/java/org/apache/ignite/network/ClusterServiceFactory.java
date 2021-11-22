@@ -28,10 +28,11 @@ public interface ClusterServiceFactory {
      *
      * @param context              Cluster context.
      * @param networkConfiguration Network configuration.
+     * @param nettyBootstrapFactory
      * @return New cluster service.
      */
     ClusterService createClusterService(
             ClusterLocalConfiguration context,
-            NetworkConfiguration networkConfiguration
-    );
+            NetworkConfiguration networkConfiguration,
+            NettyBootstrapFactory nettyBootstrapFactory);
 }

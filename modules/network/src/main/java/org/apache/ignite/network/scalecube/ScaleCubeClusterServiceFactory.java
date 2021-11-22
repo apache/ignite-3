@@ -38,6 +38,7 @@ import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
+import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.NodeFinderFactory;
@@ -49,7 +50,11 @@ import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
     /** {@inheritDoc} */
     @Override
-    public ClusterService createClusterService(ClusterLocalConfiguration context, NetworkConfiguration networkConfiguration) {
+    public ClusterService createClusterService(
+            ClusterLocalConfiguration context,
+            NetworkConfiguration networkConfiguration,
+            NettyBootstrapFactory nettyBootstrapFactory
+    ) {
         var topologyService = new ScaleCubeTopologyService();
 
         var messagingService = new ScaleCubeMessagingService();
@@ -77,7 +82,8 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
                         registry,
                         consistentId,
                         () -> new RecoveryServerHandshakeManager(launchId, consistentId, messageFactory),
-                        () -> new RecoveryClientHandshakeManager(launchId, consistentId, messageFactory)
+                        () -> new RecoveryClientHandshakeManager(launchId, consistentId, messageFactory),
+                        nettyBootstrapFactory
                 );
 
                 var transport = new ScaleCubeDirectMarshallerTransport(connectionMgr, topologyService, messageFactory);

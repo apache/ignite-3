@@ -117,9 +117,7 @@ public class ConnectionManager {
                 serverHandshakeManagerFactory,
                 this::onNewIncomingChannel,
                 this::onMessage,
-                serializationRegistry,
-                bossGroup,
-                workerGroup
+                serializationRegistry
         );
         this.clientBootstrap = createClientBootstrap(clientWorkerGroup, networkConfiguration.outbound());
     }
