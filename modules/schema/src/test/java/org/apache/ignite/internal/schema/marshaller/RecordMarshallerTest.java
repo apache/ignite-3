@@ -120,6 +120,27 @@ public class RecordMarshallerTest {
     
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
+    public void truncatedKey(MarshallerFactory factory) throws MarshallerException {
+        SchemaDescriptor schema = new SchemaDescriptor(1, new Column[]{
+                new Column("k1", INT32, false),
+                new Column("k2", INT32, false)},
+                new Column[]{new Column("v1", STRING, false)}
+                );
+        RecordMarshaller<TestK1K2V1> marshallerFull = factory.create(schema, TestK1K2V1.class);
+        
+        TestK1K2V1 fullRec = new TestK1K2V1(1, 1, "v1");
+    
+        BinaryRow row = marshallerFull.marshal(fullRec);
+    
+        Object restoredRec = marshallerFull.unmarshal(new Row(schema, row));
+    
+        assertTrue(fullRec.getClass().isInstance(restoredRec));
+    
+        assertThrows(IllegalArgumentException. class, () -> factory.create(schema, TestK2V1.class), "No field found for column k1");
+    }
+    
+    @ParameterizedTest
+    @MethodSource("marshallerFactoryProvider")
     public void truncatedType(MarshallerFactory factory) throws MarshallerException {
         SchemaDescriptor schema = new SchemaDescriptor(1, keyColumns(), valueColumnsAllTypes());
         
@@ -454,6 +475,14 @@ public class RecordMarshallerTest {
      */
     @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     public static class TestObject {
+        private long id;
+    
+        private int intCol;
+    
+        private Long longCol2;
+    
+        private String stringCol;
+        
         static TestObject randomObject(Random rnd) {
             final TestObject obj = new TestObject();
             
@@ -464,14 +493,6 @@ public class RecordMarshallerTest {
             
             return obj;
         }
-        
-        private long id;
-        
-        private int intCol;
-        
-        private Long longCol2;
-        
-        private String stringCol;
         
         @Override
         public boolean equals(Object o) {
@@ -595,6 +616,36 @@ public class RecordMarshallerTest {
         @Override
         public int hashCode() {
             return Objects.hash(primLongCol);
+        }
+    }
+    
+    private static class TestK1K2V1 {
+        private int k1;
+        private int k2;
+        private String v1;
+        
+        public TestK1K2V1() {
+        
+        }
+    
+        public TestK1K2V1(int k1, int k2, String v1) {
+            this.k1 = k1;
+            this.k2 = k2;
+            this.v1 = v1;
+        }
+    }
+    
+    private static class TestK2V1 {
+        private int k2;
+        private String v1;
+        
+        public TestK2V1() {
+        
+        }
+        
+        public TestK2V1(int k2, String v1) {
+            this.k2 = k2;
+            this.v1 = v1;
         }
     }
 }

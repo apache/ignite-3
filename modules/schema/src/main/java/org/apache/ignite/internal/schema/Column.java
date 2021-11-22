@@ -187,7 +187,7 @@ public class Column implements Serializable {
      * @return {@code true} if column hasn't default value, {@code false} - otherwise.
      */
     public boolean noDefaultValue() {
-        return defValSup == NULL_SUPPLIER;
+        return defValSup.get() == null;
     }
 
     /** {@inheritDoc} */
