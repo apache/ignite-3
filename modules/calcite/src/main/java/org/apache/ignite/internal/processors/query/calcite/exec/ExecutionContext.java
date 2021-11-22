@@ -215,7 +215,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     /**
      * Get an extensions by it's name.
      *
-     * @return An extensions or {@code null} there is no extension with given name.
+     * @return An extensions or {@code null} if there is no extension with given name.
      */
     public @Nullable SqlExtension extension(String name) {
         return qctx.extension(name);
