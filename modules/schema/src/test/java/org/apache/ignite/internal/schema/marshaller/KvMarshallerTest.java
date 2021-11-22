@@ -161,7 +161,14 @@ public class KvMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void narrowType(MarshallerFactory factory) throws MarshallerException {
-        Column[] cols = columnsAllTypes();
+        Column[] cols = new Column[]{
+                new Column("primitiveIntCol", INT32, false),
+                new Column("primitiveLongCol", INT64, false),
+                new Column("primitiveFloatCol", FLOAT, false),
+                new Column("primitiveDoubleCol", DOUBLE, false),
+                new Column("stringCol", STRING, false),
+                new Column("uuidCol", UUID, false),
+        };
         
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
         
