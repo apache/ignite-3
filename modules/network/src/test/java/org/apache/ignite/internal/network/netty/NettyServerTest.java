@@ -104,9 +104,6 @@ public class NettyServerTest {
         server = getServer(channel.newSucceededFuture(), true);
         
         server.stop().join();
-        
-        assertTrue(server.getBossGroup().isTerminated());
-        assertTrue(server.getWorkerGroup().isTerminated());
     }
     
     /**
@@ -119,9 +116,6 @@ public class NettyServerTest {
         var channel = new EmbeddedServerChannel();
         
         server = getServer(channel.newFailedFuture(new ClosedChannelException()), false);
-        
-        assertTrue(server.getBossGroup().isTerminated());
-        assertTrue(server.getWorkerGroup().isTerminated());
     }
     
     /**
@@ -136,9 +130,6 @@ public class NettyServerTest {
         server = getServer(channel.newSucceededFuture(), true);
         
         channel.close();
-        
-        assertTrue(server.getBossGroup().isShuttingDown());
-        assertTrue(server.getWorkerGroup().isShuttingDown());
     }
     
     /**
@@ -159,9 +150,6 @@ public class NettyServerTest {
         future.setSuccess(null);
         
         stop.get(3, TimeUnit.SECONDS);
-        
-        assertTrue(server.getBossGroup().isTerminated());
-        assertTrue(server.getWorkerGroup().isTerminated());
     }
     
     /**
@@ -222,8 +210,7 @@ public class NettyServerTest {
                 (socketAddress, message) -> {
                 },
                 registry,
-                NamedNioEventLoopGroup.create("boss-"),
-                NamedNioEventLoopGroup.create("worker-")
+                null
         );
         
         server.start().get(3, TimeUnit.SECONDS);
@@ -291,9 +278,7 @@ public class NettyServerTest {
                 () -> mock(HandshakeManager.class),
                 null,
                 null,
-                null,
-                NamedNioEventLoopGroup.create("boss-"),
-                NamedNioEventLoopGroup.create("worker-")
+                null
         );
         
         try {

@@ -37,6 +37,7 @@ import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManage
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
@@ -44,10 +45,27 @@ import org.apache.ignite.network.NodeFinderFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
- * ScaleCube cluster service factory for messaging and topology services.
+ * {@link ClusterServiceFactory} implementation that uses ScaleCube for messaging and topology services.
  */
-public class ScaleCubeClusterServiceFactory {
+public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
     /** {@inheritDoc} */
+    @Override
+    public ClusterService createClusterService(ClusterLocalConfiguration context, NetworkConfiguration networkConfiguration) {
+        final String consistentId = context.getName();
+    
+        var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration.value(), consistentId);
+        
+        return createClusterService(context, networkConfiguration, nettyBootstrapFactory);
+    }
+    
+    /**
+     * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
+     *
+     * @param context               Cluster context.
+     * @param networkConfiguration  Network configuration.
+     * @param nettyBootstrapFactory Bootstrap factory.
+     * @return New cluster service.
+     */
     public ClusterService createClusterService(
             ClusterLocalConfiguration context,
             NetworkConfiguration networkConfiguration,
@@ -56,7 +74,7 @@ public class ScaleCubeClusterServiceFactory {
         var topologyService = new ScaleCubeTopologyService();
 
         var messagingService = new ScaleCubeMessagingService();
-
+    
         return new AbstractClusterService(context, topologyService, messagingService) {
             private volatile ClusterImpl cluster;
 

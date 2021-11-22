@@ -23,49 +23,47 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.schemas.network.InboundView;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.configuration.schemas.network.OutboundView;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup;
 
 /**
  * Netty bootstrap factory.
  */
-public class NettyBootstrapFactory {
+public class NettyBootstrapFactory implements IgniteComponent {
     /** Network configuration. */
     private final NetworkView networkConfiguration;
     
+    /** Prefix for event loop group names. */
+    private final String eventLoopGroupNamePrefix;
+    
     /** Server boss socket channel handler event loop group. */
-    private final EventLoopGroup bossGroup;
+    private EventLoopGroup bossGroup;
     
     /** Server work socket channel handler event loop group. */
-    private final EventLoopGroup workerGroup;
+    private EventLoopGroup workerGroup;
     
     /** Client socket channel handler event loop group. */
-    private final EventLoopGroup clientWorkerGroup;
+    private EventLoopGroup clientWorkerGroup;
     
     /**
      * Constructor.
      *
-     * @param networkConfiguration Network configuration.
-     * @param consistentId         Consistent id of this node.
+     * @param networkConfiguration     Network configuration.
+     * @param eventLoopGroupNamePrefix Prefix for event loop group names.
      */
     public NettyBootstrapFactory(
             NetworkView networkConfiguration,
-            String consistentId
+            String eventLoopGroupNamePrefix
     ) {
-        assert consistentId != null;
+        assert eventLoopGroupNamePrefix != null;
         assert networkConfiguration != null;
         
         this.networkConfiguration = networkConfiguration;
-        
-        bossGroup = NamedNioEventLoopGroup.create(consistentId + "-srv-accept");
-        workerGroup = NamedNioEventLoopGroup.create(consistentId + "-srv-worker");
-        clientWorkerGroup = NamedNioEventLoopGroup.create(consistentId + "-client");
-        
-        // TODO: When do we stop everything?
-        // TODO: IGNITE-14538 quietPeriod and timeout should be configurable.
-        // clientWorkerGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS).sync();
+        this.eventLoopGroupNamePrefix = eventLoopGroupNamePrefix;
     }
     
     /**
@@ -130,5 +128,22 @@ public class NettyBootstrapFactory {
                 .childOption(ChannelOption.TCP_NODELAY, inboundConfiguration.tcpNoDelay());
                 
         return serverBootstrap;
+    }
+    
+    /** {@inheritDoc} */
+    @Override
+    public void start() {
+        bossGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-accept");
+        workerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-worker");
+        clientWorkerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-client");
+    }
+    
+    /** {@inheritDoc} */
+    @Override
+    public void stop() throws Exception {
+        // TODO: IGNITE-14538 quietPeriod and timeout should be configurable.
+        clientWorkerGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS).sync();
+        workerGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS).sync();
+        bossGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS).sync();
     }
 }
