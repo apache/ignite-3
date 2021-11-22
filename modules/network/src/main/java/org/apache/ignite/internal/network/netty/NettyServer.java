@@ -23,7 +23,6 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import java.net.SocketAddress;
 import java.util.concurrent.CancellationException;
@@ -48,8 +47,8 @@ public class NettyServer {
     /** A lock for start and stop operations. */
     private final Object startStopLock = new Object();
     
-    /** {@link NioServerSocketChannel} bootstrapper. */
-    private final ServerBootstrap bootstrap;
+    /** Bootstrap factory. */
+    private final NettyBootstrapFactory bootstrapFactory;
     
     /** Server socket configuration. */
     private final NetworkView configuration;
@@ -98,43 +97,12 @@ public class NettyServer {
             MessageSerializationRegistry serializationRegistry,
             NettyBootstrapFactory bootstrapFactory
     ) {
-        this(
-                consistentId,
-                bootstrapFactory.createServerBootstrap(),
-                configuration,
-                handshakeManager,
-                newConnectionListener,
-                messageListener,
-                serializationRegistry
-        );
-    }
-    
-    /**
-     * Constructor.
-     *
-     * @param consistentId          Consistent id.
-     * @param bootstrap             Server bootstrap.
-     * @param configuration         Server configuration.
-     * @param handshakeManager      Handshake manager supplier.
-     * @param newConnectionListener New connections listener.
-     * @param messageListener       Message listener.
-     * @param serializationRegistry Serialization registry.
-     */
-    public NettyServer(
-            String consistentId,
-            ServerBootstrap bootstrap,
-            NetworkView configuration,
-            Supplier<HandshakeManager> handshakeManager,
-            Consumer<NettySender> newConnectionListener,
-            BiConsumer<SocketAddress, NetworkMessage> messageListener,
-            MessageSerializationRegistry serializationRegistry
-    ) {
-        this.bootstrap = bootstrap;
         this.configuration = configuration;
         this.handshakeManager = handshakeManager;
         this.newConnectionListener = newConnectionListener;
         this.messageListener = messageListener;
         this.serializationRegistry = serializationRegistry;
+        this.bootstrapFactory = bootstrapFactory;
     }
     
     /**
@@ -151,6 +119,8 @@ public class NettyServer {
             if (serverStartFuture != null) {
                 throw new IgniteInternalException("Attempted to start an already started server");
             }
+    
+            ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
             
             bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
                         /** {@inheritDoc} */
@@ -188,7 +158,7 @@ public class NettyServer {
             
             var bindFuture = new CompletableFuture<Channel>();
             
-            tryBind(port, port + portRange, bindFuture);
+            tryBind(bootstrap, port, port + portRange, bindFuture);
             
             serverStartFuture = bindFuture
                     .handle((channel, err) -> {
@@ -217,11 +187,12 @@ public class NettyServer {
     /**
      * Try bind this server to a port.
      *
-     * @param port    Target port.
-     * @param endPort Last port that server can be bound to.
-     * @param fut     Future.
+     * @param bootstrap Bootstrap.
+     * @param port      Target port.
+     * @param endPort   Last port that server can be bound to.
+     * @param fut       Future.
      */
-    private void tryBind(int port, int endPort, CompletableFuture<Channel> fut) {
+    private void tryBind(ServerBootstrap bootstrap, int port, int endPort, CompletableFuture<Channel> fut) {
         if (port > endPort) {
             fut.completeExceptionally(new IllegalStateException("No available port in range"));
         }
@@ -232,7 +203,7 @@ public class NettyServer {
             } else if (future.isCancelled()) {
                 fut.cancel(true);
             } else {
-                tryBind(port + 1, endPort, fut);
+                tryBind(bootstrap,port + 1, endPort, fut);
             }
         });
     }
@@ -268,7 +239,7 @@ public class NettyServer {
                     channel.close();
                 }
                 
-                return serverCloseFuture;
+                return serverCloseFuture == null ? CompletableFuture.<Void>completedFuture(null) : serverCloseFuture;
             }).thenCompose(Function.identity());
         }
     }

@@ -26,7 +26,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.Channel;
@@ -41,11 +40,13 @@ import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeAction;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageMappingException;
@@ -210,7 +211,7 @@ public class NettyServerTest {
                 (socketAddress, message) -> {
                 },
                 registry,
-                null
+                new NettyBootstrapFactory(serverCfg.value(), "")
         );
         
         server.start().get(3, TimeUnit.SECONDS);
@@ -267,19 +268,17 @@ public class NettyServerTest {
      * @return NettyServer.
      */
     private NettyServer getServer(ChannelFuture future, boolean shouldStart) {
-        ServerBootstrap bootstrap = Mockito.spy(new ServerBootstrap());
-        
-        Mockito.doReturn(future).when(bootstrap).bind(Mockito.anyInt());
+        var bootstrapFactory = Mockito.spy(new NettyBootstrapFactory(Mockito.mock(NetworkView.class), ""));
         
         var server = new NettyServer(
                 "test",
-                bootstrap,
                 serverCfg.value(),
                 () -> mock(HandshakeManager.class),
                 null,
                 null,
-                null
-        );
+                null,
+                bootstrapFactory
+                );
         
         try {
             server.start().get(3, TimeUnit.SECONDS);
