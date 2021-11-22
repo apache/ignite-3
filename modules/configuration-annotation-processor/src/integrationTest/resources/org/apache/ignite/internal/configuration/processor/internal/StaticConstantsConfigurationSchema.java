@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition;
+package org.apache.ignite.internal.configuration.processor.internal;
+
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.configuration.processor.ItProcessorTest;
 
 /**
- * Schema mode.
- *
- * <p>Defines the way inserting data will be validated against the schema and schema evolution capabilities.
+ * Test class for {@link ItProcessorTest#testStaticConstants()}.
  */
-//TODO: rename to MANUAL and AUTO?
-public enum SchemaManagementMode {
-    /**
-     * Normal mode offers strong validation for the inserting data. Explicit schema changes only are allowed.
-     */
-    STRICT,
+@Config
+public class StaticConstantsConfigurationSchema {
+    public static final int INT_CONSTANT = 0;
 
-    /**
-     * Extended mode that allows the schema to be fit the inserting data automatically. Only safe implicit schema changes are allowed, e.g.
-     * adding extra columns and widening column type. Changes like column removal or narrowing column type won't be applied implicitly.
-     */
-    LIVE
+    public static final String STRING_CONSTANT = "foobar";
+
+    @Value
+    public String str;
 }

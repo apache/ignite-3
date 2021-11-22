@@ -99,7 +99,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlNameMatchers;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
-import org.apache.ignite.internal.processors.query.calcite.rel.IgniteRel;
+import org.apache.ignite.internal.processors.query.calcite.rel.InternalIgniteRel;
 import org.apache.ignite.internal.processors.query.calcite.trait.DistributionFunction;
 import org.apache.ignite.internal.processors.query.calcite.trait.DistributionTrait;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
@@ -114,8 +114,6 @@ import org.apache.ignite.lang.IgniteException;
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 class RelJson {
-    private final RelOptCluster cluster;
-
     @SuppressWarnings("PublicInnerClass")
     @FunctionalInterface
     public interface RelFactory extends Function<RelInput, RelNode> {
@@ -225,8 +223,7 @@ class RelJson {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    RelJson(RelOptCluster cluster) {
-        this.cluster = cluster;
+    RelJson() {
     }
 
     Function<RelInput, RelNode> factory(String type) {
@@ -234,7 +231,7 @@ class RelJson {
     }
 
     String classToTypeName(Class<? extends RelNode> cls) {
-        if (IgniteRel.class.isAssignableFrom(cls)) {
+        if (InternalIgniteRel.class.isAssignableFrom(cls)) {
             return cls.getSimpleName();
         }
 
@@ -381,7 +378,7 @@ class RelJson {
 
     private Object toJson(RexNode node) {
         // removes calls to SEARCH and the included Sarg and converts them to comparisons
-        node = RexUtil.expandSearch(cluster.getRexBuilder(), null, node);
+        node = RexUtil.expandSearch(Commons.cluster().getRexBuilder(), null, node);
 
         Map<String, Object> map;
         switch (node.getKind()) {

@@ -15,38 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.calcite.prepare;
+package org.apache.ignite.internal.processors.query.calcite;
 
-import java.util.List;
-import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * FieldsMetadataImpl.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * The exception is thrown if a query was cancelled or timed out while executing.
  */
-public class FieldsMetadataImpl implements FieldsMetadata {
-    private final RelDataType rowType;
+public class QueryCancelledException extends IgniteException {
+    private static final long serialVersionUID = 0L;
 
-    private final List<List<String>> origins;
+    public static final String ERR_MSG = "The query was cancelled while executing.";
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Default constructor.
      */
-    public FieldsMetadataImpl(RelDataType rowType, List<List<String>> origins) {
-        this.rowType = rowType;
-        this.origins = origins;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public RelDataType rowType() {
-        return rowType;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<List<String>> origins() {
-        return origins;
+    public QueryCancelledException() {
+        super(ERR_MSG);
     }
 }

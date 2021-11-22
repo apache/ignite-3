@@ -19,12 +19,14 @@ package org.apache.ignite.internal.processors.query.calcite.exec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.google.common.collect.ImmutableMap;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.RelCollations;
@@ -32,8 +34,8 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
+import org.apache.ignite.internal.processors.query.calcite.util.BaseQueryContext;
 import org.apache.ignite.internal.processors.query.calcite.util.TypeUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.Cursor;
@@ -43,7 +45,7 @@ import org.junit.jupiter.api.Test;
  * RuntimeTreeIndexTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class RuntimeTreeIndexTest extends IgniteAbstractTest {
+public class RuntimeSortedIndexTest extends IgniteAbstractTest {
     private static final int UNIQUE_GROUPS = 10_000;
 
     private static final int[] NOT_UNIQUE_ROWS_IN_GROUP = new int[]{1, 10};
@@ -72,7 +74,7 @@ public class RuntimeTreeIndexTest extends IgniteAbstractTest {
 
         for (Pair<RelDataType, ImmutableIntList> testIdx : testIndexes) {
             for (int notUnique : NOT_UNIQUE_ROWS_IN_GROUP) {
-                RuntimeTreeIndex<Object[]> idx0 = generate(testIdx.getKey(), testIdx.getValue(), notUnique);
+                RuntimeSortedIndex<Object[]> idx0 = generate(testIdx.getKey(), testIdx.getValue(), notUnique);
 
                 int rowIdLow = ThreadLocalRandom.current().nextInt(UNIQUE_GROUPS * notUnique);
                 int rowIdUp = rowIdLow + ThreadLocalRandom.current().nextInt(UNIQUE_GROUPS * notUnique - rowIdLow);
@@ -101,16 +103,21 @@ public class RuntimeTreeIndexTest extends IgniteAbstractTest {
         }
     }
 
-    private RuntimeTreeIndex<Object[]> generate(RelDataType rowType, final List<Integer> idxCols, int notUnique) {
-        RuntimeTreeIndex<Object[]> idx = new RuntimeTreeIndex<>(
+    private RuntimeSortedIndex<Object[]> generate(RelDataType rowType, final List<Integer> idxCols, int notUnique) {
+        RuntimeSortedIndex<Object[]> idx = new RuntimeSortedIndex<>(
                 new ExecutionContext<>(
-                        null,
-                        PlanningContext.builder()
+                        BaseQueryContext.builder()
+                                .logger(log)
                                 .build(),
                         null,
+                        UUID.randomUUID(),
+                        "fake-test-node",
+                        "fake-test-node",
+                        0,
                         null,
                         ArrayRowHandler.INSTANCE,
-                        null),
+                        ImmutableMap.of()
+                ),
                 RelCollations.of(ImmutableIntList.copyOf(idxCols)),
                 (o1, o2) -> {
                     for (int colIdx : idxCols) {
@@ -128,11 +135,9 @@ public class RuntimeTreeIndexTest extends IgniteAbstractTest {
 
         // First random fill
         for (int i = 0; i < UNIQUE_GROUPS * notUnique; ++i) {
-            int rowId = ThreadLocalRandom.current().nextInt(UNIQUE_GROUPS);
-
-            if (!rowIds.get(rowId)) {
-                idx.push(generateRow(rowId, rowType, notUnique));
-                rowIds.set(rowId);
+            if (!rowIds.get(i)) {
+                idx.push(generateRow(i, rowType, notUnique));
+                rowIds.set(i);
             }
         }
 
