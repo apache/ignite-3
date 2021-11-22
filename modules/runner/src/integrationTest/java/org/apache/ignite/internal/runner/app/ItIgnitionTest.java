@@ -216,24 +216,24 @@ class ItIgnitionTest {
     void testStartNodeClusterWithTwoMetastorageInConfig() throws Exception {
         try {
             IgnitionManager.start("node-0", "{\n"
-                + "    \"node\": {\n"
-                + "        \"metastorageNodes\": [\n"
-                + "            \"node-0\", \"node-1\", \"node-2\"\n"
-                + "        ]\n"
-                + "    },\n"
-                + "    \"network\": {\n"
-                + "      \"port\": 3344,\n"
-                + "      \"nodeFinder\": {\n"
-                + "        \"netClusterNodes\": [ \"localhost:3345\"]\n"
-                + "      }\n"
-                + "    }\n"
-                + "}", workDir.resolve("node-0"));
+                    + "    \"node\": {\n"
+                    + "        \"metastorageNodes\": [\n"
+                    + "            \"node-0\", \"node-1\", \"node-2\"\n"
+                    + "        ]\n"
+                    + "    },\n"
+                    + "    \"network\": {\n"
+                    + "      \"port\": 3344,\n"
+                    + "      \"nodeFinder\": {\n"
+                    + "        \"netClusterNodes\": [ \"localhost:3345\"]\n"
+                    + "      }\n"
+                    + "    }\n"
+                    + "}", workDir.resolve("node-0"));
         } catch (IgniteException e) {
             assertEquals(e.getCause().getMessage(), "Cannot start meta storage manager "
                     + "because it is not allowed to start several metastorage nodes.");
         }
     }
-
+    
     /**
      * Tests scenario when we try to start node with invalid configuration.
      */
