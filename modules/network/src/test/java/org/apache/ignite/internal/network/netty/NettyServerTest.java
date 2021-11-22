@@ -40,7 +40,6 @@ import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeAction;
@@ -64,6 +63,9 @@ import org.mockito.verification.VerificationMode;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class NettyServerTest {
+    /** Bootstrap factory. */
+    private NettyBootstrapFactory bootstrapFactory;
+    
     /** Server. */
     private NettyServer server;
     
@@ -75,8 +77,9 @@ public class NettyServerTest {
      * After each.
      */
     @AfterEach
-    final void tearDown() {
+    final void tearDown() throws Exception {
         server.stop().join();
+        bootstrapFactory.stop();
     }
     
     /**
@@ -201,6 +204,9 @@ public class NettyServerTest {
                         return mock(NetworkMessage.class);
                     }
                 });
+    
+        bootstrapFactory = new NettyBootstrapFactory(serverCfg.value(), "");
+        bootstrapFactory.start();
         
         server = new NettyServer(
                 "test",
@@ -211,7 +217,7 @@ public class NettyServerTest {
                 (socketAddress, message) -> {
                 },
                 registry,
-                new NettyBootstrapFactory(serverCfg.value(), "")
+                bootstrapFactory
         );
         
         server.start().get(3, TimeUnit.SECONDS);
@@ -268,7 +274,8 @@ public class NettyServerTest {
      * @return NettyServer.
      */
     private NettyServer getServer(ChannelFuture future, boolean shouldStart) {
-        var bootstrapFactory = Mockito.spy(new NettyBootstrapFactory(Mockito.mock(NetworkView.class), ""));
+        bootstrapFactory = new NettyBootstrapFactory(serverCfg.value(), "");
+        bootstrapFactory.start();
         
         var server = new NettyServer(
                 "test",
