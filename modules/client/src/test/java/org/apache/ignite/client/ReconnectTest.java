@@ -22,9 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.fakes.FakeIgnite;
-import org.apache.ignite.client.handler.ClientHandlerModule;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -33,8 +30,8 @@ import org.junit.jupiter.api.Test;
 public class ReconnectTest {
     @Test
     public void clientReconnectsToAnotherAddressOnNodeFail() throws Exception {
-        IgniteBiTuple<ClientHandlerModule, ConfigurationRegistry> srv = null;
-        IgniteBiTuple<ClientHandlerModule, ConfigurationRegistry> srv2 = null;
+        TestServer srv = null;
+        TestServer srv2 = null;
 
         try {
             FakeIgnite ignite1 = new FakeIgnite();
@@ -71,7 +68,7 @@ public class ReconnectTest {
 
     @Test
     public void testOperationFailsWhenAllServersFail() throws Exception {
-        IgniteBiTuple<ClientHandlerModule, ConfigurationRegistry> srv = null;
+        TestServer srv = null;
 
         try {
             FakeIgnite ignite1 = new FakeIgnite();
@@ -98,12 +95,11 @@ public class ReconnectTest {
         }
     }
 
-    private void stop(IgniteBiTuple<ClientHandlerModule, ConfigurationRegistry> srv) throws Exception {
+    private void stop(AutoCloseable srv) throws Exception {
         if (srv == null) {
             return;
         }
 
-        srv.get1().stop();
-        srv.get2().stop();
+        srv.close();
     }
 }
