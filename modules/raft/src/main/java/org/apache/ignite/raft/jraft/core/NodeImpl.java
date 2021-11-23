@@ -32,10 +32,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReadWriteLock;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Closure;
@@ -1951,15 +1949,8 @@ public class NodeImpl implements Node, RaftServerService {
     public Message handleAppendEntriesRequest(final AppendEntriesRequest request, final RpcRequestClosure done) {
         boolean doUnlock = true;
         final long startMs = Utils.monotonicMs();
-        
-        long t1 = System.nanoTime();
-        
         this.writeLock.lock();
-        
         final int entriesCount = Utils.size(request.entriesList());
-    
-        LOG.info("DBG: handleAppendEntriesRequest req={} lockTs={} cnt={}", S.toString(request), (System.nanoTime() - t1) / 1000 / 1000., entriesCount);
-        
         try {
             if (!this.state.isActive()) {
                 LOG.warn("Node {} is not in active state, currTerm={}.", getNodeId(), this.currTerm);

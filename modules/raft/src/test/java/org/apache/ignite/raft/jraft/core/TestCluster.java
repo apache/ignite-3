@@ -55,6 +55,7 @@ import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
+import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
@@ -71,9 +72,9 @@ public class TestCluster {
     /**
      * Default election timeout.
      * Important: due to sync disk ops (writing raft meta) during probe request processing this timeout should be high
-     * enough to avoid test flakiness.
+     * enough to avoid test flakiness. Test environment might give another instability.
      */
-    private static final int ELECTION_TIMEOUT_MILLIS = 600;
+    private static final int ELECTION_TIMEOUT_MILLIS = 1200;
 
     private static final IgniteLogger LOG = IgniteLogger.forClass(TestCluster.class);
 
@@ -228,6 +229,11 @@ public class TestCluster {
             // Align rpc options with election timeout.
             nodeOptions.setRpcConnectTimeoutMs(this.electionTimeoutMs / 3);
             nodeOptions.setRpcDefaultTimeout(this.electionTimeoutMs / 2);
+            
+            // Reduce default threads count per test node.
+            nodeOptions.setRaftRpcThreadPoolSize(Utils.cpus());
+            nodeOptions.setTimerPoolSize(Utils.cpus() * 2);
+            nodeOptions.setRpcProcessorThreadPoolSize(Utils.cpus() * 3);
     
             MockStateMachine fsm = new MockStateMachine(listenAddr);
             nodeOptions.setFsm(fsm);
