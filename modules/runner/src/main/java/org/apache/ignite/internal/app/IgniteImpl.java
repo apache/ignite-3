@@ -38,7 +38,6 @@ import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
-import org.apache.ignite.internal.configuration.ConfigurationModulesProvider;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -226,7 +225,7 @@ public class IgniteImpl implements Ignite {
     }
 
     private ConfigurationModules loadConfigurationModules() {
-        ConfigurationModulesProvider modulesProvider = new ServiceLoaderModulesProvider();
+        var modulesProvider = new ServiceLoaderModulesProvider();
         List<ConfigurationModule> modules = modulesProvider.modules().collect(toList());
         return new ConfigurationModules(modules);
     }

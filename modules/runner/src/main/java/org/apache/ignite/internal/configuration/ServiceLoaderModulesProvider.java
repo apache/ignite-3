@@ -27,8 +27,7 @@ import org.apache.ignite.configuration.ConfigurationModule;
  *
  * @see ConfigurationModule
  */
-public class ServiceLoaderModulesProvider implements ConfigurationModulesProvider {
-    @Override
+public class ServiceLoaderModulesProvider {
     public Stream<ConfigurationModule> modules() {
         return ServiceLoader.load(ConfigurationModule.class).stream().map(ServiceLoader.Provider::get);
     }
