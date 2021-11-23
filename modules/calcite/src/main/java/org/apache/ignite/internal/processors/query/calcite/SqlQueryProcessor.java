@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.processors.query.calcite;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.processors.query.calcite.exec.ArrayRowHandler;
@@ -141,25 +141,30 @@ public class SqlQueryProcessor implements QueryProcessor {
     public void stop() throws Exception {
         busyLock.block();
 
+        List<AutoCloseable> toClose = new ArrayList<>();
+
         Map<String, SqlExtension> extensions = this.extensions;
         if (extensions != null) {
-            IgniteUtils.closeAll(
+            toClose.addAll(
                     extensions.values().stream()
                             .map(ext -> (AutoCloseable) ext::stop)
                             .collect(Collectors.toList())
             );
         }
 
-        List<AutoCloseable> toClose = new ArrayList<>(Arrays.asList(
+        Stream<AutoCloseable> closableComponents = Stream.of(
                 executionSrvc::stop,
                 msgSrvc::stop,
                 taskExecutor::stop,
                 planCache::stop
-        ));
+        );
 
-        toClose.addAll(evtLsnrs.stream()
-                .map((p) -> (AutoCloseable) () -> tableManager.removeListener(p.left, p.right))
-                .collect(Collectors.toList()));
+        Stream<AutoCloseable> closableListeners = evtLsnrs.stream()
+                .map((p) -> () -> tableManager.removeListener(p.left, p.right));
+
+        toClose.addAll(
+                Stream.concat(closableComponents, closableListeners).collect(Collectors.toList())
+        );
 
         IgniteUtils.closeAll(toClose);
     }
