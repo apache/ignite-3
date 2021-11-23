@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration;
+package org.apache.ignite.internal.configuration;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
@@ -24,6 +24,7 @@ import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
@@ -38,7 +39,7 @@ import org.apache.ignite.configuration.validation.Validator;
  *
  * <p>Designed for integration with {@link java.util.ServiceLoader} mechanism, so ConfigurationModule instances
  * provided by a library are to be defined as services either in
- * {@code META-INF/services/org.apache.ignite.configuration.ConfigurationModule}, or in a {@code module-info.java}.
+ * {@code META-INF/services/org.apache.ignite.internal.configuration.ConfigurationModule}, or in a {@code module-info.java}.
  *
  * <p>Supplies the following configuration components:
  * <ul>

@@ -20,11 +20,11 @@ package org.apache.ignite.internal.schema.configuration;
 import java.lang.annotation.Annotation;
 import java.util.Map;
 import java.util.Set;
-import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.table.ColumnTypeValidator;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.configuration.ConfigurationModule;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-schema.

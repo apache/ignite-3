@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**

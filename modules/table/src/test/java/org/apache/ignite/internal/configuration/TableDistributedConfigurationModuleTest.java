@@ -27,7 +27,6 @@ import static org.hamcrest.Matchers.is;
 
 import java.util.Optional;
 import java.util.ServiceLoader;
-import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.junit.jupiter.api.Test;
 

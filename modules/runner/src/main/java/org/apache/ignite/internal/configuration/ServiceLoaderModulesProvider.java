@@ -19,7 +19,6 @@ package org.apache.ignite.internal.configuration;
 
 import java.util.ServiceLoader;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.ConfigurationModule;
 
 /**
  * Provides {@link ConfigurationModule}s using {@link ServiceLoader} mechanism.

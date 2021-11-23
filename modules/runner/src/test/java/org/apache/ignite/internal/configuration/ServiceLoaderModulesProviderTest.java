@@ -21,7 +21,6 @@ import static com.github.npathai.hamcrestopt.OptionalMatchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.Optional;
-import org.apache.ignite.configuration.ConfigurationModule;
 import org.junit.jupiter.api.Test;
 
 /**
