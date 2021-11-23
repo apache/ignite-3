@@ -294,16 +294,16 @@ public class ItProcessorTest extends AbstractProcessorTest {
     }
 
     @Test
-    void confiurationSchemaClassShouldBeCheckedToEndWithConfigurationSchemaSuffix() {
+    void confiurationSchemaClassShouldBeCheckedToEndWithConfigurationSchemaPostfix() {
         String packageName = "org.apache.ignite.internal.configuration.processor";
 
-        ClassName schema = ClassName.get(packageName, "ConfigurationSchemaWithWrongSuffix");
+        ClassName schema = ClassName.get(packageName, "ConfigurationSchemaWithWrongPostfix");
 
         Compilation compilation = compile(schema);
 
         assertThat(compilation).failed();
         assertThat(compilation).hadErrorContaining("Name of a class annotated with one of [");
         assertThat(compilation).hadErrorContaining(
-                "] must end with 'ConfigurationSchema', but for 'ConfigurationSchemaWithWrongSuffix' it does not");
+                "] must end with 'ConfigurationSchema', but for 'ConfigurationSchemaWithWrongPostfix' it does not");
     }
 }
