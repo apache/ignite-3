@@ -813,6 +813,7 @@ public class Processor extends AbstractProcessor {
      * @param incompatibleAnnotations Incompatible class annotations with {@code clazzAnnotation}.
      * @throws ProcessorException If there is an incompatible class annotation with {@code clazzAnnotation}.
      */
+    @SafeVarargs // those are annotations, and we don't care about the actual types
     private void checkIncompatibleClassAnnotations(
             TypeElement clazz,
             Class<? extends Annotation> clazzAnnotation,
@@ -931,6 +932,7 @@ public class Processor extends AbstractProcessor {
      * @param superClazzAnnotations Superclass annotations.
      * @throws ProcessorException If the superclass has none of the annotations from {@code superClazzAnnotations}.
      */
+    @SafeVarargs // those are annotations, and we don't care about the actual types
     private void checkSuperclassContainAnyAnnotation(
             TypeElement clazz,
             TypeElement superClazz,
