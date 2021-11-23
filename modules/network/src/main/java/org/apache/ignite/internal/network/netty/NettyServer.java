@@ -254,6 +254,8 @@ public class NettyServer {
      */
     @TestOnly
     public boolean isRunning() {
-        return channel != null && channel.isOpen();
+        var channel0 = channel;
+        
+        return channel0 != null && channel0.isOpen();
     }
 }

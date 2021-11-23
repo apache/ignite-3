@@ -135,7 +135,7 @@ public class ClusterServiceTestUtils {
                     bootstrapFactory.stop();
                     nodeConfigurationMgr.stop();
                 } catch (Exception e) {
-                    throw new Error(e);
+                    throw new RuntimeException(e);
                 }
             }
         };

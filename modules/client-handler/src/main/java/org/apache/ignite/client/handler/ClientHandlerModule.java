@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -130,7 +131,7 @@ public class ClientHandlerModule implements IgniteComponent {
         int port = 0;
         Channel ch = null;
     
-        var bootstrap = bootstrapFactory.createServerBootstrap();
+        ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
     
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
