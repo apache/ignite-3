@@ -243,10 +243,11 @@ public class TransferableObjectProcessor extends AbstractProcessor {
                     .map(Name::toString)
                     .collect(Collectors.toSet());
 
-            throw new ProcessingException(
-                    "No message groups (classes annotated with @MessageGroup) found while processing messages from the following packages: "
-                            + packageNames
-            );
+            throw new ProcessingException(String.format(
+                    "No message groups (classes annotated with @%s) found while processing messages from the following packages: %s",
+                    MessageGroup.class.getSimpleName(),
+                    packageNames
+            ));
         }
 
         if (messageGroupSet.size() != 1) {
@@ -255,10 +256,11 @@ public class TransferableObjectProcessor extends AbstractProcessor {
                     .sorted()
                     .collect(Collectors.toList());
 
-            throw new ProcessingException(
-                    "Invalid number of message groups (classes annotated with @MessageGroup), "
-                            + "only one can be present in a compilation unit: " + sortedNames
-            );
+            throw new ProcessingException(String.format(
+                    "Invalid number of message groups (classes annotated with @%s), only one can be present in a compilation unit: %s",
+                    MessageGroup.class.getSimpleName(),
+                    sortedNames
+            ));
         }
 
         Element singleElement = messageGroupSet.iterator().next();
