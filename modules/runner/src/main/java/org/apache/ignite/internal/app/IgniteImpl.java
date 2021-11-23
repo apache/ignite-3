@@ -168,11 +168,8 @@ public class IgniteImpl implements Ignite {
         );
     
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
-        
-        ClusterLocalConfiguration clusterLocalConfiguration = new ClusterLocalConfiguration(
-                name,
-                new MessageSerializationRegistryImpl()
-        );
+    
+        var clusterLocalConfiguration = new ClusterLocalConfiguration(name, new MessageSerializationRegistryImpl());
     
         nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, clusterLocalConfiguration.getName());
 
