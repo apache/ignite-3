@@ -36,14 +36,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
 
 /**
- * Thre are tests for RAFT manager.
+ * There are tests for RAFT manager.
  * It is mocking all components except Loza and checks API methods of the component in various conditions.
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings()
 public class LozaTest extends IgniteAbstractTest {
     /** Mock for network service. */
     @Mock

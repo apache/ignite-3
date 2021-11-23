@@ -224,7 +224,7 @@ public class Loza implements IgniteComponent {
     }
     
     /**
-     * Internal mthod for creates a raft group.
+     * Internal method for creating a raft group.
      *
      * @param groupId      Raft group id.
      * @param nodes        Full set of raft group nodes.
@@ -283,7 +283,7 @@ public class Loza implements IgniteComponent {
     }
     
     /**
-     * Internal method for change peers for a RAFT group.
+     * Internal method for changing peers for a RAFT group.
      *
      * @param groupId       Raft group id.
      * @param expectedNodes List of nodes that contains the raft group peers.
