@@ -66,16 +66,6 @@ import static org.objectweb.asm.Type.getMethodDescriptor;
 import static org.objectweb.asm.Type.getMethodType;
 import static org.objectweb.asm.Type.getType;
 
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.ClassDefinition;
-import com.facebook.presto.bytecode.ClassGenerator;
-import com.facebook.presto.bytecode.FieldDefinition;
-import com.facebook.presto.bytecode.MethodDefinition;
-import com.facebook.presto.bytecode.ParameterizedType;
-import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import java.io.Serializable;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
@@ -102,6 +92,16 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.ClassGenerator;
+import com.facebook.presto.bytecode.FieldDefinition;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.ParameterizedType;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.ConfigurationValue;
@@ -2571,8 +2571,8 @@ public class ConfigurationAsmGenerator {
                                                 .condition(isNull(thisField.getField(polymorphicIdField.getName(), String.class)))
                                                 .ifTrue(throwException(
                                                         IllegalStateException.class,
-                                                        constantString("Polymorphic configuration type is not defined: "
-                                                                + polymorphicIdField.getDeclaringClass().getName())
+                                                        constantString(
+                                                                polyConfTypeIsNotDefinedMessage(polymorphicIdField))
                                                 ))
                                         )
                                 )
@@ -2622,7 +2622,13 @@ public class ConfigurationAsmGenerator {
         
         return codeBlock;
     }
-    
+
+    private String polyConfTypeIsNotDefinedMessage(Field polymorphicIdField) {
+        return "Polymorphic configuration type is not defined: "
+                + polymorphicIdField.getDeclaringClass().getName()
+                + ". Maybe default value is missing on a @PolymorphicId field (with hasDefault=true)?";
+    }
+
     /**
      * Creates a bytecode block of code that sets the default value for a field from the schema for {@link
      * InnerNode#constructDefault(String)}.
