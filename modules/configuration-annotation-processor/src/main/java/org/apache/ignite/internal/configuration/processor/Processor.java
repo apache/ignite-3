@@ -569,8 +569,8 @@ public class Processor extends AbstractProcessor {
         String simpleName = clazz.getSimpleName().toString();
         if (!simpleName.endsWith("ConfigurationSchema")) {
             throw new ProcessorException(String.format(
-                    "Name of a class annotated with one of %s must end with 'ConfigurationSchema'," +
-                            " but for '%s' it does not", supportedAnnotationTypes(), simpleName));
+                    "Name of a class annotated with one of %s must end with 'ConfigurationSchema',"
+                            + " but for '%s' it does not", supportedAnnotationTypes(), simpleName));
         }
     }
 
