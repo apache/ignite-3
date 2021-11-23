@@ -25,8 +25,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.config.CalciteConnectionConfigImpl;
 import org.apache.calcite.config.CalciteConnectionProperty;
@@ -119,7 +117,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
             FrameworkConfig cfg,
             Context parentCtx,
             IgniteLogger log,
-            List<SqlExtension> extensions
+            Map<String, SqlExtension> extensions
     ) {
         super(Contexts.chain(parentCtx, cfg.getContext()));
         
@@ -127,7 +125,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         this.cfg = Frameworks.newConfigBuilder(cfg).context(this).build();
         
         this.log = log;
-        this.extensions = extensions.stream().collect(Collectors.toMap(SqlExtension::name, Function.identity()));
+        this.extensions = extensions;
         
         RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, cfg.getTypeSystem());
         
@@ -219,7 +217,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         
         private IgniteLogger log = new NullLogger();
 
-        private List<SqlExtension> extensions = Collections.emptyList();
+        private Map<String, SqlExtension> extensions = Collections.emptyMap();
         
         public Builder frameworkConfig(@NotNull FrameworkConfig frameworkCfg) {
             this.frameworkCfg = frameworkCfg;
@@ -236,7 +234,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
             return this;
         }
 
-        public Builder extensions(List<SqlExtension> extensions) {
+        public Builder extensions(Map<String, SqlExtension> extensions) {
             this.extensions = extensions;
             return this;
         }

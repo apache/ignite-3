@@ -20,7 +20,9 @@ package org.apache.ignite.internal.processors.query.calcite;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.manager.EventListener;
@@ -73,6 +75,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile QueryTaskExecutor taskExecutor;
 
+    private volatile Map<String, SqlExtension> extensions;
+
     public SqlQueryProcessor(
             ClusterService clusterSrvc,
             TableManager tableManager
@@ -92,9 +96,15 @@ public class SqlQueryProcessor implements QueryProcessor {
                 taskExecutor
         );
 
-        List<SqlExtension> extensions = new ArrayList<>();
+        List<SqlExtension> extensionList = new ArrayList<>();
 
-        ServiceLoader.load(SqlExtension.class).forEach(extensions::add);
+        ServiceLoader<SqlExtension> loader = ServiceLoader.load(SqlExtension.class);
+
+        loader.reload();
+
+        loader.forEach(extensionList::add);
+
+        extensions = extensionList.stream().collect(Collectors.toMap(SqlExtension::name, Function.identity()));
 
         SchemaHolderImpl schemaHolder = new SchemaHolderImpl(planCache::clear);
 
@@ -117,7 +127,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         executionSrvc.start();
         planCache.start();
 
-        extensions.forEach(ext -> ext.init(catalog -> schemaHolder.registerExternalCatalog(ext.name(), catalog)));
+        extensionList.forEach(ext -> ext.init(catalog -> schemaHolder.registerExternalCatalog(ext.name(), catalog)));
     }
 
     private void registerTableListener(TableEvent evt, AbstractTableEventListener lsnr) {
@@ -130,6 +140,15 @@ public class SqlQueryProcessor implements QueryProcessor {
     @Override
     public void stop() throws Exception {
         busyLock.block();
+
+        Map<String, SqlExtension> extensions = this.extensions;
+        if (extensions != null) {
+            IgniteUtils.closeAll(
+                    extensions.values().stream()
+                            .map(ext -> (AutoCloseable) ext::stop)
+                            .collect(Collectors.toList())
+            );
+        }
 
         List<AutoCloseable> toClose = new ArrayList<>(Arrays.asList(
                 executionSrvc::stop,

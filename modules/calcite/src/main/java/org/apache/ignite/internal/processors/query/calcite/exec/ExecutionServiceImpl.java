@@ -143,7 +143,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
 
     private final DdlSqlToCommandConverter ddlConverter;
 
-    private final List<SqlExtension> extensions;
+    private final Map<String, SqlExtension> extensions;
 
     /**
      * Constructor.
@@ -156,7 +156,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
             SchemaHolder schemaHolder,
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
-            List<SqlExtension> extensions
+            Map<String, SqlExtension> extensions
     ) {
         this.topSrvc = topSrvc;
         this.handler = handler;

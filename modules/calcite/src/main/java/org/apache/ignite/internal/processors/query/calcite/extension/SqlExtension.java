@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.query.calcite.extension;
 import java.util.List;
 import java.util.Set;
 import org.apache.calcite.plan.RelOptRule;
+import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Node;
 import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGroup;
@@ -30,6 +31,12 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Entry point to extend current sql engine with external storage or even custom execution.
+ *
+ * <h3>Extension lifecycle</h3>
+ * All extensions are created in a start phase of {@link SqlQueryProcessor} and initialized after all other components
+ * of {@link SqlQueryProcessor} have been started.
+ *
+ * <p>All extensions are stopped in the very beginning of the stop phase of {@link SqlQueryProcessor}, just before the other components.
  */
 public interface SqlExtension {
     /**
@@ -54,6 +61,11 @@ public interface SqlExtension {
     void init(
             CatalogUpdateListener catalogUpdateListener
     );
+
+    /**
+     * Stops the extension.
+     */
+    default void stop() {}
 
     /**
      * Returns a set of optimization rules for given optimization phase.
