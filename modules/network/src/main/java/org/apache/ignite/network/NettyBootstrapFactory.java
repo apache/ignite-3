@@ -31,7 +31,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup;
 
 /**
- * Netty bootstrap factory.
+ * Netty bootstrap factory. Holds shared {@link EventLoopGroup} instances and encapsulates common Netty {@link Bootstrap} creation logic.
  */
 public class NettyBootstrapFactory implements IgniteComponent {
     /** Network configuration. */
