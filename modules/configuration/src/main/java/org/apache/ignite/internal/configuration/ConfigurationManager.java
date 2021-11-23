@@ -17,15 +17,13 @@
 
 package org.apache.ignite.internal.configuration;
 
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
-
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigObject;
 import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigObject;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -63,8 +61,6 @@ public class ConfigurationManager implements IgniteComponent {
             Collection<Class<?>> internalSchemaExtensions,
             Collection<Class<?>> polymorphicSchemaExtensions
     ) {
-        checkConfigurationType(rootKeys, storage);
-        
         registry = new ConfigurationRegistry(
                 rootKeys,
                 validators,

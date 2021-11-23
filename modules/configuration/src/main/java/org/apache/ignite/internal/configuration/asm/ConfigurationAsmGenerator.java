@@ -1238,6 +1238,8 @@ public class ConfigurationAsmGenerator {
             FieldDefinition fieldDef = fieldDefs.get(fieldName);
             
             if (isPolymorphicId(schemaField)) {
+                makeSureChangePolymorphicTypeIdMethodIsDefined(changePolymorphicTypeIdMtd, schemaField);
+
                 // src == null ? null : src.unwrap(FieldType.class);
                 BytecodeExpression getTypeIdFromSrcVar = inlineIf(
                         isNull(srcVar),
@@ -1324,7 +1326,16 @@ public class ConfigurationAsmGenerator {
                     .ret();
         }
     }
-    
+
+    private void makeSureChangePolymorphicTypeIdMethodIsDefined(@Nullable MethodDefinition changePolymorphicTypeIdMtd,
+                                                                Field schemaField) {
+        if (changePolymorphicTypeIdMtd == null) {
+            throw new IllegalArgumentException("Field " + schemaField.getDeclaringClass().getName() + "."
+                    + schemaField.getName() + " is annotated with @PolymorphicId, but schema extensions are " +
+                    "not defined. Please define them explicitly.");
+        }
+    }
+
     /**
      * Implements {@link InnerNode#constructDefault(String)} method.
      *

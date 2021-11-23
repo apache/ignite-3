@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.configuration;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 
 import java.util.List;
 import java.util.Map;
@@ -30,6 +33,8 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -103,6 +108,23 @@ public class ConfigurationRegistryTest {
         );
         
         configRegistry.stop();
+    }
+
+    @Test
+    void polymorphicSchemasShouldBeRequiredIfPolymorphicIdIsUsed() {
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> new ConfigurationRegistry(
+                        List.of(ThirdRootConfiguration.KEY),
+                        Map.of(),
+                        new TestConfigurationStorage(LOCAL),
+                        List.of(),
+                        List.of()
+                )
+        );
+        assertThat(ex.getMessage(), is("Field org.apache.ignite.internal.configuration.ConfigurationRegistryTest$" +
+                "FirstPolymorphicConfigurationSchema.typeId is annotated with @PolymorphicId, but schema extensions " +
+                "are not defined. Please define them explicitly."));
     }
     
     /**
