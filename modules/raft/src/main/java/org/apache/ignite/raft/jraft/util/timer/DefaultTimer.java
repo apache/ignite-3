@@ -91,7 +91,7 @@ public class DefaultTimer implements Timer {
                 @Override
                 public boolean cancel() {
                     final ScheduledFuture<?> f = future;
-                    return f != null && f.cancel(false); // Avoid interrupting thread in the pool.
+                    return f != null && f.cancel(false); // Avoid interrupting a thread in the pool.
                 }
             };
         }

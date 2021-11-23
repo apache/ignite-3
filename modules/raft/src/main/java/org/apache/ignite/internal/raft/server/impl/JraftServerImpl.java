@@ -135,7 +135,6 @@ public class JraftServerImpl implements RaftServer {
         assert opts.isSharedPools() : "RAFT server is supposed to run in shared pools mode";
 
         // Pre-create all pools in shared mode.
-        // Pre-create all pools in shared mode.
         if (opts.getCommonExecutor() == null) {
             opts.setCommonExecutor(JRaftUtils.createCommonExecutor(opts));
         }

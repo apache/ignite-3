@@ -3439,11 +3439,11 @@ public class ItNodeTest {
 
         var service = new RaftGroupService(groupId, peerId, nodeOptions, rpcServer, nodeManager) {
             @Override public synchronized void shutdown() {
-                clusterService.stop();
-
                 rpcServer.shutdown();
 
                 super.shutdown();
+    
+                clusterService.stop();
             }
         };
 

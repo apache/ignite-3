@@ -112,7 +112,7 @@ public class IgniteRpcClient implements RpcClientEx {
 
         synchronized (this) {
             if (blockPred != null && blockPred.test(request, endpoint.toString())) {
-                Object[] obj = {
+                Object[] msgData = {
                         request,
                         endpoint.toString(),
                         fut.hashCode(),
@@ -120,9 +120,9 @@ public class IgniteRpcClient implements RpcClientEx {
                         (Runnable) () -> send(endpoint, request, fut, timeoutMs)
                 };
                 
-                blockedMsgs.add(obj);
+                blockedMsgs.add(msgData);
     
-                LOG.info("Blocked message to={} id={} msg={}", endpoint.toString(), obj[2], S.toString(request));
+                LOG.info("Blocked message to={} id={} msg={}", endpoint.toString(), msgData[2], S.toString(request));
 
                 return fut;
             }

@@ -27,21 +27,25 @@ public class RpcOptions {
 
     /**
      * Rpc connect timeout in milliseconds.
+     * Default: 1200 (1.2s)
      */
-    private int rpcConnectTimeoutMs = 2000;
+    private int rpcConnectTimeoutMs = 1200;
 
     /**
      * RPC request default timeout in milliseconds.
+     * Default: 5000 (5s)
      */
     private int rpcDefaultTimeout = 5000;
 
     /**
      * Install snapshot RPC request default timeout in milliseconds.
+     * Default: 5m
      */
     private int rpcInstallSnapshotTimeout = 5 * 60 * 1000;
 
     /**
      * RPC process thread pool size.
+     * Default: 80
      */
     private int rpcProcessorThreadPoolSize = 80;
 

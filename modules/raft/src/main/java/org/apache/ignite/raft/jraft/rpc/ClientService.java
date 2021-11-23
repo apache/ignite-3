@@ -26,7 +26,7 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
  */
 public interface ClientService extends Lifecycle<RpcOptions> {
     /**
-     * Connect to endpoint, returns true when success. TODO asch rename to ping IGNITE-14832.
+     * Connect to endpoint, returns true when success. TODO asch it seems we don't need it IGNITE-14832.
      *
      * @param endpoint server address
      * @return true on connect success
