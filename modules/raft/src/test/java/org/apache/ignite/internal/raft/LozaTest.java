@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -77,9 +77,9 @@ public class LozaTest extends IgniteAbstractTest {
 
         Supplier<RaftGroupListener> lsnrSupplier = () -> null;
 
-        assertThrows(IgniteException.class, () -> loza.updateRaftGroup(raftGroupId, nodes, newNodes, lsnrSupplier));
-        assertThrows(IgniteException.class, () -> loza.stopRaftGroup(raftGroupId));
-        assertThrows(IgniteException.class, () -> loza.prepareRaftGroup(raftGroupId, nodes, lsnrSupplier));
-        assertThrows(IgniteException.class, () -> loza.changePeers(raftGroupId, nodes, newNodes));
+        assertThrows(NodeStoppingException.class, () -> loza.updateRaftGroup(raftGroupId, nodes, newNodes, lsnrSupplier));
+        assertThrows(NodeStoppingException.class, () -> loza.stopRaftGroup(raftGroupId));
+        assertThrows(NodeStoppingException.class, () -> loza.prepareRaftGroup(raftGroupId, nodes, lsnrSupplier));
+        assertThrows(NodeStoppingException.class, () -> loza.changePeers(raftGroupId, nodes, newNodes));
     }
 }
