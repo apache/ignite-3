@@ -70,6 +70,7 @@ public class NettyServer {
     private volatile ServerChannel channel;
     
     /** Server close future. */
+    @Nullable
     private CompletableFuture<Void> serverCloseFuture;
     
     /** New connections listener. */
@@ -233,13 +234,15 @@ public class NettyServer {
             if (serverStartFuture == null) {
                 return CompletableFuture.completedFuture(null);
             }
+    
+            var serverCloseFuture0 = serverCloseFuture;
             
             return serverStartFuture.handle((unused, throwable) -> {
                 if (channel != null) {
                     channel.close();
                 }
                 
-                return serverCloseFuture == null ? CompletableFuture.<Void>completedFuture(null) : serverCloseFuture;
+                return serverCloseFuture0 == null ? CompletableFuture.<Void>completedFuture(null) : serverCloseFuture0;
             }).thenCompose(Function.identity());
         }
     }
