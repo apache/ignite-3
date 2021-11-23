@@ -19,7 +19,6 @@ package org.apache.ignite.tx;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import org.apache.ignite.sql.Session;
 
 /**
  * Ignite Transactions facade.

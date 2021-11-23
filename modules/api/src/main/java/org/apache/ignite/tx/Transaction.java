@@ -18,7 +18,6 @@
 package org.apache.ignite.tx;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.sql.Session;
 
 /**
  * The transaction.
