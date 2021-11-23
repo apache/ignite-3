@@ -57,9 +57,6 @@ public class ConnectionManager {
     /** Latest version of the direct marshalling protocol. */
     public static final byte DIRECT_PROTOCOL_VERSION = 1;
     
-    /** Bootstrap factory. */
-    private final NettyBootstrapFactory bootstrapFactory;
-    
     /** Client bootstrap. */
     private final Bootstrap clientBootstrap;
     
@@ -123,8 +120,6 @@ public class ConnectionManager {
         );
         
         this.clientBootstrap = bootstrapFactory.createClientBootstrap();
-        
-        this.bootstrapFactory = bootstrapFactory;
     }
     
     /**
@@ -320,16 +315,6 @@ public class ConnectionManager {
     @TestOnly
     public Map<String, NettySender> channels() {
         return Collections.unmodifiableMap(channels);
-    }
-    
-    /**
-     * Returns the bootstrap factory.
-     *
-     * @return Bootstrap factory.
-     */
-    @TestOnly
-    public NettyBootstrapFactory bootstrapFactory() {
-        return bootstrapFactory;
     }
     
     /**

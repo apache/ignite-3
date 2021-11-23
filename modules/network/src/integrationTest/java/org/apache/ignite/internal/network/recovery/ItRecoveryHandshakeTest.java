@@ -66,6 +66,9 @@ public class ItRecoveryHandshakeTest {
     /** Started connection managers. */
     private final List<ConnectionManager> startedManagers = new ArrayList<>();
 
+    /** Started bootstrap factories. */
+    private final List<NettyBootstrapFactory> startedBootstrapFactories = new ArrayList<>();
+
     private final TestMessagesFactory messageFactory = new TestMessagesFactory();
 
     /** Reusable network configuration object. */
@@ -77,9 +80,10 @@ public class ItRecoveryHandshakeTest {
      */
     @AfterEach
     final void tearDown() throws Exception {
-        for (ConnectionManager startedManager : startedManagers) {
-            startedManager.stop();
-            startedManager.bootstrapFactory().stop();
+        startedManagers.forEach(ConnectionManager::stop);
+
+        for (NettyBootstrapFactory startedBootstrapFactory : startedBootstrapFactories) {
+            startedBootstrapFactory.stop();
         }
     }
 
@@ -407,6 +411,7 @@ public class ItRecoveryHandshakeTest {
     
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, consistentId);
         bootstrapFactory.start();
+        startedBootstrapFactories.add(bootstrapFactory);
         
         var manager = new ConnectionManager(
                 cfg,
@@ -444,6 +449,7 @@ public class ItRecoveryHandshakeTest {
     
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, consistentId);
         bootstrapFactory.start();
+        startedBootstrapFactories.add(bootstrapFactory);
         
         var manager = new ConnectionManager(
                 cfg,
