@@ -63,7 +63,7 @@ public class ScaleCubeClusterServiceFactory {
         var topologyService = new ScaleCubeTopologyService();
 
         var messagingService = new ScaleCubeMessagingService();
-    
+
         return new AbstractClusterService(context, topologyService, messagingService) {
             private volatile ClusterImpl cluster;
 
