@@ -198,7 +198,7 @@ public class MetaStorageManager implements IgniteComponent {
                         () -> new MetaStorageListener(storage)
                 );
             } catch (NodeStoppingException e) {
-                throw new AssertionError("Loza was stopped before Metastore", e);
+                throw new AssertionError("Loza was stopped before Meta Storage manager", e);
             }
     
             this.metaStorageSvcFut = raftGroupServiceFut.thenApply(service ->
@@ -280,7 +280,7 @@ public class MetaStorageManager implements IgniteComponent {
 
             throw new IgniteInternalException(e);
         } catch (NodeStoppingException e) {
-            throw new AssertionError("Loza was stopped before Metastore", e);
+            throw new AssertionError("Loza was stopped before Meta Storage manager", e);
         }
 
         try {
