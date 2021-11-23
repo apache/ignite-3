@@ -320,19 +320,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             InternalTable internalTable = tablesById.get(tblId).internalTable();
 
                             // Create new raft nodes according to new assignments.
-                            futures[i] = raftMgr.updateRaftGroup(
-                                    raftGroupName(tblId, partId),
-                                    newPartitionAssignment,
-                                    toAdd,
-                                    () -> new PartitionListener(internalTable.storage().getOrCreatePartition(partId))
-                            ).thenAccept(
-                                    updatedRaftGroupService -> ((InternalTableImpl) internalTable).updateInternalTableRaftGroupService(
-                                            partId, updatedRaftGroupService)
-                            ).exceptionally(th -> {
-                                LOG.error("Failed to update raft groups one the node", th);
-
-                                return null;
-                            });
+                            try {
+                                futures[i] = raftMgr.updateRaftGroup(
+                                        raftGroupName(tblId, partId),
+                                        newPartitionAssignment,
+                                        toAdd,
+                                        () -> new PartitionListener(internalTable.storage().getOrCreatePartition(partId))
+                                ).thenAccept(
+                                        updatedRaftGroupService -> ((InternalTableImpl) internalTable).updateInternalTableRaftGroupService(
+                                                partId, updatedRaftGroupService)
+                                ).exceptionally(th -> {
+                                    LOG.error("Failed to update raft groups one the node", th);
+    
+                                    return null;
+                                });
+                            } catch (NodeStoppingException e) {
+                                throw new AssertionError("Loza was stopped before Table manager", e);
+                            }
                         }
 
                         return CompletableFuture.allOf(futures);
@@ -483,14 +487,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         for (int p = 0; p < partitions; p++) {
             int partId = p;
-
-            partitionsGroupsFutures.add(
-                    raftMgr.prepareRaftGroup(
-                            raftGroupName(tblId, p),
-                            assignment.get(p),
-                            () -> new PartitionListener(tableStorage.getOrCreatePartition(partId))
-                    )
-            );
+    
+            try {
+                partitionsGroupsFutures.add(
+                        raftMgr.prepareRaftGroup(
+                                raftGroupName(tblId, p),
+                                assignment.get(p),
+                                () -> new PartitionListener(tableStorage.getOrCreatePartition(partId))
+                        )
+                );
+            } catch (NodeStoppingException e) {
+                throw new AssertionError("Loza was stopped before Table manager", e);
+            }
         }
 
         CompletableFuture.allOf(partitionsGroupsFutures.toArray(CompletableFuture[]::new)).thenRun(() -> {
@@ -1463,16 +1471,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             List<ClusterNode> oldPartitionAssignment = oldAssignments.get(p);
             List<ClusterNode> newPartitionAssignment = newAssignments.get(p);
-
-            futures[i] = raftMgr.chagePeers(
-                    raftGroupName(tblId, p),
-                    oldPartitionAssignment,
-                    newPartitionAssignment
-            ).exceptionally(th -> {
-                LOG.error("Failed to update raft peers for group " + raftGroupName(tblId, p)
-                        + "from " + oldPartitionAssignment + " to " + newPartitionAssignment, th);
-                return null;
-            });
+    
+            try {
+                futures[i] = raftMgr.chagePeers(
+                        raftGroupName(tblId, p),
+                        oldPartitionAssignment,
+                        newPartitionAssignment
+                ).exceptionally(th -> {
+                    LOG.error("Failed to update raft peers for group " + raftGroupName(tblId, p)
+                            + "from " + oldPartitionAssignment + " to " + newPartitionAssignment, th);
+                    return null;
+                });
+            } catch (NodeStoppingException e) {
+                throw new AssertionError("Loza was stopped before Table manager", e);
+            }
         }
 
         return CompletableFuture.allOf(futures);
