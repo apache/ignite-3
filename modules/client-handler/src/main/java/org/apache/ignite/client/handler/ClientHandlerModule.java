@@ -148,7 +148,6 @@ public class ClientHandlerModule implements IgniteComponent {
 
             if (bindRes.isSuccess()) {
                 ch = bindRes.channel();
-                ch.closeFuture();
 
                 port = portCandidate;
                 break;
