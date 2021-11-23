@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -329,11 +330,9 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /**
      * Instantiates a table and prepares Table manager.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    public void testGetTableDuringCreation() throws Exception {
+    public void testGetTableDuringCreation() {
         TableDefinition scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
                 SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
                 SchemaBuilders.column("val", ColumnType.INT64).asNullable().build()
@@ -345,8 +344,10 @@ public class TableManagerTest extends IgniteAbstractTest {
             try {
                 return mockManagersAndCreateTableWithDelay(scmTbl, tblManagerFut, phaser);
             } catch (NodeStoppingException e) {
-                throw new RuntimeException(e);
+                fail(e.getMessage());
             }
+            
+            return null;
         });
 
         CompletableFuture<Table> getFut = CompletableFuture.supplyAsync(() -> {
