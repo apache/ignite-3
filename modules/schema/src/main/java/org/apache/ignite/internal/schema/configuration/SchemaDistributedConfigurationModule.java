@@ -30,11 +30,13 @@ import org.apache.ignite.configuration.validation.Validator;
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-schema.
  */
 public class SchemaDistributedConfigurationModule implements ConfigurationModule {
+    /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
         return ConfigurationType.DISTRIBUTED;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
         return Map.of(

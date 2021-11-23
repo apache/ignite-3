@@ -24,6 +24,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
  * A test {@link ConfigurationModule} implementation used to test loading by {@link ServiceLoaderModulesProvider}.
  */
 public class TestConfigurationModule implements ConfigurationModule {
+    /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
         return ConfigurationType.LOCAL;

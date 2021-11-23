@@ -44,11 +44,13 @@ public class CompoundModule implements ConfigurationModule {
         this.modules = List.copyOf(modules);
     }
 
+    /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
         return type;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
         return unionFromModulesExtractedWith(ConfigurationModule::rootKeys);
@@ -61,6 +63,7 @@ public class CompoundModule implements ConfigurationModule {
                 .collect(toUnmodifiableList());
     }
 
+    /** {@inheritDoc} */
     @Override
     public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
         Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> result = new HashMap<>();
@@ -76,11 +79,13 @@ public class CompoundModule implements ConfigurationModule {
         return Map.copyOf(result);
     }
 
+    /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> internalSchemaExtensions() {
         return unionFromModulesExtractedWith(ConfigurationModule::internalSchemaExtensions);
     }
 
+    /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return unionFromModulesExtractedWith(ConfigurationModule::polymorphicSchemaExtensions);

@@ -27,11 +27,13 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-table.
  */
 public class TableDistributedConfigurationModule implements ConfigurationModule {
+    /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
         return ConfigurationType.DISTRIBUTED;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> internalSchemaExtensions() {
         return List.of(ExtendedTableConfigurationSchema.class);
