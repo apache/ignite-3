@@ -161,8 +161,8 @@ public class ConfigurationRegistry implements IgniteComponent {
             for (Field schemaField : concat(schemaFields, internalExtensionsFields, polymorphicExtensionsFields)) {
                 if (isPolymorphicId(schemaField) && polymorphicSchemaExtensions.isEmpty()) {
                     throw new IllegalArgumentException("Field " + schemaField.getDeclaringClass().getName() + "."
-                            + schemaField.getName() + " is annotated with @PolymorphicId, but schema extensions are " +
-                            "not defined. Please define them explicitly.");
+                            + schemaField.getName() + " is annotated with @PolymorphicId, but schema extensions are "
+                            + "not defined. Please define them explicitly.");
                 }
             }
         }

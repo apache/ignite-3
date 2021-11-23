@@ -66,6 +66,16 @@ import static org.objectweb.asm.Type.getMethodDescriptor;
 import static org.objectweb.asm.Type.getMethodType;
 import static org.objectweb.asm.Type.getType;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.ClassGenerator;
+import com.facebook.presto.bytecode.FieldDefinition;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.ParameterizedType;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import java.io.Serializable;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
@@ -92,16 +102,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.ClassDefinition;
-import com.facebook.presto.bytecode.ClassGenerator;
-import com.facebook.presto.bytecode.FieldDefinition;
-import com.facebook.presto.bytecode.MethodDefinition;
-import com.facebook.presto.bytecode.ParameterizedType;
-import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.ConfigurationValue;
@@ -1331,8 +1331,8 @@ public class ConfigurationAsmGenerator {
                                                                 Field schemaField) {
         if (changePolymorphicTypeIdMtd == null) {
             throw new IllegalStateException("Field " + schemaField.getDeclaringClass().getName() + "."
-                    + schemaField.getName() + " is annotated with @PolymorphicId, but schema extensions are " +
-                    "not defined. Please define them explicitly.");
+                    + schemaField.getName() + " is annotated with @PolymorphicId, but schema extensions are "
+                    + "not defined. Please define them explicitly.");
         }
     }
 
