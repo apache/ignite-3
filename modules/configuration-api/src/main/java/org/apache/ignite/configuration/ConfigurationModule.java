@@ -34,7 +34,7 @@ import org.apache.ignite.configuration.validation.Validator;
  *
  * <p>Each configuration module only supplies configuration of only one {@link ConfigurationType}, so,
  * if a library needs to provide both node-local and cluster-wide configuration, it needs to supply
- * two {@link ConfigurationModule} instances.
+ * two ConfigurationModule instances.
  *
  * <p>Designed for integration with {@link java.util.ServiceLoader} mechanism, so ConfigurationModule instances
  * provided by a library are to be defined as services either in
