@@ -22,12 +22,14 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.extensionsFields;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicId;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicInstanceId;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaFields;
+import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
@@ -112,7 +114,8 @@ public class ConfigurationRegistry implements IgniteComponent {
             Collection<Class<?>> polymorphicSchemaExtensions
     ) {
         checkConfigurationType(rootKeys, storage);
-        
+        checkPolymorphicSchemasValidity(rootKeys, internalSchemaExtensions, polymorphicSchemaExtensions);
+
         Set<Class<?>> allSchemas = collectSchemas(viewReadOnly(rootKeys, RootKey::schemaClass));
         
         final Map<Class<?>, Set<Class<?>>> internalExtensions = internalExtensionsWithCheck(allSchemas, internalSchemaExtensions);
@@ -145,7 +148,26 @@ public class ConfigurationRegistry implements IgniteComponent {
             configs.put(rootKey.key(), cfg);
         });
     }
-    
+
+    private void checkPolymorphicSchemasValidity(Collection<RootKey<?, ?>> rootKeys,
+                                                 Collection<Class<?>> internalSchemaExtensions,
+                                                 Collection<Class<?>> polymorphicSchemaExtensions) {
+        Set<Class<?>> allSchemas = collectSchemas(viewReadOnly(rootKeys, RootKey::schemaClass));
+        for (Class<?> schemaClass : allSchemas) {
+            List<Field> schemaFields = schemaFields(schemaClass);
+            Collection<Field> internalExtensionsFields = extensionsFields(internalSchemaExtensions, true);
+            Collection<Field> polymorphicExtensionsFields = extensionsFields(polymorphicSchemaExtensions, false);
+
+            for (Field schemaField : concat(schemaFields, internalExtensionsFields, polymorphicExtensionsFields)) {
+                if (isPolymorphicId(schemaField) && polymorphicSchemaExtensions.isEmpty()) {
+                    throw new IllegalArgumentException("Field " + schemaField.getDeclaringClass().getName() + "."
+                            + schemaField.getName() + " is annotated with @PolymorphicId, but schema extensions are " +
+                            "not defined. Please define them explicitly.");
+                }
+            }
+        }
+    }
+
     /**
      * Registers default validator implementation to the validators map.
      *

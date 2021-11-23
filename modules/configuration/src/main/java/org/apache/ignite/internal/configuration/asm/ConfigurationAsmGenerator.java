@@ -1330,7 +1330,7 @@ public class ConfigurationAsmGenerator {
     private void makeSureChangePolymorphicTypeIdMethodIsDefined(@Nullable MethodDefinition changePolymorphicTypeIdMtd,
                                                                 Field schemaField) {
         if (changePolymorphicTypeIdMtd == null) {
-            throw new IllegalArgumentException("Field " + schemaField.getDeclaringClass().getName() + "."
+            throw new IllegalStateException("Field " + schemaField.getDeclaringClass().getName() + "."
                     + schemaField.getName() + " is annotated with @PolymorphicId, but schema extensions are " +
                     "not defined. Please define them explicitly.");
         }
