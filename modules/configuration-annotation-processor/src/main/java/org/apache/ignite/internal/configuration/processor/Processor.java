@@ -556,8 +556,8 @@ public class Processor extends AbstractProcessor {
         String simpleName = clazz.getSimpleName().toString();
 
         if (!simpleName.endsWith(CONFIGURATION_SCHEMA_POSTFIX)) {
-            throw new ProcessorException(String.format("%s must end with 'ConfigurationSchema'",
-                    clazz.getQualifiedName().toString()));
+            throw new ProcessorException(
+                    String.format("%s must end with '%s'", clazz.getQualifiedName(), CONFIGURATION_SCHEMA_POSTFIX));
         }
 
         if (clazz.getAnnotation(InternalConfiguration.class) != null) {
