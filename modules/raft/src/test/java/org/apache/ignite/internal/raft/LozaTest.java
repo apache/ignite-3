@@ -48,7 +48,7 @@ public class LozaTest extends IgniteAbstractTest {
     private ClusterService clusterNetSvc;
     
     /**
-     * Checks that the all API methods throw the exception (caused by {@link org.apache.ignite.lang.NodeStoppingException})
+     * Checks that the all API methods throw the exception ({@link org.apache.ignite.lang.NodeStoppingException})
      * when Loza is closed.
      *
      * @throws Exception If fail.
