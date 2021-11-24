@@ -108,7 +108,7 @@ public class ConfigurationRegistryTest {
     }
 
     @Test
-    void polymorphicSchemasShouldBeRequiredIfPolymorphicIdIsUsed() {
+    void polymorphicSchemasShouldBeRequiredIfPolymorphicExtensionsAreUsed() {
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
                 () -> new ConfigurationRegistry(
