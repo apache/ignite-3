@@ -2619,7 +2619,7 @@ public class ConfigurationAsmGenerator {
     private String polymorphicTypeNotDefinedErrorMessage(Field polymorphicIdField) {
         return "Polymorphic configuration type is not defined: "
                 + polymorphicIdField.getDeclaringClass().getName()
-                + ". Maybe default value is missing on a @PolymorphicId field (with hasDefault=true)?";
+                + ". See @" + PolymorphicConfig.class.getSimpleName() + " documentation.";
     }
 
     /**
