@@ -152,7 +152,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param rootKeys                    root keys
      * @param internalSchemaExtensions    internal schema extensions
      * @param polymorphicSchemaExtensions polymorphic schema extensions
-     * @return set of schema classes
+     * @return set of all schema classes
      */
     private Set<Class<?>> collectAllSchemas(Collection<RootKey<?, ?>> rootKeys,
                                             Collection<Class<?>> internalSchemaExtensions,
