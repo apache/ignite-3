@@ -19,15 +19,10 @@ package org.apache.ignite.internal.runner.app;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.app.IgniteCliRunner;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -53,23 +48,5 @@ public class IgniteCliRunnerTest {
                         "node2"
                 }
         ));
-    }
-    
-    public void beforeAll(@WorkDirectory Path workDir) throws IOException {
-        Files.createDirectory(Path.of(workDir.toString(), "node1"));
-        Files.createDirectory(Path.of(workDir.toString(), "node2"));
-    }
-    
-    /**
-     * Removes a previously created work directory.
-     */
-    @BeforeEach
-    @AfterEach
-    public void removeWorkDir() {
-        Path workDir = Path.of("work");
-        
-        if (Files.exists(workDir)) {
-            IgniteUtils.deleteIfExists(workDir);
-        }
     }
 }
