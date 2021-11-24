@@ -1332,7 +1332,8 @@ public class ConfigurationAsmGenerator {
         if (changePolymorphicTypeIdMtd == null) {
             throw new IllegalStateException("Field " + schemaField.getDeclaringClass().getName() + "."
                     + schemaField.getName() + " is annotated with @" + PolymorphicId.class.getSimpleName()
-                    + ", but schema extensions are not defined. Please define them explicitly.");
+                    + ", but a method for changing polymorphic type ID is not defined. "
+                    + "Are polymorphic extensions passed to ConfigurationRegistry?");
         }
     }
 
