@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.when;
 
+import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -80,7 +81,7 @@ class CompoundModuleTest {
         when(moduleA.validators()).thenReturn(Map.of(AnnotationA.class, Set.of(validatorA)));
         when(moduleB.validators()).thenReturn(Map.of(AnnotationB.class, Set.of(validatorB)));
 
-        var validators = compound.validators();
+        Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators = compound.validators();
 
         assertThat(validators, hasEntry(AnnotationA.class, Set.of(validatorA)));
         assertThat(validators, hasEntry(AnnotationB.class, Set.of(validatorB)));
@@ -91,7 +92,7 @@ class CompoundModuleTest {
         when(moduleA.validators()).thenReturn(Map.of(AnnotationA.class, Set.of(validatorA)));
         when(moduleB.validators()).thenReturn(Map.of(AnnotationA.class, Set.of(validatorB)));
 
-        var validators = compound.validators();
+        Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators = compound.validators();
 
         assertThat(validators, hasEntry(AnnotationA.class, Set.of(validatorA, validatorB)));
     }
