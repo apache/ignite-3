@@ -302,8 +302,8 @@ public class ItProcessorTest extends AbstractProcessorTest {
         Compilation compilation = compile(schema);
 
         assertThat(compilation).failed();
-        assertThat(compilation).hadErrorContaining("Name of a class annotated with one of [");
         assertThat(compilation).hadErrorContaining(
-                "] must end with 'ConfigurationSchema', but for 'ConfigurationSchemaWithWrongPostfix' it does not");
+                "org.apache.ignite.internal.configuration.processor.ConfigurationSchemaWithWrongPostfix"
+                        + " must end with 'ConfigurationSchema'");
     }
 }
