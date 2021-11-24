@@ -294,7 +294,7 @@ public class ItProcessorTest extends AbstractProcessorTest {
     }
 
     @Test
-    void confiurationSchemaClassShouldBeCheckedToEndWithConfigurationSchemaPostfix() {
+    void wrongSchemaPostfix() {
         String packageName = "org.apache.ignite.internal.configuration.processor";
 
         ClassName schema = ClassName.get(packageName, "ConfigurationSchemaWithWrongPostfix");
