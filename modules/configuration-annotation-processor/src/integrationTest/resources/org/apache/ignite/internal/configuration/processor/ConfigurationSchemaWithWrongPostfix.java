@@ -18,10 +18,7 @@
 package org.apache.ignite.internal.configuration.processor;
 
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.Value;
 
 @ConfigurationRoot(rootName = "wrongPostfix")
 public class ConfigurationSchemaWithWrongPostfix {
-    @Value
-    public String value1;
 }
