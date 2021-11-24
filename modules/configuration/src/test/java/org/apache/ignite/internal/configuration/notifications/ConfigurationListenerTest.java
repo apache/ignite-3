@@ -959,7 +959,7 @@ public class ConfigurationListenerTest {
     }
 
     @Test
-    void listenerGetsNotifiedOnCommonPropertyChangeInPolymorphicBaseConfigUnderNoNamedConfig() throws Exception {
+    void polymorphicParentFieldChangeNotificationHappens() throws Exception {
         AtomicInteger intHolder = new AtomicInteger();
 
         configuration.polymorph().commonIntVal().listen(event -> {
