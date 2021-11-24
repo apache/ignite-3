@@ -28,10 +28,10 @@ import java.lang.annotation.Target;
  * This annotation, if applied to a class, marks it as a configuration schema root. Annotation processor generates
  * several classes for each configuration schema:
  * <ul>
- * <li>Config - Represents configuration itself, provides API to init, change and view it.
+ * <li>Config - Represents the configuration, provides API to init, change and view it.
  * Extends {@code DynamicConfiguration}</li>
- * <li>Change - changes config tree</li>
- * <li>View - immutable object to view config tree</li>
+ * <li>Change - changes the config tree</li>
+ * <li>View - an immutable object to view the config tree</li>
  * </ul>
  *
  * <h1 class="header">Example</h1>
