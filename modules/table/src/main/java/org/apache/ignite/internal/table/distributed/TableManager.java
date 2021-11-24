@@ -192,6 +192,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** {@inheritDoc} */
     @Override
     public void start() {
+        engine.start();
+
+        createDefaultRegion();
+
+        recoveryMemoryState();
+
         tablesCfg.tables()
                 .listenElements(new ConfigurationNamedListListener<TableView>() {
                     @Override
@@ -256,25 +262,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             busyLock.leaveBusy();
                                         }
 
-                                        return CompletableFuture.completedFuture(null);
-                                    }
-
-                                    @Override
-                                    public @NotNull CompletableFuture<?> onRename(@NotNull String oldName,
-                                            @NotNull String newName,
-                                            @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
-                                        return CompletableFuture.completedFuture(null);
-                                    }
-
-                                    @Override
-                                    public @NotNull CompletableFuture<?> onDelete(
-                                            @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
-                                        return CompletableFuture.completedFuture(null);
-                                    }
-
-                                    @Override
-                                    public @NotNull CompletableFuture<?> onUpdate(
-                                            @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
                                         return CompletableFuture.completedFuture(null);
                                     }
                                 });
@@ -392,14 +379,77 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return CompletableFuture.completedFuture(null);
                     }
                 });
+    }
 
-        engine.start();
-
+    /**
+     * Creates default data region.
+     */
+    private void createDefaultRegion() {
         DataRegion defaultDataRegion = engine.createDataRegion(dataStorageCfg.defaultRegion());
 
         dataRegions.put(DEFAULT_DATA_REGION_NAME, defaultDataRegion);
 
         defaultDataRegion.start();
+    }
+
+    /**
+     * Recovers a state of the component from the local persistent.
+     */
+    private void recoveryMemoryState() {
+        for (String tblName : tablesCfg.tables().value().namedListKeys()) {
+            LOG.info("Start table from storage: " + tblName);
+
+            ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tblName);
+
+            ExtendedTableView tblView = (ExtendedTableView) tblCfg.value();
+
+            IgniteUuid tblId = IgniteUuid.fromString(tblView.id());
+
+            tblCfg.schemas().listenElements(
+                    new ConfigurationNamedListListener<SchemaView>() {
+                        @Override
+                        public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<SchemaView> schemasCtx) {
+                            if (!busyLock.enterBusy()) {
+                                fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName),
+                                        new NodeStoppingException());
+
+                                return CompletableFuture.completedFuture(new NodeStoppingException());
+                            }
+
+                            try {
+                                ((SchemaRegistryImpl) tables.get(tblName).schemaView())
+                                        .onSchemaRegistered(SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema())));
+
+                                fireEvent(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
+                            } catch (Exception e) {
+                                fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName), e);
+                            } finally {
+                                busyLock.leaveBusy();
+                            }
+
+                            return CompletableFuture.completedFuture(null);
+                        }
+                    }
+            );
+
+            List<List<ClusterNode>> assignment = (List<List<ClusterNode>>) ByteUtils.fromBytes(tblView.assignments());
+
+            int latestSchemaVer = 0;
+
+            SchemaDescriptor schemaDescriptor = null;
+
+            for (String schemaId : tblView.schemas().namedListKeys()) {
+                int schemaVer = Integer.parseInt(schemaId);
+
+                if (schemaVer > latestSchemaVer) {
+                    latestSchemaVer = schemaVer;
+
+                    schemaDescriptor = SchemaSerializerImpl.INSTANCE.deserialize(tblView.schemas().get(schemaId).schema());
+                }
+            }
+
+            createTableLocally(tblName, tblId, assignment, schemaDescriptor);
+        }
     }
 
     /** {@inheritDoc} */

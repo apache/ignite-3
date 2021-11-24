@@ -50,6 +50,7 @@ import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
 import org.apache.ignite.internal.metastorage.watch.KeyCriterion;
 import org.apache.ignite.internal.metastorage.watch.WatchAggregator;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -143,6 +144,9 @@ public class MetaStorageManager implements IgniteComponent {
     /** Prevents double stopping the component. */
     AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /** This is a key by which cluster store a list of node name after Metastore is initialized. */
+    private static final ByteArray METASTORAGE_NODES_KEY = ByteArray.fromString("cluster.metastorageNodes");
+
     /**
      * The constructor.
      *
@@ -169,8 +173,7 @@ public class MetaStorageManager implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        String[] metastorageNodes = this.locCfgMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
-                .metastorageNodes().value();
+        String[] metastorageNodes = recoveryMetastorageNodes();
 
         Predicate<ClusterNode> metaStorageNodesContainsLocPred =
                 clusterNode -> Arrays.asList(metastorageNodes).contains(clusterNode.name());
@@ -209,9 +212,14 @@ public class MetaStorageManager implements IgniteComponent {
                 throw new AssertionError("Loza was stopped before Meta Storage manager", e);
             }
 
-            this.metaStorageSvcFut = raftGroupServiceFut.thenApply(service ->
-                    new MetaStorageServiceImpl(service, clusterNetSvc.topologyService().localMember().id())
-            );
+            this.metaStorageSvcFut = raftGroupServiceFut.thenApply(service -> {
+                MetaStorageService srvc = new MetaStorageServiceImpl(service, clusterNetSvc.topologyService().localMember().id());
+
+                srvc.put(METASTORAGE_NODES_KEY, ByteUtils.toBytes(metastorageNodes));
+                vaultMgr.put(METASTORAGE_NODES_KEY, ByteUtils.toBytes(metastorageNodes));
+
+                return srvc;
+            });
 
             if (hasMetastorageLocally(locCfgMgr)) {
                 clusterNetSvc.topologyService().addEventHandler(new TopologyEventHandler() {
@@ -240,6 +248,23 @@ public class MetaStorageManager implements IgniteComponent {
 
         // TODO: IGNITE-14414 Cluster initialization flow. Here we should complete metaStorageServiceFuture.
         //        clusterNetSvc.messagingService().addMessageHandler((message, senderAddr, correlationId) -> {});
+    }
+
+    /**
+     * Finds a list of Metastorage nodes: firstly into the projection of distributed properties, if the list is not found, tries to find it
+     * into the local node configuration.
+     *
+     * @return List of Metastorage nodes.
+     */
+    private String[] recoveryMetastorageNodes() {
+        byte[] metastorageNodesBytes = vaultMgr.get(METASTORAGE_NODES_KEY).join().value();
+
+        if (metastorageNodesBytes != null) {
+            return (String[]) ByteUtils.fromBytes(metastorageNodesBytes);
+        }
+
+        return locCfgMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
+                .metastorageNodes().value();
     }
 
     /** {@inheritDoc} */
