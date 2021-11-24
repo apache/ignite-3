@@ -561,11 +561,11 @@ public class Processor extends AbstractProcessor {
         }
 
         if (clazz.getAnnotation(InternalConfiguration.class) != null) {
-            validateInternalConfiguration(clazz, fields);
+            validateInternalConfigurationSchemaClass(clazz, fields);
         } else if (clazz.getAnnotation(PolymorphicConfig.class) != null) {
-            validatePolymorphicConfig(clazz, fields);
+            validatePolymorphicConfigSchemaClass(clazz, fields);
         } else if (clazz.getAnnotation(PolymorphicConfigInstance.class) != null) {
-            validatePolymorphicConfigInstance(clazz, fields);
+            validatePolymorphicConfigInstanceSchemaClass(clazz, fields);
         } else if (clazz.getAnnotation(ConfigurationRoot.class) != null) {
             checkNotContainsPolymorphicIdField(clazz, ConfigurationRoot.class, fields);
         } else if (clazz.getAnnotation(Config.class) != null) {
@@ -579,7 +579,7 @@ public class Processor extends AbstractProcessor {
      * @param clazz  type element under validation
      * @param fields non-static fields of the class under validation
      */
-    private void validateInternalConfiguration(TypeElement clazz, List<VariableElement> fields) {
+    private void validateInternalConfigurationSchemaClass(TypeElement clazz, List<VariableElement> fields) {
         checkIncompatibleClassAnnotations(
                 clazz,
                 InternalConfiguration.class,
@@ -615,7 +615,7 @@ public class Processor extends AbstractProcessor {
      * @param clazz  type element under validation
      * @param fields non-static fields of the class under validation
      */
-    private void validatePolymorphicConfig(TypeElement clazz, List<VariableElement> fields) {
+    private void validatePolymorphicConfigSchemaClass(TypeElement clazz, List<VariableElement> fields) {
         checkIncompatibleClassAnnotations(
                 clazz,
                 PolymorphicConfig.class,
@@ -642,7 +642,7 @@ public class Processor extends AbstractProcessor {
      * @param clazz  type element under validation
      * @param fields non-static fields of the class under validation
      */
-    private void validatePolymorphicConfigInstance(TypeElement clazz, List<VariableElement> fields) {
+    private void validatePolymorphicConfigInstanceSchemaClass(TypeElement clazz, List<VariableElement> fields) {
         checkIncompatibleClassAnnotations(
                 clazz,
                 PolymorphicConfigInstance.class,
