@@ -564,13 +564,12 @@ public class Processor extends AbstractProcessor {
         } else if (clazz.getAnnotation(ConfigurationRoot.class) != null) {
             validateConfigurationRoot(clazz, fields);
         } else if (clazz.getAnnotation(Config.class) != null) {
-            validateConfig(clazz, fields);
+            checkNotContainsPolymorphicIdField(clazz, Config.class, fields);
         }
     }
 
     private void validateClassName(TypeElement clazz) {
         String simpleName = clazz.getSimpleName().toString();
-
         if (!simpleName.endsWith(CONFIGURATION_SCHEMA_POSTFIX)) {
             throw new ProcessorException(String.format("%s must end with 'ConfigurationSchema'",
                     clazz.getQualifiedName().toString()));
@@ -658,10 +657,6 @@ public class Processor extends AbstractProcessor {
 
     private void validateConfigurationRoot(TypeElement clazz, List<VariableElement> fields) {
         checkNotContainsPolymorphicIdField(clazz, ConfigurationRoot.class, fields);
-    }
-
-    private void validateConfig(TypeElement clazz, List<VariableElement> fields) {
-        checkNotContainsPolymorphicIdField(clazz, Config.class, fields);
     }
 
     /** {@inheritDoc} */
