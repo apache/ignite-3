@@ -567,6 +567,7 @@ public class Processor extends AbstractProcessor {
 
     private void validateClassName(TypeElement clazz) {
         String simpleName = clazz.getSimpleName().toString();
+
         if (!simpleName.endsWith("ConfigurationSchema")) {
             throw new ProcessorException(String.format(
                     "Name of a class annotated with one of %s must end with 'ConfigurationSchema',"
