@@ -20,8 +20,7 @@ package org.apache.ignite.internal.configuration.processor;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 
 /**
- * Invalid configuration schema class used by tests; the problem with it is that a configuration schema class
- * simple name must end with 'ConfigurationSchema'.
+ * All configuration schemas must end with 'ConfigurationSchema'.
  */
 @ConfigurationRoot(rootName = "wrongPostfix")
 public class ConfigurationSchemaWithWrongPostfix {
