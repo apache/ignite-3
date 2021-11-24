@@ -2571,8 +2571,8 @@ public class ConfigurationAsmGenerator {
                                                 .condition(isNull(thisField.getField(polymorphicIdField.getName(), String.class)))
                                                 .ifTrue(throwException(
                                                         IllegalStateException.class,
-                                                        constantString(
-                                                                polyConfTypeIsNotDefinedMessage(polymorphicIdField))
+                                                        constantString(polymorphicTypeNotDefinedErrorMessage(
+                                                                polymorphicIdField))
                                                 ))
                                         )
                                 )
@@ -2623,7 +2623,7 @@ public class ConfigurationAsmGenerator {
         return codeBlock;
     }
 
-    private String polyConfTypeIsNotDefinedMessage(Field polymorphicIdField) {
+    private String polymorphicTypeNotDefinedErrorMessage(Field polymorphicIdField) {
         return "Polymorphic configuration type is not defined: "
                 + polymorphicIdField.getDeclaringClass().getName()
                 + ". Maybe default value is missing on a @PolymorphicId field (with hasDefault=true)?";
