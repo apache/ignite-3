@@ -95,6 +95,9 @@ public class Processor extends AbstractProcessor {
     
     /** Error format for an empty field. */
     private static final String EMPTY_FIELD_ERROR_FORMAT = "Field %s cannot be empty: %s";
+
+    /** Postfix with which any configuration schema class name must end. */
+    private static final String CONFIGURATION_SCHEMA_POSTFIX = "ConfigurationSchema";
     
     /** {@inheritDoc} */
     @Override
@@ -395,7 +398,7 @@ public class Processor extends AbstractProcessor {
             TypeName schemaFieldTypeName = TypeName.get(schemaFieldType);
             
             boolean leafField = isPrimitiveOrArray(schemaFieldType)
-                    || !((ClassName) schemaFieldTypeName).simpleName().contains("ConfigurationSchema");
+                    || !((ClassName) schemaFieldTypeName).simpleName().contains(CONFIGURATION_SCHEMA_POSTFIX);
             
             boolean namedListField = field.getAnnotation(NamedConfigValue.class) != null;
             
@@ -568,7 +571,7 @@ public class Processor extends AbstractProcessor {
     private void validateClassName(TypeElement clazz) {
         String simpleName = clazz.getSimpleName().toString();
 
-        if (!simpleName.endsWith("ConfigurationSchema")) {
+        if (!simpleName.endsWith(CONFIGURATION_SCHEMA_POSTFIX)) {
             throw new ProcessorException(String.format("%s must end with 'ConfigurationSchema'",
                     clazz.getQualifiedName().toString()));
         }
