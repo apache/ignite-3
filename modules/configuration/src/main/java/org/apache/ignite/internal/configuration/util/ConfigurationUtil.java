@@ -496,7 +496,8 @@ public class ConfigurationUtil {
         while (!queue.isEmpty()) {
             Class<?> cls = queue.poll();
             
-            if (!cls.isAnnotationPresent(ConfigurationRoot.class) && !cls.isAnnotationPresent(Config.class)
+            if (!cls.isAnnotationPresent(ConfigurationRoot.class)
+                    && !cls.isAnnotationPresent(Config.class)
                     && !cls.isAnnotationPresent(InternalConfiguration.class)
                     && !cls.isAnnotationPresent(PolymorphicConfig.class)
                     && !cls.isAnnotationPresent(PolymorphicConfigInstance.class)) {
