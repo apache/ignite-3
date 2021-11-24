@@ -32,7 +32,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     /**
      * Method with auto-generated implementation. Must look like this:
      * <pre><code>
-     * {@literal @}Override public void traverseChildren(ConfigurationVisitor visitor, boolean includeInternal) {
+     * {@literal @}Override public &lt;T&gt; void traverseChildren(ConfigurationVisitor visitor, boolean includeInternal) {
      *     visitor.visitInnerNode("pojoField1", this.pojoField1);
      *
      *     visitor.visitNamedListNode("pojoField2", this.pojoField2);
