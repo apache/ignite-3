@@ -553,7 +553,12 @@ public class Processor extends AbstractProcessor {
      * @throws ProcessorException If the class validation fails.
      */
     private void validate(TypeElement clazz, List<VariableElement> fields) {
-        validateClassName(clazz);
+        String simpleName = clazz.getSimpleName().toString();
+
+        if (!simpleName.endsWith(CONFIGURATION_SCHEMA_POSTFIX)) {
+            throw new ProcessorException(String.format("%s must end with 'ConfigurationSchema'",
+                    clazz.getQualifiedName().toString()));
+        }
 
         if (clazz.getAnnotation(InternalConfiguration.class) != null) {
             validateInternalConfiguration(clazz, fields);
@@ -565,15 +570,6 @@ public class Processor extends AbstractProcessor {
             validateConfigurationRoot(clazz, fields);
         } else if (clazz.getAnnotation(Config.class) != null) {
             checkNotContainsPolymorphicIdField(clazz, Config.class, fields);
-        }
-    }
-
-    private void validateClassName(TypeElement clazz) {
-        String simpleName = clazz.getSimpleName().toString();
-
-        if (!simpleName.endsWith(CONFIGURATION_SCHEMA_POSTFIX)) {
-            throw new ProcessorException(String.format("%s must end with 'ConfigurationSchema'",
-                    clazz.getQualifiedName().toString()));
         }
     }
 
