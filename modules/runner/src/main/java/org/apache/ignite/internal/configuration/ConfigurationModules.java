@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
 
+import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
@@ -27,7 +28,8 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
  * and merge modules for convenience.
  */
 public class ConfigurationModules {
-    private final List<ConfigurationModule> modules;
+    private final CompoundModule localCompound;
+    private final CompoundModule distributedCompound;
 
     /**
      * Creates a new instance of {@link ConfigurationModules} wrapping modules passed to it.
@@ -35,7 +37,8 @@ public class ConfigurationModules {
      * @param modules modules to wrap; they may be of different types
      */
     public ConfigurationModules(List<ConfigurationModule> modules) {
-        this.modules = List.copyOf(modules);
+        localCompound = compoundOfType(ConfigurationType.LOCAL, modules);
+        distributedCompound = compoundOfType(ConfigurationType.DISTRIBUTED, modules);
     }
 
     /**
@@ -44,7 +47,7 @@ public class ConfigurationModules {
      * @return node-local configuration merge result
      */
     public ConfigurationModule local() {
-        return compoundOfType(ConfigurationType.LOCAL);
+        return localCompound;
     }
 
     /**
@@ -53,10 +56,10 @@ public class ConfigurationModules {
      * @return cluster-wide configuration merge result
      */
     public ConfigurationModule distributed() {
-        return compoundOfType(ConfigurationType.DISTRIBUTED);
+        return distributedCompound;
     }
 
-    private CompoundModule compoundOfType(ConfigurationType type) {
+    private static CompoundModule compoundOfType(ConfigurationType type, Collection<ConfigurationModule> modules) {
         List<ConfigurationModule> modulesOfGivenType = modules.stream()
                 .filter(module -> module.type() == type)
                 .collect(toUnmodifiableList());
