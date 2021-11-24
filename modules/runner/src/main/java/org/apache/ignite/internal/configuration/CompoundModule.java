@@ -17,10 +17,15 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static java.util.Collections.unmodifiableMap;
+import static java.util.stream.Collectors.flatMapping;
+import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 
 import java.lang.annotation.Annotation;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -65,17 +70,13 @@ public class CompoundModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> result = new HashMap<>();
-
-        var validatorsMaps = modules.stream().map(ConfigurationModule::validators);
-        validatorsMaps.forEach(validatorsMap -> {
-            validatorsMap.forEach((key, validatorsSet) -> {
-                var runningUnionUnderKey = result.computeIfAbsent(key, ignored -> new HashSet<>());
-                runningUnionUnderKey.addAll(validatorsSet);
-            });
-        });
-
-        return Map.copyOf(result);
+        var result = modules.stream()
+                .flatMap(module -> module.validators().entrySet().stream())
+                .collect(groupingBy(
+                        Map.Entry::getKey,
+                        flatMapping(e -> e.getValue().stream(), toUnmodifiableSet())
+                ));
+        return unmodifiableMap(result);
     }
 
     /** {@inheritDoc} */
