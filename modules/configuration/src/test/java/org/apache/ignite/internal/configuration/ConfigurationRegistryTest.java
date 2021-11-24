@@ -119,9 +119,9 @@ public class ConfigurationRegistryTest {
                         List.of()
                 )
         );
-        assertThat(ex.getMessage(), is("Field org.apache.ignite.internal.configuration.ConfigurationRegistryTest$"
-                + "FirstPolymorphicConfigurationSchema.typeId is annotated with @PolymorphicId, but schema extensions "
-                + "are not defined. Please define them explicitly."));
+        assertThat(ex.getMessage(), is("Polymorphic configuration schemas for which no extensions were found: "
+                + "[class org.apache.ignite.internal.configuration.ConfigurationRegistryTest$"
+                + "FirstPolymorphicConfigurationSchema]"));
     }
     
     /**
