@@ -961,6 +961,7 @@ public class ConfigurationListenerTest {
     @Test
     void listenerGetsNotifiedOnCommonPropertyChangeInPolymorphicBaseConfigUnderNoNamedConfig() throws Exception {
         AtomicInteger intHolder = new AtomicInteger();
+
         configuration.polymorph().commonIntVal().listen(event -> {
             intHolder.set(event.newValue());
             return CompletableFuture.completedFuture(null);
