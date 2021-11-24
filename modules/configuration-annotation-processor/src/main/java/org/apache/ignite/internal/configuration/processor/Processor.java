@@ -567,7 +567,7 @@ public class Processor extends AbstractProcessor {
         } else if (clazz.getAnnotation(PolymorphicConfigInstance.class) != null) {
             validatePolymorphicConfigInstance(clazz, fields);
         } else if (clazz.getAnnotation(ConfigurationRoot.class) != null) {
-            validateConfigurationRoot(clazz, fields);
+            checkNotContainsPolymorphicIdField(clazz, ConfigurationRoot.class, fields);
         } else if (clazz.getAnnotation(Config.class) != null) {
             checkNotContainsPolymorphicIdField(clazz, Config.class, fields);
         }
@@ -698,17 +698,6 @@ public class Processor extends AbstractProcessor {
         checkSuperclassContainAnyAnnotation(clazz, superClazz, PolymorphicConfig.class);
 
         checkNoConflictFieldNames(clazz, superClazz, fields, fields(superClazz));
-    }
-
-    /**
-     * Carries out validations specific for a class annotated with @{@link ConfigurationRoot}.
-     * Currently, only checks that no field is annotated with @{@link PolymorphicId}.
-     *
-     * @param clazz  type element under validation
-     * @param fields non-static fields of the class under validation
-     */
-    private void validateConfigurationRoot(TypeElement clazz, List<VariableElement> fields) {
-        checkNotContainsPolymorphicIdField(clazz, ConfigurationRoot.class, fields);
     }
 
     /** {@inheritDoc} */
