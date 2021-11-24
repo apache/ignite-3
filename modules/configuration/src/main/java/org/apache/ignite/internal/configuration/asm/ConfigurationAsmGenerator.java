@@ -392,7 +392,11 @@ public class ConfigurationAsmGenerator {
             
             assert internalExtensions.isEmpty() || polymorphicExtensions.isEmpty() :
                     "Internal and polymorphic extensions are not allowed at the same time: " + schemaClass;
-            
+            if (isPolymorphicConfig(schemaClass) && polymorphicExtensions.isEmpty()) {
+                throw new IllegalArgumentException(schemaClass
+                        + " is polymorphic but polymorphic extensions are absent");
+            }
+
             List<Field> schemaFields = schemaFields(schemaClass);
             Collection<Field> internalExtensionsFields = extensionsFields(internalExtensions, true);
             Collection<Field> polymorphicExtensionsFields = extensionsFields(polymorphicExtensions, false);
@@ -1238,8 +1242,6 @@ public class ConfigurationAsmGenerator {
             FieldDefinition fieldDef = fieldDefs.get(fieldName);
             
             if (isPolymorphicId(schemaField)) {
-                makeSureChangePolymorphicTypeIdMethodIsDefined(changePolymorphicTypeIdMtd, schemaField);
-
                 // src == null ? null : src.unwrap(FieldType.class);
                 BytecodeExpression getTypeIdFromSrcVar = inlineIf(
                         isNull(srcVar),
@@ -1324,16 +1326,6 @@ public class ConfigurationAsmGenerator {
             constructMtd.getBody()
                     .append(switchBuilder.defaultCase(throwException(NoSuchElementException.class, keyVar)).build())
                     .ret();
-        }
-    }
-
-    private void makeSureChangePolymorphicTypeIdMethodIsDefined(@Nullable MethodDefinition changePolymorphicTypeIdMtd,
-                                                                Field schemaField) {
-        if (changePolymorphicTypeIdMtd == null) {
-            throw new IllegalStateException("Field " + schemaField.getDeclaringClass().getName() + "."
-                    + schemaField.getName() + " is annotated with @" + PolymorphicId.class.getSimpleName()
-                    + ", but a method for changing polymorphic type ID is not defined. "
-                    + "Are polymorphic extensions passed to ConfigurationRegistry?");
         }
     }
 
