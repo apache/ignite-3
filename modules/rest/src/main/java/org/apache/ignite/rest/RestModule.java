@@ -24,9 +24,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import java.net.BindException;
@@ -160,9 +157,6 @@ public class RestModule implements IgniteComponent {
 
         Channel ch = null;
 
-        EventLoopGroup parentGrp = new NioEventLoopGroup();
-        EventLoopGroup childGrp = new NioEventLoopGroup();
-
         var hnd = new RestApiInitializer(router);
 
         ServerBootstrap b = bootstrapFactory.createServerBootstrap()
@@ -174,24 +168,9 @@ public class RestModule implements IgniteComponent {
 
             if (bindRes.isSuccess()) {
                 ch = bindRes.channel();
-
-                ch.closeFuture().addListener(new ChannelFutureListener() {
-                    /** {@inheritDoc} */
-                    @Override
-                    public void operationComplete(ChannelFuture fut) {
-                        parentGrp.shutdownGracefully();
-                        childGrp.shutdownGracefully();
-
-                        log.error("REST component was stopped", fut.cause());
-                    }
-                });
-
                 port = portCandidate;
                 break;
             } else if (!(bindRes.cause() instanceof BindException)) {
-                parentGrp.shutdownGracefully();
-                childGrp.shutdownGracefully();
-
                 throw new RuntimeException(bindRes.cause());
             }
         }
@@ -201,9 +180,6 @@ public class RestModule implements IgniteComponent {
                     + "All ports in range [" + desiredPort + ", " + (desiredPort + portRange) + "] are in use.";
 
             log.error(msg);
-
-            parentGrp.shutdownGracefully();
-            childGrp.shutdownGracefully();
 
             throw new RuntimeException(msg);
         }
