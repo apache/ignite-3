@@ -576,6 +576,27 @@ public class Processor extends AbstractProcessor {
         }
     }
 
+    /**
+     * Carries out validations specific for a class annotated with @{@link InternalConfiguration}.
+     * Here are the validations:
+     * <ul>
+     *     <li>The class is not annotated with any of @{@link Config}, @{@link PolymorphicConfig}
+     *     and @{@link PolymorphicConfigInstance}</li>
+     *     <li>No field is a @{@link PolymorphicId}</li>
+     *     <li>
+     *         If the class is annotated as @{@link ConfigurationRoot}, then it has no superclass<br/>
+     *         Otherwise:
+     *         <ul>
+     *             <li>The class has a superclass annotated with @{@link ConfigurationRoot} or @{@link Config},
+     *             but not with @{@link InternalConfiguration}</li>
+     *             <li>The class does not have any field with the same name as any field of the superclass</li>
+     *         </ul>
+     *     </li>
+     * </ul>
+     *
+     * @param clazz  type element under validation
+     * @param fields non-static fields of the class under validation
+     */
     private void validateInternalConfiguration(TypeElement clazz, List<VariableElement> fields) {
         checkIncompatibleClassAnnotations(
                 clazz,
@@ -606,6 +627,19 @@ public class Processor extends AbstractProcessor {
         }
     }
 
+    /**
+     * Carries out validations specific for a class annotated with @{@link PolymorphicConfig}.
+     * Here are the validations:
+     * <ul>
+     *     <li>The class is not annotated with any of @{@link ConfigurationRoot}, @{@link Config},
+     *     and @{@link PolymorphicConfigInstance}</li>
+     *     <li>The class has no superclass</li>
+     *     <li>Exactly one field is a @{@link PolymorphicId}, and it's first in the schema</li>
+     * </ul>
+     *
+     * @param clazz  type element under validation
+     * @param fields non-static fields of the class under validation
+     */
     private void validatePolymorphicConfig(TypeElement clazz, List<VariableElement> fields) {
         checkIncompatibleClassAnnotations(
                 clazz,
@@ -627,6 +661,20 @@ public class Processor extends AbstractProcessor {
         }
     }
 
+    /**
+     * Carries out validations specific for a class annotated with @{@link PolymorphicConfigInstance}.
+     * Here are the validations:
+     * <ul>
+     *     <li>The class is not annotated with either @{@link ConfigurationRoot} or @{@link Config}</li>
+     *     <li>No field is a @{@link PolymorphicId}</li>
+     *     <li>@{@link PolymorphicConfigInstance}#value() is non-empty</li>
+     *     <li>There is a superclass annotated with @{@link PolymorphicConfig}</li>
+     *     <li>The class does not have any field with the same name as any field of the superclass</li>
+     * </ul>
+     *
+     * @param clazz  type element under validation
+     * @param fields non-static fields of the class under validation
+     */
     private void validatePolymorphicConfigInstance(TypeElement clazz, List<VariableElement> fields) {
         checkIncompatibleClassAnnotations(
                 clazz,
@@ -655,6 +703,13 @@ public class Processor extends AbstractProcessor {
         checkNoConflictFieldNames(clazz, superClazz, fields, fields(superClazz));
     }
 
+    /**
+     * Carries out validations specific for a class annotated with @{@link ConfigurationRoot}.
+     * Currently, only checks that no field is annotated with @{@link PolymorphicId}.
+     *
+     * @param clazz  type element under validation
+     * @param fields non-static fields of the class under validation
+     */
     private void validateConfigurationRoot(TypeElement clazz, List<VariableElement> fields) {
         checkNotContainsPolymorphicIdField(clazz, ConfigurationRoot.class, fields);
     }
