@@ -570,6 +570,7 @@ public class Processor extends AbstractProcessor {
 
     private void validateClassName(TypeElement clazz) {
         String simpleName = clazz.getSimpleName().toString();
+
         if (!simpleName.endsWith(CONFIGURATION_SCHEMA_POSTFIX)) {
             throw new ProcessorException(String.format("%s must end with 'ConfigurationSchema'",
                     clazz.getQualifiedName().toString()));
