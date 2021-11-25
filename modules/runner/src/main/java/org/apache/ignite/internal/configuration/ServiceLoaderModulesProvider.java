@@ -22,7 +22,6 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
-import java.util.stream.Collectors;
 
 /**
  * Provides {@link ConfigurationModule}s using {@link ServiceLoader} mechanism.
