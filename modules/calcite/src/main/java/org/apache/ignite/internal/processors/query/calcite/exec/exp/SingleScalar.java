@@ -15,23 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.processors.query.calcite.exec.exp;
 
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 
 /**
- * Cluster service factory.
+ * Single scalar used for single input and single output.
  */
-public interface ClusterServiceFactory {
-    /**
-     * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
-     *
-     * @param context              Cluster context.
-     * @param networkConfiguration Network configuration.
-     * @return New cluster service.
-     */
-    ClusterService createClusterService(
-            ClusterLocalConfiguration context,
-            NetworkConfiguration networkConfiguration
-    );
+@FunctionalInterface
+public interface SingleScalar extends Scalar {
+    /** Single input and single output. */
+    void execute(ExecutionContext ctx, Object in, Object out);
 }

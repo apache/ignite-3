@@ -266,6 +266,11 @@ public class Columns {
             return;
         }
 
+        // First varlen column located right after last fixlen so we need one extra row in folding table.
+        if (hasVarlengthColumns()) {
+            numFixsize++;
+        }
+        
         int fixsizeNullMapSize = (numFixsize + 7) / 8;
         int maxLen = 0;
 
