@@ -54,8 +54,10 @@ public interface IgniteTransactions {
      * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed.
      *
      * @param clo The closure.
+     *
+     * @throws TransactionException If a transaction can't be finished successfully.
      */
-    void runInTransaction(Consumer<Transaction> clo);
+    void runInTransaction(Consumer<Transaction> clo) throws TransactionException;
 
     /**
      * Executes a closure within a transaction and returns a result.
@@ -68,6 +70,8 @@ public interface IgniteTransactions {
      * @param clo The closure.
      * @param <T> Closure result type.
      * @return The result.
+     *
+     * @throws TransactionException If a transaction can't be finished successfully.
      */
-    <T> T runInTransaction(Function<Transaction, T> clo);
+    <T> T runInTransaction(Function<Transaction, T> clo) throws TransactionException;
 }

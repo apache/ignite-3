@@ -24,6 +24,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 
 /**
  * Transaction's facade implementation.
@@ -60,7 +61,7 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
 
     /** {@inheritDoc} */
     @Override
-    public void runInTransaction(Consumer<Transaction> clo) {
+    public void runInTransaction(Consumer<Transaction> clo) throws TransactionException {
         runInTransaction(tx -> {
             clo.accept(tx);
             return null;
@@ -69,7 +70,7 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
 
     /** {@inheritDoc} */
     @Override
-    public <T> T runInTransaction(Function<Transaction, T> clo) {
+    public <T> T runInTransaction(Function<Transaction, T> clo) throws TransactionException {
         InternalTransaction tx = txManager.begin();
 
         Thread th = Thread.currentThread();
