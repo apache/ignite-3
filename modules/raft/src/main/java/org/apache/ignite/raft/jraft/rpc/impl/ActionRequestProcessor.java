@@ -63,8 +63,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     /** {@inheritDoc} */
     @Override
     public void handleRequest(RpcContext rpcCtx, ActionRequest request) {
-        Node node = rpcCtx.getNodeManager()
-                .get(request.groupId(), new PeerId(rpcCtx.getLocalAddress()));
+        Node node = rpcCtx.getNodeManager().get(request.groupId(), new PeerId(rpcCtx.getLocalAddress()));
 
         if (node == null) {
             rpcCtx.sendResponse(factory.errorResponse().errorCode(RaftError.UNKNOWN.getNumber()).build());
@@ -72,8 +71,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             return;
         }
 
-        JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) node
-                .getOptions().getFsm();
+        JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
 
         // Apply a filter before commiting to STM.
         CompletableFuture<Void> fut = fsm.getListener().onBeforeApply(request.command());
@@ -105,9 +103,9 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     }
 
     /**
-     * @param node The node.
+     * @param node    The node.
      * @param request The request.
-     * @param rpcCtx The context.
+     * @param rpcCtx  The context.
      */
     private void applyWrite(Node node, ActionRequest request, RpcContext rpcCtx) {
         // TODO asch get rid of JDK marshaller IGNITE-14832
@@ -134,9 +132,9 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     }
 
     /**
-     * @param node The node.
+     * @param node    The node.
      * @param request The request.
-     * @param rpcCtx The context.
+     * @param rpcCtx  The context.
      */
     private void applyRead(Node node, ActionRequest request, RpcContext rpcCtx) {
         if (request.readOnlySafe()) {
@@ -211,9 +209,9 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     /**
      * Sends raft error response with raft error code and message.
      *
-     * @param ctx Context.
+     * @param ctx   Context.
      * @param error RaftError code.
-     * @param msg Message.
+     * @param msg   Message.
      */
     private void sendRaftError(RpcContext ctx, RaftError error, String msg) {
         RpcRequests.ErrorResponse resp = factory.errorResponse()
@@ -227,8 +225,8 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     /**
      * Sends client's state machine error response with passed throwable.
      *
-     * @param ctx Context.
-     * @param th Throwable that must be passes to response.
+     * @param ctx       The context.
+     * @param th        Throwable that must be passes to response.
      * @param compacted {@code true} if throwable must be changed to compacted version of throwable.
      * See {@link SMCompactedThrowable}
      */
@@ -243,9 +241,9 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     }
 
     /**
-     * @param ctx The context.
+     * @param ctx    The context.
      * @param status The status.
-     * @param node Raft node.
+     * @param node   Raft node.
      */
     private void sendRaftError(RpcContext ctx, Status status, Node node) {
         RaftError raftError = status.getRaftError();
@@ -262,13 +260,8 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
         ctx.sendResponse(response);
     }
 
-    /**
-     *
-     */
-    public abstract static class CommandClosureImpl<T extends Command> implements Closure, CommandClosure<T> {
-        /**
-         *
-         */
+    /** The implementation. */
+    private abstract static class CommandClosureImpl<T extends Command> implements Closure, CommandClosure<T> {
         private final T command;
 
         /**
