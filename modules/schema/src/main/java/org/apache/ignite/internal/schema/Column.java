@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.io.Serializable;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
@@ -29,7 +28,7 @@ import org.jetbrains.annotations.NotNull;
  * <p>Because of columns must be written to a row in a specific order, column write order ({@link #schemaIndex}) may differ from the
  * user-defined order ({@link #columnOrder}).
  */
-public class Column implements Serializable {
+public class Column {
     /** Default "default value supplier". */
     private static final Supplier<Object> NULL_SUPPLIER = () -> null;
 
@@ -87,9 +86,26 @@ public class Column implements Serializable {
             String name,
             NativeType type,
             boolean nullable,
-            Supplier<Object> defValSup
+            @NotNull Supplier<Object> defValSup
     ) {
-        this(-1, -1, name, type, nullable, (defValSup == null) ? NULL_SUPPLIER : defValSup);
+        this(-1, -1, name, type, nullable, defValSup);
+    }
+    
+    /**
+     * Constructor.
+     *
+     * @param columnOrder Column order in table definition.
+     * @param name        Column name.
+     * @param type        An instance of column data type.
+     * @param nullable    If {@code false}, null values will not be allowed for this column.
+     */
+    public Column(
+            int columnOrder,
+            String name,
+            NativeType type,
+            boolean nullable
+    ) {
+        this(-1, columnOrder, name, type, nullable, NULL_SUPPLIER);
     }
 
     /**
@@ -106,9 +122,9 @@ public class Column implements Serializable {
             String name,
             NativeType type,
             boolean nullable,
-            Supplier<Object> defValSup
+            @NotNull Supplier<Object> defValSup
     ) {
-        this(-1, columnOrder, name, type, nullable, (defValSup == null) ? NULL_SUPPLIER : defValSup);
+        this(-1, columnOrder, name, type, nullable, defValSup);
     }
 
     /**
@@ -179,15 +195,6 @@ public class Column implements Serializable {
      */
     public Object defaultValue() {
         return defValSup.get();
-    }
-
-    /**
-     * Get no default value flag: {@code true} if column hasn't default value, {@code false} - otherwise.
-     *
-     * @return {@code true} if column hasn't default value, {@code false} - otherwise.
-     */
-    public boolean noDefaultValue() {
-        return defValSup.get() == null;
     }
 
     /** {@inheritDoc} */

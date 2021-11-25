@@ -297,6 +297,27 @@ public class KvMarshallerTest {
         );
     }
     
+    /**
+     * Try to create marshaller for class without field for key column.
+     */
+    @ParameterizedTest
+    @MethodSource("marshallerFactoryProvider")
+    public void classWithoutKeyField(MarshallerFactory factory) {
+        Column[] keyCols = new Column[]{
+                new Column("id", INT64, false),
+                new Column("id2", INT64, false),
+        };
+    
+        Column[] valCols = new Column[]{
+                new Column("primitiveDoubleCol", DOUBLE, false)
+        };
+        
+        SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
+    
+        assertThrows(IllegalArgumentException.class, () -> factory.create(schema, TestKeyObject.class, TestObjectWithAllTypes.class),
+                "No field found for column id2");
+    }
+
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithIncorrectBitmaskSize(MarshallerFactory factory) {
