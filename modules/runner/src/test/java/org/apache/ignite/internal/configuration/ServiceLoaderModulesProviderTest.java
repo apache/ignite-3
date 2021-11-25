@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.configuration;
 
-import static com.github.npathai.hamcrestopt.OptionalMatchers.isPresent;
+import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 
-import java.util.Optional;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -31,10 +32,10 @@ class ServiceLoaderModulesProviderTest {
 
     @Test
     void loadsModulesDefinedAsServicesInMetaInf() {
-        Optional<ConfigurationModule> maybeModule = provider.modules()
+        List<ConfigurationModule> testModules = provider.modules().stream()
                 .filter(module -> module.getClass().equals(TestConfigurationModule.class))
-                .findAny();
+                .collect(toList());
 
-        assertThat(maybeModule, isPresent());
+        assertThat(testModules, hasSize(1));
     }
 }

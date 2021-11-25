@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.app;
 
-import static java.util.stream.Collectors.toList;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,7 +34,6 @@ import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
@@ -226,8 +223,7 @@ public class IgniteImpl implements Ignite {
 
     private ConfigurationModules loadConfigurationModules() {
         var modulesProvider = new ServiceLoaderModulesProvider();
-        List<ConfigurationModule> modules = modulesProvider.modules().collect(toList());
-        return new ConfigurationModules(modules);
+        return new ConfigurationModules(modulesProvider.modules());
     }
 
     /**

@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static java.util.stream.Collectors.toUnmodifiableList;
+
+import java.util.List;
 import java.util.ServiceLoader;
-import java.util.stream.Stream;
+import java.util.ServiceLoader.Provider;
+import java.util.stream.Collectors;
 
 /**
  * Provides {@link ConfigurationModule}s using {@link ServiceLoader} mechanism.
@@ -27,7 +31,9 @@ import java.util.stream.Stream;
  * @see ConfigurationModule
  */
 public class ServiceLoaderModulesProvider {
-    public Stream<ConfigurationModule> modules() {
-        return ServiceLoader.load(ConfigurationModule.class).stream().map(ServiceLoader.Provider::get);
+    public List<ConfigurationModule> modules() {
+        return ServiceLoader.load(ConfigurationModule.class).stream()
+                .map(Provider::get)
+                .collect(toUnmodifiableList());
     }
 }
