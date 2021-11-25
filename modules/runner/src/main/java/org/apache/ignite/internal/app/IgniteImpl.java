@@ -179,7 +179,7 @@ public class IgniteImpl implements Ignite {
 
         raftMgr = new Loza(clusterSvc, workDir);
 
-        txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager(), raftMgr);
+        txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
 
         metaStorageMgr = new MetaStorageManager(
                 vaultMgr,

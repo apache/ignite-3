@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.table.distributed;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 
 /**
  * A transaction manager extension for Ignite tables.
@@ -31,23 +32,25 @@ import org.apache.ignite.network.ClusterService;
  * <p>Uses raft protocol to replicate tx finish state for a partition group.
  */
 public class TableTxManagerImpl extends TxManagerImpl {
-    private final Loza raftManager;
+    private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
+
+    private static final int FINISH_TIMEOUT = 1000;
 
     /**
      * The constructor.
      *
      * @param clusterService Cluster service.
-     * @param lockManager Lock manager.
-     * @param raftManager Raft manager.
+     * @param lockManager    Lock manager.
      */
-    public TableTxManagerImpl(ClusterService clusterService, LockManager lockManager, Loza raftManager) {
+    public TableTxManagerImpl(ClusterService clusterService, LockManager lockManager) {
         super(clusterService, lockManager);
-        this.raftManager = raftManager;
     }
 
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<?> finish(String groupId, Timestamp ts, boolean commit) {
-        return raftManager.apply(groupId, new FinishTxCommand(ts, commit));
+        ActionRequest req = FACTORY.actionRequest().command(new FinishTxCommand(ts, commit)).groupId(groupId).readOnlySafe(true).build();
+
+        return clusterService.messagingService().invoke(clusterService.topologyService().localMember(), req, FINISH_TIMEOUT);
     }
 }

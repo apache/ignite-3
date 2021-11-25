@@ -105,7 +105,7 @@ public class ItDistributedConfigurationStorageTest {
 
             raftManager = new Loza(clusterService, workDir);
 
-            txManager = new TableTxManagerImpl(clusterService, lockManager, raftManager);
+            txManager = new TableTxManagerImpl(clusterService, lockManager);
 
             List<RootKey<?, ?>> rootKeys = List.of(NodeConfiguration.KEY);
 

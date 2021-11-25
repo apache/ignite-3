@@ -62,7 +62,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private static final int TIMEOUT = 5_000;
 
     /** Cluster service. */
-    private final ClusterService clusterService;
+    protected final ClusterService clusterService;
 
     /** Lock manager. */
     private final LockManager lockManager;

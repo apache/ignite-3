@@ -187,7 +187,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             raftServers.put(node, raftSrv);
 
-            TableTxManagerImpl txMgr = new TableTxManagerImpl(cluster.get(i), new HeapLockManager(), raftSrv);
+            TableTxManagerImpl txMgr = new TableTxManagerImpl(cluster.get(i), new HeapLockManager());
 
             txMgr.start();
 

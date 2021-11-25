@@ -36,12 +36,10 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.ApiStatus.Experimental;
@@ -57,9 +55,7 @@ public class Loza implements IgniteComponent {
     /** Raft client pool name. */
     public static final String CLIENT_POOL_NAME = "Raft-Group-Client";
 
-    /**
-     * Raft client pool size. Size was taken from jraft's TimeManager.
-     */
+    /** Raft client pool size. Size was taken from jraft's TimeManager. */
     private static final int CLIENT_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
 
     /** Timeout. */
@@ -260,19 +256,6 @@ public class Loza implements IgniteComponent {
      */
     public void stopRaftGroup(String groupId) {
         raftServer.stopRaftGroup(groupId);
-    }
-
-    /**
-     * Applies a command to a local raft group.
-     *
-     * @param groupId Group id.
-     * @param cmd The command.
-     * @return The future.
-     */
-    public CompletableFuture<?> apply(String groupId, Command cmd) {
-        ActionRequest req = FACTORY.actionRequest().command(cmd).groupId(groupId).readOnlySafe(true).build();
-
-        return clusterNetSvc.messagingService().invoke(clusterNetSvc.topologyService().localMember(), req, NETWORK_TIMEOUT);
     }
 
     /**

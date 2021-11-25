@@ -184,7 +184,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     Loza raftMgr = new Loza(srv);
 
                     TableTxManagerImpl txManager = new TableTxManagerImpl(service,
-                            new HeapLockManager(), raftMgr);
+                            new HeapLockManager());
 
                     txManager.start(); // Init listener.
 
