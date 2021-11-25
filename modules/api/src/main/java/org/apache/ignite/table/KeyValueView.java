@@ -244,7 +244,7 @@ public interface KeyValueView<K, V> {
      * }</code></pre>
      * except that the action is performed atomically.
      *
-     * @param key    A key with which the specified value is associated. The key cannot be {@code null}.
+     * @param key    A key with which the specified value is associated. The key and values cannot be {@code null}.
      * @param oldVal Expected value associated with the specified key.
      * @param newVal Value to be associated with the specified key.
      * @return {@code True} if an old value was replaced, {@code false} otherwise.
@@ -254,11 +254,11 @@ public interface KeyValueView<K, V> {
     /**
      * Asynchronously replaces the value for a key only if exists. See {@link #replace(Object, Object)}.
      *
-     * @param key A key with which the specified value is associated. The key cannot be {@code null}.
+     * @param key A key with which the specified value is associated. The key and value cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, V val);
+    @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, @NotNull V val);
 
     /**
      * Asynchronously replaces the expected value for a key. See {@link #replace(Object, Object, Object)}

@@ -285,7 +285,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * {@inheritDoc}
      */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, V val) {
+    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, @NotNull V val) {
         BinaryRow row = marshal(Objects.requireNonNull(key), Objects.requireNonNull(val));
         
         return tbl.replace(row, tx);
@@ -296,6 +296,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      */
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, @NotNull V oldVal, @NotNull V newVal) {
+        Objects.requireNonNull(key);
+        
         BinaryRow oldRow = marshal(key, Objects.requireNonNull(oldVal));
         BinaryRow newRow = marshal(key, Objects.requireNonNull(newVal));
         

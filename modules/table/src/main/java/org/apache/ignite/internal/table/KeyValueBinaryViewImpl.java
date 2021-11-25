@@ -280,7 +280,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@NotNull Tuple key, Tuple oldVal, Tuple newVal) {
+    public boolean replace(@NotNull Tuple key, @NotNull Tuple oldVal, @NotNull Tuple newVal) {
         return sync(replaceAsync(key, oldVal, newVal));
     }
 
@@ -288,6 +288,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
+        Objects.requireNonNull(val);
 
         Row row = marshal(key, val); // Convert to portable format to pass TX/storage layer.
 

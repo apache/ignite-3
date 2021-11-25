@@ -28,7 +28,7 @@ public interface IgniteTransactions {
     /**
      * Returns a facade with new default timeout.
      *
-     * @param timeout The timeout.
+     * @param timeout The timeout in milliseconds.
      *
      * @return A facade using a new timeout.
      */

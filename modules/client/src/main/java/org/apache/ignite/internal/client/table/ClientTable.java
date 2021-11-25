@@ -62,8 +62,8 @@ public class ClientTable implements Table {
     /**
      * Constructor.
      *
-     * @param ch Channel.
-     * @param id Table id.
+     * @param ch   Channel.
+     * @param id   Table id.
      * @param name Table name.
      */
     public ClientTable(ReliableChannel ch, IgniteUuid id, String name) {
@@ -85,17 +85,13 @@ public class ClientTable implements Table {
         return id;
     }
     
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public @NotNull String tableName() {
         return name;
     }
     
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
         throw new UnsupportedOperationException("Not implemented yet.");
@@ -106,17 +102,13 @@ public class ClientTable implements Table {
         return new ClientRecordBinaryView(this);
     }
     
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
     
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
         return new ClientKeyValueBinaryView(this);
@@ -132,7 +124,7 @@ public class ClientTable implements Table {
     
     private CompletableFuture<ClientSchema> getSchema(int ver) {
         var schema = schemas.get(ver);
-        
+    
         if (schema != null) {
             return CompletableFuture.completedFuture(schema);
         }
@@ -143,7 +135,7 @@ public class ClientTable implements Table {
     private CompletableFuture<ClientSchema> loadSchema(Integer ver) {
         return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
             w.out().packIgniteUuid(id);
-            
+    
             if (ver == null) {
                 w.out().packNil();
             } else {
@@ -152,13 +144,13 @@ public class ClientTable implements Table {
             }
         }, r -> {
             int schemaCnt = r.in().unpackMapHeader();
-            
+    
             if (schemaCnt == 0) {
                 throw new IgniteClientException("Schema not found: " + ver);
             }
             
             ClientSchema last = null;
-            
+    
             for (var i = 0; i < schemaCnt; i++) {
                 last = readSchema(r.in());
             }
@@ -203,9 +195,7 @@ public class ClientTable implements Table {
         return schema;
     }
     
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public String toString() {
         return IgniteToStringBuilder.toString(ClientTable.class, this);
@@ -266,7 +256,7 @@ public class ClientTable implements Table {
         for (var i = 0; i < tupleSize; i++) {
             var colName = tuple.columnName(i);
             var col = schema.column(colName);
-            
+    
             if (keyOnly && !col.key()) {
                 continue;
             }
@@ -278,7 +268,7 @@ public class ClientTable implements Table {
             out.packIgniteUuid(id);
             out.packInt(schema.version());
         }
-        
+    
         for (var val : vals) {
             out.packObject(val);
         }
@@ -305,7 +295,7 @@ public class ClientTable implements Table {
         for (var i = 0; i < key.columnCount(); i++) {
             var colName = key.columnName(i);
             var col = schema.column(colName);
-            
+    
             if (!col.key()) {
                 continue;
             }
@@ -317,7 +307,7 @@ public class ClientTable implements Table {
             for (var i = 0; i < val.columnCount(); i++) {
                 var colName = val.columnName(i);
                 var col = schema.column(colName);
-                
+    
                 if (col.key()) {
                     continue;
                 }
@@ -330,7 +320,7 @@ public class ClientTable implements Table {
             out.packIgniteUuid(id);
             out.packInt(schema.version());
         }
-        
+    
         for (var v : vals) {
             out.packObject(v);
         }
@@ -343,12 +333,11 @@ public class ClientTable implements Table {
      * @param schema Schema.
      * @param out Out.
      */
-    public void writeKvTuples(Map<Tuple, Tuple> pairs, ClientSchema schema,
-            ClientMessagePacker out) {
+    public void writeKvTuples(Map<Tuple, Tuple> pairs, ClientSchema schema, ClientMessagePacker out) {
         out.packIgniteUuid(id);
         out.packInt(schema.version());
         out.packInt(pairs.size());
-        
+    
         for (Map.Entry<Tuple, Tuple> pair : pairs.entrySet()) {
             writeKvTuple(pair.getKey(), pair.getValue(), schema, out, true);
         }
@@ -371,7 +360,7 @@ public class ClientTable implements Table {
         out.packIgniteUuid(id);
         out.packInt(schema.version());
         out.packInt(tuples.size());
-        
+    
         for (var tuple : tuples) {
             writeTuple(tuple, schema, out, keyOnly, true);
         }
@@ -381,7 +370,7 @@ public class ClientTable implements Table {
         var tuple = new ClientTuple(schema);
         
         var colCnt = keyOnly ? schema.keyColumnCount() : schema.columns().length;
-        
+    
         for (var i = 0; i < colCnt; i++) {
             tuple.setInternal(i, in.unpackObject(schema.columns()[i].type()));
         }
@@ -435,7 +424,7 @@ public class ClientTable implements Table {
         for (var i = 0; i < colCnt; i++) {
             ClientColumn col = schema.columns()[i];
             Object val = in.unpackObject(col.type());
-            
+    
             if (i < keyColCnt) {
                 keyTuple.setInternal(i, val);
             } else {
@@ -474,7 +463,7 @@ public class ClientTable implements Table {
     Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
         var cnt = in.unpackInt();
         var res = new ArrayList<Tuple>(cnt);
-        
+    
         for (int i = 0; i < cnt; i++) {
             res.add(readTuple(schema, in, keyOnly));
         }
@@ -528,7 +517,7 @@ public class ClientTable implements Table {
         var schemaVer = in.unpackInt();
         
         var resSchema = schemaVer == knownSchema.version() ? knownSchema : schemas.get(schemaVer);
-        
+    
         if (resSchema != null) {
             return fn.apply(knownSchema, in);
         }
