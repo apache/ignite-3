@@ -328,7 +328,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             toAdd.removeAll(oldPartitionAssignment);
 
                             InternalTable internalTable = tablesById.get(tblId).internalTable();
-                            
+
                             // Create new raft nodes according to new assignments.
                             futures[i] = raftMgr.updateRaftGroup(
                                     raftGroupName(tblId, partId),
@@ -520,12 +520,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 InternalTableImpl internalTable = new InternalTableImpl(name, tblId, partitionMap, partitions, netAddrResolver,
                         txManager, tableStorage);
-    
+
                 var schemaRegistry = new SchemaRegistryImpl(v -> {
                     if (!busyLock.enterBusy()) {
                         throw new IgniteException(new NodeStoppingException());
                     }
-        
+
                     try {
                         return tableSchema(tblId, v);
                     } finally {
@@ -535,7 +535,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     if (!busyLock.enterBusy()) {
                         throw new IgniteException(new NodeStoppingException());
                     }
-        
+
                     try {
                         return latestSchemaVersion(tblId);
                     } finally {
@@ -1082,7 +1082,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private List<String> tableNamesConfigured() {
         return ConfigurationUtil.directValue(tablesCfg.tables()).namedListKeys();
     }
-    
+
     /**
      * Checks that the schema is configured in the Metasorage consensus.
      *
@@ -1094,7 +1094,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private boolean isSchemaExists(IgniteUuid tblId, int schemaVer) {
         return latestSchemaVersion(tblId) >= schemaVer;
     }
-    
+
     /**
      * Gets the latest version of the table schema which available in Metastore.
      *
@@ -1104,46 +1104,46 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private int latestSchemaVersion(IgniteUuid tblId) {
         NamedListView<TableView> directTablesCfg = ((DirectConfigurationProperty<NamedListView<TableView>>) tablesCfg
                 .tables()).directValue();
-        
+
         ExtendedTableView viewForId = null;
-        
+
         // TODO: IGNITE-15721 Need to review this approach after the ticket would be fixed.
         // Probably, it won't be required getting configuration of all tables from Metastor.
         for (String name : directTablesCfg.namedListKeys()) {
             ExtendedTableView tblView = (ExtendedTableView) directTablesCfg.get(name);
-            
+
             if (tblView != null && tblId.equals(IgniteUuid.fromString(tblView.id()))) {
                 viewForId = tblView;
-                
+
                 break;
             }
         }
-        
+
         int lastVer = INITIAL_SCHEMA_VERSION;
-        
+
         for (String schemaVerAsStr : viewForId.schemas().namedListKeys()) {
             int ver = Integer.parseInt(schemaVerAsStr);
-            
+
             if (ver > lastVer) {
                 lastVer = ver;
             }
         }
-        
+
         return lastVer;
     }
-    
+
     /** {@inheritDoc} */
     @Override
     public Table table(String name) {
         return join(tableAsync(name));
     }
-    
+
     /** {@inheritDoc} */
     @Override
     public TableImpl table(IgniteUuid id) throws NodeStoppingException {
         return join(tableAsync(id));
     }
-    
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Table> tableAsync(String name) {
@@ -1156,7 +1156,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             busyLock.leaveBusy();
         }
     }
-    
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<TableImpl> tableAsync(IgniteUuid id) throws NodeStoppingException {
@@ -1475,7 +1475,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             List<ClusterNode> oldPartitionAssignment = oldAssignments.get(p);
             List<ClusterNode> newPartitionAssignment = newAssignments.get(p);
 
-            futures[i] = raftMgr.chagePeers(
+            futures[i] = raftMgr.changePeers(
                     raftGroupName(tblId, p),
                     oldPartitionAssignment,
                     newPartitionAssignment

@@ -86,7 +86,7 @@ public class Loza implements IgniteComponent {
      * The constructor.
      *
      * @param clusterNetSvc Cluster network service.
-     * @param dataPath Data path.
+     * @param dataPath      Data path.
      */
     public Loza(ClusterService clusterNetSvc, Path dataPath) {
         this.clusterNetSvc = clusterNetSvc;
@@ -235,7 +235,7 @@ public class Loza implements IgniteComponent {
      * @param changedNodes  List of nodes that will contain the raft group peers after.
      * @return Future which will complete when peers change.
      */
-    public CompletableFuture<Void> chagePeers(String groupId, List<ClusterNode> expectedNodes, List<ClusterNode> changedNodes) {
+    public CompletableFuture<Void> changePeers(String groupId, List<ClusterNode> expectedNodes, List<ClusterNode> changedNodes) {
         List<Peer> expectedPeers = expectedNodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
         List<Peer> changedPeers = changedNodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
 

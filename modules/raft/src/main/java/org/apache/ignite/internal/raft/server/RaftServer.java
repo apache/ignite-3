@@ -24,6 +24,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * The RAFT protocol based replication server. Supports multiple RAFT groups. The server listens for client commands, submits them to a
@@ -67,5 +68,6 @@ public interface RaftServer extends IgniteComponent {
      *
      * @return Started groups.
      */
+    @TestOnly
     Set<String> startedGroups();
 }

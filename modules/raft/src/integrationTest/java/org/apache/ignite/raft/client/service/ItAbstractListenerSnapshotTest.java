@@ -68,14 +68,18 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     /** Starting client port. */
     private static final int CLIENT_PORT = 6003;
 
-    /** Peers list. */
+    /**
+     * Peers list.
+     */
     private static final List<Peer> INITIAL_CONF = IntStream.rangeClosed(0, 2)
             .mapToObj(i -> new NetworkAddress(getLocalAddress(), PORT + i))
             .map(Peer::new)
             .collect(Collectors.toUnmodifiableList());
 
+    /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
+    /** Network factory. */
     private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
@@ -83,12 +87,16 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     @WorkDirectory
     private Path workDir;
 
+    /** Cluster. */
     private final List<ClusterService> cluster = new ArrayList<>();
 
-    protected final List<JraftServerImpl> servers = new ArrayList<>();
+    /** Servers. */
+    private final List<JraftServerImpl> servers = new ArrayList<>();
 
+    /** Clients. */
     private final List<RaftGroupService> clients = new ArrayList<>();
 
+    /** Executor for raft group services. */
     private ScheduledExecutorService executor;
 
     /**
@@ -96,8 +104,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      */
     @BeforeEach
     public void beforeTest() {
-        executor = new ScheduledThreadPoolExecutor(20,
-                new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
     }
 
     /**
@@ -133,15 +140,13 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      */
     private static class TestData {
         /**
-         * {@code true} if the raft group's persistence must be cleared before the follower's
-         * restart, {@code false} otherwise.
+         * {@code true} if the raft group's persistence must be cleared before the follower's restart, {@code false} otherwise.
          */
         private final boolean deleteFolder;
 
         /**
-         * {@code true} if test should interact with the raft group after a snapshot has been
-         * captured. In this case, the follower node should catch up with the leader using raft
-         * log.
+         * {@code true} if test should interact with the raft group after a snapshot has been captured. In this case, the follower node
+         * should catch up with the leader using raft log.
          */
         private final boolean interactAfterSnapshot;
 
@@ -157,13 +162,10 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
             this.interactAfterSnapshot = interactAfterSnapshot;
         }
 
-        /**
-         * {@inheritDoc}
-         */
+        /** {@inheritDoc} */
         @Override
         public String toString() {
-            return String.format("deleteFolder=%s, interactAfterSnapshot=%s", deleteFolder,
-                    interactAfterSnapshot);
+            return String.format("deleteFolder=%s, interactAfterSnapshot=%s", deleteFolder, interactAfterSnapshot);
         }
     }
 
@@ -277,12 +279,11 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * Creates a closure that will be executed periodically to check if the snapshot and (conditionally on the {@link
      * TestData#interactAfterSnapshot}) the raft log was successfully restored by the follower node.
      *
-     * @param restarted Restarted follower node.
+     * @param restarted               Restarted follower node.
      * @param interactedAfterSnapshot {@code true} whether raft group was interacted with after the snapshot operation.
      * @return Closure.
      */
-    public abstract BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted,
-            boolean interactedAfterSnapshot);
+    public abstract BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted, boolean interactedAfterSnapshot);
 
     /**
      * Returns path to the group's persistence.
@@ -295,7 +296,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     /**
      * Creates raft group listener.
      *
-     * @param service The cluster service.
+     * @param service                 The cluster service.
      * @param listenerPersistencePath Path to storage persistent data.
      * @return Raft group listener.
      */
@@ -310,7 +311,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * Get the raft group listener from the jraft server.
      *
      * @param server Server.
-     * @param grpId Raft group id.
+     * @param grpId  Raft group id.
      * @return Raft group listener.
      */
     protected T getListener(JraftServerImpl server, String grpId) {
@@ -326,14 +327,12 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * Wait for topology.
      *
      * @param cluster The cluster.
-     * @param exp Expected count.
+     * @param exp     Expected count.
      * @param timeout The timeout in millis.
      * @return {@code True} if topology size is equal to expected.
      */
-    private boolean waitForTopology(ClusterService cluster, int exp, int timeout)
-            throws InterruptedException {
-        return waitForCondition(() -> cluster.topologyService().allMembers().size() >= exp,
-                timeout);
+    private boolean waitForTopology(ClusterService cluster, int exp, int timeout) throws InterruptedException {
+        return waitForCondition(() -> cluster.topologyService().allMembers().size() >= exp, timeout);
     }
 
     /**
@@ -370,7 +369,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * Starts a raft server.
      *
      * @param testInfo Test info.
-     * @param idx Server index (affects port of the server).
+     * @param idx      Server index (affects port of the server).
      * @return Server.
      */
     private JraftServerImpl startServer(TestInfo testInfo, int idx) {
@@ -433,8 +432,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      *
      * @return The service.
      */
-    private RaftGroupService startClient(TestInfo testInfo, String groupId, NetworkAddress addr)
-            throws Exception {
+    private RaftGroupService startClient(TestInfo testInfo, String groupId, NetworkAddress addr) throws Exception {
         ClusterService clientNode = clusterService(testInfo, CLIENT_PORT + clients.size(), addr);
 
         RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
