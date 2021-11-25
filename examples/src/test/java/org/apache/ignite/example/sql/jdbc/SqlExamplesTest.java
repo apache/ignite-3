@@ -62,7 +62,7 @@ public class SqlExamplesTest {
                         + "    Richard, Miles, St. Petersburg\n"
         );
     }
-    
+
     /**
      * Start node.
      *
@@ -76,7 +76,7 @@ public class SqlExamplesTest {
                 workDir
         );
     }
-    
+
     /**
      * Stop node.
      */

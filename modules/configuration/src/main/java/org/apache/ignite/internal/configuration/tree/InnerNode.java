@@ -28,7 +28,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     public final <T> T accept(String key, ConfigurationVisitor<T> visitor) {
         return visitor.visitInnerNode(key, this);
     }
-    
+
     /**
      * Method with auto-generated implementation. Must look like this:
      * <pre><code>
@@ -52,7 +52,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * @param <T>             Parameter type of the passed visitor.
      */
     public abstract <T> void traverseChildren(ConfigurationVisitor<T> visitor, boolean includeInternal);
-    
+
     /**
      * Method with auto-generated implementation. Must look like this:
      * <pre><code>
@@ -104,7 +104,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
             ConfigurationVisitor<T> visitor,
             boolean includeInternal
     ) throws NoSuchElementException;
-    
+
     /**
      * Method with auto-generated implementation. Must look like this:
      * <pre><code>
@@ -156,7 +156,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
             ConfigurationSource src,
             boolean includeInternal
     ) throws NoSuchElementException;
-    
+
     /**
      * Assigns default value to the corresponding leaf. Defaults are gathered from configuration schema class.
      *
@@ -164,14 +164,14 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * @throws NoSuchElementException If there's no such field or it is not a leaf value.
      */
     public abstract void constructDefault(String fieldName) throws NoSuchElementException;
-    
+
     /**
      * Returns class of corresponding configuration schema.
      *
      * @return Class of corresponding configuration schema.
      */
     public abstract Class<?> schemaType();
-    
+
     /** {@inheritDoc} */
     @Override
     public InnerNode copy() {
@@ -181,7 +181,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
             throw new IllegalStateException(e);
         }
     }
-    
+
     /**
      * Returns specific {@code Node} of the value. Overridden for polymorphic configuration to get a specific polymorphic configuration
      * instance.

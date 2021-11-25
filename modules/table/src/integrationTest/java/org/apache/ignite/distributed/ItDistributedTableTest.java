@@ -321,17 +321,17 @@ public class ItDistributedTableTest {
             public SchemaDescriptor schema() {
                 return SCHEMA;
             }
-    
+
             @Override
             public SchemaDescriptor schema(int ver) {
                 return SCHEMA;
             }
-            
+
             @Override
             public SchemaDescriptor waitLatestSchema() {
                 return schema();
             }
-    
+
             @Override
             public int lastSchemaVersion() {
                 return SCHEMA.version();

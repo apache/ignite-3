@@ -506,15 +506,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     partitionMap.put(p, service);
                 }
-    
+
                 InternalTableImpl internalTable = new InternalTableImpl(name, tblId, partitionMap,
                         partitions, netAddrResolver, tableStorage);
-    
+
                 var schemaRegistry = new SchemaRegistryImpl(v -> {
                     if (!busyLock.enterBusy()) {
                         throw new IgniteException(new NodeStoppingException());
                     }
-        
+
                     try {
                         return tableSchema(tblId, v);
                     } finally {
@@ -524,7 +524,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     if (!busyLock.enterBusy()) {
                         throw new IgniteException(new NodeStoppingException());
                     }
-        
+
                     try {
                         return latestSchemaVersion(tblId);
                     } finally {
@@ -695,43 +695,43 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             boolean exceptionWhenExist
     ) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
-    
+
         IgniteUuid tblId = TABLE_ID_GENERATOR.randomUuid();
-    
+
         EventListener<TableEventParameters> clo = new EventListener<>() {
             @Override
             public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
                 IgniteUuid notificationTblId = parameters.tableId();
-            
+
                 if (!tblId.equals(notificationTblId)) {
                     return false;
                 }
-            
+
                 if (e == null) {
                     tblFut.complete(parameters.table());
                 } else {
                     tblFut.completeExceptionally(e);
                 }
-            
+
                 return true;
             }
-        
+
             @Override
             public void remove(@NotNull Throwable e) {
                 tblFut.completeExceptionally(e);
             }
         };
-    
+
         listen(TableEvent.CREATE, clo);
-    
+
         tablesCfg.tables().change(change -> {
             if (change.get(name) != null) {
                 throw new TableAlreadyExistsException(name);
             }
-    
+
             change.create(name, (ch) -> {
                         tableInitChange.accept(ch);
-                
+
                         ((ExtendedTableChange) ch)
                                 // Table id specification.
                                 .changeId(tblId.toString())
@@ -745,7 +745,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         String.valueOf(INITIAL_SCHEMA_VERSION),
                                         schemaCh -> {
                                             SchemaDescriptor schemaDesc;
-                                    
+
                                             //TODO IGNITE-15747 Remove try-catch and force configuration
                                             // validation here to ensure a valid configuration passed to
                                             // prepareSchemaDescriptor() method.
@@ -756,7 +756,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             } catch (IllegalArgumentException ex) {
                                                 throw new ConfigurationValidationException(ex.getMessage());
                                             }
-                                    
+
                                             schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(schemaDesc));
                                         }
                                 ));
@@ -764,24 +764,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             );
         }).exceptionally(t -> {
             Throwable ex = t.getCause();
-        
+
             if (ex instanceof TableAlreadyExistsException) {
                 tableAsync(name, false).thenAccept(table -> {
                     if (!exceptionWhenExist) {
                         tblFut.complete(table);
                     }
-                
+
                     removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(ex));
                 });
             } else {
                 LOG.error(LoggerMessageHelper.format("Table wasn't created [name={}]", name), t);
-            
+
                 removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(ex));
             }
-        
+
             return null;
         });
-    
+
         return tblFut;
     }
 
@@ -866,23 +866,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 };
 
                 listen(TableEvent.ALTER, clo);
-    
+
                 tablesCfg.tables().change(ch -> ch.createOrUpdate(name, tblCh -> {
                             tableChange.accept(tblCh);
-                
+
                             ((ExtendedTableChange) tblCh).changeSchemas(schemasCh ->
                                     schemasCh.createOrUpdate(String.valueOf(schemasCh.size() + 1), schemaCh -> {
                                         ExtendedTableView currTableView = (ExtendedTableView) tablesCfg.tables().get(name).value();
-                            
+
                                         SchemaDescriptor descriptor;
-                            
+
                                         //TODO IGNITE-15747 Remove try-catch and force configuration validation
                                         // here to ensure a valid configuration passed to prepareSchemaDescriptor() method.
                                         try {
                                             descriptor = SchemaUtils.prepareSchemaDescriptor(
                                                     ((ExtendedTableView) tblCh).schemas().size(),
                                                     tblCh);
-                                
+
                                             descriptor.columnMapping(SchemaUtils.columnMapper(
                                                     tablesById.get(tblId).schemaView().schema(currTableView.schemas().size()),
                                                     currTableView,
@@ -894,20 +894,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             // when bulk configuration update is applied.
                                             ConfigurationValidationException e =
                                                     new ConfigurationValidationException(ex.getMessage());
-                                
+
                                             e.addSuppressed(ex);
-                                
+
                                             throw e;
                                         }
-                            
+
                                         schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(descriptor));
                                     }));
                         }
                 )).exceptionally(t -> {
                     LOG.error(LoggerMessageHelper.format("Table wasn't altered [name={}]", name), t);
-        
+
                     removeListener(TableEvent.ALTER, clo, new IgniteInternalCheckedException(t.getCause()));
-        
+
                     return null;
                 });
             }
@@ -982,9 +982,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         .change(change -> change.delete(name))
                         .exceptionally(t -> {
                             LOG.error(LoggerMessageHelper.format("Table wasn't dropped [name={}]", name), t);
-                            
+
                             removeListener(TableEvent.DROP, clo, new IgniteInternalCheckedException(t.getCause()));
-                            
+
                             return null;
                         });
             }
@@ -1053,7 +1053,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private List<String> tableNamesConfigured() {
         return ConfigurationUtil.directValue(tablesCfg.tables()).namedListKeys();
     }
-    
+
     /**
      * Checks that the schema is configured in the Metasorage consensus.
      *
@@ -1065,7 +1065,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private boolean isSchemaExists(IgniteUuid tblId, int schemaVer) {
         return latestSchemaVersion(tblId) >= schemaVer;
     }
-    
+
     /**
      * Gets the latest version of the table schema which available in Metastore.
      *
@@ -1075,34 +1075,34 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private int latestSchemaVersion(IgniteUuid tblId) {
         NamedListView<TableView> directTablesCfg = ((DirectConfigurationProperty<NamedListView<TableView>>) tablesCfg
                 .tables()).directValue();
-        
+
         ExtendedTableView viewForId = null;
-        
+
         // TODO: IGNITE-15721 Need to review this approach after the ticket would be fixed.
         // Probably, it won't be required getting configuration of all tables from Metastor.
         for (String name : directTablesCfg.namedListKeys()) {
             ExtendedTableView tblView = (ExtendedTableView) directTablesCfg.get(name);
-            
+
             if (tblView != null && tblId.equals(IgniteUuid.fromString(tblView.id()))) {
                 viewForId = tblView;
-                
+
                 break;
             }
         }
-        
+
         int lastVer = INITIAL_SCHEMA_VERSION;
-        
+
         for (String schemaVerAsStr : viewForId.schemas().namedListKeys()) {
             int ver = Integer.parseInt(schemaVerAsStr);
-            
+
             if (ver > lastVer) {
                 lastVer = ver;
             }
         }
-        
+
         return lastVer;
     }
-    
+
     /** {@inheritDoc} */
     @Override
     public Table table(String name) {

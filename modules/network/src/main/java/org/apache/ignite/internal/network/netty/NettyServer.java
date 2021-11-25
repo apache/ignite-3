@@ -46,39 +46,39 @@ import org.jetbrains.annotations.TestOnly;
 public class NettyServer {
     /** A lock for start and stop operations. */
     private final Object startStopLock = new Object();
-    
+
     /** Bootstrap factory. */
     private final NettyBootstrapFactory bootstrapFactory;
-    
+
     /** Server socket configuration. */
     private final NetworkView configuration;
-    
+
     /** Serialization registry. */
     private final MessageSerializationRegistry serializationRegistry;
-    
+
     /** Incoming message listener. */
     private final BiConsumer<SocketAddress, NetworkMessage> messageListener;
-    
+
     /** Handshake manager. */
     private final Supplier<HandshakeManager> handshakeManager;
-    
+
     /** Server start future. */
     private CompletableFuture<Void> serverStartFuture;
-    
+
     /** Server socket channel. */
     @Nullable
     private volatile ServerChannel channel;
-    
+
     /** Server close future. */
     @Nullable
     private CompletableFuture<Void> serverCloseFuture;
-    
+
     /** New connections listener. */
     private final Consumer<NettySender> newConnectionListener;
-    
+
     /** Flag indicating if {@link #stop()} has been called. */
     private boolean stopped;
-    
+
     /**
      * Constructor.
      *
@@ -105,7 +105,7 @@ public class NettyServer {
         this.serializationRegistry = serializationRegistry;
         this.bootstrapFactory = bootstrapFactory;
     }
-    
+
     /**
      * Starts the server.
      *
@@ -116,20 +116,20 @@ public class NettyServer {
             if (stopped) {
                 throw new IgniteInternalException("Attempted to start an already stopped server");
             }
-    
+
             if (serverStartFuture != null) {
                 throw new IgniteInternalException("Attempted to start an already started server");
             }
-    
+
             ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
-            
+
             bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
                         /** {@inheritDoc} */
                         @Override
                         public void initChannel(SocketChannel ch) {
                             // Get handshake manager for the new channel.
                             HandshakeManager manager = handshakeManager.get();
-                            
+
                             ch.pipeline().addLast(
                                     /*
                                      * Decoder that uses the MessageReader
@@ -149,30 +149,30 @@ public class NettyServer {
                                     new OutboundEncoder(serializationRegistry),
                                     new IoExceptionSuppressingHandler()
                             );
-                            
+
                             manager.handshakeFuture().thenAccept(newConnectionListener);
                         }
                     });
-            
+
             int port = configuration.port();
             int portRange = configuration.portRange();
-            
+
             var bindFuture = new CompletableFuture<Channel>();
-            
+
             tryBind(bootstrap, port, port + portRange, bindFuture);
-            
+
             serverStartFuture = bindFuture
                     .handle((channel, err) -> {
                         synchronized (startStopLock) {
                             if (channel != null) {
                                 serverCloseFuture = NettyUtils.toCompletableFuture(channel.closeFuture());
                             }
-                            
+
                             this.channel = (ServerChannel) channel;
-    
+
                             if (err != null || stopped) {
                                 Throwable stopErr = err != null ? err : new CancellationException("Server was stopped");
-                                
+
                                 return CompletableFuture.<Void>failedFuture(stopErr);
                             } else {
                                 return CompletableFuture.<Void>completedFuture(null);
@@ -180,11 +180,11 @@ public class NettyServer {
                         }
                     })
                     .thenCompose(Function.identity());
-            
+
             return serverStartFuture;
         }
     }
-    
+
     /**
      * Try bind this server to a port.
      *
@@ -197,7 +197,7 @@ public class NettyServer {
         if (port > endPort) {
             fut.completeExceptionally(new IllegalStateException("No available port in range"));
         }
-        
+
         bootstrap.bind(port).addListener((ChannelFuture future) -> {
             if (future.isSuccess()) {
                 fut.complete(future.channel());
@@ -208,7 +208,7 @@ public class NettyServer {
             }
         });
     }
-    
+
     /**
      * Returns gets the local address of the server.
      *
@@ -217,7 +217,7 @@ public class NettyServer {
     public SocketAddress address() {
         return channel.localAddress();
     }
-    
+
     /**
      * Stops the server.
      *
@@ -228,25 +228,25 @@ public class NettyServer {
             if (stopped) {
                 return CompletableFuture.completedFuture(null);
             }
-            
+
             stopped = true;
-    
+
             if (serverStartFuture == null) {
                 return CompletableFuture.completedFuture(null);
             }
-    
+
             var serverCloseFuture0 = serverCloseFuture;
-            
+
             return serverStartFuture.handle((unused, throwable) -> {
                 if (channel != null) {
                     channel.close();
                 }
-                
+
                 return serverCloseFuture0 == null ? CompletableFuture.<Void>completedFuture(null) : serverCloseFuture0;
             }).thenCompose(Function.identity());
         }
     }
-    
+
     /**
      * Returns {@code true} if the server is running, {@code false} otherwise.
      *
@@ -255,7 +255,7 @@ public class NettyServer {
     @TestOnly
     public boolean isRunning() {
         var channel0 = channel;
-        
+
         return channel0 != null && channel0.isOpen();
     }
 }

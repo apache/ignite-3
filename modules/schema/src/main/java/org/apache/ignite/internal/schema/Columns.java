@@ -271,7 +271,7 @@ public class Columns implements Serializable {
         if (hasVarlengthColumns()) {
             numFixsize++;
         }
-        
+
         int fixsizeNullMapSize = (numFixsize + 7) / 8;
         int maxLen = 0;
 

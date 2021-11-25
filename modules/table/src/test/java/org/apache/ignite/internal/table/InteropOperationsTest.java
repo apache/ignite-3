@@ -79,7 +79,7 @@ public class InteropOperationsTest {
 
     /** Record binary view for test. */
     private static final RecordView<Tuple> R_BIN_VIEW;
-    
+
     static {
         NativeType[] types = {
                 NativeTypes.INT8, NativeTypes.INT16, NativeTypes.INT32, NativeTypes.INT64,
@@ -96,7 +96,7 @@ public class InteropOperationsTest {
             valueCols.add(new Column(colName, type, false));
             valueCols.add(new Column(colName + "N", type, true));
         }
-        
+
         SCHEMA = new SchemaDescriptor(1,
                 new Column[]{new Column("id", NativeTypes.INT64, false)},
                 valueCols.toArray(Column[]::new)
@@ -115,7 +115,7 @@ public class InteropOperationsTest {
         R_BIN_VIEW = TABLE.recordView();
         R_VIEW = TABLE.recordView(Mapper.identity(Row.class));
     }
-    
+
     /**
      * Validate all types are tested.
      */
@@ -123,13 +123,13 @@ public class InteropOperationsTest {
     public void ensureAllTypesTested() {
         RecordMarshallerTest.ensureAllTypesChecked(Arrays.stream(SCHEMA.valueColumns().columns()));
     }
-    
+
     @AfterEach
     public void clearTable() {
         TABLE.recordView().delete(Tuple.create().set("id", 1L));
         TABLE.recordView().delete(Tuple.create().set("id", 2L));
     }
-    
+
     /**
      * Write through key value API and test records.
      */
@@ -345,10 +345,10 @@ public class InteropOperationsTest {
             if (!nulls && col.nullable()) {
                 continue;
             }
-    
+
             String colName = col.name();
             NativeType type = col.type();
-    
+
             if (NativeTypes.INT8.equals(type)) {
                 res.set(colName, (byte) id);
             } else if (NativeTypes.INT16.equals(type)) {
@@ -387,7 +387,7 @@ public class InteropOperationsTest {
                 fail("Unable to fullfill value of type " + type);
             }
         }
-        
+
         return res;
     }
 
@@ -450,7 +450,7 @@ public class InteropOperationsTest {
                 fail("Unable to validate value of type " + type);
             }
         }
-        
+
         assertTrue(!nulls ^ expected.equals(t), "nulls = " + nulls + ", id = " + id);
     }
 
@@ -492,7 +492,7 @@ public class InteropOperationsTest {
         private BitSet fbitmaskN;
 
         public Value() {
-        
+
         }
 
         public Value(int id, boolean nulls) {
@@ -533,7 +533,7 @@ public class InteropOperationsTest {
                 fbitmaskN.set(id);
             }
         }
-    
+
         @Override
         public boolean equals(Object o) {
             if (this == o) {
@@ -624,7 +624,7 @@ public class InteropOperationsTest {
 
             fbytes = String.valueOf(id).getBytes(StandardCharsets.UTF_8);
             fbytesN = (nulls) ? String.valueOf(id).getBytes(StandardCharsets.UTF_8) : null;
-    
+
             fdate = LocalDate.ofYearDay(2021, id);
             fdateN = (nulls) ? LocalDate.ofYearDay(2021, id) : null;
             ftime = LocalTime.ofSecondOfDay(id);
@@ -645,7 +645,7 @@ public class InteropOperationsTest {
                 fbitmaskN.set(id);
             }
         }
-    
+
         @Override
         public boolean equals(Object o) {
             if (this == o) {

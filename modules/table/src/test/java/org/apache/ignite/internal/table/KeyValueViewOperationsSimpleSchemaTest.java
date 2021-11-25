@@ -59,26 +59,26 @@ public class KeyValueViewOperationsSimpleSchemaTest {
     @Test
     public void put() {
         KeyValueView<Long, Long> tbl = kvView();
-        
+
         assertNull(tbl.get(1L));
-        
+
         // Put KV pair.
         tbl.put(1L, 11L);
-        
+
         assertEquals(11L, tbl.get(1L));
         assertEquals(11L, tbl.get(1L));
-        
+
         // Update KV pair.
         tbl.put(1L, 22L);
-        
+
         assertEquals(22L, tbl.get(1L));
         assertEquals(22L, tbl.get(1L));
-        
+
         // Remove KV pair.
         tbl.put(1L, null);
-        
+
         assertNull(tbl.get(1L));
-        
+
         // Put KV pair.
         tbl.put(1L, 33L);
         assertEquals(33L, tbl.get(1L));
@@ -87,56 +87,56 @@ public class KeyValueViewOperationsSimpleSchemaTest {
     @Test
     public void putIfAbsent() {
         KeyValueView<Long, Long> tbl = kvView();
-        
+
         assertNull(tbl.get(1L));
-        
+
         // Insert new KV pair.
         assertTrue(tbl.putIfAbsent(1L, 11L));
-        
+
         assertEquals(11L, tbl.get(1L));
-        
+
         // Update KV pair.
         assertFalse(tbl.putIfAbsent(1L, 22L));
-        
+
         assertEquals(11L, tbl.get(1L));
     }
 
     @Test
     public void getAndPut() {
         KeyValueView<Long, Long> tbl = kvView();
-        
+
         assertNull(tbl.get(1L));
-        
+
         // Insert new tuple.
         assertNull(tbl.getAndPut(1L, 11L));
-        
+
         assertEquals(11L, tbl.get(1L));
-        
+
         assertEquals(11L, tbl.getAndPut(1L, 22L));
         assertEquals(22L, tbl.getAndPut(1L, 33L));
-        
+
         assertEquals(33L, tbl.get(1L));
     }
 
     @Test
     public void contains() {
         KeyValueView<Long, Long> tbl = kvView();
-        
+
         // Not-existed value.
         assertFalse(tbl.contains(1L));
-        
+
         // Put KV pair.
         tbl.put(1L, 11L);
         assertTrue(tbl.contains(1L));
-        
+
         // Delete key.
         assertTrue(tbl.remove(1L));
         assertFalse(tbl.contains(1L));
-        
+
         // Put KV pair.
         tbl.put(1L, 22L);
         assertTrue(tbl.contains(1L));
-        
+
         // Delete key.
         tbl.remove(2L);
         assertFalse(tbl.contains(2L));
@@ -145,26 +145,26 @@ public class KeyValueViewOperationsSimpleSchemaTest {
     @Test
     public void remove() {
         KeyValueView<Long, Long> tbl = kvView();
-        
+
         // Put KV pair.
         tbl.put(1L, 11L);
-        
+
         // Delete existed key.
         assertEquals(11L, tbl.get(1L));
         assertTrue(tbl.remove(1L));
         assertNull(tbl.get(1L));
-        
+
         // Delete already deleted key.
         assertFalse(tbl.remove(1L));
-        
+
         // Put KV pair.
         tbl.put(1L, 22L);
         assertEquals(22L, tbl.get(1L));
-        
+
         // Delete existed key.
         assertTrue(tbl.remove(1L));
         assertNull(tbl.get(1L));
-        
+
         // Delete not existed key.
         assertNull(tbl.get(2L));
         assertFalse(tbl.remove(2L));
@@ -173,39 +173,39 @@ public class KeyValueViewOperationsSimpleSchemaTest {
     @Test
     public void removeExact() {
         KeyValueView<Long, Long> tbl = kvView();
-        
+
         // Put KV pair.
         tbl.put(1L, 11L);
         assertEquals(11L, tbl.get(1L));
-        
+
         // Fails to delete KV pair with unexpected value.
         assertFalse(tbl.remove(1L, 22L));
         assertEquals(11L, tbl.get(1L));
-        
+
         // Delete KV pair with expected value.
         assertTrue(tbl.remove(1L, 11L));
         assertNull(tbl.get(1L));
-        
+
         // Once again.
         assertFalse(tbl.remove(1L, 11L));
         assertNull(tbl.get(1L));
-        
+
         // Try to remove non-existed key.
         assertFalse(tbl.remove(1L, 11L));
         assertNull(tbl.get(1L));
-        
+
         // Put KV pair.
         tbl.put(1L, 22L);
         assertEquals(22L, tbl.get(1L));
-        
+
         // Check null value ignored.
         assertThrows(Throwable.class, () -> tbl.remove(1L, null));
         assertEquals(22L, tbl.get(1L));
-        
+
         // Delete KV pair with expected value.
         assertTrue(tbl.remove(1L, 22L));
         assertNull(tbl.get(1L));
-        
+
         assertFalse(tbl.remove(2L, 22L));
         assertNull(tbl.get(2L));
     }
@@ -213,28 +213,28 @@ public class KeyValueViewOperationsSimpleSchemaTest {
     @Test
     public void replace() {
         KeyValueView<Long, Long> tbl = kvView();
-        
+
         // Ignore replace operation for non-existed KV pair.
         assertFalse(tbl.replace(1L, 11L));
         assertNull(tbl.get(1L));
-        
+
         tbl.put(1L, 11L);
-        
+
         // Replace existed KV pair.
         assertTrue(tbl.replace(1L, 22L));
         assertEquals(22L, tbl.get(1L));
-        
+
         // Remove existed KV pair.
         assertTrue(tbl.replace(1L, null));
         assertNull(tbl.get(1L));
-        
+
         // Ignore replace operation for non-existed KV pair.
         assertFalse(tbl.replace(1L, 33L));
         assertNull(tbl.get(1L));
-        
+
         tbl.put(1L, 33L);
         assertEquals(33L, tbl.get(1L));
-        
+
         // Remove non-existed KV pair.
         assertFalse(tbl.replace(2L, null));
         assertNull(tbl.get(2L));
@@ -243,37 +243,37 @@ public class KeyValueViewOperationsSimpleSchemaTest {
     @Test
     public void replaceExact() {
         KeyValueView<Long, Long> tbl = kvView();
-        
+
         // Insert KV pair.
         assertTrue(tbl.replace(1L, null, 11L));
         assertEquals(11L, tbl.get(1L));
         assertNull(tbl.get(2L));
-        
+
         // Ignore replace operation for non-existed KV pair.
         assertFalse(tbl.replace(2L, 11L, 22L));
         assertNull(tbl.get(2L));
-        
+
         // Replace existed KV pair.
         assertTrue(tbl.replace(1L, 11L, 22L));
         assertEquals(22L, tbl.get(1L));
-        
+
         // Remove existed KV pair.
         assertTrue(tbl.replace(1L, 22L, null));
         assertNull(tbl.get(1L));
-        
+
         // Insert KV pair.
         assertTrue(tbl.replace(1L, null, 33L));
         assertEquals(33L, tbl.get(1L));
-        
+
         // Remove non-existed KV pair.
         assertTrue(tbl.replace(2L, null, null));
     }
-    
+
     @Test
     public void putGetAllTypes() {
         Random rnd = new Random();
         Long key = 42L;
-        
+
         List<NativeType> allTypes = List.of(
                 NativeTypes.INT8,
                 NativeTypes.INT16,
@@ -291,21 +291,21 @@ public class KeyValueViewOperationsSimpleSchemaTest {
                 NativeTypes.timestamp(),
                 NativeTypes.BYTES,
                 NativeTypes.STRING);
-        
+
         // Validate all types are tested.
         assertEquals(Set.of(NativeTypeSpec.values()),
                 allTypes.stream().map(NativeType::spec).collect(Collectors.toSet()));
-        
+
         for (NativeType type : allTypes) {
             final Object val = SchemaTestUtils.generateRandomValue(rnd, type);
-            
+
             assertFalse(type.mismatch(NativeTypes.fromObject(val)));
-            
+
             KeyValueViewImpl<Long, Object> kvView = kvViewForValueType(NativeTypes.fromObject(val),
                     (Class<Object>) val.getClass());
-            
+
             kvView.put(key, val);
-    
+
             if (val instanceof byte[]) {
                 assertArrayEquals((byte[]) val, (byte[]) kvView.get(key));
             } else {
@@ -313,7 +313,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
             }
         }
     }
-    
+
     /**
      * Creates key-value view.
      *
@@ -323,13 +323,13 @@ public class KeyValueViewOperationsSimpleSchemaTest {
     private <T> KeyValueViewImpl<Long, T> kvViewForValueType(NativeType type, Class<T> valueClass) {
         Mapper<Long> keyMapper = Mapper.identity(Long.class);
         Mapper<T> valMapper = Mapper.identity(valueClass);
-        
+
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
                 new Column[]{new Column("id", NativeTypes.INT64, false)},
                 new Column[]{new Column("val", type, false)}
         );
-        
+
         return new KeyValueViewImpl<>(
                 new DummyInternalTableImpl(),
                 new DummySchemaManagerImpl(schema),

@@ -92,7 +92,7 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
         ignite.close();
 
         Set<Thread> threadsAfter = getCurrentThreads();
-    
+
         assertEquals(threadsBefore.size(), threadsAfter.size(), threadsAfter.stream()
                 .filter(thread -> !threadsBefore.contains(thread)).map(Thread::getName)
                 .collect(Collectors.joining(", ")));

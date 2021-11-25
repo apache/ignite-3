@@ -109,7 +109,7 @@ public class IgniteImpl implements Ignite {
 
     /** Cluster service (cluster network manager). */
     private final ClusterService clusterSvc;
-    
+
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory nettyBootstrapFactory;
 
@@ -166,11 +166,11 @@ public class IgniteImpl implements Ignite {
                 List.of(),
                 List.of()
         );
-    
+
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
-    
+
         var clusterLocalConfiguration = new ClusterLocalConfiguration(name, new MessageSerializationRegistryImpl());
-    
+
         nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, clusterLocalConfiguration.getName());
 
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
