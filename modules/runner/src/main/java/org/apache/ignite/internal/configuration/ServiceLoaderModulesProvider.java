@@ -30,6 +30,11 @@ import java.util.ServiceLoader.Provider;
  * @see ConfigurationModule
  */
 public class ServiceLoaderModulesProvider {
+    /**
+     * Loads modules using {@link ServiceLoader} mechanism.
+     *
+     * @return modules
+     */
     public List<ConfigurationModule> modules() {
         return ServiceLoader.load(ConfigurationModule.class).stream()
                 .map(Provider::get)
