@@ -184,8 +184,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
                     finalPrc.handleRequest(context, message);
                 });
-            }
-            catch (RejectedExecutionException e) {
+            } catch (RejectedExecutionException e) {
                 // Node is stopping.
             }
         }

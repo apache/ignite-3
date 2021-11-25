@@ -70,7 +70,7 @@ public class SchemaConfigurationConverterTest {
     /**
      * Prepare configuration registry for test.
      *
-     * @throws ExecutionException   If failed.
+     * @throws ExecutionException If failed.
      * @throws InterruptedException If failed.
      */
     @BeforeEach
@@ -241,8 +241,7 @@ public class SchemaConfigurationConverterTest {
     public void testConvertTable() {
         TableDefinition tbl = tblBuilder.build();
 
-        TableConfiguration tblCfg = confRegistry.getConfiguration(TablesConfiguration.KEY).tables()
-                .get(tbl.canonicalName());
+        TableConfiguration tblCfg = confRegistry.getConfiguration(TablesConfiguration.KEY).tables().get(tbl.canonicalName());
 
         TableDefinition tbl2 = SchemaConfigurationConverter.convert(tblCfg);
 

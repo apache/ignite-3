@@ -113,7 +113,7 @@ public class SingleThreadExecutorBenchmark {
             .maximumThreads(1) //
             .poolName("default") //
             .enableMetric(false) //
-            .workQueue(new MpscBlockingConsumerArrayQueue<>(TIMES)) //
+            .workQueue(new MpscBlockingConsumerArrayQueue<>(TIMES)) // TODO asch IGNITE-15997
             .keepAliveSeconds(60L) //
             .threadFactory(new NamedThreadFactory("default", true)) //
             .build();

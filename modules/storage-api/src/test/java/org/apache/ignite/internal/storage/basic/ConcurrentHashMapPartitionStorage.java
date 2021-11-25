@@ -52,40 +52,30 @@ import org.jetbrains.annotations.Nullable;
  * Storage implementation based on {@link ConcurrentHashMap}.
  */
 public class ConcurrentHashMapPartitionStorage implements PartitionStorage {
-    /**
-     * Name of the snapshot file.
-     */
+    /** Name of the snapshot file. */
     private static final String SNAPSHOT_FILE = "snapshot_file";
-    
-    /**
-     * Storage content.
-     */
+
+    /** Storage content. */
     private final ConcurrentSkipListMap<ByteArray, byte[]> map = new ConcurrentSkipListMap<>();
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public int partitionId() {
         return 0;
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     @Nullable
     public DataRow read(SearchRow key) throws StorageException {
         byte[] keyBytes = key.keyBytes();
-        
+
         byte[] valueBytes = map.get(new ByteArray(keyBytes));
-        
+
         return valueBytes == null ? null : new SimpleDataRow(keyBytes, valueBytes);
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public Collection<DataRow> readAll(List<? extends SearchRow> keys) {
         return keys.stream()
@@ -93,26 +83,20 @@ public class ConcurrentHashMapPartitionStorage implements PartitionStorage {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public void write(DataRow row) throws StorageException {
         map.put(new ByteArray(row.keyBytes()), row.valueBytes());
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public void writeAll(List<? extends DataRow> rows) throws StorageException {
         rows.forEach(this::write);
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public Collection<DataRow> insertAll(List<? extends DataRow> rows) throws StorageException {
         return rows.stream()
@@ -121,126 +105,116 @@ public class ConcurrentHashMapPartitionStorage implements PartitionStorage {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public void remove(SearchRow key) throws StorageException {
         map.remove(new ByteArray(key.keyBytes()));
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public Collection<SearchRow> removeAll(List<? extends SearchRow> keys) {
         var skippedRows = new ArrayList<SearchRow>(keys.size());
-        
+
         for (SearchRow key : keys) {
             byte[] keyBytes = key.keyBytes();
-            
+
             byte[] removedValueBytes = map.remove(new ByteArray(keyBytes));
-            
+
             if (removedValueBytes == null) {
                 skippedRows.add(key);
             }
         }
-        
+
         return skippedRows;
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public Collection<DataRow> removeAllExact(List<? extends DataRow> keyValues) {
         var skippedRows = new ArrayList<DataRow>(keyValues.size());
-        
+
         for (DataRow row : keyValues) {
             var key = new ByteArray(row.keyBytes());
-            
+
             byte[] existingValueBytes = map.get(key);
-            
+
             if (Arrays.equals(existingValueBytes, row.valueBytes())) {
                 map.remove(key);
             } else {
                 skippedRows.add(row);
             }
         }
-        
+
         return skippedRows;
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Nullable
     @Override
     public <T> T invoke(SearchRow key, InvokeClosure<T> clo) throws StorageException {
         byte[] keyBytes = key.keyBytes();
-        
+
         ByteArray mapKey = new ByteArray(keyBytes);
-        
+
         byte[] existingDataBytes = map.get(mapKey);
-        
+
         clo.call(existingDataBytes == null ? null : new SimpleDataRow(keyBytes, existingDataBytes));
-        
+
         switch (clo.operationType()) {
             case WRITE:
                 DataRow newRow = clo.newRow();
-                
+
                 assert newRow != null;
-                
+
                 map.put(mapKey, newRow.valueBytes());
-                
+
                 break;
-            
+
             case REMOVE:
                 map.remove(mapKey);
-                
+
                 break;
-            
+
             case NOOP:
                 break;
-            
+
             default:
                 throw new UnsupportedOperationException(String.valueOf(clo.operationType()));
         }
-        
+
         return clo.result();
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public Cursor<DataRow> scan(Predicate<SearchRow> filter) throws StorageException {
         Iterator<SimpleDataRow> iter = map.entrySet().stream()
                 .map(e -> new SimpleDataRow(e.getKey().bytes(), e.getValue()))
                 .filter(filter)
                 .iterator();
-        
+
         return new Cursor<>() {
             /** {@inheritDoc} */
             @Override
             public boolean hasNext() {
                 return iter.hasNext();
             }
-            
+
             /** {@inheritDoc} */
             @Override
             public DataRow next() {
                 return iter.next();
             }
-            
+
             /** {@inheritDoc} */
             @NotNull
             @Override
             public Iterator<DataRow> iterator() {
                 return this;
             }
-            
+
             /** {@inheritDoc} */
             @Override
             public void close() {
@@ -248,10 +222,8 @@ public class ConcurrentHashMapPartitionStorage implements PartitionStorage {
             }
         };
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Void> snapshot(Path snapshotPath) {
         return CompletableFuture.runAsync(() -> {
@@ -266,10 +238,8 @@ public class ConcurrentHashMapPartitionStorage implements PartitionStorage {
             }
         });
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public void restoreSnapshot(Path snapshotPath) {
         try (
@@ -278,9 +248,9 @@ public class ConcurrentHashMapPartitionStorage implements PartitionStorage {
         ) {
             var keys = (List<byte[]>) objIn.readObject();
             var values = (List<byte[]>) objIn.readObject();
-            
+
             map.clear();
-            
+
             for (int i = 0; i < keys.size(); i++) {
                 map.put(new ByteArray(keys.get(i)), values.get(i));
             }
@@ -288,18 +258,14 @@ public class ConcurrentHashMapPartitionStorage implements PartitionStorage {
             throw new IgniteInternalException(e);
         }
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
         // No-op.
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -308,27 +274,25 @@ public class ConcurrentHashMapPartitionStorage implements PartitionStorage {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        
+
         ConcurrentHashMapPartitionStorage that = (ConcurrentHashMapPartitionStorage) o;
-    
+
         if (!map.equals(that.map)) {
             return false;
         }
-        
+
         return true;
     }
-    
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         int hash = 0;
-    
+
         for (Map.Entry<ByteArray, byte[]> entry : map.entrySet()) {
             hash += entry.getKey().hashCode() ^ Arrays.hashCode(entry.getValue());
         }
-        
+
         return hash;
     }
 }

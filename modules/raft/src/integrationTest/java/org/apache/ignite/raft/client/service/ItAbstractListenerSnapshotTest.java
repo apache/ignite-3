@@ -91,7 +91,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     private final List<ClusterService> cluster = new ArrayList<>();
 
     /** Servers. */
-    private final List<JraftServerImpl> servers = new ArrayList<>();
+    protected final List<JraftServerImpl> servers = new ArrayList<>();
 
     /** Clients. */
     private final List<RaftGroupService> clients = new ArrayList<>();

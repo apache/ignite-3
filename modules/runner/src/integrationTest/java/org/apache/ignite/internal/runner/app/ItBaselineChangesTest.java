@@ -141,7 +141,7 @@ public class ItBaselineChangesTest {
 
         // Update baseline to nodes 1,4,5
         metaStoreNode.setBaseline(Set.of(metaStoreNode.name(), node3Name, node4Name));
-        
+
         IgnitionManager.stop(clusterNodes.get(1).name());
         IgnitionManager.stop(clusterNodes.get(2).name());
 

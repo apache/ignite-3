@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
-import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -74,9 +73,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
      */
     private final Map<PartitionListener, Path> paths = new ConcurrentHashMap<>();
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void beforeFollowerStop(RaftGroupService service) throws Exception {
         var table = new InternalTableImpl(
@@ -92,18 +89,20 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         table.upsert(FIRST_VALUE, null).get();
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void afterFollowerStop(RaftGroupService service) throws Exception {
+        TxManagerImpl txManager = new TxManagerImpl(clientService(), new HeapLockManager());
+
+        txManager.start();
+
         var table = new InternalTableImpl(
                 "table",
                 new IgniteUuid(UUID.randomUUID(), 0),
                 Map.of(0, service),
                 1,
                 NetworkAddress::toString,
-                new TxManagerImpl(clientService(), new HeapLockManager()),
+                txManager,
                 mock(TableStorage.class)
         );
 
@@ -112,14 +111,16 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         // Put deleted data again
         table.upsert(FIRST_VALUE, null).get();
+
+        txManager.stop();
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void afterSnapshot(RaftGroupService service) throws Exception {
         TxManager txManager = new TxManagerImpl(clientService(), new HeapLockManager());
+
+        txManager.start();
 
         var table = new InternalTableImpl(
                 "table",
@@ -134,11 +135,11 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         table.upsert(SECOND_VALUE, null).get();
 
         assertNotNull(table.get(SECOND_KEY, null).join());
+
+        txManager.stop();
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted,
             boolean interactedAfterSnapshot) {
@@ -158,17 +159,13 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         };
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public Path getListenerPersistencePath(PartitionListener listener) {
         return paths.get(listener);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public RaftGroupListener createListener(ClusterService service, Path workDir) {
         return paths.entrySet().stream()
@@ -176,15 +173,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 .map(Map.Entry::getKey)
                 .findAny()
                 .orElseGet(() -> {
-                    JraftServerImpl srv = servers.stream()
-                            .filter(s -> s.clusterService().topologyService().localMember().equals(service.topologyService().localMember()))
-                            .findFirst().get();
-
-                    // We need raft manager instance to initialize transaction manager.
-                    Loza raftMgr = new Loza(srv);
-
-                    TableTxManagerImpl txManager = new TableTxManagerImpl(service,
-                            new HeapLockManager());
+                    TableTxManagerImpl txManager = new TableTxManagerImpl(service, new HeapLockManager());
 
                     txManager.start(); // Init listener.
 
@@ -198,9 +187,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 });
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public String raftGroupId() {
         return "partitions";
@@ -223,7 +210,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /**
      * Creates a {@link Row} with the supplied key and value.
      *
-     * @param id Key.
+     * @param id    Key.
      * @param value Value.
      * @return Row.
      */

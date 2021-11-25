@@ -116,6 +116,8 @@ public class ItInternalTableScanTest {
 
     private RaftServer raftSrv;
 
+    private TxManager txManager;
+
     /** Internal table to test. */
     private InternalTable internalTbl;
 
@@ -158,7 +160,9 @@ public class ItInternalTableScanTest {
 
         mockStorage = mock(PartitionStorage.class);
 
-        TxManager txManager = new TxManagerImpl(network, new HeapLockManager());
+        txManager = new TxManagerImpl(network, new HeapLockManager());
+
+        txManager.start();
 
         IgniteUuid tblId = new IgniteUuid(UUID.randomUUID(), 0);
 
@@ -223,6 +227,9 @@ public class ItInternalTableScanTest {
         if (network != null) {
             network.stop();
         }
+
+        if (txManager != null)
+            txManager.stop();
     }
 
     /**
