@@ -228,8 +228,9 @@ public class ItInternalTableScanTest {
             network.stop();
         }
 
-        if (txManager != null)
+        if (txManager != null) {
             txManager.stop();
+        }
     }
 
     /**

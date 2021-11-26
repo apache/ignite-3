@@ -842,8 +842,9 @@ public class IgniteToStringBuilder {
      * @return String presentation of the given object.
      */
     public static String toString(@Nullable Object obj) {
-        if (obj == null)
-            return "NULL";
+        if (obj == null) {
+            return "null";
+        }
 
         Class cls = obj.getClass();
 
