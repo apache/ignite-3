@@ -51,6 +51,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.junit.jupiter.api.AfterEach;
 
 /**
  * Persistent partitions raft group snapshots tests.
@@ -77,6 +78,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     private final List<TxManager> managers = new ArrayList<>();
 
+    @AfterEach
     @Override
     public void afterTest() throws Exception {
         super.afterTest();
