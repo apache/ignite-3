@@ -30,17 +30,12 @@ class IdentityMarshallerCodeGenerator implements MarshallerCodeGenerator {
     /** Object field access expression generator. */
     private final ColumnAccessCodeGenerator columnAccessor;
 
-    /** Target class. */
-    private final Class<?> targetClass;
-
     /**
      * Constructor.
      *
-     * @param targetClass         Target class.
      * @param columnAccessor Row column code generator.
      */
-    IdentityMarshallerCodeGenerator(Class<?> targetClass, ColumnAccessCodeGenerator columnAccessor) {
-        this.targetClass = targetClass;
+    IdentityMarshallerCodeGenerator(ColumnAccessCodeGenerator columnAccessor) {
         this.columnAccessor = columnAccessor;
     }
 
