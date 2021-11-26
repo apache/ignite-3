@@ -20,7 +20,6 @@ package org.apache.ignite.table.manager;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.table.Table;
 
@@ -54,7 +53,7 @@ public interface IgniteTables {
      * @param name Table name.
      * @param tableChange Table changer.
      */
-    void alterTable(String name, Predicate<TableChange> tableChange);
+    void alterTable(String name, Consumer<TableChange> tableChange);
 
     /**
      * Alter a cluster table.
@@ -63,7 +62,7 @@ public interface IgniteTables {
      * @param tableChange Table changer.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> alterTableAsync(String name, Predicate<TableChange> tableChange);
+    CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange);
 
     /**
      * Creates a new table with the given {@code name} or returns an existing one with the same {@code name}.
