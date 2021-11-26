@@ -71,6 +71,7 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
+import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.rest.RestModule;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -111,6 +112,9 @@ public class IgniteImpl implements Ignite {
 
     /** Cluster service (cluster network manager). */
     private final ClusterService clusterSvc;
+
+    /** Netty bootstrap factory. */
+    private final NettyBootstrapFactory nettyBootstrapFactory;
 
     /** Raft manager. */
     private final Loza raftMgr;
@@ -169,12 +173,16 @@ public class IgniteImpl implements Ignite {
                 List.of()
         );
 
+        NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
+
+        var clusterLocalConfiguration = new ClusterLocalConfiguration(name, new MessageSerializationRegistryImpl());
+
+        nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, clusterLocalConfiguration.getName());
+
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
-                new ClusterLocalConfiguration(
-                        name,
-                        new MessageSerializationRegistryImpl()
-                ),
-                nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY)
+                clusterLocalConfiguration,
+                networkConfiguration,
+                nettyBootstrapFactory
         );
 
         raftMgr = new Loza(clusterSvc, workDir);
@@ -225,9 +233,14 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr
         );
 
-        restModule = new RestModule(nodeCfgMgr, clusterCfgMgr);
+        restModule = new RestModule(nodeCfgMgr, clusterCfgMgr, nettyBootstrapFactory);
 
-        clientHandlerModule = new ClientHandlerModule(qryEngine, distributedTblMgr, nodeCfgMgr.configurationRegistry());
+        clientHandlerModule = new ClientHandlerModule(
+                qryEngine,
+                distributedTblMgr,
+                nodeCfgMgr.configurationRegistry(),
+                nettyBootstrapFactory
+        );
     }
 
     /**
@@ -280,6 +293,7 @@ public class IgniteImpl implements Ignite {
 
             // Start the remaining components.
             List<IgniteComponent> otherComponents = List.of(
+                    nettyBootstrapFactory,
                     clusterSvc,
                     raftMgr,
                     txManager,
@@ -331,7 +345,7 @@ public class IgniteImpl implements Ignite {
 
         if (explicitStop.get()) {
             doStopNode(List.of(vaultMgr, nodeCfgMgr, clusterSvc, raftMgr, txManager, metaStorageMgr, clusterCfgMgr, baselineMgr,
-                    distributedTblMgr, qryEngine, restModule, clientHandlerModule));
+                    distributedTblMgr, qryEngine, restModule, clientHandlerModule, nettyBootstrapFactory));
         }
     }
 
@@ -392,6 +406,13 @@ public class IgniteImpl implements Ignite {
      */
     public ClientHandlerModule clientHandlerModule() {
         return clientHandlerModule;
+    }
+
+    /**
+     * Returns the id of the current node.
+     */
+    public String id() {
+        return clusterSvc.topologyService().localMember().id();
     }
 
     /**

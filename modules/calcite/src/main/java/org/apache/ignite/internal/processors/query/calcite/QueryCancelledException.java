@@ -15,23 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.processors.query.calcite;
 
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * Cluster service factory.
+ * The exception is thrown if a query was cancelled or timed out while executing.
  */
-public interface ClusterServiceFactory {
+public class QueryCancelledException extends IgniteException {
+    private static final long serialVersionUID = 0L;
+
+    public static final String ERR_MSG = "The query was cancelled while executing.";
+
     /**
-     * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
-     *
-     * @param context              Cluster context.
-     * @param networkConfiguration Network configuration.
-     * @return New cluster service.
+     * Default constructor.
      */
-    ClusterService createClusterService(
-            ClusterLocalConfiguration context,
-            NetworkConfiguration networkConfiguration
-    );
+    public QueryCancelledException() {
+        super(ERR_MSG);
+    }
 }

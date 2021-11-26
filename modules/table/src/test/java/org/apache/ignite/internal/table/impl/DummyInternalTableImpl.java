@@ -148,7 +148,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull String tableName() {
+    public @NotNull String name() {
         return null;
     }
 
