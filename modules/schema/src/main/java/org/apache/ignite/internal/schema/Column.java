@@ -90,7 +90,7 @@ public class Column {
     ) {
         this(-1, -1, name, type, nullable, defValSup);
     }
-    
+
     /**
      * Constructor.
      *
@@ -115,7 +115,7 @@ public class Column {
      * @param name        Column name.
      * @param type        An instance of column data type.
      * @param nullable    If {@code false}, null values will not be allowed for this column.
-     * @param defValSup   Default value supplier or {@code null} - if there is no default value supplier specified.
+     * @param defValSup   Default value supplier.
      */
     public Column(
             int columnOrder,
