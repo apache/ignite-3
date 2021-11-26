@@ -321,8 +321,8 @@ public class KeyValueViewOperationsSimpleSchemaTest {
      * @param valueClass Value class.
      */
     private <T> KeyValueViewImpl<Long, T> kvViewForValueType(NativeType type, Class<T> valueClass) {
-        Mapper<Long> keyMapper = Mapper.of(Long.class);
-        Mapper<T> valMapper = Mapper.of(valueClass);
+        Mapper<Long> keyMapper = Mapper.of("id", Long.class);
+        Mapper<T> valMapper = Mapper.of("val", valueClass);
 
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,

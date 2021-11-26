@@ -496,7 +496,9 @@ public class KvMarshallerTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
 
-        KvMarshaller<Object, Object> marshaller = factory.create(schema, (Class<Object>) key.getClass(), (Class<Object>) val.getClass());
+        KvMarshaller<Object, Object> marshaller = factory.create(schema,
+                Mapper.of("key", (Class<Object>) key.getClass()),
+                Mapper.of("val", (Class<Object>) val.getClass()));
 
         BinaryRow row = marshaller.marshal(key, val);
 
