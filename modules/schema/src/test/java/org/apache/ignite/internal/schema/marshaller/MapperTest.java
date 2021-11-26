@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.ArrayList;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.testobjects.TestOuterObject;
 import org.apache.ignite.internal.schema.testobjects.TestOuterObject.NestedObject;
@@ -74,24 +75,45 @@ public class MapperTest {
 
         assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(Long.class));
         assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(TestOuterObject.InnerObject.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(AbstractTestObject.class));
         assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(LocalClass.class));
         assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(anonymous.getClass()));
-
-        Mapper.of("column", Long.class);
-        Mapper.of("column", TestOuterObject.class);
-        Mapper.of("column", NestedObject.class);
-
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of("column", TestOuterObject.InnerObject.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of("column", LocalClass.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of("column", anonymous.getClass()));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(int[].class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(Object[].class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(TestInterface.class)); // Interface
+        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(TestAnnotation.class)); // annotation
+        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(EnumTestObject.class)); // enum
 
         Mapper.of(Long.class);
         Mapper.of(TestOuterObject.class);
         Mapper.of(NestedObject.class);
+        Mapper.of(ArrayList.class);
 
         assertThrows(IllegalArgumentException.class, () -> Mapper.of(TestOuterObject.InnerObject.class));
         assertThrows(IllegalArgumentException.class, () -> Mapper.of(LocalClass.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of(AbstractTestObject.class));
         assertThrows(IllegalArgumentException.class, () -> Mapper.of(anonymous.getClass()));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of(int[].class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of(Object[].class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of(TestInterface.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of(TestAnnotation.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of(EnumTestObject.class));
+
+        Mapper.of("column", Long.class);
+        Mapper.of("column", TestOuterObject.class);
+        Mapper.of("column", NestedObject.class);
+        Mapper.of("column", AbstractTestObject.class);
+        Mapper.of("column", int[].class);
+        Mapper.of("column", Object.class);
+        Mapper.of("column", ArrayList.class);
+        Mapper.of("column", TestInterface.class);
+
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of("column", TestOuterObject.InnerObject.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of("column", LocalClass.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of("column", anonymous.getClass()));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of("column", TestAnnotation.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of("column", EnumTestObject.class));
+
     }
 
     @Test
@@ -122,5 +144,35 @@ public class MapperTest {
         private long longCol;
 
         private String stringCol;
+    }
+
+    /**
+     * Test object.
+     */
+    @SuppressWarnings({"InstanceVariableMayNotBeInitialized", "unused"})
+    static abstract class AbstractTestObject {
+        private long id;
+    }
+
+    /**
+     * Test object.
+     */
+    enum EnumTestObject {
+        ONE,
+        TWO
+    }
+
+    /**
+     * Test object.
+     */
+    @interface TestAnnotation {
+        long id = 0L;
+    }
+
+    /**
+     * Test object.
+     */
+    interface TestInterface {
+        int id = 0;
     }
 }

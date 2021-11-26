@@ -44,6 +44,9 @@ public interface Mapper<T> {
     // So, method must be dropped or it's purpose must be clearly described.
     //TODO: IGNITE-15787 Maybe, the method must be used only for annotation mapper purposes.
     static <O> Mapper<O> of(Class<O> cls) {
+        if (cls.isArray() || cls.isInterface() || Modifier.isAbstract(cls.getModifiers()))
+            throw new IllegalArgumentException("Class is of unsupported kind.");
+
         return new DefaultColumnMapper<>(ensureValidKind(cls),
                 Arrays.stream(cls.getDeclaredFields()).collect(Collectors.toMap(Field::getName, Field::getName)));
     }
@@ -69,7 +72,10 @@ public interface Mapper<T> {
      * @throws IllegalArgumentException If class is of unsupported kind. E.g. inner, anonymous or local.
      */
     static <O> MapperBuilder<O> buildFrom(Class<O> cls) {
-        return new MapperBuilder<>(ensureDefaultConsturctor(ensureValidKind(cls)));
+        if (cls.isArray() || cls.isInterface() || Modifier.isAbstract(cls.getModifiers()))
+            throw new IllegalArgumentException("Class is of unsupported kind.");
+
+        return new MapperBuilder<>(ensureDefaultConstructor(ensureValidKind(cls)));
     }
 
     /**
@@ -81,7 +87,7 @@ public interface Mapper<T> {
      */
     private static <O> Class<O> ensureValidKind(Class<O> cls) {
         if (cls.isAnonymousClass() || cls.isLocalClass() || cls.isSynthetic() || cls.isPrimitive()
-                || (cls.isMemberClass() && !Modifier.isStatic(cls.getModifiers()))) {
+                || cls.isEnum() || cls.isAnnotation() || (cls.isMemberClass() && !Modifier.isStatic(cls.getModifiers()) )) {
             throw new IllegalArgumentException("Class is of unsupported kind.");
         }
 
@@ -95,7 +101,7 @@ public interface Mapper<T> {
      * @return {@code cls} if it is valid.
      * @throws IllegalArgumentException If {@code cls} can't be used in mapping.
      */
-    static <O> Class<O> ensureDefaultConsturctor(Class<O> cls) {
+    static <O> Class<O> ensureDefaultConstructor(Class<O> cls) {
         try {
             cls.getDeclaredConstructor();
 
