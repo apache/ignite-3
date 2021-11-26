@@ -21,11 +21,10 @@ import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
-import org.apache.ignite.internal.schema.marshaller.Serializer;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 
 /**
- * Generate {@link Serializer} method's bodies for simple types.
+ * Generate marshaller method's bodies for simple types.
  */
 class IdentityMarshallerCodeGenerator implements MarshallerCodeGenerator {
     /** Object field access expression generator. */
@@ -59,13 +58,13 @@ class IdentityMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
     /** {@inheritDoc} */
     @Override
-    public BytecodeNode getValue(ParameterizedType type, Variable key, int i) {
+    public BytecodeNode getValue(ParameterizedType marshallerClass, Variable key, int i) {
         return key;
     }
 
     /** {@inheritDoc} */
     @Override
-    public BytecodeNode marshallObject(ParameterizedType serializerClass, Variable asm, Variable obj) {
+    public BytecodeNode marshallObject(ParameterizedType marshallerClass, Variable asm, Variable obj) {
         return asm.invoke(columnAccessor.writeMethodName(), RowAssembler.class, obj.cast(columnAccessor.writeArgType()));
     }
 

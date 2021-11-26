@@ -20,7 +20,6 @@ package org.apache.ignite.internal.schema.marshaller.reflection;
 import java.util.Arrays;
 import java.util.Objects;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.marshaller.BinaryMode;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
@@ -77,40 +76,6 @@ public abstract class Marshaller {
         }
 
         return new ObjectMarshaller(new ObjectFactory<>(mapper.targetType()), columnBindings);
-    }
-
-    /**
-     * Creates a marshaller for class.
-     *
-     * @param cols Columns.
-     * @param cls  Type.
-     * @return Marshaller.
-     */
-    //TODO: IGNITE-15907 drop
-    @Deprecated
-    public static Marshaller createMarshaller(Columns cols, Class<?> cls) {
-        final BinaryMode mode = MarshallerUtil.mode(cls);
-
-        if (mode != BinaryMode.POJO) {
-            final Column col = cols.column(0);
-
-            assert cols.length() == 1;
-            assert mode.typeSpec() == col.type().spec() : "Target type is not compatible.";
-            assert !cls.isPrimitive() : "Non-nullable types are not allowed.";
-
-            return new SimpleMarshaller(ColumnBinding.createIdentityBinding(col, cls));
-        }
-
-        ColumnBinding[] fieldAccessors = new ColumnBinding[cols.length()];
-
-        // Build accessors
-        for (int i = 0; i < cols.length(); i++) {
-            final Column col = cols.column(i);
-
-            fieldAccessors[i] = ColumnBinding.createFieldBinding(col, cls, col.name());
-        }
-
-        return new ObjectMarshaller(new ObjectFactory<>(cls), fieldAccessors);
     }
 
     /**
