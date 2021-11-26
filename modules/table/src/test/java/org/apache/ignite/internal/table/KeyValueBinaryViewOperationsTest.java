@@ -64,8 +64,7 @@ public class KeyValueBinaryViewOperationsTest {
         TxManagerImpl txManager = new TxManagerImpl(clusterService, new HeapLockManager());
 
         return new DummyInternalTableImpl(
-                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(),
-                        txManager), txManager);
+                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
     }
 
     @Test

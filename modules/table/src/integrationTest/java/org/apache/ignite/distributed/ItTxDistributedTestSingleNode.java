@@ -54,7 +54,6 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
@@ -80,7 +79,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
-    private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
+    private static final TestScaleCubeClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
@@ -401,7 +400,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         } else if (t == customers) {
             clients = custRaftClients;
         } else {
-            fail("Unknown table " + t.tableName());
+            fail("Unknown table " + t.name());
         }
 
         TxManager manager = txManagers
@@ -420,7 +419,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         for (Map.Entry<ClusterNode, Loza> entry : raftServers.entrySet()) {
             Loza svc = (Loza) entry.getValue();
             JraftServerImpl server = (JraftServerImpl) svc.server();
-            org.apache.ignite.raft.jraft.RaftGroupService grp = server.raftGroupService(table.tableName() + "-part-" + partId);
+            org.apache.ignite.raft.jraft.RaftGroupService grp = server.raftGroupService(table.name() + "-part-" + partId);
             JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) grp
                     .getRaftNode().getOptions().getFsm();
             PartitionListener listener = (PartitionListener) fsm.getListener();
