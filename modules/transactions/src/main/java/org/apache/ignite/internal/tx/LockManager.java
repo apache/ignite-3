@@ -22,8 +22,9 @@ import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Lock manager allows to acquire locks in shared and exclusive mode and supports deadlock
- * prevention by timestamp ordering.
+ * Lock manager allows to acquire locks in shared and exclusive mode and supports deadlock prevention by timestamp ordering.
+ *
+ * @see Timestamp
  */
 public interface LockManager {
     /**

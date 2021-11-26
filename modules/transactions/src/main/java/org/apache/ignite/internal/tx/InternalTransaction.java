@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx;
 import java.util.Set;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -32,7 +33,7 @@ public interface InternalTransaction extends Transaction {
      *
      * @return The timestamp.
      */
-    Timestamp timestamp();
+    @NotNull Timestamp timestamp();
 
     /**
      * Returns a set of enlisted partition groups.

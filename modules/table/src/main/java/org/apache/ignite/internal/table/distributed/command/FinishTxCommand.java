@@ -26,13 +26,13 @@ public class FinishTxCommand implements WriteCommand {
     private final Timestamp timestamp;
 
     /** Commit or rollback state. */
-    private boolean finish;
+    private final boolean finish;
 
     /**
      * The constructor.
      *
      * @param timestamp The timestamp.
-     * @param finish Commit or rollback state {@code True} to commit.
+     * @param finish    Commit or rollback state {@code True} to commit.
      */
     public FinishTxCommand(Timestamp timestamp, boolean finish) {
         this.timestamp = timestamp;

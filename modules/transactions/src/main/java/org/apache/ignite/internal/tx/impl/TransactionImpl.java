@@ -33,6 +33,7 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -45,7 +46,7 @@ public class TransactionImpl implements InternalTransaction {
     private static final IgniteLogger LOG = IgniteLogger.forClass(TransactionImpl.class);
 
     /** The timestamp. */
-    private final Timestamp timestamp;
+    private @NotNull final Timestamp timestamp;
 
     /** The transaction manager. */
     private final TxManager txManager;
@@ -64,15 +65,16 @@ public class TransactionImpl implements InternalTransaction {
      *
      * @param txManager The tx managert.
      * @param timestamp The timestamp.
-     * @param address The local address.
+     * @param address   The local address.
      */
-    public TransactionImpl(TxManager txManager, Timestamp timestamp, NetworkAddress address) {
+    public TransactionImpl(TxManager txManager, @NotNull Timestamp timestamp, NetworkAddress address) {
         this.txManager = txManager;
         this.timestamp = timestamp;
         this.address = address;
     }
 
     /** {@inheritDoc} */
+    @NotNull
     @Override
     public Timestamp timestamp() {
         return timestamp;

@@ -30,17 +30,18 @@ import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The timestamp. Has the following structure:
+ * A timestamp implementation. Timestamps are used to order transactions and perform conflict resolution.
  *
- * <p>Local Time(48 bit) Local counter (16 bit) Local node id (48 bits) Not used (16 bits)
+ * <p>The timestamp has the following structure:
+ *
+ * <p>Epoch time(48 bit), Local counter (16 bit), Local node id (48 bits), Reserved (16 bits)
  */
 public class Timestamp implements Comparable<Timestamp>, Serializable {
     /** Serial version. */
     private static final long serialVersionUID = 1L;
 
     /** Epoch start for the generation purposes. */
-    private static final long EPOCH = LocalDateTime.of(2021, 1, 1, 0, 0, 0)
-            .toInstant(ZoneOffset.UTC).toEpochMilli();
+    private static final long EPOCH = LocalDateTime.of(2021, 1, 1, 0, 0, 0).toInstant(ZoneOffset.UTC).toEpochMilli();
 
     /** A max value for a counter before rollover. */
     public static final short MAX_CNT = Short.MAX_VALUE;
@@ -64,7 +65,7 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
      * The constructor.
      *
      * @param timestamp The timestamp.
-     * @param nodeId Node id.
+     * @param nodeId    Node id.
      */
     public Timestamp(long timestamp, long nodeId) {
         this.timestamp = timestamp;
@@ -74,11 +75,8 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
     /** {@inheritDoc} */
     @Override
     public int compareTo(@NotNull Timestamp other) {
-        return (this.timestamp < other.timestamp ? -1 :
-                (this.timestamp > other.timestamp ? 1 :
-                        (this.nodeId < other.nodeId ? -1 :
-                                (this.nodeId > other.nodeId ? 1 :
-                                        0))));
+        return (this.timestamp < other.timestamp ? -1 : (this.timestamp > other.timestamp ? 1 :
+                (this.nodeId < other.nodeId ? -1 : (this.nodeId > other.nodeId ? 1 : 0))));
     }
 
     /**
@@ -175,17 +173,17 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
             InetAddress localHost = InetAddress.getLocalHost();
 
             NetworkInterface iface = NetworkInterface.getByInetAddress(localHost);
-            
+
             byte[] bytes = null;
-            
+
             if (iface != null) {
                 bytes = iface.getHardwareAddress();
             }
-    
+
             if (bytes == null) {
                 ThreadLocalRandom.current().nextBytes(bytes = new byte[Byte.SIZE]);
             }
-    
+
             ByteBuffer buffer = ByteBuffer.allocate(Byte.SIZE);
             buffer.put(bytes);
 

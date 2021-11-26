@@ -450,7 +450,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * TODO asch keep the same order as for keys Collects multirow responses from multiple futures into a single collection.
+     * TODO asch keep the same order as for keys Collects multirow responses from multiple futures into a single collection IGNITE-16004.
      *
      * @param futs Futures.
      * @return Row collection.
@@ -492,7 +492,7 @@ public class InternalTableImpl implements InternalTable {
      * Enlists a partition.
      *
      * @param partId Partition id.
-     * @param tx The transaction.
+     * @param tx     The transaction.
      * @return The enlist future (then will a leader become known).
      */
     protected CompletableFuture<RaftGroupService> enlist(int partId, InternalTransaction tx) {

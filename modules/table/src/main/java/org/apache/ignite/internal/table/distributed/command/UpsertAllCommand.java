@@ -21,6 +21,7 @@ import java.util.Collection;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * The command puts a batch rows.
@@ -29,10 +30,12 @@ public class UpsertAllCommand extends MultiKeyCommand implements WriteCommand {
     /**
      * Creates a new instance of UpsertAllCommand with the given rows to be upserted. The {@code rows} should not be {@code null} or empty.
      *
-     * @param rows Binary rows.
+     * @param rows      Binary rows.
      * @param timestamp The timestamp.
+     *
+     * @see TransactionalCommand
      */
-    public UpsertAllCommand(Collection<BinaryRow> rows, Timestamp timestamp) {
+    public UpsertAllCommand(@NotNull Collection<BinaryRow> rows, @NotNull Timestamp timestamp) {
         super(rows, timestamp);
     }
 }

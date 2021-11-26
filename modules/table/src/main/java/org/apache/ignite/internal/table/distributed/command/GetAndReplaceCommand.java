@@ -30,10 +30,12 @@ public class GetAndReplaceCommand extends SingleKeyCommand implements WriteComma
      * Creates a new instance of GetAndReplaceCommand with the given row to be got and replaced. The {@code row} should not be {@code
      * null}.
      *
-     * @param row Binary row.
+     * @param row       Binary row.
      * @param timestamp The timestamp.
+     *
+     * @see TransactionalCommand
      */
-    public GetAndReplaceCommand(@NotNull BinaryRow row, Timestamp timestamp) {
+    public GetAndReplaceCommand(@NotNull BinaryRow row, @NotNull Timestamp timestamp) {
         super(row, timestamp);
     }
 }

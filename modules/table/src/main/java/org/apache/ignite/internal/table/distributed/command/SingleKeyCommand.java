@@ -21,6 +21,7 @@ import java.io.Serializable;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.tx.Timestamp;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * A single key transactional command.
@@ -30,7 +31,7 @@ public abstract class SingleKeyCommand implements TransactionalCommand, Serializ
     private transient BinaryRow keyRow;
 
     /** The timestamp. */
-    private final Timestamp timestamp;
+    private @NotNull final Timestamp timestamp;
 
     /*
      * Row bytes.
@@ -42,10 +43,10 @@ public abstract class SingleKeyCommand implements TransactionalCommand, Serializ
     /**
      * The constructor.
      *
-     * @param keyRow The row.
+     * @param keyRow    The row.
      * @param timestamp The timestamp.
      */
-    public SingleKeyCommand(BinaryRow keyRow, Timestamp timestamp) {
+    public SingleKeyCommand(@NotNull BinaryRow keyRow, @NotNull Timestamp timestamp) {
         assert keyRow != null;
 
         this.keyRow = keyRow;
@@ -72,6 +73,7 @@ public abstract class SingleKeyCommand implements TransactionalCommand, Serializ
      *
      * @return The timestamp.
      */
+    @NotNull
     @Override
     public Timestamp getTimestamp() {
         return timestamp;

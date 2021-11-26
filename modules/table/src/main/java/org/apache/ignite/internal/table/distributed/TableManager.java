@@ -102,11 +102,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Table manager.
  */
-public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTables, IgniteTablesInternal,
-        IgniteComponent {
-    /**
-     * The logger.
-     */
+public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTables, IgniteTablesInternal, IgniteComponent {
+    /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(TableManager.class);
 
     private static final int INITIAL_SCHEMA_VERSION = 1;
@@ -155,12 +152,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Creates a new table manager.
      *
-     * @param tablesCfg Tables configuration.
-     * @param dataStorageCfg Data storage configuration.
-     * @param raftMgr Raft manager.
-     * @param baselineMgr Baseline manager.
+     * @param tablesCfg          Tables configuration.
+     * @param dataStorageCfg     Data storage configuration.
+     * @param raftMgr            Raft manager.
+     * @param baselineMgr        Baseline manager.
      * @param partitionsStoreDir Partitions store directory.
-     * @param txManager TX manager.
+     * @param txManager          TX manager.
      */
     public TableManager(
             TablesConfiguration tablesCfg,
@@ -436,7 +433,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Creates local structures for a table.
      *
-     * @param name Table name.
+     * @param name  Table name.
      * @param tblId Table id.
      * @param assignment Affinity assignment.
      */
@@ -564,7 +561,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Return table schema of certain version from history.
      *
-     * @param tblId Table id.
+     * @param tblId     Table id.
      * @param schemaVer Schema version.
      * @return Schema descriptor.
      */
@@ -594,7 +591,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     return false;
                 }
 
-                @Override public void remove(@NotNull Throwable exception) {
+                @Override
+                public void remove(@NotNull Throwable exception) {
                     fur.completeExceptionally(exception);
                 }
             };
@@ -619,10 +617,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Gets a schema descriptor from the local node configuration storage.
      *
      * @param schemaVer Schema version.
-     * @param tblCfg Table configuration.
+     * @param tblCfg    Table configuration.
      * @return Schema descriptor.
      */
-    @NotNull private SchemaDescriptor getSchemaDescriptorLocally(int schemaVer, ExtendedTableConfiguration tblCfg) {
+    @NotNull
+    private SchemaDescriptor getSchemaDescriptorLocally(int schemaVer, ExtendedTableConfiguration tblCfg) {
         SchemaConfiguration schemaCfg = tblCfg.schemas().get(String.valueOf(schemaVer));
 
         assert schemaCfg != null;
@@ -633,7 +632,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Drops local structures for a table.
      *
-     * @param name Table name.
+     * @param name  Table name.
      * @param tblId Table id.
      * @param assignment Affinity assignment.
      */
@@ -696,8 +695,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param name Table name.
      * @param tableInitChange Table configuration.
-     * @param exceptionWhenExist If the value is {@code true}, an exception will be thrown when the table already exists, {@code false}
-     *     means the existing table will be returned.
+     * @param exceptionWhenExist If the value is {@code true}, an exception will be thrown when the table already exists, {@code
+     *         false} means the existing table will be returned.
      * @return A table instance.
      */
     private CompletableFuture<Table> createTableAsync(
@@ -1086,7 +1085,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Checks that the schema is configured in the Metasorage consensus.
      *
-     * @param tblId     Table id.
+     * @param tblId Table id.
      * @param schemaVer Schema version.
      * @return True when the schema configured, false otherwise.
      */

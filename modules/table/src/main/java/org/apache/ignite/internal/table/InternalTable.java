@@ -208,7 +208,7 @@ public interface InternalTable extends AutoCloseable {
      * @param tx The transaction.
      * @return {@link Publisher} that reactively notifies about partition rows.
      */
-    Publisher<BinaryRow> scan(int p, InternalTransaction tx);
+    @NotNull Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx);
 
     /**
      * Gets a count of partitions of the table.

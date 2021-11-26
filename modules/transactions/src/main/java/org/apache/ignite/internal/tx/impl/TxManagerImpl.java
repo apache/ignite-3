@@ -104,8 +104,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         states.put(ts, TxState.PENDING);
 
-        return new TransactionImpl(this, ts,
-                clusterService.topologyService().localMember().address());
+        return new TransactionImpl(this, ts, clusterService.topologyService().localMember().address());
     }
 
     /** {@inheritDoc} */

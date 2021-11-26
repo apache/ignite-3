@@ -52,16 +52,16 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     /**
      * Constructor.
      *
-     * @param tbl       Table.
+     * @param tbl       The table.
      * @param schemaReg Table schema registry.
      * @param tblMgr    Table manager.
      * @param tx        The transaction.
      */
     public RecordBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg, TableManager tblMgr, @Nullable Transaction tx) {
         super(tbl, schemaReg, tx);
-        
+
         marsh = new TupleMarshallerImpl(schemaReg);
-        
+
         this.tblMgr = tblMgr;
     }
 
@@ -296,7 +296,8 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllExactAsync(@NotNull Collection<Tuple> recs) {
+    @Override
+    public @NotNull CompletableFuture<Collection<Tuple>> deleteAllExactAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
         return tbl.deleteAllExact(mapToBinary(recs, false), tx).thenApply(this::wrap);
@@ -341,7 +342,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     /**
      * Marshal a tuple to a row.
      *
-     * @param tuple   Tuple.
+     * @param tuple   The tuple.
      * @param keyOnly Marshal key part only if {@code true}, otherwise marshal both, key and value parts.
      * @return Row.
      * @throws IgniteException If failed to marshal tuple.
@@ -390,7 +391,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
      * Maps a collection of tuples to binary rows.
      *
      * @param rows Tuples.
-     * @param key [@code True} to marshal only a key.
+     * @param key  {@code true} to marshal only a key.
      * @return List of binary rows.
      */
     private Collection<BinaryRow> mapToBinary(Collection<Tuple> rows, boolean key) {

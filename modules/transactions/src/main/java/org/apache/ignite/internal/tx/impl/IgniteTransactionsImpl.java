@@ -27,7 +27,7 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 
 /**
- * Transaction's facade implementation.
+ * Transactions facade implementation.
  */
 public class IgniteTransactionsImpl implements IgniteTransactions {
     private final TxManager txManager;

@@ -27,7 +27,7 @@ import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 
 /**
- * A transaction manager extension for Ignite tables.
+ * Transaction manager extension for Ignite tables.
  *
  * <p>Uses raft protocol to replicate tx finish state for a partition group.
  */

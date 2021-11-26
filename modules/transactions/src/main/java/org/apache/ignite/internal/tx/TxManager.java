@@ -49,9 +49,9 @@ public interface TxManager extends IgniteComponent {
     /**
      * Atomically changes the state of a transaction.
      *
-     * @param ts The timestamp.
+     * @param ts     The timestamp.
      * @param before Before state.
-     * @param after After state.
+     * @param after  After state.
      * @return {@code True} if a state was changed.
      */
     boolean changeState(Timestamp ts, @Nullable TxState before, TxState after);
@@ -82,9 +82,9 @@ public interface TxManager extends IgniteComponent {
     /**
      * Acqures a write lock.
      *
-     * @param lockId Table ID.
+     * @param lockId  Table ID.
      * @param keyData The key data.
-     * @param ts The timestamp.
+     * @param ts      The timestamp.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
@@ -93,9 +93,9 @@ public interface TxManager extends IgniteComponent {
     /**
      * Acqures a read lock.
      *
-     * @param lockId Lock id.
+     * @param lockId  Lock id.
      * @param keyData The key data.
-     * @param ts The timestamp.
+     * @param ts      The timestamp.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
@@ -113,8 +113,8 @@ public interface TxManager extends IgniteComponent {
     /**
      * Finishes a dependant remote transactions.
      *
-     * @param ts The timestamp.
-     * @param addr The address.
+     * @param ts     The timestamp.
+     * @param addr   The address.
      * @param commit {@code True} if a commit requested.
      * @param groups Enlisted partition groups.
      */

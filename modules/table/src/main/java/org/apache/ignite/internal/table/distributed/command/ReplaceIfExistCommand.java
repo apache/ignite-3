@@ -29,10 +29,12 @@ public class ReplaceIfExistCommand extends SingleKeyCommand implements WriteComm
     /**
      * Creates a new instance of ReplaceIfExistCommand with the given row to be replaced. The {@code row} should not be {@code null}.
      *
-     * @param row Binary row.
+     * @param row       Binary row.
      * @param timestamp The timestamp.
+     *
+     * @see TransactionalCommand
      */
-    public ReplaceIfExistCommand(@NotNull BinaryRow row, Timestamp timestamp) {
+    public ReplaceIfExistCommand(@NotNull BinaryRow row, @NotNull Timestamp timestamp) {
         super(row, timestamp);
     }
 }

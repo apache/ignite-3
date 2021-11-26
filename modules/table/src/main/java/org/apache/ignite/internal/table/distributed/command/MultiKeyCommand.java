@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * A multi key transactional command.
@@ -31,7 +32,7 @@ public abstract class MultiKeyCommand implements TransactionalCommand, Serializa
     private transient Collection<BinaryRow> rows;
 
     /** The timestamp. */
-    private Timestamp timestamp;
+    private @NotNull Timestamp timestamp;
 
     /*
      * Row bytes.
@@ -44,9 +45,9 @@ public abstract class MultiKeyCommand implements TransactionalCommand, Serializa
      * The constructor.
      *
      * @param rows Rows.
-     * @param ts The timestamp.
+     * @param ts   The timestamp.
      */
-    public MultiKeyCommand(Collection<BinaryRow> rows, Timestamp ts) {
+    public MultiKeyCommand(@NotNull Collection<BinaryRow> rows, @NotNull Timestamp ts) {
         assert rows != null && !rows.isEmpty();
         this.rows = rows;
         this.timestamp = ts;
@@ -74,6 +75,7 @@ public abstract class MultiKeyCommand implements TransactionalCommand, Serializa
      *
      * @return The timestamp.
      */
+    @NotNull
     @Override
     public Timestamp getTimestamp() {
         return timestamp;

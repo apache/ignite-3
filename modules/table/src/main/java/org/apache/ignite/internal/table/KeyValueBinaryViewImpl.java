@@ -44,29 +44,25 @@ import org.jetbrains.annotations.Nullable;
  * Key-value view implementation for binary user-object representation.
  */
 public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValueView<Tuple, Tuple> {
-    /**
-     * Marshaller.
-     */
+    /** The marshaller. */
     private final TupleMarshallerImpl marsh;
 
-    /**
-     * Table manager.
-     */
+    /** Table manager. */
     private final TableManager tblMgr;
 
     /**
-     * Constructor.
+     * The constructor.
      *
-     * @param tbl Table storage.
+     * @param tbl       Table storage.
      * @param schemaReg Schema registry.
-     * @param tblMgr Table manager.
-     * @param tx The transaction.
+     * @param tblMgr    Table manager.
+     * @param tx        The transaction.
      */
     public KeyValueBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg, TableManager tblMgr, Transaction tx) {
         super(tbl, schemaReg, tx);
 
         this.tblMgr = tblMgr;
-        
+
         marsh = new TupleMarshallerImpl(schemaReg);
     }
 

@@ -77,8 +77,7 @@ public class KeyValueBinaryViewOperationsTest {
         );
 
         KeyValueView<Tuple, Tuple> tbl =
-                new KeyValueBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null,
-                        null);
+                new KeyValueBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple val = Tuple.create().set("val", 11L);
@@ -118,8 +117,7 @@ public class KeyValueBinaryViewOperationsTest {
         );
 
         KeyValueView<Tuple, Tuple> tbl =
-                new KeyValueBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null,
-                        null);
+                new KeyValueBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple val = Tuple.create().set("val", 11L);
@@ -149,8 +147,7 @@ public class KeyValueBinaryViewOperationsTest {
         );
 
         KeyValueView<Tuple, Tuple> tbl =
-                new KeyValueBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null,
-                        null);
+                new KeyValueBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple val = Tuple.create().set("val", 11L);
@@ -217,8 +214,7 @@ public class KeyValueBinaryViewOperationsTest {
         );
 
         KeyValueView<Tuple, Tuple> tbl =
-                new KeyValueBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null,
-                        null);
+                new KeyValueBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple key2 = Tuple.create().set("id", 2L);
@@ -258,8 +254,7 @@ public class KeyValueBinaryViewOperationsTest {
         );
 
         final KeyValueView<Tuple, Tuple> tbl =
-                new KeyValueBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null,
-                        null);
+                new KeyValueBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple key2 = Tuple.create().set("id", 2L);
@@ -311,8 +306,7 @@ public class KeyValueBinaryViewOperationsTest {
         );
 
         KeyValueView<Tuple, Tuple> tbl =
-                new KeyValueBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null,
-                        null);
+                new KeyValueBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple key2 = Tuple.create().set("id", 2L);
@@ -347,8 +341,7 @@ public class KeyValueBinaryViewOperationsTest {
         );
 
         KeyValueView<Tuple, Tuple> tbl =
-                new KeyValueBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null,
-                        null);
+                new KeyValueBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple key2 = Tuple.create().set("id", 2L);
@@ -407,8 +400,7 @@ public class KeyValueBinaryViewOperationsTest {
             final Object val1 = expected.value(col.name());
             final Object val2 = actual.value(col.name());
 
-            Assertions.assertEquals(val1, val2,
-                    "Key columns equality check failed: colIdx=" + col.schemaIndex());
+            Assertions.assertEquals(val1, val2, "Key columns equality check failed: colIdx=" + col.schemaIndex());
         }
     }
 }

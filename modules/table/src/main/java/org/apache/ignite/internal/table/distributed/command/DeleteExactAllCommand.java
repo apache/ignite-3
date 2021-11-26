@@ -31,10 +31,12 @@ public class DeleteExactAllCommand extends MultiKeyCommand implements WriteComma
      * Creates a new instance of DeleteExactAllCommand with the given set of rows to be deleted. The {@code rows} should not be {@code null}
      * or empty.
      *
-     * @param rows Binary rows.
+     * @param rows      Binary rows.
      * @param timestamp The timestamp.
+     *
+     * @see TransactionalCommand
      */
-    public DeleteExactAllCommand(@NotNull Collection<BinaryRow> rows, Timestamp timestamp) {
+    public DeleteExactAllCommand(@NotNull Collection<BinaryRow> rows, @NotNull Timestamp timestamp) {
         super(rows, timestamp);
     }
 }

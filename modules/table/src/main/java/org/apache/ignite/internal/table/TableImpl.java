@@ -23,10 +23,8 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -51,9 +49,9 @@ public class TableImpl implements Table {
     /**
      * Constructor.
      *
-     * @param tbl Table.
+     * @param tbl       The table.
      * @param schemaReg Table schema registry.
-     * @param tblMgr Table manager.
+     * @param tblMgr    Table manager.
      */
     public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, TableManager tblMgr) {
         this.tbl = tbl;
@@ -76,7 +74,8 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull String tableName() {
+    @Override
+    public @NotNull String tableName() {
         return tbl.tableName();
     }
 
@@ -90,33 +89,27 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public <R> RecordView<R> recordView(Mapper<R> recMapper) {
+    @Override
+    public <R> RecordView<R> recordView(Mapper<R> recMapper) {
         return new RecordViewImpl<>(tbl, schemaReg, recMapper, null);
     }
 
     /** {@inheritDoc} */
-    @Override public RecordView<Tuple> recordView() {
+    @Override
+    public RecordView<Tuple> recordView() {
         return new RecordBinaryViewImpl(tbl, schemaReg, tblMgr, null);
     }
 
     /** {@inheritDoc} */
-    @Override public <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper) {
+    @Override
+    public <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper) {
         return new KeyValueViewImpl<>(tbl, schemaReg, keyMapper, valMapper, null);
     }
 
     /** {@inheritDoc} */
-    @Override public KeyValueView<Tuple, Tuple> keyValueView() {
+    @Override
+    public KeyValueView<Tuple, Tuple> keyValueView() {
         return new KeyValueBinaryViewImpl(tbl, schemaReg, tblMgr, null);
-    }
-
-    /**
-     * Updates internal table raft group service for given partition.
-     *
-     * @param p Partition.
-     * @param raftGrpSvc Raft group service.
-     */
-    public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGrpSvc) {
-        ((InternalTableImpl) tbl).updateInternalTableRaftGroupService(p, raftGrpSvc);
     }
 
     /**

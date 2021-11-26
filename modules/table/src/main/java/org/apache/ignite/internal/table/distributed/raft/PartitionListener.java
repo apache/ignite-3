@@ -93,7 +93,7 @@ public class PartitionListener implements RaftGroupListener {
      * The constructor.
      *
      * @param lockId Lock id.
-     * @param store The storage.
+     * @param store  The storage.
      */
     public PartitionListener(IgniteUuid lockId, VersionedRowStore store) {
         this.lockId = lockId;
@@ -176,7 +176,7 @@ public class PartitionListener implements RaftGroupListener {
      * Attempts to enlist a command into a transaction.
      *
      * @param command The command.
-     * @param clo The closure.
+     * @param clo     The closure.
      * @return {@code true} if a command is compatible with a transaction state or a command is not transactional.
      */
     private boolean tryEnlistIntoTransaction(Command command, CommandClosure<?> clo) {
@@ -201,7 +201,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleGetCommand(CommandClosure<GetCommand> clo) {
-        GetCommand cmd = (GetCommand) clo.command();
+        GetCommand cmd = clo.command();
 
         clo.result(new SingleRowResponse(storage.get(cmd.getRow(), cmd.getTimestamp())));
     }
@@ -228,7 +228,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleInsertCommand(CommandClosure<InsertCommand> clo) {
-        InsertCommand cmd = (InsertCommand) clo.command();
+        InsertCommand cmd = clo.command();
 
         clo.result(storage.insert(cmd.getRow(), cmd.getTimestamp()));
     }
@@ -250,7 +250,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleReplaceCommand(CommandClosure<ReplaceCommand> clo) {
-        ReplaceCommand cmd = ((ReplaceCommand) clo.command());
+        ReplaceCommand cmd = clo.command();
 
         clo.result(storage.replace(cmd.getOldRow(), cmd.getRow(), cmd.getTimestamp()));
     }
@@ -261,7 +261,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleUpsertCommand(CommandClosure<UpsertCommand> clo) {
-        UpsertCommand cmd = (UpsertCommand) clo.command();
+        UpsertCommand cmd = clo.command();
 
         storage.upsert(cmd.getRow(), cmd.getTimestamp());
 
@@ -579,41 +579,30 @@ public class PartitionListener implements RaftGroupListener {
     /**
      * Cursor meta information: origin node id and type.
      */
-    private class CursorMeta {
-        /**
-         * Cursor.
-         */
+    private static class CursorMeta {
+        /** Cursor. */
         private final Cursor<BinaryRow> cursor;
 
-        /**
-         * Id of the node that creates cursor.
-         */
+        /** Id of the node that creates cursor. */
         private final String requesterNodeId;
 
         /**
          * The constructor.
          *
-         * @param cursor Cursor.
+         * @param cursor          The cursor.
          * @param requesterNodeId Id of the node that creates cursor.
          */
-        CursorMeta(
-                Cursor<BinaryRow> cursor,
-                String requesterNodeId
-        ) {
+        CursorMeta(Cursor<BinaryRow> cursor, String requesterNodeId) {
             this.cursor = cursor;
             this.requesterNodeId = requesterNodeId;
         }
 
-        /**
-         * Returns cursor.
-         */
+        /** Returns cursor. */
         public Cursor<BinaryRow> cursor() {
             return cursor;
         }
 
-        /**
-         * Returns id of the node that creates cursor.
-         */
+        /** Returns id of the node that creates cursor. */
         public String requesterNodeId() {
             return requesterNodeId;
         }
