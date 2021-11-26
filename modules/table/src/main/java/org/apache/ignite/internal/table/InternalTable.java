@@ -30,8 +30,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Internal table facade provides low-level methods for table operations. The facade hides
- * TX/replication protocol over table storage abstractions.
+ * Internal table facade provides low-level methods for table operations. The facade hides TX/replication protocol over table storage
+ * abstractions.
  */
 public interface InternalTable extends AutoCloseable {
     /**
@@ -59,7 +59,7 @@ public interface InternalTable extends AutoCloseable {
      * Asynchronously gets a row with same key columns values as given one from the table.
      *
      * @param keyRow Row with key columns set.
-     * @param tx The transaction.
+     * @param tx     The transaction.
      * @return Future representing pending completion of the operation.
      * @throws LockException If a lock can't be acquired by some reason.
      */
@@ -69,17 +69,16 @@ public interface InternalTable extends AutoCloseable {
      * Asynchronously get rows from the table.
      *
      * @param keyRows Rows with key columns set.
-     * @param tx The transaction.
+     * @param tx      The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows,
-            @Nullable InternalTransaction tx);
+    CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows, @Nullable InternalTransaction tx);
 
     /**
      * Asynchronously inserts a row into the table if does not exist or replaces the existed one.
      *
      * @param row Row to insert into the table.
-     * @param tx The transaction.
+     * @param tx  The transaction.
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Void> upsert(BinaryRow row, @Nullable InternalTransaction tx);
@@ -88,17 +87,16 @@ public interface InternalTable extends AutoCloseable {
      * Asynchronously inserts a row into the table if does not exist or replaces the existed one.
      *
      * @param rows Rows to insert into the table.
-     * @param tx The transaction.
+     * @param tx   The transaction.
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows, @Nullable InternalTransaction tx);
 
     /**
-     * Asynchronously inserts a row into the table or replaces if exists and return replaced
-     * previous row.
+     * Asynchronously inserts a row into the table or replaces if exists and return replaced previous row.
      *
      * @param row Row to insert into the table.
-     * @param tx The transaction.
+     * @param tx  The transaction.
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<BinaryRow> getAndUpsert(BinaryRow row, @Nullable InternalTransaction tx);
@@ -107,7 +105,7 @@ public interface InternalTable extends AutoCloseable {
      * Asynchronously inserts a row into the table if not exists.
      *
      * @param row Row to insert into the table.
-     * @param tx The transaction.
+     * @param tx  The transaction.
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Boolean> insert(BinaryRow row, @Nullable InternalTransaction tx);
@@ -116,18 +114,16 @@ public interface InternalTable extends AutoCloseable {
      * Asynchronously insert rows into the table which do not exist, skipping existed ones.
      *
      * @param rows Rows to insert into the table.
-     * @param tx The transaction.
+     * @param tx   The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows,
-            @Nullable InternalTransaction tx);
+    CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows, @Nullable InternalTransaction tx);
 
     /**
-     * Asynchronously replaces an existed row associated with the same key columns values as the
-     * given one has.
+     * Asynchronously replaces an existed row associated with the same key columns values as the given one has.
      *
      * @param row Row to replace with.
-     * @param tx The transaction.
+     * @param tx  The transaction.
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Boolean> replace(BinaryRow row, @Nullable InternalTransaction tx);
@@ -137,28 +133,26 @@ public interface InternalTable extends AutoCloseable {
      *
      * @param oldRow Row to replace.
      * @param newRow Row to replace with.
-     * @param tx The transaction.
+     * @param tx     The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow,
-            @Nullable InternalTransaction tx);
+    CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow, @Nullable InternalTransaction tx);
 
     /**
-     * Asynchronously gets an existed row associated with the same key columns values as the given
-     * one has, then replaces with the given one.
+     * Asynchronously gets an existed row associated with the same key columns values as the given one has, then replaces with the given
+     * one.
      *
      * @param row Row to replace with.
-     * @param tx The transaction.
+     * @param tx  The transaction.
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, @Nullable InternalTransaction tx);
 
     /**
-     * Asynchronously deletes a row with the same key columns values as the given one from the
-     * table.
+     * Asynchronously deletes a row with the same key columns values as the given one from the table.
      *
      * @param keyRow Row with key columns set.
-     * @param tx The transaction.
+     * @param tx     The transaction.
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Boolean> delete(BinaryRow keyRow, @Nullable InternalTransaction tx);
@@ -167,7 +161,7 @@ public interface InternalTable extends AutoCloseable {
      * Asynchronously deletes given row from the table.
      *
      * @param oldRow Row to delete.
-     * @param tx The transaction.
+     * @param tx     The transaction.
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Boolean> deleteExact(BinaryRow oldRow, @Nullable InternalTransaction tx);
@@ -176,31 +170,28 @@ public interface InternalTable extends AutoCloseable {
      * Asynchronously gets then deletes a row with the same key columns values from the table.
      *
      * @param row Row with key columns set.
-     * @param tx The transaction.
+     * @param tx  The transaction.
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<BinaryRow> getAndDelete(BinaryRow row, @Nullable InternalTransaction tx);
 
     /**
-     * Asynchronously remove rows with the same key columns values as the given one has from the
-     * table.
+     * Asynchronously remove rows with the same key columns values as the given one has from the table.
      *
      * @param rows Rows with key columns set.
-     * @param tx The transaction.
+     * @param tx   The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows,
-            @Nullable InternalTransaction tx);
+    CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows, @Nullable InternalTransaction tx);
 
     /**
      * Asynchronously remove given rows from the table.
      *
      * @param rows Rows to delete.
-     * @param tx The transaction.
+     * @param tx   The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows,
-            @Nullable InternalTransaction tx);
+    CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows, @Nullable InternalTransaction tx);
 
     /**
      * Returns a partition for a key.
@@ -211,10 +202,9 @@ public interface InternalTable extends AutoCloseable {
     int partition(BinaryRow keyRow);
 
     /**
-     * Scans given partition, providing {@link Publisher} that reactively notifies about partition
-     * rows.
+     * Scans given partition, providing {@link Publisher} that reactively notifies about partition rows.
      *
-     * @param p The partition.
+     * @param p  The partition.
      * @param tx The transaction.
      * @return {@link Publisher} that reactively notifies about partition rows.
      */
@@ -231,8 +221,7 @@ public interface InternalTable extends AutoCloseable {
      * Gets a list of current table assignments.
      *
      * <p>Returns a list where on the i-th place resides a node id that considered as a leader for
-     * the i-th partition on the moment of
-     * invocation.
+     * the i-th partition on the moment of invocation.
      *
      * @return List of current assignments.
      */

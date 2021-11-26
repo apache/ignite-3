@@ -21,7 +21,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -73,16 +75,33 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
      */
     private final Map<PartitionListener, Path> paths = new ConcurrentHashMap<>();
 
+    private final List<TxManager> managers = new ArrayList<>();
+
+    @Override
+    public void afterTest() throws Exception {
+        super.afterTest();
+
+        for (TxManager txManager : managers) {
+            txManager.stop();
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public void beforeFollowerStop(RaftGroupService service) throws Exception {
+        TxManagerImpl txManager = new TxManagerImpl(clientService(), new HeapLockManager());
+
+        managers.add(txManager);
+
+        txManager.start();
+
         var table = new InternalTableImpl(
                 "table",
                 new IgniteUuid(UUID.randomUUID(), 0),
                 Map.of(0, service),
                 1,
                 NetworkAddress::toString,
-                new TxManagerImpl(clientService(), new HeapLockManager()),
+                txManager,
                 mock(TableStorage.class)
         );
 
@@ -93,6 +112,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void afterFollowerStop(RaftGroupService service) throws Exception {
         TxManagerImpl txManager = new TxManagerImpl(clientService(), new HeapLockManager());
+
+        managers.add(txManager);
 
         txManager.start();
 
@@ -120,6 +141,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     public void afterSnapshot(RaftGroupService service) throws Exception {
         TxManager txManager = new TxManagerImpl(clientService(), new HeapLockManager());
 
+        managers.add(txManager);
+
         txManager.start();
 
         var table = new InternalTableImpl(
@@ -141,8 +164,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override
-    public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted,
-            boolean interactedAfterSnapshot) {
+    public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted, boolean interactedAfterSnapshot) {
         VersionedRowStore storage = getListener(restarted, raftGroupId()).getStorage();
 
         Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;

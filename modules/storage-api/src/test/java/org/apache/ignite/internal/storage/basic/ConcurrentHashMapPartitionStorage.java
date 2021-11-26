@@ -100,8 +100,7 @@ public class ConcurrentHashMapPartitionStorage implements PartitionStorage {
     @Override
     public Collection<DataRow> insertAll(List<? extends DataRow> rows) throws StorageException {
         return rows.stream()
-                .map(row -> map.putIfAbsent(new ByteArray(row.keyBytes()), row.valueBytes()) == null
-                        ? null : row)
+                .map(row -> map.putIfAbsent(new ByteArray(row.keyBytes()), row.valueBytes()) == null ? null : row)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
