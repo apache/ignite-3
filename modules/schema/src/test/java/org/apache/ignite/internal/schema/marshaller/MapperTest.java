@@ -150,7 +150,7 @@ public class MapperTest {
      * Test object.
      */
     @SuppressWarnings({"InstanceVariableMayNotBeInitialized", "unused"})
-    static abstract class AbstractTestObject {
+    abstract static class AbstractTestObject {
         private long id;
     }
 

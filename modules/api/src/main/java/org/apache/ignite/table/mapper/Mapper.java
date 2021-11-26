@@ -44,8 +44,9 @@ public interface Mapper<T> {
     // So, method must be dropped or it's purpose must be clearly described.
     //TODO: IGNITE-15787 Maybe, the method must be used only for annotation mapper purposes.
     static <O> Mapper<O> of(Class<O> cls) {
-        if (cls.isArray() || cls.isInterface() || Modifier.isAbstract(cls.getModifiers()))
+        if (cls.isArray() || cls.isInterface() || Modifier.isAbstract(cls.getModifiers())) {
             throw new IllegalArgumentException("Class is of unsupported kind.");
+        }
 
         return new DefaultColumnMapper<>(ensureValidKind(cls),
                 Arrays.stream(cls.getDeclaredFields()).collect(Collectors.toMap(Field::getName, Field::getName)));
@@ -72,8 +73,9 @@ public interface Mapper<T> {
      * @throws IllegalArgumentException If class is of unsupported kind. E.g. inner, anonymous or local.
      */
     static <O> MapperBuilder<O> buildFrom(Class<O> cls) {
-        if (cls.isArray() || cls.isInterface() || Modifier.isAbstract(cls.getModifiers()))
+        if (cls.isArray() || cls.isInterface() || Modifier.isAbstract(cls.getModifiers())) {
             throw new IllegalArgumentException("Class is of unsupported kind.");
+        }
 
         return new MapperBuilder<>(ensureDefaultConstructor(ensureValidKind(cls)));
     }
@@ -86,8 +88,8 @@ public interface Mapper<T> {
      * @throws IllegalArgumentException If {@code cls} is invalid and can't be used in mapping.
      */
     private static <O> Class<O> ensureValidKind(Class<O> cls) {
-        if (cls.isAnonymousClass() || cls.isLocalClass() || cls.isSynthetic() || cls.isPrimitive()
-                || cls.isEnum() || cls.isAnnotation() || (cls.isMemberClass() && !Modifier.isStatic(cls.getModifiers()) )) {
+        if (cls.isAnonymousClass() || cls.isLocalClass() || cls.isSynthetic() || cls.isPrimitive() || cls.isEnum() || cls.isAnnotation()
+                || (cls.isMemberClass() && !Modifier.isStatic(cls.getModifiers()))) {
             throw new IllegalArgumentException("Class is of unsupported kind.");
         }
 
