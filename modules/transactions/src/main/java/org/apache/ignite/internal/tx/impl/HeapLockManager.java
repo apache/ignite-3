@@ -396,8 +396,8 @@ public class HeapLockManager implements LockManager {
         /** Waiter timestamp. */
         private final Timestamp timestamp;
 
-        /** Upgradede lock. */
-        public boolean upgraded;
+        /** Upgraded lock. */
+        private boolean upgraded;
 
         /** {@code True} if a read request. */
         private boolean forRead;

@@ -746,6 +746,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         CompletableFuture<Void> fut = table3.upsertAsync(makeValue(1, v0 + 10));
         assertFalse(fut.isDone());
 
+        Thread.sleep(300); // Give some time to update lock queue TODO asch IGNITE-15928
+
         table.upsert(makeValue(1, v0 + 20));
 
         CompletableFuture<Tuple> fut2 = table2.getAsync(makeKey(1));
