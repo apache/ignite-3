@@ -52,12 +52,6 @@ class IdentityMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
     /** {@inheritDoc} */
     @Override
-    public Class<?> targetClass() {
-        return targetClass;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public BytecodeNode getValue(ParameterizedType marshallerClass, Variable key, int i) {
         return key;
     }

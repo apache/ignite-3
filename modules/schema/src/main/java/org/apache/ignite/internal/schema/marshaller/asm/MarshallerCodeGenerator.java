@@ -33,13 +33,6 @@ public interface MarshallerCodeGenerator {
     boolean isSimpleType();
 
     /**
-     * Get marshaller target class.
-     *
-     * @return Target class.
-     */
-    Class<?> targetClass();
-
-    /**
      * Returns a code that access a field value of the {@code obj} for an associated column with given index.
      *
      * @param marshallerClass Marshaller class.

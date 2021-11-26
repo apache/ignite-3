@@ -79,12 +79,6 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
     /** {@inheritDoc} */
     @Override
-    public Class<?> targetClass() {
-        return targetClass;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public BytecodeNode getValue(ParameterizedType marshallerClass, Variable obj,
             int i) {
         final ColumnAccessCodeGenerator columnAccessor = columnAccessors[i];
