@@ -169,7 +169,7 @@ public class ItInternalTableScanTest {
                 grpName,
                 new PartitionListener(tblId, new VersionedRowStore(mockStorage, txManager) {
                     @Override
-                    protected Pair<BinaryRow, BinaryRow> versionedRow(@Nullable DataRow row, Timestamp ts) {
+                    protected Pair<BinaryRow, BinaryRow> versionedRow(@Nullable DataRow row, Timestamp timestamp) {
                         return new Pair<>(new ByteBufferRow(row.valueBytes()), null); // Return as is.
                     }
                 }),

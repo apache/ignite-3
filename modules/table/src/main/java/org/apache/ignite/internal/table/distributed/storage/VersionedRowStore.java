@@ -68,12 +68,12 @@ public class VersionedRowStore {
      * Decodes a storage row to a pair where the first is an actual value (visible to a current transaction) and the second is an old value
      * used for rollback.
      *
-     * @param row The row.
-     * @param ts Timestamp ts.
+     * @param row       The row.
+     * @param timestamp Timestamp timestamp.
      * @return Actual value.
      */
-    protected Pair<BinaryRow, BinaryRow> versionedRow(@Nullable DataRow row, Timestamp ts) {
-        return resolve(unpack(row), ts);
+    protected Pair<BinaryRow, BinaryRow> versionedRow(@Nullable DataRow row, Timestamp timestamp) {
+        return resolve(unpack(row), timestamp);
     }
 
     /**
@@ -525,12 +525,12 @@ public class VersionedRowStore {
     /**
      * Resolves a multi-versioned value depending on a viewer's timestamp.
      *
-     * @param val The value.
-     * @param ts The timestamp
+     * @param val        The value.
+     * @param timestamp  The timestamp
      * @return New and old rows pair.
      * @see #versionedRow
      */
-    private Pair<BinaryRow, BinaryRow> resolve(Value val, Timestamp ts) {
+    private Pair<BinaryRow, BinaryRow> resolve(Value val, Timestamp timestamp) {
         if (val.timestamp == null) { // New or after reset.
             assert val.oldRow == null : val;
 
@@ -538,7 +538,7 @@ public class VersionedRowStore {
         }
 
         // Checks "inTx" condition. Will be false if this is a first transactional op.
-        if (val.timestamp.equals(ts)) {
+        if (val.timestamp.equals(timestamp)) {
             return new Pair<>(val.newRow, val.oldRow);
         }
 
@@ -583,7 +583,10 @@ public class VersionedRowStore {
     public Cursor<BinaryRow> scan(Predicate<SearchRow> pred) {
         Cursor<DataRow> delegate = storage.scan(pred);
 
+        // TODO asch add tx support IGNITE-15087.
         return new Cursor<BinaryRow>() {
+            private @Nullable BinaryRow cur = null;
+
             @Override
             public void close() throws Exception {
                 delegate.close();
@@ -597,14 +600,29 @@ public class VersionedRowStore {
 
             @Override
             public boolean hasNext() {
-                return delegate.hasNext();
+                if (cur != null)
+                    return true;
+
+                if (delegate.hasNext()) {
+                    DataRow row = delegate.next();
+
+                    cur = versionedRow(row, null).getFirst();
+
+                    return cur != null ? true : hasNext(); // Skip tombstones.
+                }
+
+                return false;
             }
 
             @Override
             public BinaryRow next() {
-                DataRow row = delegate.next();
+                BinaryRow next = cur;
 
-                return versionedRow(row, null).getFirst(); // TODO asch add tx support.
+                cur = null;
+
+                assert next != null;
+
+                return next;
             }
         };
     }
