@@ -213,13 +213,13 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     public NamedListChange<N, N> createOrUpdate(String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
-    
-        if (map.containsKey(key) && map.get(key).value == null) {
-            throw new IllegalArgumentException("You can't create entity that has just been deleted [key=" + key + ']');
-        }
-        
+
         ElementDescriptor element = map.get(key);
-    
+
+        if (element != null && element.value == null) {
+            throw new IllegalArgumentException("Can't create entity that has just been deleted [key=" + key + ']');
+        }
+
         if (element == null) {
             element = newElementDescriptor();
         
@@ -234,20 +234,40 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         
         return this;
     }
-    
+
+    @Override
+    public NamedListChange<N, N> update(String key, Consumer<N> valConsumer) {
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(valConsumer, "valConsumer");
+
+        ElementDescriptor element = map.get(key);
+
+        if (element == null) {
+            throw new IllegalArgumentException("Element with name " + key + " does not exist.");
+        } else if (element.value == null) {
+            throw new IllegalArgumentException("Can't update entity that has just been deleted [key=" + key + ']');
+        }
+
+        element = element.copy();
+
+        map.put(key, element);
+
+        valConsumer.accept((N) element.value);
+
+        return this;
+    }
+
     /** {@inheritDoc} */
     @Override
     public NamedListChange<N, N> rename(String oldKey, String newKey) {
         Objects.requireNonNull(oldKey, "oldKey");
         Objects.requireNonNull(newKey, "newKey");
-    
-        if (!map.containsKey(oldKey)) {
-            throw new IllegalArgumentException("Element with name " + oldKey + " does not exist.");
-        }
-        
+
         ElementDescriptor element = map.get(oldKey);
-        
-        if (element.value == null) {
+
+        if (element == null) {
+            throw new IllegalArgumentException("Element with name " + oldKey + " does not exist.");
+        } else if (element.value == null) {
             throw new IllegalArgumentException(
                     "Can't rename entity that has just been deleted [key=" + oldKey + ']'
             );
@@ -269,12 +289,14 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
      * @throws IllegalArgumentException If key already exists.
      */
     private void checkNewKey(String key) {
-        if (map.containsKey(key)) {
-            if (map.get(key) == null) {
+        ElementDescriptor element = map.get(key);
+
+        if (element != null) {
+            if (element.value == null) {
                 throw new IllegalArgumentException("You can't create entity that has just been deleted [key=" + key + ']');
+            } else {
+                throw new IllegalArgumentException("Element with name " + key + " already exists.");
             }
-            
-            throw new IllegalArgumentException("Element with name " + key + " already exists.");
         }
     }
     
@@ -282,9 +304,11 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     @Override
     public NamedListChange<N, N> delete(String key) {
         Objects.requireNonNull(key, "key");
-    
-        if (map.containsKey(key)) {
-            map.get(key).value = null;
+
+        ElementDescriptor element = map.get(key);
+
+        if (element != null) {
+            element.value = null;
         }
         
         return this;
@@ -385,11 +409,11 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         if (src == null) {
             delete(key);
         } else {
-            if (map.containsKey(key) && map.get(key).value == null) {
+            ElementDescriptor element = map.get(key);
+
+            if (element != null && element.value == null) {
                 throw new IllegalArgumentException("You can't create entity that has just been deleted [key=" + key + ']');
             }
-        
-            ElementDescriptor element = map.get(key);
         
             if (element == null) {
                 element = newElementDescriptor();

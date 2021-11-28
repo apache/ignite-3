@@ -22,6 +22,7 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.anEmptyMap;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -346,5 +347,29 @@ public class NamedListNodeTest {
         // Deletion of nonexistent elements doesn't break anything.
         b.delete("X");
         b.delete("Y");
+    }
+
+    /**
+     * Tests the {@link NamedListNode#update} method.
+     */
+    @Test
+    public void testUpdate() {
+        var b = new NamedListNode<SecondChange>("name", () -> cgen.instantiateNode(SecondConfigurationSchema.class), null);
+
+        b.create("foo", ch -> ch.changeStr("bar"));
+
+        assertThat(b.get("foo").str(), is(equalTo("bar")));
+
+        b.update("foo", ch -> ch.changeStr("baz"));
+
+        assertThat(b.get("foo").str(), is(equalTo("baz")));
+
+        // updating a non existent key should throw
+        assertThrows(IllegalArgumentException.class, () -> b.update("wrong", ch -> {}));
+
+        b.delete("foo");
+
+        // updating a removed key should throw
+        assertThrows(IllegalArgumentException.class, () -> b.update("foo", ch -> {}));
     }
 }

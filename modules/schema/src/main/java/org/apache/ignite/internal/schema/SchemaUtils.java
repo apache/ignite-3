@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.schema;
 
 import java.util.Optional;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
+import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
@@ -57,49 +59,64 @@ public class SchemaUtils {
             SchemaDescriptor oldDesc,
             TableView oldTbl,
             SchemaDescriptor newDesc,
-            TableView newTbl
+            TableChange newTbl
     ) {
         ColumnMapper mapper = null;
-        
-        for (String s : newTbl.columns().namedListKeys()) {
-            final ColumnView newColView = newTbl.columns().get(s);
-            final ColumnView oldColView = oldTbl.columns().get(s);
-            
-            if (oldColView == null && newColView != null) {
-                final Column newCol = newDesc.column(newColView.name());
-                
-                assert !newDesc.isKeyColumn(newCol.schemaIndex());
-    
-                if (mapper == null) {
-                    mapper = ColumnMapping.createMapper(newDesc);
-                }
-                
-                mapper.add(newCol); // New column added.
-            } else if (newColView != null) {
-                final Column newCol = newDesc.column(newColView.name());
-                final Column oldCol = oldDesc.column(oldColView.name());
-    
+
+        NamedListView<? extends ColumnView> newTblColumns = newTbl.columns();
+        NamedListView<? extends ColumnView> oldTblColumns = oldTbl.columns();
+
+        // since newTblColumns comes from a Change class, it can only be of the same size or larger than the previous configuration,
+        // because removed keys are simply replaced with nulls
+        assert newTblColumns.size() >= oldTblColumns.size();
+
+        for (int i = 0; i < newTblColumns.size(); ++i) {
+            ColumnView newColView = newTblColumns.get(i);
+
+            // new value can be null if a column has been deleted
+            if (newColView == null) {
+                continue;
+            }
+
+            if (i < oldTblColumns.size()) {
+                ColumnView oldColView = oldTblColumns.get(i);
+
+                Column newCol = newDesc.column(newColView.name());
+                Column oldCol = oldDesc.column(oldColView.name());
+
                 if (newCol.schemaIndex() == oldCol.schemaIndex()) {
                     continue;
                 }
-    
+
                 if (mapper == null) {
                     mapper = ColumnMapping.createMapper(newDesc);
                 }
-                
+
                 mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
+            } else {
+                // if the new Named List is larger than the old one, it can only mean that a new column has been added
+                Column newCol = newDesc.column(newColView.name());
+
+                assert !newDesc.isKeyColumn(newCol.schemaIndex());
+
+                if (mapper == null) {
+                    mapper = ColumnMapping.createMapper(newDesc);
+                }
+
+                mapper.add(newCol);
             }
         }
-        
-        final Optional<Column> droppedKeyCol = oldTbl.columns().namedListKeys().stream()
-                .filter(k -> newTbl.columns().get(k) == null)
-                .map(k -> oldDesc.column(oldTbl.columns().get(k).name()))
+
+        // since newTblColumns comes from a TableChange, it will contain nulls for removed columns
+        Optional<Column> droppedKeyCol = newTblColumns.namedListKeys().stream()
+                .filter(k -> newTblColumns.get(k) == null)
+                .map(oldDesc::column)
                 .filter(c -> oldDesc.isKeyColumn(c.schemaIndex()))
                 .findAny();
         
         // TODO: IGNITE-15774 Assertion just in case, proper validation should be implemented with the help of
         // TODO: configuration validators.
-        assert !droppedKeyCol.isPresent() :
+        assert droppedKeyCol.isEmpty() :
                 LoggerMessageHelper.format(
                         "Dropping of key column is forbidden: [schemaVer={}, col={}]",
                         newDesc.version(),
