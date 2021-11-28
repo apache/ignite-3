@@ -42,7 +42,20 @@ import org.jetbrains.annotations.Nullable;
  * is denied.
  *
  * <p>Read lock can be upgraded to write lock (only available for the oldest read-locked entry of
- * the queue)
+ * the queue).
+ *
+ * <p>If a younger read lock was upgraded, it will be invalidated if a oldest read-locked entry was upgraded. This corresponds
+ * to the following scenario:
+ *
+ * <p> v1 = get(k, timestamp1) // timestamp1 < timestamp2
+ *
+ * <p> v2 = get(k, timestamp2)
+ *
+ * <p> put(k, v1, timestamp2) // Upgrades a younger read-lock to write-lock and waits for acquisition.
+ *
+ * <p> put(k, v1, timestamp1) // Upgrades an older read-lock. This will invalidate the younger write-lock.
+ *
+ * @see org.apache.ignite.internal.table.TxAbstractTest#testUpgradedLockInvalidation()
  */
 public class HeapLockManager implements LockManager {
     private ConcurrentHashMap<Object, LockState> locks = new ConcurrentHashMap<>();

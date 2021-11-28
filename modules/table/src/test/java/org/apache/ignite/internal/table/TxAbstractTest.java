@@ -68,6 +68,7 @@ import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -724,6 +725,55 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         });
 
         assertNull(accounts.recordView().get(makeKey(1)));
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15939")
+    public void testRollbackUpgradedLock() throws Exception { // TODO asch IGNITE-15939
+        accounts.recordView().upsert(makeValue(1, 100.));
+
+        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+        InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
+
+        var table = accounts.recordView().withTransaction(tx);
+        var table2 = accounts.recordView().withTransaction(tx2);
+
+        double v0 = table.get(makeKey(1)).doubleValue("balance");
+        double v1 = table2.get(makeKey(1)).doubleValue("balance");
+
+        assertEquals(v0, v1);
+
+        // Try to upgrade a lock.
+        table2.upsertAsync(makeValue(1, v0 + 10));
+        Thread.sleep(300); // Give some time to update lock queue TODO asch IGNITE-15928
+
+        tx2.rollback();
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15938") // TODO asch IGNITE-15938
+    public void testUpgradedLockInvalidation() throws Exception {
+        accounts.recordView().upsert(makeValue(1, 100.));
+
+        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+        InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
+
+        var table = accounts.recordView().withTransaction(tx);
+        var table2 = accounts.recordView().withTransaction(tx2);
+
+        double v0 = table.get(makeKey(1)).doubleValue("balance");
+        double v1 = table2.get(makeKey(1)).doubleValue("balance");
+
+        assertEquals(v0, v1);
+
+        // Try to upgrade a lock.
+        table2.upsertAsync(makeValue(1, v0 + 10));
+        Thread.sleep(300); // Give some time to update lock queue TODO asch IGNITE-15928
+
+        table.upsert(makeValue(1, v0 + 20));
+
+        tx.commit();
+        assertThrows(Exception.class, () -> tx2.commit());
     }
 
     @Test
