@@ -600,8 +600,9 @@ public class VersionedRowStore {
 
             @Override
             public boolean hasNext() {
-                if (cur != null)
+                if (cur != null) {
                     return true;
+                }
 
                 if (delegate.hasNext()) {
                     DataRow row = delegate.next();
