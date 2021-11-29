@@ -51,7 +51,7 @@ class SingleColumnMapper<T> implements Mapper<T> {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable String mappedField(@NotNull String columnName) {
+    public @Nullable String fieldForColumn(@NotNull String columnName) {
         throw new UnsupportedOperationException("Not intended for individual fields mapping.");
     }
 }

@@ -121,8 +121,8 @@ public class MapperTest {
         Mapper<TestObject> mapper = Mapper.of(TestObject.class);
 
         assertNull(mapper.mappedColumn());
-        assertEquals("id", mapper.mappedField("id"));
-        assertNull(mapper.mappedField("val"));
+        assertEquals("id", mapper.fieldForColumn("id"));
+        assertNull(mapper.fieldForColumn("val"));
     }
 
     @Test
@@ -130,8 +130,8 @@ public class MapperTest {
         Mapper<TestObject> mapper = Mapper.of(TestObject.class);
 
         assertNull(mapper.mappedColumn());
-        assertEquals("id", mapper.mappedField("id"));
-        assertNull(mapper.mappedField("val"));
+        assertEquals("id", mapper.fieldForColumn("id"));
+        assertNull(mapper.fieldForColumn("val"));
     }
 
     /**

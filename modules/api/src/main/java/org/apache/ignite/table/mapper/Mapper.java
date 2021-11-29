@@ -122,7 +122,7 @@ public interface Mapper<T> {
 
     /**
      * Returns a column name if the whole object is mapped to the single column, otherwise, returns {@code null} and individual column
-     * mapping (see {@link #mappedField(String)}) should be used.
+     * mapping (see {@link #fieldForColumn(String)}) should be used.
      *
      * @return Column name that a whole object is mapped to, or {@code null}.
      */
@@ -135,5 +135,5 @@ public interface Mapper<T> {
      * @return Field name or {@code null} if no field mapped to a column.
      * @throws IllegalStateException If a whole object is mapped to a single column.
      */
-    @Nullable String mappedField(@NotNull String columnName);
+    @Nullable String fieldForColumn(@NotNull String columnName);
 }

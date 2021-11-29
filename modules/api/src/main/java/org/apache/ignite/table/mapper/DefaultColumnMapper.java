@@ -55,7 +55,7 @@ class DefaultColumnMapper<T> implements Mapper<T> {
     }
 
     /** {@inheritDoc} */
-    @Override public String mappedField(@NotNull String columnName) {
+    @Override public String fieldForColumn(@NotNull String columnName) {
         return mapping.get(columnName);
     }
 }

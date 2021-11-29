@@ -69,7 +69,7 @@ public abstract class Marshaller {
         for (int i = 0; i < cols.length; i++) {
             final Column col = cols[i];
 
-            String fieldName = mapper.mappedField(col.name());
+            String fieldName = mapper.fieldForColumn(col.name());
 
             // TODO: IGNITE-15785 validate key marshaller has no DummyBinding.
             columnBindings[i] = (fieldName == null) ? ColumnBinding.unmappedFieldBinding(col) :
