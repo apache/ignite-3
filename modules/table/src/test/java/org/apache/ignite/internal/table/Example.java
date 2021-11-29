@@ -25,7 +25,11 @@ import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -45,7 +49,10 @@ public class Example {
      * Returns table implementation.
      */
     private static List<Table> tableFactory() {
-        return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(), null, null));
+        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager());
+
+        return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(new VersionedRowStore(
+                new ConcurrentHashMapPartitionStorage(), txManager), txManager), null, null));
     }
 
     /**
@@ -247,7 +254,8 @@ public class Example {
                     BinaryObject binObj = row.binaryObjectValue("conditionalDetails");
                     int type = row.intValue("type");
 
-                    return type == 0 ? BinaryObjects.deserialize(binObj, CreditCard.class)
+                    return type == 0
+                            ? BinaryObjects.deserialize(binObj, CreditCard.class)
                             : BinaryObjects.deserialize(binObj, BankAccount.class);
                 }).build());
 
@@ -284,7 +292,8 @@ public class Example {
         binObj = orderRecord.billingDetails;
 
         // Manual deserialization is possible as well.
-        Object billingDetails = orderRecord.type == 0 ? BinaryObjects.deserialize(binObj, CreditCard.class)
+        Object billingDetails = orderRecord.type == 0
+                ? BinaryObjects.deserialize(binObj, CreditCard.class)
                 : BinaryObjects.deserialize(binObj, BankAccount.class);
     }
 
@@ -351,17 +360,20 @@ public class Example {
             int department;
         }
 
-        RecordView<TruncatedRecord> truncatedView = t
-                .recordView(Mapper.buildFrom(TruncatedRecord.class).map("upgradedObject", JavaPersonV2.class).build());
+        RecordView<TruncatedRecord> truncatedView = t.recordView(
+                Mapper.buildFrom(TruncatedRecord.class)
+                        .map("upgradedObject", JavaPersonV2.class).build());
 
         // Or we can have a custom conditional type selection.
-        RecordView<TruncatedRecord> truncatedView2 = t.recordView(Mapper.buildFrom(TruncatedRecord.class).map("upgradedObject", (row) -> {
-            BinaryObject binObj1 = row.binaryObjectValue("upgradedObject");
-            int dept = row.intValue("department");
+        RecordView<TruncatedRecord> truncatedView2 = t.recordView(
+                Mapper.buildFrom(TruncatedRecord.class)
+                        .map("upgradedObject", (row) -> {
+                            BinaryObject binObj1 = row.binaryObjectValue("upgradedObject");
+                            int dept = row.intValue("department");
 
-            return dept == 0 ? BinaryObjects.deserialize(binObj1, JavaPerson.class)
-                    : BinaryObjects.deserialize(binObj1, JavaPersonV2.class);
-        }).build());
+                            return dept == 0 ? BinaryObjects.deserialize(binObj1, JavaPerson.class)
+                                    : BinaryObjects.deserialize(binObj1, JavaPersonV2.class);
+                        }).build());
     }
 
     /**
@@ -424,8 +436,7 @@ public class Example {
     }
 
     /**
-     * Use case 8: Here we show how to use mapper to represent the same data in different ways.
-     * Single column case is just for simplicity.
+     * Use case 8: Here we show how to use mapper to represent the same data in different ways. Single column case is just for simplicity.
      */
     @Disabled
     @ParameterizedTest

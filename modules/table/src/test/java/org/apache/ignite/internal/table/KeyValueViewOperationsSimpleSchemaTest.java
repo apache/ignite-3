@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.List;
 import java.util.Random;
@@ -34,11 +35,18 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 /**
  * Basic table operations test.
@@ -238,6 +246,8 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         // Remove non-existed KV pair.
         assertFalse(tbl.replace(2L, null));
         assertNull(tbl.get(2L));
+
+        assertThrows(Throwable.class, () -> tbl.replace(null, 33L));
     }
 
     @Test
@@ -245,8 +255,8 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         KeyValueView<Long, Long> tbl = kvView();
 
         // Insert KV pair.
-        assertTrue(tbl.replace(1L, null, 11L));
-        assertEquals(11L, tbl.get(1L));
+        assertThrows(Throwable.class, () -> tbl.replace(1L, null, 11L));
+        assertNull(tbl.get(1L));
         assertNull(tbl.get(2L));
 
         // Ignore replace operation for non-existed KV pair.
@@ -321,6 +331,15 @@ public class KeyValueViewOperationsSimpleSchemaTest {
      * @param valueClass Value class.
      */
     private <T> KeyValueViewImpl<Long, T> kvViewForValueType(NativeType type, Class<T> valueClass) {
+        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.topologyService().localMember().address())
+                .thenReturn(DummyInternalTableImpl.ADDR);
+
+        TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager());
+
+        DummyInternalTableImpl table = new DummyInternalTableImpl(
+                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
+
         Mapper<Long> keyMapper = Mapper.of("id", Long.class);
         Mapper<T> valMapper = Mapper.of("val", valueClass);
 
@@ -331,7 +350,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         );
 
         return new KeyValueViewImpl<>(
-                new DummyInternalTableImpl(),
+                table,
                 new DummySchemaManagerImpl(schema),
                 keyMapper,
                 valMapper,
