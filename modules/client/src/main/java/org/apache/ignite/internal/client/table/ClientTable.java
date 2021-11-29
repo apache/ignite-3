@@ -47,6 +47,7 @@ import org.jetbrains.annotations.Nullable;
  * Client table API implementation.
  */
 public class ClientTable implements Table {
+    /** */
     private final IgniteUuid id;
     
     private final String name;
@@ -414,6 +415,9 @@ public class ClientTable implements Table {
         if (in.tryUnpackNil()) {
             return null;
         }
+        
+        var schemaVersion = in.unpackInt();
+        assert schemaVersion == schema.version();
         
         var keyColCnt = schema.keyColumnCount();
         var colCnt = schema.columns().length;

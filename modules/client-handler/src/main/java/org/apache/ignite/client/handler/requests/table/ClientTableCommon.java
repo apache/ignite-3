@@ -49,9 +49,6 @@ import org.jetbrains.annotations.NotNull;
  * Common table functionality.
  */
 class ClientTableCommon {
-    /** */
-    private static final int DEFAULT_SCHEMA_ID = -1;
-    
     /**
      * Writes a schema.
      *
@@ -175,7 +172,9 @@ class ClientTableCommon {
             return;
         }
     
-        packer.packInt(skipHeader ? DEFAULT_SCHEMA_ID : schema.version());
+        if (!skipHeader) {
+            packer.packInt(schema.version());
+        }
         
         if (part != TuplePart.VAL) {
             for (var col : schema.keyColumns().columns()) {
@@ -193,29 +192,36 @@ class ClientTableCommon {
     /**
      * Writes multiple tuples.
      *
-     * @param packer Packer.
-     * @param tuples Tuples.
+     * @param packer         Packer.
+     * @param tuples         Tuples.
      * @param schemaRegistry The registry.
+     * @param skipHeader     Whether to skip the tuple header.
      * @throws IgniteException on failed serialization.
      */
-    public static void writeTuples(ClientMessagePacker packer, Collection<Tuple> tuples, SchemaRegistry schemaRegistry) {
-        writeTuples(packer, tuples, TuplePart.KEY_AND_VAL, schemaRegistry);
+    public static void writeTuples(
+            ClientMessagePacker packer,
+            Collection<Tuple> tuples,
+            SchemaRegistry schemaRegistry,
+            boolean skipHeader) {
+        writeTuples(packer, tuples, TuplePart.KEY_AND_VAL, schemaRegistry, skipHeader);
     }
     
     /**
      * Writes multiple tuples.
      *
-     * @param packer Packer.
-     * @param tuples Tuples.
-     * @param part   Which part of tuple to write.
+     * @param packer         Packer.
+     * @param tuples         Tuples.
+     * @param part           Which part of tuple to write.
      * @param schemaRegistry The registry.
+     * @param skipHeader     Whether to skip the tuple header.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuples(
             ClientMessagePacker packer,
             Collection<Tuple> tuples,
             TuplePart part,
-            SchemaRegistry schemaRegistry
+            SchemaRegistry schemaRegistry,
+            boolean skipHeader
     ) {
         if (tuples == null || tuples.isEmpty()) {
             packer.packNil();
@@ -234,7 +240,7 @@ class ClientTableCommon {
             }
         
             // TODO: If tuple is null, we can't discern it from a null column when header is skipped.
-            writeTuple(packer, tuple, schema, true, part);
+            writeTuple(packer, tuple, schema, skipHeader, part);
         }
     }
     
