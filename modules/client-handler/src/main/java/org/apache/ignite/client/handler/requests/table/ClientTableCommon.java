@@ -49,6 +49,9 @@ import org.jetbrains.annotations.NotNull;
  * Common table functionality.
  */
 class ClientTableCommon {
+    /** */
+    private static final int DEFAULT_SCHEMA_ID = -1;
+    
     /**
      * Writes a schema.
      *
@@ -172,9 +175,7 @@ class ClientTableCommon {
             return;
         }
     
-        if (!skipHeader) {
-            packer.packInt(schema.version());
-        }
+        packer.packInt(skipHeader ? DEFAULT_SCHEMA_ID : schema.version());
         
         if (part != TuplePart.VAL) {
             for (var col : schema.keyColumns().columns()) {
