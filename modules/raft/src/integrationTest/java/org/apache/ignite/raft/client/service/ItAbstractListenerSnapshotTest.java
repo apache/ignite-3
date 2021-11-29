@@ -38,7 +38,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -80,7 +79,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     /** Network factory. */
-    private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
+    private static final TestScaleCubeClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
@@ -91,7 +90,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     private final List<ClusterService> cluster = new ArrayList<>();
 
     /** Servers. */
-    private final List<JraftServerImpl> servers = new ArrayList<>();
+    protected final List<JraftServerImpl> servers = new ArrayList<>();
 
     /** Clients. */
     private final List<RaftGroupService> clients = new ArrayList<>();
@@ -296,10 +295,11 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     /**
      * Creates raft group listener.
      *
+     * @param service                 The cluster service.
      * @param listenerPersistencePath Path to storage persistent data.
      * @return Raft group listener.
      */
-    public abstract RaftGroupListener createListener(Path listenerPersistencePath);
+    public abstract RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath);
 
     /**
      * Returns raft group id for tests.
@@ -391,13 +391,13 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         Path listenerPersistencePath = workDir.resolve("db" + idx);
 
+        servers.add(server);
+
         server.startRaftGroup(
                 raftGroupId(),
-                createListener(listenerPersistencePath),
+                createListener(service, listenerPersistencePath),
                 INITIAL_CONF
         );
-
-        servers.add(server);
 
         return server;
     }
@@ -418,13 +418,27 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     }
 
     /**
+     * Returns a client service.
+     *
+     * @return The client service.
+     */
+    protected ClusterService clientService() {
+        return cluster.get(INITIAL_CONF.size());
+    }
+
+    /**
      * Starts a client with a specific address.
+     *
+     * @return The service.
      */
     private RaftGroupService startClient(TestInfo testInfo, String groupId, NetworkAddress addr) throws Exception {
         ClusterService clientNode = clusterService(testInfo, CLIENT_PORT + clients.size(), addr);
 
         RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
                 List.of(new Peer(addr)), false, 200, executor).get(3, TimeUnit.SECONDS);
+
+        // Transactios by now require a leader to build a mapping.
+        client.refreshLeader().join();
 
         clients.add(client);
 
