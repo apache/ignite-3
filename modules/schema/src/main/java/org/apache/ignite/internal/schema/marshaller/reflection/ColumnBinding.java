@@ -502,9 +502,9 @@ abstract class ColumnBinding {
      * Binding implies an additional data transformation on before write/after read a column.
      */
     private static class TransformingFieldAccessor extends ColumnBinding {
-        private MethodHandle afterReadHnd;
+        private final MethodHandle afterReadHnd;
 
-        private MethodHandle beforeWriteHnd;
+        private final MethodHandle beforeWriteHnd;
 
         /**
          * Create transforming binding.
