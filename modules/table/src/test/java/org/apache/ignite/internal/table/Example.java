@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.internal.schema.Column;
@@ -373,7 +374,12 @@ public class Example {
 
                             return dept == 0 ? BinaryObjects.deserialize(binObj1, JavaPerson.class)
                                     : BinaryObjects.deserialize(binObj1, JavaPersonV2.class);
-                        }).build());
+                        })
+                        // TODO: But how to write the columns ??? There is no separate "write mapping" yet.
+                        //                        .map("person", "colPersol", obj -> BinaryObjects.serialize(obj))
+                        //                        .map("department", "colDepartment", obj -> obj instanceof JavaPerson ? 0 : 1)
+                        .build());
+
     }
 
     /**
@@ -490,4 +496,61 @@ public class Example {
         // for 1 in 1..5
         //      v1.get(iL) == v1.get(1L);
     }
+
+    /**
+     * Similar to case 5, but fully manual mapping.
+     * TODO: Let's drop case 5 and replace with this.
+     *
+     * @param t
+     */
+    public void useCase9(Table t) {
+        // Now assume that we have some POJO classes to deserialize the binary objects.
+        class JavaPerson {
+            String name;
+            String lastName;
+        }
+
+        class JavaPersonV2 extends JavaPerson {
+            int department;
+        }
+
+        // We can have a compound record deserializing the whole tuple automatically.
+        class JavaPersonRecord {
+            JavaPerson originalObject;
+            JavaPersonV2 upgradedObject;
+            int department;
+        }
+
+        // Or we can have an arbitrary record with custom class selection.
+        class TruncatedRecord {
+            JavaPerson person;
+            int department; // Discriminator column. Maybe
+        }
+
+        RecordView<TruncatedRecord> truncatedView2 = t.recordView(
+                Mapper.buildFrom(TruncatedRecord.class)
+                        .map((obj) -> obj == null
+                                        ? null
+                                        : Tuple.create(Map.of(
+                                                "colPerson", BinaryObjects.serialize(obj),
+                                                "colDepartment", (obj.person instanceof JavaPerson) ? 0 : 1
+                                        )),
+                                (row) -> {
+                                    if (row == null) {
+                                        return null;
+                                    }
+
+                                    TruncatedRecord rec = new TruncatedRecord();
+                                    int dep = row.intValue("colDepartment");
+
+                                    rec.department = dep;
+                                    rec.person = dep == 0 ? BinaryObjects.deserialize(row.binaryObjectValue("colPerson"), JavaPerson.class)
+                                            : BinaryObjects.deserialize(row.binaryObjectValue("colPerson"), JavaPersonV2.class);
+
+                                    return rec;
+                                })
+                        .build());
+
+    }
+
 }

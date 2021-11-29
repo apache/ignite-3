@@ -34,12 +34,23 @@ public final class BinaryObjects {
     /**
      * Deserializes binary object.
      *
-     * @param obj       Object to deserialize.
-     * @param targetCls Target class.
+     * @param binaryObject Object to deserialize.
+     * @param targetCls    Target class.
+     * @param <T>          Target type.
+     * @return Deserialized object.
+     */
+    public static <T> T deserialize(BinaryObject binaryObject, Class<T> targetCls) {
+        return null;
+    }
+
+    /**
+     * Serializes to binary object.
+     *
+     * @param obj       Object to serialize.
      * @param <T>       Target type.
      * @return Deserialized object.
      */
-    public static <T> T deserialize(BinaryObject obj, Class<T> targetCls) {
+    public static <T> BinaryObject serialize(T obj) {
         return null;
     }
 

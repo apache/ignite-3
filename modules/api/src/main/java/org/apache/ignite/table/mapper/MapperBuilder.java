@@ -92,6 +92,17 @@ public final class MapperBuilder<T> {
     }
 
     /**
+     * Adds a manual functional mapping for an object and row represented by tuple.
+     *
+     * @param objectToRow Object to tuple function.
+     * @param rowToObject Tuple to object function.
+     * @return {@code this} for chaining.
+     */
+    public MapperBuilder<T> map(Function<T, Tuple> objectToRow, Function<Tuple, Object> rowToObject) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /**
      * Builds mapper.
      *
      * @return Mapper.
