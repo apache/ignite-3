@@ -475,6 +475,20 @@ public class ClientTable implements Table {
         return res;
     }
     
+    Collection<Tuple> readTuplesGetAll(ClientSchema schema, ClientMessageUnpacker in) {
+        var cnt = in.unpackInt();
+        var res = new ArrayList<Tuple>(cnt);
+    
+        for (int i = 0; i < cnt; i++) {
+            var schemaVersion = in.unpackInt();
+            assert schemaVersion == schema.version();
+            
+            res.add(readTuple(schema, in, false));
+        }
+        
+        return res;
+    }
+    
     <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
             BiConsumer<ClientSchema, ClientMessagePacker> writer,
