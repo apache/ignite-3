@@ -232,6 +232,7 @@ class ClientTableCommon {
                 assert schema.version() == ((SchemaAware) tuple).schema().version();
             }
         
+            // TODO: If tuple is null, we can't discern it from a null column when header is skipped.
             writeTuple(packer, tuple, schema, true, part);
         }
     }

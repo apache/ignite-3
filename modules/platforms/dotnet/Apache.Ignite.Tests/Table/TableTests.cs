@@ -374,6 +374,8 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestGetAllNonExistentKeysReturnsEmptyList()
         {
+            // TODO: Is it true that GetAll, DeleteAll, InsertAll preserve original element order?
+            // If true, we can write back only the values, because we know the keys.
             var res = await Table.GetAllAsync(new[] { GetTuple(-100) });
 
             Assert.AreEqual(0, res.Count);
