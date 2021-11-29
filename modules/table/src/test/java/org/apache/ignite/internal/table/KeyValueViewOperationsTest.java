@@ -93,7 +93,7 @@ public class KeyValueViewOperationsTest {
         assertEquals(obj2, tbl.get(key));
 
         // Remove KV pair.
-        tbl.put(key, null);
+        tbl.remove(key);
 
         assertNull(tbl.get(key));
 
