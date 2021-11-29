@@ -160,8 +160,12 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * @param curSchema The latest available local schema.
      * @return Schema-aware rows.
      */
-    @NotNull
+    @Nullable
     private Row resolveInternal(BinaryRow row, SchemaDescriptor curSchema) {
+        if (row == null) {
+            return null;
+        }
+        
         final SchemaDescriptor rowSchema = schema(row.schemaVersion());
 
         if (curSchema.version() == rowSchema.version()) {
