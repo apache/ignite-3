@@ -459,14 +459,14 @@ public class TableManagerTest extends IgniteAbstractTest {
             if (!createTbl && !dropTbl) {
                 return CompletableFuture.completedFuture(null);
             }
-            
+
             if (phaser != null) {
                 phaser.arriveAndAwaitAdvance();
             }
-            
+
             return CompletableFuture.completedFuture(null);
         });
-    
+
         TableImpl tbl2 = (TableImpl) tableManager.createTable(tableDefinition.canonicalName(),
                 tblCh -> SchemaConfigurationConverter.convert(tableDefinition, tblCh)
                         .changeReplicas(REPLICAS)
