@@ -83,7 +83,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IList<IIgniteTuple>> GetAllAsync(IEnumerable<IIgniteTuple> keys)
+        public async Task<IList<IIgniteTuple?>> GetAllAsync(IEnumerable<IIgniteTuple> keys)
         {
             IgniteArgumentCheck.NotNull(keys, nameof(keys));
 
@@ -102,7 +102,7 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGetAll, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
 
-            return ReadTuples(resBuf, resSchema);
+            return ReadTuplesNullable(resBuf, resSchema);
         }
 
         /// <inheritdoc/>
@@ -388,6 +388,40 @@ namespace Apache.Ignite.Internal.Table
             for (var i = 0; i < count; i++)
             {
                 res.Add(ReadTuple(ref r, schema, keyOnly));
+            }
+
+            return res;
+        }
+
+        private static IList<IIgniteTuple?> ReadTuplesNullable(PooledBuffer buf, Schema? schema, bool keyOnly = false)
+        {
+            if (schema == null)
+            {
+                return Array.Empty<IIgniteTuple?>();
+            }
+
+            // Skip schema version.
+            var r = buf.GetReader();
+            r.Skip();
+
+            var count = r.ReadInt32();
+            var res = new List<IIgniteTuple?>(count);
+
+            for (var i = 0; i < count; i++)
+            {
+                if (r.IsNil)
+                {
+                    r.Skip();
+                    res.Add(null);
+                }
+                else
+                {
+                    // Nullable mode includes schema version with every tuple to indicate nulls.
+                    var schemaVersion = r.ReadInt32();
+                    Debug.Assert(schemaVersion == schema.Version, "schemaVersion == schema.Version");
+
+                    res.Add(ReadTuple(ref r, schema, keyOnly));
+                }
             }
 
             return res;
