@@ -412,19 +412,9 @@ namespace Apache.Ignite.Internal.Table
 
             for (var i = 0; i < count; i++)
             {
-                if (r.IsNil)
-                {
-                    r.Skip();
-                    res.Add(null);
-                }
-                else
-                {
-                    // Nullable mode includes schema version with every tuple to indicate nulls.
-                    var schemaVersion = r.ReadInt32();
-                    Debug.Assert(schemaVersion == schema.Version, "schemaVersion == schema.Version");
+                var hasValue = r.ReadBoolean();
 
-                    res.Add(ReadTuple(ref r, schema, keyOnly));
-                }
+                res.Add(hasValue ? ReadTuple(ref r, schema, keyOnly) : null);
             }
 
             return res;
