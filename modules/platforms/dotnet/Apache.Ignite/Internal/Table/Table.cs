@@ -102,6 +102,7 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGetAll, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
 
+            // TODO: Read value parts only (IGNITE-16022).
             return ReadTuplesNullable(resBuf, resSchema);
         }
 
@@ -188,6 +189,7 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleInsertAll, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
 
+            // TODO: Read value parts only (IGNITE-16022).
             return ReadTuples(resBuf, resSchema);
         }
 
@@ -299,6 +301,7 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDeleteAll, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
 
+            // TODO: Read value parts only (IGNITE-16022).
             return ReadTuples(resBuf, resSchema, keyOnly: true);
         }
 

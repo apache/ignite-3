@@ -360,25 +360,24 @@ namespace Apache.Ignite.Tests.Table
             await Table.UpsertAllAsync(records);
 
             var res = await Table.GetAllAsync(Enumerable.Range(9, 4).Select(x => GetTuple(x)));
-            var resArr = res.OrderBy(x => x[0]).ToArray();
+            var resArr = res.OrderBy(x => x![0]).ToArray();
 
             Assert.AreEqual(4, res.Count);
 
-            Assert.AreEqual(9, resArr[0][0]);
-            Assert.AreEqual("9", resArr[0][1]);
+            Assert.AreEqual(9, resArr[0]![0]);
+            Assert.AreEqual("9", resArr[0]![1]);
 
-            Assert.AreEqual(10, resArr[1][0]);
-            Assert.AreEqual("10", resArr[1][1]);
+            Assert.AreEqual(10, resArr[1]![0]);
+            Assert.AreEqual("10", resArr[1]![1]);
         }
 
         [Test]
         public async Task TestGetAllNonExistentKeysReturnsEmptyList()
         {
-            // TODO: Is it true that GetAll, DeleteAll, InsertAll preserve original element order?
-            // If true, we can write back only the values, because we know the keys.
             var res = await Table.GetAllAsync(new[] { GetTuple(-100) });
 
-            Assert.AreEqual(0, res.Count);
+            Assert.AreEqual(1, res.Count);
+            Assert.IsNull(res[0]);
         }
 
         [Test]
