@@ -85,7 +85,7 @@ class ClientTableCommon {
      * @param packer Packer.
      * @param tuple  Tuple.
      */
-    public static void writeTuple(ClientMessagePacker packer, Tuple tuple) {
+    public static void writeTupleOrNil(ClientMessagePacker packer, Tuple tuple) {
         if (tuple == null) {
             packer.packNil();
             
@@ -103,7 +103,7 @@ class ClientTableCommon {
      * @param packer Packer.
      * @param tuple  Tuple.
      */
-    public static void writeTuple(ClientMessagePacker packer, Tuple tuple, TuplePart part) {
+    public static void writeTupleOrNil(ClientMessagePacker packer, Tuple tuple, TuplePart part) {
         if (tuple == null) {
             packer.packNil();
             
@@ -166,12 +166,8 @@ class ClientTableCommon {
             boolean skipHeader,
             TuplePart part
     ) {
-        if (tuple == null) {
-            packer.packNil();
-            
-            return;
-        }
-    
+        assert tuple != null;
+
         if (!skipHeader) {
             packer.packInt(schema.version());
         }
@@ -235,15 +231,54 @@ class ClientTableCommon {
         packer.packInt(tuples.size());
     
         for (Tuple tuple : tuples) {
-            if (tuple != null) {
-                assert schema.version() == ((SchemaAware) tuple).schema().version();
-            }
-        
-            // TODO: If tuple is null, we can't discern it from a null column when header is skipped.
+            assert tuple != null;
+            assert schema.version() == ((SchemaAware) tuple).schema().version();
+
             writeTuple(packer, tuple, schema, skipHeader, part);
         }
     }
     
+    /**
+     * Writes multiple tuples with null flags.
+     *
+     * @param packer         Packer.
+     * @param tuples         Tuples.
+     * @param part           Which part of tuple to write.
+     * @param schemaRegistry The registry.
+     * @param skipHeader     Whether to skip the tuple header.
+     * @throws IgniteException on failed serialization.
+     */
+    public static void writeTuplesNullable(
+            ClientMessagePacker packer,
+            Collection<Tuple> tuples,
+            TuplePart part,
+            SchemaRegistry schemaRegistry,
+            boolean skipHeader
+    ) {
+        if (tuples == null || tuples.isEmpty()) {
+            packer.packNil();
+
+            return;
+        }
+
+        SchemaDescriptor schema = schemaRegistry.schema();
+
+        packer.packInt(schema.version());
+        packer.packInt(tuples.size());
+
+        for (Tuple tuple : tuples) {
+            if (tuple == null) {
+                packer.packBoolean(false);
+                continue;
+            }
+
+            assert schema.version() == ((SchemaAware) tuple).schema().version();
+
+            packer.packBoolean(true);
+            writeTuple(packer, tuple, schema, skipHeader, part);
+        }
+    }
+
     /**
      * Reads a tuple.
      *
