@@ -17,10 +17,9 @@
 
 package org.apache.ignite.example.table;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.app.IgniteCliRunner;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -64,10 +63,10 @@ public class RecordViewExample {
 
         System.setProperty("java.util.logging.config.file", "config/java.util.logging.properties");
 
-        try (Ignite server = IgnitionManager.start(
-                "example-node",
-                Files.readString(Path.of("config", "ignite-config.json")),
-                Path.of("work")
+        try (Ignite server = IgniteCliRunner.start(
+                new String[]{"--config=" + Path.of("config", "ignite-config.json").toAbsolutePath(),
+                        "--work-dir=" + Path.of("work").toAbsolutePath(),
+                        "example-node"}
         )) {
             //--------------------------------------------------------------------------------------
             //

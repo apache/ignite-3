@@ -23,7 +23,7 @@ import static picocli.CommandLine.Model.PositionalParamSpec;
 
 import java.nio.file.Path;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.app.IgnitionImpl;
+import org.apache.ignite.internal.app.Ignition;
 import picocli.CommandLine;
 
 /**
@@ -97,12 +97,10 @@ public class IgniteCliRunner {
                 pr.matchedOptionValue("--work-dir", null)
         );
 
-        var ignition = new IgnitionImpl();
-
         if (parsedArgs.config != null) {
-            return ignition.start(parsedArgs.nodeName, parsedArgs.config.toAbsolutePath(), parsedArgs.nodeWorkDir);
+            return Ignition.start(parsedArgs.nodeName, parsedArgs.config.toAbsolutePath(), parsedArgs.nodeWorkDir);
         } else {
-            return ignition.start(parsedArgs.nodeName, parsedArgs.nodeWorkDir);
+            return Ignition.start(parsedArgs.nodeName, parsedArgs.nodeWorkDir);
         }
     }
 

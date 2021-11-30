@@ -27,7 +27,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.internal.app.Ignition;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -75,7 +75,7 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
 
         String nodeName = IgniteTestUtils.testNodeName(testInfo, 0);
 
-        Ignite ignite = IgnitionManager.start(
+        Ignite ignite = Ignition.start(
                 nodeName,
                 NODE_CONFIGURATION.apply(nodeName),
                 workDir.resolve(nodeName));

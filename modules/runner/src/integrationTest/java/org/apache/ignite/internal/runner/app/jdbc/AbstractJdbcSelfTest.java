@@ -26,7 +26,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.internal.app.Ignition;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
@@ -54,7 +54,7 @@ public class AbstractJdbcSelfTest {
 
         String configStr = "node.metastorageNodes: [ \"" + nodeName + "\" ]";
 
-        clusterNodes.add(IgnitionManager.start(nodeName, configStr, temp.resolve(nodeName)));
+        clusterNodes.add(Ignition.start(nodeName, configStr, temp.resolve(nodeName)));
     }
 
     /**

@@ -34,8 +34,8 @@ import java.nio.file.Path;
 import net.minidev.json.JSONObject;
 import net.minidev.json.JSONValue;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.cli.spec.IgniteCliSpec;
+import org.apache.ignite.internal.app.Ignition;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -84,7 +84,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
                 "clientConnector.portRange=0"
         );
 
-        this.node = IgnitionManager.start(testNodeName(testInfo, networkPort), configStr, workDir);
+        this.node = Ignition.start(testNodeName(testInfo, networkPort), configStr, workDir);
 
         ctx = ApplicationContext.run(Environment.TEST);
 
@@ -94,7 +94,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
 
     @AfterEach
     void tearDown(TestInfo testInfo) {
-        IgnitionManager.stop(testNodeName(testInfo, networkPort));
+        Ignition.stop(testNodeName(testInfo, networkPort));
         ctx.stop();
     }
 

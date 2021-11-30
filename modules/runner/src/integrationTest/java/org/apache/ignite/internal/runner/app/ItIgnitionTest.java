@@ -28,8 +28,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.ItUtils;
+import org.apache.ignite.internal.app.Ignition;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -122,8 +122,9 @@ class ItIgnitionTest {
      */
     @Test
     void testNodesStartWithBootstrapConfiguration() {
+
         nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
+                startedNodes.add(Ignition.start(nodeName, configStr, workDir.resolve(nodeName)))
         );
 
         Assertions.assertEquals(3, startedNodes.size());
@@ -136,7 +137,7 @@ class ItIgnitionTest {
      */
     @Test
     void testNodeStartWithoutBootstrapConfiguration(TestInfo testInfo) {
-        startedNodes.add(IgnitionManager.start(testNodeName(testInfo, 47500), null, workDir));
+        startedNodes.add(Ignition.start(testNodeName(testInfo, 47500), workDir));
 
         Assertions.assertNotNull(startedNodes.get(0));
     }
@@ -147,7 +148,7 @@ class ItIgnitionTest {
     @Test
     void testErrorWhenStartSingleNodeClusterWithoutMetastorage() {
         try {
-            startedNodes.add(IgnitionManager.start("other-name", "{\n"
+            startedNodes.add(Ignition.start("other-name", "{\n"
                     + "    \"node\": {\n"
                     + "        \"metastorageNodes\": [\n"
                     + "            \"node-0\", \"node-1\", \"node-2\"\n"
@@ -178,7 +179,7 @@ class ItIgnitionTest {
         Ignite ig2 = null;
 
         try {
-            ig1 = IgnitionManager.start("node-0", "{\n"
+            ig1 = Ignition.start("node-0", "{\n"
                     + "    \"node\": {\n"
                     + "       \"metastorageNodes\":[ \"node-0\" ]\n"
                     + "    },\n"
@@ -190,7 +191,7 @@ class ItIgnitionTest {
                     + "    }\n"
                     + "}", workDir.resolve("node-0"));
 
-            ig2 = IgnitionManager.start("other-name", "{\n"
+            ig2 = Ignition.start("other-name", "{\n"
                     + "    \"node\": {\n"
                     + "        \"metastorageNodes\":[ \"node-0\" ]\n"
                     + "    },\n"
@@ -207,7 +208,7 @@ class ItIgnitionTest {
             IgniteUtils.closeAll(ig2, ig1);
         }
     }
-    
+
     /**
      * Tests scenario when we try to start single-node cluster with several metastorage nodes in config.
      * TODO: test should be rewritten after init phase will be developed https://issues.apache.org/jira/browse/IGNITE-14414
@@ -215,7 +216,7 @@ class ItIgnitionTest {
     @Test
     void testStartNodeClusterWithTwoMetastorageInConfig() throws Exception {
         try {
-            IgnitionManager.start("node-0", "{\n"
+            Ignition.start("node-0", "{\n"
                     + "    \"node\": {\n"
                     + "        \"metastorageNodes\": [\n"
                     + "            \"node-0\", \"node-1\", \"node-2\"\n"
@@ -233,14 +234,14 @@ class ItIgnitionTest {
                     + "because it is not allowed to start several metastorage nodes.");
         }
     }
-    
+
     /**
      * Tests scenario when we try to start node with invalid configuration.
      */
     @Test
     void testErrorWhenStartNodeWithInvalidConfiguration() {
         try {
-            startedNodes.add(IgnitionManager.start("invalid-config-name",
+            startedNodes.add(Ignition.start("invalid-config-name",
                     "{Invalid-Configuration}",
                     workDir.resolve("invalid-config-name"))
             );

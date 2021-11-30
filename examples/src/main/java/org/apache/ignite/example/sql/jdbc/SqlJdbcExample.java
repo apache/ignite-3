@@ -17,7 +17,6 @@
 
 package org.apache.ignite.example.sql.jdbc;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -25,7 +24,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.app.IgniteCliRunner;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
@@ -66,10 +65,10 @@ public class SqlJdbcExample {
 
         System.setProperty("java.util.logging.config.file", "config/java.util.logging.properties");
 
-        try (Ignite ignite = IgnitionManager.start(
-                "example-node",
-                Files.readString(Path.of("config", "ignite-config.json")),
-                Path.of("work")
+        try (Ignite ignite = IgniteCliRunner.start(
+                new String[]{"--config=" + Path.of("config", "ignite-config.json").toAbsolutePath(),
+                        "--work-dir=" + Path.of("work").toAbsolutePath(),
+                        "example-node"}
         )) {
             //--------------------------------------------------------------------------------------
             //

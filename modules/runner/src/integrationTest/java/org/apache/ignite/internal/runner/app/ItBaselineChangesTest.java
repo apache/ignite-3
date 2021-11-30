@@ -27,8 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.ItUtils;
+import org.apache.ignite.internal.app.Ignition;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -100,7 +100,7 @@ public class ItBaselineChangesTest {
     @Test
     void testBaselineExtending(TestInfo testInfo) {
         initClusterNodes.forEach((nodeName, configStr) ->
-                clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
+                clusterNodes.add(Ignition.start(nodeName, configStr, workDir.resolve(nodeName)))
         );
 
         assertEquals(3, clusterNodes.size());
@@ -129,12 +129,12 @@ public class ItBaselineChangesTest {
         var node4Name = testNodeName(testInfo, nodePort(4));
 
         // Start 2 new nodes after
-        var node3 = IgnitionManager.start(
+        var node3 = Ignition.start(
                 node3Name, buildConfig(metaStoreNode.name(), 3), workDir.resolve(node3Name));
 
         clusterNodes.add(node3);
 
-        var node4 = IgnitionManager.start(
+        var node4 = Ignition.start(
                 node4Name, buildConfig(metaStoreNode.name(), 4), workDir.resolve(node4Name));
 
         clusterNodes.add(node4);
@@ -142,8 +142,8 @@ public class ItBaselineChangesTest {
         // Update baseline to nodes 1,4,5
         metaStoreNode.setBaseline(Set.of(metaStoreNode.name(), node3Name, node4Name));
 
-        IgnitionManager.stop(clusterNodes.get(1).name());
-        IgnitionManager.stop(clusterNodes.get(2).name());
+        Ignition.stop(clusterNodes.get(1).name());
+        Ignition.stop(clusterNodes.get(2).name());
 
         Table tbl4 = node4.tables().table(schTbl1.canonicalName());
 

@@ -23,9 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.app.Ignition;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -54,21 +54,21 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     public void emptyNodeTest(TestInfo testInfo) {
         String nodeName = testNodeName(testInfo, DEFAULT_NODE_PORT);
 
-        IgniteImpl ignite = (IgniteImpl) IgnitionManager.start(nodeName, null, workDir);
+        IgniteImpl ignite = (IgniteImpl) Ignition.start(nodeName, workDir);
 
         int nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
 
         assertEquals(DEFAULT_NODE_PORT, nodePort);
 
-        IgnitionManager.stop(ignite.name());
+        Ignition.stop(ignite.name());
 
-        ignite = (IgniteImpl) IgnitionManager.start(nodeName, null, workDir);
+        ignite = (IgniteImpl) Ignition.start(nodeName, workDir);
 
         nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
 
         assertEquals(DEFAULT_NODE_PORT, nodePort);
 
-        IgnitionManager.stop(ignite.name());
+        Ignition.stop(ignite.name());
     }
 
     /**
@@ -78,25 +78,25 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     public void changeConfigurationOnStartTest(TestInfo testInfo) {
         String nodeName = testNodeName(testInfo, DEFAULT_NODE_PORT);
 
-        IgniteImpl ignite = (IgniteImpl) IgnitionManager.start(nodeName, null, workDir);
+        IgniteImpl ignite = (IgniteImpl) Ignition.start(nodeName, workDir);
 
         int nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
 
         assertEquals(DEFAULT_NODE_PORT, nodePort);
 
-        IgnitionManager.stop(ignite.name());
+        Ignition.stop(ignite.name());
 
         int newPort = 3322;
 
         String updateCfg = "network.port=" + newPort;
 
-        ignite = (IgniteImpl) IgnitionManager.start(nodeName, updateCfg, workDir);
+        ignite = (IgniteImpl) Ignition.start(nodeName, updateCfg, workDir);
 
         nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
 
         assertEquals(newPort, nodePort);
 
-        IgnitionManager.stop(ignite.name());
+        Ignition.stop(ignite.name());
     }
 
     /**
@@ -105,13 +105,13 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     @Test
     public void twoCustomPropertiesTest(TestInfo testInfo) {
         String nodeName = testNodeName(testInfo, 3344);
-    
+
         String startCfg = "network: {\n"
                 + "  port:3344,\n"
                 + "  nodeFinder: {netClusterNodes:[ \"localhost:3344\" ]}\n"
                 + "}";
 
-        IgniteImpl ignite = (IgniteImpl) IgnitionManager.start(nodeName, startCfg, workDir);
+        IgniteImpl ignite = (IgniteImpl) Ignition.start(nodeName, startCfg, workDir);
 
         assertEquals(
                 3344,
@@ -123,9 +123,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).nodeFinder().netClusterNodes().value()
         );
 
-        IgnitionManager.stop(ignite.name());
+        Ignition.stop(ignite.name());
 
-        ignite = (IgniteImpl) IgnitionManager.start(
+        ignite = (IgniteImpl) Ignition.start(
                 nodeName,
                 "network.nodeFinder.netClusterNodes=[ \"localhost:3344\", \"localhost:3343\" ]",
                 workDir
@@ -141,7 +141,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).nodeFinder().netClusterNodes().value()
         );
 
-        IgnitionManager.stop(ignite.name());
+        Ignition.stop(ignite.name());
     }
 
     /**
@@ -152,7 +152,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     public void nodeWithDataTest(TestInfo testInfo) {
         String nodeName = testNodeName(testInfo, 3344);
 
-        Ignite ignite = IgnitionManager.start(nodeName, "{\n"
+        Ignite ignite = Ignition.start(nodeName, "{\n"
                 + "  \"node\": {\n"
                 + "    \"metastorageNodes\":[ " + nodeName + " ]\n"
                 + "  },\n"
@@ -183,9 +183,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             table.keyValueView().put(key, val);
         }
 
-        IgnitionManager.stop(nodeName);
+        Ignition.stop(nodeName);
 
-        ignite = IgnitionManager.start(nodeName, null, workDir);
+        ignite = Ignition.start(nodeName, workDir);
 
         assertNotNull(ignite.tables().table(TABLE_NAME));
 
@@ -195,6 +195,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                     .stringValue("name"));
         }
 
-        IgnitionManager.stop(nodeName);
+        Ignition.stop(nodeName);
     }
 }

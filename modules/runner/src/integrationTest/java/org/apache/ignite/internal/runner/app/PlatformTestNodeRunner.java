@@ -26,8 +26,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.app.Ignition;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -92,7 +92,7 @@ public class PlatformTestNodeRunner {
         List<Ignite> startedNodes = new ArrayList<>();
 
         nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                startedNodes.add(IgnitionManager.start(nodeName, configStr, BASE_PATH.resolve(nodeName)))
+                startedNodes.add(Ignition.start(nodeName, configStr, BASE_PATH.resolve(nodeName)))
         );
 
         var keyCol = "key";

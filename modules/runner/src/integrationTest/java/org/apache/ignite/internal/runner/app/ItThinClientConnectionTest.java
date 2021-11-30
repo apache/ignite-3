@@ -27,10 +27,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ItUtils;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.app.Ignition;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -68,7 +68,7 @@ public class ItThinClientConnectionTest extends IgniteAbstractTest {
     void setup(TestInfo testInfo) {
         String node0Name = testNodeName(testInfo, 3344);
         String node1Name = testNodeName(testInfo, 3345);
-    
+
         nodesBootstrapCfg.put(
                 node0Name,
                 "{\n"
@@ -81,7 +81,7 @@ public class ItThinClientConnectionTest extends IgniteAbstractTest {
                         + "  }\n"
                         + "}"
         );
-    
+
         nodesBootstrapCfg.put(
                 node1Name,
                 "{\n"
@@ -110,7 +110,7 @@ public class ItThinClientConnectionTest extends IgniteAbstractTest {
     @Test
     void testThinClientConnectsToServerNodesAndExecutesBasicTableOperations() throws Exception {
         nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
+                startedNodes.add(Ignition.start(nodeName, configStr, workDir.resolve(nodeName)))
         );
 
         var keyCol = "key";
@@ -126,7 +126,7 @@ public class ItThinClientConnectionTest extends IgniteAbstractTest {
                         .changeReplicas(1)
                         .changePartitions(10)
         );
-    
+
         var addrs = new String[]{"127.0.0.1:"
                 + ((InetSocketAddress) ((IgniteImpl) startedNodes.get(0)).clientHandlerModule().localAddress()).getPort()};
 

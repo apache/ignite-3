@@ -20,8 +20,8 @@ package org.apache.ignite.example.sql.jdbc;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.example.ExampleTestUtils;
+import org.apache.ignite.internal.app.Ignition;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -70,7 +70,7 @@ public class SqlExamplesTest {
      */
     @BeforeEach
     public void startNode(@WorkDirectory Path workDir) throws IOException {
-        IgnitionManager.start(
+        Ignition.start(
                 "my-first-node",
                 Files.readString(Path.of("config", "ignite-config.json")),
                 workDir
@@ -82,7 +82,7 @@ public class SqlExamplesTest {
      */
     @AfterEach
     public void stopNode() {
-        IgnitionManager.stop("my-first-node");
+        Ignition.stop("my-first-node");
     }
 
     /**

@@ -29,7 +29,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
@@ -368,7 +367,7 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public void close() {
-        IgnitionManager.stop(name);
+        Ignition.stop(name);
     }
 
     /** {@inheritDoc} */
