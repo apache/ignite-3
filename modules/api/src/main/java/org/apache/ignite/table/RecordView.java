@@ -53,7 +53,7 @@ public interface RecordView<R> {
      *
      * @param keyRecs Records with key columns set. The records cannot be {@code null}.
      * @return Records with all columns filled from the table. The order of collection elements is
-     *     guaranteed to be the same as the order of {@param keyRecs}. If a record does not exist, the
+     *     guaranteed to be the same as the order of {@code keyRecs}. If a record does not exist, the
      *     element at the corresponding index of the resulting collection will be null.
      */
     Collection<R> getAll(@NotNull Collection<R> keyRecs);
