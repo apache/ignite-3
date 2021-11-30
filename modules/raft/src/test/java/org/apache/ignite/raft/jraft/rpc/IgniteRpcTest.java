@@ -79,9 +79,9 @@ public class IgniteRpcTest extends AbstractRpcTest {
 
         var server = new TestIgniteRpcServer(service, new NodeManager(), nodeOptions, requestExecutor) {
             @Override public void shutdown() {
-                service.stop();
-
                 super.shutdown();
+
+                service.stop();
             }
         };
 

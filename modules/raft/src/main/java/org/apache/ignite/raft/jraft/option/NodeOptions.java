@@ -249,18 +249,18 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     public void setStripes(int stripes) {
         this.stripes = stripes;
     }
-    
+
     /**
      * Returns {@code true} if shared pools mode is in use.
      *
-     * <p> In this mode thread pools are passed in the node options and node doesn't attempt to create/destroy any.
+     * <p>In this mode thread pools are passed in the node options and node doesn't attempt to create/destroy any.
      *
      * @return {@code true} if shared pools mode is in use.
      */
     public boolean isSharedPools() {
         return sharedPools;
     }
-    
+
     /**
      * @param sharedPools {code true} to enable shared pools mode.
      */
@@ -536,7 +536,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     public void setServerName(String serverName) {
         this.serverName = serverName;
     }
-
 
     public StripedDisruptor<FSMCallerImpl.ApplyTask> getfSMCallerExecutorDisruptor() {
         return fSMCallerExecutorDisruptor;
