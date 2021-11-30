@@ -81,6 +81,7 @@ import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -774,22 +775,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
             );
         }).exceptionally(t -> {
-            Throwable ex = t.getCause();
-        
-            if (ex instanceof TableAlreadyExistsException) {
+            TableAlreadyExistsException tableAlreadyExistsException = IgniteUtils.cause(t, TableAlreadyExistsException.class);
+
+            if (tableAlreadyExistsException != null) {
                 tableAsync(name, false).thenAccept(table -> {
                     if (!exceptionWhenExist) {
                         tblFut.complete(table);
                     }
-                
-                    removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(ex));
+
+                    removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(tableAlreadyExistsException));
                 });
             } else {
                 LOG.error(LoggerMessageHelper.format("Table wasn't created [name={}]", name), t);
-            
-                removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(ex));
+
+                removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(t.getCause()));
             }
-        
+
             return null;
         });
     
