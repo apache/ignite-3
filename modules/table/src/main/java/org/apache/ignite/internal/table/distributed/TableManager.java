@@ -503,7 +503,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         raftMgr.prepareRaftGroup(
                                 raftGroupName(tblId, p),
                                 assignment.get(p),
-                                () -> new PartitionListener(tblId, new VersionedRowStore(tableStorage.getOrCreatePartition(partId), txManager))
+                                () -> new PartitionListener(tblId,
+                                        new VersionedRowStore(tableStorage.getOrCreatePartition(partId), txManager))
                         )
                 );
             } catch (NodeStoppingException e) {
