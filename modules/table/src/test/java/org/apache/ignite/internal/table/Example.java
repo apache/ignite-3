@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.internal.schema.Column;
@@ -465,9 +466,57 @@ public class Example {
             byte[] data;
         }
 
+        Mapper.of(byte[].class);
+
+        // One-column keys only and only native types.
+        Mapper.of(Long.class);
+
+        // LongMapper -> long  - is it possible?
+
+        class MyKey {
+            byte[] id;
+        }
+
+        // Values
+        // -- remove/rename Mapper.buildFrom(Employee.class).map("data", "val").map("data1", "val1");
+
+        Mapper.builder(Employee.class)
+                .map("data", "val")
+                .map("data1", "val1");
+
+        Mapper.builder(Employee.class).map(
+                "data", "val",
+                "data1", "val1"
+        );
+
+        // Shortcuts (supported keys and values).
+        Mapper.of(Employee.class, "data", "val")
+        Mapper.of(Employee.class, "data", "val", "data1", "val1")
+
+        // Shortcut (supported one-column key and value).
+        Mapper.of(Long.class, "count")
+
+        // Shortcut (key and value represented by byte array)
+        Mapper.of(UserObject.class, "data")
+
+/*
+
+        Mapper.of(UserObject.class, "data", marsh)
+        Mapper.of(Long.class, "count")
+*/
+
+        Mapper.builder(Employee.class)
+                .marsh(marsh, "colData")
+                .map("fieldData", "colData")
+                // OR
+                .map(marsh, "fieldData", "colData")
+
+
+
+
+
         // Class usage without a column name can work correctly only and only when each of key and value parts is single column.
         KeyValueView<Long, Employee> v1 = t.keyValueView(Long.class, Employee.class);
-
         KeyValueView<Long, Employee> v2 = t.keyValueView(
                 Mapper.of(Long.class),
                 // Class usage without a column name can work correctly only and only when the key part is single column.
@@ -495,7 +544,32 @@ public class Example {
         // Get operations return the same result for all keys for each of row.
         // for 1 in 1..5
         //      v1.get(iL) == v1.get(1L);
+
+
+        // ============================  GET  ===============================================
+
+        UserObject obj = v4.get(1L); // indistinguishable absent value and null column
+
+        // Optional way
+        Optional<UserObject> obj = v4.get(1L); // abuse of Optional type
+
+        // NullableValue way
+        NullableValue<UserObject> obj = v4.getNullable(1L); //
+
+        UserObject obj = v4.get(1L); // what if user uses this syntax for nullable column?
+                                     // 1. Exception always
+                                     // 2. Exception if column value is null (use getNullable)
+
+        // ============================  PUT  ===============================================
+
+        v4.put(1L, null);
+        v4.remove(1L, null);
     }
+
+    interface NullableValue<T> {
+        T get();
+    }
+
 
     /**
      * Similar to case 5, but fully manual mapping.
