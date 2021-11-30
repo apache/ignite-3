@@ -354,22 +354,30 @@ public class NamedListNodeTest {
      */
     @Test
     public void testUpdate() {
-        var b = new NamedListNode<SecondChange>("name", () -> cgen.instantiateNode(SecondConfigurationSchema.class), null);
+        var list = new NamedListNode<SecondChange>("name", () -> cgen.instantiateNode(SecondConfigurationSchema.class), null);
 
-        b.create("foo", ch -> ch.changeStr("bar"));
+        list.create("foo", ch -> ch.changeStr("bar"));
 
-        assertThat(b.get("foo").str(), is(equalTo("bar")));
+        assertThat(list.get("foo").str(), is(equalTo("bar")));
 
-        b.update("foo", ch -> ch.changeStr("baz"));
+        list.update("foo", ch -> ch.changeStr("baz"));
 
-        assertThat(b.get("foo").str(), is(equalTo("baz")));
+        assertThat(list.get("foo").str(), is(equalTo("baz")));
 
-        // updating a non existent key should throw
-        assertThrows(IllegalArgumentException.class, () -> b.update("wrong", ch -> {}));
-
-        b.delete("foo");
+        list.delete("foo");
 
         // updating a removed key should throw
-        assertThrows(IllegalArgumentException.class, () -> b.update("foo", ch -> {}));
+        assertThrows(IllegalArgumentException.class, () -> list.update("foo", ch -> {}));
+    }
+
+    @Test
+    public void testUpdateErrors() {
+        var list = new NamedListNode<SecondChange>("name", () -> cgen.instantiateNode(SecondConfigurationSchema.class), null);
+
+        assertThrows(NullPointerException.class, () -> list.update(null, ch -> {}));
+        assertThrows(NullPointerException.class, () -> list.update("foo", null));
+
+        // updating a non existent key should throw
+        assertThrows(IllegalArgumentException.class, () -> list.update("wrong", ch -> {}));
     }
 }

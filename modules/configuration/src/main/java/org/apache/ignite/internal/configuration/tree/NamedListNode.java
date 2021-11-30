@@ -235,6 +235,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override
     public NamedListChange<N, N> update(String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(key, "key");
