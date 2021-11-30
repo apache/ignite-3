@@ -411,10 +411,6 @@ public class ClientTable implements Table {
     }
     
     static IgniteBiTuple<Tuple, Tuple> readKvTuple(ClientSchema schema, ClientMessageUnpacker in) {
-        if (in.tryUnpackNil()) {
-            return null;
-        }
-        
         var schemaVersion = in.unpackInt();
         assert schemaVersion == schema.version();
         
@@ -445,13 +441,16 @@ public class ClientTable implements Table {
      * @param in In.
      * @return Tuple pairs.
      */
-    public Map<Tuple, Tuple> readKvTuples(ClientSchema schema, ClientMessageUnpacker in) {
+    public Map<Tuple, Tuple> readKvTuplesNullable(ClientSchema schema, ClientMessageUnpacker in) {
         var cnt = in.unpackInt();
         Map<Tuple, Tuple> res = new HashMap<>(cnt);
         
         for (int i = 0; i < cnt; i++) {
-            var pair = readKvTuple(schema, in);
-            if (pair != null) {
+            var hasValue = in.unpackBoolean();
+
+            if (hasValue) {
+                var pair = readKvTuple(schema, in);
+
                 res.put(pair.get1(), pair.get2());
             }
         }
