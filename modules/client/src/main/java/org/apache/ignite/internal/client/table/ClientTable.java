@@ -411,9 +411,6 @@ public class ClientTable implements Table {
     }
     
     static IgniteBiTuple<Tuple, Tuple> readKvTuple(ClientSchema schema, ClientMessageUnpacker in) {
-        var schemaVersion = in.unpackInt();
-        assert schemaVersion == schema.version();
-        
         var keyColCnt = schema.keyColumnCount();
         var colCnt = schema.columns().length;
         
