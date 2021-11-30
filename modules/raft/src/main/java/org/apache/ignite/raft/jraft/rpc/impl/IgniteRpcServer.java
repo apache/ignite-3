@@ -59,7 +59,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.core.TimeoutNowRequestProcessor;
  */
 public class IgniteRpcServer implements RpcServer<Void> {
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteRpcServer.class);
-    
+
     private final ClusterService service;
 
     private final NodeManager nodeManager;
@@ -71,6 +71,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
     private final Map<String, RpcProcessor> processors = new ConcurrentHashMap<>();
 
     /**
+     * @param lockManager The lock manager.
      * @param service The cluster service.
      * @param nodeManager The node manager.
      * @param raftMessagesFactory Message factory.
@@ -165,27 +166,27 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 executor = rpcExecutor;
 
             RpcProcessor<NetworkMessage> finalPrc = prc;
-    
+
             try {
                 executor.execute(() -> {
                     var context = new RpcContext() {
                         @Override public NodeManager getNodeManager() {
                             return nodeManager;
                         }
-    
+
                         @Override public void sendResponse(Object responseObj) {
                             service.messagingService().send(senderAddr, (NetworkMessage) responseObj, correlationId);
                         }
-    
+
                         @Override public NetworkAddress getRemoteAddress() {
                             return senderAddr;
                         }
-    
+
                         @Override public NetworkAddress getLocalAddress() {
                             return service.topologyService().localMember().address();
                         }
                     };
-    
+
                     finalPrc.handleRequest(context, message);
                 });
             } catch (RejectedExecutionException e) {

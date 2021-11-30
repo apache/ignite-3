@@ -22,12 +22,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -39,6 +37,9 @@ import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.ColumnTypeValidator;
+import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
@@ -56,6 +57,9 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.configuration.ColumnTypeValidatorImpl;
 import org.apache.ignite.internal.schema.configuration.TableValidatorImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -66,6 +70,7 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
+import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.rest.RestModule;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -107,6 +112,9 @@ public class IgniteImpl implements Ignite {
     /** Cluster service (cluster network manager). */
     private final ClusterService clusterSvc;
 
+    /** Netty bootstrap factory. */
+    private final NettyBootstrapFactory nettyBootstrapFactory;
+
     /** Raft manager. */
     private final Loza raftMgr;
 
@@ -118,6 +126,9 @@ public class IgniteImpl implements Ignite {
 
     /** Baseline manager. */
     private final BaselineManager baselineMgr;
+
+    /** Transactions manager. */
+    private final TxManager txManager;
 
     /** Distributed table manager. */
     private final TableManager distributedTblMgr;
@@ -161,15 +172,21 @@ public class IgniteImpl implements Ignite {
                 List.of()
         );
 
+        NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
+
+        var clusterLocalConfiguration = new ClusterLocalConfiguration(name, new MessageSerializationRegistryImpl());
+
+        nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, clusterLocalConfiguration.getName());
+
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
-                new ClusterLocalConfiguration(
-                        name,
-                        new MessageSerializationRegistryImpl()
-                ),
-                nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY)
+                clusterLocalConfiguration,
+                networkConfiguration,
+                nettyBootstrapFactory
         );
 
         raftMgr = new Loza(clusterSvc, workDir);
+
+        txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
 
         metaStorageMgr = new MetaStorageManager(
                 vaultMgr,
@@ -190,8 +207,8 @@ public class IgniteImpl implements Ignite {
                         ColumnTypeValidator.class, Set.of(ColumnTypeValidatorImpl.INSTANCE)
                 ),
                 new DistributedConfigurationStorage(metaStorageMgr, vaultMgr),
-                Collections.singletonList(ExtendedTableConfigurationSchema.class),
-                List.of()
+                List.of(ExtendedTableConfigurationSchema.class),
+                List.of(HashIndexConfigurationSchema.class, SortedIndexConfigurationSchema.class, PartialIndexConfigurationSchema.class)
         );
 
         baselineMgr = new BaselineManager(
@@ -206,7 +223,8 @@ public class IgniteImpl implements Ignite {
                 raftMgr,
                 baselineMgr,
                 clusterSvc.topologyService(),
-                getPartitionsStorePath(workDir)
+                getPartitionsStorePath(workDir),
+                txManager
         );
 
         qryEngine = new SqlQueryProcessor(
@@ -214,9 +232,14 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr
         );
 
-        restModule = new RestModule(nodeCfgMgr, clusterCfgMgr);
+        restModule = new RestModule(nodeCfgMgr, clusterCfgMgr, nettyBootstrapFactory);
 
-        clientHandlerModule = new ClientHandlerModule(qryEngine, distributedTblMgr, nodeCfgMgr.configurationRegistry());
+        clientHandlerModule = new ClientHandlerModule(
+                qryEngine,
+                distributedTblMgr,
+                nodeCfgMgr.configurationRegistry(),
+                nettyBootstrapFactory
+        );
     }
 
     /**
@@ -269,8 +292,10 @@ public class IgniteImpl implements Ignite {
 
             // Start the remaining components.
             List<IgniteComponent> otherComponents = List.of(
+                    nettyBootstrapFactory,
                     clusterSvc,
                     raftMgr,
+                    txManager,
                     metaStorageMgr,
                     clusterCfgMgr,
                     baselineMgr,
@@ -305,19 +330,7 @@ public class IgniteImpl implements Ignite {
      * Stops ignite node.
      */
     public void stop() {
-        AtomicBoolean explicitStop = new AtomicBoolean();
-
-        status.getAndUpdate(status -> {
-            if (status == Status.STARTED) {
-                explicitStop.set(true);
-            } else {
-                explicitStop.set(false);
-            }
-
-            return Status.STOPPING;
-        });
-
-        if (explicitStop.get()) {
+        if (status.getAndSet(Status.STOPPING) == Status.STARTED) {
             doStopNode(List.of(vaultMgr, nodeCfgMgr, clusterSvc, raftMgr, metaStorageMgr, clusterCfgMgr, baselineMgr,
                     distributedTblMgr, qryEngine, restModule, clientHandlerModule));
         }
@@ -380,6 +393,13 @@ public class IgniteImpl implements Ignite {
      */
     public ClientHandlerModule clientHandlerModule() {
         return clientHandlerModule;
+    }
+
+    /**
+     * Returns the id of the current node.
+     */
+    public String id() {
+        return clusterSvc.topologyService().localMember().id();
     }
 
     /**

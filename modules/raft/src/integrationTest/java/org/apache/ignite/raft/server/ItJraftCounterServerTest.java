@@ -223,7 +223,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
                 servers.remove(this);
 
                 super.stop();
-    
+
                 service.stop();
             }
         };
@@ -589,13 +589,16 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
                 super.onWrite(wrapper);
             }
 
-            @Override public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
+            @Override
+            public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
                 Iterator<CommandClosure<ReadCommand>> wrapper = new Iterator<>() {
-                    @Override public boolean hasNext() {
+                    @Override
+                    public boolean hasNext() {
                         return iterator.hasNext();
                     }
 
-                    @Override public CommandClosure<ReadCommand> next() {
+                    @Override
+                    public CommandClosure<ReadCommand> next() {
                         CommandClosure<ReadCommand> cmd = iterator.next();
 
                         cmd.result(new RuntimeException("Another expected message"));
@@ -849,8 +852,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
      * Applies increments.
      *
      * @param client The client
-     * @param start  Start element.
-     * @param stop   Stop element.
+     * @param start Start element.
+     * @param stop Stop element.
      * @return The counter value.
      * @throws Exception If failed.
      */
@@ -880,8 +883,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
      * Validates state machine.
      *
      * @param expected Expected value.
-     * @param server   The server.
-     * @param groupId  Group id.
+     * @param server The server.
+     * @param groupId Group id.
      * @return Validation result.
      */
     private static boolean validateStateMachine(long expected, JraftServerImpl server, String groupId) {

@@ -18,14 +18,15 @@
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
-import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Supplier;
 
 /**
  * Implementation of {@link QueryPlanCache} that simply wraps a {@link Caffeine} cache.
  */
 public class QueryPlanCacheImpl implements QueryPlanCache {
-    private final ConcurrentMap<CacheKey, List<QueryPlan>> cache;
+    private final ConcurrentMap<CacheKey, QueryPlan> cache;
 
     /**
      * Creates a plan cache of provided size.
@@ -35,14 +36,26 @@ public class QueryPlanCacheImpl implements QueryPlanCache {
     public QueryPlanCacheImpl(int cacheSize) {
         cache = Caffeine.newBuilder()
                 .maximumSize(cacheSize)
-                .<CacheKey, List<QueryPlan>>build()
+                .<CacheKey, QueryPlan>build()
                 .asMap();
     }
 
     /** {@inheritDoc} */
     @Override
-    public List<QueryPlan> queryPlan(PlanningContext ctx, CacheKey key, QueryPlanFactory factory) {
-        return cache.computeIfAbsent(key, k -> factory.create(ctx));
+    public QueryPlan queryPlan(CacheKey key, Supplier<QueryPlan> planSupplier) {
+        Map<CacheKey, QueryPlan> cache = this.cache;
+        QueryPlan plan = cache.computeIfAbsent(key, k -> planSupplier.get());
+
+        return plan.copy();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public QueryPlan queryPlan(CacheKey key) {
+        Map<CacheKey, QueryPlan> cache = this.cache;
+        QueryPlan plan = cache.get(key);
+
+        return plan != null ? plan.copy() : null;
     }
 
     /** {@inheritDoc} */

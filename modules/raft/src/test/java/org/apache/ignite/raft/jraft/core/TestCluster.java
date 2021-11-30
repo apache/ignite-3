@@ -126,7 +126,7 @@ public class TestCluster {
         int electionTimeoutMs,
         TestInfo testInfo
     ) {
-        this(name, dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT_MILLIS, null, testInfo);
+        this(name, dataPath, peers, new LinkedHashSet<>(), electionTimeoutMs, null, testInfo);
     }
 
     public TestCluster(
@@ -137,7 +137,7 @@ public class TestCluster {
         int electionTimeoutMs,
         TestInfo testInfo
     ) {
-        this(name, dataPath, peers, learners, ELECTION_TIMEOUT_MILLIS, null, testInfo);
+        this(name, dataPath, peers, learners, electionTimeoutMs, null, testInfo);
     }
 
     public TestCluster(

@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.first;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -68,6 +69,7 @@ import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGr
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteExchange;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteFilter;
+import org.apache.ignite.internal.processors.query.calcite.rel.IgniteGateway;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteHashIndexSpool;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteLimit;
@@ -94,13 +96,13 @@ import org.apache.ignite.internal.processors.query.calcite.rel.agg.IgniteReduceS
 import org.apache.ignite.internal.processors.query.calcite.rel.agg.IgniteSingleHashAggregate;
 import org.apache.ignite.internal.processors.query.calcite.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.processors.query.calcite.rel.set.IgniteSetOp;
-import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
-import org.apache.ignite.internal.processors.query.calcite.schema.TableDescriptor;
+import org.apache.ignite.internal.processors.query.calcite.schema.InternalIgniteTable;
 import org.apache.ignite.internal.processors.query.calcite.trait.Destination;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Implements a query plan.
@@ -183,7 +185,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         IgniteDistribution distr = rel.distribution();
         Destination<RowT> dest = distr.destination(ctx, affSrvc, ctx.group(rel.sourceId()));
-        String localNodeId = ctx.planningContext().localNodeId();
+        String localNodeId = ctx.localNodeId();
 
         FilterNode<RowT> node = new FilterNode<>(ctx, rel.getRowType(), r -> Objects.equals(localNodeId, first(dest.targets(r))));
 
@@ -217,7 +219,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         JoinRelType joinType = rel.getJoinType();
 
         RelDataType rowType = combinedRowType(ctx.getTypeFactory(), leftType, rightType);
-        Predicate<RowT> cond = expressionFactory.predicate(rel.getCondition(), rowType);
+        BiPredicate<RowT, RowT> cond = expressionFactory.biPredicate(rel.getCondition(), rowType);
 
         Node<RowT> node = NestedLoopJoinNode.create(ctx, outType, leftType, rightType, joinType, cond);
 
@@ -237,7 +239,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RelDataType rightType = rel.getRight().getRowType();
 
         RelDataType rowType = combinedRowType(ctx.getTypeFactory(), leftType, rightType);
-        Predicate<RowT> cond = expressionFactory.predicate(rel.getCondition(), rowType);
+        BiPredicate<RowT, RowT> cond = expressionFactory.biPredicate(rel.getCondition(), rowType);
 
         assert rel.getJoinType() == JoinRelType.INNER || rel.getJoinType() == JoinRelType.LEFT
                 : CNLJ_NOT_SUPPORTED_JOIN_ASSERTION_MSG;
@@ -285,7 +287,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         //        RexNode condition = rel.condition();
         //        List<RexNode> projects = rel.projects();
 
-        IgniteTable tbl = rel.getTable().unwrap(IgniteTable.class);
+        InternalIgniteTable tbl = rel.getTable().unwrap(InternalIgniteTable.class);
         IgniteTypeFactory typeFactory = ctx.getTypeFactory();
 
         ImmutableBitSet requiredColumns = rel.requiredColumns();
@@ -316,7 +318,10 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         List<RexNode> projects = rel.projects();
         ImmutableBitSet requiredColumns = rel.requiredColumns();
 
-        IgniteTable tbl = rel.getTable().unwrap(IgniteTable.class);
+        InternalIgniteTable tbl = rel.getTable().unwrap(InternalIgniteTable.class);
+
+        assert tbl != null;
+
         IgniteTypeFactory typeFactory = ctx.getTypeFactory();
 
         RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
@@ -329,12 +334,24 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         return new TableScanNode<>(
                 ctx,
                 rowType,
-                tbl.descriptor(),
-                group.partitions(ctx.planningContext().localNodeId()),
+                tbl,
+                group.partitions(ctx.localNodeId()),
                 filters,
                 prj,
                 requiredColumns
         );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Node<RowT> visit(IgniteGateway rel) {
+        var extension = ctx.extension(rel.extensionName());
+
+        if (extension == null) {
+            throw new IgniteInternalException("Unknown SQL extension \"" + rel.extensionName() + "\"");
+        }
+
+        return extension.<RowT>implementor().implement(ctx, (IgniteRel) rel.getInput());
     }
 
     /** {@inheritDoc} */
@@ -493,7 +510,11 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
             case INSERT:
             case UPDATE:
             case DELETE:
-                ModifyNode<RowT> node = new ModifyNode<>(ctx, rel.getRowType(), rel.getTable().unwrap(TableDescriptor.class),
+                InternalIgniteTable tbl = rel.getTable().unwrap(InternalIgniteTable.class);
+
+                assert tbl != null;
+
+                ModifyNode<RowT> node = new ModifyNode<>(ctx, rel.getRowType(), tbl,
                         rel.getOperation(), rel.getUpdateColumnList());
 
                 Node<RowT> input = visit(rel.getInput());
@@ -697,6 +718,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         return visit((IgniteRel) rel);
     }
 
+    @SuppressWarnings("unchecked")
     public <T extends Node<RowT>> T go(IgniteRel rel) {
         return (T) visit(rel);
     }
