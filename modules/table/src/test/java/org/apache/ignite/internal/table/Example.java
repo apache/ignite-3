@@ -501,7 +501,7 @@ public class Example {
      * Similar to case 5, but fully manual mapping.
      * TODO: Let's drop case 5 and replace with this.
      *
-     * @param t
+     * @param t Table.
      */
     public void useCase9(Table t) {
         // Now assume that we have some POJO classes to deserialize the binary objects.
