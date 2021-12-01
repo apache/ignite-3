@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
 public abstract class Producer<T extends Event, P extends EventParameters> {
     /** All listeners. */
     private ConcurrentHashMap<T, ConcurrentLinkedQueue<EventListener<P>>> listeners = new ConcurrentHashMap<>();
-    
+
     /**
      * Registers an event listener. When the event predicate returns true it would never invoke after, otherwise this predicate would
      * receive an event again.
@@ -40,7 +40,7 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
     public void listen(T evt, EventListener<P> closure) {
         listeners.computeIfAbsent(evt, evtKey -> new ConcurrentLinkedQueue<>()).offer(closure);
     }
-    
+
     /**
      * Removes a listener associated with the event.
      *
@@ -50,7 +50,7 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
     public void removeListener(T evt, EventListener<P> closure) {
         removeListener(evt, closure, null);
     }
-    
+
     /**
      * Removes a listener associated with the event.
      *
@@ -63,7 +63,7 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
             closure.remove(cause == null ? new ListenerRemovedException() : cause.getCause() == null ? cause : cause.getCause());
         }
     }
-    
+
     /**
      * Notifies every listener that subscribed before.
      *
@@ -73,18 +73,18 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
      */
     protected void fireEvent(T evt, P params, Throwable err) {
         ConcurrentLinkedQueue<EventListener<P>> queue = listeners.get(evt);
-    
+
         if (queue == null) {
             return;
         }
-        
+
         EventListener<P> closure;
-        
+
         Iterator<EventListener<P>> iter = queue.iterator();
-        
+
         while (iter.hasNext()) {
             closure = iter.next();
-    
+
             if (closure.notify(params, err)) {
                 iter.remove();
             }

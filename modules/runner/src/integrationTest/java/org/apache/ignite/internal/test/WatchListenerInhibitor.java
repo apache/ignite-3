@@ -65,9 +65,9 @@ public class WatchListenerInhibitor implements WatchListener {
                 "metaStorageMgr",
                 (IgniteImpl) ignite
         ).get();
-    
+
         assertNotNull(metaMngr);
-    
+
         WatchAggregator aggregator = (WatchAggregator) ReflectionUtils.tryToReadFieldValue(
                 MetaStorageManager.class,
                 "watchAggregator",
@@ -79,14 +79,14 @@ public class WatchListenerInhibitor implements WatchListener {
         WatchAggregator aggregatorSpy = Mockito.spy(aggregator);
 
         WatchListenerInhibitor inhibitor = new WatchListenerInhibitor();
-    
+
         doAnswer(mock -> {
             Optional<AggregatedWatch> op = (Optional<AggregatedWatch>) mock.callRealMethod();
-        
+
             assertTrue(op.isPresent());
-        
+
             inhibitor.setRealListener(op.get().listener());
-        
+
             return Optional.of(new AggregatedWatch(op.get().keyCriterion(), op.get().revision(),
                     inhibitor));
         }).when(aggregatorSpy).watch(anyLong(), any());
@@ -140,7 +140,7 @@ public class WatchListenerInhibitor implements WatchListener {
      */
     public synchronized void stopInhibit() {
         inhibit = false;
-    
+
         for (WatchEvent evt : inhibitEvents) {
             realListener.onUpdate(evt);
         }
