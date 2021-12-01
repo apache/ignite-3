@@ -37,6 +37,8 @@ public class ConfigurationModules {
      * @param modules modules to wrap; they may be of different types
      */
     public ConfigurationModules(List<ConfigurationModule> modules) {
+        System.out.println("XXX modules");
+        modules.forEach(m -> System.out.println("XXX " + m.getClass()));
         localCompound = compoundOfType(ConfigurationType.LOCAL, modules);
         distributedCompound = compoundOfType(ConfigurationType.DISTRIBUTED, modules);
     }
