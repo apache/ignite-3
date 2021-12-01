@@ -104,7 +104,6 @@ public final class MapperBuilder<T> {
      * @param columnName Column name.
      * @param <ObjectT>  MUST match the object field type, if the individual field mapped to given column.
      * @param <ColumnT>  MUST be a type, which compatible with the column type.
-     * @throws IllegalArgumentException If converter object type doesn't match field type.
      */
     public <ObjectT, ColumnT> MapperBuilder<T> convert(
             @NotNull TypeConverter<ObjectT, ColumnT> converter,
@@ -148,8 +147,7 @@ public final class MapperBuilder<T> {
      * Builds mapper.
      *
      * @return Mapper.
-     * @throws IllegalStateException if nothing were mapped, or more than one column were mapped to the same field, or converter object type
-     *                               doesn't match the field type.
+     * @throws IllegalStateException if nothing were mapped, or more than one column were mapped to the same field.
      */
     public Mapper<T> build() {
         isStale = true;
