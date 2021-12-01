@@ -132,8 +132,7 @@ public abstract class Marshaller {
      * @return Field value.
      * @throws MarshallerException If failed to read object field.
      */
-    public abstract @Nullable
-    Object value(Object obj, int fldIdx) throws MarshallerException;
+    public abstract @Nullable Object value(Object obj, int fldIdx) throws MarshallerException;
 
     /**
      * Reads object from a row.

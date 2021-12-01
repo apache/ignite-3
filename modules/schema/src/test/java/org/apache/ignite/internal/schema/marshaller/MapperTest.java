@@ -114,6 +114,7 @@ public class MapperTest {
         assertThrows(IllegalArgumentException.class, () -> Mapper.of(EnumTestObject.class, "column"));
 
     }
+
     @Test
     public void identityMapping() {
         Mapper<TestObject> mapper = Mapper.identity(TestObject.class);

@@ -41,6 +41,7 @@ public final class MapperBuilder<T> {
 
     /** {@code True} if the {@link #build()} method was called, {@code false} otherwise. */
     private boolean isStale;
+
     /**
      * Creates a mapper builder for a type.
      *
@@ -126,23 +127,20 @@ public final class MapperBuilder<T> {
 
     /**
      * Map a field to a type of given class.
-     * <p>
-     * TODO: Method has ambiguous signature (column name is missed) and must be dropped, TODO: use {@link #convert(TypeConverter, String)}
-     * instead.
      */
+    // TODO: Method has ambiguous signature (missed col name) and must be dropped, TODO: use {@link #convert(TypeConverter, String)} instead.
     public MapperBuilder<T> map(@NotNull String fieldName, Class<?> targetClass) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**
      * Adds a functional mapping for a field, the result depends on function call for every particular row.
-     * <p>
-     * TODO: Method has ambiguous signature, and must be dropped, use {@link #map(Function, Function)} instead.
      */
-    @Deprecated
+     // TODO: Method has ambiguous signature, and must be dropped, use {@link #map(Function, Function)} instead.
     public MapperBuilder<T> map(@NotNull String fieldName, Function<Tuple, Object> mappingFunction) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
+
     /**
      * Builds mapper.
      *

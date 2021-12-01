@@ -88,6 +88,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
 
         return new ByteBufferRow(asm.toBytes());
     }
+
     /** {@inheritDoc} */
     @Override
     public BinaryRow marshal(@NotNull K key, V val) throws MarshallerException {

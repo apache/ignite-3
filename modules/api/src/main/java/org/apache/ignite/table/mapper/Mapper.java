@@ -26,8 +26,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Mapper interface defines methods that are required for a marshaller to map class field names to table columns.
- * <p>
- * NB: Anonymous, local, inner classes, and special types are NOT supported, and mapper will not be created for them: e.g. interfaces,
+ *
+ * <p>NB: Anonymous, local, inner classes, and special types are NOT supported, and mapper will not be created for them: e.g. interfaces,
  * annotation, and so on.
  *
  * @param <T> Type of which objects the mapper handles.

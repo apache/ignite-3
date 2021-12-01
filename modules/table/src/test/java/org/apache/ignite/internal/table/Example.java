@@ -534,7 +534,7 @@ public class Example {
         // Next views shows different approaches to map user objects to columns.
         KeyValueView<Long, Employee> v1 = t.keyValueView(
                 Mapper.of(Long.class),
-                Mapper.of(Employee.class, "fieldData","colData"));
+                Mapper.of(Employee.class, "fieldData", "colData"));
 
         KeyValueView<Long, Employee2> v2 = t.keyValueView(
                 Mapper.of(Long.class),
@@ -591,12 +591,10 @@ public class Example {
 
 
     /**
-     * Fully manual mapping case.
-     * Allows users to write powerful functions that will convert an object to a row and vice versa.
+     * Fully manual mapping case. Allows users to write powerful functions that will convert an object to a row and vice versa.
      *
-     * For now, it is the only case where conditional mapping (condition on another field) is possible.
-     * This case widely used in ORM (e.g. Hibernate) to store inherited objects in same table using a condition on special-purpose "discriminator" column.
-     *
+     * <p>For now, it is the only case where conditional mapping (condition on another field) is possible. This case widely used in ORM
+     * (e.g. Hibernate) to store inherited objects in same table using a condition on special-purpose "discriminator" column.
      * TODO: Maybe we can produce design with other approaches ??? Do we want this feature ???
      *
      * @param t Table.

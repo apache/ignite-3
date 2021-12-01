@@ -299,7 +299,8 @@ public class KvMarshallerTest {
                 "Failed to write field [name=shortCol]"
         );
     }
-/**
+
+    /**
      * Try to create marshaller for class without field for key column.
      */
     @ParameterizedTest
@@ -319,6 +320,7 @@ public class KvMarshallerTest {
         assertThrows(IllegalArgumentException.class, () -> factory.create(schema, TestKeyObject.class, TestObjectWithAllTypes.class),
                 "No field found for column id2");
     }
+
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithIncorrectBitmaskSize(MarshallerFactory factory) {
@@ -502,6 +504,7 @@ public class KvMarshallerTest {
 
         return baos.toByteArray();
     }
+
     /**
      * Generate random key-value pair of given types and check serialization and deserialization works fine.
      *
