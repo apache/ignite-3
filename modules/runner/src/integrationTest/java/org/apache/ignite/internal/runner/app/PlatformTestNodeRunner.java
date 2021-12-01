@@ -86,8 +86,6 @@ public class PlatformTestNodeRunner {
             return;
         }
 
-        System.out.println("Classpath: " + System.getProperty("java.class.path"));
-
         IgniteUtils.deleteIfExists(BASE_PATH);
         Files.createDirectories(BASE_PATH);
 
