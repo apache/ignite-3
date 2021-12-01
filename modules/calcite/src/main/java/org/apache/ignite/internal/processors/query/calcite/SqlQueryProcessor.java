@@ -171,6 +171,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     /** {@inheritDoc} */
+    @Override
     public List<SqlCursor<List<?>>> query(String schemaName, String qry, Object... params) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());

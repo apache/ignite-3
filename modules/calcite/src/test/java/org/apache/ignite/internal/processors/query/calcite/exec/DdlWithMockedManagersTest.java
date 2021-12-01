@@ -49,10 +49,12 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -96,6 +98,10 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
     /** Raft manager. */
     @Mock
     private Loza rm;
+    
+    /** TX manager. */
+    @Mock(lenient = true)
+    private TxManager tm;
     
     /** Tables configuration. */
     @InjectConfiguration(
@@ -146,7 +152,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
      * Tests create a table through public API.
      */
     @Test
-    public void testCreateTable() {
+    public void testCreateTable() throws Exception {
         tblManager = mockManagers();
         
         queryProc = new SqlQueryProcessor(cs, tblManager);
@@ -180,7 +186,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
      * Tests create a table with multiple pk through public API.
      */
     @Test
-    public void testCreateTableMultiplePk() {
+    public void testCreateTableMultiplePk() throws Exception {
         tblManager = mockManagers();
         
         queryProc = new SqlQueryProcessor(cs, tblManager);
@@ -201,7 +207,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
      * Tests create and drop table through public API.
      */
     @Test
-    public void testDropTable() {
+    public void testDropTable() throws Exception {
         tblManager = mockManagers();
         
         queryProc = new SqlQueryProcessor(cs, tblManager);
@@ -238,7 +244,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
      * Tests alter and drop columns through public API.
      */
     @Test
-    public void testAlterAndDropSimpleCase() {
+    public void testAlterAndDropSimpleCase() throws Exception {
         tblManager = mockManagers();
         
         queryProc = new SqlQueryProcessor(cs, tblManager);
@@ -287,7 +293,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
      */
     //@Test
     // todo IGNITE-16032
-    public void testCreateDropIndex() {
+    public void testCreateDropIndex() throws Exception {
         tblManager = mockManagers();
         
         queryProc = new SqlQueryProcessor(cs, tblManager);
@@ -333,7 +339,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
      *
      * @return Table manager.
      */
-    private TableManager mockManagers() {
+    private TableManager mockManagers() throws NodeStoppingException {
         when(rm.prepareRaftGroup(any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
             
@@ -404,7 +410,8 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
                 rm,
                 bm,
                 ts,
-                workDir
+                workDir,
+                tm
         );
         
         tableManager.start();
