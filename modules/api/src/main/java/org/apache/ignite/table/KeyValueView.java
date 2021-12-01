@@ -67,7 +67,9 @@ public interface KeyValueView<K, V> {
      * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
      * @return Wrapped nullable value or {@code null}, if it does not exist.
      */
-    NullableValue<V> getNullable(K key);
+    default NullableValue<V> getNullable(K key) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
 
     /**
      * Gets a nullable value associated with the given key.
@@ -76,7 +78,9 @@ public interface KeyValueView<K, V> {
      * @return Future representing pending completion of the operation.
      * @see #getNullable(Object)
      */
-    @NotNull CompletableFuture<NullableValue<V>> getNullableAsync(K key);
+    default @NotNull CompletableFuture<NullableValue<V>> getNullableAsync(K key) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
 
     /**
      * Gets a value associated with the given key if exists, returns {@code defaultValue} otherwise.
@@ -87,7 +91,9 @@ public interface KeyValueView<K, V> {
      * @return Value or {@code defaultValue}, if does not exist.
      * @throws IllegalStateException If value for the key exists, and it is {@code null}.
      */
-    V getOrDefault(K key, V defaultValue);
+    default V getOrDefault(K key, V defaultValue) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
 
     /**
      * Gets a nullable value associated with the given key.
@@ -98,7 +104,9 @@ public interface KeyValueView<K, V> {
      * @return Future representing pending completion of the operation.
      * @see #getOrDefault(Object, Object)
      */
-    @NotNull CompletableFuture<V> getOrDefaultAsync(K key, V defaultValue);
+    default @NotNull CompletableFuture<V> getOrDefaultAsync(K key, V defaultValue) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
 
     /**
      * Get values associated with given keys.
