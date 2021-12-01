@@ -125,7 +125,7 @@ public interface Mapper<T> {
      * Shortcut method creates a mapper for a case when object individual fields map to the column with the same name.
      *
      * @param cls Parametrized type of which objects the mapper will handle.
-     * @return Mapper.
+     * @return Identity mapper.
      */
     static <O> Mapper<O> identity(Class<O> cls) {
         if (cls.isArray() || cls.isInterface() || Modifier.isAbstract(cls.getModifiers())) {
