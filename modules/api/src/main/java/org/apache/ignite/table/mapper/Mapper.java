@@ -138,7 +138,6 @@ public interface Mapper<T> {
                 Arrays.stream(cls.getDeclaredFields()).collect(Collectors.toMap(Field::getName, Field::getName)));
     }
 
-
     /**
      * Ensures class is of the supported kind.
      *

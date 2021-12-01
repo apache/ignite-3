@@ -177,7 +177,6 @@ public class ColumnBindingTest {
                 String.class);
 
         assertEquals("Some string", binding.value("Some string"));
-
         final Pair<RowAssembler, Row> mocks = createMocks();
 
         binding.write(mocks.getFirst(), "Other string");
@@ -196,7 +195,6 @@ public class ColumnBindingTest {
         assertThrows(
                 MarshallerException.class,
                 () -> binding.value("Some string"));
-
         final Pair<RowAssembler, Row> mocks = createMocks();
 
         assertThrows(

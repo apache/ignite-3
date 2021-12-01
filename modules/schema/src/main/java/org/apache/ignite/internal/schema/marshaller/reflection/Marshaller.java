@@ -40,11 +40,12 @@ public abstract class Marshaller {
     /**
      * Creates a marshaller for class.
      *
-     * @param cols   Columns.
-     * @param mapper Mapper.
+     * @param cols             Columns.
+     * @param mapper           Mapper.
+     * @param requireAllFields If specified class should contain fields for all columns.
      * @return Marshaller.
      */
-    public static <T> Marshaller createMarshaller(Column[] cols, @NotNull Mapper<T> mapper) {
+    public static <T> Marshaller createMarshaller(Column[] cols, @NotNull Mapper<T> mapper, boolean requireAllFields) {
         final BinaryMode mode = MarshallerUtil.mode(mapper.targetType());
 
         if (mode != BinaryMode.POJO || mapper.mappedColumn() != null) {
@@ -57,21 +58,23 @@ public abstract class Marshaller {
                         String.format("Object can't be mapped to a column of incompatible type: columnType=%s, mappedType=%s",
                                 col.type().spec(), mapper.targetType().getName()));
             }
-
             assert !mapper.targetType().isPrimitive() : "Non-nullable types are not allowed.";
 
             return new SimpleMarshaller(ColumnBinding.createIdentityBinding(col, mapper.targetType()));
         }
 
         ColumnBinding[] columnBindings = new ColumnBinding[cols.length];
-
         // Build handlers.
+
         for (int i = 0; i < cols.length; i++) {
             final Column col = cols[i];
 
             String fieldName = mapper.fieldForColumn(col.name());
 
-            // TODO: IGNITE-15785 validate key marshaller has no DummyBinding.
+            if (requireAllFields && fieldName == null) {
+                throw new IllegalArgumentException("No field found for column " + col.name());
+            }
+
             columnBindings[i] = (fieldName == null) ? ColumnBinding.unmappedFieldBinding(col) :
                     ColumnBinding.createFieldBinding(col, mapper.targetType(), fieldName);
         }
@@ -82,13 +85,14 @@ public abstract class Marshaller {
     /**
      * Creates a marshaller for class.
      *
-     * @param cols Columns.
-     * @param cls  Type.
+     * @param cols             Columns.
+     * @param cls              Type.
+     * @param requireAllFields If specified class should contain fields for all columns.
      * @return Marshaller.
      */
     //TODO: IGNITE-15907 drop
     @Deprecated
-    public static Marshaller createMarshaller(Columns cols, Class<?> cls) {
+    public static Marshaller createMarshaller(Columns cols, Class<?> cls, boolean requireAllFields) {
         final BinaryMode mode = MarshallerUtil.mode(cls);
 
         if (mode != BinaryMode.POJO) {
@@ -102,10 +106,17 @@ public abstract class Marshaller {
         }
 
         ColumnBinding[] fieldAccessors = new ColumnBinding[cols.length()];
-
         // Build accessors
         for (int i = 0; i < cols.length(); i++) {
             final Column col = cols.column(i);
+
+            if (requireAllFields) {
+                try {
+                    cls.getDeclaredField(col.name());
+                } catch (NoSuchFieldException e) {
+                    throw new IllegalArgumentException("No field found for column " + col.name());
+                }
+            }
 
             fieldAccessors[i] = ColumnBinding.createFieldBinding(col, cls, col.name());
         }
@@ -121,7 +132,8 @@ public abstract class Marshaller {
      * @return Field value.
      * @throws MarshallerException If failed to read object field.
      */
-    public abstract @Nullable Object value(Object obj, int fldIdx) throws MarshallerException;
+    public abstract @Nullable
+    Object value(Object obj, int fldIdx) throws MarshallerException;
 
     /**
      * Reads object from a row.
@@ -159,7 +171,8 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public @Nullable Object value(Object obj, int fldIdx) throws MarshallerException {
+        public @Nullable
+        Object value(Object obj, int fldIdx) throws MarshallerException {
             assert fldIdx == 0;
 
             return columnBinding.value(obj);
@@ -174,7 +187,6 @@ public abstract class Marshaller {
                 throw new MarshallerException("Failed to read column: colIdx" + columnBinding.colIdx, e);
             }
         }
-
 
         /** {@inheritDoc} */
         @Override
@@ -193,7 +205,6 @@ public abstract class Marshaller {
     static class ObjectMarshaller extends Marshaller {
         /** Column bindings. Array has same size and order as columns. */
         private final ColumnBinding[] columnBindings;
-
         /** Object factory. */
         private final Factory<?> factory;
 
@@ -211,7 +222,8 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public @Nullable Object value(Object obj, int fldIdx) throws MarshallerException {
+        public @Nullable
+        Object value(Object obj, int fldIdx) throws MarshallerException {
             return columnBindings[fldIdx].value(obj);
         }
 

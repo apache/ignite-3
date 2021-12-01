@@ -165,10 +165,16 @@ public class KvMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void narrowType(MarshallerFactory factory) throws MarshallerException {
-        Column[] cols = columnsAllTypes();
+        Column[] cols = new Column[]{
+                new Column("primitiveIntCol", INT32, false),
+                new Column("primitiveLongCol", INT64, false),
+                new Column("primitiveFloatCol", FLOAT, false),
+                new Column("primitiveDoubleCol", DOUBLE, false),
+                new Column("stringCol", STRING, false),
+                new Column("uuidCol", UUID, false),
+        };
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
-
+        SchemaDescriptor schema = new SchemaDescriptor(1, cols, columnsAllTypes());
         KvMarshaller<TestTruncatedObject, TestTruncatedObject> marshaller =
                 factory.create(schema, TestTruncatedObject.class, TestTruncatedObject.class);
 
@@ -293,7 +299,26 @@ public class KvMarshallerTest {
                 "Failed to write field [name=shortCol]"
         );
     }
+/**
+     * Try to create marshaller for class without field for key column.
+     */
+    @ParameterizedTest
+    @MethodSource("marshallerFactoryProvider")
+    public void classWithoutKeyField(MarshallerFactory factory) {
+        Column[] keyCols = new Column[]{
+                new Column("id", INT64, false),
+                new Column("id2", INT64, false),
+        };
 
+        Column[] valCols = new Column[]{
+                new Column("primitiveDoubleCol", DOUBLE, false)
+        };
+
+        SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
+
+        assertThrows(IllegalArgumentException.class, () -> factory.create(schema, TestKeyObject.class, TestObjectWithAllTypes.class),
+                "No field found for column id2");
+    }
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithIncorrectBitmaskSize(MarshallerFactory factory) {
@@ -477,7 +502,6 @@ public class KvMarshallerTest {
 
         return baos.toByteArray();
     }
-
     /**
      * Generate random key-value pair of given types and check serialization and deserialization works fine.
      *
@@ -499,7 +523,6 @@ public class KvMarshallerTest {
         KvMarshaller<Object, Object> marshaller = factory.create(schema,
                 Mapper.of((Class<Object>) key.getClass(), "key"),
                 Mapper.of((Class<Object>) val.getClass(), "val"));
-
         BinaryRow row = marshaller.marshal(key, val);
 
         Object key1 = marshaller.unmarshalKey(new Row(schema, row));

@@ -67,8 +67,8 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         keyClass = keyMapper.targetType();
         valClass = valueMapper.targetType();
 
-        keyMarsh = Marshaller.createMarshaller(schema.keyColumns().columns(), keyMapper);
-        valMarsh = Marshaller.createMarshaller(schema.valueColumns().columns(), valueMapper);
+        keyMarsh = Marshaller.createMarshaller(schema.keyColumns().columns(), keyMapper, true);
+        valMarsh = Marshaller.createMarshaller(schema.valueColumns().columns(), valueMapper, false);
     }
 
     /** {@inheritDoc} */
@@ -88,7 +88,6 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
 
         return new ByteBufferRow(asm.toBytes());
     }
-
     /** {@inheritDoc} */
     @Override
     public BinaryRow marshal(@NotNull K key, V val) throws MarshallerException {
@@ -96,10 +95,8 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         assert val == null || valClass.isInstance(val);
 
         final RowAssembler asm = createAssembler(key, val);
-
         keyMarsh.writeObject(key, asm);
         valMarsh.writeObject(val, asm);
-
         return new ByteBufferRow(asm.toBytes());
     }
 

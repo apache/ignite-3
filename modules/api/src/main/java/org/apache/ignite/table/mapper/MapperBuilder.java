@@ -41,7 +41,6 @@ public final class MapperBuilder<T> {
 
     /** {@code True} if the {@link #build()} method was called, {@code false} otherwise. */
     private boolean isStale;
-
     /**
      * Creates a mapper builder for a type.
      *
@@ -145,7 +144,6 @@ public final class MapperBuilder<T> {
     public MapperBuilder<T> map(@NotNull String fieldName, Function<Tuple, Object> mappingFunction) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
-
     /**
      * Builds mapper.
      *

@@ -38,7 +38,6 @@ public class MapperTest {
     public void misleadingMapperUsage() {
         // Empty mapping.
         assertThrows(IllegalStateException.class, () -> Mapper.builder(TestObject.class).build());
-
         // Many fields to one column.
         assertThrows(IllegalArgumentException.class, () -> Mapper.builder(TestObject.class)
                 .map("id", "key")
@@ -115,7 +114,6 @@ public class MapperTest {
         assertThrows(IllegalArgumentException.class, () -> Mapper.of(EnumTestObject.class, "column"));
 
     }
-
     @Test
     public void identityMapping() {
         Mapper<TestObject> mapper = Mapper.identity(TestObject.class);

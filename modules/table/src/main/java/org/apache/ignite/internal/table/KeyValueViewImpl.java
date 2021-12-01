@@ -218,7 +218,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public @NotNull
     CompletableFuture<Boolean> removeAsync(@NotNull K key) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(key));
-
         return tbl.delete(keyRow, tx);
     }
 
@@ -228,7 +227,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     @Override
     public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull K key, V val) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(key), val);
-
         return tbl.deleteExact(keyRow, tx);
     }
 
@@ -264,7 +262,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public @NotNull
     CompletableFuture<V> getAndRemoveAsync(@NotNull K key) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(key));
-
         return tbl.getAndDelete(keyRow, tx).thenApply(this::unmarshalValue);
     }
 
@@ -290,7 +287,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, V val) {
         BinaryRow row = marshal(Objects.requireNonNull(key), val);
-
         return tbl.replace(row, tx);
     }
 
@@ -303,7 +299,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
         BinaryRow oldRow = marshal(key, oldVal);
         BinaryRow newRow = marshal(key, newVal);
-
         return tbl.replace(oldRow, newRow, tx);
     }
 
@@ -432,7 +427,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
             throw new IgniteException(e);
         }
     }
-
     /**
      * Marshal key-value pair to a row.
      *
