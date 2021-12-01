@@ -188,7 +188,7 @@ public class MetaStorageManager implements IgniteComponent {
                 throw new IgniteException(
                         "Cannot start meta storage manager because there is no node in the cluster that hosts meta storage.");
             }
-    
+
             // TODO: This is temporary solution. We need to prohibit starting several metastorage nodes
             // as far as we do not have mechanism of changing raft peers when new metastorage node is joining to cluster.
             // This will be rewritten in init phase https://issues.apache.org/jira/browse/IGNITE-14414
@@ -199,11 +199,15 @@ public class MetaStorageManager implements IgniteComponent {
 
             storage.start();
 
-            raftGroupServiceFut = raftMgr.prepareRaftGroup(
-                    METASTORAGE_RAFT_GROUP_NAME,
-                    metaStorageMembers,
-                    () -> new MetaStorageListener(storage)
-            );
+            try {
+                raftGroupServiceFut = raftMgr.prepareRaftGroup(
+                        METASTORAGE_RAFT_GROUP_NAME,
+                        metaStorageMembers,
+                        () -> new MetaStorageListener(storage)
+                );
+            } catch (NodeStoppingException e) {
+                throw new AssertionError("Loza was stopped before Meta Storage manager", e);
+            }
 
             this.metaStorageSvcFut = raftGroupServiceFut.thenApply(service ->
                     new MetaStorageServiceImpl(service, clusterNetSvc.topologyService().localMember().id())
@@ -283,6 +287,8 @@ public class MetaStorageManager implements IgniteComponent {
             LOG.error("Failed to get meta storage raft group service.");
 
             throw new IgniteInternalException(e);
+        } catch (NodeStoppingException e) {
+            throw new AssertionError("Loza was stopped before Meta Storage manager", e);
         }
 
         try {
@@ -368,7 +374,7 @@ public class MetaStorageManager implements IgniteComponent {
             busyLock.leaveBusy();
         }
     }
-    
+
     /**
      * Register watch listener by range of keys.
      *
@@ -385,7 +391,7 @@ public class MetaStorageManager implements IgniteComponent {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
-        
+
         try {
             return waitForReDeploy(watchAggregator.add(from, to, lsnr));
         } finally {
@@ -706,7 +712,7 @@ public class MetaStorageManager implements IgniteComponent {
             busyLock.leaveBusy();
         }
     }
-    
+
     /**
      * Retrieves entries for the given key range in lexicographic order.
      *
@@ -716,7 +722,7 @@ public class MetaStorageManager implements IgniteComponent {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
-        
+
         try {
             return new CursorWrapper<>(
                     metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo))

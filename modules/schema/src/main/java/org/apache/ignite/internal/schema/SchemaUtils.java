@@ -42,10 +42,10 @@ public class SchemaUtils {
      */
     public static SchemaDescriptor prepareSchemaDescriptor(int schemaVer, TableView tblCfg) {
         TableDefinition tableDef = SchemaConfigurationConverter.convert(tblCfg);
-        
+
         return SchemaDescriptorConverter.convert(schemaVer, tableDef);
     }
-    
+
     /**
      * Prepares column mapper.
      *
@@ -113,7 +113,7 @@ public class SchemaUtils {
                 .map(oldDesc::column)
                 .filter(c -> oldDesc.isKeyColumn(c.schemaIndex()))
                 .findAny();
-        
+
         // TODO: IGNITE-15774 Assertion just in case, proper validation should be implemented with the help of
         // TODO: configuration validators.
         assert droppedKeyCol.isEmpty() :
@@ -122,10 +122,10 @@ public class SchemaUtils {
                         newDesc.version(),
                         droppedKeyCol.get()
                 );
-        
+
         return mapper == null ? ColumnMapping.identityMapping() : mapper;
     }
-    
+
     /**
      * Compares schemas.
      *
@@ -138,13 +138,13 @@ public class SchemaUtils {
                 || exp.valueColumns().length() != actual.valueColumns().length()) {
             return false;
         }
-        
+
         for (int i = 0; i < exp.length(); i++) {
             if (!exp.column(i).equals(actual.column(i))) {
                 return false;
             }
         }
-        
+
         return true;
     }
 }

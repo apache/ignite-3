@@ -57,16 +57,16 @@ import org.junit.jupiter.api.function.Executable;
 abstract class AbstractSchemaChangeTest {
     /** Table name. */
     public static final String TABLE = "PUBLIC.tbl1";
-    
+
     /** Network ports of the test nodes. */
     private static final int[] PORTS = {3344, 3345, 3346};
-    
+
     /** Nodes bootstrap configuration. */
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
-    
+
     /** Cluster nodes. */
     private final List<Ignite> clusterNodes = new ArrayList<>();
-    
+
     /** Work directory. */
     @WorkDirectory
     private Path workDir;
