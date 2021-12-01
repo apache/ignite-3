@@ -253,14 +253,18 @@ public class Example {
         }
 
         KeyValueView<OrderKey, OrderValue> orderKvView = t
-                .keyValueView(Mapper.of(OrderKey.class, "key"), Mapper.builder(OrderValue.class).map("billingDetails", (row) -> {
-                    BinaryObject binObj = row.binaryObjectValue("conditionalDetails");
-                    int type = row.intValue("type");
+                .keyValueView(
+                        Mapper.of(OrderKey.class, "key"),
+                        Mapper.builder(OrderValue.class)
+                                /*.map("billingDetails", (row) -> {
+                                    BinaryObject binObj = row.binaryObjectValue("conditionalDetails");
+                                    int type = row.intValue("type");
 
-                    return type == 0
-                            ? BinaryObjects.deserialize(binObj, CreditCard.class)
-                            : BinaryObjects.deserialize(binObj, BankAccount.class);
-                }).build());
+                                    return type == 0
+                                            ? BinaryObjects.deserialize(binObj, CreditCard.class)
+                                            : BinaryObjects.deserialize(binObj, BankAccount.class);
+                                })*/
+                                .build());
 
         OrderValue ov = orderKvView.get(new OrderKey(1, 1));
 
@@ -385,16 +389,16 @@ public class Example {
         // Or we can have a custom conditional type selection.
         RecordView<TruncatedRecord> truncatedView2 = t.recordView(
                 Mapper.builder(TruncatedRecord.class)
-                        .map("upgradedObject", (row) -> {
+                        /*.map("upgradedObject", (row) -> {
                             BinaryObject binObj1 = row.binaryObjectValue("upgradedObject");
                             int dept = row.intValue("department");
 
                             return dept == 0 ? BinaryObjects.deserialize(binObj1, JavaPerson.class)
                                     : BinaryObjects.deserialize(binObj1, JavaPersonV2.class);
-                        })
+                        })*/
                         // TODO: But how to write the columns ??? There is no separate "write mapping" yet.
                         //                        .map("person", "colPersol", obj -> BinaryObjects.serialize(obj))
-                        //                        .map("department", "colDepartment", obj -> obj instanceof JavaPerson ? 0 : 1)
+                        //                        .map("department", "colDepartment", obj -> obj instanceof JavaPersonv2 ? 1 : 0)
                         .build());
 
     }
@@ -534,12 +538,14 @@ public class Example {
 
         //  (supported one-column key and value and records) with additional transformation.
         Mapper.builder(Employee.class)
-                .convert(marsh, "colData") //TODO: Will it be useful to set a bunch of columns that will use same converter (serializer) ??? if so, then conflicts with the right next case.
+                //TODO: Will it be useful to set a bunch of columns that will use same converter (serializer) ???
+                // if so, then conflicts with the right next case.
+                .convert(marsh, "colData")
                 .map("fieldData", "colData")
                 .build();
         // OR another way to do the same
         Mapper.builder(Employee.class)
-                .convert(marsh, "fieldData", "colData")
+                .map("fieldData", "colData", marsh)
                 .build();
 
         // Next views shows different approaches to map user objects to columns.
@@ -557,7 +563,7 @@ public class Example {
 
         KeyValueView<Long, Employee2> v3 = t.keyValueView(
                 Mapper.of(Long.class, "colId"),
-                Mapper.builder(Employee2.class).convert(marsh, "fieldData", "colData").build());
+                Mapper.builder(Employee2.class).map("fieldData", "colData", marsh).build());
 
         KeyValueView<Long, UserObject> v4 = t.keyValueView(
                 Mapper.of(Long.class, "colId"),
@@ -586,7 +592,6 @@ public class Example {
                 Long.class,
                 UserObject.class // obj.salary -> colSalary
         );
-
 
         // do the same as
         KeyValueView<Long, UserObject> v8 = t.keyValueView(
@@ -617,7 +622,7 @@ public class Example {
         UserObject obj = v4.get(1L); // indistinguishable absent value and null column
 
         // Optional way
-//        Optional<UserObject> optionalObj = v4.get(1L); // abuse of Optional type
+        //        Optional<UserObject> optionalObj = v4.get(1L); // abuse of Optional type
 
         // NullableValue way
         NullableValue<UserObject> nullableValue = v4.getNullable(1L);
@@ -640,8 +645,7 @@ public class Example {
      * Fully manual mapping case. Allows users to write powerful functions that will convert an object to a row and vice versa.
      *
      * <p>For now, it is the only case where conditional mapping (condition on another field) is possible. This case widely used in ORM
-     * (e.g. Hibernate) to store inherited objects in same table using a condition on special-purpose "discriminator" column. TODO: Maybe we
-     * can produce design with other approaches ??? Do we want this feature ???
+     * (e.g. Hibernate) to store inherited objects in same table using a condition on special-purpose "discriminator" column.
      *
      * @param t Table.
      */
@@ -666,7 +670,6 @@ public class Example {
         RecordView<UserRecord> truncatedView2 = t.recordView(
                 Mapper.builder(UserRecord.class)
                         // Next two functions of compatible interfaces parametrized with compatible generic types.
-                        // TODO: Do we want to expose such powerfull and potetially harmful feature ??? or let's try another approach ???
                         // TODO: Do we require top-level class with a certain interface here ???
                         .map(
                                 (obj) -> obj == null

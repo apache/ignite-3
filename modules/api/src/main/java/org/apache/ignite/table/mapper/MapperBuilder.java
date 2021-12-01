@@ -29,13 +29,13 @@ import org.jetbrains.annotations.NotNull;
  * Mapper builder provides methods for mapping object fields to columns.
  *
  * <p>By default, a user must explicitly map needed fields with columns
- * in one-to-one manner using {@link #map} and/or {@link #convert(TypeConverter, String, String)} methods, all missed columns and/or fields
+ * in one-to-one manner using {@link #map} and/or {@link #map(String, String, TypeConverter)} methods, all missed columns and/or fields
  * become unmapped, and will be ignored during further table operations.
  *
  * <p>Calling {@link #automap()} method changes default behavior, and maps all the missed fields to the
  * columns, which names are match. A field or a column pair for which wasn't found will be ignored.
  *
- * TODO: add some code examples.
+ * <p>TBD: add some code examples.
  *
  * <p>Note: builder can't be reused after the {@link #build()} method is called.
  *
@@ -92,33 +92,19 @@ public final class MapperBuilder<T> {
     }
 
     /**
-     * Sets a converter for a column, which value must be converted before write/after read.
+     * Maps a field to a column with using type converter. The value will be converted before write to and after read from column using
+     * provided converter.
      *
-     * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
-     * @param columnName Column name.
-     * @param <ObjectT>  MUST match the object field type, if a field mapped to given column, or the object type {@link T}
-     * @param <ColumnT>  MUST be a type, which compatible with the column type.
-     */
-    public <ObjectT, ColumnT> MapperBuilder<T> convert(
-            @NotNull TypeConverter<ObjectT, ColumnT> converter,
-            @NotNull String columnName
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /**
-     * Sets a converter for a column, which value must be converted before write/after read, and maps given field to the column.
-     *
-     * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
-     * @param fieldName  Field name.
-     * @param columnName Column name.
      * @param <ObjectT>  MUST match the object field type, if the individual field mapped to given column.
      * @param <ColumnT>  MUST be a type, which compatible with the column type.
+     * @param fieldName  Field name.
+     * @param columnName Column name.
+     * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
      */
-    public <ObjectT, ColumnT> MapperBuilder<T> convert(
-            @NotNull TypeConverter<ObjectT, ColumnT> converter,
+    public <ObjectT, ColumnT> MapperBuilder<T> map(
             @NotNull String fieldName,
-            @NotNull String columnName
+            @NotNull String columnName,
+            @NotNull TypeConverter<ObjectT, ColumnT> converter
     ) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
@@ -135,21 +121,27 @@ public final class MapperBuilder<T> {
     }
 
     /**
+     * Sets a converter for a column, which value must be converted before write/after read.
+     *
+     * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
+     * @param columnName Column name.
+     * @param <ObjectT>  MUST match the object field type, if a field mapped to given column, or the object type {@link T}
+     * @param <ColumnT>  MUST be a type, which compatible with the column type.
+     */
+    public <ObjectT, ColumnT> MapperBuilder<T> convert(
+            @NotNull TypeConverter<ObjectT, ColumnT> converter,
+            @NotNull String columnName
+    ) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /**
      * Make mapper treat missed columns as they mapped to the field of the same name. If class {@link T} has no field for the missed column,
      * then left the column unmapped.
      *
      * @return {@code this} for chaining.
      */
     public MapperBuilder<T> automap() {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /**
-     * Adds a functional mapping for a field, the result depends on function call for every particular row.
-     */
-    // TODO: Method has ambiguous signature, and must be dropped, use {@link #map(Function, Function)} instead.
-    @Deprecated
-    public MapperBuilder<T> map(@NotNull String fieldName, Function<Tuple, Object> mappingFunction) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 

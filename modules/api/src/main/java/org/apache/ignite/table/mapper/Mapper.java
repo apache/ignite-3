@@ -107,10 +107,9 @@ public interface Mapper<T> {
     /**
      * Creates a mapper builder for objects of given class.
      *
-     * <p>Note: the class MUST have a default constructor.
-     * <p>Note: Builder itself can't be reused.
+     * Note: Builder itself can't be reused.
      *
-     * @param cls Parametrized type of which objects the mapper will handle.
+     * @param cls Parametrized type of which objects the mapper will handle. Class MUST have the default constructor,
      * @return Mapper builder.
      * @throws IllegalArgumentException If {@code cls} is of unsupported kind.
      */

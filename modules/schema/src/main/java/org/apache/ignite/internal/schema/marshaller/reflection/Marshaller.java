@@ -170,8 +170,7 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public @Nullable
-        Object value(Object obj, int fldIdx) throws MarshallerException {
+        public @Nullable Object value(Object obj, int fldIdx) throws MarshallerException {
             assert fldIdx == 0;
 
             return columnBinding.value(obj);
