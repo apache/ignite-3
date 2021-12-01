@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
-import static org.apache.ignite.internal.util.IgniteUtils.cause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -55,6 +54,7 @@ import org.apache.ignite.schema.definition.index.IndexDefinition;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -178,10 +178,10 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         ignite1Inhibitor.startInhibit();
 
         createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
-    
+
         CompletableFuture createTblFut = CompletableFuture.runAsync(() -> createTable(ignite1, SCHEMA, SHORT_TABLE_NAME));
         CompletableFuture createTblIfNotExistsFut = CompletableFuture
-                .runAsync(() -> createTableIfNotExists(ignite1, SCHEMA, SHORT_TABLE_NAME));
+                .supplyAsync(() -> createTableIfNotExists(ignite1, SCHEMA, SHORT_TABLE_NAME));
 
         for (Ignite ignite : clusterNodes) {
             if (ignite != ignite1) {
@@ -201,11 +201,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
             try {
                 createTblFut.get(10, TimeUnit.SECONDS);
             } catch (ExecutionException e) {
-                TableAlreadyExistsException tableAlreadyExistsException = cause(e, TableAlreadyExistsException.class);
-
-                assertNotNull(tableAlreadyExistsException);
-
-                throw tableAlreadyExistsException;
+                throw e.getCause();
             }
         });
 
@@ -218,7 +214,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testAddIndex() throws Exception {
+    public void testAddIndex() {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
         Ignite ignite0 = clusterNodes.get(0);
@@ -239,6 +235,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("IGNITE-16033")
     public void testAddIndexFromLaggedNode() throws Exception {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
         
@@ -275,11 +272,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
             try {
                 addIndesFut.get(10, TimeUnit.SECONDS);
             } catch (ExecutionException e) {
-                IndexAlreadyExistsException indexAlreadyExistsException = cause(e, IndexAlreadyExistsException.class);
-
-                assertNotNull(indexAlreadyExistsException);
-
-                throw indexAlreadyExistsException;
+                throw e.getCause();
             }
         });
         
@@ -311,6 +304,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("IGNITE-16033")
     public void testAddColumnFromLaggedNode() throws Exception {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
         
@@ -343,15 +337,11 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         
         ignite1Inhibitor.stopInhibit();
         
-        assertThrows(IndexAlreadyExistsException.class, () -> {
+        assertThrows(ColumnAlreadyExistsException.class, () -> {
             try {
                 addColFut.get(10, TimeUnit.SECONDS);
             } catch (ExecutionException e) {
-                IndexAlreadyExistsException indexAlreadyExistsException = cause(e, IndexAlreadyExistsException.class);
-
-                assertNotNull(indexAlreadyExistsException);
-
-                throw indexAlreadyExistsException;
+                throw e.getCause();
             }
         });
     

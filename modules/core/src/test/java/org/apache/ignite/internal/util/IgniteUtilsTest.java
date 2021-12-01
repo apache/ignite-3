@@ -19,8 +19,6 @@ package org.apache.ignite.internal.util;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayWithSize;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -56,40 +54,5 @@ class IgniteUtilsTest {
         assertThat(e.getSuppressed(), arrayWithSize(2));
 
         closeables.forEach(c -> assertTrue(c.closed));
-    }
-
-    @Test
-    public void testCause() {
-        Exception me = prepareMultiException();
-
-        try {
-            throw new RuntimeException("Test.", me);
-        } catch (RuntimeException e) {
-            assertNull(IgniteUtils.cause(e, IOException.class));
-
-            assertInstanceOf(Exception.class, IgniteUtils.cause(e, Exception.class));
-            assertInstanceOf(IllegalArgumentException.class, IgniteUtils.cause(e, IllegalArgumentException.class));
-        }
-    }
-
-    private Exception prepareMultiException() {
-        Exception me = new Exception("Test message.");
-
-        for (int i = 0; i < 3; i++) {
-            try {
-                generateException(3, new IllegalArgumentException());
-            } catch (Exception e) {
-                me.addSuppressed(e);
-            }
-        }
-        return me;
-    }
-
-    private void generateException(int calls, Throwable cause) throws Exception {
-        if (calls == 1) {
-            throw new Exception("Demo exception.", cause);
-        } else {
-            generateException(calls - 1, cause);
-        }
     }
 }

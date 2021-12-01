@@ -128,4 +128,10 @@ public class TestConfigurationStorage implements ConfigurationStorage {
     public ConfigurationType type() {
         return configurationType;
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Long> revisionLatest() {
+        return CompletableFuture.completedFuture(version);
+    }
 }

@@ -39,6 +39,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.DirectConfigurationProperty;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
@@ -81,7 +82,6 @@ import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -785,9 +785,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
             );
         }).exceptionally(t -> {
-            TableAlreadyExistsException tableAlreadyExistsException = IgniteUtils.cause(t, TableAlreadyExistsException.class);
+            Throwable cause = t.getCause();
 
-            if (tableAlreadyExistsException != null) {
+            if (cause instanceof ConfigurationChangeException) {
+                cause = cause.getCause();
+            }
+
+            if (cause instanceof TableAlreadyExistsException) {
+                TableAlreadyExistsException tableAlreadyExistsException = (TableAlreadyExistsException) cause;
+
                 tableAsync(name, false).thenAccept(table -> {
                     if (!exceptionWhenExist) {
                         tblFut.complete(table);
@@ -798,7 +804,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             } else {
                 LOG.error(LoggerMessageHelper.format("Table wasn't created [name={}]", name), t);
 
-                removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(t.getCause()));
+                removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(cause));
             }
 
             return null;
@@ -928,7 +934,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 )).exceptionally(t -> {
                     LOG.error(LoggerMessageHelper.format("Table wasn't altered [name={}]", name), t);
 
-                    removeListener(TableEvent.ALTER, clo, new IgniteInternalCheckedException(t.getCause()));
+                    Throwable cause = t.getCause();
+
+                    if (cause instanceof ConfigurationChangeException) {
+                        cause = cause.getCause();
+                    }
+
+                    removeListener(TableEvent.ALTER, clo, new IgniteInternalCheckedException(cause));
 
                     return null;
                 });

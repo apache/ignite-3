@@ -297,7 +297,13 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     public ConfigurationType type() {
         return ConfigurationType.DISTRIBUTED;
     }
-    
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Long> revisionLatest() {
+        return metaStorageMgr.get(MASTER_KEY).thenApply(Entry::revision);
+    }
+
     /**
      * Method that returns all distributed configuration keys from the meta storage that were stored in the vault filtered out by the
      * current applied revision as an upper bound. Applied revision is a revision of the last successful vault update.
