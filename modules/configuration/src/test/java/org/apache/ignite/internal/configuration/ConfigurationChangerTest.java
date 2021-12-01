@@ -38,7 +38,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.NamedListView;
@@ -53,6 +56,7 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
+import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
@@ -464,6 +468,60 @@ public class ConfigurationChangerTest {
         );
 
         assertThat(e.getMessage(), containsString("def.childrenList.name.defStr"));
+    }
+
+    /**
+     * Check that {@link ConfigurationStorage#revisionLatest} always returns the latest revision of the storage,
+     * and that the change will only be applied on the last revision of the storage.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testLatestRevision() throws Exception {
+        ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
+
+        changer.start();
+
+        changer.initializeDefaults();
+
+        assertEquals(0, storage.revisionLatest().get(1, SECONDS));
+
+        changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> c.changeDefStr("test0"))).get(1, SECONDS);
+        assertEquals(1, storage.revisionLatest().get(1, SECONDS));
+
+        // Increase the revision so that the change waits for the latest revision of the configuration to be received from the storage.
+        storage.incrementAndGetRevision();
+        assertEquals(2, storage.revisionLatest().get(1, SECONDS));
+
+        AtomicInteger invokeConsumerCnt = new AtomicInteger();
+
+        CompletableFuture<Void> changeFut = changer.change(source(
+                DefaultsConfiguration.KEY,
+                (DefaultsChange c) -> {
+                    invokeConsumerCnt.incrementAndGet();
+
+                    try {
+                        // Let's check that the consumer will be called on the last revision of the repository.
+                        assertEquals(2, storage.revisionLatest().get(1, SECONDS));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    c.changeDefStr("test1");
+                }
+        ));
+
+        assertThrows(TimeoutException.class, () -> changeFut.get(1, SECONDS));
+        assertEquals(0, invokeConsumerCnt.get());
+
+        // Let's roll back the previous revision so that the new change can be applied.
+        storage.decrementAndGetRevision();
+        assertEquals(1, storage.revisionLatest().get(1, SECONDS));
+
+        changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> c.changeDefStr("test00"))).get(1, SECONDS);
+
+        changeFut.get(1, SECONDS);
+        assertEquals(1, invokeConsumerCnt.get());
     }
 
     private static <CHANGET> ConfigurationSource source(RootKey<?, ? super CHANGET> rootKey, Consumer<CHANGET> changer) {

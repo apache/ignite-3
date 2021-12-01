@@ -614,7 +614,7 @@ public class HoconConverterTest {
         try {
             registry.change(hoconSource(ConfigFactory.parseString(hocon).root())).get(1, SECONDS);
         } catch (ExecutionException e) {
-            throw e.getCause();
+            throw e.getCause().getCause();
         }
     }
 
