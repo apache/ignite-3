@@ -26,7 +26,16 @@ import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Mapper builder.
+ * Mapper builder provides methods for mapping object fields to columns.
+ *
+ * <p>By default, a user must explicitly map needed fields with columns
+ * in one-to-one manner using {@link #map} and/or {@link #convert(TypeConverter, String, String)} methods, all missed columns and/or fields
+ * become unmapped, and will be ignored during further table operations.
+ *
+ * <p>Calling {@link #automap()} method changes default behavior, and maps all the missed fields to the
+ * columns, which names are match. A field or a column pair for which wasn't found will be ignored.
+ *
+ * TODO: add some code examples.
  *
  * <p>Note: builder can't be reused after the {@link #build()} method is called.
  *
@@ -126,17 +135,20 @@ public final class MapperBuilder<T> {
     }
 
     /**
-     * Map a field to a type of given class.
+     * Make mapper treat missed columns as they mapped to the field of the same name. If class {@link T} has no field for the missed column,
+     * then left the column unmapped.
+     *
+     * @return {@code this} for chaining.
      */
-    // TODO: Method has ambiguous signature (missed col name) and must be dropped, TODO: use {@link #convert(TypeConverter, String)} instead.
-    public MapperBuilder<T> map(@NotNull String fieldName, Class<?> targetClass) {
+    public MapperBuilder<T> automap() {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**
      * Adds a functional mapping for a field, the result depends on function call for every particular row.
      */
-     // TODO: Method has ambiguous signature, and must be dropped, use {@link #map(Function, Function)} instead.
+    // TODO: Method has ambiguous signature, and must be dropped, use {@link #map(Function, Function)} instead.
+    @Deprecated
     public MapperBuilder<T> map(@NotNull String fieldName, Function<Tuple, Object> mappingFunction) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
@@ -168,4 +180,5 @@ public final class MapperBuilder<T> {
 
         return new DefaultColumnMapper<>(targetType, mapping);
     }
+
 }

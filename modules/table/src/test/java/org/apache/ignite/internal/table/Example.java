@@ -31,6 +31,7 @@ import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -472,6 +473,7 @@ public class Example {
 
         // Arbitrary user type.
         class UserObject {
+            double salary;
         }
 
         // Domain class, which fields mapped to table columns.
@@ -484,14 +486,20 @@ public class Example {
             byte[] fieldData;
         }
 
+        Mapper.builder(Employee.class)
+                .map("fieldData.salary", "colSalary")
+                .build();
+
         // Actually, any bi-directional converter can be here instead.
         // Marshaller is a special case of "UserObject <--> byte[]" converter, just for example.
         TypeConverter<UserObject, byte[]> marsh = null; // here, create some marshaller for UserObject.class.
 
-        // One-column keys only and only supported first-citizen types.
+        // One-column only supported first-citizen types.
         Mapper.of(Long.class);
         Mapper.of(byte[].class);
-        Mapper.of(UserObject.class); // Implicitly serialized to byte[].
+
+        // Automatically maps object fields to columns with same names.
+        Mapper.of(UserObject.class);
 
         // LongMapper -> long - is it possible?
 
@@ -505,6 +513,11 @@ public class Example {
         Mapper.builder(Employee.class)
                 .map("fieldData", "colData")
                 .map("fieldData2", "colData1")
+                .build();
+
+        Mapper.builder(Employee.class)
+                .map("fieldData", "colData")
+                //                .automap() // map field->column by names
                 .build();
 
         Mapper.builder(Employee.class).map(
@@ -521,15 +534,13 @@ public class Example {
 
         //  (supported one-column key and value and records) with additional transformation.
         Mapper.builder(Employee.class)
-                .convert(marsh, "colData") //TODO: Will it be useful to set a bunch of columns that will use same converter (serializer) ???
+                .convert(marsh, "colData") //TODO: Will it be useful to set a bunch of columns that will use same converter (serializer) ??? if so, then conflicts with the right next case.
                 .map("fieldData", "colData")
                 .build();
         // OR another way to do the same
         Mapper.builder(Employee.class)
                 .convert(marsh, "fieldData", "colData")
                 .build();
-
-        // TODO: Does "marsh" is mandatory if field is a POJO and column is byte[] ??? Do we need any implicit serialization out-of-box ???
 
         // Next views shows different approaches to map user objects to columns.
         KeyValueView<Long, Employee> v1 = t.keyValueView(
@@ -540,7 +551,9 @@ public class Example {
                 Mapper.of(Long.class),
                 Mapper.builder(Employee2.class)
                         .convert(marsh, "colData")
-                        .map("fieldData", "colData").build());
+                        .map("fieldData", "colData")
+                        .build()
+        );
 
         KeyValueView<Long, Employee2> v3 = t.keyValueView(
                 Mapper.of(Long.class, "colId"),
@@ -552,7 +565,8 @@ public class Example {
 
         KeyValueView<Long, byte[]> v5 = t.keyValueView(
                 Mapper.of(Long.class, "colId"),
-                Mapper.of(byte[].class, "colData"));
+                Mapper.of(byte[].class, "colData")
+        );
 
         // The values in next operations are equivalent, and lead to the same row value part content.
         v1.put(1L, new Employee());
@@ -561,23 +575,59 @@ public class Example {
         v4.put(4L, new UserObject());
         v5.put(5L, new byte[]{/* serialized UserObject bytes */});
 
+        // Shortcut with classes for simple use-case
+        KeyValueView<Long, String> v6 = t.keyValueView(
+                Long.class,
+                String.class
+        );
+
+        // Shortcut with classes for widely used case
+        KeyValueView<Long, UserObject> v7 = t.keyValueView(
+                Long.class,
+                UserObject.class // obj.salary -> colSalary
+        );
+
+
+        // do the same as
+        KeyValueView<Long, UserObject> v8 = t.keyValueView(
+                Mapper.of(Long.class),
+                Mapper.builder(UserObject.class).automap().build() // obj.salary -> colSalary
+        );
+
+        KeyValueView<Long, UserObject> v9 = t.keyValueView(
+                Mapper.of(Long.class),
+                Mapper.of(UserObject.class, "colData", marsh) // UserObject -> byte[] -> colData
+        );
+
         // Get operations return the same result for all keys for each of row.
         // for 1 in 1..5
         //      v1.get(iL) == v1.get(1L);
 
         // ============================  GET  ===============================================
 
+        new SchemaDescriptor(
+                1,
+                new Column[]{new Column("colId", NativeTypes.INT64, false)},
+                new Column[]{
+                        new Column("colData", NativeTypes.BYTES, true),
+                        new Column("colSalary", NativeTypes.BYTES, true)
+                }
+        );
+
         UserObject obj = v4.get(1L); // indistinguishable absent value and null column
 
         // Optional way
-        //        Optional<UserObject> optionalObj = v4.get(1L); // abuse of Optional type
+//        Optional<UserObject> optionalObj = v4.get(1L); // abuse of Optional type
 
         // NullableValue way
-        //        NullableValue<UserObject> nullableValue = v4.getNullable(1L);
+        NullableValue<UserObject> nullableValue = v4.getNullable(1L);
 
         UserObject userObject = v4.get(1L); // what if user uses this syntax for nullable column?
         // 1. Exception always
         // 2. Exception if column value is null (use getNullable)
+
+        // Get or default
+        String str = v6.getOrDefault(1L, "default");
 
         // ============================  PUT  ===============================================
 
@@ -585,17 +635,13 @@ public class Example {
         v4.remove(1L, null);
     }
 
-    interface NullableValue<T> {
-        T get();
-    }
-
 
     /**
      * Fully manual mapping case. Allows users to write powerful functions that will convert an object to a row and vice versa.
      *
      * <p>For now, it is the only case where conditional mapping (condition on another field) is possible. This case widely used in ORM
-     * (e.g. Hibernate) to store inherited objects in same table using a condition on special-purpose "discriminator" column.
-     * TODO: Maybe we can produce design with other approaches ??? Do we want this feature ???
+     * (e.g. Hibernate) to store inherited objects in same table using a condition on special-purpose "discriminator" column. TODO: Maybe we
+     * can produce design with other approaches ??? Do we want this feature ???
      *
      * @param t Table.
      */

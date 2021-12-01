@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -37,18 +38,67 @@ public interface KeyValueView<K, V> {
     /**
      * Gets a value associated with the given key.
      *
+     * <p>Note: If the value mapper implies a value can be {@code null}, then a suitable method
+     * {@link #getNullable(Object)} must be used instead.
+     *
      * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
      * @return Value or {@code null}, if it does not exist.
+     * @throws IllegalStateException If value for the key exists, and it is {@code null}.
+     * @see #getNullable(Object)
      */
     V get(@NotNull K key);
 
     /**
      * Asynchronously gets a value associated with the given key.
      *
+     * <p>Note: If the value mapper implies a value can be {@code null}, then a suitable method
+     * {@link #getNullableAsync(Object)} must be used instead.
+     *
      * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
      * @return Future representing pending completion of the operation.
+     * @see #getNullableAsync(Object)
+     * @see #get(Object)
      */
     @NotNull CompletableFuture<V> getAsync(@NotNull K key);
+
+    /**
+     * Gets a nullable value associated with the given key.
+     *
+     * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
+     * @return Wrapped nullable value or {@code null}, if it does not exist.
+     */
+    NullableValue<V> getNullable(K key);
+
+    /**
+     * Gets a nullable value associated with the given key.
+     *
+     * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
+     * @return Future representing pending completion of the operation.
+     * @see #getNullable(Object)
+     */
+    @NotNull CompletableFuture<NullableValue<V>> getNullableAsync(K key);
+
+    /**
+     * Gets a value associated with the given key if exists, returns {@code defaultValue} otherwise.
+     *
+     * <p>Note: method has same semantic as {@link #get(Object)} with regard to {@code null} values.
+     *
+     * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
+     * @return Value or {@code defaultValue}, if does not exist.
+     * @throws IllegalStateException If value for the key exists, and it is {@code null}.
+     */
+    V getOrDefault(K key, V defaultValue);
+
+    /**
+     * Gets a nullable value associated with the given key.
+     *
+     * <p>Note: method has same semantic as {@link #get(Object)} with regard to {@code null} values.
+     *
+     * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
+     * @return Future representing pending completion of the operation.
+     * @see #getOrDefault(Object, Object)
+     */
+    @NotNull CompletableFuture<V> getOrDefaultAsync(K key, V defaultValue);
 
     /**
      * Get values associated with given keys.
