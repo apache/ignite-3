@@ -428,9 +428,14 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
                     if (polymorphicTypeId != null) {
                         polymorphicInnerNode.construct(typeIdFieldName, new LeafConfigurationSource(polymorphicTypeId), true);
-                    } else if (polymorphicInnerNode.traverseChild(typeIdFieldName, leafNodeVisitor(), true) == null) {
-                        throw new IllegalStateException("Polymorphic configuration type is not defined: "
-                                + polymorphicInnerNode.getClass().getName());
+                    } else {
+                        // check if the Type ID node has already been created by the 'setDefaults' method
+                        Object typeIdNode = polymorphicInnerNode.traverseChild(typeIdFieldName, leafNodeVisitor(), true);
+
+                        if (typeIdNode == null) {
+                            throw new IllegalStateException("Polymorphic configuration type is not defined: "
+                                    + polymorphicInnerNode.getClass().getName());
+                        }
                     }
                 }
             } else {

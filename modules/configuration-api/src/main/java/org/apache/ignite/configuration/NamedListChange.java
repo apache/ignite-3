@@ -93,7 +93,7 @@ public interface NamedListChange<VIEWT, CHANGET extends VIEWT> extends NamedList
      * @return {@code this} for chaining.
      *
      * @throws NullPointerException If one of parameters is null.
-     * @throws IllegalArgumentException The given key does not exist or if {@link #delete(String)} has been invoked with the same key
+     * @throws IllegalArgumentException If the given key does not exist or if {@link #delete(String)} has been invoked with the same key
      *                                  previously.
      */
     NamedListChange<VIEWT, CHANGET> update(String key, Consumer<CHANGET> valConsumer);
