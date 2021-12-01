@@ -303,6 +303,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     public CompletableFuture<Long> revisionLatest() {
         return metaStorageMgr.get(MASTER_KEY).thenApply(Entry::revision);
     }
+
     /**
      * Method that returns all distributed configuration keys from the meta storage that were stored in the vault filtered out by the
      * current applied revision as an upper bound. Applied revision is a revision of the last successful vault update.
@@ -312,7 +313,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      *
      * @return Iterator built upon all distributed configuration entries stored in vault.
      */
-    private @NotNull Cursor<VaultEntry> storedDistributedConfigKeys() {
+    @NotNull
+    private Cursor<VaultEntry> storedDistributedConfigKeys() {
         return vaultMgr.range(DST_KEYS_START_RANGE, DST_KEYS_END_RANGE);
     }
 
