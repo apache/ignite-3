@@ -66,7 +66,7 @@ public class IgnitionImpl implements Ignition {
     /** {@inheritDoc} */
     @Override
     public Ignite start(@NotNull String nodeName, @Nullable Path cfgPath, @NotNull Path workDir) {
-        return start(nodeName, cfgPath, workDir, null);
+        return start(nodeName, cfgPath, workDir, defaultServiceClassLoader());
     }
 
     /** {@inheritDoc} */
@@ -93,7 +93,7 @@ public class IgnitionImpl implements Ignition {
                     name,
                     cfg == null ? null : new String(cfg.readAllBytes(), StandardCharsets.UTF_8),
                     workDir,
-                    null
+                    defaultServiceClassLoader()
             );
         } catch (IOException e) {
             throw new IgniteException("Unable to read user specific configuration.", e);
@@ -103,7 +103,7 @@ public class IgnitionImpl implements Ignition {
     /** {@inheritDoc} */
     @Override
     public Ignite start(@NotNull String name, @NotNull Path workDir) {
-        return doStart(name, null, workDir, null);
+        return doStart(name, null, workDir, defaultServiceClassLoader());
     }
 
     /** {@inheritDoc} */
@@ -114,6 +114,10 @@ public class IgnitionImpl implements Ignition {
 
             return null;
         });
+    }
+
+    private ClassLoader defaultServiceClassLoader() {
+        return Thread.currentThread().getContextClassLoader();
     }
 
     /**
