@@ -33,10 +33,11 @@ public class ServiceLoaderModulesProvider {
     /**
      * Loads modules using {@link ServiceLoader} mechanism.
      *
+     * @param classLoader the class loader to use
      * @return modules
      */
-    public List<ConfigurationModule> modules() {
-        return ServiceLoader.load(ConfigurationModule.class).stream()
+    public List<ConfigurationModule> modules(ClassLoader classLoader) {
+        return ServiceLoader.load(ConfigurationModule.class, classLoader).stream()
                 .map(Provider::get)
                 .collect(toUnmodifiableList());
     }

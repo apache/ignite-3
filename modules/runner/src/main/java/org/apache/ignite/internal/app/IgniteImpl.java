@@ -137,18 +137,22 @@ public class IgniteImpl implements Ignite {
     /**
      * The Constructor.
      *
-     * @param name    Ignite node name.
-     * @param workDir Work directory for the started node. Must not be {@code null}.
+     * @param name                       Ignite node name.
+     * @param workDir                    Work directory for the started node. Must not be {@code null}.
+     * @param serviceProviderClassLoader The class loader to be used to load provider-configuration files and provider
+     *                                   classes, or {@code null} if the system class loader (or, failing that
+     *                                   the bootstrap class loader) is to be used
      */
     IgniteImpl(
             String name,
-            Path workDir
+            Path workDir,
+            ClassLoader serviceProviderClassLoader
     ) {
         this.name = name;
 
         vaultMgr = createVault(workDir);
 
-        ConfigurationModules modules = loadConfigurationModules();
+        ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
 
         nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
@@ -221,9 +225,9 @@ public class IgniteImpl implements Ignite {
         );
     }
 
-    private ConfigurationModules loadConfigurationModules() {
+    private ConfigurationModules loadConfigurationModules(ClassLoader classLoader) {
         var modulesProvider = new ServiceLoaderModulesProvider();
-        return new ConfigurationModules(modulesProvider.modules());
+        return new ConfigurationModules(modulesProvider.modules(classLoader));
     }
 
     /**

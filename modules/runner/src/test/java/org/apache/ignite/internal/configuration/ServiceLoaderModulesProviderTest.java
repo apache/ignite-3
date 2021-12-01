@@ -32,7 +32,16 @@ class ServiceLoaderModulesProviderTest {
 
     @Test
     void loadsModulesDefinedAsServicesInMetaInf() {
-        List<ConfigurationModule> testModules = provider.modules().stream()
+        List<ConfigurationModule> testModules = provider.modules(getClass().getClassLoader()).stream()
+                .filter(module -> module.getClass().equals(TestConfigurationModule.class))
+                .collect(toList());
+
+        assertThat(testModules, hasSize(1));
+    }
+
+    @Test
+    void loadsModulesWhenClassLoaderIsNull() {
+        List<ConfigurationModule> testModules = provider.modules(null).stream()
                 .filter(module -> module.getClass().equals(TestConfigurationModule.class))
                 .collect(toList());
 
