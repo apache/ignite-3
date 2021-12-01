@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import static org.apache.ignite.internal.util.ArrayUtils.asSet;
-
 import java.util.Arrays;
 import java.util.Map;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -82,7 +80,7 @@ public class SchemaConfigurationTest {
 
                 .withIndex(
                         SchemaBuilders.hashIndex("idx_3_hash")
-                                .withColumns(asSet("id", "affId"))
+                                .withColumns("id", "affId")
                                 .build()
                 )
 
@@ -97,11 +95,9 @@ public class SchemaConfigurationTest {
     public void testSchemaModification() {
         final TableDefinition table = SchemaBuilders.tableBuilder("PUBLIC", "table1")
                 .columns(
-                    // Declaring columns in user order.
-                    Arrays.asList(
+                        // Declaring columns in user order.
                         SchemaBuilders.column("id", ColumnType.INT64).build(),
                         SchemaBuilders.column("name", ColumnType.string()).build()
-                    )
                 )
                 .withPrimaryKey("id")
                 .build();

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.schema.configuration;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
-import static org.apache.ignite.internal.util.ArrayUtils.asSet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -119,7 +118,7 @@ public class SchemaConfigurationConverterTest {
     @Test
     public void testConvertHashIndex() throws Exception {
         HashIndexDefinitionBuilder builder = SchemaBuilders.hashIndex("testHI")
-                .withColumns(asSet("A", "B", "C"))
+                .withColumns("A", "B", "C")
                 .withHints(Collections.singletonMap("param", "value"));
         HashIndexDefinition idx = builder.build();
 

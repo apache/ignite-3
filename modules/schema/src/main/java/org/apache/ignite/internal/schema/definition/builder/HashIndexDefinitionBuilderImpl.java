@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema.definition.builder;
 
+import static org.apache.ignite.internal.util.ArrayUtils.asSet;
+
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.schema.definition.index.HashIndexDefinitionImpl;
@@ -44,6 +46,14 @@ public class HashIndexDefinitionBuilderImpl extends AbstractIndexBuilder impleme
     public HashIndexDefinitionBuilder withColumns(Set<String> columns) {
         this.columns = columns;
 
+        return this;
+    }
+    
+    /** {@inheritDoc} */
+    @Override
+    public HashIndexDefinitionBuilder withColumns(String... columns) {
+        this.columns = asSet(columns);
+    
         return this;
     }
 

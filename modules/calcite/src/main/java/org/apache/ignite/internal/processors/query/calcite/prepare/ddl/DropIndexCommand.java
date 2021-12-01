@@ -20,7 +20,7 @@ package org.apache.ignite.internal.processors.query.calcite.prepare.ddl;
 /**
  * DROP INDEX statement.
  */
-public class DropIndexCommand extends AbstractAlterTableCommand {
+public class DropIndexCommand extends AbstractDdlCommand {
     /** Idx name. */
     private String indexName;
 

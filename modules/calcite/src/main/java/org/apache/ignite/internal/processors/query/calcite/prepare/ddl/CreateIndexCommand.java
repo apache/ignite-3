@@ -23,7 +23,7 @@ import org.apache.ignite.internal.util.Pair;
 /**
  * CREATE INDEX statement.
  */
-public class CreateIndexCommand extends AbstractAlterTableCommand {
+public class CreateIndexCommand extends AbstractDdlCommand {
     /** Idx name. */
     private String indexName;
 

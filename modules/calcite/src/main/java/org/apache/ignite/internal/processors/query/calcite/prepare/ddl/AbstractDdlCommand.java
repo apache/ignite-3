@@ -20,7 +20,7 @@ package org.apache.ignite.internal.processors.query.calcite.prepare.ddl;
 /**
  * ALTER TABLE ... ADD/DROP COLUMN statement.
  */
-public abstract class AbstractAlterTableCommand implements DdlCommand {
+public abstract class AbstractDdlCommand implements DdlCommand {
     /** Quietly ignore this command if table is not exists. */
     protected boolean ifTableExists;
     

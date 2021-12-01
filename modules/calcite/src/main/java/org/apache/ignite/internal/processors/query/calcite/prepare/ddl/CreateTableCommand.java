@@ -25,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * CREATE TABLE statement.
  */
-public class CreateTableCommand extends AbstractAlterTableCommand {
+public class CreateTableCommand extends AbstractDdlCommand {
     /** Replicas number. */
     private Integer replicas;
     

@@ -24,7 +24,7 @@ import org.apache.ignite.schema.definition.ColumnDefinition;
  * ALTER TABLE ... ADD COLUMN statement.
  */
 @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-public class AlterTableAddCommand extends AbstractAlterTableCommand {
+public class AlterTableAddCommand extends AbstractDdlCommand {
     /** Quietly ignore this command if column already exists. */
     private boolean ifColumnNotExists;
 

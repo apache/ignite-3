@@ -53,8 +53,10 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -65,6 +67,7 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -163,7 +166,8 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
         
         String curMethodName = getCurrentMethodName();
         
-        String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1", curMethodName);
+        String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
+                + "with partitions=1,replicas=1", curMethodName);
         
         queryProc.query("PUBLIC", newTblSql);
         
@@ -172,7 +176,13 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
         
         String finalNewTblSql1 = newTblSql;
         
-        assertThrows(Exception.class, () -> finalQueryProc.query("PUBLIC", finalNewTblSql1));
+        assertThrows(TableAlreadyExistsException.class, () -> finalQueryProc.query("PUBLIC", finalNewTblSql1));
+    
+        assertThrows(IgniteInternalException.class, () -> finalQueryProc.query("PUBLIC",
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,replicas=1"));
+    
+        assertThrows(IgniteInternalException.class, () -> finalQueryProc.query("PUBLIC",
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1,replicas__wrong=1"));
         
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))",
                 " IF NOT EXISTS " + curMethodName);
@@ -291,8 +301,8 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
     /**
      * Tests create a table through public API.
      */
-    //@Test
-    // todo IGNITE-16032
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16032")
+    @Test
     public void testCreateDropIndex() throws Exception {
         tblManager = mockManagers();
         

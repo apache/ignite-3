@@ -438,6 +438,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
                 case DELETE:
                 case UPDATE:
                     return prepareDml(sqlNode, ctx);
+    
+                case EXPLAIN:
+                    return prepareExplain(sqlNode, ctx);
 
                 default:
                     throw new IgniteInternalException("Unsupported operation ["

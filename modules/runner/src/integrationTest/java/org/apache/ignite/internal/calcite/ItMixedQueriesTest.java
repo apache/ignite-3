@@ -38,7 +38,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Group of tests that still has not been sorted out. It’s better to avoid extending this class with new tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     /**
      * Before all.
@@ -98,10 +97,10 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     /** Tests varchar min\max aggregates. */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15107")
     @Test
     public void testVarCharMinMax() {
-        sql("CREATE TABLE TEST(val VARCHAR primary key, val1 integer);");
+        // replicas and partitions params are affected by https://issues.apache.org/jira/browse/IGNITE-15655 issue, default is not working for now.
+        sql("CREATE TABLE TEST(val VARCHAR primary key, val1 integer) with partitions=10,replicas=2;");
         sql("INSERT INTO test VALUES ('б', 1), ('бб', 2), ('щ', 3), ('щщ', 4), ('Б', 4), ('ББ', 4), ('Я', 4);");
         List<List<?>> rows = sql("SELECT MAX(val), MIN(val) FROM TEST");
 
@@ -224,29 +223,28 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     /**
      * Verifies that table modification events are passed to a calcite schema modification listener.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15107")
     @Test
     public void testIgniteSchemaAwaresAlterTableCommand() {
         String selectAllQry = "select * from test_tbl";
 
         sql("drop table if exists test_tbl");
-        sql("create table test_tbl(id int primary key, val varchar)");
-
+        sql("create table test_tbl(id int primary key, val varchar) with partitions=10,replicas=2");
+        
         assertQuery(selectAllQry).columnNames("ID", "VAL").check();
 
         sql("alter table test_tbl add column new_col int");
 
-        assertQuery(selectAllQry).columnNames("ID", "NEW_COL", "VAL").check();
+        assertQuery(selectAllQry).columnNames("ID", "VAL", "NEW_COL").check();
 
         // column with such name already exists
         assertThrows(Exception.class, () -> sql("alter table test_tbl add column new_col int"));
 
-        assertQuery(selectAllQry).columnNames("ID", "NEW_COL", "VAL").check();
+        assertQuery(selectAllQry).columnNames("ID", "VAL", "NEW_COL").check();
 
         sql("alter table test_tbl add column if not exists new_col int");
 
-        assertQuery(selectAllQry).columnNames("ID", "NEW_COL", "VAL").check();
-
+        assertQuery(selectAllQry).columnNames("ID", "VAL", "NEW_COL").check();
+        
         sql("alter table test_tbl drop column new_col");
 
         assertQuery(selectAllQry).columnNames("ID", "VAL").check();
@@ -321,7 +319,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         createTable(
                 SchemaBuilders.tableBuilder("PUBLIC", "TEST_TBL").columns(
                         SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("C1", ColumnType.INT32).build()
+                        SchemaBuilders.column("C1", ColumnType.INT32).asNullable(true).build()
                 ).withPrimaryKey("ID")
         );
 

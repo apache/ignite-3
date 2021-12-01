@@ -22,20 +22,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test SQL data types.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15107")
 public class ItDataTypesTest extends AbstractBasicIntegrationTest {
     /**
      * Before all.
      */
     @Test
     public void testUnicodeStrings() {
-        sql("CREATE TABLE string_table(key int primary key, val varchar)");
+        sql("CREATE TABLE string_table(key int primary key, val varchar) with partitions=10,replicas=2");
 
         String[] values = new String[]{"Кирилл", "Müller", "我是谁", "ASCII"};
 

@@ -31,6 +31,14 @@ public interface HashIndexDefinitionBuilder extends SchemaObjectBuilder {
      * @param columns Indexed columns.
      * @return {@code this} for chaining.
      */
+    HashIndexDefinitionBuilder withColumns(String... columns);
+    
+    /**
+     * Sets indexed columns.
+     *
+     * @param columns Indexed columns.
+     * @return {@code this} for chaining.
+     */
     HashIndexDefinitionBuilder withColumns(Set<String> columns);
 
     /** {@inheritDoc} */
