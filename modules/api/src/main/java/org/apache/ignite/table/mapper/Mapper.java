@@ -26,59 +26,117 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Mapper interface defines methods that are required for a marshaller to map class field names to table columns.
+ * <p>
+ * NB: Anonymous, local, inner classes, and special types are NOT supported, and mapper will not be created for them: e.g. interfaces,
+ * annotation, and so on.
  *
- * @param <T> Mapped type.
+ * @param <T> Type of which objects the mapper handles.
  */
-//TODO: IGNITE-15784 Do we want to support custom user serializer here? Will it be mandatory?
-// What about cross-platform compatibility? Is it up to user or no guarantees?
 public interface Mapper<T> {
     /**
-     * Creates a mapper for a case when object individual fields map to the column with the same names.
+     * Shortcut method creates a mapper for key objects, which mapped to a single key column in a schema.
      *
-     * @param cls Target object class.
-     * @return Mapper.
+     * <p>This mapper supposed to be used only for keys, and only when schema contains single key field. Otherwise, using the mapper for
+     * values or multi-column keys will lead to error, and {@link #of(Class, String)} should be used instead.
+     *
+     * <p>NB: Because of key column set is fixed (no columns can be added/removed after table created), mapping to a single column is
+     * trivial and columns name can be omitted.
+     *
+     * @param cls Target type.
+     * @return Mapper for key objects representing a single key column.
+     * @throws IllegalArgumentException If {@code cls} is of unsupported kind.
      */
-    //TODO: Method has unclear semantic in case of natively supported type, due to ommited column name.
-    // As column name is missed, we are trying to map object to the single column,
-    // and failed when there is more than one column to map.
-    // So, method must be dropped or it's purpose must be clearly described.
-    //TODO: IGNITE-15787 Maybe, the method must be used only for annotation mapper purposes.
+    //TODO: Can this method used to create annotation-based mapping ???
+    // Two method with similar signature may look ambiguous for a user.
     static <O> Mapper<O> of(Class<O> cls) {
-        if (cls.isArray() || cls.isInterface() || Modifier.isAbstract(cls.getModifiers())) {
-            throw new IllegalArgumentException("Class is of unsupported kind.");
-        }
-
-        return new DefaultColumnMapper<>(ensureValidKind(cls),
-                Arrays.stream(cls.getDeclaredFields()).collect(Collectors.toMap(Field::getName, Field::getName)));
+        return new SingleColumnMapper<>(ensureValidKind(cls), null);
     }
 
     /**
-     * Creates a mapper for a simple case when a whole object maps to a single column.
+     * Creates a mapper for the case when an object represents an only one-column.
      *
-     * @param columnName Column name.
-     * @param cls        Target object class.
-     * @return Single column mapper.
+     * <p>The mapper can be used as key, value, or record mapper. However, single column record looks as degraded case.
+     *
+     * @param cls        Parametrized type of which objects the mapper will handle.
+     * @param columnName Column name to map object to.
+     * @return Mapper for objects representing a one column.
+     * @throws IllegalArgumentException If {@code cls} is of unsupported kind.
      */
-    static <O> Mapper<O> of(String columnName, Class<O> cls) {
+    static <O> Mapper<O> of(Class<O> cls, String columnName) {
         return new SingleColumnMapper<>(ensureValidKind(cls), columnName);
+    }
+
+    /**
+     * Creates a mapper for the case when an object represents an only one-column and additional transformation is required.
+     *
+     * <p>The mapper can be used as key, value, or record mapper. However, single column record looks as degraded case.
+     *
+     * @param cls        Parametrized type of which objects the mapper will handle.
+     * @param columnName Column name to map object to.
+     * @param <ObjectT>  Mapper target type.
+     * @param <ColumnT>  MUST be a type, which compatible with the column type.
+     * @return Mapper for objects representing a one column.
+     * @throws IllegalArgumentException If {@code cls} is of unsupported kind.
+     */
+    static <ObjectT, ColumnT> Mapper<ObjectT> of(Class<ObjectT> cls, String columnName, TypeConverter<ObjectT, ColumnT> converter) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /**
+     * Shortcut method creates a mapper for a case when object individual fields map to the column by their names.
+     *
+     * <p>The mapper can be used as key, value, or record mapper.
+     *
+     * @param cls              Parametrized type of which objects the mapper will handle.
+     * @param fieldName        Object field name.
+     * @param columnName       Column name.
+     * @param fieldColumnPairs Vararg that accepts (fieldName, columnName) pairs.
+     * @return Mapper .
+     * @throws IllegalArgumentException If a field name has not paired column name in {@code fieldColumnPairs}, or {@code cls} is of
+     *                                  unsupported kind.
+     */
+    static <O> Mapper<O> of(Class<O> cls, String fieldName, String columnName, String... fieldColumnPairs) {
+        if (fieldColumnPairs.length % 2 != 0) {
+            throw new IllegalArgumentException("Missed a column name, which the field is mapped to.");
+        }
+
+        return builder(cls).map(fieldName, columnName, fieldColumnPairs).build();
     }
 
     /**
      * Creates a mapper builder for objects of given class.
      *
      * <p>Note: the class MUST have a default constructor.
+     * <p>Note: Builder itself can't be reused.
      *
-     * @param cls Target object class.
+     * @param cls Parametrized type of which objects the mapper will handle.
      * @return Mapper builder.
-     * @throws IllegalArgumentException If class is of unsupported kind. E.g. inner, anonymous or local.
+     * @throws IllegalArgumentException If {@code cls} is of unsupported kind.
      */
-    static <O> MapperBuilder<O> buildFrom(Class<O> cls) {
+    static <O> MapperBuilder<O> builder(Class<O> cls) {
         if (cls.isArray() || cls.isInterface() || Modifier.isAbstract(cls.getModifiers())) {
             throw new IllegalArgumentException("Class is of unsupported kind.");
         }
 
         return new MapperBuilder<>(ensureDefaultConstructor(ensureValidKind(cls)));
     }
+
+    /**
+     * Shortcut method creates a mapper for a case when object individual fields map to the column with the same name.
+     *
+     * @param cls Parametrized type of which objects the mapper will handle.
+     * @return Mapper.
+     */
+    static <O> Mapper<O> identity(Class<O> cls) {
+        if (cls.isArray() || cls.isInterface() || Modifier.isAbstract(cls.getModifiers())) {
+            throw new IllegalArgumentException("Class is of unsupported kind.");
+        }
+
+        // TODO: replace "stream" with "loop".
+        return new DefaultColumnMapper<>(ensureValidKind(cls),
+                Arrays.stream(cls.getDeclaredFields()).collect(Collectors.toMap(Field::getName, Field::getName)));
+    }
+
 
     /**
      * Ensures class is of the supported kind.
@@ -103,7 +161,7 @@ public interface Mapper<T> {
      * @return {@code cls} if it is valid.
      * @throws IllegalArgumentException If {@code cls} can't be used in mapping.
      */
-    static <O> Class<O> ensureDefaultConstructor(Class<O> cls) {
+    private static <O> Class<O> ensureDefaultConstructor(Class<O> cls) {
         try {
             cls.getDeclaredConstructor();
 
@@ -114,7 +172,7 @@ public interface Mapper<T> {
     }
 
     /**
-     * Returns a type which objects (or their fields) are mapped with the columns.
+     * Returns a type of which object the mapper handles.
      *
      * @return Mapper target type.
      */

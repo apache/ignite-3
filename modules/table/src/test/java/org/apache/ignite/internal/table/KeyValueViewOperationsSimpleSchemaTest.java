@@ -345,8 +345,8 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         DummyInternalTableImpl table = new DummyInternalTableImpl(
                 new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
 
-        Mapper<Long> keyMapper = Mapper.of("id", Long.class);
-        Mapper<T> valMapper = Mapper.of("val", valueClass);
+        Mapper<Long> keyMapper = Mapper.of(Long.class, "id");
+        Mapper<T> valMapper = Mapper.of(valueClass, "val");
 
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,

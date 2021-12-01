@@ -36,6 +36,7 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.table.mapper.TypeConverter;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -151,8 +152,8 @@ abstract class ColumnBinding {
             TIMESTAMP_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendTimestamp", Instant.class));
             DATETIME_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendDateTime", LocalDateTime.class));
 
-            TRANSFORM_AFTER_READ = lookup.unreflect(ColumnMapperInterceptor.class.getMethod("afterRead", Object.class));
-            TRANSFORM_BEFORE_WRITE = lookup.unreflect(ColumnMapperInterceptor.class.getMethod("beforeWrite", Object.class));
+            TRANSFORM_AFTER_READ = lookup.unreflect(TypeConverter.class.getMethod("toObjectType", Object.class));
+            TRANSFORM_BEFORE_WRITE = lookup.unreflect(TypeConverter.class.getMethod("toColumnType", Object.class));
         } catch (IllegalAccessException | NoSuchMethodException e) {
             throw new IllegalStateException(e);
         }
@@ -517,7 +518,7 @@ abstract class ColumnBinding {
          */
         TransformingFieldAccessor(int colIdx, MethodHandle getterMtd, MethodHandle setterMtd, MethodHandle readerHnd,
                 MethodHandle writerHnd,
-                ColumnMapperInterceptor<?, ?> interceptor) {
+                TypeConverter<?, ?> interceptor) {
             super(colIdx, getterMtd, setterMtd, readerHnd, writerHnd);
 
             afterReadHnd = TRANSFORM_AFTER_READ.bindTo(interceptor);

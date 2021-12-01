@@ -243,11 +243,11 @@ public class KvMarshallerTest {
                         new Column("col3", STRING, false)
                 });
 
-        Mapper<TestKeyObject> keyMapper = Mapper.buildFrom(TestKeyObject.class)
+        Mapper<TestKeyObject> keyMapper = Mapper.builder(TestKeyObject.class)
                 .map("id", "key")
                 .build();
 
-        Mapper<TestObject> valMapper = Mapper.buildFrom(TestObject.class)
+        Mapper<TestObject> valMapper = Mapper.builder(TestObject.class)
                 .map("longCol", "col1")
                 .map("stringCol", "col3")
                 .build();
@@ -437,13 +437,13 @@ public class KvMarshallerTest {
         final byte[] serializedPojo = serializeObject(pojo);
 
         final KvMarshaller<Long, TestPojo> marshaller1 = factory.create(schema,
-                Mapper.of("key", Long.class), Mapper.of("val", TestPojo.class));
+                Mapper.of(Long.class, "key"), Mapper.of(TestPojo.class, "val"));
         final KvMarshaller<Long, byte[]> marshaller2 = factory.create(schema,
-                Mapper.of("key", Long.class), Mapper.of("val", byte[].class));
+                Mapper.of(Long.class, "key"), Mapper.of(byte[].class, "val"));
         final KvMarshaller<Long, TestPojoWrapper> marshaller3 = factory.create(schema,
-                Mapper.of("key", Long.class), Mapper.buildFrom(TestPojoWrapper.class).map("pojoField", "val").build());
+                Mapper.of(Long.class, "key"), Mapper.builder(TestPojoWrapper.class).map("pojoField", "val").build());
         final KvMarshaller<Long, TestPojoWrapper> marshaller4 = factory.create(schema,
-                Mapper.of("key", Long.class), Mapper.buildFrom(TestPojoWrapper.class).map("rawField", "val").build());
+                Mapper.of(Long.class, "key"), Mapper.builder(TestPojoWrapper.class).map("rawField", "val").build());
 
         BinaryRow row = marshaller1.marshal(1L, pojo);
         BinaryRow row2 = marshaller2.marshal(1L, serializedPojo);
@@ -497,8 +497,8 @@ public class KvMarshallerTest {
         SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
 
         KvMarshaller<Object, Object> marshaller = factory.create(schema,
-                Mapper.of("key", (Class<Object>) key.getClass()),
-                Mapper.of("val", (Class<Object>) val.getClass()));
+                Mapper.of((Class<Object>) key.getClass(), "key"),
+                Mapper.of((Class<Object>) val.getClass(), "val"));
 
         BinaryRow row = marshaller.marshal(key, val);
 

@@ -15,23 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller.reflection;
+package org.apache.ignite.table.mapper;
+
+import org.apache.ignite.schema.definition.ColumnType;
 
 /**
- * An interceptor provides method for additional transformation of a column data on before write/after read.
+ * Type converter interface provides methods for additional transformation for data of the field type to a type, which is compatible with
+ * the column type, and vice versa.
  *
- * @param <TargetT> Object type.
+ * <p>The converter can be used to convert object (or their fields), which type is incompatible with the schema.
+ * E.g. serialize an arbitrary object to a byte[] for storing is a BLOB column {@link ColumnType#blobOf()}.
+ *
+ * @param <ObjectT> Object type.
  * @param <ColumnT> Column type.
  */
-public interface ColumnMapperInterceptor<TargetT, ColumnT> {
+public interface TypeConverter<ObjectT, ColumnT> {
     /**
-     * Transforms object to a column type. Called before write data to a column.
+     * Convert given object to a column type.
      *
      * @param obj Object to transform.
-     * @return Data to write.
+     * @return Object of column type.
      * @throws Exception If transformation failed.
      */
-    ColumnT beforeWrite(TargetT obj) throws Exception;
+    ColumnT toColumnType(ObjectT obj) throws Exception;
 
     /**
      * Transforms to an object of the target type. Called after data read from a column.
@@ -40,5 +46,5 @@ public interface ColumnMapperInterceptor<TargetT, ColumnT> {
      * @return Object of the target type.
      * @throws Exception If transformation failed.
      */
-    TargetT afterRead(ColumnT data) throws Exception;
+    ObjectT toObjectType(ColumnT data) throws Exception;
 }

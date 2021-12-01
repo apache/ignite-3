@@ -17,6 +17,8 @@
 
 package org.apache.ignite.binary;
 
+import org.jetbrains.annotations.Contract;
+
 /**
  * Binary objects utility class.
  */
@@ -50,6 +52,7 @@ public final class BinaryObjects {
      * @param <T>       Target type.
      * @return Deserialized object.
      */
+    @Contract("null -> null")
     public static <T> BinaryObject serialize(T obj) {
         return null;
     }

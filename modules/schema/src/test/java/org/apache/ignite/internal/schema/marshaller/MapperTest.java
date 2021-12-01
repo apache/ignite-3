@@ -37,15 +37,15 @@ public class MapperTest {
     @Test
     public void misleadingMapperUsage() {
         // Empty mapping.
-        assertThrows(IllegalStateException.class, () -> Mapper.buildFrom(TestObject.class).build());
+        assertThrows(IllegalStateException.class, () -> Mapper.builder(TestObject.class).build());
 
         // Many fields to one column.
-        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(TestObject.class)
+        assertThrows(IllegalArgumentException.class, () -> Mapper.builder(TestObject.class)
                 .map("id", "key")
                 .map("longCol", "key"));
 
         // One field to many columns.
-        assertThrows(IllegalStateException.class, () -> Mapper.buildFrom(TestObject.class)
+        assertThrows(IllegalStateException.class, () -> Mapper.builder(TestObject.class)
                 .map("id", "key")
                 .map("id", "val1")
                 .map("stringCol", "val2")
@@ -53,7 +53,7 @@ public class MapperTest {
 
         // Mapper builder reuse fails.
         assertThrows(IllegalStateException.class, () -> {
-            MapperBuilder<TestObject> builder = Mapper.buildFrom(TestObject.class)
+            MapperBuilder<TestObject> builder = Mapper.builder(TestObject.class)
                     .map("id", "key");
 
             builder.build();
@@ -70,55 +70,55 @@ public class MapperTest {
 
         Function anonymous = (i) -> i;
 
-        Mapper.buildFrom(TestOuterObject.class);
-        Mapper.buildFrom(NestedObject.class);
+        Mapper.builder(TestOuterObject.class);
+        Mapper.builder(NestedObject.class);
 
-        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(Long.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(TestOuterObject.InnerObject.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(AbstractTestObject.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(LocalClass.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(anonymous.getClass()));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(int[].class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(Object[].class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(TestInterface.class)); // Interface
-        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(TestAnnotation.class)); // annotation
-        assertThrows(IllegalArgumentException.class, () -> Mapper.buildFrom(EnumTestObject.class)); // enum
+        assertThrows(IllegalArgumentException.class, () -> Mapper.builder(Long.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.builder(TestOuterObject.InnerObject.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.builder(AbstractTestObject.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.builder(LocalClass.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.builder(anonymous.getClass()));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.builder(int[].class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.builder(Object[].class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.builder(TestInterface.class)); // Interface
+        assertThrows(IllegalArgumentException.class, () -> Mapper.builder(TestAnnotation.class)); // annotation
+        assertThrows(IllegalArgumentException.class, () -> Mapper.builder(EnumTestObject.class)); // enum
 
-        Mapper.of(Long.class);
-        Mapper.of(TestOuterObject.class);
-        Mapper.of(NestedObject.class);
-        Mapper.of(ArrayList.class);
+        Mapper.identity(Long.class);
+        Mapper.identity(TestOuterObject.class);
+        Mapper.identity(NestedObject.class);
+        Mapper.identity(ArrayList.class);
 
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of(TestOuterObject.InnerObject.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of(LocalClass.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of(AbstractTestObject.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of(anonymous.getClass()));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of(int[].class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of(Object[].class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of(TestInterface.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of(TestAnnotation.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of(EnumTestObject.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.identity(TestOuterObject.InnerObject.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.identity(LocalClass.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.identity(AbstractTestObject.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.identity(anonymous.getClass()));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.identity(int[].class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.identity(Object[].class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.identity(TestInterface.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.identity(TestAnnotation.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.identity(EnumTestObject.class));
 
-        Mapper.of("column", Long.class);
-        Mapper.of("column", TestOuterObject.class);
-        Mapper.of("column", NestedObject.class);
-        Mapper.of("column", AbstractTestObject.class);
-        Mapper.of("column", int[].class);
-        Mapper.of("column", Object.class);
-        Mapper.of("column", ArrayList.class);
-        Mapper.of("column", TestInterface.class);
+        Mapper.of(Long.class, "column");
+        Mapper.of(TestOuterObject.class, "column");
+        Mapper.of(NestedObject.class, "column");
+        Mapper.of(AbstractTestObject.class, "column");
+        Mapper.of(int[].class, "column");
+        Mapper.of(Object.class, "column");
+        Mapper.of(ArrayList.class, "column");
+        Mapper.of(TestInterface.class, "column");
 
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of("column", TestOuterObject.InnerObject.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of("column", LocalClass.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of("column", anonymous.getClass()));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of("column", TestAnnotation.class));
-        assertThrows(IllegalArgumentException.class, () -> Mapper.of("column", EnumTestObject.class));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of(TestOuterObject.InnerObject.class, "column"));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of(LocalClass.class, "column"));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of(anonymous.getClass(), "column"));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of(TestAnnotation.class, "column"));
+        assertThrows(IllegalArgumentException.class, () -> Mapper.of(EnumTestObject.class, "column"));
 
     }
 
     @Test
     public void identityMapping() {
-        Mapper<TestObject> mapper = Mapper.of(TestObject.class);
+        Mapper<TestObject> mapper = Mapper.identity(TestObject.class);
 
         assertNull(mapper.mappedColumn());
         assertEquals("id", mapper.fieldForColumn("id"));
@@ -127,7 +127,7 @@ public class MapperTest {
 
     @Test
     public void basicMapping() {
-        Mapper<TestObject> mapper = Mapper.of(TestObject.class);
+        Mapper<TestObject> mapper = Mapper.identity(TestObject.class);
 
         assertNull(mapper.mappedColumn());
         assertEquals("id", mapper.fieldForColumn("id"));

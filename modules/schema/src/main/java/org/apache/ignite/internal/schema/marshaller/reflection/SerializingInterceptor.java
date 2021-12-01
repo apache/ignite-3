@@ -21,15 +21,16 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import org.apache.ignite.table.mapper.TypeConverter;
 
 /**
  * Serializes an arbitrary user object (that extends Serializable) into a byte[] before write to the column, and deserializes back after
  * read.
  */
-class SerializingInterceptor implements ColumnMapperInterceptor<Object, byte[]> {
+class SerializingInterceptor implements TypeConverter<Object, byte[]> {
     /** {@inheritDoc} */
     @Override
-    public byte[] beforeWrite(Object obj) throws Exception {
+    public byte[] toColumnType(Object obj) throws Exception {
         if (obj == null) {
             return null;
         }
@@ -45,7 +46,7 @@ class SerializingInterceptor implements ColumnMapperInterceptor<Object, byte[]> 
 
     /** {@inheritDoc} */
     @Override
-    public Object afterRead(byte[] data) throws Exception {
+    public Object toObjectType(byte[] data) throws Exception {
         if (data == null) {
             return null;
         }

@@ -330,8 +330,8 @@ public class KeyValueViewOperationsTest {
         DummyInternalTableImpl table = new DummyInternalTableImpl(
                 new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
 
-        Mapper<TestKeyObject> keyMapper = Mapper.of(TestKeyObject.class);
-        Mapper<TestObjectWithAllTypes> valMapper = Mapper.of(TestObjectWithAllTypes.class);
+        Mapper<TestKeyObject> keyMapper = Mapper.identity(TestKeyObject.class);
+        Mapper<TestObjectWithAllTypes> valMapper = Mapper.identity(TestObjectWithAllTypes.class);
 
         Column[] valCols = {
                 new Column("primitiveByteCol", INT8, false),
