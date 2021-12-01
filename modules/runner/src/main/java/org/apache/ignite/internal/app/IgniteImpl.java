@@ -249,6 +249,7 @@ public class IgniteImpl implements Ignite {
      *            {@code workDir} specified by the user.
      */
     public void start(@Nullable String cfg) {
+        System.out.println("XXX the config: " + cfg);
         List<IgniteComponent> startedComponents = new ArrayList<>();
 
         try {
