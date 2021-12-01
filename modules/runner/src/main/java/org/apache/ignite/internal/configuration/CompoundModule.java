@@ -57,8 +57,7 @@ public class CompoundModule implements ConfigurationModule {
         return unionFromModulesExtractedWith(ConfigurationModule::rootKeys);
     }
 
-    private <T> List<T> unionFromModulesExtractedWith(
-            Function<? super ConfigurationModule, ? extends Collection<T>> extractor) {
+    private <T> List<T> unionFromModulesExtractedWith(Function<? super ConfigurationModule, ? extends Collection<T>> extractor) {
         return modules.stream()
                 .flatMap(module -> extractor.apply(module).stream())
                 .collect(toUnmodifiableList());
