@@ -107,7 +107,7 @@ public interface Mapper<T> {
     /**
      * Creates a mapper builder for objects of given class.
      *
-     * Note: Builder itself can't be reused.
+     * <p>Note: Builder itself can't be reused.
      *
      * @param cls Parametrized type of which objects the mapper will handle. Class MUST have the default constructor,
      * @return Mapper builder.
