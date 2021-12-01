@@ -48,6 +48,7 @@ public interface Mapper<T> {
      */
     //TODO: Can this method used to create annotation-based mapping ???
     // Two method with similar signature may look ambiguous for a user.
+    // Maybe, rename to "single(Class)" methods for the "one-column" case?
     static <O> Mapper<O> of(Class<O> cls) {
         return new SingleColumnMapper<>(ensureValidKind(cls), null);
     }

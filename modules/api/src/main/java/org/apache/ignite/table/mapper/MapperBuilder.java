@@ -129,8 +129,8 @@ public final class MapperBuilder<T> {
     /**
      * Map a field to a type of given class.
      * <p>
-     * TODO: Method has ambiguous signature (column name is missed) and must be dropped, TODO: use {@link #convert(TypeConverter, String,
-     * String...)} instead.
+     * TODO: Method has ambiguous signature (column name is missed) and must be dropped, TODO: use {@link #convert(TypeConverter, String)}
+     * instead.
      */
     public MapperBuilder<T> map(@NotNull String fieldName, Class<?> targetClass) {
         throw new UnsupportedOperationException("Not implemented yet.");
