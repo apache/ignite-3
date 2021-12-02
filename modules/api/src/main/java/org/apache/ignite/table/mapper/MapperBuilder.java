@@ -17,6 +17,8 @@
 
 package org.apache.ignite.table.mapper;
 
+import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -48,18 +50,72 @@ public final class MapperBuilder<T> {
     /** Column-to-field name mapping. */
     private Map<String, String> columnToFields;
 
+    /** Column converters. */
+    private Map<String, TypeConverter<?, ?>> columnConverters = new HashMap<>();
+
+    /** Column name for one-column mapping. */
+    private final String mappedToColumn;
+
+    /** Flag indicates, if all unmapped object fields should be mapped to the columns with same names automatically. */
+    private boolean automapFlag = false;
+
     /** {@code True} if the {@link #build()} method was called, {@code false} otherwise. */
     private boolean isStale;
 
     /**
-     * Creates a mapper builder for a type.
+     * Creates a mapper builder for a POJO type.
      *
      * @param targetType Target type.
      */
     MapperBuilder(@NotNull Class<T> targetType) {
-        this.targetType = targetType;
+        this.targetType = Mapper.ensureValidPojo(targetType);
 
+        mappedToColumn = null;
         columnToFields = new HashMap<>(targetType.getDeclaredFields().length);
+    }
+
+    /**
+     * Creates a mapper builder for a natively supported type.
+     *
+     * @param targetType   Target type.
+     * @param mappedColumn Column name to map to.
+     */
+    MapperBuilder(@NotNull Class<T> targetType, String mappedColumn) {
+        this.targetType = Mapper.ensureNativelySupported(targetType);
+
+        mappedToColumn = mappedColumn;
+        columnToFields = null;
+    }
+
+    /**
+     * Ensure this instance is valid.
+     *
+     * @throws IllegalStateException if tries to reuse the builder after a mapping has been built.
+     */
+    private void ensureNotStale() {
+        if (isStale) {
+            throw new IllegalStateException("Mapper builder can't be reused.");
+        }
+    }
+
+    /**
+     * Ensure field name is valid and field with this name exists.
+     *
+     * @param fieldName Field name.
+     * @return Field name for chaining.
+     * @throws IllegalArgumentException If field is {@code null} or class has no declared field with given name.
+     */
+    private String requireValidField(String fieldName) {
+        try {
+            if (fieldName == null || targetType.getDeclaredField(fieldName) == null) {
+                throw new IllegalArgumentException("Mapping for a column already exists: " + fieldName);
+            }
+        } catch (NoSuchFieldException e) {
+            throw new IllegalArgumentException(
+                    String.format("Field not found for class: field=%s, class=%s", fieldName, targetType.getName()));
+        }
+
+        return fieldName;
     }
 
     /**
@@ -74,16 +130,18 @@ public final class MapperBuilder<T> {
      * @throws IllegalStateException    if tries to reuse the builder after a mapping has been built.
      */
     public MapperBuilder<T> map(@NotNull String fieldName, @NotNull String columnName, String... fieldColumnPairs) {
-        if (isStale) {
-            throw new IllegalStateException("Mapper builder can't be reused.");
+        ensureNotStale();
+
+        if (columnToFields == null) {
+            throw new IllegalArgumentException("Natively supported types doesn't support field mapping.");
         } else if (fieldColumnPairs.length % 2 != 0) {
             throw new IllegalArgumentException("Missed a column name, which the field is mapped to.");
-        } else if (columnToFields.put(Objects.requireNonNull(columnName), Objects.requireNonNull(fieldName)) != null) {
+        } else if (columnToFields.put(Objects.requireNonNull(columnName), requireValidField(fieldName)) != null) {
             throw new IllegalArgumentException("Mapping for a column already exists: " + columnName);
         }
 
         for (int i = 0; i < fieldColumnPairs.length; i += 2) {
-            if (columnToFields.put(Objects.requireNonNull(fieldColumnPairs[i + 1]), Objects.requireNonNull(fieldColumnPairs[i])) != null) {
+            if (columnToFields.put(Objects.requireNonNull(fieldColumnPairs[i + 1]), requireValidField(fieldColumnPairs[i])) != null) {
                 throw new IllegalArgumentException("Mapping for a column already exists: " + columnName);
             }
         }
@@ -106,7 +164,10 @@ public final class MapperBuilder<T> {
             @NotNull String columnName,
             @NotNull TypeConverter<ObjectT, ColumnT> converter
     ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        map(fieldName, columnName);
+        convert(converter, columnName);
+
+        return this;
     }
 
     /**
@@ -117,6 +178,8 @@ public final class MapperBuilder<T> {
      * @return {@code this} for chaining.
      */
     public MapperBuilder<T> map(Function<T, Tuple> objectToRow, Function<Tuple, T> rowToObject) {
+        ensureNotStale();
+
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -132,7 +195,13 @@ public final class MapperBuilder<T> {
             @NotNull TypeConverter<ObjectT, ColumnT> converter,
             @NotNull String columnName
     ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        ensureNotStale();
+
+        if (columnConverters.put(columnName, converter) != null) {
+            throw new IllegalArgumentException("Column converter already exists: " + columnName);
+        }
+
+        return this;
     }
 
     /**
@@ -142,7 +211,11 @@ public final class MapperBuilder<T> {
      * @return {@code this} for chaining.
      */
     public MapperBuilder<T> automap() {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        ensureNotStale();
+
+        automapFlag = true;
+
+        return this;
     }
 
     /**
@@ -152,25 +225,30 @@ public final class MapperBuilder<T> {
      * @throws IllegalStateException if nothing were mapped, or more than one column were mapped to the same field.
      */
     public Mapper<T> build() {
+        ensureNotStale();
+
         isStale = true;
 
-        if (columnToFields.isEmpty()) {
-            throw new IllegalStateException("Empty mapping isn't allowed.");
+        if (columnToFields == null) {
+            return new OneColumnMapperImpl<>(targetType, mappedToColumn, (TypeConverter<T, ?>) columnConverters.get(mappedToColumn));
         }
 
         Map<String, String> mapping = this.columnToFields;
 
-        this.columnToFields = null;
-
         HashSet<String> fields = new HashSet<>(mapping.size());
-
-        for (String f : mapping.values()) {
-            if (!fields.add(f)) {
-                throw new IllegalStateException("More than one column is mapped to the field: field=" + f);
+        for (String fldName : mapping.values()) {
+            if (!fields.add(fldName)) {
+                throw new IllegalStateException("More than one column is mapped to the field: field=" + fldName);
             }
         }
 
-        return new DefaultColumnMapper<>(targetType, mapping);
-    }
+        if (automapFlag) {
+            Arrays.stream(targetType.getDeclaredFields())
+                    .map(Field::getName)
+                    .filter(fldName -> !fields.contains(fldName))
+                    .forEach(fldName -> mapping.putIfAbsent(fldName, fldName)); // Ignore manually mapped fields/columns.
+        }
 
+        return new PojoMapperImpl<>(targetType, mapping, columnConverters);
+    }
 }

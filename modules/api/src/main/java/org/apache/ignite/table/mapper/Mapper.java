@@ -17,12 +17,13 @@
 
 package org.apache.ignite.table.mapper;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.Arrays;
-import java.util.stream.Collectors;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.BitSet;
+import java.util.UUID;
 
 /**
  * Mapper interface defines methods that are required for a marshaller to map class field names to table columns.
@@ -31,26 +32,28 @@ import org.jetbrains.annotations.Nullable;
  * annotation, and so on.
  *
  * @param <T> Type of which objects the mapper handles.
+ * @apiNote Implementation shouldn't use this interface directly, please, use {@link PojoMapper} or {@link OneColumnMapper} instead.
+ * @see PojoMapper
+ * @see OneColumnMapper
  */
 public interface Mapper<T> {
     /**
-     * Shortcut method creates a mapper for key objects, which mapped to a single key column in a schema.
+     * Shortcut method creates a mapper for class. Natively supported types will be mapped to a single schema column, otherwise individual
+     * object fields will be mapped to columns with the same name.
      *
-     * <p>This mapper supposed to be used only for keys, and only when schema contains single key field. Otherwise, using the mapper for
-     * values or multi-column keys will lead to error, and {@link #of(Class, String)} should be used instead.
-     *
-     * <p>NB: Because of key column set is fixed (no columns can be added/removed after table created), mapping to a single column is
-     * trivial and columns name can be omitted.
+     * <p>Note: Natively supported types can be mapped to a single key/value column, otherwise table operation will ends up with exception.
+     * Use {@link #of(Class, String)} instead, to map to a concrete column name.
      *
      * @param cls Target type.
      * @return Mapper for key objects representing a single key column.
      * @throws IllegalArgumentException If {@code cls} is of unsupported kind.
      */
-    //TODO: Can this method used to create annotation-based mapping ???
-    // Two method with similar signature may look ambiguous for a user.
-    // Maybe, rename to "single(Class)" methods for the "one-column" case?
     static <O> Mapper<O> of(Class<O> cls) {
-        return new SingleColumnMapper<>(ensureValidKind(cls), null);
+        if (nativelySupported(cls)) {
+            return new OneColumnMapperImpl<>(cls, null, null);
+        } else {
+            return builder(cls).automap().build();
+        }
     }
 
     /**
@@ -64,7 +67,7 @@ public interface Mapper<T> {
      * @throws IllegalArgumentException If {@code cls} is of unsupported kind.
      */
     static <O> Mapper<O> of(Class<O> cls, String columnName) {
-        return new SingleColumnMapper<>(ensureValidKind(cls), columnName);
+        return new OneColumnMapperImpl<>(ensureNativelySupported(cls), columnName, null);
     }
 
     /**
@@ -80,7 +83,7 @@ public interface Mapper<T> {
      * @throws IllegalArgumentException If {@code cls} is of unsupported kind.
      */
     static <ObjectT, ColumnT> Mapper<ObjectT> of(Class<ObjectT> cls, String columnName, TypeConverter<ObjectT, ColumnT> converter) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return new OneColumnMapperImpl<>(cls, columnName, converter);
     }
 
     /**
@@ -98,7 +101,8 @@ public interface Mapper<T> {
      */
     static <O> Mapper<O> of(Class<O> cls, String fieldName, String columnName, String... fieldColumnPairs) {
         if (fieldColumnPairs.length % 2 != 0) {
-            throw new IllegalArgumentException("Missed a column name, which the field is mapped to.");
+            throw new IllegalArgumentException(
+                    "Missed a column name, which the field is mapped to: " + fieldColumnPairs[fieldColumnPairs.length - 1]);
         }
 
         return builder(cls).map(fieldName, columnName, fieldColumnPairs).build();
@@ -114,60 +118,68 @@ public interface Mapper<T> {
      * @throws IllegalArgumentException If {@code cls} is of unsupported kind.
      */
     static <O> MapperBuilder<O> builder(Class<O> cls) {
-        if (cls.isArray() || cls.isInterface() || Modifier.isAbstract(cls.getModifiers())) {
-            throw new IllegalArgumentException("Class is of unsupported kind.");
+        if (nativelySupported(cls)) {
+            return new MapperBuilder<>(cls, null);
+        } else {
+            return new MapperBuilder<>(cls);
         }
-
-        return new MapperBuilder<>(ensureDefaultConstructor(ensureValidKind(cls)));
     }
 
     /**
-     * Shortcut method creates a mapper for a case when object individual fields map to the column with the same name.
-     *
-     * @param cls Parametrized type of which objects the mapper will handle.
-     * @return Identity mapper.
-     */
-    static <O> Mapper<O> identity(Class<O> cls) {
-        if (cls.isArray() || cls.isInterface() || Modifier.isAbstract(cls.getModifiers())) {
-            throw new IllegalArgumentException("Class is of unsupported kind.");
-        }
-
-        // TODO: replace "stream" with "loop".
-        return new DefaultColumnMapper<>(ensureValidKind(cls),
-                Arrays.stream(cls.getDeclaredFields()).collect(Collectors.toMap(Field::getName, Field::getName)));
-    }
-
-    /**
-     * Ensures class is of the supported kind.
+     * Ensures class is of natively supported kind and can be used in one-column mapping.
      *
      * @param cls Class to validate.
-     * @return {@code cls} if it is valid.
-     * @throws IllegalArgumentException If {@code cls} is invalid and can't be used in mapping.
+     * @return {@code cls} if it is of natively supported kind.
+     * @throws IllegalArgumentException If {@code cls} is invalid and can't be used in one-column mapping.
      */
-    private static <O> Class<O> ensureValidKind(Class<O> cls) {
-        if (cls.isAnonymousClass() || cls.isLocalClass() || cls.isSynthetic() || cls.isPrimitive() || cls.isEnum() || cls.isAnnotation()
-                || (cls.isMemberClass() && !Modifier.isStatic(cls.getModifiers()))) {
-            throw new IllegalArgumentException("Class is of unsupported kind.");
+    static <O> Class<O> ensureNativelySupported(Class<O> cls) {
+        if (nativelySupported(cls)) {
+            return cls;
         }
 
-        return cls;
+        throw new IllegalArgumentException("Class has no native support (use PojoMapper instead): " + cls.getName());
     }
 
     /**
-     * Ensures class has default constructor.
+     * Ensures class is of the supported kind for POJO mapping.
      *
      * @param cls Class to validate.
-     * @return {@code cls} if it is valid.
-     * @throws IllegalArgumentException If {@code cls} can't be used in mapping.
+     * @return {@code cls} if it is valid POJO.
+     * @throws IllegalArgumentException If {@code cls} can't be used as POJO for mapping and/or of invalid kind.
      */
-    private static <O> Class<O> ensureDefaultConstructor(Class<O> cls) {
+    static <O> Class<O> ensureValidPojo(Class<O> cls) {
+        if (nativelySupported(cls) || cls.isAnonymousClass() || cls.isLocalClass() || cls.isSynthetic() || cls.isPrimitive() || cls.isEnum()
+                || cls.isArray() || cls.isAnnotation() || (cls.isMemberClass() && !Modifier.isStatic(cls.getModifiers()))
+                || Modifier.isAbstract(cls.getModifiers())) {
+            throw new IllegalArgumentException("Class is of unsupported kind: " + cls.getName());
+        }
+
         try {
             cls.getDeclaredConstructor();
 
             return cls;
         } catch (NoSuchMethodException e) {
-            throw new IllegalArgumentException("Class must have default constructor.");
+            throw new IllegalArgumentException("Class must have default constructor: " + cls.getName());
         }
+    }
+
+    /**
+     * Checks if class is of natively supported type.
+     *
+     * @param type Class to check.
+     * @return {@code True} if given type is supported natively, and can be mapped to a single column.
+     */
+    private static boolean nativelySupported(Class<?> type) {
+        return !type.isPrimitive()
+                && (String.class == type
+                || UUID.class == type
+                || BitSet.class == type
+                || byte[].class == type
+                || LocalDate.class == type
+                || LocalTime.class == type
+                || LocalDateTime.class == type
+                || Instant.class == type
+                || Number.class.isAssignableFrom(type)); // Byte, Short, Integer, Long, Float, Double, BigInteger, BigDecimal
     }
 
     /**
@@ -176,21 +188,4 @@ public interface Mapper<T> {
      * @return Mapper target type.
      */
     Class<T> targetType();
-
-    /**
-     * Returns a column name if the whole object is mapped to the single column, otherwise, returns {@code null} and individual column
-     * mapping (see {@link #fieldForColumn(String)}) should be used.
-     *
-     * @return Column name that a whole object is mapped to, or {@code null}.
-     */
-    String mappedColumn();
-
-    /**
-     * Return a field name for given column name when POJO individual fields are mapped to columns, otherwise fails.
-     *
-     * @param columnName Column name.
-     * @return Field name or {@code null} if no field mapped to a column.
-     * @throws IllegalStateException If a whole object is mapped to a single column.
-     */
-    @Nullable String fieldForColumn(@NotNull String columnName);
 }

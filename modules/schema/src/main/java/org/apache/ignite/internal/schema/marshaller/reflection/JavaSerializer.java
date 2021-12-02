@@ -29,6 +29,7 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -61,8 +62,8 @@ public class JavaSerializer extends AbstractSerializer {
         this.keyClass = keyClass;
         this.valClass = valClass;
 
-        keyMarsh = Marshaller.createMarshaller(schema.keyColumns(), keyClass, true);
-        valMarsh = Marshaller.createMarshaller(schema.valueColumns(), valClass, false);
+        keyMarsh = Marshaller.createMarshaller(schema.keyColumns().columns(), Mapper.of(keyClass), true);
+        valMarsh = Marshaller.createMarshaller(schema.valueColumns().columns(), Mapper.of(keyClass), false);
     }
 
     /** {@inheritDoc} */

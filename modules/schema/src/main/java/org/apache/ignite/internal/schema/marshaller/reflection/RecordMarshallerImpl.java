@@ -31,6 +31,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.mapper.PojoMapper;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -58,6 +59,8 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
      * @param mapper Mapper for record objects.
      */
     public RecordMarshallerImpl(SchemaDescriptor schema, @NotNull Mapper<R> mapper) {
+        assert mapper instanceof PojoMapper;
+
         this.schema = schema;
 
         recClass = mapper.targetType();

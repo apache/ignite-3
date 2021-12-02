@@ -21,37 +21,26 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Simple mapper implementation that maps a whole object (of the target type) to a single column.
+ * Mapper implementation which maps fields of objects of type {@link T} to the columns by their names. Intended to use only with natively
+ * supported types.
  *
  * @param <T> Target type.
+ * @see OneColumnMapper
  */
-class SingleColumnMapper<T> implements Mapper<T> {
-    /** Target type. */
-    private final Class<T> targetType;
+public interface PojoMapper<T> extends Mapper<T> {
+    /**
+     * Return a field name for given column name when POJO individual fields are mapped to columns, otherwise fails.
+     *
+     * @param columnName Column name.
+     * @return Field name or {@code null} if no field mapped to a column.
+     * @throws IllegalStateException If a whole object is mapped to a single column.
+     */
+    @Nullable String fieldForColumn(@NotNull String columnName);
 
-    /** Column name. */
-    private final String mappedColumn;
-
-    SingleColumnMapper(Class<T> targetType, String mappedColumn) {
-        this.targetType = targetType;
-        this.mappedColumn = mappedColumn;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Class<T> targetType() {
-        return targetType;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String mappedColumn() {
-        return mappedColumn;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable String fieldForColumn(@NotNull String columnName) {
-        throw new UnsupportedOperationException("Not intended for individual fields mapping.");
-    }
+    /**
+     * Returns type converter for given column.
+     *
+     * @return Type converter or {@code null} if not set.
+     */
+    <FieldT, ColumnT> TypeConverter<FieldT, ColumnT> converterForColumn(@NotNull String columnName);
 }
