@@ -281,7 +281,7 @@ public class MapperTest {
 
 
     @Test
-    public void buildingMapper() {
+    public void mapperBuilder() {
         // Automapping.
         {
             PojoMapper<TestObject> mapper = (PojoMapper<TestObject>) Mapper.builder(TestObject.class).automap().build();
