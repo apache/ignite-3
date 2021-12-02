@@ -478,21 +478,21 @@ public class ConfigurationChangerTest {
      * @throws Exception If failed.
      */
     @Test
-    void testLatestRevision() throws Exception {
+    void testLastRevision() throws Exception {
         ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
 
         changer.start();
 
         changer.initializeDefaults();
 
-        assertEquals(0, storage.lastRevision().get(1, SECONDS));
+        assertEquals(1, storage.lastRevision().get(1, SECONDS));
 
         changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> c.changeDefStr("test0"))).get(1, SECONDS);
-        assertEquals(1, storage.lastRevision().get(1, SECONDS));
+        assertEquals(2, storage.lastRevision().get(1, SECONDS));
 
         // Increase the revision so that the change waits for the latest revision of the configuration to be received from the storage.
         storage.incrementAndGetRevision();
-        assertEquals(2, storage.lastRevision().get(1, SECONDS));
+        assertEquals(3, storage.lastRevision().get(1, SECONDS));
 
         AtomicInteger invokeConsumerCnt = new AtomicInteger();
 
@@ -503,7 +503,7 @@ public class ConfigurationChangerTest {
 
                     try {
                         // Let's check that the consumer will be called on the last revision of the repository.
-                        assertEquals(2, storage.lastRevision().get(1, SECONDS));
+                        assertEquals(3, storage.lastRevision().get(1, SECONDS));
                     } catch (Exception e) {
                         fail(e);
                     }
@@ -517,12 +517,34 @@ public class ConfigurationChangerTest {
 
         // Let's roll back the previous revision so that the new change can be applied.
         storage.decrementAndGetRevision();
-        assertEquals(1, storage.lastRevision().get(1, SECONDS));
+        assertEquals(2, storage.lastRevision().get(1, SECONDS));
 
         changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> c.changeDefStr("test00"))).get(1, SECONDS);
 
         changeFut.get(1, SECONDS);
         assertEquals(1, invokeConsumerCnt.get());
+    }
+
+    /**
+     * Checks that if we have not changed the configuration, then the update in the storage will still occur.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testUpdateStorageRevisionOnEmptyChanges() throws Exception {
+        ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
+
+        changer.start();
+
+        changer.initializeDefaults();
+
+        assertEquals(1, storage.lastRevision().get(1, SECONDS));
+
+        changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> {})).get(1, SECONDS);
+        assertEquals(2, storage.lastRevision().get(1, SECONDS));
+
+        changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> c.changeDefStr("foo"))).get(1, SECONDS);
+        assertEquals(3, storage.lastRevision().get(1, SECONDS));
     }
 
     private static <CHANGET> ConfigurationSource source(RootKey<?, ? super CHANGET> rootKey, Consumer<CHANGET> changer) {

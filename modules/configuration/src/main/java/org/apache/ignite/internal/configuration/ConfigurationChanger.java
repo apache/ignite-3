@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
@@ -425,11 +424,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
                 Map<String, Serializable> allChanges = createFlattenedUpdatesMap(curRoots, changes);
 
-                // Unlikely but still possible.
-                if (allChanges.isEmpty()) {
-                    return null;
-                }
-
                 dropNulls(changes);
 
                 List<ValidationIssue> validationIssues = ValidationUtil.validate(
@@ -446,12 +440,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
                 return allChanges;
             }, pool)
-            .thenCompose(allChanges -> {
-                if (allChanges == null) {
-                    return completedFuture(null);
-                }
-
-                return storage.write(allChanges, localRoots.version)
+            .thenCompose(allChanges ->
+                storage.write(allChanges, localRoots.version)
                     .thenCompose(casWroteSuccessfully -> {
                         if (casWroteSuccessfully) {
                             return localRoots.changeFuture;
@@ -460,8 +450,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                             // because we work with async code (futures).
                             return localRoots.changeFuture.thenCompose(v -> changeInternally(src));
                         }
-                    });
-            });
+                    })
+            );
     }
 
     /**
@@ -486,7 +476,12 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         storageRoots = new StorageRoots(newSuperRoot, newChangeId);
 
-        return notificator.notify(oldSuperRoot, newSuperRoot, newChangeId)
+        if (dataValuesPrefixMap.isEmpty()) {
+            oldStorageRoots.changeFuture.complete(null);
+
+            return CompletableFuture.completedFuture(null);
+        } else {
+            return notificator.notify(oldSuperRoot, newSuperRoot, newChangeId)
                 .whenComplete((v, t) -> {
                     if (t == null) {
                         oldStorageRoots.changeFuture.complete(null);
@@ -494,5 +489,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                         oldStorageRoots.changeFuture.completeExceptionally(t);
                     }
                 });
+        }
     }
 }
