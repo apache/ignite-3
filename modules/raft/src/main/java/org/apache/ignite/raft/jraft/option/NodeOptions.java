@@ -48,6 +48,11 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     // from the leader in |election_timeout_ms| milliseconds
     // Default: 1200 (1.2s)
     private int electionTimeoutMs = 1200; // follower to candidate timeout
+    // This value must be updated for every topology change as far as this values is limited by
+    // suspiciousTimeout, which depends on the number of cluster nodes.
+    public static int ELECTION_TIMEOUT_MS_MAX = 10000;
+    
+    public static final int MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING = 3;
 
     // One node's local priority value would be set to | electionPriority |
     // value when it starts up.If this value is set to 0,the node will never be a leader.

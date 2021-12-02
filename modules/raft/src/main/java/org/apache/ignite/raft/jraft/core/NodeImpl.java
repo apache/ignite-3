@@ -147,6 +147,9 @@ public class NodeImpl implements Node, RaftServerService {
     private final Ballot prevVoteCtx = new Ballot();
     private ConfigurationEntry conf;
     private StopTransferArg stopTransferArg;
+    private boolean electionAdjusted;
+    private int electionRoundsWithoutAdjusting;
+    private int initialElectionTimeout;
     /**
      * Raft group and node options and identifier
      */
@@ -598,6 +601,7 @@ public class NodeImpl implements Node, RaftServerService {
             }
 
             doUnlock = false;
+            adjustElectionTimeout();
             preVote();
 
         }
@@ -607,7 +611,25 @@ public class NodeImpl implements Node, RaftServerService {
             }
         }
     }
-
+    
+    private void adjustElectionTimeout() {
+        if (electionRoundsWithoutAdjusting < NodeOptions.MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING) {
+            electionRoundsWithoutAdjusting++;
+            return;
+        }
+        
+        if (!electionAdjusted) {
+            initialElectionTimeout = options.getElectionTimeoutMs();
+        }
+        
+        if (options.getElectionTimeoutMs() < NodeOptions.ELECTION_TIMEOUT_MS_MAX) {
+            LOG.info("Election timeout was adjusted.");
+            resetElectionTimeoutMs(options.getElectionTimeoutMs() * 2);
+            electionAdjusted = true;
+            electionRoundsWithoutAdjusting = 0;
+        }
+    }
+    
     /**
      * Whether to allow for launching election or not by comparing node's priority with target priority. And at the same
      * time, if next leader is not elected until next election timeout, it decays its local target priority
@@ -1172,6 +1194,9 @@ public class NodeImpl implements Node, RaftServerService {
             }
             resetLeaderId(PeerId.emptyPeer(), new Status(RaftError.ERAFTTIMEDOUT,
                 "A follower's leader_id is reset to NULL as it begins to request_vote."));
+            if (!options.getRaftOptions().isStepDownWhenVoteTimedout()) {
+                adjustElectionTimeout();
+            }
             this.state = State.STATE_CANDIDATE;
             this.currTerm++;
             this.votedId = this.serverId.copy();
@@ -1241,9 +1266,20 @@ public class NodeImpl implements Node, RaftServerService {
                 this.fsmCaller.onStartFollowing(new LeaderChangeContext(newLeaderId, this.currTerm, status));
             }
             this.leaderId = newLeaderId.copy();
+            
+            resetElectionTimeoutToInitial();
         }
     }
-
+    
+    private void resetElectionTimeoutToInitial() {
+        if (electionAdjusted) {
+            LOG.info("Election timeout was reset to initial value due to successful leader election.");
+            resetElectionTimeoutMs(initialElectionTimeout);
+            electionAdjusted = false;
+            electionRoundsWithoutAdjusting = 0;
+        }
+    }
+    
     // in writeLock
     private void checkStepDown(final long requestTerm, final PeerId serverId) {
         final Status status = new Status();
@@ -1301,6 +1337,7 @@ public class NodeImpl implements Node, RaftServerService {
             throw new IllegalStateException();
         }
         this.confCtx.flush(this.conf.getConf(), this.conf.getOldConf());
+        resetElectionTimeoutToInitial();
         this.stepDownTimer.start();
     }
 

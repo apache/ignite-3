@@ -3404,6 +3404,77 @@ public class ItNodeTest {
         leader = cluster.getLeader();
         LOG.info("Elect new leader is {}, curTerm={}", leader.getLeaderId(), ((NodeImpl) leader).getCurrentTerm());
     }
+    
+    @Test
+    public void testElectionTimeoutAutoAdjustWhenBlockedElection() throws Exception {
+        List<PeerId> peers = TestUtils.generatePeers(3);
+        cluster = new TestCluster("unittest", dataPath, peers,  testInfo);
+        
+        
+        for (PeerId peer : peers)
+            assertTrue(cluster.start(peer.getEndpoint()));
+        
+        cluster.waitLeader();
+        
+        Node leader = cluster.getLeader();
+        
+        int initElectionTimeout = leader.getOptions().getElectionTimeoutMs();
+        
+        LOG.warn("Current leader {}, electTimeout={}", leader.getNodeId().getPeerId(), leader.getOptions().getElectionTimeoutMs());
+        
+        List<Node> followers = cluster.getFollowers();
+    
+        for (Node follower : followers) {
+            NodeImpl follower0 = (NodeImpl) follower;
+    
+            assertEquals(initElectionTimeout, follower0.getOptions().getElectionTimeoutMs());
+        }
+        
+        for (Node follower : followers) {
+            NodeImpl follower0 = (NodeImpl) follower;
+            DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcClientService();
+            RpcClientEx rpcClientEx = (RpcClientEx) rpcService.getRpcClient();
+            rpcClientEx.blockMessages((msg, nodeId) -> true);
+        }
+        
+        LOG.warn("Stop leader {}, curTerm={}", leader.getNodeId().getPeerId(), ((NodeImpl) leader).getCurrentTerm());
+        
+        int initRpcConnectTimeout = followers.get(0).getOptions().getRpcConnectTimeoutMs();
+    
+        //this is needed because we don't want to wait on connect when we block all messages between nodes.
+        for (Node follower : followers) {
+            follower.getOptions().setRpcConnectTimeoutMs(100);
+        }
+        
+        assertTrue(cluster.stop(leader.getNodeId().getPeerId().getEndpoint()));
+        
+        assertNull(cluster.getLeader());
+        
+        assertTrue(waitForCondition(() -> followers.stream().allMatch(f -> f.getOptions().getElectionTimeoutMs() > initElectionTimeout),
+                (long) NodeOptions.MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING
+                        // need to multiply to 2 because stepDown happens after voteTimer timeout
+                        * (initElectionTimeout + followers.get(0).getOptions().getRaftOptions().getMaxElectionDelayMs()) * 2));
+    
+        for (Node follower : followers) {
+            follower.getOptions().setRpcConnectTimeoutMs(initRpcConnectTimeout);
+        }
+        
+        for (Node follower : followers) {
+            NodeImpl follower0 = (NodeImpl) follower;
+            DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcClientService();
+            RpcClientEx rpcClientEx = (RpcClientEx) rpcService.getRpcClient();
+            rpcClientEx.stopBlock();
+        }
+        
+        // elect new leader
+        cluster.waitLeader();
+        leader = cluster.getLeader();
+        
+        LOG.info("Elect new leader is {}, curTerm={}", leader.getLeaderId(), ((NodeImpl) leader).getCurrentTerm());
+    
+        assertTrue(waitForCondition(() -> followers.stream().allMatch(f -> f.getOptions().getElectionTimeoutMs() == 600),
+                3_000));
+    }
 
     /**
      * Tests if a read using leader leases works correctly after previous leader segmentation.
