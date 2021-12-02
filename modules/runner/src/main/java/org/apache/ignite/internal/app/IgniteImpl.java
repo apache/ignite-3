@@ -34,6 +34,7 @@ import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
@@ -227,7 +228,25 @@ public class IgniteImpl implements Ignite {
 
     private ConfigurationModules loadConfigurationModules(ClassLoader classLoader) {
         var modulesProvider = new ServiceLoaderModulesProvider();
-        return new ConfigurationModules(modulesProvider.modules(classLoader));
+        List<ConfigurationModule> modules = modulesProvider.modules(classLoader);
+
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Configuration modules loaded: {}", modules);
+        }
+
+        if (modules.isEmpty()) {
+            throw new IllegalStateException("No configuration modules were loaded, this means Ignite cannot start. "
+                    + "Please make sure that the classloader for loading services is correct.");
+        }
+
+        var configModules = new ConfigurationModules(modules);
+
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Local root keys: {}", configModules.local().rootKeys());
+            LOG.info("Distributed root keys: {}", configModules.distributed().rootKeys());
+        }
+
+        return configModules;
     }
 
     /**
