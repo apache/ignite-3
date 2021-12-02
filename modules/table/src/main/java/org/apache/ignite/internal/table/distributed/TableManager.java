@@ -785,26 +785,32 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
             );
         }).exceptionally(t -> {
-            Throwable cause = t.getCause();
+            Throwable ex;
 
-            if (cause instanceof ConfigurationChangeException) {
-                cause = cause.getCause();
+            if (t instanceof CompletionException) {
+                if (t.getCause() instanceof ConfigurationChangeException) {
+                    ex = t.getCause().getCause();
+                } else {
+                    ex = t.getCause();
+                }
+
+                assert ex != null;
+            } else {
+                ex = t;
             }
 
-            if (cause instanceof TableAlreadyExistsException) {
-                TableAlreadyExistsException tableAlreadyExistsException = (TableAlreadyExistsException) cause;
-
+            if (ex instanceof TableAlreadyExistsException) {
                 tableAsync(name, false).thenAccept(table -> {
                     if (!exceptionWhenExist) {
                         tblFut.complete(table);
                     }
 
-                    removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(tableAlreadyExistsException));
+                    removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(ex));
                 });
             } else {
                 LOG.error(LoggerMessageHelper.format("Table wasn't created [name={}]", name), t);
 
-                removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(cause));
+                removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(ex));
             }
 
             return null;

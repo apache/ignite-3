@@ -71,5 +71,5 @@ public interface ConfigurationStorage {
     /**
      * Returns a future that will be completed when the latest revision of the storage is received.
      */
-    CompletableFuture<Long> revisionLatest();
+    CompletableFuture<Long> lastRevision();
 }

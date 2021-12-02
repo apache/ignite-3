@@ -131,14 +131,30 @@ public class TestConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized CompletableFuture<Long> revisionLatest() {
+    public synchronized CompletableFuture<Long> lastRevision() {
         return CompletableFuture.completedFuture(version);
     }
 
+    /**
+     * Increase the current revision of the storage.
+     *
+     * <p>New configuration changes will wait when the new configuration is updated from the repository.
+     *
+     * <p>For pending updates to apply, you will need to call {@link #decrementAndGetRevision}
+     * and make an additional (new) configuration change.
+     *
+     * @return Storage revision.
+     */
     public synchronized long incrementAndGetRevision() {
         return ++version;
     }
 
+    /**
+     * Decrease the current revision of the storage.
+     *
+     * @return Repository revision.
+     * @see #incrementAndGetRevision
+     */
     public synchronized long decrementAndGetRevision() {
         return --version;
     }

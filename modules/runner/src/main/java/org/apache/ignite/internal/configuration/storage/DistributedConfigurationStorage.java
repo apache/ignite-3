@@ -300,7 +300,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Long> revisionLatest() {
+    public CompletableFuture<Long> lastRevision() {
         return metaStorageMgr.get(MASTER_KEY).thenApply(Entry::revision);
     }
 

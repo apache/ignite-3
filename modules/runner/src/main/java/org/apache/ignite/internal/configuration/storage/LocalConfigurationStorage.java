@@ -155,7 +155,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Long> revisionLatest() {
+    public CompletableFuture<Long> lastRevision() {
         return CompletableFuture.completedFuture(ver.get());
     }
 

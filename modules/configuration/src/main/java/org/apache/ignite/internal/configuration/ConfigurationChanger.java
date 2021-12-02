@@ -382,7 +382,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     private CompletableFuture<Void> changeInternally(ConfigurationSource src) {
         StorageRoots localRoots = storageRoots;
 
-        return storage.revisionLatest()
+        return storage.lastRevision()
             .thenCompose(storageRevision -> {
                 assert storageRevision != null;
 

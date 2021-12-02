@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.Serializable;
 import java.lang.annotation.Retention;
@@ -471,7 +472,7 @@ public class ConfigurationChangerTest {
     }
 
     /**
-     * Check that {@link ConfigurationStorage#revisionLatest} always returns the latest revision of the storage,
+     * Check that {@link ConfigurationStorage#lastRevision} always returns the latest revision of the storage,
      * and that the change will only be applied on the last revision of the storage.
      *
      * @throws Exception If failed.
@@ -484,14 +485,14 @@ public class ConfigurationChangerTest {
 
         changer.initializeDefaults();
 
-        assertEquals(0, storage.revisionLatest().get(1, SECONDS));
+        assertEquals(0, storage.lastRevision().get(1, SECONDS));
 
         changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> c.changeDefStr("test0"))).get(1, SECONDS);
-        assertEquals(1, storage.revisionLatest().get(1, SECONDS));
+        assertEquals(1, storage.lastRevision().get(1, SECONDS));
 
         // Increase the revision so that the change waits for the latest revision of the configuration to be received from the storage.
         storage.incrementAndGetRevision();
-        assertEquals(2, storage.revisionLatest().get(1, SECONDS));
+        assertEquals(2, storage.lastRevision().get(1, SECONDS));
 
         AtomicInteger invokeConsumerCnt = new AtomicInteger();
 
@@ -502,9 +503,9 @@ public class ConfigurationChangerTest {
 
                     try {
                         // Let's check that the consumer will be called on the last revision of the repository.
-                        assertEquals(2, storage.revisionLatest().get(1, SECONDS));
+                        assertEquals(2, storage.lastRevision().get(1, SECONDS));
                     } catch (Exception e) {
-                        throw new RuntimeException(e);
+                        fail(e);
                     }
 
                     c.changeDefStr("test1");
@@ -516,7 +517,7 @@ public class ConfigurationChangerTest {
 
         // Let's roll back the previous revision so that the new change can be applied.
         storage.decrementAndGetRevision();
-        assertEquals(1, storage.revisionLatest().get(1, SECONDS));
+        assertEquals(1, storage.lastRevision().get(1, SECONDS));
 
         changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> c.changeDefStr("test00"))).get(1, SECONDS);
 
