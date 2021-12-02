@@ -83,7 +83,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
@@ -720,32 +719,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         IgniteUuid tblId = TABLE_ID_GENERATOR.randomUuid();
 
-        EventListener<TableEventParameters> clo = new EventListener<>() {
-            @Override
-            public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                IgniteUuid notificationTblId = parameters.tableId();
-
-                if (!tblId.equals(notificationTblId)) {
-                    return false;
-                }
-
-                if (e == null) {
-                    tblFut.complete(parameters.table());
-                } else {
-                    tblFut.completeExceptionally(e);
-                }
-
-                return true;
-            }
-
-            @Override
-            public void remove(@NotNull Throwable e) {
-                tblFut.completeExceptionally(e);
-            }
-        };
-
-        listen(TableEvent.CREATE, clo);
-
         tablesCfg.tables().change(change -> {
             if (change.get(name) != null) {
                 throw new TableAlreadyExistsException(name);
@@ -784,36 +757,26 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 ));
                     }
             );
-        }).exceptionally(t -> {
-            Throwable ex;
-
-            if (t instanceof CompletionException) {
-                if (t.getCause() instanceof ConfigurationChangeException) {
-                    ex = t.getCause().getCause();
-                } else {
-                    ex = t.getCause();
-                }
+        }).whenComplete((aVoid, t) -> {
+            if (t != null) {
+                Throwable ex = getRootCause(t);
 
                 assert ex != null;
-            } else {
-                ex = t;
-            }
 
-            if (ex instanceof TableAlreadyExistsException) {
-                tableAsync(name, false).thenAccept(table -> {
-                    if (!exceptionWhenExist) {
-                        tblFut.complete(table);
+                if (ex instanceof TableAlreadyExistsException) {
+                    if (exceptionWhenExist) {
+                        tblFut.completeExceptionally(ex);
+                    } else {
+                        tblFut.complete(tables.get(name));
                     }
+                } else {
+                    LOG.error(LoggerMessageHelper.format("Table wasn't created [name={}]", name), ex);
 
-                    removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(ex));
-                });
+                    tblFut.completeExceptionally(ex);
+                }
             } else {
-                LOG.error(LoggerMessageHelper.format("Table wasn't created [name={}]", name), t);
-
-                removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(ex));
+                tblFut.complete(tables.get(name));
             }
-
-            return null;
         });
 
         return tblFut;
@@ -875,32 +838,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             } else {
                 IgniteUuid tblId = ((TableImpl) tbl).tableId();
 
-                EventListener<TableEventParameters> clo = new EventListener<>() {
-                    @Override
-                    public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                        IgniteUuid notificationTblId = parameters.tableId();
-
-                        if (!tblId.equals(notificationTblId)) {
-                            return false;
-                        }
-
-                        if (e == null) {
-                            tblFut.complete(null);
-                        } else {
-                            tblFut.completeExceptionally(e);
-                        }
-
-                        return true;
-                    }
-
-                    @Override
-                    public void remove(@NotNull Throwable e) {
-                        tblFut.completeExceptionally(e);
-                    }
-                };
-
-                listen(TableEvent.ALTER, clo);
-
                 tablesCfg.tables().change(ch -> ch.createOrUpdate(name, tblCh -> {
                             tableChange.accept(tblCh);
 
@@ -937,23 +874,46 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(descriptor));
                                     }));
                         }
-                )).exceptionally(t -> {
-                    LOG.error(LoggerMessageHelper.format("Table wasn't altered [name={}]", name), t);
+                )).whenComplete((aVoid, t) -> {
+                    if (t != null) {
+                        Throwable ex = getRootCause(t);
 
-                    Throwable cause = t.getCause();
+                        assert ex != null;
 
-                    if (cause instanceof ConfigurationChangeException) {
-                        cause = cause.getCause();
+                        LOG.error(LoggerMessageHelper.format("Table wasn't altered [name={}]", name), ex);
+
+                        tblFut.completeExceptionally(ex);
+                    } else {
+                        tblFut.complete(aVoid);
                     }
-
-                    removeListener(TableEvent.ALTER, clo, new IgniteInternalCheckedException(cause));
-
-                    return null;
                 });
             }
         });
 
         return tblFut;
+    }
+
+    /**
+     * Gets a cause exception for a client.
+     *
+     * @param t Exception wrapper.
+     * @return Root exception if the exception is wrapped on.
+     */
+    private IgniteException getRootCause(Throwable t) {
+        Throwable ex;
+
+        if (t instanceof CompletionException) {
+            if (t.getCause() instanceof ConfigurationChangeException) {
+                ex = t.getCause().getCause();
+            } else {
+                ex = t.getCause();
+            }
+
+        } else {
+            ex = t;
+        }
+
+        return ex instanceof IgniteException ? (IgniteException)ex : new IgniteException(ex);
     }
 
     /** {@inheritDoc} */
@@ -991,41 +951,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (tbl == null) {
                 dropTblFut.complete(null);
             } else {
-                EventListener<TableEventParameters> clo = new EventListener<>() {
-                    @Override
-                    public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                        String tableName = parameters.tableName();
-
-                        if (!name.equals(tableName)) {
-                            return false;
-                        }
-
-                        if (e == null) {
-                            dropTblFut.complete(null);
-                        } else {
-                            dropTblFut.completeExceptionally(e);
-                        }
-
-                        return true;
-                    }
-
-                    @Override
-                    public void remove(@NotNull Throwable e) {
-                        dropTblFut.completeExceptionally(e);
-                    }
-                };
-
-                listen(TableEvent.DROP, clo);
-
-                tablesCfg
-                        .tables()
+                tablesCfg.tables()
                         .change(change -> change.delete(name))
-                        .exceptionally(t -> {
-                            LOG.error(LoggerMessageHelper.format("Table wasn't dropped [name={}]", name), t);
+                        .whenComplete((aVoid, t) -> {
+                            if (t != null) {
+                                Throwable ex = getRootCause(t);
 
-                            removeListener(TableEvent.DROP, clo, new IgniteInternalCheckedException(t.getCause()));
+                                assert ex != null;
 
-                            return null;
+                                LOG.error(LoggerMessageHelper.format("Table wasn't dropped [name={}]", name), ex);
+
+                                dropTblFut.completeExceptionally(ex);
+                            } else {
+                                dropTblFut.complete(aVoid);
+                            }
                         });
             }
         });
