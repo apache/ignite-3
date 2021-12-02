@@ -757,7 +757,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 ));
                     }
             );
-        }).whenComplete((aVoid, t) -> {
+        }).whenComplete((res, t) -> {
             if (t != null) {
                 Throwable ex = getRootCause(t);
 
@@ -874,7 +874,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(descriptor));
                                     }));
                         }
-                )).whenComplete((aVoid, t) -> {
+                )).whenComplete((res, t) -> {
                     if (t != null) {
                         Throwable ex = getRootCause(t);
 
@@ -884,7 +884,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         tblFut.completeExceptionally(ex);
                     } else {
-                        tblFut.complete(aVoid);
+                        tblFut.complete(res);
                     }
                 });
             }
@@ -899,12 +899,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param t Exception wrapper.
      * @return Root exception if the exception is wrapped on.
      */
-    private IgniteException getRootCause(Throwable t) {
+    private Throwable getRootCause(Throwable t) {
         Throwable ex;
 
         if (t instanceof CompletionException) {
             if (t.getCause() instanceof ConfigurationChangeException) {
                 ex = t.getCause().getCause();
+            } else if (t.getCause() instanceof ConfigurationValidationException) {
+                //TODO: Public exception for configuration validation should return here.
+                return t.getCause();
             } else {
                 ex = t.getCause();
             }
@@ -913,7 +916,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             ex = t;
         }
 
-        return ex instanceof IgniteException ? (IgniteException)ex : new IgniteException(ex);
+        return ex instanceof IgniteException ? (IgniteException) ex : new IgniteException(ex);
     }
 
     /** {@inheritDoc} */
@@ -953,7 +956,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             } else {
                 tablesCfg.tables()
                         .change(change -> change.delete(name))
-                        .whenComplete((aVoid, t) -> {
+                        .whenComplete((res, t) -> {
                             if (t != null) {
                                 Throwable ex = getRootCause(t);
 
@@ -963,7 +966,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                 dropTblFut.completeExceptionally(ex);
                             } else {
-                                dropTblFut.complete(aVoid);
+                                dropTblFut.complete(res);
                             }
                         });
             }
