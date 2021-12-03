@@ -761,8 +761,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (t != null) {
                 Throwable ex = getRootCause(t);
 
-                assert ex != null;
-
                 if (ex instanceof TableAlreadyExistsException) {
                     if (exceptionWhenExist) {
                         tblFut.completeExceptionally(ex);
@@ -878,8 +876,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     if (t != null) {
                         Throwable ex = getRootCause(t);
 
-                        assert ex != null;
-
                         LOG.error(LoggerMessageHelper.format("Table wasn't altered [name={}]", name), ex);
 
                         tblFut.completeExceptionally(ex);
@@ -897,15 +893,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Gets a cause exception for a client.
      *
      * @param t Exception wrapper.
-     * @return Root exception if the exception is wrapped on.
+     * @return A root exception which will be acceptable to throw for public API.
      */
-    private Throwable getRootCause(Throwable t) {
+    //TODO: IGNITE-16051 Implement exception converter for public API.
+    private @NotNull IgniteException getRootCause(Throwable t) {
         Throwable ex;
 
         if (t instanceof CompletionException) {
             if (t.getCause() instanceof ConfigurationChangeException) {
-                //TODO: IGNITE-16051 Only public exception for configuration validation should return here.
-                return t.getCause().getCause();
+                ex = t.getCause().getCause();
             } else {
                 ex = t.getCause();
             }
@@ -957,8 +953,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         .whenComplete((res, t) -> {
                             if (t != null) {
                                 Throwable ex = getRootCause(t);
-
-                                assert ex != null;
 
                                 LOG.error(LoggerMessageHelper.format("Table wasn't dropped [name={}]", name), ex);
 
