@@ -344,6 +344,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
         queryProc.query("PUBLIC", String.format("DROP INDEX IF EXISTS index4 ON %s", curMethodName));
     }
     
+    // todo copy-paste from TableManagerTest will be removed after https://issues.apache.org/jira/browse/IGNITE-16050
     /**
      * Instantiates a table and prepares Table manager.
      *
