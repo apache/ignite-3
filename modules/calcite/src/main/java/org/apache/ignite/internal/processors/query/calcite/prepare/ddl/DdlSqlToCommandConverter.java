@@ -83,7 +83,7 @@ public class DdlSqlToCommandConverter {
         
         return ((SqlLiteral) opt.value()).intValue(true);
     };
-    
+
     /** Map of the supported table option processors. */
     private final Map<IgniteSqlCreateTableOptionEnum, TableOptionProcessor<?>> tblOptionProcessors = Stream.of(
             new TableOptionProcessor<>(REPLICAS, positiveNumValidator, CreateTableCommand::replicas),
@@ -172,11 +172,9 @@ public class DdlSqlToCommandConverter {
                 dflt = ((SqlLiteral) col.expression).getValue();
             }
             
-            ColumnDefinitionBuilder col0 = SchemaBuilders.column(name, typeFactory.columnType(relType));
-            
-            col0.asNullable(relType.isNullable());
-            
-            col0.withDefaultValueExpression(dflt);
+            ColumnDefinitionBuilder col0 = SchemaBuilders.column(name, typeFactory.columnType(relType))
+                    .asNullable(relType.isNullable())
+                    .withDefaultValueExpression(dflt);
             
             cols.add(col0.build());
         }
@@ -241,9 +239,8 @@ public class DdlSqlToCommandConverter {
             String name = col.name.getSimple();
             RelDataType type = ctx.planner().convert(col.dataType);
             
-            ColumnDefinitionBuilder col0 = SchemaBuilders.column(name, typeFactory.columnType(type));
-            
-            col0.asNullable(type.isNullable());
+            ColumnDefinitionBuilder col0 = SchemaBuilders.column(name, typeFactory.columnType(type))
+                    .asNullable(type.isNullable());
             
             cols.add(col0.build());
         }

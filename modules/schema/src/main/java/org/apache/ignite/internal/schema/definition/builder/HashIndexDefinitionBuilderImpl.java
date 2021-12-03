@@ -18,11 +18,9 @@
 package org.apache.ignite.internal.schema.definition.builder;
 
 import static java.util.Arrays.asList;
-import static org.apache.ignite.internal.util.ArrayUtils.asSet;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.apache.ignite.internal.schema.definition.index.HashIndexDefinitionImpl;
 import org.apache.ignite.schema.definition.builder.HashIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.index.HashIndexDefinition;

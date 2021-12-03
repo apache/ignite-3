@@ -21,7 +21,6 @@ import static java.util.Arrays.asList;
 import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.HASH_INDEX_TYPE;
 import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.PARTIAL_INDEX_TYPE;
 import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.SORTED_INDEX_TYPE;
-import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import java.math.BigDecimal;

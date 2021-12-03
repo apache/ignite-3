@@ -27,7 +27,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.PrimaryKeyView;
@@ -55,7 +54,6 @@ import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.builder.PrimaryKeyDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
-import org.apache.ignite.schema.definition.index.IndexDefinition;
 
 /** DDL commands handler. */
 public class DdlCommandHandler {
@@ -179,8 +177,9 @@ public class DdlCommandHandler {
         for (Pair<String, Boolean> idxInfo : cmd.columns()) {
             SortedIndexColumnBuilder idx0 = idx.addIndexColumn(idxInfo.getFirst());
             
-            if (idxInfo.getSecond())
+            if (idxInfo.getSecond()) {
                 idx0.desc();
+            }
             
             idx0.done();
         }

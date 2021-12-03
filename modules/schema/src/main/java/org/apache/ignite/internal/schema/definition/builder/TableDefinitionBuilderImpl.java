@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -67,7 +68,7 @@ public class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public TableDefinitionBuilderImpl columns(Iterable<ColumnDefinition> columns) {
+    public TableDefinitionBuilderImpl columns(List<ColumnDefinition> columns) {
         for (ColumnDefinition column : columns) {
             if (this.columns.put(column.name(), column) != null) {
                 throw new IllegalArgumentException("Column with same name already exists: columnName=" + column.name());
