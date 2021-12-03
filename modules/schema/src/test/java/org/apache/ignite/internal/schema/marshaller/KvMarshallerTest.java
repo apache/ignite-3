@@ -76,7 +76,6 @@ import org.apache.ignite.internal.schema.testobjects.TestObjectWithNoDefaultCons
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithPrivateConstructor;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ObjectFactory;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DynamicNode;
@@ -465,13 +464,20 @@ public class KvMarshallerTest {
         final byte[] serializedPojo = serializeObject(pojo);
 
         final KvMarshaller<Long, TestPojo> marshaller1 = factory.create(schema,
-                Mapper.of(Long.class, "key"), Mapper.of(TestPojo.class, "val", new SerializingConverter<>()));
+                Mapper.of(Long.class, "key"),
+                Mapper.of(TestPojo.class, "val", new SerializingConverter<>()));
+
         final KvMarshaller<Long, byte[]> marshaller2 = factory.create(schema,
-                Mapper.of(Long.class, "key"), Mapper.of(byte[].class, "val"));
+                Mapper.of(Long.class, "key"),
+                Mapper.of(byte[].class, "val"));
+
         final KvMarshaller<Long, TestPojoWrapper> marshaller3 = factory.create(schema,
-                Mapper.of(Long.class, "key"), Mapper.builder(TestPojoWrapper.class).map("pojoField", "val", new SerializingConverter<>()).build());
+                Mapper.of(Long.class, "key"),
+                Mapper.builder(TestPojoWrapper.class).map("pojoField", "val", new SerializingConverter<>()).build());
+
         final KvMarshaller<Long, TestPojoWrapper> marshaller4 = factory.create(schema,
-                Mapper.of(Long.class, "key"), Mapper.builder(TestPojoWrapper.class).map("rawField", "val").build());
+                Mapper.of(Long.class, "key"),
+                Mapper.builder(TestPojoWrapper.class).map("rawField", "val").build());
 
         BinaryRow row = marshaller1.marshal(1L, pojo);
         BinaryRow row2 = marshaller2.marshal(1L, serializedPojo);
