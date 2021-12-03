@@ -21,9 +21,7 @@ import static org.apache.ignite.internal.schema.configuration.SchemaConfiguratio
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.isNullOrEmpty;
 
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -248,8 +246,6 @@ public class DdlCommandHandler {
                 chng -> chng.changeColumns(cols -> {
                     PrimaryKeyView priKey = chng.primaryKey();
 
-                    Set<String> pkey0 = new HashSet<>(Arrays.asList(priKey.columns()));
-
                     Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
 
                     for (String colName : colsDef) {
@@ -257,9 +253,11 @@ public class DdlCommandHandler {
                             throw new ColumnNotFoundException(colName);
                         }
 
-                        if (pkey0.contains(colName)) {
-                            throw new IgniteException(LoggerMessageHelper
-                                    .format("Can`t delete column, belongs to primary key: [name={}]", colName));
+                        for (String priColName : priKey.columns()) {
+                            if (priColName.equals(colName)) {
+                                throw new IgniteException(LoggerMessageHelper
+                                        .format("Can`t delete column, belongs to primary key: [name={}]", colName));
+                            }
                         }
                     }
 
