@@ -28,7 +28,13 @@ import com.squareup.javapoet.ClassName;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.configuration.annotation.DirectAccess;
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.Name;
+import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
+import org.opentest4j.AssertionFailedError;
 
 /**
  * Test for basic code generation scenarios.
@@ -278,21 +284,6 @@ public class ItProcessorTest extends AbstractProcessorTest {
         }
     }
 
-    /**
-     * Compile set of classes.
-     *
-     * @param packageName Package names.
-     * @param classNames  Simple class names.
-     * @return Result of batch compilation.
-     */
-    private static BatchCompilation batchCompile(String packageName, String... classNames) {
-        ClassName[] classes = Arrays.stream(classNames)
-                .map(clsName -> ClassName.get(packageName, clsName))
-                .toArray(ClassName[]::new);
-
-        return batchCompile(classes);
-    }
-
     @Test
     void wrongSchemaPostfix() {
         String packageName = "org.apache.ignite.internal.configuration.processor";
@@ -303,5 +294,134 @@ public class ItProcessorTest extends AbstractProcessorTest {
 
         assertThat(compilation).failed();
         assertThat(compilation).hadErrorContaining(schema + " must end with 'ConfigurationSchema'");
+    }
+
+    /**
+     * Checks that compilation will fail due to misuse of {@link InjectedName}.
+     */
+    @Test
+    void testErrorInjectedNameFieldCodeGeneration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.injectedname";
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "ErrorInjectedName0ConfigurationSchema"),
+                InjectedName.class.getSimpleName()
+        );
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "ErrorInjectedName1ConfigurationSchema"),
+                InjectedName.class.getSimpleName()
+        );
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "ErrorInjectedName2ConfigurationSchema"),
+                InjectedName.class.getSimpleName()
+        );
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "ErrorInjectedName3ConfigurationSchema"),
+                InjectedName.class.getSimpleName()
+        );
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "ErrorInjectedName4ConfigurationSchema"),
+                InjectedName.class.getSimpleName()
+        );
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "ErrorInjectedName5ConfigurationSchema"),
+                InjectedName.class.getSimpleName()
+        );
+    }
+
+    /**
+     * Checks that compilation will fail due to misuse of {@link Name}.
+     */
+    @Test
+    void testErrorNameFieldCodeGeneration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.injectedname";
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "ErrorName0ConfigurationSchema"),
+                Name.class.getSimpleName()
+        );
+    }
+
+    /**
+     * Checks that compilation will succeed when using {@link InjectedName}.
+     */
+    @Test
+    void testSuccessInjectedNameFieldCodeGeneration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.injectedname";
+
+        ClassName cls0 = ClassName.get(packageName, "SimpleConfigurationSchema");
+        ClassName cls1 = ClassName.get(packageName, "PolyConfigurationSchema");
+
+        BatchCompilation batchCompile = batchCompile(cls0, cls1);
+
+        assertEquals(Compilation.Status.SUCCESS, batchCompile.getCompilationStatus().status());
+
+        assertEquals(2 * 3, batchCompile.generated().size());
+
+        assertTrue(batchCompile.getBySchema(cls0).allGenerated());
+        assertTrue(batchCompile.getBySchema(cls1).allGenerated());
+    }
+
+    /**
+     * Checks that compilation will succeed when using {@link Name}.
+     */
+    @Test
+    void testSuccessNameFieldCodeGeneration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.injectedname";
+
+        ClassName cls0 = ClassName.get(packageName, "SimpleConfigurationSchema");
+        ClassName cls1 = ClassName.get(packageName, "NameConfigurationSchema");
+
+        BatchCompilation batchCompile = batchCompile(cls0, cls1);
+
+        assertEquals(Compilation.Status.SUCCESS, batchCompile.getCompilationStatus().status());
+
+        assertEquals(2 * 3, batchCompile.generated().size());
+
+        assertTrue(batchCompile.getBySchema(cls0).allGenerated());
+        assertTrue(batchCompile.getBySchema(cls1).allGenerated());
+    }
+
+    /**
+     * Compile set of classes.
+     *
+     * @param packageName Package names.
+     * @param classNames  Simple class names.
+     * @return Result of batch compilation.
+     */
+    private static BatchCompilation batchCompile(String packageName, String... classNames) {
+        ClassName[] classes = Arrays.stream(classNames)
+            .map(clsName -> ClassName.get(packageName, clsName))
+            .toArray(ClassName[]::new);
+
+        return batchCompile(classes);
+    }
+
+    /**
+     * Extends {@link Assertions#assertThrows(Class, Executable)} to check for a substring in the error message.
+     *
+     * @param expErrCls Expected error class.
+     * @param exec Supplier.
+     * @param expSubStr Expected substring in error message.
+     * @throws AssertionFailedError If failed.
+     */
+    private void assertThrowsEx(Class<? extends Throwable> expErrCls, Executable exec, @Nullable String expSubStr) {
+        Throwable t = assertThrows(expErrCls, exec);
+
+        if (expSubStr != null) {
+            assertTrue(t.getMessage().contains(expSubStr), () -> String.format("%s not contains %s", t.getMessage(), expSubStr));
+        }
     }
 }

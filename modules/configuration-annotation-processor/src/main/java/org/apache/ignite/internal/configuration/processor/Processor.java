@@ -69,6 +69,7 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.DirectAccess;
+import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
@@ -95,6 +96,9 @@ public class Processor extends AbstractProcessor {
 
     /** Error format for an empty field. */
     private static final String EMPTY_FIELD_ERROR_FORMAT = "Field %s cannot be empty: %s";
+
+    /** Error format is that the field must be a {@link String}. */
+    private static final String FIELD_MUST_BE_STRING_ERROR_FORMAT = "%s %s.%s field must be String";
 
     /** Postfix with which any configuration schema class name must end. */
     private static final String CONFIGURATION_SCHEMA_POSTFIX = "ConfigurationSchema";
@@ -185,7 +189,7 @@ public class Processor extends AbstractProcessor {
                 if (polymorphicId != null) {
                     if (!isStringClass(field.asType())) {
                         throw new ProcessorException(String.format(
-                                "%s %s.%s field field must be String.",
+                            FIELD_MUST_BE_STRING_ERROR_FORMAT,
                                 simpleName(PolymorphicId.class),
                                 clazz.getQualifiedName(),
                                 field.getSimpleName()
@@ -304,7 +308,9 @@ public class Processor extends AbstractProcessor {
 
         Value valueAnnotation = field.getAnnotation(Value.class);
         PolymorphicId polymorphicIdAnnotation = field.getAnnotation(PolymorphicId.class);
-        if (valueAnnotation != null || polymorphicIdAnnotation != null) {
+        InjectedName injectedNameAnnotation = field.getAnnotation(InjectedName.class);
+
+        if (valueAnnotation != null || polymorphicIdAnnotation != null || injectedNameAnnotation != null) {
             // It is necessary to use class names without loading classes so that we won't
             // accidentally get NoClassDefFoundError
             ClassName confValueClass = ClassName.get("org.apache.ignite.configuration", "ConfigurationValue");
@@ -428,7 +434,7 @@ public class Processor extends AbstractProcessor {
             viewClsBuilder.addMethod(getMtdBuilder.build());
 
             // Read only.
-            if (field.getAnnotation(PolymorphicId.class) != null) {
+            if (field.getAnnotation(PolymorphicId.class) != null || field.getAnnotation(InjectedName.class) != null) {
                 continue;
             }
 
@@ -561,16 +567,20 @@ public class Processor extends AbstractProcessor {
         }
 
         if (clazz.getAnnotation(InternalConfiguration.class) != null) {
-            validateInternalConfigurationSchemaClass(clazz, fields);
+            validateInternalConfiguration(clazz, fields);
         } else if (clazz.getAnnotation(PolymorphicConfig.class) != null) {
-            validatePolymorphicConfigSchemaClass(clazz, fields);
+            validatePolymorphicConfig(clazz, fields);
         } else if (clazz.getAnnotation(PolymorphicConfigInstance.class) != null) {
-            validatePolymorphicConfigInstanceSchemaClass(clazz, fields);
+            validatePolymorphicConfigInstance(clazz, fields);
         } else if (clazz.getAnnotation(ConfigurationRoot.class) != null) {
             checkNotContainsPolymorphicIdField(clazz, ConfigurationRoot.class, fields);
         } else if (clazz.getAnnotation(Config.class) != null) {
             checkNotContainsPolymorphicIdField(clazz, Config.class, fields);
         }
+
+        validateInjectedNameFieldsIfPresents(clazz, fields);
+
+        validateNameFieldsIfPresents(clazz, fields);
     }
 
     /**
@@ -579,7 +589,7 @@ public class Processor extends AbstractProcessor {
      * @param clazz  type element under validation
      * @param fields non-static fields of the class under validation
      */
-    private void validateInternalConfigurationSchemaClass(TypeElement clazz, List<VariableElement> fields) {
+    private void validateInternalConfiguration(TypeElement clazz, List<VariableElement> fields) {
         checkIncompatibleClassAnnotations(
                 clazz,
                 InternalConfiguration.class,
@@ -615,7 +625,7 @@ public class Processor extends AbstractProcessor {
      * @param clazz  type element under validation
      * @param fields non-static fields of the class under validation
      */
-    private void validatePolymorphicConfigSchemaClass(TypeElement clazz, List<VariableElement> fields) {
+    private void validatePolymorphicConfig(TypeElement clazz, List<VariableElement> fields) {
         checkIncompatibleClassAnnotations(
                 clazz,
                 PolymorphicConfig.class,
@@ -642,7 +652,7 @@ public class Processor extends AbstractProcessor {
      * @param clazz  type element under validation
      * @param fields non-static fields of the class under validation
      */
-    private void validatePolymorphicConfigInstanceSchemaClass(TypeElement clazz, List<VariableElement> fields) {
+    private void validatePolymorphicConfigInstance(TypeElement clazz, List<VariableElement> fields) {
         checkIncompatibleClassAnnotations(
                 clazz,
                 PolymorphicConfigInstance.class,
@@ -953,6 +963,86 @@ public class Processor extends AbstractProcessor {
                     joinSimpleName(" or ", superClazzAnnotations),
                     clazz.getQualifiedName()
             ));
+        }
+    }
+
+    /**
+     * Validation of class fields with {@link InjectedName} if present.
+     *
+     * @param clazz  Class type.
+     * @param fields Class fields.
+     * @throws ProcessorException If the class validation fails.
+     */
+    private void validateInjectedNameFieldsIfPresents(TypeElement clazz, List<VariableElement> fields) {
+        List<VariableElement> injectedNameFields = collectAnnotatedFields(fields, InjectedName.class);
+
+        if (injectedNameFields.isEmpty()) {
+            return;
+        }
+
+        if (injectedNameFields.size() > 1) {
+            throw new ProcessorException(String.format(
+                "%s contains more than one field with %s",
+                clazz.getQualifiedName(),
+                simpleName(InjectedName.class)
+            ));
+        }
+
+        VariableElement injectedNameField = injectedNameFields.get(0);
+
+        if (!isStringClass(injectedNameField.asType())) {
+            throw new ProcessorException(String.format(
+                FIELD_MUST_BE_STRING_ERROR_FORMAT,
+                simpleName(InjectedName.class),
+                clazz.getQualifiedName(),
+                injectedNameField.getSimpleName()
+            ));
+        }
+
+        if (injectedNameField.getAnnotationMirrors().size() > 1) {
+            throw new ProcessorException(String.format(
+                "%s.%s must contain only one %s",
+                clazz.getQualifiedName(),
+                injectedNameField.getSimpleName(),
+                simpleName(InjectedName.class)
+            ));
+        }
+
+        if (clazz.getAnnotation(Config.class) == null && clazz.getAnnotation(PolymorphicConfig.class) == null) {
+            throw new ProcessorException(String.format(
+                "%s %s.%s can only be in a class with %s",
+                simpleName(InjectedName.class),
+                clazz.getQualifiedName(),
+                injectedNameField.getSimpleName(),
+                joinSimpleName(" or ", Config.class, PolymorphicConfig.class)
+            ));
+        }
+    }
+
+    /**
+     * Validation of class fields with {@link Name} if present.
+     *
+     * @param clazz  Class type.
+     * @param fields Class fields.
+     * @throws ProcessorException If the class validation fails.
+     */
+    private void validateNameFieldsIfPresents(TypeElement clazz, List<VariableElement> fields) {
+        List<VariableElement> nameFields = collectAnnotatedFields(fields, org.apache.ignite.configuration.annotation.Name.class);
+
+        if (nameFields.isEmpty()) {
+            return;
+        }
+
+        for (VariableElement nameField : nameFields) {
+            if (nameField.getAnnotation(ConfigValue.class) == null) {
+                throw new ProcessorException(String.format(
+                    "%s %s.%s can only be with %s",
+                    simpleName(org.apache.ignite.configuration.annotation.Name.class),
+                    clazz.getQualifiedName(),
+                    nameField.getSimpleName(),
+                    simpleName(ConfigValue.class)
+                ));
+            }
         }
     }
 }
