@@ -39,11 +39,11 @@ public class CreateIndexCommand extends AbstractDdlCommand {
     public void indexName(String indexName) {
         this.indexName = indexName;
     }
-    
+
     public List<Pair<String, Boolean>> columns() {
         return cols;
     }
-    
+
     public void columns(List<Pair<String, Boolean>> cols) {
         this.cols = cols;
     }

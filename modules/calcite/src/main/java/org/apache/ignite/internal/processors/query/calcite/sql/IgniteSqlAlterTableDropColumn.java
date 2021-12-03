@@ -32,10 +32,10 @@ import org.apache.calcite.util.ImmutableNullableList;
 public class IgniteSqlAlterTableDropColumn extends IgniteAbstractSqlAlterTable {
     /** Command existance flag. */
     private final boolean ifExistsColumn;
-    
+
     /** Coluns to drop. */
     private final SqlNodeList columns;
-    
+
     /** Constructor. */
     public IgniteSqlAlterTableDropColumn(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName,
             boolean ifExistsColumn, SqlNodeList columns) {
@@ -43,26 +43,26 @@ public class IgniteSqlAlterTableDropColumn extends IgniteAbstractSqlAlterTable {
         this.ifExistsColumn = ifExistsColumn;
         this.columns = Objects.requireNonNull(columns, "columns list");
     }
-    
+
     /** {@inheritDoc} */
     @Override
     public List<SqlNode> getOperandList() {
         return ImmutableNullableList.of(name, columns);
     }
-    
+
     /** {@inheritDoc} */
     @Override
     protected void unparseAlterTableOperation(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword("DROP");
         writer.keyword("COLUMN");
-    
+
         if (ifExistsColumn) {
             writer.keyword("IF EXISTS");
         }
-        
+
         columns.unparse(writer, leftPrec, rightPrec);
     }
-    
+
     /**
      * Existance flag.
      *
@@ -71,7 +71,7 @@ public class IgniteSqlAlterTableDropColumn extends IgniteAbstractSqlAlterTable {
     public boolean ifExistsColumn() {
         return ifExistsColumn;
     }
-    
+
     public SqlNodeList columns() {
         return columns;
     }

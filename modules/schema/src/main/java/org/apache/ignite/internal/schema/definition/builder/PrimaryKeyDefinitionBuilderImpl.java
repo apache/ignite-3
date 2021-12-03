@@ -51,12 +51,12 @@ public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, Pri
 
         return this;
     }
-    
+
     /** {@inheritDoc} */
     @Override
     public PrimaryKeyDefinitionBuilderImpl withColumns(Set<String> columns) {
         this.columns = columns;
-        
+
         return this;
     }
 

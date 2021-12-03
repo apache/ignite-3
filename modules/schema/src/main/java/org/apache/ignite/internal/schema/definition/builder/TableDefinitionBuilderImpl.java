@@ -77,13 +77,13 @@ public class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
 
         return this;
     }
-    
+
     /** {@inheritDoc} */
     @Override
     public TableDefinitionBuilderImpl columns(ColumnDefinition... columns) {
         return columns(Arrays.asList(columns));
     }
-    
+
     /** {@inheritDoc} */
     @Override
     public TableDefinitionBuilder withIndex(IndexDefinition indexDefinition) {

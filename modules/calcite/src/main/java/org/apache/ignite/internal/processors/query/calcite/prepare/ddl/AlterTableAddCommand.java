@@ -30,19 +30,19 @@ public class AlterTableAddCommand extends AbstractDdlCommand {
 
     /** Columns. */
     private Set<ColumnDefinition> cols;
-    
+
     public Set<ColumnDefinition> columns() {
         return cols;
     }
-    
+
     public void columns(Set<ColumnDefinition> cols) {
         this.cols = cols;
     }
-    
+
     public boolean ifColumnNotExists() {
         return ifColumnNotExists;
     }
-    
+
     public void ifColumnNotExists(boolean ifColumnNotExists) {
         this.ifColumnNotExists = ifColumnNotExists;
     }

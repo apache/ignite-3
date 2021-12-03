@@ -82,30 +82,30 @@ import org.mockito.quality.Strictness;
 public class DdlWithMockedManagersTest extends IgniteAbstractTest {
     /** Table partitions. */
     private static final int PARTITIONS = 32;
-    
+
     /** Node name. */
     private static final String NODE_NAME = "node1";
-    
+
     /** Schema manager. */
     @Mock
     private BaselineManager bm;
-    
+
     /** Topology service. */
     @Mock
     private TopologyService ts;
-    
+
     /** Cluster service. */
     @Mock(lenient = true)
     private ClusterService cs;
-    
+
     /** Raft manager. */
     @Mock
     private Loza rm;
-    
+
     /** TX manager. */
     @Mock(lenient = true)
     private TxManager tm;
-    
+
     /** Tables configuration. */
     @InjectConfiguration(
             internalExtensions = ExtendedTableConfigurationSchema.class,
@@ -113,24 +113,24 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
                     HashIndexConfigurationSchema.class, SortedIndexConfigurationSchema.class, PartialIndexConfigurationSchema.class
             }
     )
-    
+
     private TablesConfiguration tblsCfg;
-    
+
     /** Data storage configuration. */
     @InjectConfiguration
     private DataStorageConfiguration dataStorageCfg;
-    
+
     TableManager tblManager;
-    
+
     SqlQueryProcessor queryProc;
-    
+
     /** Test node. */
     private final ClusterNode node = new ClusterNode(
             UUID.randomUUID().toString(),
             NODE_NAME,
             new NetworkAddress("127.0.0.1", 2245)
     );
-    
+
     /** Returns current method name. */
     private static String getCurrentMethodName() {
         return StackWalker.getInstance()
@@ -138,7 +138,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
                 .get()
                 .getMethodName();
     }
-    
+
     /** Stop configuration manager. */
     @AfterEach
     void after() {
@@ -147,91 +147,91 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
         } catch (Exception e) {
             fail(e);
         }
-        
+
         Objects.requireNonNull(tblManager).stop();
     }
-    
+
     /**
      * Tests create a table through public API.
      */
     @Test
     public void testCreateTable() throws Exception {
         tblManager = mockManagers();
-        
+
         queryProc = new SqlQueryProcessor(cs, tblManager);
-        
+
         SqlQueryProcessor finalQueryProc = queryProc;
-        
+
         queryProc.start();
-        
+
         String curMethodName = getCurrentMethodName();
-        
+
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
                 + "with partitions=1,replicas=1", curMethodName);
-        
+
         queryProc.query("PUBLIC", newTblSql);
-        
+
         assertTrue(tblManager.tables().stream().anyMatch(t -> t.name()
                 .equalsIgnoreCase("PUBLIC." + curMethodName)));
-        
+
         String finalNewTblSql1 = newTblSql;
-        
+
         assertThrows(TableAlreadyExistsException.class, () -> finalQueryProc.query("PUBLIC", finalNewTblSql1));
-    
+
         assertThrows(IgniteInternalException.class, () -> finalQueryProc.query("PUBLIC",
                 "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,replicas=1"));
-    
+
         assertThrows(IgniteInternalException.class, () -> finalQueryProc.query("PUBLIC",
                 "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1,replicas__wrong=1"));
-        
+
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))",
                 " IF NOT EXISTS " + curMethodName);
-        
+
         String finalNewTblSql2 = newTblSql;
-        
+
         assertDoesNotThrow(() -> finalQueryProc.query("PUBLIC", finalNewTblSql2));
     }
-    
+
     /**
      * Tests create a table with multiple pk through public API.
      */
     @Test
     public void testCreateTableMultiplePk() throws Exception {
         tblManager = mockManagers();
-        
+
         queryProc = new SqlQueryProcessor(cs, tblManager);
-        
+
         queryProc.start();
-        
+
         String curMethodName = getCurrentMethodName();
-        
+
         String newTblSql = String.format("CREATE TABLE %s (c1 int, c2 int, c3 int, primary key(c1, c2))", curMethodName);
-        
+
         queryProc.query("PUBLIC", newTblSql);
-        
+
         assertTrue(tblManager.tables().stream().anyMatch(t -> t.name()
                 .equalsIgnoreCase("PUBLIC." + curMethodName)));
     }
-    
+
     /**
      * Tests create and drop table through public API.
      */
     @Test
     public void testDropTable() throws Exception {
         tblManager = mockManagers();
-        
+
         queryProc = new SqlQueryProcessor(cs, tblManager);
-        
+
         SqlQueryProcessor finalQueryProc = queryProc;
-        
+
         queryProc.start();
-        
+
         String curMethodName = getCurrentMethodName();
-        
+
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))", curMethodName);
-        
+
         queryProc.query("PUBLIC", newTblSql);
-        
+
         // todo will be implemented after IGNITE-15926
         /*assertThrows(IgniteInternalCheckedException.class, () -> finalQueryProc.query("PUBLIC",
             "DROP TABLE " + curMethodName + "_not_exist"));
@@ -243,38 +243,38 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
             "DROP TABLE PUBLIC." + curMethodName));
 
         queryProc.query("PUBLIC", "DROP TABLE IF EXISTS PUBLIC." + curMethodName);*/
-        
+
         queryProc.query("PUBLIC", "DROP TABLE PUBLIC." + curMethodName);
-        
+
         assertTrue(tblManager.tables().stream().noneMatch(t -> t.name()
                 .equalsIgnoreCase("PUBLIC." + curMethodName)));
     }
-    
+
     /**
      * Tests alter and drop columns through public API.
      */
     @Test
     public void testAlterAndDropSimpleCase() throws Exception {
         tblManager = mockManagers();
-        
+
         queryProc = new SqlQueryProcessor(cs, tblManager);
-        
+
         SqlQueryProcessor finalQueryProc = queryProc;
-        
+
         queryProc.start();
-        
+
         String curMethodName = getCurrentMethodName();
-        
+
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))", curMethodName);
-        
+
         queryProc.query("PUBLIC", newTblSql);
-        
+
         String alterCmd = String.format("ALTER TABLE %s ADD COLUMN (c3 varchar, c4 int)", curMethodName);
-        
+
         queryProc.query("PUBLIC", alterCmd);
-        
+
         assertThrows(ColumnAlreadyExistsException.class, () -> finalQueryProc.query("PUBLIC", alterCmd));
-        
+
         // todo will be implemented after IGNITE-15926
         /*String alterIfExistsCmd = String.format("ALTER TABLE IF EXISTS %s ADD COLUMN (c3 varchar, c4 int)", curMethodName + "NotExist");
 
@@ -284,20 +284,20 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
 
         finalQueryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName));
         */
-        
+
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN IF NOT EXISTS c3 varchar", curMethodName));
-        
+
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c3", curMethodName));
-        
+
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN IF EXISTS c3", curMethodName));
-        
+
         assertThrows(ColumnNotFoundException.class, () -> finalQueryProc.query("PUBLIC",
                 String.format("ALTER TABLE %s DROP COLUMN (c3, c4)", curMethodName)));
-        
+
         assertThrows(IgniteException.class, () -> finalQueryProc.query("PUBLIC",
                 String.format("ALTER TABLE %s DROP COLUMN c1", curMethodName)));
     }
-    
+
     /**
      * Tests create a table through public API.
      */
@@ -305,45 +305,45 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
     @Test
     public void testCreateDropIndex() throws Exception {
         tblManager = mockManagers();
-        
+
         queryProc = new SqlQueryProcessor(cs, tblManager);
-        
+
         SqlQueryProcessor finalQueryProc = queryProc;
-        
+
         queryProc.start();
-        
+
         String curMethodName = getCurrentMethodName();
-        
+
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1", curMethodName);
-        
+
         queryProc.query("PUBLIC", newTblSql);
-        
+
         assertTrue(tblManager.tables().stream().anyMatch(t -> t.name()
                 .equalsIgnoreCase("PUBLIC." + curMethodName)));
-        
+
         queryProc.query("PUBLIC", String.format("CREATE INDEX index1 ON %s (c1)", curMethodName));
-        
+
         queryProc.query("PUBLIC", String.format("CREATE INDEX index2 ON %s (c1)", curMethodName));
-        
+
         queryProc.query("PUBLIC", String.format("CREATE INDEX index3 ON %s (c2)", curMethodName));
-        
+
         assertThrows(IndexAlreadyExistsException.class, () ->
                 finalQueryProc.query("PUBLIC", String.format("CREATE INDEX index3 ON %s (c1)", curMethodName)));
-        
+
         assertThrows(IgniteException.class, () ->
                 finalQueryProc.query("PUBLIC", String.format("CREATE INDEX index_3 ON %s (c1)", curMethodName + "_nonExist")));
-        
+
         queryProc.query("PUBLIC", String.format("CREATE INDEX index4 ON %s (c2 desc, c1 asc)", curMethodName));
-        
+
         queryProc.query("PUBLIC", String.format("DROP INDEX index4 ON %s", curMethodName));
-        
+
         queryProc.query("PUBLIC", String.format("CREATE INDEX index4 ON %s (c2 desc, c1 asc)", curMethodName));
-        
+
         queryProc.query("PUBLIC", String.format("DROP INDEX index4 ON %s", curMethodName));
-        
+
         queryProc.query("PUBLIC", String.format("DROP INDEX IF EXISTS index4 ON %s", curMethodName));
     }
-    
+
     // todo copy-paste from TableManagerTest will be removed after https://issues.apache.org/jira/browse/IGNITE-16050
     /**
      * Instantiates a table and prepares Table manager.
@@ -353,61 +353,61 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
     private TableManager mockManagers() throws NodeStoppingException {
         when(rm.prepareRaftGroup(any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
-            
+
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
-            
+
             return CompletableFuture.completedFuture(raftGrpSrvcMock);
         });
-        
+
         when(ts.getByAddress(any(NetworkAddress.class))).thenReturn(new ClusterNode(
                 UUID.randomUUID().toString(),
                 "node0",
                 new NetworkAddress("localhost", 47500)
         ));
-        
+
         try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
             schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(anyInt(), any()))
                     .thenReturn(mock(SchemaDescriptor.class));
         }
-        
+
         try (MockedStatic<AffinityUtils> affinityServiceMock = mockStatic(AffinityUtils.class)) {
             ArrayList<List<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
-            
+
             for (int part = 0; part < PARTITIONS; part++) {
                 assignment.add(new ArrayList<>(Collections.singleton(node)));
             }
-            
+
             affinityServiceMock.when(() -> AffinityUtils.calculateAssignments(any(), anyInt(), anyInt()))
                     .thenReturn(assignment);
         }
-        
+
         when(cs.messagingService()).thenAnswer(invocation -> {
             MessagingService ret = mock(MessagingService.class);
-            
+
             return ret;
         });
-        
+
         when(cs.localConfiguration()).thenAnswer(invocation -> {
             ClusterLocalConfiguration ret = mock(ClusterLocalConfiguration.class);
-            
+
             when(ret.getName()).thenReturn("node1");
-            
+
             return ret;
         });
-        
+
         when(cs.topologyService()).thenAnswer(invocation -> {
             TopologyService ret = mock(TopologyService.class);
-            
+
             when(ret.localMember()).thenReturn(new ClusterNode("1", "node1", null));
-            
+
             return ret;
         });
-        
+
         TableManager tableManager = createTableManager();
-        
+
         return tableManager;
     }
-    
+
     /**
      * Creates Table manager.
      *
@@ -424,9 +424,9 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
                 workDir,
                 tm
         );
-        
+
         tableManager.start();
-        
+
         return tableManager;
     }
 }

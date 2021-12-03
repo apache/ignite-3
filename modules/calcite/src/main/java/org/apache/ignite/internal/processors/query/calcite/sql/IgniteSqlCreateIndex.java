@@ -99,19 +99,19 @@ public class IgniteSqlCreateIndex extends SqlCreate {
 
         writer.endList(frame);
     }
-    
+
     public SqlIdentifier indexName() {
         return idxName;
     }
-    
+
     public SqlIdentifier tableName() {
         return tblName;
     }
-    
+
     public SqlNodeList columnList() {
         return columnList;
     }
-    
+
     public boolean ifNotExists() {
         return ifNotExists;
     }

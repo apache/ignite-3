@@ -174,7 +174,7 @@ public class SchemaDescriptorConverterTest {
     private TableDefinitionBuilder getBuilder(boolean nullable, boolean withPk) {
         Function<ColumnDefinitionBuilder, ColumnDefinition> postProcess =
                 builder -> builder.asNullable(nullable).build();
-        
+
         TableDefinitionBuilder res = SchemaBuilders.tableBuilder("SCHEMA", "TABLE")
                 .columns(
                         postProcess.apply(SchemaBuilders.column("ID", ColumnType.UUID)),

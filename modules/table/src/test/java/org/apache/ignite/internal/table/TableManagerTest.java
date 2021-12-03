@@ -94,30 +94,30 @@ import org.mockito.quality.Strictness;
 public class TableManagerTest extends IgniteAbstractTest {
     /** The name of the table which is statically configured. */
     private static final String STATIC_TABLE_NAME = "t1";
-    
+
     /** The name of the table which will be configured dynamically. */
     private static final String DYNAMIC_TABLE_NAME = "t2";
-    
+
     /** The name of table to drop it. */
     private static final String DYNAMIC_TABLE_FOR_DROP_NAME = "t3";
-    
+
     /** Table partitions. */
     private static final int PARTITIONS = 32;
-    
+
     /** Node name. */
     private static final String NODE_NAME = "node1";
-    
+
     /** Count of replicas. */
     private static final int REPLICAS = 1;
-    
+
     /** Schema manager. */
     @Mock
     private BaselineManager bm;
-    
+
     /** Topology service. */
     @Mock
     private TopologyService ts;
-    
+
     /** Raft manager. */
     @Mock
     private Loza rm;
@@ -129,7 +129,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** TX manager. */
     @Mock(lenient = true)
     private LockManager lm;
-    
+
     /** Tables configuration. */
     @InjectConfiguration(
             internalExtensions = ExtendedTableConfigurationSchema.class,
@@ -138,36 +138,36 @@ public class TableManagerTest extends IgniteAbstractTest {
             }
     )
     private TablesConfiguration tblsCfg;
-    
+
     /** Data storage configuration. */
     @InjectConfiguration
     private DataStorageConfiguration dataStorageCfg;
-    
+
     /** Test node. */
     private final ClusterNode node = new ClusterNode(
             UUID.randomUUID().toString(),
             NODE_NAME,
             new NetworkAddress("127.0.0.1", 2245)
     );
-    
+
     /** The future will be completed after each tests of this class. */
     private CompletableFuture<TableManager> tblManagerFut;
-    
+
     /** Before all test scenarios. */
     @BeforeEach
     void before() {
         tblManagerFut = new CompletableFuture<>();
     }
-    
+
     /** Stop configuration manager. */
     @AfterEach
     void after() {
         assertTrue(tblManagerFut.isDone());
-        
+
         tblManagerFut.join().beforeNodeStop();
         tblManagerFut.join().stop();
     }
-    
+
     /**
      * Tests a table which was defined before start through bootstrap configuration.
      */
@@ -183,12 +183,12 @@ public class TableManagerTest extends IgniteAbstractTest {
                 workDir,
                 tm
         );
-        
+
         assertEquals(1, tableManager.tables().size());
-        
+
         assertNotNull(tableManager.table(STATIC_TABLE_NAME));
     }
-    
+
     /**
      * Tests create a table through public API.
      *
@@ -200,14 +200,14 @@ public class TableManagerTest extends IgniteAbstractTest {
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
         ).withPrimaryKey("key").build();
-        
+
         Table table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
-        
+
         assertNotNull(table);
-        
+
         assertSame(table, tblManagerFut.join().table(scmTbl.canonicalName()));
     }
-    
+
     /**
      * Tests drop a table through public API.
      *
@@ -219,32 +219,32 @@ public class TableManagerTest extends IgniteAbstractTest {
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
         ).withPrimaryKey("key").build();
-        
+
         mockManagersAndCreateTable(scmTbl, tblManagerFut);
-        
+
         TableManager tableManager = tblManagerFut.join();
-        
+
         tableManager.dropTable(scmTbl.canonicalName());
-        
+
         assertNull(tableManager.table(scmTbl.canonicalName()));
-        
+
         assertEquals(0, tableManager.tables().size());
     }
-    
+
     /**
      * Tests a work of the public API for Table manager {@see org.apache.ignite.table.manager.IgniteTables} when the manager is stopping.
      */
     @Test
     public void testApiTableManagerOnStop() {
         createTableManager(tblManagerFut);
-        
+
         TableManager tableManager = tblManagerFut.join();
-        
+
         tableManager.beforeNodeStop();
         tableManager.stop();
-        
+
         String tblFullName = "PUBLIC." + DYNAMIC_TABLE_FOR_DROP_NAME;
-        
+
         Consumer<TableChange> createTableChange = (TableChange change) ->
                 SchemaConfigurationConverter.convert(SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
                         SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -252,38 +252,38 @@ public class TableManagerTest extends IgniteAbstractTest {
                 ).withPrimaryKey("key").build(), change)
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS);
-        
+
         final Consumer<TableChange> addColumnChange = (TableChange change) ->
                 change.changeColumns(cols -> {
                     int colIdx = change.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;
-                    
+
                     cols.create(String.valueOf(colIdx),
                             colChg -> SchemaConfigurationConverter.convert(SchemaBuilders.column("name", ColumnType.string()).build(),
                                     colChg));
-                    
+
                 });
-        
+
         TableManager igniteTables = tableManager;
-        
+
         assertThrows(IgniteException.class, () -> igniteTables.createTable(tblFullName, createTableChange));
         assertThrows(IgniteException.class, () -> igniteTables.createTableAsync(tblFullName, createTableChange));
-        
+
         assertThrows(IgniteException.class, () -> igniteTables.createTableIfNotExists(tblFullName, createTableChange));
         assertThrows(IgniteException.class, () -> igniteTables.createTableIfNotExistsAsync(tblFullName, createTableChange));
-        
+
         assertThrows(IgniteException.class, () -> igniteTables.alterTable(tblFullName, addColumnChange));
         assertThrows(IgniteException.class, () -> igniteTables.alterTableAsync(tblFullName, addColumnChange));
-        
+
         assertThrows(IgniteException.class, () -> igniteTables.dropTable(tblFullName));
         assertThrows(IgniteException.class, () -> igniteTables.dropTableAsync(tblFullName));
-        
+
         assertThrows(IgniteException.class, () -> igniteTables.tables());
         assertThrows(IgniteException.class, () -> igniteTables.tablesAsync());
-        
+
         assertThrows(IgniteException.class, () -> igniteTables.table(tblFullName));
         assertThrows(IgniteException.class, () -> igniteTables.tableAsync(tblFullName));
     }
-    
+
     /**
      * Tests a work of the public API for Table manager {@see org.apache.ignite.internal.table.IgniteTablesInternal} when the manager is
      * stopping.
@@ -291,20 +291,20 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Test
     public void testInternalApiTableManagerOnStop() {
         createTableManager(tblManagerFut);
-        
+
         TableManager tableManager = tblManagerFut.join();
-        
+
         tableManager.beforeNodeStop();
         tableManager.stop();
-        
+
         IgniteUuid fakeTblId = new IgniteUuidGenerator(UUID.randomUUID(), 0).randomUuid();
-        
+
         assertThrows(NodeStoppingException.class, () -> tableManager.table(fakeTblId));
         assertThrows(NodeStoppingException.class, () -> tableManager.tableAsync(fakeTblId));
-        
+
         assertThrows(NodeStoppingException.class, () -> tableManager.setBaseline(Collections.singleton("fakeNode0")));
     }
-    
+
     /**
      * Cheks that the all RAFT nodes will be stopped when Table manager is stopping.
      *
@@ -316,18 +316,18 @@ public class TableManagerTest extends IgniteAbstractTest {
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
         ).withPrimaryKey("key").build();
-        
+
         mockManagersAndCreateTable(scmTbl, tblManagerFut);
-        
+
         verify(rm, times(PARTITIONS)).prepareRaftGroup(anyString(), any(), any());
-        
+
         TableManager tableManager = tblManagerFut.join();
-        
+
         tableManager.stop();
-        
+
         verify(rm, times(PARTITIONS)).stopRaftGroup(anyString());
     }
-    
+
     /**
      * Instantiates a table and prepares Table manager.
      */
@@ -349,30 +349,30 @@ public class TableManagerTest extends IgniteAbstractTest {
 
             return null;
         });
-        
+
         CompletableFuture<Table> getFut = CompletableFuture.supplyAsync(() -> {
             phaser.awaitAdvance(0);
-            
+
             return tblManagerFut.join().table(scmTbl.canonicalName());
         });
-        
+
         CompletableFuture<Collection<Table>> getAllTablesFut = CompletableFuture.supplyAsync(() -> {
             phaser.awaitAdvance(0);
-            
+
             return tblManagerFut.join().tables();
         });
-        
+
         assertFalse(createFut.isDone());
         assertFalse(getFut.isDone());
         assertFalse(getAllTablesFut.isDone());
-        
+
         phaser.arrive();
-        
+
         assertSame(createFut.join(), getFut.join());
-        
+
         assertEquals(1, getAllTablesFut.join().size());
     }
-    
+
     /**
      * Tries to create a table that already exists.
      *
@@ -386,22 +386,22 @@ public class TableManagerTest extends IgniteAbstractTest {
                         SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build())
                 .withPrimaryKey("key")
                 .build();
-        
+
         Table table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
-        
+
         assertNotNull(table);
-        
+
         assertThrows(RuntimeException.class,
                 () -> tblManagerFut.join().createTable(scmTbl.canonicalName(), tblCh -> SchemaConfigurationConverter.convert(scmTbl, tblCh)
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS)));
-        
+
         assertSame(table, tblManagerFut.join()
                 .createTableIfNotExists(scmTbl.canonicalName(), tblCh -> SchemaConfigurationConverter.convert(scmTbl, tblCh)
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS)));
     }
-    
+
     /**
      * Instantiates Table manager and creates a table in it.
      *
@@ -416,7 +416,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     ) throws NodeStoppingException {
         return mockManagersAndCreateTableWithDelay(tableDefinition, tblManagerFut, null);
     }
-    
+
     /**
      * Instantiates a table and prepares Table manager. When the latch would open, the method completes.
      *
@@ -434,45 +434,45 @@ public class TableManagerTest extends IgniteAbstractTest {
     ) throws NodeStoppingException {
         when(rm.prepareRaftGroup(any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
-            
+
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
-            
+
             return CompletableFuture.completedFuture(raftGrpSrvcMock);
         });
-        
+
         when(ts.getByAddress(any(NetworkAddress.class))).thenReturn(new ClusterNode(
                 UUID.randomUUID().toString(),
                 "node0",
                 new NetworkAddress("localhost", 47500)
         ));
-        
+
         try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
             schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(anyInt(), any()))
                     .thenReturn(mock(SchemaDescriptor.class));
         }
-        
+
         try (MockedStatic<AffinityUtils> affinityServiceMock = mockStatic(AffinityUtils.class)) {
             ArrayList<List<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
-            
+
             for (int part = 0; part < PARTITIONS; part++) {
                 assignment.add(new ArrayList<>(Collections.singleton(node)));
             }
-            
+
             affinityServiceMock.when(() -> AffinityUtils.calculateAssignments(any(), anyInt(), anyInt()))
                     .thenReturn(assignment);
         }
-        
+
         TableManager tableManager = createTableManager(tblManagerFut);
-        
+
         final int tablesBeforeCreation = tableManager.tables().size();
-        
+
         tblsCfg.tables().listen(ctx -> {
             boolean createTbl = ctx.newValue().get(tableDefinition.canonicalName()) != null
                     && ctx.oldValue().get(tableDefinition.canonicalName()) == null;
-            
+
             boolean dropTbl = ctx.oldValue().get(tableDefinition.canonicalName()) != null
                     && ctx.newValue().get(tableDefinition.canonicalName()) == null;
-            
+
             if (!createTbl && !dropTbl) {
                 return CompletableFuture.completedFuture(null);
             }
@@ -489,14 +489,14 @@ public class TableManagerTest extends IgniteAbstractTest {
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS)
         );
-        
+
         assertNotNull(tbl2);
-        
+
         assertEquals(tablesBeforeCreation + 1, tableManager.tables().size());
-        
+
         return tbl2;
     }
-    
+
     /**
      * Creates Table manager.
      *
@@ -514,11 +514,11 @@ public class TableManagerTest extends IgniteAbstractTest {
                 workDir,
                 tm
         );
-        
+
         tableManager.start();
-        
+
         tblManagerFut.complete(tableManager);
-        
+
         return tableManager;
     }
 }

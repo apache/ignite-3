@@ -58,15 +58,15 @@ import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder.
 /** DDL commands handler. */
 public class DdlCommandHandler {
     private final TableManager tableManager;
-    
+
     public DdlCommandHandler(TableManager tblManager) {
         tableManager = tblManager;
     }
-    
+
     /** Handles ddl commands. */
     public void handle(DdlCommand cmd, PlanningContext pctx) throws IgniteInternalCheckedException {
         validateCommand(cmd);
-    
+
         if (cmd instanceof CreateTableCommand) {
             handleCreateTable((CreateTableCommand) cmd);
         } else if (cmd instanceof DropTableCommand) {
@@ -85,64 +85,64 @@ public class DdlCommandHandler {
                     + "querySql=\"" + pctx.query() + "\"]");
         }
     }
-    
+
     /** Validate command. */
     private void validateCommand(DdlCommand cmd) {
         if (cmd instanceof AbstractDdlCommand) {
             AbstractDdlCommand cmd0 = (AbstractDdlCommand) cmd;
-    
+
             if (isNullOrEmpty(cmd0.tableName())) {
                 throw new IllegalArgumentException("Table name is undefined.");
             }
         }
     }
-    
+
     /** Handles create table command. */
     private void handleCreateTable(CreateTableCommand cmd) {
         PrimaryKeyDefinitionBuilder pkeyDef = SchemaBuilders.primaryKey();
         pkeyDef.withColumns(cmd.primaryKeyColumns());
         pkeyDef.withAffinityColumns(cmd.affColumns());
-        
+
         Consumer<TableChange> tblChanger = tblCh -> {
             TableChange conv = convert(SchemaBuilders.tableBuilder(cmd.schemaName(), cmd.tableName())
                     .columns(cmd.columns())
                     .withPrimaryKey(pkeyDef.build()).build(), tblCh);
-    
+
             if (cmd.partitions() != null) {
                 conv.changePartitions(cmd.partitions());
             }
-    
+
             if (cmd.replicas() != null) {
                 conv.changeReplicas(cmd.replicas());
             }
         };
-        
+
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
-        
+
         if (cmd.ifNotExists()) {
             tableManager.createTableIfNotExists(fullName, tblChanger);
         } else {
             tableManager.createTable(fullName, tblChanger);
         }
     }
-    
+
     /** Handles drop table command. */
     private void handleDropTable(DropTableCommand cmd) {
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
-        
+
         // if (!cmd.ifExists()) todo will be implemented after IGNITE-15926
-        
+
         tableManager.dropTable(fullName);
     }
-    
+
     /** Handles add column command. */
     private void handleAlterAddColumn(AlterTableAddCommand cmd) {
         if (nullOrEmpty(cmd.columns())) {
             return;
         }
-        
+
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
-        
+
         try {
             addColumnInternal(fullName, cmd.columns());
         } catch (ColumnAlreadyExistsException ex) {
@@ -151,15 +151,15 @@ public class DdlCommandHandler {
             }
         }
     }
-    
+
     /** Handles drop column command. */
     private void handleAlterDropColumn(AlterTableDropCommand cmd) {
         if (nullOrEmpty(cmd.columns())) {
             return;
         }
-        
+
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
-        
+
         try {
             dropColumnInternal(fullName, cmd.columns());
         } catch (ColumnNotFoundException ex) {
@@ -168,48 +168,48 @@ public class DdlCommandHandler {
             }
         }
     }
-    
+
     /** Handles create index command. */
     private void handleCreateIndex(CreateIndexCommand cmd) {
         // Only sorted idx for now.
         SortedIndexDefinitionBuilder idx = SchemaBuilders.sortedIndex(cmd.indexName());
-        
+
         for (Pair<String, Boolean> idxInfo : cmd.columns()) {
             SortedIndexColumnBuilder idx0 = idx.addIndexColumn(idxInfo.getFirst());
-            
+
             if (idxInfo.getSecond()) {
                 idx0.desc();
             }
-            
+
             idx0.done();
         }
-        
+
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
-        
+
         tableManager.alterTable(fullName, chng -> chng.changeIndices(idxes -> {
             if (idxes.get(cmd.indexName()) != null) {
                 throw new IndexAlreadyExistsException(cmd.indexName());
             }
-            
+
             idxes.create(cmd.indexName(), tableIndexChange -> convert(idx.build(), tableIndexChange));
         }));
     }
-    
+
     /** Handles create index command. */
     private void handleDropIndex(DropIndexCommand cmd) {
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
-        
+
         tableManager.alterTable(fullName, chng -> chng.changeIndices(idxes -> {
             if (idxes.get(cmd.indexName()) == null) {
                 if (!cmd.ifExist()) {
                     throw new IndexAlreadyExistsException(cmd.indexName());
                 }
             }
-            
+
             idxes.delete(cmd.indexName());
         }));
     }
-    
+
     /**
      * Adds a column according to the column definition.
      *
@@ -221,21 +221,21 @@ public class DdlCommandHandler {
                 fullName,
                 chng -> chng.changeColumns(cols -> {
                     Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
-                    
+
                     colsDef.stream().filter(k -> colNamesToOrders.containsKey(k.name())).findAny()
                             .ifPresent(c -> {
                                 throw new ColumnAlreadyExistsException(c.name());
                             });
-                    
+
                     int colIdx = chng.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt();
-                    
+
                     for (ColumnDefinition colDef : colsDef) {
                         colIdx += 1;
                         cols.create(String.valueOf(colIdx), colChg -> convert(colDef, colChg));
                     }
                 }));
     }
-    
+
     /**
      * Adds a column according to the column definition.
      *
@@ -247,34 +247,34 @@ public class DdlCommandHandler {
                 fullName,
                 chng -> chng.changeColumns(cols -> {
                     PrimaryKeyView priKey = chng.primaryKey();
-                    
+
                     Set<String> pkey0 = new HashSet<>(Arrays.asList(priKey.columns()));
-                    
+
                     Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
-                    
+
                     for (String colName : colsDef) {
                         if (!colNamesToOrders.keySet().contains(colName)) {
                             throw new ColumnNotFoundException(colName);
                         }
-                        
+
                         if (pkey0.contains(colName)) {
                             throw new IgniteException(LoggerMessageHelper
                                     .format("Can`t delete column, belongs to primary key: [name={}]", colName));
                         }
                     }
-                    
+
                     colsDef.forEach(k -> cols.delete(colNamesToOrders.get(k)));
                 }));
     }
-    
+
     /** Map column names to orders. */
     private static Map<String, String> columnOrdersToNames(NamedListView<? extends ColumnView> cols) {
         Map<String, String> colNames = new HashMap<>(cols.size());
-        
+
         for (String colOrder : cols.namedListKeys()) {
             colNames.put(cols.get(colOrder).name(), colOrder);
         }
-        
+
         return colNames;
     }
 }

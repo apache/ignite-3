@@ -108,7 +108,7 @@ public class TableDefinitionImpl extends AbstractSchemaObject implements TableDe
     public String canonicalName() {
         return canonicalName(schemaName, name());
     }
-    
+
     /**
      * Creates canonical table name.
      *

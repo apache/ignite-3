@@ -28,50 +28,50 @@ import org.jetbrains.annotations.Nullable;
 public class CreateTableCommand extends AbstractDdlCommand {
     /** Replicas number. */
     private Integer replicas;
-    
+
     /** Number of partitions for the new table. */
     private Integer partitions;
-    
+
     /** Quietly ignore this command if table already exists. */
     private boolean ifNotExists;
-    
+
     /** Primary key columns. */
     private Set<String> pkCols;
-    
+
     /** Affinity key columns. */
     private Set<String> affCols;
-    
+
     /** Columns. */
     private List<ColumnDefinition> cols;
-    
+
     /**
      * Get primary key columns.
      */
     public Set<String> primaryKeyColumns() {
         return pkCols;
     }
-    
+
     /**
      * Set primary key columns.
      */
     public void primaryKeyColumns(Set<String> pkCols) {
         this.pkCols = pkCols;
     }
-    
+
     /**
      * Get quietly ignore flag of this command (ignore if table already exists).
      */
     public boolean ifNotExists() {
         return ifNotExists;
     }
-    
+
     /**
      * Set quietly ignore flag to ignore this command if table already exists.
      */
     public void ifNotExists(boolean ifNotExists) {
         this.ifNotExists = ifNotExists;
     }
-    
+
     /**
      * Get replicas count.
      */
@@ -79,7 +79,7 @@ public class CreateTableCommand extends AbstractDdlCommand {
     public Integer replicas() {
         return replicas;
     }
-    
+
     /**
      * Set replicas count.
      */
@@ -87,7 +87,7 @@ public class CreateTableCommand extends AbstractDdlCommand {
     public void replicas(int repl) {
         replicas = repl;
     }
-    
+
     /**
      * Get partitions count.
      */
@@ -95,14 +95,14 @@ public class CreateTableCommand extends AbstractDdlCommand {
     public Integer partitions() {
         return partitions;
     }
-    
+
     /**
      * Set partitions count.
      */
     public void partitions(Integer parts) {
         partitions = parts;
     }
-    
+
     /**
      * Table columns.
      *
@@ -111,7 +111,7 @@ public class CreateTableCommand extends AbstractDdlCommand {
     public List<ColumnDefinition> columns() {
         return cols;
     }
-    
+
     /**
      * Table columns.
      *
@@ -120,7 +120,7 @@ public class CreateTableCommand extends AbstractDdlCommand {
     public void columns(List<ColumnDefinition> cols) {
         this.cols = cols;
     }
-    
+
     /**
      * Affinity columns.
      *
@@ -130,7 +130,7 @@ public class CreateTableCommand extends AbstractDdlCommand {
     public Set<String> affColumns() {
         return affCols;
     }
-    
+
     /**
      * Affinity columns.
      *

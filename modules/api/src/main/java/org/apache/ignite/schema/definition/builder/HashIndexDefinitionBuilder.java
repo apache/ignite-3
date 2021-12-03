@@ -32,7 +32,7 @@ public interface HashIndexDefinitionBuilder extends SchemaObjectBuilder {
      * @return {@code this} for chaining.
      */
     HashIndexDefinitionBuilder withColumns(String... columns);
-    
+
     /**
      * Sets indexed columns.
      *

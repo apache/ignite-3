@@ -229,7 +229,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
         sql("drop table if exists test_tbl");
         sql("create table test_tbl(id int primary key, val varchar) with partitions=10,replicas=2");
-        
+
         assertQuery(selectAllQry).columnNames("ID", "VAL").check();
 
         sql("alter table test_tbl add column new_col int");
@@ -244,7 +244,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         sql("alter table test_tbl add column if not exists new_col int");
 
         assertQuery(selectAllQry).columnNames("ID", "VAL", "NEW_COL").check();
-        
+
         sql("alter table test_tbl drop column new_col");
 
         assertQuery(selectAllQry).columnNames("ID", "VAL").check();

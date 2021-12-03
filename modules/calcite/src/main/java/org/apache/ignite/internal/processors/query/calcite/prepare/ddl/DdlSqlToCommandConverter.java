@@ -71,7 +71,7 @@ public class DdlSqlToCommandConverter {
                 throw new AssertionError("Unsupported option " + opt.key());
             },
             null);
-    
+
     /** Checks positive num param. */
     private BiFunction<IgniteSqlCreateTableOption, PlanningContext, Integer> positiveNumValidator = (opt, ctx) -> {
         if (!(opt.value() instanceof SqlNumericLiteral)
@@ -80,7 +80,7 @@ public class DdlSqlToCommandConverter {
         ) {
             throwOptionParsingException(opt, "a non-negative integer", ctx.query());
         }
-        
+
         return ((SqlLiteral) opt.value()).intValue(true);
     };
 
@@ -89,7 +89,7 @@ public class DdlSqlToCommandConverter {
             new TableOptionProcessor<>(REPLICAS, positiveNumValidator, CreateTableCommand::replicas),
             new TableOptionProcessor<>(PARTITIONS, positiveNumValidator, CreateTableCommand::partitions)
     ).collect(Collectors.toMap(TableOptionProcessor::key, Function.identity()));
-    
+
     /**
      * Converts a given ddl AST to a ddl command.
      *
@@ -100,32 +100,32 @@ public class DdlSqlToCommandConverter {
         if (ddlNode instanceof IgniteSqlCreateTable) {
             return convertCreateTable((IgniteSqlCreateTable) ddlNode, ctx);
         }
-        
+
         if (ddlNode instanceof SqlDropTable) {
             return convertDropTable((SqlDropTable) ddlNode, ctx);
         }
-        
+
         if (ddlNode instanceof IgniteSqlAlterTableAddColumn) {
             return convertAlterTableAdd((IgniteSqlAlterTableAddColumn) ddlNode, ctx);
         }
-        
+
         if (ddlNode instanceof IgniteSqlAlterTableDropColumn) {
             return convertAlterTableDrop((IgniteSqlAlterTableDropColumn) ddlNode, ctx);
         }
-        
+
         if (ddlNode instanceof IgniteSqlCreateIndex) {
             return convertAddIndex((IgniteSqlCreateIndex) ddlNode, ctx);
         }
-        
+
         if (ddlNode instanceof IgniteSqlDropIndex) {
             return convertDropIndex((IgniteSqlDropIndex) ddlNode, ctx);
         }
-        
+
         throw new IgniteException("Unsupported operation ["
                 + "sqlNodeKind=" + ddlNode.getKind() + "; "
                 + "querySql=\"" + ctx.query() + "\"]");
     }
-    
+
     /**
      * Converts a given CreateTable AST to a CreateTable command.
      *
@@ -134,67 +134,67 @@ public class DdlSqlToCommandConverter {
      */
     private CreateTableCommand convertCreateTable(IgniteSqlCreateTable createTblNode, PlanningContext ctx) {
         CreateTableCommand createTblCmd = new CreateTableCommand();
-        
+
         createTblCmd.schemaName(deriveSchemaName(createTblNode.name(), ctx));
         createTblCmd.tableName(deriveObjectName(createTblNode.name(), ctx, "tableName"));
         createTblCmd.ifNotExists(createTblNode.ifNotExists());
-        
+
         if (createTblNode.createOptionList() != null) {
             for (SqlNode optNode : createTblNode.createOptionList().getList()) {
                 IgniteSqlCreateTableOption opt = (IgniteSqlCreateTableOption) optNode;
-                
+
                 tblOptionProcessors.getOrDefault(opt.key(), UNSUPPORTED_OPTION_PROCESSOR).process(opt, ctx, createTblCmd);
             }
         }
-        
+
         List<SqlColumnDeclaration> colDeclarations = createTblNode.columnList().getList().stream()
                 .filter(SqlColumnDeclaration.class::isInstance)
                 .map(SqlColumnDeclaration.class::cast)
                 .collect(Collectors.toList());
-        
+
         IgnitePlanner planner = ctx.planner();
         IgniteTypeFactory typeFactory = ctx.typeFactory();
-        
+
         List<ColumnDefinition> cols = new ArrayList<>(colDeclarations.size());
-        
+
         for (SqlColumnDeclaration col : colDeclarations) {
             if (!col.name.isSimple()) {
                 throw new IgniteException("Unexpected value of columnName ["
                         + "expected a simple identifier, but was " + col.name + "; "
                         + "querySql=\"" + ctx.query() + "\"]");
             }
-            
+
             String name = col.name.getSimple();
             RelDataType relType = planner.convert(col.dataType);
-            
+
             Object dflt = null;
             if (col.expression != null) {
                 dflt = ((SqlLiteral) col.expression).getValue();
             }
-            
+
             ColumnDefinitionBuilder col0 = SchemaBuilders.column(name, typeFactory.columnType(relType))
                     .asNullable(relType.isNullable())
                     .withDefaultValueExpression(dflt);
-            
+
             cols.add(col0.build());
         }
-        
+
         createTblCmd.columns(cols);
-        
+
         List<SqlKeyConstraint> pkConstraints = createTblNode.columnList().getList().stream()
                 .filter(SqlKeyConstraint.class::isInstance)
                 .map(SqlKeyConstraint.class::cast)
                 .collect(Collectors.toList());
-        
+
         if (pkConstraints.size() > 1) {
             throw new IgniteException("Unexpected amount of primary key constraints ["
                     + "expected at most one, but was " + pkConstraints.size() + "; "
                     + "querySql=\"" + ctx.query() + "\"]");
         }
-        
+
         if (!nullOrEmpty(pkConstraints)) {
             Set<String> dedupSet = new HashSet<>();
-            
+
             Set<String> pkCols = pkConstraints.stream()
                     .map(pk -> pk.getOperandList().get(1))
                     .map(SqlNodeList.class::cast)
@@ -203,13 +203,13 @@ public class DdlSqlToCommandConverter {
                     .map(SqlIdentifier::getSimple)
                     .filter(dedupSet::add)
                     .collect(Collectors.toSet());
-            
+
             createTblCmd.primaryKeyColumns(pkCols);
         }
-        
+
         return createTblCmd;
     }
-    
+
     /**
      * Converts a given IgniteSqlAlterTableAddColumn AST to a AlterTableAddCommand.
      *
@@ -218,38 +218,38 @@ public class DdlSqlToCommandConverter {
      */
     private AlterTableAddCommand convertAlterTableAdd(IgniteSqlAlterTableAddColumn alterTblNode, PlanningContext ctx) {
         AlterTableAddCommand alterTblCmd = new AlterTableAddCommand();
-        
+
         alterTblCmd.schemaName(deriveSchemaName(alterTblNode.name(), ctx));
         alterTblCmd.tableName(deriveObjectName(alterTblNode.name(), ctx, "table name"));
         alterTblCmd.ifTableExists(alterTblNode.ifExists());
         alterTblCmd.ifColumnNotExists(alterTblNode.ifNotExistsColumn());
-        
+
         IgniteTypeFactory typeFactory = ctx.typeFactory();
-        
+
         Set<ColumnDefinition> cols = new HashSet<>(alterTblNode.columns().size());
-        
+
         for (SqlNode colNode : alterTblNode.columns()) {
             assert colNode instanceof SqlColumnDeclaration : colNode.getClass();
-            
+
             SqlColumnDeclaration col = (SqlColumnDeclaration) colNode;
-            
+
             assert col.name.isSimple();
             assert col.expression == null : "Unexpected column default value" + col.expression;
-            
+
             String name = col.name.getSimple();
             RelDataType type = ctx.planner().convert(col.dataType);
-            
+
             ColumnDefinitionBuilder col0 = SchemaBuilders.column(name, typeFactory.columnType(type))
                     .asNullable(type.isNullable());
-            
+
             cols.add(col0.build());
         }
-        
+
         alterTblCmd.columns(cols);
-        
+
         return alterTblCmd;
     }
-    
+
     /**
      * Converts a given IgniteSqlAlterTableDropColumn AST to a AlterTableDropCommand.
      *
@@ -258,20 +258,20 @@ public class DdlSqlToCommandConverter {
      */
     private AlterTableDropCommand convertAlterTableDrop(IgniteSqlAlterTableDropColumn alterTblNode, PlanningContext ctx) {
         AlterTableDropCommand alterTblCmd = new AlterTableDropCommand();
-        
+
         alterTblCmd.schemaName(deriveSchemaName(alterTblNode.name(), ctx));
         alterTblCmd.tableName(deriveObjectName(alterTblNode.name(), ctx, "table name"));
         alterTblCmd.ifTableExists(alterTblNode.ifExists());
         alterTblCmd.ifColumnExists(alterTblNode.ifExistsColumn());
-        
+
         Set<String> cols = new HashSet<>(alterTblNode.columns().size());
         alterTblNode.columns().forEach(c -> cols.add(((SqlIdentifier) c).getSimple()));
-        
+
         alterTblCmd.columns(cols);
-        
+
         return alterTblCmd;
     }
-    
+
     /**
      * Converts a given DropTable AST to a DropTable command.
      *
@@ -280,57 +280,57 @@ public class DdlSqlToCommandConverter {
      */
     private DropTableCommand convertDropTable(SqlDropTable dropTblNode, PlanningContext ctx) {
         DropTableCommand dropTblCmd = new DropTableCommand();
-        
+
         dropTblCmd.schemaName(deriveSchemaName(dropTblNode.name, ctx));
         dropTblCmd.tableName(deriveObjectName(dropTblNode.name, ctx, "tableName"));
         dropTblCmd.ifExists(dropTblNode.ifExists);
-        
+
         return dropTblCmd;
     }
-    
+
     /**
      * Converts create index to appropriate wrapper.
      */
     private CreateIndexCommand convertAddIndex(IgniteSqlCreateIndex sqlCmd, PlanningContext ctx) {
         CreateIndexCommand createIdxCmd = new CreateIndexCommand();
-        
+
         createIdxCmd.schemaName(deriveSchemaName(sqlCmd.tableName(), ctx));
         createIdxCmd.tableName(deriveObjectName(sqlCmd.tableName(), ctx, "table name"));
         createIdxCmd.indexName(sqlCmd.indexName().getSimple());
-        
+
         List<Pair<String, Boolean>> cols = new ArrayList<>(sqlCmd.columnList().size());
-        
+
         for (SqlNode col : sqlCmd.columnList().getList()) {
             boolean desc = false;
-            
+
             if (col.getKind() == SqlKind.DESCENDING) {
                 col = ((SqlCall) col).getOperandList().get(0);
-                
+
                 desc = true;
             }
-            
+
             cols.add(new Pair<>(((SqlIdentifier) col).getSimple(), desc));
         }
-        
+
         createIdxCmd.columns(cols);
-        
+
         return createIdxCmd;
     }
-    
+
     /**
      * Converts drop index to appropriate wrapper.
      */
     private DropIndexCommand convertDropIndex(IgniteSqlDropIndex sqlCmd, PlanningContext ctx) {
         DropIndexCommand dropCmd = new DropIndexCommand();
-        
+
         dropCmd.schemaName(deriveSchemaName(sqlCmd.tableName(), ctx));
         dropCmd.tableName(deriveObjectName(sqlCmd.tableName(), ctx, "table name"));
         dropCmd.indexName(sqlCmd.idxName().getSimple());
         dropCmd.ifExist(sqlCmd.ifExists());
-        
+
         return dropCmd;
     }
-    
+
     /** Derives a schema name from the compound identifier. */
     private String deriveSchemaName(SqlIdentifier id, PlanningContext ctx) {
         String schemaName;
@@ -338,45 +338,45 @@ public class DdlSqlToCommandConverter {
             schemaName = ctx.schemaName();
         } else {
             SqlIdentifier schemaId = id.skipLast(1);
-            
+
             if (!schemaId.isSimple()) {
                 throw new IgniteException("Unexpected value of schemaName ["
                         + "expected a simple identifier, but was " + schemaId + "; "
                         + "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
             }
-            
+
             schemaName = schemaId.getSimple();
         }
-        
+
         ensureSchemaExists(ctx, schemaName);
-        
+
         return schemaName;
     }
-    
+
     /** Derives an object(a table, an index, etc) name from the compound identifier. */
     private String deriveObjectName(SqlIdentifier id, PlanningContext ctx, String objDesc) {
         if (id.isSimple()) {
             return id.getSimple();
         }
-        
+
         SqlIdentifier objId = id.getComponent(id.skipLast(1).names.size());
-        
+
         if (!objId.isSimple()) {
             throw new IgniteException("Unexpected value of " + objDesc + " ["
                     + "expected a simple identifier, but was " + objId + "; "
                     + "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
         }
-        
+
         return objId.getSimple();
     }
-    
+
     private void ensureSchemaExists(PlanningContext ctx, String schemaName) {
         if (ctx.catalogReader().getRootSchema().getSubSchema(schemaName, true) == null) {
             throw new IgniteException("Schema with name " + schemaName + " not found"/*,
                 IgniteQueryErrorCode.SCHEMA_NOT_FOUND*/);
         }
     }
-    
+
     /**
      * Short cut for validating that option value is a simple identifier.
      *
@@ -387,10 +387,10 @@ public class DdlSqlToCommandConverter {
         if (!(opt.value() instanceof SqlIdentifier) || !((SqlIdentifier) opt.value()).isSimple()) {
             throwOptionParsingException(opt, "a simple identifier", ctx.query());
         }
-        
+
         return ((SqlIdentifier) opt.value()).getSimple();
     }
-    
+
     /**
      * Creates a validator for an option which value should be value of given enumeration.
      *
@@ -401,23 +401,23 @@ public class DdlSqlToCommandConverter {
     ) {
         return (opt, ctx) -> {
             T val = null;
-            
+
             if (opt.value() instanceof SqlIdentifier) {
                 val = Arrays.stream(clz.getEnumConstants())
                         .filter(m -> m.name().equalsIgnoreCase(opt.value().toString()))
                         .findFirst()
                         .orElse(null);
             }
-            
+
             if (val == null) {
                 throwOptionParsingException(opt, "values are "
                         + Arrays.toString(clz.getEnumConstants()), ctx.query());
             }
-            
+
             return val;
         };
     }
-    
+
     /**
      * Throws exception with message relates to validation of create table option.
      *
@@ -430,14 +430,14 @@ public class DdlSqlToCommandConverter {
                 + "expected " + exp + ", but was " + opt.value() + "; "
                 + "querySql=\"" + qry + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
     }
-    
+
     private static class TableOptionProcessor<T> {
         private final IgniteSqlCreateTableOptionEnum key;
-        
+
         private final BiFunction<IgniteSqlCreateTableOption, PlanningContext, T> validator;
-        
+
         private final BiConsumer<CreateTableCommand, T> valSetter;
-        
+
         /**
          * Constructor.
          *
@@ -455,7 +455,7 @@ public class DdlSqlToCommandConverter {
             this.validator = validator;
             this.valSetter = valSetter;
         }
-        
+
         /**
          * Processes the given option, validates it's value and then sets the appropriate field in a given command, throws an exception if
          * the validation failed.
@@ -467,10 +467,10 @@ public class DdlSqlToCommandConverter {
         private void process(IgniteSqlCreateTableOption opt, PlanningContext ctx, CreateTableCommand cmd) {
             assert key == null || key == opt.key() : "Unexpected create table option [expected=" + key + ", actual="
                     + opt.key() + "]";
-            
+
             valSetter.accept(cmd, validator.apply(opt, ctx));
         }
-        
+
         /**
          * Get key this processor is supposed to handle.
          */

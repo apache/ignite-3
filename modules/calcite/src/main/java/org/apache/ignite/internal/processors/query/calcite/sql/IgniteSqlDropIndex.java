@@ -69,15 +69,15 @@ public class IgniteSqlDropIndex extends SqlDrop {
 
         tableName.unparse(writer, 0, 0);
     }
-    
+
     public SqlIdentifier idxName() {
         return indexName;
     }
-    
+
     public SqlIdentifier tableName() {
         return tableName;
     }
-    
+
     public boolean ifExists() {
         return ifExists;
     }

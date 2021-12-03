@@ -209,7 +209,7 @@ public class SqlDdlParserTest {
         assertThat(node, instanceOf(IgniteSqlCreateTable.class));
 
         IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
-        
+
         assertThatIntegerOptionPresent(createTable.createOptionList().getList(), "REPLICAS", 2);
         assertThatIntegerOptionPresent(createTable.createOptionList().getList(), "PARTITIONS", 3);
     }

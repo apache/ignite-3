@@ -36,11 +36,11 @@ public class DropIndexCommand extends AbstractDdlCommand {
     public void indexName(String indexName) {
         this.indexName = indexName;
     }
-    
+
     public boolean ifExist() {
         return ifExist;
     }
-    
+
     public void ifExist(boolean ifExist) {
         this.ifExist = ifExist;
     }

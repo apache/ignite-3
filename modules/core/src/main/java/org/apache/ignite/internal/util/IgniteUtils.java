@@ -337,7 +337,7 @@ public class IgniteUtils {
         if (cls != null) {
             return cls;
         }
-        
+
         if (ldr == null) {
             ldr = igniteClassLoader;
         }
@@ -598,7 +598,7 @@ public class IgniteUtils {
 
         return success;
     }
-    
+
     /**
      * Tests if given string is {@code null} or empty.
      *

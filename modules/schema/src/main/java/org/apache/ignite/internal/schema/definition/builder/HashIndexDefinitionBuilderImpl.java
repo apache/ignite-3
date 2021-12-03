@@ -48,12 +48,12 @@ public class HashIndexDefinitionBuilderImpl extends AbstractIndexBuilder impleme
 
         return this;
     }
-    
+
     /** {@inheritDoc} */
     @Override
     public HashIndexDefinitionBuilder withColumns(String... columns) {
         this.columns = asList(columns);
-    
+
         return this;
     }
 

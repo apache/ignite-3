@@ -438,7 +438,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
                 case DELETE:
                 case UPDATE:
                     return prepareDml(sqlNode, ctx);
-    
+
                 case EXPLAIN:
                     return prepareExplain(sqlNode, ctx);
 
@@ -523,7 +523,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
                 throw new AssertionError("Unexpected plan type: " + plan);
         }
     }
-    
+
     private SqlCursor<List<?>> executeDdl(DdlPlan plan, PlanningContext pctx) {
         try {
             ddlCmdHnd.handle(plan.command(), pctx);

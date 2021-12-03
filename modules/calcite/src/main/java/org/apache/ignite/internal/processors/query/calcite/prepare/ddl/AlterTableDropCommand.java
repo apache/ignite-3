@@ -27,14 +27,14 @@ import java.util.Set;
 public class AlterTableDropCommand extends AbstractDdlCommand {
     /** Quietly ignore this command if column is not exists. */
     private boolean ifColumnExists;
-    
+
     /** Columns. */
     private Set<String> cols;
-    
+
     public Set<String> columns() {
         return Collections.unmodifiableSet(cols);
     }
-    
+
     /**
      * Columns to drop.
      *
@@ -43,7 +43,7 @@ public class AlterTableDropCommand extends AbstractDdlCommand {
     public void columns(Set<String> cols) {
         this.cols = cols;
     }
-    
+
     /**
      * Exists flag.
      *
@@ -52,7 +52,7 @@ public class AlterTableDropCommand extends AbstractDdlCommand {
     public boolean ifColumnExists() {
         return ifColumnExists;
     }
-    
+
     /**
      * Set exists flag.
      *

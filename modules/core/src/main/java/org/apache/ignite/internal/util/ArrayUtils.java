@@ -298,7 +298,7 @@ public final class ArrayUtils {
     public static <T> List<T> asList(@Nullable T... vals) {
         return nullOrEmpty(vals) ? Collections.emptyList() : Arrays.asList(vals);
     }
-    
+
     /**
      * Converts array to {@link Set}.
      *
@@ -313,7 +313,7 @@ public final class ArrayUtils {
     public static <T> Set<T> asSet(@Nullable T... vals) {
         return nullOrEmpty(vals) ? Collections.emptySet() : Stream.of(vals).collect(Collectors.toSet());
     }
-    
+
     /**
      * Concatenates an elements to an array.
      *
