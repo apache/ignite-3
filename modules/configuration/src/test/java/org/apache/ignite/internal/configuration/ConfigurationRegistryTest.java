@@ -24,9 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.configuration.ConfigurationChangeException;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
@@ -108,6 +111,68 @@ public class ConfigurationRegistryTest {
     }
 
     @Test
+    void testPolymorphicConfigurationRootPlacedInInnerNode() throws Exception {
+        ConfigurationRegistry registry = new ConfigurationRegistry(
+                List.of(SixthRootConfiguration.KEY),
+                Map.of(),
+                new TestConfigurationStorage(LOCAL),
+                List.of(),
+                List.of(
+                        First0PolymorphicConfigurationSchema.class,
+                        First1PolymorphicConfigurationSchema.class));
+
+        registry.start();
+
+        registry.getConfiguration(SixthRootConfiguration.KEY).change(c -> {
+            c.changeEntity(entity -> {
+                entity.create("new entity", upd -> {
+                    upd.changePolymorphicConfig(p -> {
+                        p.create("key", polymorphicChange -> {
+                            First0PolymorphicChange ch = polymorphicChange.convert(First0PolymorphicChange.class);
+                            ch.changeTest0(12);
+                            ch.changeName("entity name");
+                        });
+                    });
+                });
+            });
+        }).get();
+
+        registry.stop();
+    }
+
+    @Test
+    void testIncorrectPolymorphicConfiguration() throws Exception {
+        ConfigurationRegistry registry = new ConfigurationRegistry(
+                List.of(SixthRootConfiguration.KEY),
+                Map.of(),
+                new TestConfigurationStorage(LOCAL),
+                List.of(),
+                List.of(
+                        First0PolymorphicConfigurationSchema.class,
+                        First1PolymorphicConfigurationSchema.class));
+
+        registry.start();
+
+        try {
+            registry.getConfiguration(SixthRootConfiguration.KEY).change(c -> {
+                c.changeEntity(entity -> {
+                    entity.create("new entity", upd -> {
+                        upd.changePolymorphicConfig(p -> {
+                            p.create("key", polymorphicChange -> {
+                                polymorphicChange.changeName("entity name");
+                            });
+                        });
+                    });
+                });
+            }).get();
+        } catch (ConfigurationChangeException e) {
+            // expected configuration exception that describes the polymorphic instance has not been created.
+        }
+
+        registry.stop();
+    }
+
+    @Test
     void missingPolymorphicExtension() {
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
@@ -185,6 +250,24 @@ public class ConfigurationRegistryTest {
     }
 
     /**
+     * Sixth root configuration.
+     */
+    @ConfigurationRoot(rootName = "forth")
+    public static class SixthRootConfigurationSchema {
+        @NamedConfigValue
+        public EntityConfigurationSchema entity;
+    }
+
+    /**
+     * Inner configuration schema.
+     */
+    @Config
+    public static class EntityConfigurationSchema {
+        @NamedConfigValue
+        public FirstPolymorphicConfigurationSchema polymorphicConfig;
+    }
+
+    /**
      * Simple first polymorphic configuration scheme.
      */
     @PolymorphicConfig
@@ -192,6 +275,9 @@ public class ConfigurationRegistryTest {
         /** Polymorphic type id field. */
         @PolymorphicId
         public String typeId;
+
+        @Value
+        public String name;
     }
 
     /**
@@ -199,6 +285,8 @@ public class ConfigurationRegistryTest {
      */
     @PolymorphicConfigInstance("first0")
     public static class First0PolymorphicConfigurationSchema extends FirstPolymorphicConfigurationSchema {
+        @Value
+        public int test0;
     }
 
     /**
@@ -206,6 +294,8 @@ public class ConfigurationRegistryTest {
      */
     @PolymorphicConfigInstance("first1")
     public static class First1PolymorphicConfigurationSchema extends FirstPolymorphicConfigurationSchema {
+        @Value
+        public long test1;
     }
 
     /**
