@@ -904,10 +904,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         if (t instanceof CompletionException) {
             if (t.getCause() instanceof ConfigurationChangeException) {
-                ex = t.getCause().getCause();
-            } else if (t.getCause() instanceof ConfigurationValidationException) {
-                //TODO: Public exception for configuration validation should return here.
-                return t.getCause();
+                //TODO: IGNITE-16051 Only public exception for configuration validation should return here.
+                return t.getCause().getCause();
             } else {
                 ex = t.getCause();
             }
