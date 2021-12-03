@@ -62,8 +62,8 @@ public interface Session extends AsyncSession, ReactiveSession {
      * Executes single SQL query.
      *
      * @param query       SQL query template.
-     * @param arguments   Arguments for the template (opti
-     * @param transaction Transaction to execute the query within or {@code null}.onal).
+     * @param arguments   Arguments for the template (optional).
+     * @param transaction Transaction to execute the query within or {@code null}.
      * @return SQL query results set.
      * @throws SqlException If failed.
      */
