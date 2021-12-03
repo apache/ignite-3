@@ -291,7 +291,7 @@ public class ColumnBindingTest {
                 () -> ColumnBinding.createFieldBinding(
                         new Column("val", UUID, true).copy(0),
                         TestObjectWrapper.class,
-                        "data",null)
+                        "data", null)
         );
 
         // Implicit serialization is not supported yet.
@@ -300,7 +300,7 @@ public class ColumnBindingTest {
                 () -> ColumnBinding.createFieldBinding(
                         new Column("val", BYTES, true).copy(0),
                         TestObjectWrapper.class,
-                        "data",null)
+                        "data", null)
         );
     }
 
