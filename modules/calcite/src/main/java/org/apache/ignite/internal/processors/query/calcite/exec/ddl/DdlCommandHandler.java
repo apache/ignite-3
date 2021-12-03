@@ -172,7 +172,7 @@ public class DdlCommandHandler {
     /** Handles create index command. */
     private void handleCreateIndex(CreateIndexCommand cmd) {
         IndexDefinition idx = SchemaBuilders.hashIndex(cmd.indexName())
-                .withColumns(cmd.columns().stream().map(Pair::getFirst).collect(Collectors.toSet()))
+                .withColumns(cmd.columns().stream().map(Pair::getFirst).collect(Collectors.toList()))
                 .build();
         
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
