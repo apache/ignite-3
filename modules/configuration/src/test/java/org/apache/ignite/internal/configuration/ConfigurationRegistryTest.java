@@ -252,7 +252,7 @@ public class ConfigurationRegistryTest {
     /**
      * Sixth root configuration.
      */
-    @ConfigurationRoot(rootName = "forth")
+    @ConfigurationRoot(rootName = "sixth")
     public static class SixthRootConfigurationSchema {
         @NamedConfigValue
         public EntityConfigurationSchema entity;
