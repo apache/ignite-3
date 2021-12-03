@@ -53,6 +53,8 @@ import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.builder.PrimaryKeyDefinitionBuilder;
+import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
+import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
 import org.apache.ignite.schema.definition.index.IndexDefinition;
 
 /** DDL commands handler. */
@@ -171,18 +173,26 @@ public class DdlCommandHandler {
     
     /** Handles create index command. */
     private void handleCreateIndex(CreateIndexCommand cmd) {
-        IndexDefinition idx = SchemaBuilders.hashIndex(cmd.indexName())
-                .withColumns(cmd.columns().stream().map(Pair::getFirst).collect(Collectors.toList()))
-                .build();
+        // Only sorted idx for now.
+        SortedIndexDefinitionBuilder idx = SchemaBuilders.sortedIndex(cmd.indexName());
+        
+        for (Pair<String, Boolean> idxInfo : cmd.columns()) {
+            SortedIndexColumnBuilder idx0 = idx.addIndexColumn(idxInfo.getFirst());
+            
+            if (idxInfo.getSecond())
+                idx0.desc();
+            
+            idx0.done();
+        }
         
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
         
         tableManager.alterTable(fullName, chng -> chng.changeIndices(idxes -> {
-            if (idxes.get(idx.name()) != null) {
-                throw new IndexAlreadyExistsException(idx.name());
+            if (idxes.get(cmd.indexName()) != null) {
+                throw new IndexAlreadyExistsException(cmd.indexName());
             }
             
-            idxes.create(idx.name(), tableIndexChange -> convert(idx, tableIndexChange));
+            idxes.create(cmd.indexName(), tableIndexChange -> convert(idx.build(), tableIndexChange));
         }));
     }
     
