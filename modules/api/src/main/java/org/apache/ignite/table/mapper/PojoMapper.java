@@ -17,45 +17,30 @@
 
 package org.apache.ignite.table.mapper;
 
-import java.util.Map;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Mapper implementation which maps object fields to the columns by their names.
+ * Mapper implementation which maps fields of objects of type {@link T} to the columns by their names. Intended to use only with natively
+ * supported types.
  *
  * @param <T> Target type.
+ * @see OneColumnMapper
  */
-class DefaultColumnMapper<T> implements Mapper<T> {
-    /** Target type. */
-    private final Class<T> targetType;
-    
-    /** Column-to-field name mapping. */
-    private final Map<String, String> mapping;
-    
+public interface PojoMapper<T> extends Mapper<T> {
     /**
-     * Creates a mapper for given type.
+     * Return a field name for given column name when POJO individual fields are mapped to columns, otherwise fails.
      *
-     * @param targetType Target type.
-     * @param mapping Column-to-field name mapping.
+     * @param columnName Column name.
+     * @return Field name or {@code null} if no field mapped to a column.
+     * @throws IllegalStateException If a whole object is mapped to a single column.
      */
-    DefaultColumnMapper(Class<T> targetType, Map<String, String> mapping) {
-        this.targetType = targetType;
-        this.mapping = mapping;
-    }
-    
-    /** {@inheritDoc} */
-    @Override public Class<T> targetType() {
-        return targetType;
-    }
+    @Nullable String fieldForColumn(@NotNull String columnName);
 
-    /** {@inheritDoc} */
-    @Override
-    public String mappedColumn() {
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public String mappedField(@NotNull String columnName) {
-        return mapping.get(columnName);
-    }
+    /**
+     * Returns type converter for given column.
+     *
+     * @return Type converter or {@code null} if not set.
+     */
+    <FieldT, ColumnT> TypeConverter<FieldT, ColumnT> converterForColumn(@NotNull String columnName);
 }

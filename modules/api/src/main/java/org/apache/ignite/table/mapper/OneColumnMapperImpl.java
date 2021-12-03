@@ -17,41 +17,44 @@
 
 package org.apache.ignite.table.mapper;
 
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Simple mapper implementation that maps a whole object (of the target type) to a single column.
+ * Simple mapper implementation that maps a whole object of the type {@link ObjectT} to a one column.
  *
- * @param <T> Target type.
+ * @param <ObjectT> Target type.
  */
-class SingleColumnMapper<T> implements Mapper<T> {
+class OneColumnMapperImpl<ObjectT> implements OneColumnMapper<ObjectT> {
     /** Target type. */
-    private final Class<T> targetType;
+    private final Class<ObjectT> targetType;
 
     /** Column name. */
     private final String mappedColumn;
 
-    SingleColumnMapper(Class<T> targetType, String mappedColumn) {
+    /** Converter. */
+    private final TypeConverter<ObjectT, ?> converter;
+
+    OneColumnMapperImpl(Class<ObjectT> targetType, String mappedColumn, TypeConverter<ObjectT, ?> converter) {
         this.targetType = targetType;
         this.mappedColumn = mappedColumn;
+        this.converter = converter;
     }
 
     /** {@inheritDoc} */
     @Override
-    public Class<T> targetType() {
+    public Class<ObjectT> targetType() {
         return targetType;
     }
 
     /** {@inheritDoc} */
     @Override
-    public String mappedColumn() {
+    public @Nullable String mappedColumn() {
         return mappedColumn;
     }
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable String mappedField(@NotNull String columnName) {
-        throw new UnsupportedOperationException("Not intended for individual fields mapping.");
+    public @Nullable TypeConverter<ObjectT, ?> converter() {
+        return converter;
     }
 }

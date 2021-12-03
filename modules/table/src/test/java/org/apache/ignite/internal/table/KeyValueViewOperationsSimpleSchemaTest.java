@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.List;
 import java.util.Random;
@@ -34,11 +35,18 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 /**
  * Basic table operations test.
@@ -140,6 +148,10 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         // Delete key.
         tbl.remove(2L);
         assertFalse(tbl.contains(2L));
+
+        // Replace.
+        assertTrue(tbl.replace(1L, null));
+        assertTrue(tbl.contains(1L));
     }
 
     @Test
@@ -198,8 +210,8 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         tbl.put(1L, 22L);
         assertEquals(22L, tbl.get(1L));
 
-        // Check null value ignored.
-        assertThrows(Throwable.class, () -> tbl.remove(1L, null));
+        // Check value ignored.
+        tbl.remove(1L, null);
         assertEquals(22L, tbl.get(1L));
 
         // Delete KV pair with expected value.
@@ -229,25 +241,28 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertNull(tbl.get(1L));
 
         // Ignore replace operation for non-existed KV pair.
-        assertFalse(tbl.replace(1L, 33L));
-        assertNull(tbl.get(1L));
+        assertFalse(tbl.replace(3L, 33L));
+        assertNull(tbl.get(3L));
 
-        tbl.put(1L, 33L);
-        assertEquals(33L, tbl.get(1L));
+        tbl.put(3L, 33L);
+        assertEquals(33L, tbl.get(3L));
 
         // Remove non-existed KV pair.
         assertFalse(tbl.replace(2L, null));
         assertNull(tbl.get(2L));
+
+        assertThrows(Throwable.class, () -> tbl.replace(null, 33L));
     }
 
     @Test
     public void replaceExact() {
         KeyValueView<Long, Long> tbl = kvView();
 
-        // Insert KV pair.
-        assertTrue(tbl.replace(1L, null, 11L));
-        assertEquals(11L, tbl.get(1L));
-        assertNull(tbl.get(2L));
+        // Upsert non-existed KV pair.
+        assertFalse(tbl.replace(1L, null, 11L));
+        assertNull(tbl.get(1L));
+
+        tbl.put(1L, 11L);
 
         // Ignore replace operation for non-existed KV pair.
         assertFalse(tbl.replace(2L, 11L, 22L));
@@ -257,16 +272,16 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertTrue(tbl.replace(1L, 11L, 22L));
         assertEquals(22L, tbl.get(1L));
 
-        // Remove existed KV pair.
+        // Replace with null value.
         assertTrue(tbl.replace(1L, 22L, null));
         assertNull(tbl.get(1L));
 
-        // Insert KV pair.
+        // Replace null value.
         assertTrue(tbl.replace(1L, null, 33L));
         assertEquals(33L, tbl.get(1L));
 
         // Remove non-existed KV pair.
-        assertTrue(tbl.replace(2L, null, null));
+        assertFalse(tbl.replace(2L, null, null));
     }
 
     @Test
@@ -321,17 +336,26 @@ public class KeyValueViewOperationsSimpleSchemaTest {
      * @param valueClass Value class.
      */
     private <T> KeyValueViewImpl<Long, T> kvViewForValueType(NativeType type, Class<T> valueClass) {
-        Mapper<Long> keyMapper = Mapper.of("id", Long.class);
-        Mapper<T> valMapper = Mapper.of("val", valueClass);
+        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.topologyService().localMember().address())
+                .thenReturn(DummyInternalTableImpl.ADDR);
+
+        TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager());
+
+        DummyInternalTableImpl table = new DummyInternalTableImpl(
+                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
+
+        Mapper<Long> keyMapper = Mapper.of(Long.class, "id");
+        Mapper<T> valMapper = Mapper.of(valueClass, "val");
 
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
                 new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", type, false)}
+                new Column[]{new Column("val", type, true)}
         );
 
         return new KeyValueViewImpl<>(
-                new DummyInternalTableImpl(),
+                table,
                 new DummySchemaManagerImpl(schema),
                 keyMapper,
                 valMapper,

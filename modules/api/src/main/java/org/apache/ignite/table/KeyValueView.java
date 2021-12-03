@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -37,18 +38,75 @@ public interface KeyValueView<K, V> {
     /**
      * Gets a value associated with the given key.
      *
+     * <p>Note: If the value mapper implies a value can be {@code null}, then a suitable method
+     * {@link #getNullable(Object)} must be used instead.
+     *
      * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
      * @return Value or {@code null}, if it does not exist.
+     * @throws IllegalStateException If value for the key exists, and it is {@code null}.
+     * @see #getNullable(Object)
      */
     V get(@NotNull K key);
 
     /**
      * Asynchronously gets a value associated with the given key.
      *
+     * <p>Note: If the value mapper implies a value can be {@code null}, then a suitable method
+     * {@link #getNullableAsync(Object)} must be used instead.
+     *
      * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
      * @return Future representing pending completion of the operation.
+     * @see #getNullableAsync(Object)
+     * @see #get(Object)
      */
     @NotNull CompletableFuture<V> getAsync(@NotNull K key);
+
+    /**
+     * Gets a nullable value associated with the given key.
+     *
+     * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
+     * @return Wrapped nullable value or {@code null}, if it does not exist.
+     */
+    default NullableValue<V> getNullable(K key) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /**
+     * Gets a nullable value associated with the given key.
+     *
+     * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
+     * @return Future representing pending completion of the operation.
+     * @see #getNullable(Object)
+     */
+    default @NotNull CompletableFuture<NullableValue<V>> getNullableAsync(K key) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /**
+     * Gets a value associated with the given key if exists, returns {@code defaultValue} otherwise.
+     *
+     * <p>Note: method has same semantic as {@link #get(Object)} with regard to {@code null} values.
+     *
+     * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
+     * @return Value or {@code defaultValue}, if does not exist.
+     * @throws IllegalStateException If value for the key exists, and it is {@code null}.
+     */
+    default V getOrDefault(K key, V defaultValue) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /**
+     * Gets a nullable value associated with the given key.
+     *
+     * <p>Note: method has same semantic as {@link #get(Object)} with regard to {@code null} values.
+     *
+     * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
+     * @return Future representing pending completion of the operation.
+     * @see #getOrDefault(Object, Object)
+     */
+    default @NotNull CompletableFuture<V> getOrDefaultAsync(K key, V defaultValue) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
 
     /**
      * Get values associated with given keys.
@@ -162,10 +220,10 @@ public interface KeyValueView<K, V> {
      * Removes an expected value associated with the given key from the table.
      *
      * @param key A key which associated value is to be removed from the table. The key cannot be {@code null}.
-     * @param val Expected value. The value cannot be {@code null}.
+     * @param val Expected value.
      * @return {@code True} if the expected value for the specified key was successfully removed, {@code false} otherwise.
      */
-    boolean remove(@NotNull K key, @NotNull V val);
+    boolean remove(@NotNull K key, V val);
 
     /**
      * Asynchronously removes value associated with given key from the table.
@@ -179,10 +237,10 @@ public interface KeyValueView<K, V> {
      * Asynchronously removes expected value associated with given key from the table.
      *
      * @param key A key which associated the value is to be removed from the table. The key cannot be {@code null}.
-     * @param val Expected value. The value cannot be {@code null}.
+     * @param val Expected value.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> removeAsync(@NotNull K key, @NotNull V val);
+    @NotNull CompletableFuture<Boolean> removeAsync(@NotNull K key, V val);
 
     /**
      * Remove values associated with given keys from the table.

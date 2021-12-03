@@ -69,6 +69,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
+import org.apache.ignite.internal.schema.marshaller.reflection.SerializingConverter;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithNoDefaultConstructor;
@@ -165,10 +166,16 @@ public class KvMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void narrowType(MarshallerFactory factory) throws MarshallerException {
-        Column[] cols = columnsAllTypes();
+        Column[] cols = new Column[]{
+                new Column("primitiveIntCol", INT32, false),
+                new Column("primitiveLongCol", INT64, false),
+                new Column("primitiveFloatCol", FLOAT, false),
+                new Column("primitiveDoubleCol", DOUBLE, false),
+                new Column("stringCol", STRING, false),
+                new Column("uuidCol", UUID, false),
+        };
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
-
+        SchemaDescriptor schema = new SchemaDescriptor(1, cols, columnsAllTypes());
         KvMarshaller<TestTruncatedObject, TestTruncatedObject> marshaller =
                 factory.create(schema, TestTruncatedObject.class, TestTruncatedObject.class);
 
@@ -243,11 +250,11 @@ public class KvMarshallerTest {
                         new Column("col3", STRING, false)
                 });
 
-        Mapper<TestKeyObject> keyMapper = Mapper.buildFrom(TestKeyObject.class)
+        Mapper<TestKeyObject> keyMapper = Mapper.builder(TestKeyObject.class)
                 .map("id", "key")
                 .build();
 
-        Mapper<TestObject> valMapper = Mapper.buildFrom(TestObject.class)
+        Mapper<TestObject> valMapper = Mapper.builder(TestObject.class)
                 .map("longCol", "col1")
                 .map("stringCol", "col3")
                 .build();
@@ -292,6 +299,27 @@ public class KvMarshallerTest {
                 () -> marshaller.marshal(key, val),
                 "Failed to write field [name=shortCol]"
         );
+    }
+
+    /**
+     * Try to create marshaller for class without field for key column.
+     */
+    @ParameterizedTest
+    @MethodSource("marshallerFactoryProvider")
+    public void classWithoutKeyField(MarshallerFactory factory) {
+        Column[] keyCols = new Column[]{
+                new Column("id", INT64, false),
+                new Column("id2", INT64, false),
+        };
+
+        Column[] valCols = new Column[]{
+                new Column("primitiveDoubleCol", DOUBLE, false)
+        };
+
+        SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
+
+        assertThrows(IllegalArgumentException.class, () -> factory.create(schema, TestKeyObject.class, TestObjectWithAllTypes.class),
+                "No field found for column id2");
     }
 
     @ParameterizedTest
@@ -357,7 +385,7 @@ public class KvMarshallerTest {
         final Object key = TestObjectWithNoDefaultConstructor.randomObject(rnd);
         final Object val = TestObjectWithNoDefaultConstructor.randomObject(rnd);
 
-        assertThrows(IgniteInternalException.class, () -> factory.create(schema, key.getClass(), val.getClass()));
+        assertThrows(IllegalArgumentException.class, () -> factory.create(schema, key.getClass(), val.getClass()));
     }
 
     @ParameterizedTest
@@ -437,13 +465,13 @@ public class KvMarshallerTest {
         final byte[] serializedPojo = serializeObject(pojo);
 
         final KvMarshaller<Long, TestPojo> marshaller1 = factory.create(schema,
-                Mapper.of("key", Long.class), Mapper.of("val", TestPojo.class));
+                Mapper.of(Long.class, "key"), Mapper.of(TestPojo.class, "val", new SerializingConverter<>()));
         final KvMarshaller<Long, byte[]> marshaller2 = factory.create(schema,
-                Mapper.of("key", Long.class), Mapper.of("val", byte[].class));
+                Mapper.of(Long.class, "key"), Mapper.of(byte[].class, "val"));
         final KvMarshaller<Long, TestPojoWrapper> marshaller3 = factory.create(schema,
-                Mapper.of("key", Long.class), Mapper.buildFrom(TestPojoWrapper.class).map("pojoField", "val").build());
+                Mapper.of(Long.class, "key"), Mapper.builder(TestPojoWrapper.class).map("pojoField", "val", new SerializingConverter<>()).build());
         final KvMarshaller<Long, TestPojoWrapper> marshaller4 = factory.create(schema,
-                Mapper.of("key", Long.class), Mapper.buildFrom(TestPojoWrapper.class).map("rawField", "val").build());
+                Mapper.of(Long.class, "key"), Mapper.builder(TestPojoWrapper.class).map("rawField", "val").build());
 
         BinaryRow row = marshaller1.marshal(1L, pojo);
         BinaryRow row2 = marshaller2.marshal(1L, serializedPojo);
@@ -497,9 +525,8 @@ public class KvMarshallerTest {
         SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
 
         KvMarshaller<Object, Object> marshaller = factory.create(schema,
-                Mapper.of("key", (Class<Object>) key.getClass()),
-                Mapper.of("val", (Class<Object>) val.getClass()));
-
+                Mapper.of((Class<Object>) key.getClass(), "key"),
+                Mapper.of((Class<Object>) val.getClass(), "val"));
         BinaryRow row = marshaller.marshal(key, val);
 
         Object key1 = marshaller.unmarshalKey(new Row(schema, row));

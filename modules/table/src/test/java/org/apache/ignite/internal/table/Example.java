@@ -20,17 +20,24 @@ package org.apache.ignite.internal.table;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.mapper.TypeConverter;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -45,7 +52,10 @@ public class Example {
      * Returns table implementation.
      */
     private static List<Table> tableFactory() {
-        return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(), null, null));
+        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager());
+
+        return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(new VersionedRowStore(
+                new ConcurrentHashMapPartitionStorage(), txManager), txManager), null, null));
     }
 
     /**
@@ -243,13 +253,18 @@ public class Example {
         }
 
         KeyValueView<OrderKey, OrderValue> orderKvView = t
-                .keyValueView(Mapper.of("key", OrderKey.class), Mapper.buildFrom(OrderValue.class).map("billingDetails", (row) -> {
-                    BinaryObject binObj = row.binaryObjectValue("conditionalDetails");
-                    int type = row.intValue("type");
+                .keyValueView(
+                        Mapper.of(OrderKey.class, "key"),
+                        Mapper.builder(OrderValue.class)
+                                /*.map("billingDetails", (row) -> {
+                                    BinaryObject binObj = row.binaryObjectValue("conditionalDetails");
+                                    int type = row.intValue("type");
 
-                    return type == 0 ? BinaryObjects.deserialize(binObj, CreditCard.class)
-                            : BinaryObjects.deserialize(binObj, BankAccount.class);
-                }).build());
+                                    return type == 0
+                                            ? BinaryObjects.deserialize(binObj, CreditCard.class)
+                                            : BinaryObjects.deserialize(binObj, BankAccount.class);
+                                })*/
+                                .build());
 
         OrderValue ov = orderKvView.get(new OrderKey(1, 1));
 
@@ -284,7 +299,8 @@ public class Example {
         binObj = orderRecord.billingDetails;
 
         // Manual deserialization is possible as well.
-        Object billingDetails = orderRecord.type == 0 ? BinaryObjects.deserialize(binObj, CreditCard.class)
+        Object billingDetails = orderRecord.type == 0
+                ? BinaryObjects.deserialize(binObj, CreditCard.class)
                 : BinaryObjects.deserialize(binObj, BankAccount.class);
     }
 
@@ -351,17 +367,40 @@ public class Example {
             int department;
         }
 
-        RecordView<TruncatedRecord> truncatedView = t
-                .recordView(Mapper.buildFrom(TruncatedRecord.class).map("upgradedObject", JavaPersonV2.class).build());
+        // Custom serializer.
+        TypeConverter<JavaPerson, byte[]> serializer = new TypeConverter<>() {
+            @Override
+            public byte[] toColumnType(JavaPerson obj) throws Exception {
+                return BinaryObjects.serialize(obj).bytes();
+            }
+
+            @Override
+            public JavaPerson toObjectType(byte[] data) throws Exception {
+                return BinaryObjects.deserialize(BinaryObjects.wrap(data), JavaPerson.class);
+            }
+        };
+
+        RecordView<TruncatedRecord> truncatedView = t.recordView(
+                Mapper.builder(TruncatedRecord.class)
+                        .convert(serializer, "upgradedObject")
+                        .map("updradedObject", "updradedObject")
+                        .build());
 
         // Or we can have a custom conditional type selection.
-        RecordView<TruncatedRecord> truncatedView2 = t.recordView(Mapper.buildFrom(TruncatedRecord.class).map("upgradedObject", (row) -> {
-            BinaryObject binObj1 = row.binaryObjectValue("upgradedObject");
-            int dept = row.intValue("department");
+        RecordView<TruncatedRecord> truncatedView2 = t.recordView(
+                Mapper.builder(TruncatedRecord.class)
+                        /*.map("upgradedObject", (row) -> {
+                            BinaryObject binObj1 = row.binaryObjectValue("upgradedObject");
+                            int dept = row.intValue("department");
 
-            return dept == 0 ? BinaryObjects.deserialize(binObj1, JavaPerson.class)
-                    : BinaryObjects.deserialize(binObj1, JavaPersonV2.class);
-        }).build());
+                            return dept == 0 ? BinaryObjects.deserialize(binObj1, JavaPerson.class)
+                                    : BinaryObjects.deserialize(binObj1, JavaPersonV2.class);
+                        })*/
+                        // TODO: But how to write the columns ??? There is no separate "write mapping" yet.
+                        //                        .map("person", "colPersol", obj -> BinaryObjects.serialize(obj))
+                        //                        .map("department", "colDepartment", obj -> obj instanceof JavaPersonv2 ? 1 : 0)
+                        .build());
+
     }
 
     /**
@@ -420,12 +459,11 @@ public class Example {
 
         employeeView.put(1L, BinaryObjects.wrap(new byte[0] /* serialized Employee */));
 
-        t.keyValueView(Mapper.of(Long.class), Mapper.of("value", Employee.class));
+        t.keyValueView(Mapper.of(Long.class), Mapper.of(Employee.class, "value"));
     }
 
     /**
      * Use case 8: Here we show how to use mapper to represent the same data in different ways.
-     * Single column case is just for simplicity.
      */
     @Disabled
     @ParameterizedTest
@@ -433,50 +471,230 @@ public class Example {
     public void useCase8(Table t) {
         new SchemaDescriptor(
                 1,
-                new Column[]{new Column("key", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.BYTES, true)}
+                new Column[]{new Column("colId", NativeTypes.INT64, false)},
+                new Column[]{new Column("colData", NativeTypes.BYTES, true)}
         );
 
+        // Arbitrary user type.
         class UserObject {
+            double salary;
         }
 
+        // Domain class, which fields mapped to table columns.
         class Employee {
-            UserObject data;
+            UserObject fieldData;
         }
 
+        // Domain class, which fields mapped to table columns.
         class Employee2 {
-            byte[] data;
+            byte[] fieldData;
         }
 
-        // Class usage without a column name can work correctly only and only when each of key and value parts is single column.
-        KeyValueView<Long, Employee> v1 = t.keyValueView(Long.class, Employee.class);
+        Mapper.builder(Employee.class)
+                .map("fieldData.salary", "colSalary")
+                .build();
 
-        KeyValueView<Long, Employee> v2 = t.keyValueView(
+        // Actually, any bi-directional converter can be here instead.
+        // Marshaller is a special case of "UserObject <--> byte[]" converter, just for example.
+        TypeConverter<UserObject, byte[]> marsh = null; // here, create some marshaller for UserObject.class.
+
+        // One-column only supported first-citizen types.
+        Mapper.of(Long.class);
+        Mapper.of(byte[].class);
+
+        // Automatically maps object fields to columns with same names.
+        Mapper.of(UserObject.class);
+
+        // LongMapper -> long - is it possible?
+
+        // Shortcut (supported one-column key and value).
+        Mapper.of(Long.class, "colId");
+
+        // Shortcut (key and value represented by byte array)
+        Mapper.of(UserObject.class, "colData"); // Does one-column record make sense ??? either one-column table ???
+
+        // Keys, Values, and Records
+        Mapper.builder(Employee.class)
+                .map("fieldData", "colData")
+                .map("fieldData2", "colData1")
+                .build();
+
+        Mapper.builder(Employee.class)
+                .map("fieldData", "colData")
+                //                .automap() // map field->column by names
+                .build();
+
+        Mapper.builder(Employee.class).map(
+                "fieldData", "colData",
+                "fieldData2", "colData1"
+        ).build();
+
+        // Shortcuts (supported keys and values and records).
+        Mapper.of(Employee.class, "fieldData", "colData");
+        Mapper.of(Employee.class, "fieldData", "colData", "fieldData1", "colData1");
+
+        // Shortcut (supported one-column key and value) with additional transformation.
+        Mapper.of(UserObject.class, "data", marsh);
+
+        //  (supported one-column key and value and records) with additional transformation.
+        Mapper.builder(Employee.class)
+                //TODO: Will it be useful to set a bunch of columns that will use same converter (serializer) ???
+                // if so, then conflicts with the right next case.
+                .convert(marsh, "colData")
+                .map("fieldData", "colData")
+                .build();
+        // OR another way to do the same
+        Mapper.builder(Employee.class)
+                .map("fieldData", "colData", marsh)
+                .build();
+
+        // Next views shows different approaches to map user objects to columns.
+        KeyValueView<Long, Employee> v1 = t.keyValueView(
                 Mapper.of(Long.class),
-                // Class usage without a column name can work correctly only and only when the key part is single column.
-                Mapper.buildFrom(Employee.class).map("data", "val").build());
+                Mapper.of(Employee.class, "fieldData", "colData"));
+
+        KeyValueView<Long, Employee2> v2 = t.keyValueView(
+                Mapper.of(Long.class),
+                Mapper.builder(Employee2.class)
+                        .convert(marsh, "colData")
+                        .map("fieldData", "colData")
+                        .build()
+        );
 
         KeyValueView<Long, Employee2> v3 = t.keyValueView(
-                Mapper.of("key", Long.class),
-                Mapper.buildFrom(Employee2.class).map("data", "val").build());
+                Mapper.of(Long.class, "colId"),
+                Mapper.builder(Employee2.class).map("fieldData", "colData", marsh).build());
 
         KeyValueView<Long, UserObject> v4 = t.keyValueView(
-                Mapper.of("key", Long.class),
-                Mapper.of("data", UserObject.class));
+                Mapper.of(Long.class, "colId"),
+                Mapper.of(UserObject.class, "colData", marsh));
 
         KeyValueView<Long, byte[]> v5 = t.keyValueView(
-                Mapper.of("key", Long.class),
-                Mapper.of("data", byte[].class));
+                Mapper.of(Long.class, "colId"),
+                Mapper.of(byte[].class, "colData")
+        );
 
         // The values in next operations are equivalent, and lead to the same row value part content.
         v1.put(1L, new Employee());
-        v2.put(2L, new Employee());
+        v2.put(2L, new Employee2());
         v3.put(3L, new Employee2());
         v4.put(4L, new UserObject());
         v5.put(5L, new byte[]{/* serialized UserObject bytes */});
 
+        // Shortcut with classes for simple use-case
+        KeyValueView<Long, String> v6 = t.keyValueView(
+                Long.class,
+                String.class
+        );
+
+        // Shortcut with classes for widely used case
+        KeyValueView<Long, UserObject> v7 = t.keyValueView(
+                Long.class,
+                UserObject.class // obj.salary -> colSalary
+        );
+
+        // do the same as
+        KeyValueView<Long, UserObject> v8 = t.keyValueView(
+                Mapper.of(Long.class),
+                Mapper.builder(UserObject.class).automap().build() // obj.salary -> colSalary
+        );
+
+        KeyValueView<Long, UserObject> v9 = t.keyValueView(
+                Mapper.of(Long.class),
+                Mapper.of(UserObject.class, "colData", marsh) // UserObject -> byte[] -> colData
+        );
+
         // Get operations return the same result for all keys for each of row.
         // for 1 in 1..5
         //      v1.get(iL) == v1.get(1L);
+
+        // ============================  GET  ===============================================
+
+        new SchemaDescriptor(
+                1,
+                new Column[]{new Column("colId", NativeTypes.INT64, false)},
+                new Column[]{
+                        new Column("colData", NativeTypes.BYTES, true),
+                        new Column("colSalary", NativeTypes.BYTES, true)
+                }
+        );
+
+        UserObject obj = v4.get(1L); // indistinguishable absent value and null column
+
+        // Optional way
+        //        Optional<UserObject> optionalObj = v4.get(1L); // abuse of Optional type
+
+        // NullableValue way
+        NullableValue<UserObject> nullableValue = v4.getNullable(1L);
+
+        UserObject userObject = v4.get(1L); // what if user uses this syntax for nullable column?
+        // 1. Exception always
+        // 2. Exception if column value is null (use getNullable)
+
+        // Get or default
+        String str = v6.getOrDefault(1L, "default");
+
+        // ============================  PUT  ===============================================
+
+        v4.put(1L, null);
+        v4.remove(1L, null);
     }
+
+
+    /**
+     * Fully manual mapping case. Allows users to write powerful functions that will convert an object to a row and vice versa.
+     *
+     * <p>For now, it is the only case where conditional mapping (condition on another field) is possible. This case widely used in ORM
+     * (e.g. Hibernate) to store inherited objects in same table using a condition on special-purpose "discriminator" column.
+     *
+     * @param t Table.
+     */
+    public void useCase9(Table t) {
+        // Now assume that we have some POJO classes to deserialize the binary objects.
+        class Emploee {
+            String name;
+            String lastName;
+        }
+
+        // Here we
+        class EmploeeV2 extends Emploee {
+            int department;
+        }
+
+        // Or we can have an arbitrary record with custom class selection.
+        class UserRecord {
+            Emploee person;
+            int department; // Discriminator column.
+        }
+
+        RecordView<UserRecord> truncatedView2 = t.recordView(
+                Mapper.builder(UserRecord.class)
+                        // Next two functions of compatible interfaces parametrized with compatible generic types.
+                        // TODO: Do we require top-level class with a certain interface here ???
+                        .map(
+                                (obj) -> obj == null
+                                        ? null
+                                        : Tuple.create(Map.of(
+                                                "colPerson", BinaryObjects.serialize(obj),
+                                                "colDepartment", (obj.person instanceof EmploeeV2) ? 1 : 0
+                                        )),
+
+                                (row) -> {
+                                    if (row == null) {
+                                        return null;
+                                    }
+
+                                    UserRecord rec = new UserRecord();
+                                    int dep = row.intValue("colDepartment");
+
+                                    rec.department = dep;
+                                    rec.person = dep == 0 ? BinaryObjects.deserialize(row.binaryObjectValue("colPerson"), Emploee.class)
+                                            : BinaryObjects.deserialize(row.binaryObjectValue("colPerson"), EmploeeV2.class);
+
+                                    return rec;
+                                })
+                        .build());
+
+    }
+
 }

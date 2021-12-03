@@ -65,7 +65,6 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
 
     /** Marshaller package name prefix. */
     public static final String MARSHALLER_CLASS_NAME_PREFIX = "MarshallerForSchema_";
-
     /** Dump generated code. */
     private final boolean dumpCode = LOG.isTraceEnabled();
 
@@ -76,14 +75,12 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
 
         Class<K> keyClass = keyMapper.targetType();
         Class<V> valClass = valueMapper.targetType();
-
         final StringWriter writer = new StringWriter();
         try {
             // Generate Marshaller code.
             long generation = System.nanoTime();
 
             final ClassDefinition classDef = generateMarshallerClass(className, schema, keyClass, valClass);
-
             long compilationTime = System.nanoTime();
             generation = compilationTime - generation;
 
@@ -97,7 +94,6 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
             }
 
             final Class<? extends KvMarshaller> aClass = generator.defineClass(classDef, KvMarshaller.class);
-
             compilationTime = System.nanoTime() - compilationTime;
 
             if (LOG.isTraceEnabled()) {
@@ -121,7 +117,7 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
                             MarshallerUtil.factoryForClass(valClass));
 
         } catch (Exception | LinkageError e) {
-            throw new IgniteInternalException("Failed to create marshaller for key-value pair: schemaVer=" + schema.version()
+            throw new IllegalArgumentException("Failed to create marshaller for key-value pair: schemaVer=" + schema.version()
                     + ", keyClass=" + keyClass.getSimpleName() + ", valueClass=" + valClass.getSimpleName(), e);
         }
     }
@@ -131,7 +127,6 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
     public <R> RecordMarshaller<R> create(SchemaDescriptor schema, Mapper<R> mapper) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
-
     /**
      * Generates marshaller class definition.
      *
@@ -175,7 +170,6 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
         generateMarshalMethod(classDef, keyMarsh, valMarsh);
         generateUnmarshalKeyMethod(classDef, keyMarsh);
         generateUnmarshalValueMethod(classDef, valMarsh);
-
         return classDef;
     }
 
@@ -196,7 +190,6 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
 
         methodDef.getBody().push(schema.version()).retInt();
     }
-
     /**
      * Creates marshaller code generator for given class.
      *
@@ -227,8 +220,7 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
     private void generateFieldsAndConstructor(ClassDefinition classDef) {
         classDef.declareField(EnumSet.of(Access.PRIVATE, Access.FINAL), "keyFactory", ParameterizedType.type(ObjectFactory.class));
         classDef.declareField(EnumSet.of(Access.PRIVATE, Access.FINAL), "valFactory", ParameterizedType.type(ObjectFactory.class));
-        classDef.declareField(EnumSet.of(Access.PRIVATE, Access.FINAL), "schema", ParameterizedType.type(SchemaDescriptor.class));
-
+classDef.declareField(EnumSet.of(Access.PRIVATE, Access.FINAL), "schema", ParameterizedType.type(SchemaDescriptor.class));
         final MethodDefinition constrDef = classDef.declareConstructor(
                 EnumSet.of(Access.PUBLIC),
                 Parameter.arg("schema", SchemaDescriptor.class),

@@ -41,6 +41,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Objects;
 import java.util.Random;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -76,7 +77,7 @@ public class ColumnBindingTest {
     }
 
     /**
-     * FieldBinding. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * All native types field binding.
      *
      * @throws Exception If failed.
      */
@@ -118,20 +119,20 @@ public class ColumnBindingTest {
         final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
 
         for (int i = 0; i < cols.length; i++) {
-            ColumnBinding.createFieldBinding(cols[i].copy(i), TestObjectWithAllTypes.class, cols[i].name()).write(rowAssembler, obj);
+            ColumnBinding.createFieldBinding(cols[i].copy(i), TestObjectWithAllTypes.class, cols[i].name(), null).write(rowAssembler, obj);
         }
 
         final TestObjectWithAllTypes restoredObj = new TestObjectWithAllTypes();
 
         for (int i = 0; i < cols.length; i++) {
-            ColumnBinding.createFieldBinding(cols[i].copy(i), TestObjectWithAllTypes.class, cols[i].name()).read(row, restoredObj);
+            ColumnBinding.createFieldBinding(cols[i].copy(i), TestObjectWithAllTypes.class, cols[i].name(), null).read(row, restoredObj);
         }
 
         assertEquals(obj, restoredObj);
     }
 
     /**
-     * NullableFieldsBinding. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Nullable fields binding.
      *
      * @throws Exception If failed.
      */
@@ -153,20 +154,57 @@ public class ColumnBindingTest {
         final TestSimpleObject obj = TestSimpleObject.randomObject(rnd);
 
         for (int i = 0; i < cols.length; i++) {
-            ColumnBinding.createFieldBinding(cols[i].copy(i), TestSimpleObject.class, cols[i].name()).write(rowAssembler, obj);
+            ColumnBinding.createFieldBinding(cols[i].copy(i), TestSimpleObject.class, cols[i].name(), null)
+                    .write(rowAssembler, obj);
         }
 
         final TestSimpleObject restoredObj = new TestSimpleObject();
 
         for (int i = 0; i < cols.length; i++) {
-            ColumnBinding.createFieldBinding(cols[i].copy(i), TestSimpleObject.class, cols[i].name()).read(row, restoredObj);
+            ColumnBinding.createFieldBinding(cols[i].copy(i), TestSimpleObject.class, cols[i].name(), null)
+                    .read(row, restoredObj);
+        }
+
+        assertEquals(obj, restoredObj);
+    }
+
+
+    /**
+     * Fields binding with converter.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void fieldsBindingWithConverter() throws Exception {
+        Column[] cols = new Column[]{
+                new Column("data", BYTES, true),
+        };
+
+        final Pair<RowAssembler, Row> mocks = createMocks();
+
+        final RowAssembler rowAssembler = mocks.getFirst();
+        final Row row = mocks.getSecond();
+
+        TestObjectWrapper obj = new TestObjectWrapper();
+        obj.data = TestSimpleObject.randomObject(rnd);
+
+        for (int i = 0; i < cols.length; i++) {
+            ColumnBinding.createFieldBinding(cols[i].copy(i), TestObjectWrapper.class, cols[i].name(), new SerializingConverter())
+                    .write(rowAssembler, obj);
+        }
+
+        TestObjectWrapper restoredObj = new TestObjectWrapper();
+
+        for (int i = 0; i < cols.length; i++) {
+            ColumnBinding.createFieldBinding(cols[i].copy(i), TestObjectWrapper.class, cols[i].name(), new SerializingConverter())
+                    .read(row, restoredObj);
         }
 
         assertEquals(obj, restoredObj);
     }
 
     /**
-     * Identity binding.. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Identity binding.
      *
      * @throws Exception If failed.
      */
@@ -174,10 +212,11 @@ public class ColumnBindingTest {
     public void identityBinding() throws Exception {
         final ColumnBinding binding = ColumnBinding.createIdentityBinding(
                 new Column("val", STRING, true).copy(0),
-                String.class);
+                String.class,
+                null
+        );
 
         assertEquals("Some string", binding.value("Some string"));
-
         final Pair<RowAssembler, Row> mocks = createMocks();
 
         binding.write(mocks.getFirst(), "Other string");
@@ -185,23 +224,83 @@ public class ColumnBindingTest {
     }
 
     /**
-     * Wrong identity binding. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Identity binding with converter.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void identityBindingWithConverter() throws Exception {
+        final ColumnBinding binding = ColumnBinding.createIdentityBinding(
+                new Column("val", BYTES, true).copy(0),
+                TestSimpleObject.class,
+                new SerializingConverter());
+
+        final Pair<RowAssembler, Row> mocks = createMocks();
+
+        final RowAssembler rowAssembler = mocks.getFirst();
+        final Row row = mocks.getSecond();
+
+        final TestSimpleObject obj = TestSimpleObject.randomObject(rnd);
+
+        binding.write(rowAssembler, obj);
+
+        Object restoredObj = binding.columnValue(row);
+
+        assertEquals(obj, restoredObj);
+    }
+
+    /**
+     * Wrong identity binding.
      */
     @Test
     public void wrongIdentityBinding() {
+        // Incompatible types.
         final ColumnBinding binding = ColumnBinding.createIdentityBinding(
                 new Column("val", UUID, true).copy(0),
-                java.util.UUID.class);
+                java.util.UUID.class,
+                null);
 
         assertThrows(
                 MarshallerException.class,
                 () -> binding.value("Some string"));
-
         final Pair<RowAssembler, Row> mocks = createMocks();
 
         assertThrows(
                 MarshallerException.class,
                 () -> binding.write(mocks.getFirst(), "Other string")
+        );
+
+        // Implicit serialization is not supported yet.
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ColumnBinding.createIdentityBinding(
+                        new Column("val", BYTES, true).copy(0),
+                        TestSimpleObject.class,
+                        null)
+        );
+    }
+
+    /**
+     * Wrong identity binding.
+     */
+    @Test
+    public void wrongBinding() {
+        // Incompatible types.
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ColumnBinding.createFieldBinding(
+                        new Column("val", UUID, true).copy(0),
+                        TestObjectWrapper.class,
+                        "data",null)
+        );
+
+        // Implicit serialization is not supported yet.
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ColumnBinding.createFieldBinding(
+                        new Column("val", BYTES, true).copy(0),
+                        TestObjectWrapper.class,
+                        "data",null)
         );
     }
 
@@ -284,5 +383,29 @@ public class ColumnBindingTest {
         Mockito.doAnswer(rowAnswer).when(mockedRow).decimalValue(Mockito.anyInt());
 
         return new Pair<>(mockedAsm, mockedRow);
+    }
+
+    /**
+     * Object wrapper.
+     */
+    static class TestObjectWrapper {
+        TestSimpleObject data;
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TestObjectWrapper that = (TestObjectWrapper) o;
+            return Objects.equals(data, that.data);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(data);
+        }
     }
 }

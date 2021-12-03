@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema.marshaller.reflection;
 
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
 
-import java.util.Objects;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Columns;
@@ -68,8 +67,8 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         keyClass = keyMapper.targetType();
         valClass = valueMapper.targetType();
 
-        keyMarsh = Marshaller.createMarshaller(schema.keyColumns().columns(), keyMapper);
-        valMarsh = Marshaller.createMarshaller(schema.valueColumns().columns(), valueMapper);
+        keyMarsh = Marshaller.createMarshaller(schema.keyColumns().columns(), keyMapper, true);
+        valMarsh = Marshaller.createMarshaller(schema.valueColumns().columns(), valueMapper, false);
     }
 
     /** {@inheritDoc} */
@@ -80,18 +79,25 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
 
     /** {@inheritDoc} */
     @Override
+    public BinaryRow marshal(@NotNull K key) throws MarshallerException {
+        assert keyClass.isInstance(key);
+
+        final RowAssembler asm = createAssembler(key, null);
+
+        keyMarsh.writeObject(key, asm);
+
+        return new ByteBufferRow(asm.toBytes());
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public BinaryRow marshal(@NotNull K key, V val) throws MarshallerException {
         assert keyClass.isInstance(key);
         assert val == null || valClass.isInstance(val);
 
-        final RowAssembler asm = createAssembler(Objects.requireNonNull(key), val);
-
+        final RowAssembler asm = createAssembler(key, val);
         keyMarsh.writeObject(key, asm);
-
-        if (val != null) {
-            valMarsh.writeObject(val, asm);
-        }
-
+        valMarsh.writeObject(val, asm);
         return new ByteBufferRow(asm.toBytes());
     }
 

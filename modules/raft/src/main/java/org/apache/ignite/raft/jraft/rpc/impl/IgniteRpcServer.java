@@ -21,6 +21,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
+import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -55,6 +58,8 @@ import org.apache.ignite.raft.jraft.rpc.impl.core.TimeoutNowRequestProcessor;
  * TODO https://issues.apache.org/jira/browse/IGNITE-14519 Unsubscribe on shutdown
  */
 public class IgniteRpcServer implements RpcServer<Void> {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteRpcServer.class);
+
     private final ClusterService service;
 
     private final NodeManager nodeManager;
@@ -66,6 +71,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
     private final Map<String, RpcProcessor> processors = new ConcurrentHashMap<>();
 
     /**
+     * @param lockManager The lock manager.
      * @param service The cluster service.
      * @param nodeManager The node manager.
      * @param raftMessagesFactory Message factory.
@@ -89,7 +95,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new GetFileRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new InstallSnapshotRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new RequestVoteRequestProcessor(rpcExecutor, raftMessagesFactory));
-        registerProcessor(new PingRequestProcessor(rpcExecutor, raftMessagesFactory)); // TODO asch this should go last.
+        registerProcessor(new PingRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new TimeoutNowRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ReadIndexRequestProcessor(rpcExecutor, raftMessagesFactory));
         // raft native cli service
@@ -109,6 +115,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
         var messageHandler = new RpcMessageHandler();
 
+        // Add the handler after all processors are set up.
         service.messagingService().addMessageHandler(RaftMessageGroup.class, messageHandler);
 
         service.topologyService().addEventHandler(new TopologyEventHandler() {
@@ -160,27 +167,32 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
             RpcProcessor<NetworkMessage> finalPrc = prc;
 
-            executor.execute(() -> {
-                var context = new RpcContext() {
-                    @Override public NodeManager getNodeManager() {
-                        return nodeManager;
-                    }
+            try {
+                executor.execute(() -> {
+                    var context = new RpcContext() {
+                        @Override public NodeManager getNodeManager() {
+                            return nodeManager;
+                        }
 
-                    @Override public void sendResponse(Object responseObj) {
-                        service.messagingService().send(senderAddr, (NetworkMessage) responseObj, correlationId);
-                    }
+                        @Override public void sendResponse(Object responseObj) {
+                            service.messagingService().send(senderAddr, (NetworkMessage) responseObj, correlationId);
+                        }
 
-                    @Override public NetworkAddress getRemoteAddress() {
-                        return senderAddr;
-                    }
+                        @Override public NetworkAddress getRemoteAddress() {
+                            return senderAddr;
+                        }
 
-                    @Override public NetworkAddress getLocalAddress() {
-                        return service.topologyService().localMember().address();
-                    }
-                };
+                        @Override public NetworkAddress getLocalAddress() {
+                            return service.topologyService().localMember().address();
+                        }
+                    };
 
-                finalPrc.handleRequest(context, message);
-            });
+                    finalPrc.handleRequest(context, message);
+                });
+            } catch (RejectedExecutionException e) {
+                // The rejection is ok if an executor has been stopped, otherwise it shouldn't happen.
+                LOG.warn("A request execution was rejected [sender={} req={} reason={}]", senderAddr, S.toString(message), e.getMessage());
+            }
         }
     }
 
@@ -211,5 +223,6 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
     /** {@inheritDoc} */
     @Override public void shutdown() {
+        // Should deregister listeners.
     }
 }

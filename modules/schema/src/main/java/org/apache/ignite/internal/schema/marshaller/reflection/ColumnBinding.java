@@ -32,19 +32,23 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
+import org.apache.ignite.internal.schema.SchemaMismatchException;
+import org.apache.ignite.internal.schema.marshaller.BinaryMode;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.table.mapper.TypeConverter;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The class represents column-field binding and provides methods to read a column data to an object field, and to write an object field
  * data to a column. The degenerate case, when a whole object itself bind with a single column, is also supported via an identity method
  * handles.
  *
- * @see #createFieldBinding(Column, Class, String)
- * @see #createIdentityBinding(Column, Class)
+ * @see #createFieldBinding(Column, Class, String, TypeConverter)
+ * @see #createIdentityBinding(Column, Class, TypeConverter)
  */
 abstract class ColumnBinding {
     private static final MethodHandle NULL_WRITER;
@@ -96,8 +100,6 @@ abstract class ColumnBinding {
 
     private static final MethodHandle TRANSFORM_BEFORE_WRITE;
     private static final MethodHandle TRANSFORM_AFTER_READ;
-
-    static final SerializingInterceptor SERIALIZING_INTERCEPTOR = new SerializingInterceptor();
 
     static {
         try {
@@ -151,8 +153,8 @@ abstract class ColumnBinding {
             TIMESTAMP_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendTimestamp", Instant.class));
             DATETIME_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendDateTime", LocalDateTime.class));
 
-            TRANSFORM_AFTER_READ = lookup.unreflect(ColumnMapperInterceptor.class.getMethod("afterRead", Object.class));
-            TRANSFORM_BEFORE_WRITE = lookup.unreflect(ColumnMapperInterceptor.class.getMethod("beforeWrite", Object.class));
+            TRANSFORM_AFTER_READ = lookup.unreflect(TypeConverter.class.getMethod("toObjectType", Object.class));
+            TRANSFORM_BEFORE_WRITE = lookup.unreflect(TypeConverter.class.getMethod("toColumnType", Object.class));
         } catch (IllegalAccessException | NoSuchMethodException e) {
             throw new IllegalStateException(e);
         }
@@ -187,27 +189,29 @@ abstract class ColumnBinding {
     /**
      * Binds the individual object field with a column.
      *
-     * @param col     A column the field is mapped to.
-     * @param type    Object class.
-     * @param fldName Object field name.
+     * @param col       A column the field is mapped to.
+     * @param type      Object class.
+     * @param fldName   Object field name.
+     * @param converter Type converter or {@code null}.
      * @return Column to field binding.
      */
-    static ColumnBinding createFieldBinding(Column col, Class<?> type, @NotNull String fldName) {
+    static ColumnBinding createFieldBinding(Column col, Class<?> type, @NotNull String fldName, @Nullable TypeConverter<?, ?> converter) {
         try {
             final Field field = type.getDeclaredField(fldName);
 
             VarHandle varHandle = MethodHandles.privateLookupIn(type, MethodHandles.lookup()).unreflectVarHandle(field);
 
             if (varHandle.varType().isPrimitive() && col.nullable()) {
-                throw new IllegalArgumentException(String.format("Failed to map non-nullable field to nullable column: "
-                        + "columnName=%s, fieldName=%s, class=%s", col.name(), fldName, type.getName()));
+                throw new IllegalArgumentException(String.format("Failed to map non-nullable field to nullable column: columnName=%s, "
+                                                                         + "fieldName=%s, class=%s", col.name(), fldName, type.getName()));
             }
 
             return create(
                     col,
                     varHandle.varType(),
                     varHandle.toMethodHandle(VarHandle.AccessMode.GET),
-                    varHandle.toMethodHandle(VarHandle.AccessMode.SET)
+                    varHandle.toMethodHandle(VarHandle.AccessMode.SET),
+                    converter
             );
         } catch (NoSuchFieldException | SecurityException | IllegalAccessException ex) {
             throw new IllegalArgumentException(ex);
@@ -217,13 +221,22 @@ abstract class ColumnBinding {
     /**
      * Binds a column with an object of given type.
      *
-     * @param col  Column.
-     * @param type Object type.
+     * @param col       Column.
+     * @param type      Object type.
+     * @param converter Type converter or {@code null}.
      * @return Column to object binding.
      */
-    static @NotNull ColumnBinding createIdentityBinding(Column col, Class<?> type) {
+    static @NotNull ColumnBinding createIdentityBinding(Column col, Class<?> type, @Nullable TypeConverter<?, ?> converter) {
+        final BinaryMode mode = MarshallerUtil.mode(type);
+
+        if (mode.typeSpec() != col.type().spec()) {
+            throw new SchemaMismatchException(
+                    String.format("Object can't be mapped to a column of incompatible type: columnType=%s, mappedType=%s",
+                            col.type().spec(), type.getName()));
+        }
+
         final MethodHandle identityHandle = MethodHandles.identity(type);
-        return create(col, type, identityHandle, identityHandle);
+        return create(col, type, identityHandle, identityHandle, converter);
     }
 
     /**
@@ -233,63 +246,96 @@ abstract class ColumnBinding {
      * @param type         Object type.
      * @param getterHandle Field getter handle.
      * @param setterHandle Field setter handle.
+     * @param converter    Type converter or {@code null}.
      * @return Column binding.
      */
-    private static @NotNull ColumnBinding create(Column col, Class<?> type, MethodHandle getterHandle,
-            MethodHandle setterHandle) {
+    private static @NotNull ColumnBinding create(
+            Column col,
+            Class<?> type,
+            MethodHandle getterHandle,
+            MethodHandle setterHandle,
+            @Nullable TypeConverter<?, ?> converter
+    ) {
         final int colIdx = col.schemaIndex();
 
         switch (MarshallerUtil.mode(type)) {
             case P_BYTE:
-                return new PrimitiveFieldBinding(colIdx, getterHandle, setterHandle, P_BYTE_READER, BYTE_WRITER);
+                return create(colIdx, getterHandle, setterHandle, P_BYTE_READER, BYTE_WRITER, converter);
             case P_SHORT:
-                return new PrimitiveFieldBinding(colIdx, getterHandle, setterHandle, P_SHORT_READER, SHORT_WRITER);
+                return create(colIdx, getterHandle, setterHandle, P_SHORT_READER, SHORT_WRITER, converter);
             case P_INT:
-                return new PrimitiveFieldBinding(colIdx, getterHandle, setterHandle, P_INT_READER, INT_WRITER);
+                return create(colIdx, getterHandle, setterHandle, P_INT_READER, INT_WRITER, converter);
             case P_LONG:
-                return new PrimitiveFieldBinding(colIdx, getterHandle, setterHandle, P_LONG_READER, LONG_WRITER);
+                return create(colIdx, getterHandle, setterHandle, P_LONG_READER, LONG_WRITER, converter);
             case P_FLOAT:
-                return new PrimitiveFieldBinding(colIdx, getterHandle, setterHandle, P_FLOAT_READER, FLOAT_WRITER);
+                return create(colIdx, getterHandle, setterHandle, P_FLOAT_READER, FLOAT_WRITER, converter);
             case P_DOUBLE:
-                return new PrimitiveFieldBinding(colIdx, getterHandle, setterHandle, P_DOUBLE_READER, DOUBLE_WRITER);
+                return create(colIdx, getterHandle, setterHandle, P_DOUBLE_READER, DOUBLE_WRITER, converter);
             case BYTE:
-                return new DefaultBinding(colIdx, getterHandle, setterHandle, BYTE_READER, BYTE_WRITER);
+                return create(colIdx, getterHandle, setterHandle, BYTE_READER, BYTE_WRITER, converter);
             case SHORT:
-                return new DefaultBinding(colIdx, getterHandle, setterHandle, SHORT_READER, SHORT_WRITER);
+                return create(colIdx, getterHandle, setterHandle, SHORT_READER, SHORT_WRITER, converter);
             case INT:
-                return new DefaultBinding(colIdx, getterHandle, setterHandle, INT_READER, INT_WRITER);
+                return create(colIdx, getterHandle, setterHandle, INT_READER, INT_WRITER, converter);
             case LONG:
-                return new DefaultBinding(colIdx, getterHandle, setterHandle, LONG_READER, LONG_WRITER);
+                return create(colIdx, getterHandle, setterHandle, LONG_READER, LONG_WRITER, converter);
             case FLOAT:
-                return new DefaultBinding(colIdx, getterHandle, setterHandle, FLOAT_READER, FLOAT_WRITER);
+                return create(colIdx, getterHandle, setterHandle, FLOAT_READER, FLOAT_WRITER, converter);
             case DOUBLE:
-                return new DefaultBinding(colIdx, getterHandle, setterHandle, DOUBLE_READER, DOUBLE_WRITER);
+                return create(colIdx, getterHandle, setterHandle, DOUBLE_READER, DOUBLE_WRITER, converter);
             case STRING:
-                return new DefaultBinding(colIdx, getterHandle, setterHandle, STRING_READER, STRING_WRITER);
+                return create(colIdx, getterHandle, setterHandle, STRING_READER, STRING_WRITER, converter);
             case UUID:
-                return new DefaultBinding(colIdx, getterHandle, setterHandle, UUID_READER, UUID_WRITER);
+                return create(colIdx, getterHandle, setterHandle, UUID_READER, UUID_WRITER, converter);
             case BYTE_ARR:
-                return new DefaultBinding(colIdx, getterHandle, setterHandle, BYTE_ARR_READER, BYTE_ARR_WRITER);
+                return create(colIdx, getterHandle, setterHandle, BYTE_ARR_READER, BYTE_ARR_WRITER, converter);
             case BITSET:
-                return new DefaultBinding(colIdx, getterHandle, setterHandle, BITSET_READER, BITSET_WRITER);
+                return create(colIdx, getterHandle, setterHandle, BITSET_READER, BITSET_WRITER, converter);
             case NUMBER:
-                return new DefaultBinding(colIdx, getterHandle, setterHandle, NUMBER_READER, NUMBER_WRITER);
+                return create(colIdx, getterHandle, setterHandle, NUMBER_READER, NUMBER_WRITER, converter);
             case DECIMAL:
-                return new DefaultBinding(colIdx, getterHandle, setterHandle, DECIMAL_READER, DECIMAL_WRITER);
+                return create(colIdx, getterHandle, setterHandle, DECIMAL_READER, DECIMAL_WRITER, converter);
             case TIME:
-                return new DefaultBinding(colIdx, getterHandle, setterHandle, TIME_READER, TIME_WRITER);
+                return create(colIdx, getterHandle, setterHandle, TIME_READER, TIME_WRITER, converter);
             case DATE:
-                return new DefaultBinding(colIdx, getterHandle, setterHandle, DATE_READER, DATE_WRITER);
+                return create(colIdx, getterHandle, setterHandle, DATE_READER, DATE_WRITER, converter);
             case DATETIME:
-                return new DefaultBinding(colIdx, getterHandle, setterHandle, DATETIME_READER, DATETIME_WRITER);
+                return create(colIdx, getterHandle, setterHandle, DATETIME_READER, DATETIME_WRITER, converter);
             case TIMESTAMP:
-                return new DefaultBinding(colIdx, getterHandle, setterHandle, TIMESTAMP_READER, TIMESTAMP_WRITER);
+                return create(colIdx, getterHandle, setterHandle, TIMESTAMP_READER, TIMESTAMP_WRITER, converter);
             case POJO:
-                return new TransformingFieldAccessor(colIdx, getterHandle, setterHandle, BYTE_ARR_READER, BYTE_ARR_WRITER,
-                        SERIALIZING_INTERCEPTOR);
+                if (converter == null) {
+                    throw new IllegalArgumentException(String.format("Failed to bind column to a POJO class/field without converter:"
+                                                                             + " columnName=%s, targetType=%s", col.name(), type));
+                }
+
+                return create(colIdx, getterHandle, setterHandle, BYTE_ARR_READER, BYTE_ARR_WRITER, converter);
             default:
                 throw new IllegalArgumentException(
                         String.format("Failed to bind column to a class/field: columnName=%s, targetType=%s", col.name(), type));
+        }
+    }
+
+    /**
+     * Creates binding.
+     *
+     * @param colIdx       Column index.
+     * @param getterHandle Field getter handle.
+     * @param setterHandle Field setter handle.
+     * @param readerHandle Column reader handle.
+     * @param writerHandle Column writer handle.
+     * @param converter    Type converter or {@code null}.
+     * @return Column binding.
+     */
+    @NotNull
+    private static ColumnBinding create(int colIdx, MethodHandle getterHandle, MethodHandle setterHandle, MethodHandle readerHandle,
+            MethodHandle writerHandle, @Nullable TypeConverter<?, ?> converter) {
+        if (converter != null) {
+            return new TransformingBinding(colIdx, getterHandle, setterHandle, readerHandle, writerHandle, converter);
+        } else if (readerHandle.type().returnType().isPrimitive()) {
+            return new PrimitiveFieldBinding(colIdx, getterHandle, setterHandle, readerHandle, writerHandle);
+        } else {
+            return new DefaultBinding(colIdx, getterHandle, setterHandle, readerHandle, writerHandle);
         }
     }
 
@@ -501,10 +547,10 @@ abstract class ColumnBinding {
     /**
      * Binding implies an additional data transformation on before write/after read a column.
      */
-    private static class TransformingFieldAccessor extends ColumnBinding {
-        private MethodHandle afterReadHnd;
+    private static class TransformingBinding extends ColumnBinding {
+        private final MethodHandle afterReadHnd;
 
-        private MethodHandle beforeWriteHnd;
+        private final MethodHandle beforeWriteHnd;
 
         /**
          * Create transforming binding.
@@ -515,9 +561,9 @@ abstract class ColumnBinding {
          * @param readerHnd Column reader method handler.
          * @param writerHnd Column writer method handler.
          */
-        TransformingFieldAccessor(int colIdx, MethodHandle getterMtd, MethodHandle setterMtd, MethodHandle readerHnd,
+        TransformingBinding(int colIdx, MethodHandle getterMtd, MethodHandle setterMtd, MethodHandle readerHnd,
                 MethodHandle writerHnd,
-                ColumnMapperInterceptor<?, ?> interceptor) {
+                TypeConverter<?, ?> interceptor) {
             super(colIdx, getterMtd, setterMtd, readerHnd, writerHnd);
 
             afterReadHnd = TRANSFORM_AFTER_READ.bindTo(interceptor);

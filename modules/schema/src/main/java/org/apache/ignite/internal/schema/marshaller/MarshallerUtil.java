@@ -48,7 +48,6 @@ public final class MarshallerUtil {
             case BYTES:
                 // Return zero for pojo as they are not serialized yet.
                 return (val instanceof byte[]) ? ((byte[]) val).length : 0;
-
             case STRING:
                 // Overestimating size here prevents from later unwanted row buffer expanding.
                 return ((CharSequence) val).length() << 1;
