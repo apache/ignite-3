@@ -69,6 +69,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
+import org.apache.ignite.internal.schema.marshaller.reflection.SerializingConverter;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithNoDefaultConstructor;
@@ -384,7 +385,7 @@ public class KvMarshallerTest {
         final Object key = TestObjectWithNoDefaultConstructor.randomObject(rnd);
         final Object val = TestObjectWithNoDefaultConstructor.randomObject(rnd);
 
-        assertThrows(IgniteInternalException.class, () -> factory.create(schema, key.getClass(), val.getClass()));
+        assertThrows(IllegalArgumentException.class, () -> factory.create(schema, key.getClass(), val.getClass()));
     }
 
     @ParameterizedTest
@@ -464,11 +465,11 @@ public class KvMarshallerTest {
         final byte[] serializedPojo = serializeObject(pojo);
 
         final KvMarshaller<Long, TestPojo> marshaller1 = factory.create(schema,
-                Mapper.of(Long.class, "key"), Mapper.of(TestPojo.class, "val"));
+                Mapper.of(Long.class, "key"), Mapper.of(TestPojo.class, "val", new SerializingConverter<>()));
         final KvMarshaller<Long, byte[]> marshaller2 = factory.create(schema,
                 Mapper.of(Long.class, "key"), Mapper.of(byte[].class, "val"));
         final KvMarshaller<Long, TestPojoWrapper> marshaller3 = factory.create(schema,
-                Mapper.of(Long.class, "key"), Mapper.builder(TestPojoWrapper.class).map("pojoField", "val").build());
+                Mapper.of(Long.class, "key"), Mapper.builder(TestPojoWrapper.class).map("pojoField", "val", new SerializingConverter<>()).build());
         final KvMarshaller<Long, TestPojoWrapper> marshaller4 = factory.create(schema,
                 Mapper.of(Long.class, "key"), Mapper.builder(TestPojoWrapper.class).map("rawField", "val").build());
 

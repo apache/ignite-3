@@ -27,10 +27,10 @@ import org.apache.ignite.table.mapper.TypeConverter;
  * Serializes an arbitrary user object (that extends Serializable) into a byte[] before write to the column, and deserializes back after
  * read.
  */
-class SerializingInterceptor implements TypeConverter<Object, byte[]> {
+public class SerializingConverter<T> implements TypeConverter<T, byte[]> {
     /** {@inheritDoc} */
     @Override
-    public byte[] toColumnType(Object obj) throws Exception {
+    public byte[] toColumnType(T obj) throws Exception {
         if (obj == null) {
             return null;
         }
@@ -46,13 +46,13 @@ class SerializingInterceptor implements TypeConverter<Object, byte[]> {
 
     /** {@inheritDoc} */
     @Override
-    public Object toObjectType(byte[] data) throws Exception {
+    public T toObjectType(byte[] data) throws Exception {
         if (data == null) {
             return null;
         }
 
         try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(data))) {
-            return ois.readObject();
+            return (T) ois.readObject();
         }
     }
 }

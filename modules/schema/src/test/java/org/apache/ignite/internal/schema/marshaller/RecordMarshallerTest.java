@@ -281,7 +281,7 @@ public class RecordMarshallerTest {
 
         final Object rec = TestObjectWithNoDefaultConstructor.randomObject(rnd);
 
-        assertThrows(IgniteInternalException.class, () -> factory.create(schema, rec.getClass()));
+        assertThrows(IllegalArgumentException.class, () -> factory.create(schema, rec.getClass()));
     }
 
     @ParameterizedTest

@@ -137,7 +137,7 @@ public interface Mapper<T> {
             return cls;
         }
 
-        throw new IllegalArgumentException("Class has no native support (use PojoMapper instead): " + cls.getName());
+        throw new IllegalArgumentException("Class has no native support (type converter required): " + cls.getName());
     }
 
     /**

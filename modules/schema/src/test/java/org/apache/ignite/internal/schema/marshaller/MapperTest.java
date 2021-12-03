@@ -212,22 +212,19 @@ public class MapperTest {
             assertThrows(IllegalArgumentException.class, () -> Mapper.builder(TestObject.class)
                                                                        .map("id", "key")
                                                                        .map("longCol", "key")
-                                                                       .build()
             );
             assertThrows(IllegalArgumentException.class, () -> Mapper.builder(TestObject.class)
                                                                        .map("id", "key")
                                                                        .map("longCol", "key", new TestConverter())
-                                                                       .build()
             );
             assertThrows(IllegalArgumentException.class, () -> Mapper.builder(TestObject.class)
                                                                        .map("id", "key", "longCol", "key")
-                                                                       .build()
             );
         }
 
         // Missed column name
-        assertThrows(IllegalStateException.class, () -> Mapper.builder(TestObject.class)
-                                                                .map("id", "id", "longCol").build());
+        assertThrows(IllegalArgumentException.class, () -> Mapper.builder(TestObject.class)
+                                                                   .map("id", "id", "longCol"));
 
         // One field to many columns.
         {
@@ -251,14 +248,14 @@ public class MapperTest {
 
         // Invalid field name
         {
-            assertThrows(IllegalStateException.class, () -> Mapper.builder(TestObject.class)
-                                                                    .map("val", "val").build());
+            assertThrows(IllegalArgumentException.class, () -> Mapper.builder(TestObject.class)
+                                                                       .map("val", "val"));
 
-            assertThrows(IllegalStateException.class, () -> Mapper.builder(TestObject.class)
-                                                                    .map("val", "val", new TestConverter()).build());
+            assertThrows(IllegalArgumentException.class, () -> Mapper.builder(TestObject.class)
+                                                                       .map("val", "val", new TestConverter()));
 
-            assertThrows(IllegalStateException.class, () -> Mapper.builder(TestObject.class)
-                                                                    .map("id", "id", "val", "val").build());
+            assertThrows(IllegalArgumentException.class, () -> Mapper.builder(TestObject.class)
+                                                                       .map("id", "id", "val", "val"));
         }
 
         // Duplicate converters.
@@ -266,7 +263,6 @@ public class MapperTest {
                                                                    .map("id", "key")
                                                                    .convert(new TestConverter(), "val1")
                                                                    .convert(new TestConverter(), "val1")
-                                                                   .build()
         );
 
         MapperBuilder<TestObject> usedBuilder = Mapper.builder(TestObject.class).map("id", "key");

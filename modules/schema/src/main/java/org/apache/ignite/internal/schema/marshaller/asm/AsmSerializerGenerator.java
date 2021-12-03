@@ -120,7 +120,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
                             MarshallerUtil.factoryForClass(valClass));
 
         } catch (Exception | LinkageError e) {
-            throw new IgniteInternalException("Failed to create serializer for key-value pair: schemaVer=" + schema.version()
+            throw new IllegalArgumentException("Failed to create serializer for key-value pair: schemaVer=" + schema.version()
                     + ", keyClass=" + keyClass.getSimpleName() + ", valueClass=" + valClass.getSimpleName(), e);
         }
     }
