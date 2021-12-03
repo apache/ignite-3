@@ -392,16 +392,13 @@ classDef.declareField(EnumSet.of(Access.PRIVATE, Access.FINAL), "schema", Parame
 
         methodDef.declareAnnotation(Override.class);
 
-        final Variable obj = methodDef.getScope().declareVariable(Object.class, "obj");
-
-        if (!keyMarsh.isSimpleType()) {
-            methodDef.getBody().append(obj.set(methodDef.getThis().getField("keyFactory", ObjectFactory.class)
-                    .invoke("create", Object.class)));
-        }
+        final Variable objVar = methodDef.getScope().declareVariable(Object.class, "obj");
+        final Variable objFactory = methodDef.getScope().declareVariable("factory",
+                methodDef.getBody(), methodDef.getThis().getField("keyFactory", ObjectFactory.class));
 
         methodDef.getBody()
-                .append(keyMarsh.unmarshallObject(classDef.getType(), methodDef.getScope().getVariable("row"), obj))
-                .append(obj)
+                .append(keyMarsh.unmarshallObject(classDef.getType(), methodDef.getScope().getVariable("row"), objVar, objFactory))
+                .append(objVar)
                 .retObject();
     }
 
@@ -422,18 +419,13 @@ classDef.declareField(EnumSet.of(Access.PRIVATE, Access.FINAL), "schema", Parame
         methodDef.declareAnnotation(Override.class);
 
         final Variable obj = methodDef.getScope().declareVariable(Object.class, "obj");
-        final BytecodeBlock block = new BytecodeBlock();
+        final Variable objFactory = methodDef.getScope().declareVariable("factory",
+                methodDef.getBody(), methodDef.getThis().getField("valFactory", ObjectFactory.class));
 
-        if (!valMarsh.isSimpleType()) {
-            block.append(obj.set(methodDef.getThis().getField("valFactory", ObjectFactory.class)
-                    .invoke("create", Object.class)));
-        }
-
-        block.append(valMarsh.unmarshallObject(classDef.getType(), methodDef.getScope().getVariable("row"), obj))
+        methodDef.getBody()
+                .append(valMarsh.unmarshallObject(classDef.getType(), methodDef.getScope().getVariable("row"), obj, objFactory))
                 .append(obj)
                 .retObject();
-
-        methodDef.getBody().append(block);
     }
 
     /**

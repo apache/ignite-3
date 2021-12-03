@@ -73,19 +73,13 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
     /** {@inheritDoc} */
     @Override
-    public boolean isSimpleType() {
-        return false;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public BytecodeNode getValue(ParameterizedType marshallerClass, Variable obj,
             int i) {
         final ColumnAccessCodeGenerator columnAccessor = columnAccessors[i];
 
         return BytecodeExpressions.getStatic(marshallerClass, "FIELD_HANDLER_" + columnAccessor.columnIdx(),
-                        ParameterizedType.type(VarHandle.class))
-                .invoke("get", columnAccessor.mappedType(), obj);
+                ParameterizedType.type(VarHandle.class))
+                       .invoke("get", columnAccessor.mappedType(), obj);
     }
 
     /** {@inheritDoc} */
@@ -97,8 +91,8 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
             final ColumnAccessCodeGenerator columnAccessor = columnAccessors[i];
 
             final BytecodeExpression fld = BytecodeExpressions.getStatic(marshallerClass, "FIELD_HANDLER_" + columnAccessor.columnIdx(),
-                            ParameterizedType.type(VarHandle.class))
-                    .invoke("get", columnAccessor.mappedType(), obj);
+                    ParameterizedType.type(VarHandle.class))
+                                                   .invoke("get", columnAccessor.mappedType(), obj);
 
             final BytecodeExpression marshallNonNulExpr = asm.invoke(
                     columnAccessor.writeMethodName(),
@@ -122,8 +116,10 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
     /** {@inheritDoc} */
     @Override
-    public BytecodeBlock unmarshallObject(ParameterizedType marshallerClass, Variable row, Variable obj) {
+    public BytecodeBlock unmarshallObject(ParameterizedType marshallerClass, Variable row, Variable objVar, Variable objFactory) {
         final BytecodeBlock block = new BytecodeBlock();
+
+        block.append(objVar.set(objFactory.invoke("create", Object.class)));
 
         for (int i = 0; i < columns.length(); i++) {
             final ColumnAccessCodeGenerator columnAccessor = columnAccessors[i];
@@ -135,8 +131,8 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
             );
 
             block.append(BytecodeExpressions.getStatic(marshallerClass, "FIELD_HANDLER_" + columnAccessor.columnIdx(),
-                            ParameterizedType.type(VarHandle.class))
-                    .invoke("set", void.class, obj, val)
+                    ParameterizedType.type(VarHandle.class))
+                                 .invoke("set", void.class, objVar, val)
             );
         }
 
@@ -151,14 +147,10 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
         final BytecodeBlock body = init.getBody().append(
                 BytecodeExpressions.setStatic(
-                targetClassField,
+                        targetClassField,
                         BytecodeExpressions.invokeStatic(Class.class, "forName", Class.class,
                                 BytecodeExpressions.constantString(targetClass.getName()))
                 ));
-
-        if (isSimpleType()) {
-            return;
-        }
 
         body.append(
                 lookup.set(

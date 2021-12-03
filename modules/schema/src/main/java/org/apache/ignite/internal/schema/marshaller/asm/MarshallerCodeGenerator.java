@@ -28,11 +28,6 @@ import com.facebook.presto.bytecode.Variable;
  */
 public interface MarshallerCodeGenerator {
     /**
-     * Get is simple type flag: {@code true} if it is simple object marshaller, {@code false} otherwise.
-     */
-    boolean isSimpleType();
-
-    /**
      * Returns a code that access a field value of the {@code obj} for an associated column with given index.
      *
      * @param marshallerClass Marshaller class.
@@ -58,9 +53,10 @@ public interface MarshallerCodeGenerator {
      * @param marshallerClass Marshaller class.
      * @param row             Row.
      * @param obj             Result object variable.
+     * @param objFactory      Object factory variable.
      * @return Unmarshall object code.
      */
-    BytecodeNode unmarshallObject(ParameterizedType marshallerClass, Variable row, Variable obj);
+    BytecodeNode unmarshallObject(ParameterizedType marshallerClass, Variable row, Variable obj, Variable objFactory);
 
     /**
      * Initialize static VarHandle instances for accessing a target class, which the {@code targetClassField} holds.

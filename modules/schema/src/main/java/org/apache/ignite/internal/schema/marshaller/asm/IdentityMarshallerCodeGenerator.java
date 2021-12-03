@@ -41,12 +41,6 @@ class IdentityMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
     /** {@inheritDoc} */
     @Override
-    public boolean isSimpleType() {
-        return true;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public BytecodeNode getValue(ParameterizedType marshallerClass, Variable key, int i) {
         return key;
     }
@@ -59,7 +53,7 @@ class IdentityMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
     /** {@inheritDoc} */
     @Override
-    public BytecodeNode unmarshallObject(ParameterizedType type, Variable row, Variable obj) {
+    public BytecodeNode unmarshallObject(ParameterizedType type, Variable row, Variable obj, Variable objFactory) {
         return obj.set(
                 row.invoke(
                         columnAccessor.readMethodName(),
