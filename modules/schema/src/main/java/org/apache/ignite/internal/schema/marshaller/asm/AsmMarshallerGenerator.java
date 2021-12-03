@@ -127,6 +127,7 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
     public <R> RecordMarshaller<R> create(SchemaDescriptor schema, Mapper<R> mapper) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
+
     /**
      * Generates marshaller class definition.
      *
@@ -190,6 +191,7 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
 
         methodDef.getBody().push(schema.version()).retInt();
     }
+
     /**
      * Creates marshaller code generator for given class.
      *
@@ -220,7 +222,8 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
     private void generateFieldsAndConstructor(ClassDefinition classDef) {
         classDef.declareField(EnumSet.of(Access.PRIVATE, Access.FINAL), "keyFactory", ParameterizedType.type(ObjectFactory.class));
         classDef.declareField(EnumSet.of(Access.PRIVATE, Access.FINAL), "valFactory", ParameterizedType.type(ObjectFactory.class));
-classDef.declareField(EnumSet.of(Access.PRIVATE, Access.FINAL), "schema", ParameterizedType.type(SchemaDescriptor.class));
+        classDef.declareField(EnumSet.of(Access.PRIVATE, Access.FINAL), "schema", ParameterizedType.type(SchemaDescriptor.class));
+
         final MethodDefinition constrDef = classDef.declareConstructor(
                 EnumSet.of(Access.PUBLIC),
                 Parameter.arg("schema", SchemaDescriptor.class),
