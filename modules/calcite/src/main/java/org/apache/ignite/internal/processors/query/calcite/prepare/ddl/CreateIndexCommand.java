@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.processors.query.calcite.prepare.ddl;
 
-import java.util.Set;
+import java.util.List;
 import org.apache.ignite.internal.util.Pair;
 
 /**
@@ -28,7 +28,7 @@ public class CreateIndexCommand extends AbstractDdlCommand {
     private String indexName;
 
     /** Colunms covered with ordering. */
-    Set<Pair<String, Boolean>> cols;
+    List<Pair<String, Boolean>> cols;
 
     /** Return idx name. */
     public String indexName() {
@@ -40,11 +40,11 @@ public class CreateIndexCommand extends AbstractDdlCommand {
         this.indexName = indexName;
     }
     
-    public Set<Pair<String, Boolean>> columns() {
+    public List<Pair<String, Boolean>> columns() {
         return cols;
     }
     
-    public void columns(Set<Pair<String, Boolean>> cols) {
+    public void columns(List<Pair<String, Boolean>> cols) {
         this.cols = cols;
     }
 }

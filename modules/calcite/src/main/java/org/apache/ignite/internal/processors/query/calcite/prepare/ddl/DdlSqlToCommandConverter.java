@@ -301,7 +301,7 @@ public class DdlSqlToCommandConverter {
         createIdxCmd.tableName(deriveObjectName(sqlCmd.tableName(), ctx, "table name"));
         createIdxCmd.indexName(sqlCmd.indexName().getSimple());
         
-        Set<Pair<String, Boolean>> cols = new HashSet<>(sqlCmd.columnList().size());
+        List<Pair<String, Boolean>> cols = new ArrayList<>(sqlCmd.columnList().size());
         
         for (SqlNode col : sqlCmd.columnList().getList()) {
             boolean desc = false;
