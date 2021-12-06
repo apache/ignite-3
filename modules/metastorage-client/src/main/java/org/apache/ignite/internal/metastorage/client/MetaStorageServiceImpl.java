@@ -343,7 +343,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         return new WatchEvent(evts);
     }
-    
+
     /**
      * Watch events publisher.
      */
@@ -353,10 +353,10 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         /** Start key of range (inclusive). Could be {@code null}. */
         private final ByteArray keyFrom;
-        
+
         /** End key of range (exclusive). Could be {@code null}. */
         private final ByteArray keyTo;
-        
+
         /** Set of target keys. Couldn't be {@code null} or empty. */
         private final Set<ByteArray> keys;
 
@@ -365,7 +365,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
          * storage state).
          */
         private long revision;
-        
+
         /**
          * The constructor.
          *
@@ -403,21 +403,18 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             this.keys = Collections.unmodifiableSet(keys);
             this.revision = revision;
         }
-        
-        
-        /**
-         * {@inheritDoc}
-         */
+
+        /** {@inheritDoc} */
         @Override
         public void subscribe(Flow.Subscriber<? super WatchEvent> subscriber) {
             if (subscriber == null) {
                 throw new NullPointerException("Subscriber is null");
             }
-            
+
             if (!subscribed.compareAndSet(false, true)) {
                 subscriber.onError(new IllegalStateException("Watch events publisher does not support multiple subscriptions."));
             }
-    
+
             WatchEventsSubscription subscription = keys == null
                     ?
                     new WatchEventsSubscription(subscriber, keyFrom, keyTo, revision) :
@@ -425,30 +422,38 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
             subscriber.onSubscribe(subscription);
         }
-        
+
         /**
          * Watch events subscription.
          */
         private class WatchEventsSubscription implements Flow.Subscription {
-            /** Subscriber. */
+            /**
+             * Subscriber.
+             */
             private final Flow.Subscriber<? super WatchEvent> subscriber;
-            
-            /** Flag that denotes that subscription was canceled. */
+
+            /**
+             * Flag that denotes that subscription was canceled.
+             */
             private final AtomicBoolean canceled;
 
-            /** Watch id to uniquely identify it on server side. */
+            /**
+             * Watch id to uniquely identify it on server side.
+             */
             private final IgniteUuid watchId;
 
-            /** Watch initial operation that created server cursor. */
+            /**
+             * Watch initial operation that created server cursor.
+             */
             private final CompletableFuture<Void> watchInitOp;
-    
+
             /**
              * The constructor.
              *
              * @param subscriber The subscriber.
-             * @param keyFrom    Start key of range (inclusive).
-             * @param keyTo      End key of range (exclusive).
-             * @param revision   Start revision inclusive. {@code 0} - all revisions.
+             * @param keyFrom Start key of range (inclusive).
+             * @param keyTo End key of range (exclusive).
+             * @param revision Start revision inclusive. {@code 0} - all revisions.
              */
             private WatchEventsSubscription(
                     Flow.Subscriber<? super WatchEvent> subscriber,
@@ -461,13 +466,13 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 this.watchId = UUID_GENERATOR.randomUuid();
                 this.watchInitOp = metaStorageRaftGrpSvc.run(new WatchRangeKeysCommand(keyFrom, keyTo, revision, localNodeId, watchId));
             }
-    
+
             /**
              * The constructor.
              *
              * @param subscriber The subscriber.
-             * @param keys       The keys collection. Couldn't be {@code null}.
-             * @param revision   Start revision inclusive. {@code 0} - all revisions.
+             * @param keys The keys collection. Couldn't be {@code null}.
+             * @param revision Start revision inclusive. {@code 0} - all revisions.
              */
             private WatchEventsSubscription(
                     Flow.Subscriber<? super WatchEvent> subscriber,
@@ -479,7 +484,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 this.watchId = UUID_GENERATOR.randomUuid();
                 this.watchInitOp = metaStorageRaftGrpSvc.run(new WatchExactKeysCommand(keys, revision, localNodeId, watchId));
             }
-            
+
             /**
              * {@inheritDoc}
              */
@@ -487,19 +492,19 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             public void request(long n) {
                 if (n <= 0) {
                     cancel();
-                    
+
                     subscriber.onError(
                             new IllegalArgumentException(
                                     LoggerMessageHelper.format("Invalid requested amount of items [requested={}, minValue=1]", n))
                     );
                 }
-                
+
                 // TODO: IGNITE-14691 Back pressure logic should be adjusted after implementing reactive server-side watches.
                 assert n == 1 : LoggerMessageHelper.format("Invalid requested amount of watch items [requested={}, expected=1]", n);
-                
+
                 watchInitOp.thenRun(this::retrieveNextWatchEvent);
             }
-            
+
             /**
              * {@inheritDoc}
              */
@@ -507,7 +512,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             public void cancel() {
                 cancel(true);
             }
-            
+
             /**
              * Cancels given subscription and closes cursor if necessary.
              *
@@ -517,16 +522,16 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 if (!canceled.compareAndSet(false, true)) {
                     return;
                 }
-                
+
                 if (closeCursor) {
                     watchInitOp.thenRun(() -> metaStorageRaftGrpSvc.run(new CursorCloseCommand(watchId))).exceptionally(closeT -> {
                         LOG.warn("Unable to close watch.", closeT);
-                        
+
                         return null;
                     });
                 }
             }
-            
+
             /**
              * Retrieves next watch event.
              */
@@ -535,28 +540,28 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 if (canceled.get()) {
                     return;
                 }
-                
+
                 metaStorageRaftGrpSvc.<Boolean>run(new CursorHasNextCommand(watchId))
                         .thenAccept((hasNext) -> {
                             if (hasNext) {
                                 metaStorageRaftGrpSvc.run(new CursorNextCommand(watchId))
                                         .thenAccept((res) -> {
                                                     WatchEvent item = watchResponse(res);
-                                                    
+
                                                     subscriber.onNext(item);
-                                                    
+
                                                 }
                                         )
                                         .exceptionally(
                                                 t -> {
                                                     cancel(!watchInitOp.isCompletedExceptionally());
-    
+
                                                     if (t instanceof CompletionException) {
                                                         subscriber.onError(t.getCause());
                                                     } else {
                                                         subscriber.onError(t);
                                                     }
-                                                    
+
                                                     return null;
                                                 }
                                         );
@@ -572,7 +577,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             }
         }
     }
-    
+
     /**
      * Range publisher.
      */
@@ -580,17 +585,17 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         /** Start key of range (inclusive). Couldn't be {@code null}. */
         @NotNull
         private final ByteArray keyFrom;
-        
+
         /** End key of range (exclusive). Could be {@code null}. */
         @Nullable
         private final ByteArray keyTo;
-        
+
         /** The upper bound for entry revision. {@code -1} means latest revision. */
         private final long revUpperBound;
-    
+
         /** Flag that denotes that there's an active subscription. */
         private final AtomicBoolean subscribed;
-    
+
         /**
          * The constructor.
          *
@@ -608,39 +613,39 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             this.revUpperBound = revUpperBound;
             this.subscribed = new AtomicBoolean(false);
         }
-        
+
         /** {@inheritDoc} */
         @Override
         public void subscribe(Flow.Subscriber<? super Entry> subscriber) {
             if (subscriber == null) {
                 throw new NullPointerException("Subscriber is null");
             }
-            
+
             if (!subscribed.compareAndSet(false, true)) {
                 subscriber.onError(new IllegalStateException("Range publisher does not support multiple subscriptions."));
             }
-            
+
             RangeSubscription subscription = new RangeSubscription(subscriber);
-            
+
             subscriber.onSubscribe(subscription);
         }
-        
+
         /**
          * Partition Scan Subscription.
          */
         private class RangeSubscription implements Subscription {
             /** Subscriber. */
             private final Subscriber<? super Entry> subscriber;
-    
+
             /** Flag that denotes that subscription was canceled. */
             private final AtomicBoolean canceled;
-            
+
             /** Scan id to uniquely identify it on server side. */
             private final IgniteUuid scanId;
 
             /** Scan initial operation that created server cursor. */
             private final CompletableFuture<Void> scanInitOp;
-            
+
             /**
              * The constructor.
              *
@@ -655,41 +660,41 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                         metaStorageRaftGrpSvc.run(new RangeCommand(keyFrom, keyTo, localNodeId, scanId)) :
                         metaStorageRaftGrpSvc.run(new RangeCommand(keyFrom, keyTo, revUpperBound, localNodeId, scanId));
             }
-            
+
             /** {@inheritDoc} */
             @Override
             public void request(long n) {
                 if (n <= 0) {
                     cancel();
-                    
+
                     subscriber.onError(new IllegalArgumentException(LoggerMessageHelper
                             .format("Invalid requested amount of items [requested={}, minValue=1]", n))
                     );
                 }
-                
+
                 if (canceled.get()) {
                     return;
                 }
-                
+
                 final int internalBatchSize = Integer.MAX_VALUE;
-                
+
                 for (int intBatchCnr = 0; intBatchCnr < (n / internalBatchSize); intBatchCnr++) {
                     if (canceled.get()) {
                         return;
                     }
-                    
+
                     scanBatch(internalBatchSize);
                 }
-                
+
                 scanBatch((int) (n % internalBatchSize));
             }
-    
+
             /** {@inheritDoc} */
             @Override
             public void cancel() {
                 cancel(true);
             }
-            
+
             /**
              * Cancels given subscription and closes cursor if necessary.
              *
@@ -699,16 +704,16 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 if (!canceled.compareAndSet(false, true)) {
                     return;
                 }
-                
+
                 if (closeCursor) {
                     scanInitOp.thenRun(() -> metaStorageRaftGrpSvc.run(new CursorCloseCommand(scanId))).exceptionally(closeT -> {
                         LOG.warn("Unable to close scan.", closeT);
-                        
+
                         return null;
                     });
                 }
             }
-            
+
             /**
              * Requests and processes n requested elements where n is an integer.
              *
@@ -742,7 +747,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                             .exceptionally(
                                     t -> {
                                         cancel(!scanInitOp.isCompletedExceptionally());
-    
+
                                         if (t instanceof CompletionException) {
                                             subscriber.onError(t.getCause());
                                         } else {

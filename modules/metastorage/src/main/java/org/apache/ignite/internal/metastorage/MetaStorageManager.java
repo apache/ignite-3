@@ -103,7 +103,7 @@ public class MetaStorageManager implements IgniteComponent {
                 public void request(long n) {
                     // No-op.
                 }
-            
+
                 @Override
                 public void cancel() {
                     // No-op.
@@ -134,7 +134,7 @@ public class MetaStorageManager implements IgniteComponent {
      * @see WatchAggregator
      */
     private final WatchAggregator watchAggregator = new WatchAggregator();
-    
+
     /** Watch subscription future. */
     private volatile CompletableFuture<Flow.Subscription> watchSubscription = new CompletableFuture<>();
 
@@ -333,7 +333,7 @@ public class MetaStorageManager implements IgniteComponent {
             busyLock.leaveBusy();
         }
     }
-    
+
     /**
      * Register watch listener by key.
      *
@@ -348,7 +348,7 @@ public class MetaStorageManager implements IgniteComponent {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
-        
+
         try {
             return waitForReDeploy(watchAggregator.add(key, lsnr));
         } finally {
@@ -673,7 +673,7 @@ public class MetaStorageManager implements IgniteComponent {
             busyLock.leaveBusy();
         }
     }
-    
+
     /**
      * Updates an entry for the given key conditionally.
      *
@@ -776,7 +776,7 @@ public class MetaStorageManager implements IgniteComponent {
 
         try {
             var rangeCriterion = KeyCriterion.RangeCriterion.fromPrefixKey(keyPrefix);
-    
+
             return new RangePublisher(rangeCriterion.from(), rangeCriterion.to(), appliedRevision(), metaStorageSvcFut);
         } finally {
             busyLock.leaveBusy();
@@ -819,7 +819,7 @@ public class MetaStorageManager implements IgniteComponent {
 
         try {
             var rangeCriterion = KeyCriterion.RangeCriterion.fromPrefixKey(keyPrefix);
-    
+
             return new RangePublisher(rangeCriterion.from(), rangeCriterion.to(), appliedRevision(), metaStorageSvcFut);
         } finally {
             busyLock.leaveBusy();
@@ -869,7 +869,7 @@ public class MetaStorageManager implements IgniteComponent {
                         watch -> dispatchAppropriateMetaStorageWatch(watch),
                         () -> watchSubscription.complete(WATCH_NOOP_SUBSCRIPTION)
                 );
-    
+
         return watchSubscription;
     }
 
@@ -1059,7 +1059,7 @@ public class MetaStorageManager implements IgniteComponent {
      */
     private void dispatchAppropriateMetaStorageWatch(AggregatedWatch aggregatedWatch) {
         Flow.Subscriber<WatchEvent> watchSubscriber = new Flow.Subscriber<>() {
-        
+
             @Override
             public void onSubscribe(Flow.Subscription subscription) {
                 if (!busyLock.enterBusy()) {
@@ -1067,13 +1067,13 @@ public class MetaStorageManager implements IgniteComponent {
                 }
                 try {
                     watchSubscription.complete(subscription);
-                
+
                     subscription.request(1);
                 } finally {
                     busyLock.leaveBusy();
                 }
             }
-        
+
             @Override
             public void onNext(WatchEvent item) {
                 if (!busyLock.enterBusy()) {
@@ -1081,7 +1081,7 @@ public class MetaStorageManager implements IgniteComponent {
                 }
                 try {
                     aggregatedWatch.listener().onUpdate(item);
-                
+
                     try {
                         watchSubscription.get().request(1);
                     } catch (InterruptedException | ExecutionException e) {
@@ -1091,7 +1091,7 @@ public class MetaStorageManager implements IgniteComponent {
                     busyLock.leaveBusy();
                 }
             }
-        
+
             @Override
             public void onError(Throwable throwable) {
                 if (!busyLock.enterBusy()) {
@@ -1103,16 +1103,16 @@ public class MetaStorageManager implements IgniteComponent {
                     busyLock.leaveBusy();
                 }
             }
-        
+
             @Override
             public void onComplete() {
                 assert false; // should never get here.
             }
         };
-    
+
         if (aggregatedWatch.keyCriterion() instanceof KeyCriterion.CollectionCriterion) {
             var criterion = (KeyCriterion.CollectionCriterion) aggregatedWatch.keyCriterion();
-        
+
             metaStorageSvcFut.thenAccept(
                     metaStorageSvc -> metaStorageSvc.watch(
                             criterion.keys(),
@@ -1121,7 +1121,7 @@ public class MetaStorageManager implements IgniteComponent {
             );
         } else if (aggregatedWatch.keyCriterion() instanceof KeyCriterion.ExactCriterion) {
             var criterion = (KeyCriterion.ExactCriterion) aggregatedWatch.keyCriterion();
-        
+
             metaStorageSvcFut.thenAccept(
                     metaStorageSvc -> metaStorageSvc.watch(
                             criterion.key(),
@@ -1130,7 +1130,7 @@ public class MetaStorageManager implements IgniteComponent {
             );
         } else if (aggregatedWatch.keyCriterion() instanceof KeyCriterion.RangeCriterion) {
             var criterion = (KeyCriterion.RangeCriterion) aggregatedWatch.keyCriterion();
-        
+
             metaStorageSvcFut.thenAccept(
                     metaStorageSvc -> metaStorageSvc.watch(
                             criterion.from(),
@@ -1161,7 +1161,7 @@ public class MetaStorageManager implements IgniteComponent {
 
         return metaStorageMembers;
     }
-    
+
     /**
      * Range publisher.
      */
@@ -1169,18 +1169,18 @@ public class MetaStorageManager implements IgniteComponent {
         /** Start key of range (inclusive). Couldn't be {@code null}. */
         @NotNull
         private final ByteArray keyFrom;
-    
+
         /** End key of range (exclusive). Could be {@code null}. */
         @Nullable
         private final ByteArray keyTo;
-    
+
         /** The upper bound for entry revision. {@code -1} means latest revision. */
         private final long revUpperBound;
-    
+
         /** Meta storage service. */
         @NotNull
         private volatile CompletableFuture<MetaStorageService> metaStorageSvcFut;
-    
+
         /**
          * The constructor.
          *
@@ -1200,7 +1200,7 @@ public class MetaStorageManager implements IgniteComponent {
             this.revUpperBound = revUpperBound;
             this.metaStorageSvcFut = metaStorageSvcFut;
         }
-        
+
         /** {@inheritDoc} */
         @Override
         public void subscribe(Flow.Subscriber<? super Entry> subscriber) {

@@ -532,30 +532,30 @@ public class ItMetaStorageServiceTest {
         when(mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), expRevUpperBound)).thenReturn(mock(Cursor.class));
 
         final AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
-    
+
         metaStorageSvc.range(expKeyFrom, expKeyTo, expRevUpperBound).subscribe(
                 new Subscriber<>() {
                     @Override
                     public void onSubscribe(Subscription subscription) {
                         subscriptionRef.set(subscription);
                     }
-                
+
                     @Override
                     public void onNext(Entry item) {
-                    
+
                     }
-                
+
                     @Override
                     public void onError(Throwable throwable) {
-                    
+
                     }
-                
+
                     @Override
                     public void onComplete() {
-                    
+
                     }
                 });
-    
+
         subscriptionRef.get().cancel();
     }
 
@@ -569,11 +569,11 @@ public class ItMetaStorageServiceTest {
         ByteArray expKeyTo = new ByteArray(new byte[]{3});
 
         when(mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes())).thenReturn(mock(Cursor.class));
-    
+
         CountDownLatch cursorAwaitLatch = new CountDownLatch(1);
 
         final AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
-        
+
         metaStorageSvc.range(expKeyFrom, expKeyTo).subscribe(
                 new Subscriber<>() {
                     @Override
@@ -585,24 +585,24 @@ public class ItMetaStorageServiceTest {
 
                     @Override
                     public void onNext(Entry item) {
-                    
+
                     }
-                
+
                     @Override
                     public void onError(Throwable throwable) {
-                    
+
                     }
-                
+
                     @Override
                     public void onComplete() {
-                    
+
                     }
                 });
-        
+
         cursorAwaitLatch.await(1000, TimeUnit.MILLISECONDS);
-    
+
         verify(mockStorage).range(expKeyFrom.bytes(), expKeyTo.bytes());
-        
+
         subscriptionRef.get().cancel();
     }
 
@@ -616,11 +616,11 @@ public class ItMetaStorageServiceTest {
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
         when(mockStorage.range(expKeyFrom.bytes(), null)).thenReturn(mock(Cursor.class));
-    
+
         CountDownLatch cursorAwaitLatch = new CountDownLatch(1);
 
         final AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
-        
+
         metaStorageSvc.range(expKeyFrom, null).subscribe(
                 new Subscriber<>() {
                     @Override
@@ -628,27 +628,27 @@ public class ItMetaStorageServiceTest {
                         subscriptionRef.set(subscription);
                         cursorAwaitLatch.countDown();
                     }
-            
+
                     @Override
                     public void onNext(Entry item) {
-                
+
                     }
-            
+
                     @Override
                     public void onError(Throwable throwable) {
-                
+
                     }
-            
+
                     @Override
                     public void onComplete() {
-                
+
                     }
                 });
-    
+
         cursorAwaitLatch.await(1000, TimeUnit.MILLISECONDS);
-    
+
         verify(mockStorage).range(ArgumentMatchers.eq(expKeyFrom.bytes()), isNull());
-    
+
         subscriptionRef.get().cancel();
     }
 
@@ -667,9 +667,9 @@ public class ItMetaStorageServiceTest {
 
             return cursor;
         });
-    
+
         final AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
-    
+
         final AtomicReference<Entry> gotEntry = new AtomicReference<>();
 
         metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null).subscribe(
@@ -677,23 +677,23 @@ public class ItMetaStorageServiceTest {
                     @Override
                     public void onSubscribe(Subscription subscription) {
                         subscriptionRef.set(subscription);
-                        
+
                         subscription.request(1);
                     }
-                
+
                     @Override
                     public void onNext(Entry item) {
                         gotEntry.set(item);
                     }
-                
+
                     @Override
                     public void onError(Throwable throwable) {
-                    
+
                     }
-                
+
                     @Override
                     public void onComplete() {
-                    
+
                     }
                 });
 
@@ -701,11 +701,11 @@ public class ItMetaStorageServiceTest {
                 () -> gotEntry.get() != null && Arrays.equals(EXPECTED_SRV_RESULT_ENTRY.key(), gotEntry.get().key().bytes()),
                 1_000)
         );
-        
+
         assertTrue(Arrays.equals(EXPECTED_SRV_RESULT_ENTRY.value(), gotEntry.get().value()));
         assertEquals(EXPECTED_SRV_RESULT_ENTRY.revision(), gotEntry.get().revision());
         assertEquals(EXPECTED_SRV_RESULT_ENTRY.updateCounter(), gotEntry.get().updateCounter());
-    
+
         subscriptionRef.get().cancel();
     }
 
@@ -724,9 +724,9 @@ public class ItMetaStorageServiceTest {
 
             return cursor;
         });
-    
+
         final AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
-    
+
         final AtomicReference<Throwable> gotException = new AtomicReference<>();
 
         metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null).subscribe(
@@ -734,29 +734,29 @@ public class ItMetaStorageServiceTest {
                     @Override
                     public void onSubscribe(Subscription subscription) {
                         subscriptionRef.set(subscription);
-                    
+
                         subscription.request(1);
                     }
-                
+
                     @Override
                     public void onNext(Entry item) {
 
                     }
-                
+
                     @Override
                     public void onError(Throwable throwable) {
                         gotException.set(throwable);
                     }
-                
+
                     @Override
                     public void onComplete() {
-                    
+
                     }
                 });
-    
+
         assertTrue(waitForCondition(() -> gotException.get() != null && NoSuchElementException.class.equals(gotException.get().getClass()),
                 1_000));
-    
+
         subscriptionRef.get().cancel();
     }
 
@@ -822,34 +822,34 @@ public class ItMetaStorageServiceTest {
 
             return cursor;
         });
-        
+
         List<WatchEvent> gotEvent = new ArrayList<>();
-        
+
         metaStorageSvc.watch(keyFrom, keyTo, rev).subscribe(new Subscriber<WatchEvent>() {
             private volatile Subscription subscription;
-            
+
             @Override
             public void onSubscribe(Subscription subscription) {
                 this.subscription = subscription;
                 subscription.request(1);
             }
-    
+
             @Override
             public void onNext(WatchEvent item) {
                 gotEvent.add(item);
             }
-    
+
             @Override
             public void onError(Throwable throwable) {
-        
+
             }
-    
+
             @Override
             public void onComplete() {
-        
+
             }
         });
-    
+
         waitForCondition(() -> gotEvent.equals(expectedEvent), 1000);
     }
 
@@ -917,7 +917,7 @@ public class ItMetaStorageServiceTest {
      * Wait for topology.
      *
      * @param cluster The cluster.
-     * @param exp     Expected count.
+     * @param exp Expected count.
      * @param timeout The timeout in millis.
      * @return {@code True} if topology size is equal to expected.
      */
