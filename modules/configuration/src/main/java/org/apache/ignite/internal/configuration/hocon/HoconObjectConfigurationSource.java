@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.jo
 import com.typesafe.config.ConfigList;
 import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
+import com.typesafe.config.ConfigValueType;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -41,17 +42,17 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
      * Key that needs to be ignored by the source. Can be {@code null}.
      */
     private final String ignoredKey;
-    
+
     /**
      * Current path inside the top-level HOCON object.
      */
     private final List<String> path;
-    
+
     /**
      * HOCON object that this source has been created from.
      */
     private final ConfigObject hoconCfgObject;
-    
+
     /**
      * Creates a {@link ConfigurationSource} from the given HOCON object.
      *
@@ -65,55 +66,55 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
         this.path = path;
         this.hoconCfgObject = hoconCfgObject;
     }
-    
+
     /** {@inheritDoc} */
     @Override
     public <T> T unwrap(Class<T> clazz) {
         throw wrongTypeException(clazz, path, -1);
     }
-    
+
     /** {@inheritDoc} */
     @Override
     public void descend(ConstructableTreeNode node) {
         for (Map.Entry<String, ConfigValue> entry : hoconCfgObject.entrySet()) {
             String key = entry.getKey();
-    
+
             if (key.equals(ignoredKey)) {
                 continue;
             }
-            
+
             ConfigValue hoconCfgValue = entry.getValue();
-            
+
             try {
                 switch (hoconCfgValue.valueType()) {
                     case NULL:
                         node.construct(key, null, false);
-                        
+
                         break;
-                    
+
                     case OBJECT: {
                         List<String> path = appendKey(this.path, key);
-                        
+
                         node.construct(
                                 key,
                                 new HoconObjectConfigurationSource(null, path, (ConfigObject) hoconCfgValue),
                                 false
                         );
-                        
+
                         break;
                     }
-                    
+
                     case LIST: {
                         List<String> path = appendKey(this.path, key);
-                        
+
                         node.construct(key, new HoconListConfigurationSource(path, (ConfigList) hoconCfgValue), false);
-                        
+
                         break;
                     }
-                    
+
                     default: {
                         List<String> path = appendKey(this.path, key);
-                        
+
                         node.construct(key, new HoconPrimitiveConfigurationSource(path, hoconCfgValue), false);
                     }
                 }
@@ -133,5 +134,23 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
                 );
             }
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable String polymorphicTypeId(String fieldName) {
+        ConfigValue typeId = hoconCfgObject.get(fieldName);
+
+        if (typeId == null) {
+            return null;
+        }
+
+        if (typeId.valueType() != ConfigValueType.STRING) {
+            throw new IllegalArgumentException(
+                    format("Invalid Polymorphic Type ID type. Expected %s, got %s", ConfigValueType.STRING, typeId.valueType())
+            );
+        }
+
+        return (String) typeId.unwrapped();
     }
 }

@@ -203,13 +203,25 @@ public class MetaStorageManager implements IgniteComponent {
                         "Cannot start meta storage manager because there is no node in the cluster that hosts meta storage.");
             }
 
+            // TODO: This is temporary solution. We need to prohibit starting several metastorage nodes
+            // as far as we do not have mechanism of changing raft peers when new metastorage node is joining to cluster.
+            // This will be rewritten in init phase https://issues.apache.org/jira/browse/IGNITE-14414
+            if (metastorageNodes.length > 1) {
+                throw new IgniteException(
+                        "Cannot start meta storage manager because it is not allowed to start several metastorage nodes.");
+            }
+
             storage.start();
 
-            raftGroupServiceFut = raftMgr.prepareRaftGroup(
-                    METASTORAGE_RAFT_GROUP_NAME,
-                    metaStorageMembers,
-                    () -> new MetaStorageListener(storage)
-            );
+            try {
+                raftGroupServiceFut = raftMgr.prepareRaftGroup(
+                        METASTORAGE_RAFT_GROUP_NAME,
+                        metaStorageMembers,
+                        () -> new MetaStorageListener(storage)
+                );
+            } catch (NodeStoppingException e) {
+                throw new AssertionError("Loza was stopped before Meta Storage manager", e);
+            }
 
             this.metaStorageSvcFut = raftGroupServiceFut.thenApply(service ->
                     new MetaStorageServiceImpl(service, clusterNetSvc.topologyService().localMember().id())
@@ -279,6 +291,8 @@ public class MetaStorageManager implements IgniteComponent {
             LOG.error("Failed to get meta storage raft group service.");
 
             throw new IgniteInternalException(e);
+        } catch (NodeStoppingException e) {
+            throw new AssertionError("Loza was stopped before Meta Storage manager", e);
         }
 
         try {
@@ -953,9 +967,7 @@ public class MetaStorageManager implements IgniteComponent {
          *
          * @param innerCursorFut Inner cursor future.
          */
-        CursorWrapper(
-                CompletableFuture<Cursor<T>> innerCursorFut
-        ) {
+        CursorWrapper(CompletableFuture<Cursor<T>> innerCursorFut) {
             this.innerCursorFut = innerCursorFut;
             this.innerIterFut = innerCursorFut.thenApply(Iterable::iterator);
         }

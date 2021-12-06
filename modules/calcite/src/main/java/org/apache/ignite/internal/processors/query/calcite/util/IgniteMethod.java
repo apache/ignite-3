@@ -25,6 +25,7 @@ import org.apache.ignite.internal.processors.query.calcite.exec.exp.BiScalar;
 import org.apache.ignite.internal.processors.query.calcite.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.processors.query.calcite.exec.exp.SingleScalar;
 import org.apache.ignite.internal.processors.query.calcite.metadata.IgniteMetadata.FragmentMappingMetadata;
+import org.apache.ignite.internal.processors.query.calcite.prepare.MappingQueryContext;
 
 /**
  * Contains methods used in metadata definitions.
@@ -35,7 +36,7 @@ public enum IgniteMethod {
 
     /** See {@link RowHandler#get(int, Object)}. */
     ROW_HANDLER_GET(RowHandler.class, "get", int.class, Object.class),
-    
+
     /** See {@link Commons#getFieldFromBiRows(RowHandler, int, Object, Object)}. */
     ROW_HANDLER_BI_GET(Commons.class, "getFieldFromBiRows", RowHandler.class, int.class,
             Object.class, Object.class),
@@ -45,7 +46,7 @@ public enum IgniteMethod {
 
     /** See {@link ExecutionContext#getCorrelated(int)}. */
     CONTEXT_GET_CORRELATED_VALUE(ExecutionContext.class, "getCorrelated", int.class),
-    
+
     /** See {@link SingleScalar#execute(ExecutionContext, Object, Object)}. */
     SCALAR_EXECUTE(SingleScalar.class, "execute", ExecutionContext.class, Object.class, Object.class),
 
@@ -56,8 +57,8 @@ public enum IgniteMethod {
 
     SYSTEM_RANGE3(IgniteSqlFunctions.class, "systemRange", Object.class, Object.class, Object.class),
 
-    /** See {@link FragmentMappingMetadata#fragmentMapping()}. */
-    FRAGMENT_MAPPING(FragmentMappingMetadata.class, "fragmentMapping");
+    /** See {@link FragmentMappingMetadata#fragmentMapping(MappingQueryContext)}. */
+    FRAGMENT_MAPPING(FragmentMappingMetadata.class, "fragmentMapping", MappingQueryContext.class);
 
     private final Method method;
 
