@@ -247,9 +247,6 @@ public class ConfigurationRegistryTest {
     public static class FirstPolymorphicConfigurationSchema {
         @PolymorphicId
         public String typeId;
-
-        @Value
-        public String name;
     }
 
     /**
@@ -257,8 +254,6 @@ public class ConfigurationRegistryTest {
      */
     @PolymorphicConfigInstance("first0")
     public static class First0PolymorphicConfigurationSchema extends FirstPolymorphicConfigurationSchema {
-        @Value
-        public int test0;
     }
 
     /**
@@ -266,8 +261,6 @@ public class ConfigurationRegistryTest {
      */
     @PolymorphicConfigInstance("first1")
     public static class First1PolymorphicConfigurationSchema extends FirstPolymorphicConfigurationSchema {
-        @Value
-        public long test1;
     }
 
     /**
