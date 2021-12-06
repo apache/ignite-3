@@ -49,7 +49,7 @@ import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.TemporalNativeType;
-import org.apache.ignite.internal.util.MurmurHash3;
+import org.apache.ignite.internal.util.HashUtils;
 
 /**
  * Utility class to build rows using column appending pattern. The external user of this class must consult with the schema and provide the
@@ -729,11 +729,10 @@ public class RowAssembler {
             }
         }
 
-        long[] parts = MurmurHash3.hash128x64(buf.unwrap().array(), KEY_CHUNK_OFFSET, keyChunkLength, 0);
-        long hash = parts[0] ^ parts[1];
+        int hash = HashUtils.hash32(buf.unwrap().array(), KEY_CHUNK_OFFSET, keyChunkLength, 0);
 
         buf.putShort(BinaryRow.FLAGS_FIELD_OFFSET, flags);
-        buf.putInt(BinaryRow.KEY_HASH_FIELD_OFFSET, (int) (hash ^ (hash >>> 32)));
+        buf.putInt(BinaryRow.KEY_HASH_FIELD_OFFSET, hash);
     }
 
     /**
@@ -867,12 +866,10 @@ public class RowAssembler {
 
         buf.putInt(baseOff, chunkLen);
 
-        if (isKeyChunk()) {
-            keyChunkLength = chunkLen;
-        }
-
         if (schema.keyColumns() == curCols) {
-            switchToValuChunk(BinaryRow.HEADER_SIZE + chunkLen);
+            keyChunkLength = chunkLen;
+
+            switchToValueChunk(BinaryRow.HEADER_SIZE + chunkLen);
         }
     }
 
@@ -882,7 +879,7 @@ public class RowAssembler {
      *
      * @param baseOff Chunk base offset.
      */
-    private void switchToValuChunk(int baseOff) {
+    private void switchToValueChunk(int baseOff) {
         // Switch key->value columns.
         curCols = schema.valueColumns();
         curCol = 0;
