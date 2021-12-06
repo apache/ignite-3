@@ -107,10 +107,7 @@ At the moment, this set of listeners seems to enough for restart rebalance and/o
 - Raft clients for new assignments refreshed
 - Redundant raft nodes stopped
 
-
-#Further optimisations:
-
-
+# Further optimisations:
 ## 'Smart' raft change peers:
 Problem: current `changePeers` algorithm has the batch nature and catchup phase will be finished only when ALL peers of new topology ready. It can be a serious issue when user add chain of nodes and expects that nodes will be available asap. Any slow node will slow down whole rebalance process at all.
 
