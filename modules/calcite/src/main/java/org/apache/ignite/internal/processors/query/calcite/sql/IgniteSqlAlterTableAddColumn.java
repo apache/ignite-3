@@ -61,10 +61,12 @@ public class IgniteSqlAlterTableAddColumn extends IgniteAbstractSqlAlterTable {
         columns.unparse(writer, leftPrec, rightPrec);
     }
 
+    /** ADD COLUMN IF NOT EXISTS flag. */
     public boolean ifNotExistsColumn() {
         return ifNotExistsColumn;
     }
 
+    /** Processing columns definition. */
     public SqlNodeList columns() {
         return columns;
     }

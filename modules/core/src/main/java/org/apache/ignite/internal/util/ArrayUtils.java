@@ -19,10 +19,9 @@ package org.apache.ignite.internal.util;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
@@ -311,7 +310,13 @@ public final class ArrayUtils {
      */
     @SafeVarargs
     public static <T> Set<T> asSet(@Nullable T... vals) {
-        return nullOrEmpty(vals) ? Collections.emptySet() : Stream.of(vals).collect(Collectors.toSet());
+        if (nullOrEmpty(vals)) {
+            return Collections.emptySet();
+        } else {
+            HashSet<T> set = new HashSet<>(vals.length);
+            Collections.addAll(set, vals);
+            return set;
+        }
     }
 
     /**

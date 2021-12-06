@@ -72,6 +72,7 @@ public class IgniteSqlAlterTableDropColumn extends IgniteAbstractSqlAlterTable {
         return ifExistsColumn;
     }
 
+    /** Processing columns definition. */
     public SqlNodeList columns() {
         return columns;
     }

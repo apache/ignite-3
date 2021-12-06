@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.util.Arrays;
 import java.util.Map;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
@@ -42,13 +41,11 @@ public class SchemaConfigurationTest {
         builder
                 .columns(
                     // Declaring columns in user order.
-                    Arrays.asList(
-                        SchemaBuilders.column("id", ColumnType.INT64).build(),
-                        SchemaBuilders.column("label", ColumnType.stringOf(2)).withDefaultValueExpression("AI").build(),
-                        SchemaBuilders.column("name", ColumnType.string()).build(),
-                        SchemaBuilders.column("data", ColumnType.blobOf(255)).asNullable(true).build(),
-                        SchemaBuilders.column("affId", ColumnType.INT32).build()
-                    )
+                    SchemaBuilders.column("id", ColumnType.INT64).build(),
+                    SchemaBuilders.column("label", ColumnType.stringOf(2)).withDefaultValueExpression("AI").build(),
+                    SchemaBuilders.column("name", ColumnType.string()).build(),
+                    SchemaBuilders.column("data", ColumnType.blobOf(255)).asNullable(true).build(),
+                    SchemaBuilders.column("affId", ColumnType.INT32).build()
                 )
 
                 .withPrimaryKey(

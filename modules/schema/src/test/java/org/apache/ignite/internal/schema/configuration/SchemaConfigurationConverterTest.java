@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -88,13 +87,11 @@ public class SchemaConfigurationConverterTest {
 
         tblBuilder = SchemaBuilders.tableBuilder("SNAME", "TNAME")
                 .columns(
-                    Arrays.asList(
-                        SchemaBuilders.column("COL1", ColumnType.DOUBLE).build(),
-                        SchemaBuilders.column("COL2", ColumnType.DOUBLE).build(),
-                        SchemaBuilders.column("A", ColumnType.INT8).build(),
-                        SchemaBuilders.column("B", ColumnType.INT8).build(),
-                        SchemaBuilders.column("C", ColumnType.INT8).build()
-                    )
+                    SchemaBuilders.column("COL1", ColumnType.DOUBLE).build(),
+                    SchemaBuilders.column("COL2", ColumnType.DOUBLE).build(),
+                    SchemaBuilders.column("A", ColumnType.INT8).build(),
+                    SchemaBuilders.column("B", ColumnType.INT8).build(),
+                    SchemaBuilders.column("C", ColumnType.INT8).build()
                 ).withPrimaryKey("COL1");
 
         TableDefinition tbl = tblBuilder.build();
