@@ -19,7 +19,6 @@ package org.apache.ignite.internal.processors.query.calcite.exec.ddl;
 
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.internal.util.IgniteUtils.isNullOrEmpty;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -40,6 +39,7 @@ import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.DropIndex
 import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
@@ -89,7 +89,7 @@ public class DdlCommandHandler {
         if (cmd instanceof AbstractDdlCommand) {
             AbstractDdlCommand cmd0 = (AbstractDdlCommand) cmd;
 
-            if (isNullOrEmpty(cmd0.tableName())) {
+            if (IgniteUtils.nullOrEmpty(cmd0.tableName())) {
                 throw new IllegalArgumentException("Table name is undefined.");
             }
         }

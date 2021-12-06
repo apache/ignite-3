@@ -33,7 +33,7 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testUnicodeStrings() {
-        sql("CREATE TABLE string_table(key int primary key, val varchar) with partitions=10,replicas=2");
+        sql("CREATE TABLE string_table(key int primary key, val varchar)");
 
         String[] values = new String[]{"Кирилл", "Müller", "我是谁", "ASCII"};
 

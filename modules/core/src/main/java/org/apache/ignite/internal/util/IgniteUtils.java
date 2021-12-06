@@ -605,7 +605,7 @@ public class IgniteUtils {
      * @param s String to test.
      * @return Whether or not the given string is {@code null} or empty.
      */
-    public static boolean isNullOrEmpty(@Nullable String s) {
+    public static boolean nullOrEmpty(@Nullable String s) {
         return s == null || s.isEmpty();
     }
 }

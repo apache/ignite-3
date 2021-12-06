@@ -99,8 +99,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     /** Tests varchar min\max aggregates. */
     @Test
     public void testVarCharMinMax() {
-        // replicas and partitions params are affected by https://issues.apache.org/jira/browse/IGNITE-15655 issue, default is not working for now.
-        sql("CREATE TABLE TEST(val VARCHAR primary key, val1 integer) with partitions=10,replicas=2;");
+        sql("CREATE TABLE TEST(val VARCHAR primary key, val1 integer);");
         sql("INSERT INTO test VALUES ('б', 1), ('бб', 2), ('щ', 3), ('щщ', 4), ('Б', 4), ('ББ', 4), ('Я', 4);");
         List<List<?>> rows = sql("SELECT MAX(val), MIN(val) FROM TEST");
 

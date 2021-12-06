@@ -289,7 +289,7 @@ public final class ArrayUtils {
      * <p>Note that unlike {@link Arrays#asList(Object[])}, this method is {@code null}-safe. If {@code null} is passed in, then empty list
      * will be returned.
      *
-     * @param vals Array of values
+     * @param vals Array of values.
      * @param <T>  Array type.
      * @return {@link List} instance for array.
      */
@@ -304,7 +304,7 @@ public final class ArrayUtils {
      * <p>Note that unlike {@link Arrays#asList(Object[])}, this method is {@code null}-safe. If {@code null} is passed in, then empty set
      * will be returned.
      *
-     * @param vals Array of values
+     * @param vals Array of values.
      * @param <T>  Array type.
      * @return {@link Set} instance for input array.
      */
