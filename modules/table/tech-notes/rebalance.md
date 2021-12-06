@@ -7,6 +7,7 @@ Every algorithm phase has the following main sections:
 # Rebalance algorithm
 ## Short algorithm description
   - Operations, which can trigger rebalance occurred:
+    
     Write new baseline to metastore (effectively from 1 node in cluster)
 
     OR
@@ -15,7 +16,7 @@ Every algorithm phase has the following main sections:
     
     OR
     
-    Write new partition configuration number to table config (effectively from 1 node)
+    Write new partitions configuration number to table config (effectively from 1 node)
 - Write new assignments intention to metastore (effectively from 1 node in cluster)
 - Start new raft nodes. Initiate/update change peer request to raft group (effectively from 1 node per partition)
 - Stop all redundant nodes. Change stable partition assignment to the new one and finish rebalance process.
@@ -26,7 +27,7 @@ Three types of events can trigger the rebalance:
 - Configuration change through `org.apache.ignite.configuration.schemas.table.TableChange.changeReplicas` produce metastore update event
 - Configuration change through `org.apache.ignite.configuration.schemas.table.TableChange.changePartitions` produce metastore update event (IMPORTANT: this type of trigger has additional difficulties because of cross raft group data migration and it is out of scope of this document)
 
-Result: So, one of three metastore keys will trigger rebalance:
+**Result**: So, one of three metastore keys' changes will trigger rebalance:
 ```
 <global>.baseline
 <tableScope>.replicas
@@ -65,15 +66,15 @@ metastoreInvoke: // atomic metastore call through multi-invoke api
 ```
 
 ## Start new raft nodes and initiate change peers
-Trigger: Metastore event about new partition assignments received
+**Trigger**: Metastore event about new `partition.assignments.pending` received
 
-Steps:
-- On receive pending assignment updates every node, which listening the changes start all needed raft nodes
-- After successful starts - check if current node is the leader of raft group and `changePeers(leaderTerm, peers)`. `changePeers` from old terms must be skipped.
+**Steps**:
+- Start all needed nodes `partition.assignments.stable / partition.assignments.pending` 
+- After successful starts - check if current node is the leader of raft group (leader response must be updated by current term) and `changePeers(leaderTerm, peers)`. `changePeers` from old terms must be skipped.
 
-Result:
+**Result**:
 - New needed raft nodes started
-- Change peers state initiated/updated for every raft group
+- Change peers state initiated for every raft group
 
 ## When changePeers done inside the raft group - stop all redundant nodes
 **Trigger**: When leader applied new Configuration with list of resulting peers `<applied peer>`, it calls `onRebalanceDone(<applied peers> -> closure)`
@@ -89,12 +90,11 @@ metastoreInvoke: \\ atomic
 ```
 
 Failover helpers (detailed failover scenarious must be developed in future)
-- `onLeaderChanged()` - must be executed from the new leader when raft group changes the leader. Maybe we actually need to also check if a new lease is received - we need to investigate.
-- `onChangePeersError()` - must be executed when any errors during changePeers occurred
+- `onLeaderChanged()` - must be executed from the new leader when raft group changes the leader. Maybe we actually need to also check if a new lease is received.
+- `onChangePeersError()` - must be executed when any errors during changePeers occurred.
 - `onChangePeersCommitted(peers -> closure)` - must be executed with the list of new peers when changePeers has successfully done.
 
-At the moment, this set of listeners seems to enough for restart rebalance and/or notify node's failover about fatal issues. Failover scenarios will be explained with more details during first phase of implementation.
-
+At the moment, this set of listeners seems to enough for restart rebalance and/or notify node's failover mechanism about fatal issues. Failover scenarios will be explained with more details during first phase of implementation.
 
 ## Cleanup redundant raft nodes
 **Trigger**: Node receive update about partition stable assignments
@@ -108,7 +108,8 @@ At the moment, this set of listeners seems to enough for restart rebalance and/o
 - Redundant raft nodes stopped
 
 #Further optimisations:
-# 'Smart' raft change peers:
+
+## 'Smart' raft change peers:
 Problem: current `changePeers` algorithm has the batch nature and catchup phase will be finished only when ALL peers of new topology ready. It can be a serious issue when user add chain of nodes and expects that nodes will be available asap. Any slow node will slow down whole rebalance process at all.
 
 
