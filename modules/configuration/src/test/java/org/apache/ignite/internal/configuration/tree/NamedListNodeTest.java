@@ -22,6 +22,7 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.anEmptyMap;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -298,10 +299,6 @@ public class NamedListNodeTest {
         }));
         assertThrows(NullPointerException.class, () -> b.create(0, null, z -> {
         }));
-        assertThrows(NullPointerException.class, () -> b.createAfter(null, "Z", z -> {
-        }));
-        assertThrows(NullPointerException.class, () -> b.createAfter("X", null, z -> {
-        }));
         assertThrows(NullPointerException.class, () -> b.rename(null, "Z"));
         assertThrows(NullPointerException.class, () -> b.rename("X", null));
         assertThrows(NullPointerException.class, () -> b.delete(null));
@@ -310,20 +307,13 @@ public class NamedListNodeTest {
         assertThrows(NullPointerException.class, () -> b.create("Z", null));
         assertThrows(NullPointerException.class, () -> b.createOrUpdate("Z", null));
         assertThrows(NullPointerException.class, () -> b.create(0, "Z", null));
-        assertThrows(NullPointerException.class, () -> b.createAfter("X", "Z", null));
 
         // Already existing keys.
         assertThrows(IllegalArgumentException.class, () -> b.create("X", x -> {
         }));
         assertThrows(IllegalArgumentException.class, () -> b.create(0, "X", x -> {
         }));
-        assertThrows(IllegalArgumentException.class, () -> b.createAfter("X", "Y", y -> {
-        }));
         assertThrows(IllegalArgumentException.class, () -> b.rename("X", "Y"));
-
-        // Nonexistent preceding key.
-        assertThrows(IllegalArgumentException.class, () -> b.createAfter("A", "Z", z -> {
-        }));
 
         // Wrong indexes.
         assertThrows(IndexOutOfBoundsException.class, () -> b.create(-1, "Z", z -> {
@@ -346,5 +336,61 @@ public class NamedListNodeTest {
         // Deletion of nonexistent elements doesn't break anything.
         b.delete("X");
         b.delete("Y");
+    }
+
+    /**
+     * Tests the {@link NamedListNode#update} method.
+     */
+    @Test
+    public void testUpdate() {
+        var list = new NamedListNode<SecondChange>("name", () -> cgen.instantiateNode(SecondConfigurationSchema.class), null);
+
+        list.create("foo", ch -> ch.changeStr("bar"));
+
+        assertThat(list.get("foo").str(), is(equalTo("bar")));
+
+        list.update("foo", ch -> ch.changeStr("baz"));
+
+        assertThat(list.get("foo").str(), is(equalTo("baz")));
+
+        list.delete("foo");
+
+        // updating a removed key should throw
+        assertThrows(IllegalArgumentException.class, () -> list.update("foo", ch -> {}));
+    }
+
+    @Test
+    public void testUpdateErrors() {
+        var list = new NamedListNode<SecondChange>("name", () -> cgen.instantiateNode(SecondConfigurationSchema.class), null);
+
+        assertThrows(NullPointerException.class, () -> list.update(null, ch -> {}));
+        assertThrows(NullPointerException.class, () -> list.update("foo", null));
+
+        // updating a non existent key should throw
+        assertThrows(IllegalArgumentException.class, () -> list.update("wrong", ch -> {}));
+    }
+
+    @Test
+    void testCreateAfterErrors() {
+        var list = new NamedListNode<>("name", () -> cgen.instantiateNode(SecondConfigurationSchema.class), null);
+
+        list
+                .create("X", x -> {})
+                .create("Y", y -> {});
+
+        assertThrows(NullPointerException.class, () -> list.createAfter(null, "Z", z -> {}));
+
+        assertThrows(NullPointerException.class, () -> list.createAfter("X", null, z -> {}));
+
+        assertThrows(NullPointerException.class, () -> list.createAfter("X", "Z", null));
+
+        // inserting an existing key should throw
+        assertThrows(IllegalArgumentException.class, () -> list.createAfter("X", "Y", y -> {}));
+
+        // inserting after a missing key should throw
+        assertThrows(IllegalArgumentException.class, () -> list.createAfter("A", "Z", z -> {}));
+
+        // inserting after a removed key should throw
+        assertThrows(IllegalArgumentException.class, () -> list.delete("X").createAfter("X", "foo", foo -> {}));
     }
 }
