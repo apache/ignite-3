@@ -298,18 +298,18 @@ public class MetaStorageListener implements RaftGroupListener {
                 clo.result(null);
             } else if (clo.command() instanceof ScanRetrieveBatchCommand) {
                 ScanRetrieveBatchCommand scanRetrieveBatchCmd = (ScanRetrieveBatchCommand) clo.command();
-                
+
                 CursorMeta cursorDesc = cursors.get(scanRetrieveBatchCmd.scanId());
-    
+
                 if (cursorDesc == null) {
                     clo.result(new NoSuchElementException(LoggerMessageHelper.format(
                             "Cursor with id={} is not found on server side.", scanRetrieveBatchCmd.scanId())));
-        
+
                     return;
                 }
-    
+
                 List<Entry> res = new ArrayList<>();
-    
+
                 try {
                     for (int i = 0; i < scanRetrieveBatchCmd.itemsToRetrieveCount() && cursorDesc.cursor().hasNext(); i++) {
                         res.add((Entry) cursorDesc.cursor().next());
@@ -317,10 +317,10 @@ public class MetaStorageListener implements RaftGroupListener {
                 } catch (NoSuchElementException e) {
                     clo.result(e);
                 }
-    
+
                 clo.result(new MultipleEntryResponse(res.stream().map(
                         e -> new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter())).collect(Collectors.toList())));
-    
+
                 return;
             } else if (clo.command() instanceof WatchRangeKeysCommand) {
                 WatchRangeKeysCommand watchCmd = (WatchRangeKeysCommand) clo.command();

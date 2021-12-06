@@ -124,7 +124,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         var rangeEnd = new ByteArray(incrementLastChar(DISTRIBUTED_PREFIX + prefix));
 
         CountDownLatch latch  = new CountDownLatch(1);
-    
+
         try {
             metaStorageMgr.range(rangeStart, rangeEnd).subscribe(new Flow.Subscriber<Entry>() {
                 volatile Subscription subscription;
@@ -139,7 +139,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                 public void onNext(Entry item) {
                     ByteArray key = item.key();
                     byte[] value = item.value();
-                
+
                     if (item.tombstone()) {
                         return;
                     }
@@ -157,7 +157,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
                     subscription.request(1);
                 }
-            
+
                 @Override
                 public void onError(Throwable throwable) {
                     throw new StorageException("Exception when closing a Meta Storage cursor", throwable);

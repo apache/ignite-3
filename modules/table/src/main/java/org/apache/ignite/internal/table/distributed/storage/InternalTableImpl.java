@@ -547,7 +547,7 @@ public class InternalTableImpl implements InternalTable {
         private class PartitionScanSubscription implements Subscription {
             /** Subscriber. */
             private final Subscriber<? super BinaryRow> subscriber;
-    
+
             /** Flag that denotes that subscription was canceled. */
             private final AtomicBoolean canceled;
 
