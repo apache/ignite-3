@@ -195,14 +195,14 @@ public class DdlSqlToCommandConverter {
         if (!nullOrEmpty(pkConstraints)) {
             Set<String> dedupSet = new HashSet<>();
 
-            Set<String> pkCols = pkConstraints.stream()
+            List<String> pkCols = pkConstraints.stream()
                     .map(pk -> pk.getOperandList().get(1))
                     .map(SqlNodeList.class::cast)
                     .flatMap(l -> l.getList().stream())
                     .map(SqlIdentifier.class::cast)
                     .map(SqlIdentifier::getSimple)
                     .filter(dedupSet::add)
-                    .collect(Collectors.toSet());
+                    .collect(Collectors.toList());
 
             createTblCmd.primaryKeyColumns(pkCols);
         }

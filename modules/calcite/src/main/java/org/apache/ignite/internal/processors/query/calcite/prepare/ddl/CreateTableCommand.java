@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.query.calcite.prepare.ddl;
 
 import java.util.List;
-import java.util.Set;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,10 +35,10 @@ public class CreateTableCommand extends AbstractDdlCommand {
     private boolean ifNotExists;
 
     /** Primary key columns. */
-    private Set<String> pkCols;
+    private List<String> pkCols;
 
     /** Affinity key columns. */
-    private Set<String> affCols;
+    private List<String> affCols;
 
     /** Columns. */
     private List<ColumnDefinition> cols;
@@ -47,14 +46,14 @@ public class CreateTableCommand extends AbstractDdlCommand {
     /**
      * Get primary key columns.
      */
-    public Set<String> primaryKeyColumns() {
+    public List<String> primaryKeyColumns() {
         return pkCols;
     }
 
     /**
      * Set primary key columns.
      */
-    public void primaryKeyColumns(Set<String> pkCols) {
+    public void primaryKeyColumns(List<String> pkCols) {
         this.pkCols = pkCols;
     }
 
@@ -127,7 +126,7 @@ public class CreateTableCommand extends AbstractDdlCommand {
      * @return Affinity key columns.
      */
     @Nullable
-    public Set<String> affColumns() {
+    public List<String> affColumns() {
         return affCols;
     }
 
@@ -136,7 +135,7 @@ public class CreateTableCommand extends AbstractDdlCommand {
      *
      * @param affCols Set affinity key columns.
      */
-    public void affColumns(Set<String> affCols) {
+    public void affColumns(List<String> affCols) {
         this.affCols = affCols;
     }
 }

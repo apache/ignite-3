@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.schema.definition.builder;
 
-import static org.apache.ignite.internal.util.ArrayUtils.asSet;
+import static java.util.Arrays.asList;
 
-import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.schema.definition.index.PrimaryKeyDefinitionImpl;
@@ -35,11 +36,11 @@ import org.apache.ignite.schema.definition.builder.SchemaObjectBuilder;
 public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, PrimaryKeyDefinitionBuilder {
     /** Index columns. */
     @IgniteToStringInclude
-    private Set<String> columns;
+    private List<String> columns;
 
     /** Affinity columns. */
     @IgniteToStringInclude
-    private Set<String> affinityColumns;
+    private List<String> affinityColumns;
 
     /** Builder hints. */
     protected Map<String, String> hints;
@@ -47,14 +48,14 @@ public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, Pri
     /** {@inheritDoc} */
     @Override
     public PrimaryKeyDefinitionBuilderImpl withColumns(String... columns) {
-        this.columns = asSet(columns);
+        this.columns = asList(columns);
 
         return this;
     }
 
     /** {@inheritDoc} */
     @Override
-    public PrimaryKeyDefinitionBuilderImpl withColumns(Set<String> columns) {
+    public PrimaryKeyDefinitionBuilderImpl withColumns(List<String> columns) {
         this.columns = columns;
 
         return this;
@@ -63,14 +64,14 @@ public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, Pri
     /** {@inheritDoc} */
     @Override
     public PrimaryKeyDefinitionBuilderImpl withAffinityColumns(String... affinityColumns) {
-        this.affinityColumns = asSet(affinityColumns);
+        this.affinityColumns = asList(affinityColumns);
 
         return this;
     }
 
     /** {@inheritDoc} */
     @Override
-    public PrimaryKeyDefinitionBuilderImpl withAffinityColumns(Set<String> affinityColumns) {
+    public PrimaryKeyDefinitionBuilderImpl withAffinityColumns(List<String> affinityColumns) {
         this.affinityColumns = affinityColumns;
 
         return this;
@@ -91,18 +92,20 @@ public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, Pri
             throw new IllegalStateException("Primary key column(s) must be configured.");
         }
 
+        Set<String> cols = new HashSet<>(columns);
+
         Set<String> affCols;
 
         if (CollectionUtils.nullOrEmpty(affinityColumns)) {
-            affCols = columns;
+            affCols = cols;
         } else {
-            affCols = affinityColumns;
+            affCols = new HashSet<>(affinityColumns);
 
-            if (!columns.containsAll(affinityColumns)) {
+            if (!cols.containsAll(affCols)) {
                 throw new IllegalStateException("Schema definition error: All affinity columns must be part of key.");
             }
         }
 
-        return new PrimaryKeyDefinitionImpl(Collections.unmodifiableSet(columns), Collections.unmodifiableSet(affCols));
+        return new PrimaryKeyDefinitionImpl(cols, affCols);
     }
 }
