@@ -225,11 +225,8 @@ public class DdlCommandHandler {
                                 throw new ColumnAlreadyExistsException(c.name());
                             });
 
-                    int colIdx = chng.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt();
-
                     for (ColumnDefinition colDef : colsDef) {
-                        colIdx += 1;
-                        cols.create(String.valueOf(colIdx), colChg -> convert(colDef, colChg));
+                        cols.create(colDef.name(), colChg -> convert(colDef, colChg));
                     }
                 }));
     }

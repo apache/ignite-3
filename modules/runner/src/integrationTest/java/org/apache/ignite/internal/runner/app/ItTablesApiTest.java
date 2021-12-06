@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
-import static org.apache.ignite.internal.util.ArrayUtils.asSet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -513,7 +512,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      */
     protected void addIndex(Ignite node, String schemaName, String shortTableName) {
         IndexDefinition idx = SchemaBuilders.hashIndex("testHI")
-                .withColumns(asSet("valInt", "valStr"))
+                .withColumns("valInt", "valStr")
                 .build();
 
         node.tables().alterTable(schemaName + "." + shortTableName, chng -> chng.changeIndices(idxes -> {
@@ -536,7 +535,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      */
     protected void addIndexIfNotExists(Ignite node, String schemaName, String shortTableName) {
         IndexDefinition idx = SchemaBuilders.hashIndex("testHI")
-                .withColumns(asSet("valInt", "valStr"))
+                .withColumns("valInt", "valStr")
                 .build();
 
         node.tables().alterTable(schemaName + "." + shortTableName, chng -> chng.changeIndices(idxes -> {
