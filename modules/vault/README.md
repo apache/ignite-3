@@ -1,7 +1,7 @@
 # Ignite vault module
 This module provides Vault API implementation.
 
-Vault is the local persistent key-value storage where node maintains its' local state. The data stored in the vault is
+Vault is the local persistent key-value storage where node maintains its local state. The data stored in the vault is
 semantically divided in the following categories:
 * User-level local configuration properties (such as memory limits, network timeouts, etc). User-level configuration
   properties can be written both at runtime (not all properties will be applied at runtime, however, - some of them will
