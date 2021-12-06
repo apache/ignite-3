@@ -612,6 +612,17 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
     
+    /**
+     * Method that adjusts election timeout after several consecutive unsuccessful leader elections.
+     *
+     * Notes about general algorithm: the main idea is that in a stable cluster election timeout should be relatively small, but when cluster
+     * has unstable network, we don't want to have a lot of elections, so election timeout is adjusted, while membership layer could solve the
+     * instability problem, for example, by removing failed nodes from the cluster. Hence, the upper bound
+     * of the election timeout adjusting {@link NodeOptions#ELECTION_TIMEOUT_MS_MAX} is the value,
+     * that is guaranteed to be greater than timeout of removing a failed node form the cluster by membership protocol.
+     *
+     * After a successful leader election election timeout is set to an initial value.
+     */
     private void adjustElectionTimeout() {
         if (electionRoundsWithoutAdjusting < NodeOptions.MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING) {
             electionRoundsWithoutAdjusting++;
@@ -626,6 +637,20 @@ public class NodeImpl implements Node, RaftServerService {
             LOG.info("Election timeout was adjusted.");
             resetElectionTimeoutMs(options.getElectionTimeoutMs() * 2);
             electionAdjusted = true;
+            electionRoundsWithoutAdjusting = 0;
+        }
+    }
+    
+    /**
+     * Method that resets election timeout to initial value after an adjusting.
+     *
+     * For more details see {@link NodeImpl#adjustElectionTimeout()}.
+     */
+    private void resetElectionTimeoutToInitial() {
+        if (electionAdjusted) {
+            LOG.info("Election timeout was reset to initial value due to successful leader election.");
+            resetElectionTimeoutMs(initialElectionTimeout);
+            electionAdjusted = false;
             electionRoundsWithoutAdjusting = 0;
         }
     }
@@ -1268,15 +1293,6 @@ public class NodeImpl implements Node, RaftServerService {
             this.leaderId = newLeaderId.copy();
             
             resetElectionTimeoutToInitial();
-        }
-    }
-    
-    private void resetElectionTimeoutToInitial() {
-        if (electionAdjusted) {
-            LOG.info("Election timeout was reset to initial value due to successful leader election.");
-            resetElectionTimeoutMs(initialElectionTimeout);
-            electionAdjusted = false;
-            electionRoundsWithoutAdjusting = 0;
         }
     }
     
@@ -2836,6 +2852,10 @@ public class NodeImpl implements Node, RaftServerService {
             this.writeLock.unlock();
             return;
         }
+        
+        // This is needed for the node, who won preVote in a previous iteration, but leader wasn't elected.
+        if (this.prevVoteCtx.isGranted())
+            adjustElectionTimeout();
 
         if (this.raftOptions.isStepDownWhenVoteTimedout()) {
             LOG.warn(

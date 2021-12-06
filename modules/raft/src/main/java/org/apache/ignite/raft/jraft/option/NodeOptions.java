@@ -48,10 +48,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     // from the leader in |election_timeout_ms| milliseconds
     // Default: 1200 (1.2s)
     private int electionTimeoutMs = 1200; // follower to candidate timeout
-    // This value must be updated for every topology change as far as this values is limited by
-    // suspiciousTimeout, which depends on the number of cluster nodes.
-    public static int ELECTION_TIMEOUT_MS_MAX = 10000;
+
+    // The upper bound of the election timeout adjusting. Must be more than timeout of a membership protocol to remove failed node from
+    // the cluster. In our case, we may assume that 11s could be enough as far as 11s is greater than suspicion timeout
+    // for the 1000 nodes cluster with ping interval equals to 500ms.
+    // See NodeIml#adjustElectionTimeout for more details about adjusting election timeouts.
+    public static final int ELECTION_TIMEOUT_MS_MAX = 11_000;
     
+    // Max number of consecutive unsuccessful elections after which election timeout is adjusted.
     public static final int MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING = 3;
 
     // One node's local priority value would be set to | electionPriority |
