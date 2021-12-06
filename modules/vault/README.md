@@ -26,9 +26,11 @@ The main components of the module are the following:
   lifecycle and providing interface for managing local keys.
 
 There are two implementations of [VaultService](src/main/java/org/apache/ignite/internal/vault/VaultService.java): 
-[InMemoryVaultService](/src/main/java/org/apache/ignite/internal/vault/inmemory/InMemoryVaultService.java) and 
+[InMemoryVaultService](src/test/java/org/apache/ignite/internal/vault/inmemory/InMemoryVaultService.java) and 
 [PersistentVaultService](/src/main/java/org/apache/ignite/internal/vault/persistence/PersistentVaultService.java).
 The first one is the in-memory implementation of [VaultService](src/main/java/org/apache/ignite/internal/vault/VaultService.java) 
 and mostly used for testing purposes.
 
-The second one is [VaultService](src/main/java/org/apache/ignite/internal/vault/VaultService.java) implementation based on [RocksDB](https://github.com/facebook/rocksdb)
+The second one is [VaultService](src/main/java/org/apache/ignite/internal/vault/VaultService.java) implementation based on [RocksDB](https://github.com/facebook/rocksdb).
+[RocksDB](https://github.com/facebook/rocksdb) is a storage engine with key/value interface, where keys and values are arbitrary byte streams.
+For more info about RocksDB see corresponding [wiki](https://github.com/facebook/rocksdb/wiki).
