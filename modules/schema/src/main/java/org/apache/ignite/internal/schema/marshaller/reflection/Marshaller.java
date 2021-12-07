@@ -42,17 +42,17 @@ public abstract class Marshaller {
      * @param requireAllFields If specified class should contain fields for all columns.
      * @return Marshaller.
      */
-    public static <T> Marshaller createMarshaller(String[] cols, Mapper<T> mapper, boolean requireAllFields) {
+    public static <T> Marshaller createMarshaller(Column[] cols, Mapper<T> mapper, boolean requireAllFields) {
         final BinaryMode mode = MarshallerUtil.mode(mapper.targetType());
 
         if (mode != null) {
-            final String col = cols[0];
+            final Column col = cols[0];
 
             assert cols.length == 1;
-            // assert mode.typeSpec() == col.type().spec() : "Target type is not compatible.";
+            assert mode.typeSpec() == col.type().spec() : "Target type is not compatible.";
             assert !mapper.targetType().isPrimitive() : "Non-nullable types are not allowed.";
 
-            return new SimpleMarshaller(FieldAccessor.createIdentityAccessor(col, 0, mode));
+            return new SimpleMarshaller(FieldAccessor.createIdentityAccessor(col.name(), col.schemaIndex(), mode));
         }
 
         FieldAccessor[] fieldAccessors = new FieldAccessor[cols.length];
@@ -60,17 +60,16 @@ public abstract class Marshaller {
         // Build handlers.
 
         for (int i = 0; i < cols.length; i++) {
-            final String col = cols[i];
+            final Column col = cols[i];
 
-            String fieldName = mapper.columnToField(col);
+            String fieldName = mapper.columnToField(col.name());
 
             if (requireAllFields && fieldName == null) {
-                throw new IllegalArgumentException("No field found for column " + col);
+                throw new IllegalArgumentException("No field found for column " + col.name());
             }
 
-            // TODO: Need type and default value
             fieldAccessors[i] = (fieldName == null) ? FieldAccessor.noopAccessor(col) :
-                    FieldAccessor.create(mapper.targetType(), fieldName, col, i);
+                    FieldAccessor.create(mapper.targetType(), fieldName, col, col.schemaIndex());
         }
 
         return new PojoMarshaller(new ObjectFactory<>(mapper.targetType()), fieldAccessors);
