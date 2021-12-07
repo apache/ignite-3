@@ -94,8 +94,8 @@ public class FieldAccessorTest {
 
         final Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
 
-        final MarshallerWriter MarshallerWriter = mocks.getFirst();
-        final MarshallerReader row = mocks.getSecond();
+        final MarshallerWriter writer = mocks.getFirst();
+        final MarshallerReader reader = mocks.getSecond();
 
         final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
 
@@ -103,7 +103,7 @@ public class FieldAccessorTest {
             FieldAccessor accessor = FieldAccessor
                     .create(TestObjectWithAllTypes.class, cols[i].name(), cols[i], i);
 
-            accessor.write(MarshallerWriter, obj);
+            accessor.write(writer, obj);
         }
 
         final TestObjectWithAllTypes restoredObj = new TestObjectWithAllTypes();
@@ -112,7 +112,7 @@ public class FieldAccessorTest {
             FieldAccessor accessor = FieldAccessor
                     .create(TestObjectWithAllTypes.class, cols[i].name(), cols[i], i);
 
-            accessor.read(row, restoredObj);
+            accessor.read(reader, restoredObj);
         }
 
         assertEquals(obj, restoredObj);
@@ -126,6 +126,7 @@ public class FieldAccessorTest {
      */
     @Test
     public void nullableFieldsAccessor() throws Exception {
+        // TODO: Mute with a ticket?
         MarshallerColumn[] cols = new MarshallerColumn[]{
                 new MarshallerColumn("intCol", INT),
                 new MarshallerColumn("longCol", LONG),
@@ -136,8 +137,8 @@ public class FieldAccessorTest {
 
         final Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
 
-        final MarshallerWriter MarshallerWriter = mocks.getFirst();
-        final MarshallerReader row = mocks.getSecond();
+        final MarshallerWriter writer = mocks.getFirst();
+        final MarshallerReader reader = mocks.getSecond();
 
         final TestSimpleObject obj = TestSimpleObject.randomObject(rnd);
 
@@ -145,7 +146,7 @@ public class FieldAccessorTest {
             FieldAccessor accessor = FieldAccessor
                     .create(TestSimpleObject.class, cols[i].name(), cols[i], i);
 
-            accessor.write(MarshallerWriter, obj);
+            accessor.write(writer, obj);
         }
 
         final TestSimpleObject restoredObj = new TestSimpleObject();
@@ -154,7 +155,7 @@ public class FieldAccessorTest {
             FieldAccessor accessor = FieldAccessor
                     .create(TestSimpleObject.class, cols[i].name(), cols[i], i);
 
-            accessor.read(row, restoredObj);
+            accessor.read(reader, restoredObj);
         }
 
         assertEquals(obj, restoredObj);
