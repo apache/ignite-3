@@ -236,50 +236,44 @@ public class FieldAccessorTest {
             }
         };
 
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendNull();
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendByte(Mockito.anyByte());
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendShort(Mockito.anyShort());
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendInt(Mockito.anyInt());
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendLong(Mockito.anyLong());
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendFloat(Mockito.anyFloat());
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendDouble(Mockito.anyDouble());
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeNull();
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeByte(Mockito.anyByte());
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeShort(Mockito.anyShort());
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeInt(Mockito.anyInt());
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeLong(Mockito.anyLong());
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeFloat(Mockito.anyFloat());
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeDouble(Mockito.anyDouble());
 
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendUuid(Mockito.any(java.util.UUID.class));
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendBitmask(Mockito.any(BitSet.class));
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendString(Mockito.anyString());
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendBytes(Mockito.any(byte[].class));
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendNumber(Mockito.any(BigInteger.class));
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendDecimal(Mockito.any(BigDecimal.class));
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeUuid(Mockito.any(java.util.UUID.class));
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeBitSet(Mockito.any(BitSet.class));
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeString(Mockito.anyString());
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeBytes(Mockito.any(byte[].class));
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeBigInt(Mockito.any(BigInteger.class));
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeBigDecimal(Mockito.any(BigDecimal.class));
 
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendDate(Mockito.any(LocalDate.class));
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendDateTime(Mockito.any(LocalDateTime.class));
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendTime(Mockito.any(LocalTime.class));
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendTimestamp(Mockito.any(Instant.class));
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeDate(Mockito.any(LocalDate.class));
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeDateTime(Mockito.any(LocalDateTime.class));
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeTime(Mockito.any(LocalTime.class));
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeTimestamp(Mockito.any(Instant.class));
 
-        Mockito.doAnswer(rowAnswer).when(mockedRow).byteValue(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).byteValueBoxed(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).shortValue(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).shortValueBoxed(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).intValue(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).intValueBoxed(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).longValue(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).longValueBoxed(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).floatValue(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).floatValueBoxed(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).doubleValue(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).doubleValueBoxed(Mockito.anyInt());
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readByte();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readShort();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readInt();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readLong();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readFloat();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readDouble();
 
-        Mockito.doAnswer(rowAnswer).when(mockedRow).dateValue(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).timeValue(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).dateTimeValue(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).timestampValue(Mockito.anyInt());
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readDate();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readTime();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readDateTime();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readTimestamp();
 
-        Mockito.doAnswer(rowAnswer).when(mockedRow).uuidValue(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).bitmaskValue(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).stringValue(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).bytesValue(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).numberValue(Mockito.anyInt());
-        Mockito.doAnswer(rowAnswer).when(mockedRow).decimalValue(Mockito.anyInt());
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readUuid();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readBitSet();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readString();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readBytes();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readBigInt();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readBigDecimal();
 
         return new Pair<>(mockedAsm, mockedRow);
     }
