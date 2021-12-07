@@ -141,15 +141,19 @@ public class ConfigurationRegistryTest {
 
         registry.start();
 
-        registry.getConfiguration(SixthRootConfiguration.KEY).change(c -> c
-                .changePoly(toFirst0Polymorphic(0))
-                .changePolyNamed(c0 -> c0.create("1", toFirst0Polymorphic(1)))
-                .changeEntity(c0 -> c0.changePoly(toFirst0Polymorphic(2)).changePolyNamed(c1 -> c1.create("3", toFirst0Polymorphic(3))))
-                .changeEntityNamed(c0 -> c0.create("4",
-                        c1 -> c1.changePoly(toFirst0Polymorphic(4)).changePolyNamed(c2 -> c2.create("5", toFirst0Polymorphic(5)))))
-        ).get(1, SECONDS);
-
-        registry.stop();
+        try {
+            registry.getConfiguration(SixthRootConfiguration.KEY).change(c -> c
+                    .changePoly(toFirst0Polymorphic(0))
+                    .changePolyNamed(c0 -> c0.create("1", toFirst0Polymorphic(1)))
+                    .changeEntity(c0 -> c0.changePoly(toFirst0Polymorphic(2))
+                            .changePolyNamed(c1 -> c1.create("3", toFirst0Polymorphic(3))))
+                    .changeEntityNamed(c0 -> c0.create("4",
+                            c1 -> c1.changePoly(toFirst0Polymorphic(4))
+                                    .changePolyNamed(c2 -> c2.create("5", toFirst0Polymorphic(5)))))
+            ).get(1, SECONDS);
+        } finally {
+            registry.stop();
+        }
     }
 
     private Consumer<FourthPolymorphicChange> toFirst0Polymorphic(int v) {
