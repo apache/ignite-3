@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -42,6 +43,11 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         assertEquals(DEFAULT_NAME, val.name);
         assertEquals(DEFAULT_ID, val.id);
+    }
+
+    @Test
+    public void testSingleColumnToTypeMapping() {
+        fail("TODO: Test single column mapping - RecordView<Long>, etc.");
     }
 
     private static class PersonPojo {
