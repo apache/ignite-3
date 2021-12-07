@@ -77,7 +77,7 @@ metastoreInvoke: // atomic metastore call through multi-invoke api
 - Change peers state initiated for every raft group
 
 ## When changePeers done inside the raft group - stop all redundant nodes
-**Trigger**: When leader applied new Configuration with list of resulting peers `<applied peer>`, it calls `onRebalanceDone(<applied peers> -> closure)`
+**Trigger**: When leader applied new Configuration with list of resulting peers `<applied peer>`, it calls `onChangePeersCommitted(<applied peers> -> closure)`
 
 **Pseudocode**:
 ```
