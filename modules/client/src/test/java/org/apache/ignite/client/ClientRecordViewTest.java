@@ -41,7 +41,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         PersonPojo val = pojoView.get(key);
 
         assertEquals(DEFAULT_NAME, val.name);
-        assertEquals(1, val.id);
+        assertEquals(DEFAULT_ID, val.id);
     }
 
     private static class PersonPojo {
