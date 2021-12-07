@@ -217,7 +217,7 @@ public class FieldAccessorTest {
         final Answer<Void> asmAnswer = new Answer<>() {
             @Override
             public Void answer(InvocationOnMock invocation) {
-                if ("appendNull".equals(invocation.getMethod().getName())) {
+                if ("writeNull".equals(invocation.getMethod().getName())) {
                     vals.add(null);
                 } else {
                     vals.add(invocation.getArguments()[0]);
@@ -228,11 +228,11 @@ public class FieldAccessorTest {
         };
 
         final Answer<Object> rowAnswer = new Answer<>() {
+            int idx;
+
             @Override
             public Object answer(InvocationOnMock invocation) {
-                final int idx = invocation.getArgument(0, Integer.class);
-
-                return vals.get(idx);
+                return vals.get(idx++);
             }
         };
 
