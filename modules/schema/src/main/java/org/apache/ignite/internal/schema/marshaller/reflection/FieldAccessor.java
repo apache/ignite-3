@@ -137,7 +137,7 @@ abstract class FieldAccessor {
      * @param mode   Read/write mode.
      * @return Accessor.
      */
-    static FieldAccessor createIdentityAccessor(Column col, int colIdx, BinaryMode mode) {
+    static FieldAccessor createIdentityAccessor(String col, int colIdx, BinaryMode mode) {
         switch (mode) {
             //  Marshaller read/write object contract methods allowed boxed types only.
             case P_BYTE:
@@ -170,7 +170,7 @@ abstract class FieldAccessor {
                 assert false : "Invalid mode " + mode;
         }
 
-        throw new IllegalArgumentException("Failed to create accessor for column [name=" + col.name() + ']');
+        throw new IllegalArgumentException("Failed to create accessor for column [name=" + col + ']');
     }
 
     /**
