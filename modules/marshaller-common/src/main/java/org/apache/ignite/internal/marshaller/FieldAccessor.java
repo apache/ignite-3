@@ -45,6 +45,14 @@ abstract class FieldAccessor {
      */
     protected final int colIdx;
 
+    public Object get(Object obj) {
+        return varHandle.get(obj);
+    }
+
+    public void set(Object obj, Object val) {
+        varHandle.set(obj, val);
+    }
+
     static FieldAccessor noopAccessor(MarshallerColumn col) {
         return new UnmappedFieldAccessor(col);
     }

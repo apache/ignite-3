@@ -92,6 +92,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                         keyMarsh.writeObject(keyRec, new ClientMarshallerWriter(out));
 
                         // Read key columns into the resulting object.
+                        // TODO: Don't do this. Use FieldAccessors to copy fields from keyRec into result.
                         int len = buf.writerIndex() - pos;
                         keyMarsh.readObject(new ClientMarshallerReader(new ClientMessageUnpacker(buf.slice(pos, len))), res);
                     } catch (MarshallerException e) {
@@ -103,6 +104,9 @@ public class ClientRecordView<R> implements RecordView<R> {
                     var marsh = getMarshaller(inSchema, TuplePart.VAL);
 
                     try {
+                        // TODO:
+                        //  1. Read object (create new instance)
+                        //  2. if (!marsh.isSimple()) copyKey(keyRec, res);
                         return (R) marsh.readObject(new ClientMarshallerReader(in), res);
                     } catch (MarshallerException e) {
                         // TODO: ???

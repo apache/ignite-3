@@ -87,6 +87,15 @@ public abstract class Marshaller {
     public abstract Object readObject(MarshallerReader reader, @Nullable Object target) throws MarshallerException;
 
     /**
+     * Copies field values from one object to another.
+     *
+     * @param source Source.
+     * @param target Target.
+     * @throws MarshallerException If failed.
+     */
+    public abstract void copyObject(Object source, Object target) throws MarshallerException;
+
+    /**
      * Write an object to a row.
      *
      * @param obj    Object.
@@ -96,9 +105,16 @@ public abstract class Marshaller {
     public abstract void writeObject(Object obj, MarshallerWriter writer) throws MarshallerException;
 
     /**
+     * Gets a value indicating whether this marshaller instance performs a simple mapping from a single column to a primitive value.
+     *
+     * @return True when simple mode, false otherwise.
+     */
+    public abstract boolean isSimple();
+
+    /**
      * Marshaller for objects of natively supported types.
      */
-    static class SimpleMarshaller extends Marshaller {
+    private static class SimpleMarshaller extends Marshaller {
         /** Identity accessor. */
         private final FieldAccessor fieldAccessor;
 
@@ -128,15 +144,27 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
+        public void copyObject(Object source, Object target) throws MarshallerException {
+            throw new UnsupportedOperationException("SimpleMarshaller can't copy objects.");
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public void writeObject(Object obj, MarshallerWriter writer) throws MarshallerException {
             fieldAccessor.write(writer, obj);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean isSimple() {
+            return true;
         }
     }
 
     /**
      * Marshaller for POJOs.
      */
-    static class PojoMarshaller extends Marshaller {
+    private static class PojoMarshaller extends Marshaller {
         /** Field accessors for mapped columns. Array has same size and order as columns. */
         private final FieldAccessor[] fieldAccessors;
 
@@ -149,7 +177,6 @@ public abstract class Marshaller {
          * @param factory        Object factory.
          * @param fieldAccessors Object field accessors for mapped columns.
          */
-        @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
         PojoMarshaller(Factory<?> factory, FieldAccessor[] fieldAccessors) {
             this.fieldAccessors = fieldAccessors;
             this.factory = Objects.requireNonNull(factory);
@@ -176,10 +203,26 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
+        public void copyObject(Object source, Object target) throws MarshallerException {
+            for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
+                FieldAccessor fieldAccessor = fieldAccessors[fldIdx];
+                var val = fieldAccessor.get(source);
+                fieldAccessor.set(target, val);
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public void writeObject(Object obj, MarshallerWriter writer) throws MarshallerException {
             for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
                 fieldAccessors[fldIdx].write(writer, obj);
             }
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean isSimple() {
+            return false;
         }
     }
 }
