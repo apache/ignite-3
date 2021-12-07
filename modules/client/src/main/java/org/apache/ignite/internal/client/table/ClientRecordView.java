@@ -282,10 +282,10 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         MarshallerColumn[] cols = new MarshallerColumn[colCount];
 
-        for (int i = firstColIdx; i < colCount; i++) {
-            var col = schemaCols[i];
+        for (int i = 0; i < colCount; i++) {
+            var col = schemaCols[i  + firstColIdx];
 
-            cols[i - firstColIdx] = new MarshallerColumn(col.name(), mode(col.type()));
+            cols[i] = new MarshallerColumn(col.name(), mode(col.type()));
         }
 
         return Marshaller.createMarshaller(cols, recMapper, part == TuplePart.KEY);
