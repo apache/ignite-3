@@ -189,7 +189,7 @@ public class FieldAccessorTest {
     @Test
     public void identityAccessor() throws Exception {
         final FieldAccessor accessor = FieldAccessor.createIdentityAccessor(
-                new Column("col0", STRING, true),
+                "col0",
                 0,
                 BinaryMode.STRING);
 
@@ -208,7 +208,7 @@ public class FieldAccessorTest {
     @Test
     public void wrongIdentityAccessor() {
         final FieldAccessor accessor = FieldAccessor.createIdentityAccessor(
-                new Column("col0", STRING, true),
+                "col0",
                 42,
                 BinaryMode.UUID);
 
