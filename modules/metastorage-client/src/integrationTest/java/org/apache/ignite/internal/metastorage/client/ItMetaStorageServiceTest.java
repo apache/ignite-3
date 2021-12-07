@@ -82,7 +82,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -647,7 +646,7 @@ public class ItMetaStorageServiceTest {
 
         cursorAwaitLatch.await(1000, TimeUnit.MILLISECONDS);
 
-        verify(mockStorage).range(ArgumentMatchers.eq(expKeyFrom.bytes()), isNull());
+        verify(mockStorage).range(any(), isNull());
 
         subscriptionRef.get().cancel();
     }

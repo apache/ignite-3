@@ -141,6 +141,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                     byte[] value = item.value();
 
                     if (item.tombstone()) {
+                        subscription.request(1);
+
                         return;
                     }
 
@@ -148,6 +150,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                     assert value != null;
 
                     if (key.equals(MASTER_KEY)) {
+                        subscription.request(1);
+
                         return;
                     }
 

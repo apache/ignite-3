@@ -18,14 +18,19 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import static java.util.stream.Collectors.toList;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Condition;
 import org.apache.ignite.internal.metastorage.client.Entry;
@@ -39,6 +44,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -106,7 +112,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
                 ByteArray keyFrom = invocation.getArgument(0);
                 ByteArray keyTo = invocation.getArgument(1);
 
-                return new CursorAdapter(metaStorage.range(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes()));
+                return new RangePublisher(metaStorage.range(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes()));
             });
         } catch (NodeStoppingException e) {
             throw new RuntimeException(e);
@@ -165,76 +171,123 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
     }
 
     /**
-     * {@code Cursor} that converts {@link Entry} to {@link org.apache.ignite.internal.metastorage.server.Entry}.
+     * Range publisher.
      */
-    private static class CursorAdapter implements Cursor<Entry> {
-        /** Internal cursor. */
+    private class RangePublisher implements Publisher<Entry> {
+        /**
+         * Internal cursor.
+         */
         private final Cursor<org.apache.ignite.internal.metastorage.server.Entry> internalCursor;
 
         /**
-         * Constructor.
+         * The constructor.
          *
          * @param internalCursor internal cursor.
          */
-        CursorAdapter(Cursor<org.apache.ignite.internal.metastorage.server.Entry> internalCursor) {
+        public RangePublisher(Cursor<org.apache.ignite.internal.metastorage.server.Entry> internalCursor) {
             this.internalCursor = internalCursor;
         }
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}
+         */
         @Override
-        public void close() throws Exception {
-            internalCursor.close();
+        public void subscribe(Flow.Subscriber<? super Entry> subscriber) {
+            subscriber.onSubscribe(new RangeSubscription(subscriber));
         }
 
-        /** {@inheritDoc} */
-        @NotNull
-        @Override
-        public Iterator<Entry> iterator() {
-            return this;
-        }
+        /**
+         * Partition Scan Subscription.
+         */
+        private class RangeSubscription implements Subscription {
+            /**
+             * Subscriber.
+             */
+            private final Subscriber<? super Entry> subscriber;
 
-        /** {@inheritDoc} */
-        @Override
-        public boolean hasNext() {
-            return internalCursor.hasNext();
-        }
+            /**
+             * Flag that denotes that subscription was canceled.
+             */
+            private final AtomicBoolean canceled;
 
-        /** {@inheritDoc} */
-        @Override
-        public Entry next() {
-            org.apache.ignite.internal.metastorage.server.Entry next = internalCursor.next();
 
-            return new Entry() {
-                @Override
-                public @NotNull ByteArray key() {
-                    return new ByteArray(next.key());
+            /**
+             * The constructor.
+             *
+             * @param subscriber The subscriber.
+             */
+            private RangeSubscription(Subscriber<? super Entry> subscriber) {
+                this.subscriber = subscriber;
+                this.canceled = new AtomicBoolean(false);
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void request(long n) {
+                if (n <= 0) {
+                    cancel();
+
+                    subscriber.onError(new IllegalArgumentException(LoggerMessageHelper
+                            .format("Invalid requested amount of items [requested={}, minValue=1]", n))
+                    );
                 }
 
-                @Override
-                public byte @Nullable [] value() {
-                    return next.value();
+                if (canceled.get()) {
+                    return;
                 }
 
-                @Override
-                public long revision() {
-                    return next.revision();
-                }
+                if (!internalCursor.hasNext()) {
+                    subscriber.onComplete();
+                } else {
+                    org.apache.ignite.internal.metastorage.server.Entry next = internalCursor.next();
 
-                @Override
-                public long updateCounter() {
-                    return next.updateCounter();
-                }
+                    subscriber.onNext(new Entry() {
+                        @Override
+                        public @NotNull ByteArray key() {
+                            return new ByteArray(next.key());
+                        }
 
-                @Override
-                public boolean empty() {
-                    return next.empty();
-                }
+                        @Override
+                        public byte @Nullable [] value() {
+                            return next.value();
+                        }
 
-                @Override
-                public boolean tombstone() {
-                    return next.tombstone();
+                        @Override
+                        public long revision() {
+                            return next.revision();
+                        }
+
+                        @Override
+                        public long updateCounter() {
+                            return next.updateCounter();
+                        }
+
+                        @Override
+                        public boolean empty() {
+                            return next.empty();
+                        }
+
+                        @Override
+                        public boolean tombstone() {
+                            return next.tombstone();
+                        }
+                    });
                 }
-            };
+            }
+
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void cancel() {
+                try {
+                    internalCursor.close();
+                } catch (Exception e) {
+                    fail(e);
+                }
+            }
         }
     }
 }
