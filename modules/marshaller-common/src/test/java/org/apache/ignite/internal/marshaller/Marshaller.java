@@ -30,7 +30,7 @@ public abstract class Marshaller {
     /**
      * Creates a marshaller for class.
      *
-     * @param cols   Columns.
+     * @param cols   Columns in schema order.
      * @param mapper Mapper.
      * @param requireAllFields If specified class should contain fields for all columns.
      * @return Marshaller.
@@ -51,7 +51,6 @@ public abstract class Marshaller {
         FieldAccessor[] fieldAccessors = new FieldAccessor[cols.length];
 
         // Build handlers.
-
         for (int i = 0; i < cols.length; i++) {
             final MarshallerColumn col = cols[i];
 
@@ -66,49 +65,6 @@ public abstract class Marshaller {
         }
 
         return new PojoMarshaller(new ObjectFactory<>(mapper.targetType()), fieldAccessors);
-    }
-
-    /**
-     * Creates a marshaller for class.
-     *
-     * @param cols Columns.
-     * @param cls  Type.
-     * @param requireAllFields If specified class should contain fields for all columns.
-     * @return Marshaller.
-     */
-    //TODO: IGNITE-15907 drop
-    @Deprecated
-    public static Marshaller createMarshaller(MarshallerColumn[] cols, Class<? extends Object> cls, boolean requireAllFields) {
-        final BinaryMode mode = MarshallerUtil.mode(cls);
-
-        if (mode != null) {
-            final MarshallerColumn col = cols[0];
-
-            assert cols.length == 1;
-            // assert mode.typeSpec() == col.type().spec() : "Target type is not compatible.";
-            assert !cls.isPrimitive() : "Non-nullable types are not allowed.";
-
-            return new SimpleMarshaller(FieldAccessor.createIdentityAccessor(col.name(), 0, mode));
-        }
-
-        FieldAccessor[] fieldAccessors = new FieldAccessor[cols.length];
-
-        // Build accessors
-        for (int i = 0; i < cols.length; i++) {
-            final MarshallerColumn col = cols[i];
-
-            if (requireAllFields) {
-                try {
-                    cls.getDeclaredField(col.name());
-                } catch (NoSuchFieldException e) {
-                    throw new IllegalArgumentException("No field found for column " + col.name());
-                }
-            }
-
-            fieldAccessors[i] = FieldAccessor.create(cls, col.name(), col, i);
-        }
-
-        return new PojoMarshaller(new ObjectFactory<>(cls), fieldAccessors);
     }
 
     /**
