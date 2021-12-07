@@ -28,11 +28,15 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** Underlying table. */
     private final ClientTable tbl;
 
+    /** Marshaller. */
+    private final Marshaller marsh;
+
     public ClientRecordView(ClientTable tbl, Mapper<R> recMapper) {
         this.tbl = tbl;
         this.recMapper = recMapper;
 
-        Marshaller.createMarshaller();
+        // TODO: Require key fields somehow?
+        this.marsh = Marshaller.createMarshaller(null, recMapper, false);
     }
 
     /** {@inheritDoc} */
