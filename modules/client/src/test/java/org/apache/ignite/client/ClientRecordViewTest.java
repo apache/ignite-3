@@ -36,7 +36,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         RecordView<PersonPojo> pojoView = table.recordView(Mapper.of(PersonPojo.class));
 
         var key = new PersonPojo();
-        key.id = 1;
+        key.id = DEFAULT_ID;
 
         PersonPojo val = pojoView.get(key);
 
@@ -45,7 +45,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     }
 
     private static class PersonPojo {
-        public int id;
+        public long id;
 
         public String name;
     }
