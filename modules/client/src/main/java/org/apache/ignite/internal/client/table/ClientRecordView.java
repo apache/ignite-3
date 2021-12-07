@@ -88,7 +88,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                     var marsh = getMarshaller(inSchema, TuplePart.VAL);
 
                     try {
-                        return (R) marsh.readObject(new ClientMarshallerReader(in));
+                        return (R) marsh.readObject(new ClientMarshallerReader(in), null);
                     } catch (MarshallerException e) {
                         // TODO: ???
                         throw new RuntimeException(e);
