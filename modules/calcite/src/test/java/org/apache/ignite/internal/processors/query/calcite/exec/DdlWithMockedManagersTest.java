@@ -67,6 +67,7 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -151,18 +152,22 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
         Objects.requireNonNull(tblManager).stop();
     }
 
+    /** Inner initialisation. */
+    @BeforeEach
+    void before() throws NodeStoppingException {
+        tblManager = mockManagers();
+
+        queryProc = new SqlQueryProcessor(cs, tblManager);
+
+        queryProc.start();
+    }
+
     /**
      * Tests create a table through public API.
      */
     @Test
     public void testCreateTable() throws Exception {
-        tblManager = mockManagers();
-
-        queryProc = new SqlQueryProcessor(cs, tblManager);
-
         SqlQueryProcessor finalQueryProc = queryProc;
-
-        queryProc.start();
 
         String curMethodName = getCurrentMethodName();
 
@@ -197,12 +202,6 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
      */
     @Test
     public void testCreateTableMultiplePk() throws Exception {
-        tblManager = mockManagers();
-
-        queryProc = new SqlQueryProcessor(cs, tblManager);
-
-        queryProc.start();
-
         String curMethodName = getCurrentMethodName();
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int, c2 int, c3 int, primary key(c1, c2))", curMethodName);
@@ -218,14 +217,6 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
      */
     @Test
     public void testDropTable() throws Exception {
-        tblManager = mockManagers();
-
-        queryProc = new SqlQueryProcessor(cs, tblManager);
-
-        SqlQueryProcessor finalQueryProc = queryProc;
-
-        queryProc.start();
-
         String curMethodName = getCurrentMethodName();
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))", curMethodName);
@@ -233,7 +224,9 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
         queryProc.query("PUBLIC", newTblSql);
 
         // todo will be implemented after IGNITE-15926
-        /*assertThrows(IgniteInternalCheckedException.class, () -> finalQueryProc.query("PUBLIC",
+        /*SqlQueryProcessor finalQueryProc = queryProc;
+        
+        assertThrows(IgniteInternalCheckedException.class, () -> finalQueryProc.query("PUBLIC",
             "DROP TABLE " + curMethodName + "_not_exist"));
 
         assertThrows(IgniteInternalCheckedException.class, () -> finalQueryProc.query("PUBLIC",
@@ -255,13 +248,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
      */
     @Test
     public void testAlterAndDropSimpleCase() throws Exception {
-        tblManager = mockManagers();
-
-        queryProc = new SqlQueryProcessor(cs, tblManager);
-
         SqlQueryProcessor finalQueryProc = queryProc;
-
-        queryProc.start();
 
         String curMethodName = getCurrentMethodName();
 
@@ -299,18 +286,54 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
     }
 
     /**
+     * Tests alter add multiple columns through public API.
+     */
+    @Test
+    public void testAlterColumnsAddBatch() throws Exception {
+        String curMethodName = getCurrentMethodName();
+
+        queryProc.query("PUBLIC", String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))", curMethodName));
+
+        queryProc.query("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN (c3 varchar, c4 varchar)", curMethodName));
+
+        queryProc.query("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN IF NOT EXISTS (c3 varchar, c4 varchar)", curMethodName));
+
+        queryProc.query("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN IF NOT EXISTS (c3 varchar, c4 varchar, c5 varchar)",
+                curMethodName));
+
+        SqlQueryProcessor finalQueryProc = queryProc;
+
+        assertThrows(ColumnAlreadyExistsException.class, () -> finalQueryProc.query("PUBLIC",
+                String.format("ALTER TABLE %s ADD COLUMN (c5 varchar)", curMethodName)));
+    }
+
+    /**
+     * Tests alter and drop columns through public API.
+     */
+    @Test
+    public void testAlterColumnsDropBatch() throws Exception {
+        String curMethodName = getCurrentMethodName();
+
+        queryProc.query("PUBLIC", String.format("CREATE TABLE %s "
+                + "(c1 int PRIMARY KEY, c2 varchar(255), c3 varchar, c4 varchar, c5 varchar)", curMethodName));
+
+        queryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName));
+
+        queryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN IF EXISTS (c3, c4, c5)", curMethodName));
+
+        SqlQueryProcessor finalQueryProc = queryProc;
+
+        assertThrows(ColumnNotFoundException.class, () -> finalQueryProc.query("PUBLIC",
+                String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName)));
+    }
+
+    /**
      * Tests create a table through public API.
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16032")
     @Test
     public void testCreateDropIndex() throws Exception {
-        tblManager = mockManagers();
-
-        queryProc = new SqlQueryProcessor(cs, tblManager);
-
         SqlQueryProcessor finalQueryProc = queryProc;
-
-        queryProc.start();
 
         String curMethodName = getCurrentMethodName();
 

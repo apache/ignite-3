@@ -21,9 +21,11 @@ import static org.apache.ignite.internal.schema.configuration.SchemaConfiguratio
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.PrimaryKeyView;
@@ -141,13 +143,7 @@ public class DdlCommandHandler {
 
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
-        try {
-            addColumnInternal(fullName, cmd.columns());
-        } catch (ColumnAlreadyExistsException ex) {
-            if (!cmd.ifColumnNotExists()) {
-                throw ex;
-            }
-        }
+        addColumnInternal(fullName, cmd.columns(), cmd.ifColumnNotExists());
     }
 
     /** Handles drop column command. */
@@ -158,13 +154,7 @@ public class DdlCommandHandler {
 
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
-        try {
-            dropColumnInternal(fullName, cmd.columns());
-        } catch (ColumnNotFoundException ex) {
-            if (!cmd.ifColumnExists()) {
-                throw ex;
-            }
-        }
+        dropColumnInternal(fullName, cmd.columns(), cmd.ifColumnExists());
     }
 
     /** Handles create index command. */
@@ -213,19 +203,28 @@ public class DdlCommandHandler {
      *
      * @param fullName Table with schema name.
      * @param colsDef  Columns defenitions.
+     * @param colNotExist Flag indicates exceptionally behavior in case of already existing column.
      */
-    private void addColumnInternal(String fullName, Set<ColumnDefinition> colsDef) {
+    private void addColumnInternal(String fullName, Set<ColumnDefinition> colsDef, boolean colNotExist) {
         tableManager.alterTable(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
                     Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
 
-                    colsDef.stream().filter(k -> colNamesToOrders.containsKey(k.name())).findAny()
-                            .ifPresent(c -> {
-                                throw new ColumnAlreadyExistsException(c.name());
-                            });
+                    Set<ColumnDefinition> colsDef0;
 
-                    for (ColumnDefinition colDef : colsDef) {
+                    if (!colNotExist) {
+                        colsDef.stream().filter(k -> colNamesToOrders.containsKey(k.name())).findAny()
+                                .ifPresent(c -> {
+                                    throw new ColumnAlreadyExistsException(c.name());
+                                });
+
+                        colsDef0 = colsDef;
+                    } else {
+                        colsDef0 = colsDef.stream().filter(k -> !colNamesToOrders.containsKey(k.name())).collect(Collectors.toSet());
+                    }
+
+                    for (ColumnDefinition colDef : colsDef0) {
                         cols.create(colDef.name(), colChg -> convert(colDef, colChg));
                     }
                 }));
@@ -235,9 +234,10 @@ public class DdlCommandHandler {
      * Adds a column according to the column definition.
      *
      * @param fullName Table with schema name.
-     * @param colsDef  Columns defenitions.
+     * @param colNames  Columns defenitions.
+     * @param colNotExist Flag indicates exceptionally behavior in case of already existing column.
      */
-    private void dropColumnInternal(String fullName, Set<String> colsDef) {
+    private void dropColumnInternal(String fullName, Set<String> colNames, boolean colExist) {
         tableManager.alterTable(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
@@ -245,9 +245,15 @@ public class DdlCommandHandler {
 
                     Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
 
-                    for (String colName : colsDef) {
-                        if (!colNamesToOrders.keySet().contains(colName)) {
-                            throw new ColumnNotFoundException(colName);
+                    Set<String> colNames0 = new HashSet<>();
+
+                    for (String colName : colNames) {
+                        if (!colNamesToOrders.containsKey(colName)) {
+                            if (!colExist) {
+                                throw new ColumnNotFoundException(colName);
+                            }
+                        } else {
+                            colNames0.add(colName);
                         }
 
                         for (String priColName : priKey.columns()) {
@@ -258,7 +264,7 @@ public class DdlCommandHandler {
                         }
                     }
 
-                    colsDef.forEach(k -> cols.delete(colNamesToOrders.get(k)));
+                    colNames0.forEach(k -> cols.delete(colNamesToOrders.get(k)));
                 }));
     }
 
