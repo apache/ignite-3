@@ -38,6 +38,11 @@
             <artifactId>ignite-core</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-api</artifactId>
+        </dependency>
+
         <!-- 3rd party dependencies -->
 
         <!-- Test dependencies -->
@@ -65,13 +70,6 @@
             <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-core</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
         <!-- Benchmark dependencies -->
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
@@ -82,11 +80,6 @@
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-generator-annprocess</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-api</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
