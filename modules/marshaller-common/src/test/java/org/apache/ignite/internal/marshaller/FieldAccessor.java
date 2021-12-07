@@ -181,82 +181,82 @@ abstract class FieldAccessor {
 
         switch (mode) {
             case BYTE:
-                val = reader.byteValueBoxed(colIdx);
+                val = reader.readByte();
 
                 break;
 
             case SHORT:
-                val = reader.shortValueBoxed(colIdx);
+                val = reader.readShort();
 
                 break;
 
             case INT:
-                val = reader.intValueBoxed(colIdx);
+                val = reader.readInt();
 
                 break;
 
             case LONG:
-                val = reader.longValueBoxed(colIdx);
+                val = reader.readLong();
 
                 break;
 
             case FLOAT:
-                val = reader.floatValueBoxed(colIdx);
+                val = reader.readFloat();
 
                 break;
 
             case DOUBLE:
-                val = reader.doubleValueBoxed(colIdx);
+                val = reader.readDouble();
 
                 break;
 
             case STRING:
-                val = reader.stringValue(colIdx);
+                val = reader.readString();
 
                 break;
 
             case UUID:
-                val = reader.uuidValue(colIdx);
+                val = reader.readUuid();
 
                 break;
 
             case BYTE_ARR:
-                val = reader.bytesValue(colIdx);
+                val = reader.readBytes();
 
                 break;
 
             case BITSET:
-                val = reader.bitmaskValue(colIdx);
+                val = reader.readBitSet();
 
                 break;
 
             case NUMBER:
-                val = reader.numberValue(colIdx);
+                val = reader.readBigInt();
 
                 break;
 
             case DECIMAL:
-                val = reader.decimalValue(colIdx);
+                val = reader.readBigDecimal();
 
                 break;
 
             case DATE:
-                val = reader.dateValue(colIdx);
+                val = reader.readDate();
 
                 break;
 
             case TIME:
-                val = reader.timeValue(colIdx);
+                val = reader.readTime();
 
                 break;
 
             case TIMESTAMP:
-                val = reader.timestampValue(colIdx);
+                val = reader.readTimestamp();
 
                 break;
 
             case DATETIME:
-                val = reader.dateTimeValue(colIdx);
+                val = reader.readDateTime();
 
                 break;
 
@@ -278,89 +278,89 @@ abstract class FieldAccessor {
         assert writer != null;
 
         if (val == null) {
-            writer.appendNull();
+            writer.writeNull();
 
             return;
         }
 
         switch (mode) {
             case BYTE:
-                writer.appendByte((Byte) val);
+                writer.writeByte((Byte) val);
 
                 break;
 
             case SHORT:
-                writer.appendShort((Short) val);
+                writer.writeShort((Short) val);
 
                 break;
 
             case INT:
-                writer.appendInt((Integer) val);
+                writer.writeInt((Integer) val);
 
                 break;
 
             case LONG:
-                writer.appendLong((Long) val);
+                writer.writeLong((Long) val);
 
                 break;
 
             case FLOAT:
-                writer.appendFloat((Float) val);
+                writer.writeFloat((Float) val);
 
                 break;
 
             case DOUBLE:
-                writer.appendDouble((Double) val);
+                writer.writeDouble((Double) val);
 
                 break;
 
             case STRING:
-                writer.appendString((String) val);
+                writer.writeString((String) val);
 
                 break;
 
             case UUID:
-                writer.appendUuid((UUID) val);
+                writer.writeUuid((UUID) val);
 
                 break;
 
             case BYTE_ARR:
-                writer.appendBytes((byte[]) val);
+                writer.writeBytes((byte[]) val);
 
                 break;
 
             case BITSET:
-                writer.appendBitmask((BitSet) val);
+                writer.writeBitSet((BitSet) val);
 
                 break;
 
             case NUMBER:
-                writer.appendNumber((BigInteger) val);
+                writer.writeBigInt((BigInteger) val);
 
                 break;
 
             case DECIMAL:
-                writer.appendDecimal((BigDecimal) val);
+                writer.writeBigDecimal((BigDecimal) val);
 
                 break;
 
             case DATE:
-                writer.appendDate((LocalDate) val);
+                writer.writeDate((LocalDate) val);
 
                 break;
 
             case TIME:
-                writer.appendTime((LocalTime) val);
+                writer.writeTime((LocalTime) val);
 
                 break;
 
             case TIMESTAMP:
-                writer.appendTimestamp((Instant) val);
+                writer.writeTimestamp((Instant) val);
 
                 break;
 
             case DATETIME:
-                writer.appendDateTime((LocalDateTime) val);
+                writer.writeDateTime((LocalDateTime) val);
 
                 break;
 
@@ -486,7 +486,7 @@ abstract class FieldAccessor {
         /** {@inheritDoc} */
         @Override
         protected void read0(MarshallerReader reader, Object obj) {
-            // No-op.
+            reader.skipValue();
         }
 
         /** {@inheritDoc} */
@@ -560,13 +560,13 @@ abstract class FieldAccessor {
         protected void write0(MarshallerWriter writer, Object obj) {
             final byte val = (byte) varHandle.get(obj);
 
-            writer.appendByte(val);
+            writer.writeByte(val);
         }
 
         /** {@inheritDoc} */
         @Override
         protected void read0(MarshallerReader reader, Object obj) {
-            final byte val = reader.byteValue(colIdx);
+            final byte val = reader.readByte();
 
             varHandle.set(obj, val);
         }
@@ -591,13 +591,13 @@ abstract class FieldAccessor {
         protected void write0(MarshallerWriter writer, Object obj) {
             final short val = (short) varHandle.get(obj);
 
-            writer.appendShort(val);
+            writer.writeShort(val);
         }
 
         /** {@inheritDoc} */
         @Override
         protected void read0(MarshallerReader reader, Object obj) {
-            final short val = reader.shortValue(colIdx);
+            final short val = reader.readShort();
 
             varHandle.set(obj, val);
         }
@@ -622,13 +622,13 @@ abstract class FieldAccessor {
         protected void write0(MarshallerWriter writer, Object obj) {
             final int val = (int) varHandle.get(obj);
 
-            writer.appendInt(val);
+            writer.writeInt(val);
         }
 
         /** {@inheritDoc} */
         @Override
         protected void read0(MarshallerReader reader, Object obj) {
-            final int val = reader.intValue(colIdx);
+            final int val = reader.readInt();
 
             varHandle.set(obj, val);
         }
@@ -653,13 +653,13 @@ abstract class FieldAccessor {
         protected void write0(MarshallerWriter writer, Object obj) {
             final long val = (long) varHandle.get(obj);
 
-            writer.appendLong(val);
+            writer.writeLong(val);
         }
 
         /** {@inheritDoc} */
         @Override
         protected void read0(MarshallerReader reader, Object obj) {
-            final long val = reader.longValue(colIdx);
+            final long val = reader.readLong();
 
             varHandle.set(obj, val);
         }
@@ -684,13 +684,13 @@ abstract class FieldAccessor {
         protected void write0(MarshallerWriter writer, Object obj) {
             final float val = (float) varHandle.get(obj);
 
-            writer.appendFloat(val);
+            writer.writeFloat(val);
         }
 
         /** {@inheritDoc} */
         @Override
         protected void read0(MarshallerReader reader, Object obj) {
-            final float val = reader.floatValue(colIdx);
+            final float val = reader.readFloat();
 
             varHandle.set(obj, val);
         }
@@ -715,13 +715,13 @@ abstract class FieldAccessor {
         protected void write0(MarshallerWriter writer, Object obj) {
             final double val = (double) varHandle.get(obj);
 
-            writer.appendDouble(val);
+            writer.writeDouble(val);
         }
 
         /** {@inheritDoc} */
         @Override
         protected void read0(MarshallerReader reader, Object obj) {
-            final double val = reader.doubleValue(colIdx);
+            final double val = reader.readDouble();
 
             varHandle.set(obj, val);
         }
@@ -751,7 +751,7 @@ abstract class FieldAccessor {
             Object val = varHandle.get(obj);
 
             if (val == null) {
-                writer.appendNull();
+                writer.writeNull();
 
                 return;
             }

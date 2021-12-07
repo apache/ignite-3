@@ -18,9 +18,6 @@
 package org.apache.ignite.internal.marshaller;
 
 import java.util.Objects;
-import org.apache.ignite.internal.schema.marshaller.MarshallerException;
-import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.util.Factory;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
@@ -210,7 +207,7 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public Object readObject(Row reader) throws MarshallerException {
+        public Object readObject(MarshallerReader reader) throws MarshallerException {
             final Object obj = factory.create();
 
             for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
@@ -222,7 +219,7 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public void writeObject(Object obj, RowAssembler writer) throws MarshallerException {
+        public void writeObject(Object obj, MarshallerWriter writer) throws MarshallerException {
             for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
                 fieldAccessors[fldIdx].write(writer, obj);
             }

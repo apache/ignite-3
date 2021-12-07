@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.marshaller;
 
 import java.math.BigDecimal;
@@ -11,125 +28,125 @@ import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
 
 public interface MarshallerWriter {
-    void appendNull();
+    void writeNull();
 
-    void appendByte(byte val);
+    void writeByte(byte val);
 
-    void appendShort(short val);
+    void writeShort(short val);
 
-    void appendInt(int val);
+    void writeInt(int val);
 
-    void appendLong(long val);
+    void writeLong(long val);
 
-    void appendFloat(float val);
+    void writeFloat(float val);
 
-    void appendDouble(double val);
+    void writeDouble(double val);
 
-    void appendString(String val);
+    void writeString(String val);
 
-    void appendUuid(UUID val);
+    void writeUuid(UUID val);
 
-    void appendBytes(byte[] val);
+    void writeBytes(byte[] val);
 
-    void appendBitmask(BitSet val);
+    void writeBitSet(BitSet val);
 
-    void appendNumber(BigInteger val);
+    void writeBigInt(BigInteger val);
 
-    void appendDecimal(BigDecimal val);
+    void writeBigDecimal(BigDecimal val);
 
-    void appendDate(LocalDate val);
+    void writeDate(LocalDate val);
 
-    void appendTime(LocalTime val);
+    void writeTime(LocalTime val);
 
-    void appendTimestamp(Instant val);
+    void writeTimestamp(Instant val);
 
-    void appendDateTime(LocalDateTime val);
+    void writeDateTime(LocalDateTime val);
     
     default void writeValue(MarshallerColumn col, Object val) {
         if (val == null) {
-            appendNull();
+            writeNull();
 
             return;
         }
 
         switch (col.type()) {
             case BYTE: {
-                appendByte((byte) val);
+                writeByte((byte) val);
 
                 break;
             }
             case SHORT: {
-                appendShort((short) val);
+                writeShort((short) val);
 
                 break;
             }
             case INT: {
-                appendInt((int) val);
+                writeInt((int) val);
 
                 break;
             }
             case LONG: {
-                appendLong((long) val);
+                writeLong((long) val);
 
                 break;
             }
             case FLOAT: {
-                appendFloat((float) val);
+                writeFloat((float) val);
 
                 break;
             }
             case DOUBLE: {
-                appendDouble((double) val);
+                writeDouble((double) val);
 
                 break;
             }
             case UUID: {
-                appendUuid((UUID) val);
+                writeUuid((UUID) val);
 
                 break;
             }
             case TIME: {
-                appendTime((LocalTime) val);
+                writeTime((LocalTime) val);
 
                 break;
             }
             case DATE: {
-                appendDate((LocalDate) val);
+                writeDate((LocalDate) val);
 
                 break;
             }
             case DATETIME: {
-                appendDateTime((LocalDateTime) val);
+                writeDateTime((LocalDateTime) val);
 
                 break;
             }
             case TIMESTAMP: {
-                appendTimestamp((Instant) val);
+                writeTimestamp((Instant) val);
 
                 break;
             }
             case STRING: {
-                appendString((String) val);
+                writeString((String) val);
 
                 break;
             }
             case BYTE_ARR: {
-                appendBytes((byte[]) val);
+                writeBytes((byte[]) val);
 
                 break;
             }
             case BITSET: {
-                appendBitmask((BitSet) val);
+                writeBitSet((BitSet) val);
 
                 break;
             }
             case NUMBER: {
-                appendNumber((BigInteger) val);
+                writeBigInt((BigInteger) val);
 
                 break;
             }
             case DECIMAL: {
-                appendDecimal((BigDecimal) val);
+                writeBigDecimal((BigDecimal) val);
 
                 break;
             }
