@@ -12,6 +12,7 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.marshaller.Marshaller;
 
 /**
  * TODO:
@@ -30,6 +31,8 @@ public class ClientRecordView<R> implements RecordView<R> {
     public ClientRecordView(ClientTable tbl, Mapper<R> recMapper) {
         this.tbl = tbl;
         this.recMapper = recMapper;
+
+        Marshaller.createMarshaller();
     }
 
     /** {@inheritDoc} */
