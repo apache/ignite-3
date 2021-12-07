@@ -37,4 +37,16 @@ public class MarshallerColumn {
         this.type = type;
         this.defValSup = defValSup == null ? NULL_SUPPLIER : defValSup;
     }
+
+    public String name() {
+        return name;
+    }
+
+    public BinaryMode type() {
+        return type;
+    }
+
+    public Object defaultValue() {
+        return defValSup.get();
+    }
 }

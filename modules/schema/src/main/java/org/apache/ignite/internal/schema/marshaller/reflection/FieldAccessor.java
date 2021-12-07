@@ -29,7 +29,6 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.marshaller.BinaryMode;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
@@ -54,7 +53,7 @@ abstract class FieldAccessor {
      */
     protected final int colIdx;
 
-    static FieldAccessor noopAccessor(Column col) {
+    static FieldAccessor noopAccessor(MarshallerColumn col) {
         return new UnmappedFieldAccessor(col);
     }
 
@@ -67,13 +66,14 @@ abstract class FieldAccessor {
      * @param colIdx  Column index in the schema.
      * @return Accessor.
      */
-    static FieldAccessor create(Class<?> type, String fldName, Column col, int colIdx) {
+    static FieldAccessor create(Class<?> type, String fldName, MarshallerColumn col, int colIdx) {
         try {
             final Field field = type.getDeclaredField(fldName);
 
-            if (field.getType().isPrimitive() && col.nullable()) {
-                throw new IllegalArgumentException("Failed to map non-nullable field to nullable column [name=" + field.getName() + ']');
-            }
+            // TODO
+//            if (field.getType().isPrimitive() && col.nullable()) {
+//                throw new IllegalArgumentException("Failed to map non-nullable field to nullable column [name=" + field.getName() + ']');
+//            }
 
             BinaryMode mode = MarshallerUtil.mode(field.getType());
             final MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(type, MethodHandles.lookup());
@@ -479,14 +479,14 @@ abstract class FieldAccessor {
      */
     private static class UnmappedFieldAccessor extends FieldAccessor {
         /** Column. */
-        private final Column col;
+        private final MarshallerColumn col;
 
         /**
          * Constructor.
          *
          * @param col Column.
          */
-        UnmappedFieldAccessor(Column col) {
+        UnmappedFieldAccessor(MarshallerColumn col) {
             super(0, null);
             this.col = col;
         }

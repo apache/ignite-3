@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
 import java.util.Objects;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.marshaller.BinaryMode;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
@@ -42,17 +40,17 @@ public abstract class Marshaller {
      * @param requireAllFields If specified class should contain fields for all columns.
      * @return Marshaller.
      */
-    public static <T> Marshaller createMarshaller(Column[] cols, Mapper<T> mapper, boolean requireAllFields) {
+    public static <T> Marshaller createMarshaller(MarshallerColumn[] cols, Mapper<T> mapper, boolean requireAllFields) {
         final BinaryMode mode = MarshallerUtil.mode(mapper.targetType());
 
         if (mode != null) {
-            final Column col = cols[0];
+            final MarshallerColumn col = cols[0];
 
             assert cols.length == 1;
             // assert mode.typeSpec() == col.type().spec() : "Target type is not compatible.";
             assert !mapper.targetType().isPrimitive() : "Non-nullable types are not allowed.";
 
-            return new SimpleMarshaller(FieldAccessor.createIdentityAccessor(col.name(), col.schemaIndex(), mode));
+            return new SimpleMarshaller(FieldAccessor.createIdentityAccessor(col.name(), 0, mode));
         }
 
         FieldAccessor[] fieldAccessors = new FieldAccessor[cols.length];
@@ -60,7 +58,7 @@ public abstract class Marshaller {
         // Build handlers.
 
         for (int i = 0; i < cols.length; i++) {
-            final Column col = cols[i];
+            final MarshallerColumn col = cols[i];
 
             String fieldName = mapper.columnToField(col.name());
 
@@ -69,7 +67,7 @@ public abstract class Marshaller {
             }
 
             fieldAccessors[i] = (fieldName == null) ? FieldAccessor.noopAccessor(col) :
-                    FieldAccessor.create(mapper.targetType(), fieldName, col, col.schemaIndex());
+                    FieldAccessor.create(mapper.targetType(), fieldName, col, i);
         }
 
         return new PojoMarshaller(new ObjectFactory<>(mapper.targetType()), fieldAccessors);
@@ -85,24 +83,24 @@ public abstract class Marshaller {
      */
     //TODO: IGNITE-15907 drop
     @Deprecated
-    public static Marshaller createMarshaller(Columns cols, Class<? extends Object> cls, boolean requireAllFields) {
+    public static Marshaller createMarshaller(MarshallerColumn[] cols, Class<? extends Object> cls, boolean requireAllFields) {
         final BinaryMode mode = MarshallerUtil.mode(cls);
 
         if (mode != null) {
-            final Column col = cols.column(0);
+            final MarshallerColumn col = cols[0];
 
-            assert cols.length() == 1;
+            assert cols.length == 1;
             // assert mode.typeSpec() == col.type().spec() : "Target type is not compatible.";
             assert !cls.isPrimitive() : "Non-nullable types are not allowed.";
 
-            return new SimpleMarshaller(FieldAccessor.createIdentityAccessor(col.name(), col.schemaIndex(), mode));
+            return new SimpleMarshaller(FieldAccessor.createIdentityAccessor(col.name(), 0, mode));
         }
 
-        FieldAccessor[] fieldAccessors = new FieldAccessor[cols.length()];
+        FieldAccessor[] fieldAccessors = new FieldAccessor[cols.length];
 
         // Build accessors
-        for (int i = 0; i < cols.length(); i++) {
-            final Column col = cols.column(i);
+        for (int i = 0; i < cols.length; i++) {
+            final MarshallerColumn col = cols[i];
 
             if (requireAllFields) {
                 try {
@@ -112,7 +110,7 @@ public abstract class Marshaller {
                 }
             }
 
-            fieldAccessors[i] = FieldAccessor.create(cls, col.name(), col, col.schemaIndex());
+            fieldAccessors[i] = FieldAccessor.create(cls, col.name(), col, i);
         }
 
         return new PojoMarshaller(new ObjectFactory<>(cls), fieldAccessors);
