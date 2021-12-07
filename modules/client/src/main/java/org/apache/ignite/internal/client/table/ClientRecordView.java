@@ -32,11 +32,13 @@ public class ClientRecordView<R> implements RecordView<R> {
         this.recMapper = recMapper;
     }
 
+    /** {@inheritDoc} */
     @Override
     public R get(@NotNull R keyRec) {
-        return null;
+        return getAsync(keyRec).join();
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<R> getAsync(@NotNull R keyRec) {
         Objects.requireNonNull(keyRec);
