@@ -308,7 +308,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
     }
 
     /**
-     * Tests alter and drop columns through public API.
+     * Tests alter drop multiple columns through public API.
      */
     @Test
     public void testAlterColumnsDropBatch() throws Exception {
