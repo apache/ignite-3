@@ -167,6 +167,8 @@ public class Processor extends AbstractProcessor {
 
                 if (field.getAnnotation(ConfigValue.class) != null) {
                     checkConfigField(field, ConfigValue.class);
+
+                    checkMissingNameForInjectedName(field);
                 }
 
                 if (field.getAnnotation(NamedConfigValue.class) != null) {
@@ -1043,6 +1045,27 @@ public class Processor extends AbstractProcessor {
                     simpleName(ConfigValue.class)
                 ));
             }
+        }
+    }
+
+    /**
+     * Checks for missing {@link org.apache.ignite.configuration.annotation.Name} for nested schema with {@link InjectedName}.
+     *
+     * @param field Class field.
+     * @throws ProcessorException If there is no {@link org.apache.ignite.configuration.annotation.Name}
+     *      for the nested schema with {@link InjectedName}.
+     */
+    private void checkMissingNameForInjectedName(VariableElement field) {
+        TypeElement fieldType = processingEnv.getElementUtils().getTypeElement(field.asType().toString());
+
+        if (!collectAnnotatedFields(fields(fieldType), InjectedName.class).isEmpty()
+                && field.getAnnotation(org.apache.ignite.configuration.annotation.Name.class) == null) {
+            throw new ProcessorException(String.format(
+                    "Missing %s for field: %s.%s",
+                    simpleName(org.apache.ignite.configuration.annotation.Name.class),
+                    field.getEnclosingElement(),
+                    field.getSimpleName()
+            ));
         }
     }
 }

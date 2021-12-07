@@ -17,9 +17,19 @@
 
 package org.apache.ignite.configuration.annotation;
 
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
 /**
  * TODO: IGNITE-15564 javadoc.
  */
+@Target(FIELD)
+@Retention(RUNTIME)
+@Documented
 public @interface Name {
     /**
      * Returns the default value for {@link InjectedName}.

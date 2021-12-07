@@ -51,6 +51,9 @@ import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.vie
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.extensionsFields;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.hasDefault;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isConfigValue;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isContainNameAnnotation;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isDirectAccess;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isInjectedName;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isNamedConfigValue;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicConfig;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicConfigInstance;
@@ -76,6 +79,7 @@ import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import java.io.File;
 import java.io.Serializable;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
@@ -112,8 +116,9 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.DirectAccess;
+import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
@@ -212,6 +217,12 @@ public class ConfigurationAsmGenerator {
     /** {@link ConfigurationUtil#addDefaults}. */
     private static final Method ADD_DEFAULTS_MTD;
 
+    /** {@link ConfigurationUtil#removeLastKey}. */
+    private static final Method REMOVE_LAST_KEY_MTD;
+
+    /** {@link InnerNode#setInjectedNameFieldValue}. */
+    private static final Method SET_INJECTED_NAME_FIELD_VALUE_MTD;
+
     /** {@code Node#convert} method name. */
     private static final String CONVERT_MTD_NAME = "convert";
 
@@ -286,6 +297,10 @@ public class ConfigurationAsmGenerator {
             SPECIFIC_CONFIG_TREE_MTD = DynamicConfiguration.class.getDeclaredMethod("specificConfigTree");
 
             ADD_DEFAULTS_MTD = ConfigurationUtil.class.getDeclaredMethod("addDefaults", InnerNode.class);
+
+            REMOVE_LAST_KEY_MTD = ConfigurationUtil.class.getDeclaredMethod("removeLastKey", List.class);
+
+            SET_INJECTED_NAME_FIELD_VALUE_MTD = InnerNode.class.getDeclaredMethod("setInjectedNameFieldValue", String.class);
         } catch (NoSuchMethodException nsme) {
             throw new ExceptionInInitializerError(nsme);
         }
@@ -295,7 +310,9 @@ public class ConfigurationAsmGenerator {
     private final Map<Class<?>, SchemaClassesInfo> schemasInfo = new HashMap<>();
 
     /** Class generator instance. */
-    private final ClassGenerator generator = ClassGenerator.classGenerator(getClass().getClassLoader());
+    private final ClassGenerator generator = ClassGenerator.classGenerator(getClass().getClassLoader())
+            .dumpClassFilesTo(new File("C:\\test").toPath());
+    // TODO: IGNITE-15564 remove ^.
 
     /**
      * Creates new instance of {@code *Node} class corresponding to the given Configuration Schema.
@@ -392,6 +409,7 @@ public class ConfigurationAsmGenerator {
 
             assert internalExtensions.isEmpty() || polymorphicExtensions.isEmpty() :
                     "Internal and polymorphic extensions are not allowed at the same time: " + schemaClass;
+
             if (isPolymorphicConfig(schemaClass) && polymorphicExtensions.isEmpty()) {
                 throw new IllegalArgumentException(schemaClass
                         + " is polymorphic but polymorphic extensions are absent");
@@ -519,6 +537,9 @@ public class ConfigurationAsmGenerator {
         // To store the id of the polymorphic configuration instance.
         FieldDefinition polymorphicTypeIdFieldDef = null;
 
+        // Field with @InjectedName.
+        FieldDefinition injectedNameFieldDef = null;
+
         for (Field schemaField : concat(schemaFields, internalFields, polymorphicFields)) {
             String fieldName = fieldName(schemaField);
 
@@ -528,6 +549,8 @@ public class ConfigurationAsmGenerator {
 
             if (isPolymorphicId(schemaField)) {
                 polymorphicTypeIdFieldDef = fieldDef;
+            } else if (isInjectedName(schemaField)) {
+                injectedNameFieldDef = fieldDef;
             }
         }
 
@@ -551,7 +574,7 @@ public class ConfigurationAsmGenerator {
             );
 
             // Read only.
-            if (isPolymorphicId(schemaField)) {
+            if (isPolymorphicId(schemaField) || isInjectedName(schemaField)) {
                 continue;
             }
 
@@ -641,6 +664,10 @@ public class ConfigurationAsmGenerator {
                 polymorphicTypeIdFieldDef
         );
 
+        if (injectedNameFieldDef != null) {
+            addInjectedNameFieldMethods(classDef, injectedNameFieldDef);
+        }
+
         return classDef;
     }
 
@@ -685,7 +712,7 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Declares field that corresponds to configuration value. Depending on the schema, 3 options possible:
+     * Declares field that corresponds to configuration value. Depending on the schema, 5 options possible:
      * <ul>
      *     <li>
      *         {@code @Value public type fieldName}<br/>becomes<br/>
@@ -703,24 +730,31 @@ public class ConfigurationAsmGenerator {
      *         {@code @PolymorphicId public String fieldName}<br/>becomes<br/>
      *         {@code public String fieldName}
      *     </li>
+     *     <li>
+     *         {@code @InjectedName public String fieldName}<br/>becomes<br/>
+     *         {@code public String fieldName}
+     *     </li>
      * </ul>
      *
      * @param classDef    Node class definition.
      * @param schemaField Configuration Schema class field.
      * @param fieldName   Field name.
      * @return Declared field definition.
+     * @throws IllegalArgumentException If an unsupported {@code schemaField} was passed.
      */
     private FieldDefinition addNodeField(ClassDefinition classDef, Field schemaField, String fieldName) {
         Class<?> schemaFieldClass = schemaField.getType();
 
         ParameterizedType nodeFieldType;
 
-        if (isValue(schemaField) || isPolymorphicId(schemaField)) {
+        if (isValue(schemaField) || isPolymorphicId(schemaField) || isInjectedName(schemaField)) {
             nodeFieldType = type(box(schemaFieldClass));
         } else if (isConfigValue(schemaField)) {
             nodeFieldType = typeFromJavaClassName(schemasInfo.get(schemaFieldClass).nodeClassName);
-        } else {
+        } else if (isNamedConfigValue(schemaField)) {
             nodeFieldType = type(NamedListNode.class);
+        } else {
+            throw new IllegalArgumentException("Unsupported field: " + schemaField);
         }
 
         return classDef.declareField(of(PUBLIC), fieldName, nodeFieldType);
@@ -1020,6 +1054,10 @@ public class ConfigurationAsmGenerator {
 
         // invokeVisit for public (common in case polymorphic config) fields.
         for (Field schemaField : schemaFields) {
+            if (isInjectedName(schemaField)) {
+                continue;
+            }
+
             mtdBody.append(
                     invokeVisit(traverseChildrenMtd, schemaField, fieldDefs.get(schemaField.getName())).pop()
             );
@@ -1106,6 +1144,10 @@ public class ConfigurationAsmGenerator {
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(traverseChildMtd.getScope()).expression(keyVar);
 
         for (Field schemaField : schemaFields) {
+            if (isInjectedName(schemaField)) {
+                continue;
+            }
+
             String fieldName = fieldName(schemaField);
 
             switchBuilder.addCase(
@@ -1121,6 +1163,10 @@ public class ConfigurationAsmGenerator {
                     .defaultCase(throwException(NoSuchElementException.class, keyVar));
 
             for (Field schemaField : union(schemaFields, internalFields)) {
+                if (isInjectedName(schemaField)) {
+                    continue;
+                }
+
                 String fieldName = fieldName(schemaField);
 
                 switchBuilderAllFields.addCase(
@@ -1238,6 +1284,10 @@ public class ConfigurationAsmGenerator {
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(constructMtd.getScope()).expression(keyVar);
 
         for (Field schemaField : schemaFields) {
+            if (isInjectedName(schemaField)) {
+                continue;
+            }
+
             String fieldName = fieldName(schemaField);
             FieldDefinition fieldDef = fieldDefs.get(fieldName);
 
@@ -1273,6 +1323,10 @@ public class ConfigurationAsmGenerator {
                     .defaultCase(throwException(NoSuchElementException.class, keyVar));
 
             for (Field schemaField : union(schemaFields, internalFields)) {
+                if (isInjectedName(schemaField)) {
+                    continue;
+                }
+
                 String fieldName = fieldName(schemaField);
 
                 switchBuilderAllFields.addCase(
@@ -1362,6 +1416,10 @@ public class ConfigurationAsmGenerator {
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(constructDfltMtd.getScope()).expression(keyVar);
 
         for (Field schemaField : concat(schemaFields, internalFields)) {
+            if (isInjectedName(schemaField)) {
+                continue;
+            }
+
             if (isValue(schemaField) || isPolymorphicId(schemaField)) {
                 String fieldName = schemaField.getName();
 
@@ -1660,8 +1718,10 @@ public class ConfigurationAsmGenerator {
 
         Constructor<?> superCtor = schemaClassInfo.direct ? DIRECT_DYNAMIC_CONFIGURATION_CTOR : DYNAMIC_CONFIGURATION_CTOR;
 
+        Variable thisVar = ctor.getThis();
+
         BytecodeBlock ctorBody = ctor.getBody()
-                .append(ctor.getThis())
+                .append(thisVar)
                 .append(ctor.getScope().getVariable("prefix"))
                 .append(ctor.getScope().getVariable("key"))
                 .append(rootKeyVar)
@@ -1669,7 +1729,7 @@ public class ConfigurationAsmGenerator {
                 .append(listenOnlyVar)
                 .invokeConstructor(superCtor);
 
-        BytecodeExpression thisKeysVar = ctor.getThis().getField("keys", List.class);
+        BytecodeExpression thisKeysVar = thisVar.getField("keys", List.class);
 
         int newIdx = 0;
         for (Field schemaField : concat(schemaFields, internalFields, polymorphicFields)) {
@@ -1677,19 +1737,19 @@ public class ConfigurationAsmGenerator {
 
             BytecodeExpression newValue;
 
-            if (isValue(schemaField) || isPolymorphicId(schemaField)) {
-                Class<?> fieldImplClass = schemaField.isAnnotationPresent(DirectAccess.class)
-                        ? DirectDynamicProperty.class : DynamicProperty.class;
+            if (isValue(schemaField) || isPolymorphicId(schemaField) || isInjectedName(schemaField)) {
+                Class<?> fieldImplClass = isDirectAccess(schemaField) ? DirectDynamicProperty.class : DynamicProperty.class;
 
-                // newValue = new DynamicProperty(super.keys, fieldName, rootKey, changer, listenOnly);
+                // newValue = new DynamicProperty(this.keys, fieldName, rootKey, changer, listenOnly, injectedNameField);
                 newValue = newInstance(
                         fieldImplClass,
-                        thisKeysVar,
-                        constantString(fieldName),
+                        isInjectedName(schemaField) ? invokeStatic(REMOVE_LAST_KEY_MTD, thisKeysVar) : thisKeysVar,
+                        isInjectedName(schemaField) ? thisVar.getField("key", String.class) : constantString(fieldName),
                         rootKeyVar,
                         changerVar,
                         listenOnlyVar,
-                        constantBoolean(isPolymorphicId(schemaField))
+                        constantBoolean(isPolymorphicId(schemaField) || isInjectedName(schemaField)),
+                        constantBoolean(isInjectedName(schemaField))
                 );
             } else {
                 SchemaClassesInfo fieldInfo = schemasInfo.get(schemaField.getType());
@@ -1783,11 +1843,11 @@ public class ConfigurationAsmGenerator {
             FieldDefinition fieldDef = fieldDefs.get(fieldName(schemaField));
 
             // this.field = newValue;
-            ctorBody.append(ctor.getThis().setField(fieldDef, newValue));
+            ctorBody.append(thisVar.setField(fieldDef, newValue));
 
             if (!isPolymorphicConfigInstance(schemaField.getDeclaringClass())) {
                 // add(this.field);
-                ctorBody.append(ctor.getThis().invoke(DYNAMIC_CONFIGURATION_ADD_MTD, ctor.getThis().getField(fieldDef)));
+                ctorBody.append(thisVar.invoke(DYNAMIC_CONFIGURATION_ADD_MTD, thisVar.getField(fieldDef)));
             }
         }
 
@@ -1821,7 +1881,7 @@ public class ConfigurationAsmGenerator {
         } else if (isNamedConfigValue(schemaField)) {
             returnType = type(NamedConfigurationTree.class);
         } else {
-            assert isValue(schemaField) || isPolymorphicId(schemaField) : schemaField;
+            assert isValue(schemaField) || isPolymorphicId(schemaField) || isInjectedName(schemaField) : schemaField;
 
             returnType = type(ConfigurationValue.class);
         }
@@ -2001,7 +2061,7 @@ public class ConfigurationAsmGenerator {
             );
 
             // Read only.
-            if (isPolymorphicId(schemaField)) {
+            if (isPolymorphicId(schemaField) || isInjectedName(schemaField)) {
                 continue;
             }
 
@@ -2588,6 +2648,14 @@ public class ConfigurationAsmGenerator {
                 setField = setThisFieldCode(constructMtd, newValue, schemaFieldDef);
             }
 
+            if (isContainNameAnnotation(schemaField)) {
+                setField = new BytecodeBlock()
+                        .append(setField)
+                        .append(getThisFieldCode(constructMtd, schemaFieldDef))
+                        .append(constantString(schemaField.getAnnotation(Name.class).value()))
+                        .invokeVirtual(SET_INJECTED_NAME_FIELD_VALUE_MTD);
+            }
+
             codeBlock.append(
                     new IfStatement()
                             .condition(isNull(srcVar))
@@ -2808,5 +2876,40 @@ public class ConfigurationAsmGenerator {
                 newNamedListElementLambda(fieldClassNames.nodeClassName),
                 isPolymorphicConfig(fieldType) ? constantString(polymorphicIdField(fieldType).getName()) : constantNull(String.class)
         );
+    }
+
+    /**
+     * Adds method overrides {@link InnerNode#getInjectedNameFieldValue} and {@link InnerNode#setInjectedNameFieldValue}.
+     *
+     * @param classDef Node class definition.
+     * @param injectedNameFieldDef Field definition with {@link InjectedName}.
+     */
+    private void addInjectedNameFieldMethods(ClassDefinition classDef, FieldDefinition injectedNameFieldDef) {
+        MethodDefinition getInjectedNameFieldValueMtd = classDef.declareMethod(
+                of(PUBLIC),
+                "getInjectedNameFieldValue",
+                type(String.class)
+        );
+
+        getInjectedNameFieldValueMtd.getBody()
+                .append(getThisFieldCode(getInjectedNameFieldValueMtd, injectedNameFieldDef))
+                .retObject();
+
+        MethodDefinition setInjectedNameFieldValueMtd = classDef.declareMethod(
+                of(PUBLIC),
+                "setInjectedNameFieldValue",
+                type(void.class),
+                arg("value", String.class)
+        );
+
+        Variable valueVar = setInjectedNameFieldValueMtd.getScope().getVariable("value");
+
+        setInjectedNameFieldValueMtd.getBody()
+                .append(invokeStatic(REQUIRE_NON_NULL, valueVar, constantString("value")))
+                .append(setThisFieldCode(
+                        setInjectedNameFieldValueMtd,
+                        valueVar,
+                        injectedNameFieldDef
+                )).ret();
     }
 }

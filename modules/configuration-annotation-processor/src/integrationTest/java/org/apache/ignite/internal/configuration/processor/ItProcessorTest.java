@@ -352,6 +352,12 @@ public class ItProcessorTest extends AbstractProcessorTest {
                 () -> batchCompile(packageName, "ErrorName0ConfigurationSchema"),
                 Name.class.getSimpleName()
         );
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "ErrorName1ConfigurationSchema"),
+                Name.class.getSimpleName()
+        );
     }
 
     /**

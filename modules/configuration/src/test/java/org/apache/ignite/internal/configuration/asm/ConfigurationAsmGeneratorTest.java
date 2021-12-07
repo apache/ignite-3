@@ -40,7 +40,9 @@ import org.apache.ignite.configuration.ConfigurationReadOnlyException;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
@@ -91,12 +93,13 @@ public class ConfigurationAsmGeneratorTest {
                 SecondPolymorphicInstanceTestConfigurationSchema.class,
                 NonDefaultPolymorphicInstanceTestConfigurationSchema.class,
                 FirstPolymorphicNamedInstanceTestConfigurationSchema.class,
-                SecondPolymorphicNamedInstanceTestConfigurationSchema.class
+                SecondPolymorphicNamedInstanceTestConfigurationSchema.class,
+                PolyInstInjectedNameConfigurationSchema.class
         );
 
         changer = new TestConfigurationChanger(
                 generator,
-                List.of(TestRootConfiguration.KEY),
+                List.of(TestRootConfiguration.KEY, InjectedNameRootConfiguration.KEY),
                 Map.of(),
                 new TestConfigurationStorage(LOCAL),
                 internalExtensions,
@@ -485,6 +488,32 @@ public class ConfigurationAsmGeneratorTest {
         assertThat(((NonDefaultPolymorphicInstanceTestView) view).nonDefaultValue(), is("foo"));
     }
 
+    @Test
+    void testNestedConfigurationWithInjectedNameField() {
+        InjectedNameRootConfiguration rootCfg =
+                (InjectedNameRootConfiguration) generator.instantiateCfg(InjectedNameRootConfiguration.KEY, changer);
+
+        // Checks for common config.
+        assertThrows(
+                ConfigurationReadOnlyException.class,
+                () -> rootCfg.nested().name().update("test").get(1, SECONDS)
+        );
+
+        assertEquals("nestedDefault", rootCfg.nested().name().value());
+        assertEquals("nestedDefault", rootCfg.value().nested().name());
+        assertEquals("nestedDefault", rootCfg.nested().value().name());
+
+        // Checks for polymorphic configs.
+        assertThrows(
+                ConfigurationReadOnlyException.class,
+                () -> rootCfg.nestedPoly().name().update("test").get(1, SECONDS)
+        );
+
+        assertEquals("nestedDefaultPoly", rootCfg.nestedPoly().name().value());
+        assertEquals("nestedDefaultPoly", rootCfg.value().nestedPoly().name());
+        assertEquals("nestedDefaultPoly", rootCfg.nestedPoly().value().name());
+    }
+
     /**
      * Test root configuration schema.
      */
@@ -652,5 +681,55 @@ public class ConfigurationAsmGeneratorTest {
         /** Long value. */
         @Value(hasDefault = true)
         public long longVal = 0;
+    }
+
+    /**
+     * Root configuration schema for test {@link InjectedName} and {@link Name}.
+     */
+    @ConfigurationRoot(rootName = "testInjectedName")
+    public static class InjectedNameRootConfigurationSchema {
+        @Name("nestedDefault")
+        @ConfigValue
+        public InjectedNameConfigurationSchema nested;
+
+        @NamedConfigValue
+        public InjectedNameConfigurationSchema nestedNamed;
+
+        @Name("nestedDefaultPoly")
+        @ConfigValue
+        public PolyInjectedNameConfigurationSchema nestedPoly;
+
+        @NamedConfigValue
+        public PolyInjectedNameConfigurationSchema nestedNamedPoly;
+    }
+
+    /**
+     * Configuration schema for test {@link InjectedName}.
+     */
+    @Config
+    public static class InjectedNameConfigurationSchema {
+        @InjectedName
+        public String name;
+    }
+
+    /**
+     * Polymorphic configuration schema for test {@link InjectedName}.
+     */
+    @PolymorphicConfig
+    public static class PolyInjectedNameConfigurationSchema {
+        public static final String FIRST = "first";
+
+        @PolymorphicId(hasDefault = true)
+        public String type = FIRST;
+
+        @InjectedName
+        public String name;
+    }
+
+    /**
+     * Polymorphic instance of configuration schema for test {@link InjectedName}.
+     */
+    @PolymorphicConfigInstance(PolyInjectedNameConfigurationSchema.FIRST)
+    public static class PolyInstInjectedNameConfigurationSchema extends PolyInjectedNameConfigurationSchema {
     }
 }

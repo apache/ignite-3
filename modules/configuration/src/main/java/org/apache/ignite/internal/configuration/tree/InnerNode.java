@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.tree;
 
 import java.util.NoSuchElementException;
+import org.apache.ignite.configuration.annotation.InjectedName;
 
 /**
  * Configuration node implementation.
@@ -186,5 +187,24 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      */
     public <NODET> NODET specificNode() {
         return (NODET) this;
+    }
+
+    /**
+     * Gets the value of a field with {@link InjectedName}.
+     *
+     * @throws UnsupportedOperationException If not supported.
+     */
+    public String getInjectedNameFieldValue() {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Sets the value of a field with {@link InjectedName}.
+     *
+     * @throws UnsupportedOperationException If not supported.
+     * @throws NullPointerException If {@code value == null}.
+     */
+    public void setInjectedNameFieldValue(String value) {
+        throw new UnsupportedOperationException();
     }
 }
