@@ -18,22 +18,20 @@ import static org.apache.ignite.internal.client.proto.ClientDataType.STRING;
 import static org.apache.ignite.internal.client.proto.ClientDataType.TIME;
 import static org.apache.ignite.internal.client.proto.ClientDataType.TIMESTAMP;
 
-import io.netty.buffer.ByteBuf;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientDataType;
-import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
+import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerColumn;
 import org.apache.ignite.internal.marshaller.MarshallerException;
-import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
@@ -41,7 +39,6 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.apache.ignite.internal.marshaller.Marshaller;
 
 /**
  * Client record view implementation.
@@ -53,13 +50,9 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** Underlying table. */
     private final ClientTable tbl;
 
-    /** Object factory. */
-    private final ObjectFactory<R> factory;
-
     public ClientRecordView(ClientTable tbl, Mapper<R> recMapper) {
         this.tbl = tbl;
         this.recMapper = recMapper;
-        this.factory = new ObjectFactory<>(recMapper.targetType());
     }
 
     /** {@inheritDoc} */
@@ -73,9 +66,6 @@ public class ClientRecordView<R> implements RecordView<R> {
     public @NotNull CompletableFuture<R> getAsync(@NotNull R keyRec) {
         Objects.requireNonNull(keyRec);
 
-        // TODO: This allocation may be unnecessary when server returns null.
-        final R res = factory.create();
-
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (schema, out) -> {
@@ -86,15 +76,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                         // TODO: Cache marshallers per schema.
                         Marshaller keyMarsh = getMarshaller(schema, TuplePart.KEY);
 
-                        ByteBuf buf = out.getBuffer();
-                        int pos = buf.writerIndex();
-
                         keyMarsh.writeObject(keyRec, new ClientMarshallerWriter(out));
-
-                        // Read key columns into the resulting object.
-                        // TODO: Don't do this. Use FieldAccessors to copy fields from keyRec into result.
-                        int len = buf.writerIndex() - pos;
-                        keyMarsh.readObject(new ClientMarshallerReader(new ClientMessageUnpacker(buf.slice(pos, len))), res);
                     } catch (MarshallerException e) {
                         // TODO: ???
                         throw new RuntimeException(e);
@@ -104,10 +86,15 @@ public class ClientRecordView<R> implements RecordView<R> {
                     var marsh = getMarshaller(inSchema, TuplePart.VAL);
 
                     try {
-                        // TODO:
-                        //  1. Read object (create new instance)
-                        //  2. if (!marsh.isSimple()) copyKey(keyRec, res);
-                        return (R) marsh.readObject(new ClientMarshallerReader(in), res);
+                        var res = (R) marsh.readObject(new ClientMarshallerReader(in), null);
+
+                        if (!marsh.isSimple()) {
+                            Marshaller keyMarsh = getMarshaller(inSchema, TuplePart.KEY);
+
+                            keyMarsh.copyObject(keyRec, res);
+                        }
+
+                        return res;
                     } catch (MarshallerException e) {
                         // TODO: ???
                         throw new RuntimeException(e);
