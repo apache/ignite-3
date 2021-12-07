@@ -29,6 +29,16 @@ public class MarshallerColumn {
      *
      * @param name      Column name.
      * @param type      An instance of column data type.
+     */
+    public MarshallerColumn(String name, BinaryMode type) {
+        this(name, type, null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param name      Column name.
+     * @param type      An instance of column data type.
      * @param defValSup Default value supplier.
      */
     public MarshallerColumn(String name, BinaryMode type, @Nullable Supplier<Object> defValSup) {
