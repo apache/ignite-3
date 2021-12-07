@@ -18,30 +18,25 @@
 package org.apache.ignite.internal.processors.query.calcite.prepare.ddl;
 
 /**
- * Abstract ddl command.
+ * Abstract table ddl command.
  */
-public abstract class AbstractDdlCommand implements DdlCommand {
-    /** Table name. */
-    private String tblName;
+public class AbstractTableDdlCommand extends AbstractDdlCommand {
+    /** Quietly ignore this command if table is not exists. */
+    protected boolean ifTableExists;
 
     /**
-     * Schema name upon which this statement has been issued - <b>not</b> the name of the schema where this new table will be created.
+     * Quietly ignore if table exists flag.
      */
-    private String schemaName;
-
-    public String tableName() {
-        return tblName;
+    public boolean ifTableExists() {
+        return ifTableExists;
     }
 
-    public void tableName(String tblName) {
-        this.tblName = tblName;
-    }
-
-    public String schemaName() {
-        return schemaName;
-    }
-
-    public void schemaName(String schemaName) {
-        this.schemaName = schemaName;
+    /**
+     * Set quietly ignore flag.
+     *
+     * @param ifTableExists Flag.
+     */
+    public void ifTableExists(boolean ifTableExists) {
+        this.ifTableExists = ifTableExists;
     }
 }

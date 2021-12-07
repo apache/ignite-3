@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.processors.query.calcite.type;
 
 import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
+import static org.apache.calcite.rel.type.RelDataType.SCALE_NOT_SPECIFIED;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 
 import java.lang.reflect.Type;
@@ -160,7 +161,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.numberOf() :
                 ColumnType.numberOf(relType.getPrecision());
         } else if (javaType == BigDecimal.class) {
-            return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.decimalOf() :
+            return relType.getPrecision() == PRECISION_NOT_SPECIFIED || relType.getScale() == SCALE_NOT_SPECIFIED ? ColumnType.decimalOf() :
                 ColumnType.decimalOf(relType.getPrecision(), relType.getScale());
         } else {
             return SchemaConfigurationConverter.columnType((Class<?>) javaType);

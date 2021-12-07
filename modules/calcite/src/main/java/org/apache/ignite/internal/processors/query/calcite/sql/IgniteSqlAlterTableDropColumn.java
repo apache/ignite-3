@@ -30,7 +30,7 @@ import org.apache.calcite.util.ImmutableNullableList;
  * Parse tree for {@code ALTER TABLE ... DROP COLUMN} statement.
  */
 public class IgniteSqlAlterTableDropColumn extends IgniteAbstractSqlAlterTable {
-    /** Command existance flag. */
+    /** Whether to ignore error in case column with specified name doesn't exist. */
     private final boolean ifExistsColumn;
 
     /** Coluns to drop. */

@@ -117,7 +117,7 @@ public class DdlCommandHandler {
 
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
-        if (cmd.ifNotExists()) {
+        if (cmd.ifTableExists()) {
             tableManager.createTableIfNotExists(fullName, tblChanger);
         } else {
             tableManager.createTable(fullName, tblChanger);
@@ -128,7 +128,7 @@ public class DdlCommandHandler {
     private void handleDropTable(DropTableCommand cmd) {
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
-        // if (!cmd.ifExists()) todo will be implemented after IGNITE-15926
+        // if (!cmd.ifTableExists()) todo will be implemented after IGNITE-15926
 
         tableManager.dropTable(fullName);
     }

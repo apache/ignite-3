@@ -24,15 +24,12 @@ import org.jetbrains.annotations.Nullable;
 /**
  * CREATE TABLE statement.
  */
-public class CreateTableCommand extends AbstractDdlCommand {
+public class CreateTableCommand extends AbstractTableDdlCommand {
     /** Replicas number. */
     private Integer replicas;
 
     /** Number of partitions for the new table. */
     private Integer partitions;
-
-    /** Quietly ignore this command if table already exists. */
-    private boolean ifNotExists;
 
     /** Primary key columns. */
     private List<String> pkCols;
@@ -55,20 +52,6 @@ public class CreateTableCommand extends AbstractDdlCommand {
      */
     public void primaryKeyColumns(List<String> pkCols) {
         this.pkCols = pkCols;
-    }
-
-    /**
-     * Get quietly ignore flag of this command (ignore if table already exists).
-     */
-    public boolean ifNotExists() {
-        return ifNotExists;
-    }
-
-    /**
-     * Set quietly ignore flag to ignore this command if table already exists.
-     */
-    public void ifNotExists(boolean ifNotExists) {
-        this.ifNotExists = ifNotExists;
     }
 
     /**
@@ -135,6 +118,7 @@ public class CreateTableCommand extends AbstractDdlCommand {
      *
      * @param affCols Set affinity key columns.
      */
+    // todo: support aff columns https://issues.apache.org/jira/browse/IGNITE-16069
     public void affColumns(List<String> affCols) {
         this.affCols = affCols;
     }

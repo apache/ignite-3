@@ -137,7 +137,7 @@ public class DdlSqlToCommandConverter {
 
         createTblCmd.schemaName(deriveSchemaName(createTblNode.name(), ctx));
         createTblCmd.tableName(deriveObjectName(createTblNode.name(), ctx, "tableName"));
-        createTblCmd.ifNotExists(createTblNode.ifNotExists());
+        createTblCmd.ifTableExists(createTblNode.ifNotExists());
 
         if (createTblNode.createOptionList() != null) {
             for (SqlNode optNode : createTblNode.createOptionList().getList()) {
@@ -283,7 +283,7 @@ public class DdlSqlToCommandConverter {
 
         dropTblCmd.schemaName(deriveSchemaName(dropTblNode.name, ctx));
         dropTblCmd.tableName(deriveObjectName(dropTblNode.name, ctx, "tableName"));
-        dropTblCmd.ifExists(dropTblNode.ifExists);
+        dropTblCmd.ifTableExists(dropTblNode.ifExists);
 
         return dropTblCmd;
     }

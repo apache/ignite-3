@@ -1,7 +1,7 @@
 package org.apache.ignite.lang;
 
 /**
- * Exception is thrown when appropriate column not found.
+ * Exception is thrown when appropriate column is not found.
  */
 public class ColumnNotFoundException extends IgniteException {
     /**

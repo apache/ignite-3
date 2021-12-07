@@ -40,12 +40,12 @@ public class SchemaConfigurationTest {
 
         builder
                 .columns(
-                    // Declaring columns in user order.
-                    SchemaBuilders.column("id", ColumnType.INT64).build(),
-                    SchemaBuilders.column("label", ColumnType.stringOf(2)).withDefaultValueExpression("AI").build(),
-                    SchemaBuilders.column("name", ColumnType.string()).build(),
-                    SchemaBuilders.column("data", ColumnType.blobOf(255)).asNullable(true).build(),
-                    SchemaBuilders.column("affId", ColumnType.INT32).build()
+                        // Declaring columns in user order.
+                        SchemaBuilders.column("id", ColumnType.INT64).build(),
+                        SchemaBuilders.column("label", ColumnType.stringOf(2)).withDefaultValueExpression("AI").build(),
+                        SchemaBuilders.column("name", ColumnType.string()).build(),
+                        SchemaBuilders.column("data", ColumnType.blobOf(255)).asNullable(true).build(),
+                        SchemaBuilders.column("affId", ColumnType.INT32).build()
                 )
 
                 .withPrimaryKey(

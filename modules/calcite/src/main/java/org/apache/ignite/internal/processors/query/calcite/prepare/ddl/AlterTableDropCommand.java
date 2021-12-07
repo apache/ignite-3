@@ -24,7 +24,7 @@ import java.util.Set;
  * ALTER TABLE ... DROP COLUMN statement.
  */
 @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-public class AlterTableDropCommand extends AbstractDdlCommand {
+public class AlterTableDropCommand extends AbstractTableDdlCommand {
     /** Quietly ignore this command if column is not exists. */
     private boolean ifColumnExists;
 

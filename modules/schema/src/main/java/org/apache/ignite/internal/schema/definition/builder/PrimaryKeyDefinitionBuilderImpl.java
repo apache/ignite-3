@@ -92,7 +92,7 @@ public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, Pri
             throw new IllegalStateException("Primary key column(s) must be configured.");
         }
 
-        Set<String> cols = new HashSet<>(columns);
+        Set<String> cols = Set.copyOf(columns);
 
         Set<String> affCols;
 

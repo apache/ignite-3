@@ -30,7 +30,7 @@ import org.apache.calcite.sql.parser.SqlParserPos;
  * Parse tree for {@code ALTER TABLE } statement.
  */
 public abstract class IgniteAbstractSqlAlterTable extends SqlDdl {
-    /** Ident name. */
+    /** SqlNode identifier name. */
     protected final SqlIdentifier name;
 
     /** If exist flag. */
