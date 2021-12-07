@@ -84,6 +84,11 @@
             <artifactId>jmh-generator-annprocess</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-api</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
