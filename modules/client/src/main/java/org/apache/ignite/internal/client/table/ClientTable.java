@@ -94,7 +94,7 @@ public class ClientTable implements Table {
     /** {@inheritDoc} */
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return new ClientRecordView<>(this, recMapper);
     }
 
     @Override
