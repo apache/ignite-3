@@ -6,6 +6,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
+import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
+import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -15,11 +18,7 @@ import org.jetbrains.annotations.Nullable;
 import org.apache.ignite.internal.marshaller.Marshaller;
 
 /**
- * TODO:
- * - Reuse PojoMarshaller from the server.
- * - It depends on Column class (only name and index? do we need types?)
- * - - add an interface? ColumnCommon
- * - - or pass an array of strings?
+ * Client record view implementation.
  */
 public class ClientRecordView<R> implements RecordView<R> {
     /** Mapper. */
@@ -28,15 +27,9 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** Underlying table. */
     private final ClientTable tbl;
 
-    /** Marshaller. */
-    private final Marshaller marsh;
-
     public ClientRecordView(ClientTable tbl, Mapper<R> recMapper) {
         this.tbl = tbl;
         this.recMapper = recMapper;
-
-        // TODO: Require key fields somehow?
-        this.marsh = Marshaller.createMarshaller(null, recMapper, false);
     }
 
     /** {@inheritDoc} */
@@ -53,8 +46,33 @@ public class ClientRecordView<R> implements RecordView<R> {
         // TODO: Read/write from POJO to messagepack directly without Tuple conversion - how?
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
-                (schema, out) -> tbl.writeTuple(keyRec, schema, out, true),
-                (inSchema, in) -> ClientTable.readValueTuple(inSchema, in, keyRec));
+                (schema, out) -> {
+                    out.packIgniteUuid(tbl.tableId());
+                    out.packInt(schema.version());
+
+                    try {
+                        // TODO: Cache marshallers per schema.
+                        // TODO: Pass only key columns.
+                        var keyMarsh = Marshaller.createMarshaller(null, recMapper, true);
+
+                        keyMarsh.writeObject(keyRec, new ClientMarshallerWriter(out));
+                    } catch (MarshallerException e) {
+                        // TODO: ???
+                        throw new RuntimeException(e);
+                    }
+                },
+                (inSchema, in) -> {
+                    // TODO: Copy key columns from key object
+                    // TODO: pass only value columns.
+                    var marsh = Marshaller.createMarshaller(null, recMapper, false);
+
+                    try {
+                        return (R) marsh.readObject(new ClientMarshallerReader(in));
+                    } catch (MarshallerException e) {
+                        // TODO: ???
+                        throw new RuntimeException(e);
+                    }
+                });
     }
 
     @Override
