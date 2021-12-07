@@ -70,6 +70,7 @@ public class ClientMarshallerReader implements MarshallerReader {
 
     @Override
     public BitSet readBitSet() {
+        // TODO: implement here and below.
         return null;
     }
 
