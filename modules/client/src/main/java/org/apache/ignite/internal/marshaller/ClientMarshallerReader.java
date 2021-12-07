@@ -30,42 +30,42 @@ public class ClientMarshallerReader implements MarshallerReader {
 
     @Override
     public short readShort() {
-        return 0;
+        return unpacker.unpackShort();
     }
 
     @Override
     public int readInt() {
-        return 0;
+        return unpacker.unpackInt();
     }
 
     @Override
     public long readLong() {
-        return 0;
+        return unpacker.unpackLong();
     }
 
     @Override
     public float readFloat() {
-        return 0;
+        return unpacker.unpackFloat();
     }
 
     @Override
     public double readDouble() {
-        return 0;
+        return unpacker.unpackDouble();
     }
 
     @Override
     public String readString() {
-        return null;
+        return unpacker.unpackString();
     }
 
     @Override
     public UUID readUuid() {
-        return null;
+        return unpacker.unpackUuid();
     }
 
     @Override
     public byte[] readBytes() {
-        return new byte[0];
+        return unpacker.readPayload(unpacker.unpackBinaryHeader());
     }
 
     @Override
