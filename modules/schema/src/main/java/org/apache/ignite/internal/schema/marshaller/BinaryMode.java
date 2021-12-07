@@ -17,73 +17,94 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
+import org.apache.ignite.internal.schema.NativeTypeSpec;
+
 /**
  * Various read/write modes for binary objects that maps Java types to binary types.
  */
 public enum BinaryMode {
     /** Primitive byte. */
-    P_BYTE,
+    P_BYTE(NativeTypeSpec.INT8),
 
     /** Primitive short. */
-    P_SHORT,
+    P_SHORT(NativeTypeSpec.INT16),
 
     /** Primitive int. */
-    P_INT,
+    P_INT(NativeTypeSpec.INT32),
 
     /** Primitive long. */
-    P_LONG,
+    P_LONG(NativeTypeSpec.INT64),
 
     /** Primitive float. */
-    P_FLOAT,
+    P_FLOAT(NativeTypeSpec.FLOAT),
 
     /** Primitive int. */
-    P_DOUBLE,
+    P_DOUBLE(NativeTypeSpec.DOUBLE),
 
     /** Boxed byte. */
-    BYTE,
+    BYTE(NativeTypeSpec.INT8),
 
     /** Boxed short. */
-    SHORT,
+    SHORT(NativeTypeSpec.INT16),
 
     /** Boxed int. */
-    INT,
+    INT(NativeTypeSpec.INT32),
 
     /** Boxed long. */
-    LONG,
+    LONG(NativeTypeSpec.INT64),
 
     /** Boxed float. */
-    FLOAT,
+    FLOAT(NativeTypeSpec.FLOAT),
 
     /** Boxed double. */
-    DOUBLE,
+    DOUBLE(NativeTypeSpec.DOUBLE),
 
     /** String. */
-    STRING,
+    STRING(NativeTypeSpec.STRING),
 
     /** Uuid. */
-    UUID,
+    UUID(NativeTypeSpec.UUID),
 
     /** Raw byte array. */
-    BYTE_ARR,
+    BYTE_ARR(NativeTypeSpec.BYTES),
 
     /** BitSet. */
-    BITSET,
+    BITSET(NativeTypeSpec.BITMASK),
 
     /** BigInteger. */
-    NUMBER,
+    NUMBER(NativeTypeSpec.NUMBER),
 
     /** BigDecimal. */
-    DECIMAL,
+    DECIMAL(NativeTypeSpec.DECIMAL),
 
     /** Date. */
-    DATE,
+    DATE(NativeTypeSpec.DATE),
 
     /** Time. */
-    TIME,
+    TIME(NativeTypeSpec.TIME),
 
     /** Datetime. */
-    DATETIME,
+    DATETIME(NativeTypeSpec.DATETIME),
 
     /** Timestamp. */
-    TIMESTAMP;
+    TIMESTAMP(NativeTypeSpec.TIMESTAMP);
+
+    /** Native type spec. */
+    private final NativeTypeSpec typeSpec;
+
+    /**
+     * Constructor.
+     *
+     * @param typeSpec Native type spec.
+     */
+    BinaryMode(NativeTypeSpec typeSpec) {
+        this.typeSpec = typeSpec;
+    }
+
+    /**
+     * Get native type spec.
+     */
+    public NativeTypeSpec typeSpec() {
+        return typeSpec;
+    }
 }

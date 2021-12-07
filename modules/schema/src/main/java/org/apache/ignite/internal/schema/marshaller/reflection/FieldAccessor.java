@@ -29,6 +29,7 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.marshaller.BinaryMode;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
@@ -53,7 +54,7 @@ abstract class FieldAccessor {
      */
     protected final int colIdx;
 
-    static FieldAccessor noopAccessor(MarshallerColumn col) {
+    static FieldAccessor noopAccessor(Column col) {
         return new UnmappedFieldAccessor(col);
     }
 
@@ -66,14 +67,13 @@ abstract class FieldAccessor {
      * @param colIdx  Column index in the schema.
      * @return Accessor.
      */
-    static FieldAccessor create(Class<?> type, String fldName, MarshallerColumn col, int colIdx) {
+    static FieldAccessor create(Class<?> type, String fldName, Column col, int colIdx) {
         try {
             final Field field = type.getDeclaredField(fldName);
 
-            // TODO
-//            if (field.getType().isPrimitive() && col.nullable()) {
-//                throw new IllegalArgumentException("Failed to map non-nullable field to nullable column [name=" + field.getName() + ']');
-//            }
+            if (field.getType().isPrimitive() && col.nullable()) {
+                throw new IllegalArgumentException("Failed to map non-nullable field to nullable column [name=" + field.getName() + ']');
+            }
 
             BinaryMode mode = MarshallerUtil.mode(field.getType());
             final MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(type, MethodHandles.lookup());
@@ -137,7 +137,7 @@ abstract class FieldAccessor {
      * @param mode   Read/write mode.
      * @return Accessor.
      */
-    static FieldAccessor createIdentityAccessor(String col, int colIdx, BinaryMode mode) {
+    static FieldAccessor createIdentityAccessor(Column col, int colIdx, BinaryMode mode) {
         switch (mode) {
             //  Marshaller read/write object contract methods allowed boxed types only.
             case P_BYTE:
@@ -170,7 +170,7 @@ abstract class FieldAccessor {
                 assert false : "Invalid mode " + mode;
         }
 
-        throw new IllegalArgumentException("Failed to create accessor for column [name=" + col + ']');
+        throw new IllegalArgumentException("Failed to create accessor for column [name=" + col.name() + ']');
     }
 
     /**
@@ -479,14 +479,14 @@ abstract class FieldAccessor {
      */
     private static class UnmappedFieldAccessor extends FieldAccessor {
         /** Column. */
-        private final MarshallerColumn col;
+        private final Column col;
 
         /**
          * Constructor.
          *
          * @param col Column.
          */
-        UnmappedFieldAccessor(MarshallerColumn col) {
+        UnmappedFieldAccessor(Column col) {
             super(0, null);
             this.col = col;
         }
