@@ -48,6 +48,8 @@ public class AbstractClientTableTest extends AbstractClientTest {
 
     protected static final Instant instant = Instant.now();
 
+    protected static final UUID uuid = UUID.randomUUID();
+
     protected static Tuple[] sortedTuples(Collection<Tuple> tuples) {
         Tuple[] res = tuples.toArray(new Tuple[0]);
 
@@ -113,7 +115,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
                 .set("zbitmask", BitSet.valueOf(new byte[]{32}))
                 .set("zdecimal", BigDecimal.valueOf(21))
                 .set("znumber", BigInteger.valueOf(22))
-                .set("zuuid", UUID.randomUUID());
+                .set("zuuid", uuid);
     }
 
     protected Table fullTable() {

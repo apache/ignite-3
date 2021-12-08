@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -131,6 +132,12 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals(localDate, res.zdate);
         assertEquals(localTime, res.ztime);
         assertEquals(instant, res.ztimestamp);
+        assertEquals("foo", res.zstring);
+        assertArrayEquals(new byte[]{1, 2}, res.zbytes);
+        assertEquals(BitSet.valueOf(new byte[]{32}), res.zbitmask);
+        assertEquals(21, res.zdecimal.longValue());
+        assertEquals(22, res.znumber.longValue());
+        assertEquals(uuid, res.zuuid);
     }
 
     @Test
