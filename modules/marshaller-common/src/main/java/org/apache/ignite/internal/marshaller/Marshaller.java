@@ -25,6 +25,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Marshaller.
+ * TODO: Reuse this code in ignite-schema module (IGNITE-16088).
  */
 public abstract class Marshaller {
     /**
