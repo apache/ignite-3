@@ -79,7 +79,6 @@ import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
-import java.io.File;
 import java.io.Serializable;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
@@ -90,6 +89,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -310,9 +310,7 @@ public class ConfigurationAsmGenerator {
     private final Map<Class<?>, SchemaClassesInfo> schemasInfo = new HashMap<>();
 
     /** Class generator instance. */
-    private final ClassGenerator generator = ClassGenerator.classGenerator(getClass().getClassLoader())
-            .dumpClassFilesTo(new File("C:\\test").toPath());
-    // TODO: IGNITE-15564 remove ^.
+    private final ClassGenerator generator = ClassGenerator.classGenerator(getClass().getClassLoader());
 
     /**
      * Creates new instance of {@code *Node} class corresponding to the given Configuration Schema.
@@ -2868,11 +2866,15 @@ public class ConfigurationAsmGenerator {
 
         SchemaClassesInfo fieldClassNames = schemasInfo.get(fieldType);
 
-        NamedConfigValue namedCfgAnnotation = schemaField.getAnnotation(NamedConfigValue.class);
+        String syntheticKeyName = Arrays.stream(schemaField.getType().getDeclaredFields())
+                .filter(ConfigurationUtil::isInjectedName)
+                .map(Field::getName)
+                .findFirst()
+                .orElse(schemaField.getAnnotation(NamedConfigValue.class).syntheticKeyName());
 
         return newInstance(
                 NamedListNode.class,
-                constantString(namedCfgAnnotation.syntheticKeyName()),
+                constantString(syntheticKeyName),
                 newNamedListElementLambda(fieldClassNames.nodeClassName),
                 isPolymorphicConfig(fieldType) ? constantString(polymorphicIdField(fieldType).getName()) : constantNull(String.class)
         );
