@@ -27,41 +27,133 @@ import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
 
+/**
+ * Binary writer.
+ */
 public interface MarshallerWriter {
+    /**
+     * Writes null.
+     */
     void writeNull();
 
+    /**
+     * Writes byte.
+     *
+     * @param val Value.
+     */
     void writeByte(byte val);
 
+    /**
+     * Writes short.
+     *
+     * @param val Value.
+     */
     void writeShort(short val);
 
+    /**
+     * Writes int.
+     *
+     * @param val Value.
+     */
     void writeInt(int val);
 
+    /**
+     * Writes long.
+     *
+     * @param val Value.
+     */
     void writeLong(long val);
 
+    /**
+     * Writes float.
+     *
+     * @param val Value.
+     */
     void writeFloat(float val);
 
+    /**
+     * Writes double.
+     *
+     * @param val Value.
+     */
     void writeDouble(double val);
 
+    /**
+     * Writes string.
+     *
+     * @param val Value.
+     */
     void writeString(String val);
 
+    /**
+     * Writes UUI.
+     *
+     * @param val Value.
+     */
     void writeUuid(UUID val);
 
+    /**
+     * Writes bytes.
+     *
+     * @param val Value.
+     */
     void writeBytes(byte[] val);
 
+    /**
+     * Writes bit set.
+     *
+     * @param val Value.
+     */
     void writeBitSet(BitSet val);
 
+    /**
+     * Writes big integer.
+     *
+     * @param val Value.
+     */
     void writeBigInt(BigInteger val);
 
+    /**
+     * Writes big decimal.
+     *
+     * @param val Value.
+     */
     void writeBigDecimal(BigDecimal val);
 
+    /**
+     * Writes date.
+     *
+     * @param val Value.
+     */
     void writeDate(LocalDate val);
 
+    /**
+     * Writes time.
+     *
+     * @param val Value.
+     */
     void writeTime(LocalTime val);
 
+    /**
+     * Writes timestamp.
+     *
+     * @param val Value.
+     */
     void writeTimestamp(Instant val);
 
+    /**
+     * Writes date and time.
+     *
+     * @param val Value.
+     */
     void writeDateTime(LocalDateTime val);
-    
+
+    /**
+     * Writes an object value.
+     *
+     * @param col Column.
+     * @param val Value.
+     */
     default void writeValue(MarshallerColumn col, Object val) {
         if (val == null) {
             writeNull();

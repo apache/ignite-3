@@ -26,6 +26,9 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
 
+/**
+ * Binary reader.
+ */
 public interface MarshallerReader {
     void skipValue();
 
