@@ -172,7 +172,22 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         assertNotNull(res);
         assertEquals(111, res.intValue("gid"));
-        assertEquals(-1, res.byteValue("zbyte")); // TODO: All asserts
+        assertEquals("112", res.stringValue("id"));
+        assertEquals(113, res.byteValue("zbyte"));
+        assertEquals(114, res.shortValue("zshort"));
+        assertEquals(115, res.intValue("zint"));
+        assertEquals(116, res.longValue("zlong"));
+        assertEquals(1.17f, res.floatValue("zfloat"));
+        assertEquals(1.18, res.doubleValue("zdouble"));
+        assertEquals(localDate, res.dateValue("zdate"));
+        assertEquals(localTime, res.timeValue("ztime"));
+        assertEquals(instant, res.timestampValue("ztimestamp"));
+        assertEquals("119", res.stringValue("zstring"));
+        assertEquals(120, ((byte[])res.value("zbytes"))[0]);
+        assertEquals(BitSet.valueOf(new byte[]{121}), res.bitmaskValue("zbitmask"));
+        assertEquals(122, ((Number) res.value("zdecimal")).longValue());
+        assertEquals(BigInteger.valueOf(123), res.value("znumber"));
+        assertEquals(uuid, res.uuidValue("zuuid"));
     }
 
     @Test
@@ -189,10 +204,6 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         public long id;
 
         public String name;
-    }
-
-    private static class IdPojo {
-        public long id;
     }
 
     private static class NamePojo {
