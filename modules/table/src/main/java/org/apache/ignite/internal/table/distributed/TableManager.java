@@ -1131,7 +1131,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             @Override
             public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
                 IgniteUuid tableId = parameters.tableId();
-                
+
                 if (!tableId.equals(getTableIdByName(name))) {
                     return false;
                 }
@@ -1430,7 +1430,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         return CompletableFuture.allOf(futures);
     }
-    
+
     /**
      * Get local table by table id.
      *
@@ -1440,7 +1440,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private TableImpl getLocalTableById(IgniteUuid id) {
         return tables.get(tableNamesById.get(id));
     }
-    
+
     /**
      * Get local table id by table name.
      *
