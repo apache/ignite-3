@@ -57,8 +57,20 @@ public class ClientMarshallerReader implements MarshallerReader {
 
     /** {@inheritDoc} */
     @Override
+    public Byte readByteBoxed() {
+        return unpacker.tryUnpackNil() ? null : unpacker.unpackByte();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public short readShort() {
         return unpacker.unpackShort();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Short readShortBoxed() {
+        return unpacker.tryUnpackNil() ? null : unpacker.unpackShort();
     }
 
     /** {@inheritDoc} */
@@ -69,8 +81,20 @@ public class ClientMarshallerReader implements MarshallerReader {
 
     /** {@inheritDoc} */
     @Override
+    public Integer readIntBoxed() {
+        return unpacker.tryUnpackNil() ? null : unpacker.unpackInt();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public long readLong() {
         return unpacker.unpackLong();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Long readLongBoxed() {
+        return unpacker.tryUnpackNil() ? null : unpacker.unpackLong();
     }
 
     /** {@inheritDoc} */
@@ -81,8 +105,20 @@ public class ClientMarshallerReader implements MarshallerReader {
 
     /** {@inheritDoc} */
     @Override
+    public Float readFloatBoxed() {
+        return unpacker.tryUnpackNil() ? null : unpacker.unpackFloat();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public double readDouble() {
         return unpacker.unpackDouble();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Double readDoubleBoxed() {
+        return unpacker.tryUnpackNil() ? null : unpacker.unpackDouble();
     }
 
     /** {@inheritDoc} */
