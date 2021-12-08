@@ -84,6 +84,7 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public Collection<R> getAll(@NotNull Collection<R> keyRecs) {
+        // TODO: Implement all operations (IGNITE-16087).
         return null;
     }
 
