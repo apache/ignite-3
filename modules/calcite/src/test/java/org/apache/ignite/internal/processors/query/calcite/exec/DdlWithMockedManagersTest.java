@@ -262,12 +262,12 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
 
         assertThrows(ColumnAlreadyExistsException.class, () -> finalQueryProc.query("PUBLIC", alterCmd));
 
-        String alterCmdNoTbl = String.format("ALTER TABLE %s ADD COLUMN (c3 varchar, c4 int)", curMethodName + "_notExist");
+        // todo will be implemented after IGNITE-15926
+        /*String alterCmdNoTbl = String.format("ALTER TABLE %s ADD COLUMN (c3 varchar, c4 int)", curMethodName + "_notExist");
 
         queryProc.query("PUBLIC", alterCmdNoTbl);
 
-        // todo will be implemented after IGNITE-15926
-        /*String alterIfExistsCmd = String.format("ALTER TABLE IF EXISTS %s ADD COLUMN (c3 varchar, c4 int)", curMethodName + "NotExist");
+        String alterIfExistsCmd = String.format("ALTER TABLE IF EXISTS %s ADD COLUMN (c3 varchar, c4 int)", curMethodName + "NotExist");
 
         queryProc.query("PUBLIC", alterIfExistsCmd);
 
