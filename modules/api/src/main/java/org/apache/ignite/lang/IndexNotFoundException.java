@@ -11,6 +11,6 @@ public class IndexNotFoundException extends IgniteException {
      * @param fullName Schema and table name.
      */
     public IndexNotFoundException(String name, String fullName) {
-        super(LoggerMessageHelper.format("Index '{}' does not exist in table '{}'", name));
+        super(LoggerMessageHelper.format("Index '{}' does not exist in table '{}'", name, fullName));
     }
 }

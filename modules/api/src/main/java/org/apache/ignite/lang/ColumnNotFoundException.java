@@ -11,6 +11,6 @@ public class ColumnNotFoundException extends IgniteException {
      * @param fullName Schema and table name.
      */
     public ColumnNotFoundException(String name, String fullName) {
-        super(LoggerMessageHelper.format("Column '{}' does not exist in table '{}'", name));
+        super(LoggerMessageHelper.format("Column '{}' does not exist in table '{}'", name, fullName));
     }
 }
