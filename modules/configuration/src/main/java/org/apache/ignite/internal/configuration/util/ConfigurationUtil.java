@@ -951,7 +951,7 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Removes the last keys.
+     * Removes the last key.
      *
      * @param keys Keys.
      * @return New list.

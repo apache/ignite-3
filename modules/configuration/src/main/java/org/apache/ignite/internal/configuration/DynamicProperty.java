@@ -35,9 +35,6 @@ import org.apache.ignite.internal.tostring.S;
  * Holder for property value. Expected to be used with numbers, strings and other immutable objects, e.g. IP addresses.
  */
 public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T> implements ConfigurationValue<T> {
-    /** Configuration field name with {@link InjectedName}. */
-    public static final String INJECTED_NAME_FIELD_NAME = "<injected_name>";
-
     /** Value cannot be changed. */
     private final boolean readOnly;
 

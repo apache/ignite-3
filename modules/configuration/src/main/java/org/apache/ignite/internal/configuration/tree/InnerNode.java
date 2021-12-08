@@ -191,20 +191,15 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
 
     /**
      * Gets the value of a field with {@link InjectedName}.
-     *
-     * @throws UnsupportedOperationException If not supported.
      */
     public String getInjectedNameFieldValue() {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**
      * Sets the value of a field with {@link InjectedName}.
-     *
-     * @throws UnsupportedOperationException If not supported.
-     * @throws NullPointerException If {@code value == null}.
      */
     public void setInjectedNameFieldValue(String value) {
-        throw new UnsupportedOperationException();
+        // No-op.
     }
 }

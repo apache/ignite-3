@@ -94,7 +94,8 @@ public class ConfigurationAsmGeneratorTest {
                 NonDefaultPolymorphicInstanceTestConfigurationSchema.class,
                 FirstPolymorphicNamedInstanceTestConfigurationSchema.class,
                 SecondPolymorphicNamedInstanceTestConfigurationSchema.class,
-                PolyInstInjectedNameConfigurationSchema.class
+                PolyInst0InjectedNameConfigurationSchema.class,
+                PolyInst1InjectedNameConfigurationSchema.class
         );
 
         changer = new TestConfigurationChanger(
@@ -489,7 +490,7 @@ public class ConfigurationAsmGeneratorTest {
     }
 
     @Test
-    void testNestedConfigurationWithInjectedNameField() {
+    void testNestedConfigurationWithInjectedNameField() throws Exception {
         InjectedNameRootConfiguration rootCfg =
                 (InjectedNameRootConfiguration) generator.instantiateCfg(InjectedNameRootConfiguration.KEY, changer);
 
@@ -512,6 +513,59 @@ public class ConfigurationAsmGeneratorTest {
         assertEquals("nestedDefaultPoly", rootCfg.nestedPoly().name().value());
         assertEquals("nestedDefaultPoly", rootCfg.value().nestedPoly().name());
         assertEquals("nestedDefaultPoly", rootCfg.nestedPoly().value().name());
+
+        rootCfg.nestedPoly().change(c -> c.convert(PolyInst1InjectedNameChange.class)).get(1, SECONDS);
+
+        assertEquals("nestedDefaultPoly", rootCfg.nestedPoly().name().value());
+        assertEquals("nestedDefaultPoly", rootCfg.value().nestedPoly().name());
+        assertEquals("nestedDefaultPoly", rootCfg.nestedPoly().value().name());
+    }
+
+    @Test
+    void testNestedNamedConfigurationWithInjectedNameField() throws Exception {
+        InjectedNameRootConfiguration rootCfg =
+                (InjectedNameRootConfiguration) generator.instantiateCfg(InjectedNameRootConfiguration.KEY, changer);
+
+        // Checks for common named config.
+        rootCfg.nestedNamed().change(c -> c.create("0", c0 -> assertEquals("0", c0.name()))).get(1, SECONDS);
+        rootCfg.nestedNamed().change(c -> c.create(1, "1", c0 -> assertEquals("1", c0.name()))).get(1, SECONDS);
+        rootCfg.nestedNamed().change(c -> c.createOrUpdate("2", c0 -> assertEquals("2", c0.name()))).get(1, SECONDS);
+        rootCfg.nestedNamed().change(c -> c.createAfter("2", "3", c0 -> assertEquals("3", c0.name()))).get(1, SECONDS);
+
+        rootCfg.nestedNamed().change(c -> c.update("3", c0 -> assertEquals("3", c0.name()))).get(1, SECONDS);
+
+        rootCfg.nestedNamed().change(c -> assertEquals("4", c.rename("3", "4").get("4").name())).get(1, SECONDS);
+
+        assertEquals("0", rootCfg.value().nestedNamed().get("0").name());
+        assertEquals("1", rootCfg.nestedNamed().value().get("1").name());
+        assertEquals("2", rootCfg.nestedNamed().get("2").value().name());
+        assertEquals("4", rootCfg.nestedNamed().get("4").name().value());
+
+        // Checks for polymorphic configs.
+
+        rootCfg.nestedNamedPoly().change(c -> c.create("p0", c0 -> assertEquals("p0", c0.name()))).get(1, SECONDS);
+        rootCfg.nestedNamedPoly().change(c -> c.create(1, "p1", c0 -> assertEquals("p1", c0.name()))).get(1, SECONDS);
+        rootCfg.nestedNamedPoly().change(c -> c.createOrUpdate("p2", c0 -> assertEquals("p2", c0.name()))).get(1, SECONDS);
+        rootCfg.nestedNamedPoly().change(c -> c.createAfter("p2", "p3", c0 -> assertEquals("p3", c0.name()))).get(1, SECONDS);
+
+        rootCfg.nestedNamedPoly().change(c -> c.update("p3", c0 -> assertEquals("p3", c0.name()))).get(1, SECONDS);
+
+        rootCfg.nestedNamedPoly().change(c -> assertEquals("p4", c.rename("p3", "p4").get("p4").name())).get(1, SECONDS);
+
+        assertEquals("p0", rootCfg.value().nestedNamedPoly().get("p0").name());
+        assertEquals("p1", rootCfg.nestedNamedPoly().value().get("p1").name());
+        assertEquals("p2", rootCfg.nestedNamedPoly().get("p2").value().name());
+        assertEquals("p4", rootCfg.nestedNamedPoly().get("p4").name().value());
+
+        rootCfg.nestedNamedPoly().change(c -> c.update("p0", c0 -> c0.convert(PolyInst1InjectedNameChange.class))).get(1, SECONDS);
+        rootCfg.nestedNamedPoly().change(c -> c.update("p1", c0 -> c0.convert(PolyInst1InjectedNameChange.class))).get(1, SECONDS);
+        rootCfg.nestedNamedPoly().change(c -> c.update("p2", c0 -> c0.convert(PolyInst1InjectedNameChange.class))).get(1, SECONDS);
+        rootCfg.nestedNamedPoly().change(c -> c.update("p4", c0 -> c0.convert(PolyInst1InjectedNameChange.class))).get(1, SECONDS);
+
+        assertEquals("p0", rootCfg.value().nestedNamedPoly().get("p0").name());
+        assertEquals("p1", rootCfg.nestedNamedPoly().value().get("p1").name());
+        assertEquals("p2", rootCfg.nestedNamedPoly().get("p2").value().name());
+        assertEquals("p4", rootCfg.nestedNamedPoly().get("p4").name().value());
     }
 
     /**
@@ -719,6 +773,8 @@ public class ConfigurationAsmGeneratorTest {
     public static class PolyInjectedNameConfigurationSchema {
         public static final String FIRST = "first";
 
+        public static final String SECOND = "second";
+
         @PolymorphicId(hasDefault = true)
         public String type = FIRST;
 
@@ -727,9 +783,16 @@ public class ConfigurationAsmGeneratorTest {
     }
 
     /**
-     * Polymorphic instance of configuration schema for test {@link InjectedName}.
+     * First polymorphic instance of configuration schema for test {@link InjectedName}.
      */
     @PolymorphicConfigInstance(PolyInjectedNameConfigurationSchema.FIRST)
-    public static class PolyInstInjectedNameConfigurationSchema extends PolyInjectedNameConfigurationSchema {
+    public static class PolyInst0InjectedNameConfigurationSchema extends PolyInjectedNameConfigurationSchema {
+    }
+
+    /**
+     * Second polymorphic instance of configuration schema for test {@link InjectedName}.
+     */
+    @PolymorphicConfigInstance(PolyInjectedNameConfigurationSchema.SECOND)
+    public static class PolyInst1InjectedNameConfigurationSchema extends PolyInjectedNameConfigurationSchema {
     }
 }
