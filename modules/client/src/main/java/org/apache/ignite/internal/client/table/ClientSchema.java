@@ -154,16 +154,21 @@ public class ClientSchema {
         return keyColumnCount;
     }
 
-    public <T> Marshaller getMarshaller(Mapper mapper) {
-        return marshallers.computeIfAbsent(mapper, m -> createMarshaller(m, TuplePart.KEY_AND_VAL));
+    public <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
+        return getMarshallerCache(part).computeIfAbsent(mapper, m -> createMarshaller(m, part));
     }
 
-    public <T> Marshaller getKeyMarshaller(Mapper mapper) {
-        return keyMarshallers.computeIfAbsent(mapper, m -> createMarshaller(m, TuplePart.KEY));
-    }
+    private Map<Mapper, Marshaller> getMarshallerCache(TuplePart part) {
+        switch (part) {
+            case KEY:
+                return keyMarshallers;
 
-    public <T> Marshaller getValMarshaller(Mapper mapper) {
-        return valMarshallers.computeIfAbsent(mapper, m -> createMarshaller(m, TuplePart.VAL));
+            case VAL:
+                return valMarshallers;
+
+            default:
+                return marshallers;
+        }
     }
 
     private Marshaller createMarshaller(Mapper mapper, TuplePart part) {

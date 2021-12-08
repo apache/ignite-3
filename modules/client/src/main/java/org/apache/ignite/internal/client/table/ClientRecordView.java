@@ -5,7 +5,9 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.MarshallerException;
@@ -50,26 +52,16 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
-                (schema, out) -> {
-                    out.packIgniteUuid(tbl.tableId());
-                    out.packInt(schema.version());
-
-                    try {
-                        schema.getKeyMarshaller(recMapper).writeObject(keyRec, new ClientMarshallerWriter(out));
-                    } catch (MarshallerException e) {
-                        // TODO: ???
-                        throw new RuntimeException(e);
-                    }
-                },
+                (schema, out) -> writeRec(keyRec, schema, out, TuplePart.KEY),
                 (inSchema, in) -> {
                     if (isSimpleMapping) {
                         return keyRec;
                     }
 
                     try {
-                        var res = (R) inSchema.getValMarshaller(recMapper).readObject(new ClientMarshallerReader(in), null);
+                        var res = (R) inSchema.getMarshaller(recMapper, TuplePart.VAL).readObject(new ClientMarshallerReader(in), null);
 
-                        inSchema.getKeyMarshaller(recMapper).copyObject(keyRec, res);
+                        inSchema.getMarshaller(recMapper, TuplePart.KEY).copyObject(keyRec, res);
 
                         return res;
                     } catch (MarshallerException e) {
@@ -79,24 +71,32 @@ public class ClientRecordView<R> implements RecordView<R> {
                 });
     }
 
+    /** {@inheritDoc} */
     @Override
     public Collection<R> getAll(@NotNull Collection<R> keyRecs) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> getAllAsync(@NotNull Collection<R> keyRecs) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void upsert(@NotNull R rec) {
-
+        upsertAsync(rec).join();
     }
 
     @Override
     public @NotNull CompletableFuture<Void> upsertAsync(@NotNull R rec) {
-        return null;
+        Objects.requireNonNull(rec);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_UPSERT,
+                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                r -> null);
     }
 
     @Override
@@ -248,5 +248,17 @@ public class ClientRecordView<R> implements RecordView<R> {
     @Override
     public RecordView<R> withTransaction(Transaction tx) {
         return null;
+    }
+
+    private void writeRec(@NotNull R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+        out.packIgniteUuid(tbl.tableId());
+        out.packInt(schema.version());
+
+        try {
+            schema.getMarshaller(recMapper, part).writeObject(rec, new ClientMarshallerWriter(out));
+        } catch (MarshallerException e) {
+            // TODO: ???
+            throw new RuntimeException(e);
+        }
     }
 }
