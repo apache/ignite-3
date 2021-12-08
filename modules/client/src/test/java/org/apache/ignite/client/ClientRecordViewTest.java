@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -142,7 +143,34 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
     @Test
     public void testAllColumnsPojoPutBinaryGet() {
-        // TODO
+        Table table = fullTable();
+        RecordView<AllColumnsPojo> pojoView = table.recordView(Mapper.of(AllColumnsPojo.class));
+
+        var val = new AllColumnsPojo();
+
+        val.gid = 111;
+        val.id = "112";
+        val.zbyte = 113;
+        val.zshort = 114;
+        val.zint = 115;
+        val.zlong = 116;
+        val.zfloat = 1.17f;
+        val.zdouble = 1.18;
+        val.zdate = localDate;
+        val.ztime = localTime;
+        val.ztimestamp = instant;
+        val.zstring = "119";
+        val.zbytes = new byte[]{120};
+        val.zbitmask = BitSet.valueOf(new byte[]{121});
+        val.zdecimal = BigDecimal.valueOf(122);
+        val.znumber = BigInteger.valueOf(123);
+        val.zuuid = uuid;
+
+        pojoView.upsert(val);
+
+        Tuple res = table.recordView().get(Tuple.create().set("id", "112").set("gid", 111));
+
+        assertNotNull(res);
     }
 
     @Test
