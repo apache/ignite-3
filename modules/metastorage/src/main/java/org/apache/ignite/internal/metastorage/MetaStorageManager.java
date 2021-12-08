@@ -22,10 +22,8 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -53,7 +51,6 @@ import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
 import org.apache.ignite.internal.metastorage.watch.KeyCriterion;
 import org.apache.ignite.internal.metastorage.watch.WatchAggregator;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
