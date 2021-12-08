@@ -72,13 +72,13 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
     @Test
     public void testPrimitiveUpsertBinaryGet() {
-        Table table = defaultTable();
-        RecordView<Long> primitiveView = table.recordView(Mapper.of(Long.class));
+        Table table = oneColumnTable();
+        RecordView<String> primitiveView = table.recordView(Mapper.of(String.class));
 
-        primitiveView.upsert(DEFAULT_ID);
+        primitiveView.upsert("abc");
 
-        Tuple tuple = table.recordView().get(defaultTupleKey());
-        assertEquals(DEFAULT_ID, tuple.longValue(0));
+        Tuple tuple = table.recordView().get(oneColumnTableKey("abc"));
+        assertEquals("abc", tuple.stringValue(0));
     }
 
     @Test

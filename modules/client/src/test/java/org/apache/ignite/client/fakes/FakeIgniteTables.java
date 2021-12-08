@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -42,6 +43,8 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     public static final String TABLE_EXISTS = "Table exists";
 
     public static final String TABLE_ALL_COLUMNS = "all-columns";
+
+    public static final String TABLE_ONE_COLUMN = "one-column";
 
     private final ConcurrentHashMap<String, TableImpl> tables = new ConcurrentHashMap<>();
 
@@ -158,11 +161,25 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     @NotNull
     private TableImpl getNewTable(String name) {
-        var registry = new FakeSchemaRegistry(name.equals(TABLE_ALL_COLUMNS) ? this::getAllColumnsSchema : this::getSchema);
+        Function<Integer, SchemaDescriptor> history;
+
+        switch (name) {
+            case TABLE_ALL_COLUMNS:
+                history = this::getAllColumnsSchema;
+                break;
+
+            case TABLE_ONE_COLUMN:
+                history = this::getOneColumnSchema;
+                break;
+
+            default:
+                history = this::getSchema;
+                break;
+        }
 
         return new TableImpl(
                 new FakeInternalTable(name, new IgniteUuid(UUID.randomUUID(), 0)),
-                registry,
+                new FakeSchemaRegistry(history),
                 null
         );
     }
@@ -221,5 +238,19 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                         new Column("bytes", NativeTypes.BYTES, true),
                         new Column("uuid", NativeTypes.UUID, true),
                 });
+    }
+
+    /**
+     * Gets the schema.
+     *
+     * @param v Version.
+     * @return Schema descriptor.
+     */
+    @SuppressWarnings("ZeroLengthArrayAllocation")
+    private SchemaDescriptor getOneColumnSchema(Integer v) {
+        return new SchemaDescriptor(
+                v,
+                new Column[]{new Column("id", NativeTypes.STRING, false)},
+                new Column[0]);
     }
 }

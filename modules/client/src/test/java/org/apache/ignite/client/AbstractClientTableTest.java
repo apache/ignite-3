@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_ALL_COLUMNS;
+import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_ONE_COLUMN;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -106,5 +107,15 @@ public class AbstractClientTableTest extends AbstractClientTest {
         server.tables().createTableIfNotExists(TABLE_ALL_COLUMNS, tbl -> tbl.changeReplicas(1));
 
         return client.tables().table(TABLE_ALL_COLUMNS);
+    }
+
+    protected static Tuple oneColumnTableKey(String id) {
+        return Tuple.create().set("id", id);
+    }
+
+    protected Table oneColumnTable() {
+        server.tables().createTableIfNotExists(TABLE_ONE_COLUMN, tbl -> tbl.changeReplicas(1));
+
+        return client.tables().table(TABLE_ONE_COLUMN);
     }
 }
