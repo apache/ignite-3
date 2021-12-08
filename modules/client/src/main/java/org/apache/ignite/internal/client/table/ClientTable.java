@@ -250,6 +250,7 @@ public class ClientTable implements Table {
             boolean skipHeader
     ) {
         // TODO: Special case for ClientTupleBuilder - it has columns in order
+        // TODO: Optimize (IGNITE-16082).
         var vals = new Object[keyOnly ? schema.keyColumnCount() : schema.columns().length];
         var tupleSize = tuple.columnCount();
 
