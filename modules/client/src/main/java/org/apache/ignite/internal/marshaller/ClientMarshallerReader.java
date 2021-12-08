@@ -70,37 +70,36 @@ public class ClientMarshallerReader implements MarshallerReader {
 
     @Override
     public BitSet readBitSet() {
-        // TODO: implement here and below.
-        return null;
+        return unpacker.unpackBitSet();
     }
 
     @Override
     public BigInteger readBigInt() {
-        return null;
+        return unpacker.unpackBigInteger();
     }
 
     @Override
     public BigDecimal readBigDecimal() {
-        return null;
+        return unpacker.unpackDecimal();
     }
 
     @Override
     public LocalDate readDate() {
-        return null;
+        return unpacker.unpackDate();
     }
 
     @Override
     public LocalTime readTime() {
-        return null;
+        return unpacker.unpackTime();
     }
 
     @Override
     public Instant readTimestamp() {
-        return null;
+        return unpacker.unpackTimestamp();
     }
 
     @Override
     public LocalDateTime readDateTime() {
-        return null;
+        return unpacker.unpackDateTime();
     }
 }
