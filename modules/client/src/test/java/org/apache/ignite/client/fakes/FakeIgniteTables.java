@@ -237,6 +237,9 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                         new Column("string", NativeTypes.STRING, true),
                         new Column("bytes", NativeTypes.BYTES, true),
                         new Column("uuid", NativeTypes.UUID, true),
+                        new Column("bitmask", NativeTypes.bitmaskOf(16), true),
+                        new Column("decimal", NativeTypes.decimalOf(20, 3), true),
+                        new Column("number", NativeTypes.numberOf(24), true),
                 });
     }
 
