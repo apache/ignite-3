@@ -24,7 +24,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -86,12 +85,14 @@ public class AbstractClientTableTest extends AbstractClientTest {
         return client.tables().table(DEFAULT_TABLE);
     }
 
-    protected static Tuple fullTableKey(long id) {
+    protected static Tuple allClumnsTableKey(long id) {
         return Tuple.create().set("gid", id).set("id", String.valueOf(id));
     }
 
-    protected static Tuple fullTableVal(String name) {
+    protected static Tuple allColumnsTableVal(String name) {
         return Tuple.create()
+                .set("gid", DEFAULT_ID)
+                .set("id", String.valueOf(DEFAULT_ID))
                 .set("zbyte", (byte)11)
                 .set("zshort", (short)12)
                 .set("zint", (int)13)

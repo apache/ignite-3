@@ -21,6 +21,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.BitSet;
+import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -34,7 +41,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ClientRecordViewTest extends AbstractClientTableTest {
     @Test
-    public void testBinaryUpsertPojoGet() {
+    public void testBinaryPutPojoGet() {
         Table table = defaultTable();
         RecordView<PersonPojo> pojoView = table.recordView(Mapper.of(PersonPojo.class));
 
@@ -52,7 +59,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testBinaryUpsertPrimitiveGet() {
+    public void testBinaryPutPrimitiveGet() {
         Table table = defaultTable();
         RecordView<Long> primitiveView = table.recordView(Mapper.of(Long.class));
 
@@ -66,12 +73,12 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testPojoUpsertBinaryGet() {
+    public void testPojoPutBinaryGet() {
         // TODO
     }
 
     @Test
-    public void testPrimitiveUpsertBinaryGet() {
+    public void testPrimitivePutBinaryGet() {
         Table table = oneColumnTable();
         RecordView<String> primitiveView = table.recordView(Mapper.of(String.class));
 
@@ -87,7 +94,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
         RecordView<IncompletePojo> pojoView = table.recordView(IncompletePojo.class);
 
-        kvView.put(fullTableKey(1), fullTableVal("x"));
+        kvView.put(allClumnsTableKey(1), allColumnsTableVal("x"));
 
         var key = new IncompletePojo();
         key.id = "1";
@@ -104,7 +111,22 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testAllColumnsPojo() {
+    public void testAllColumnsBinaryPutPojoGet() {
+        Table table = fullTable();
+        RecordView<AllColumnsPojo> pojoView = table.recordView(Mapper.of(AllColumnsPojo.class));
+
+        table.recordView().upsert(allColumnsTableVal("foo"));
+
+        var key = new AllColumnsPojo();
+        key.gid = (int)(long)DEFAULT_ID;
+        key.id = String.valueOf(DEFAULT_ID);
+
+        AllColumnsPojo res = pojoView.get(key);
+        assertEquals(1, res.zint); // TODO: All asserts
+    }
+
+    @Test
+    public void testAllColumnsPojoPutBinaryGet() {
         // TODO
     }
 
@@ -138,5 +160,25 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         public int gid;
         public String zstring;
         public byte[] zbytes;
+    }
+
+    private static class AllColumnsPojo {
+        public int gid;
+        public String id;
+        public byte zbyte;
+        public short zshort;
+        public int zint;
+        public long zlong;
+        public float zfloat;
+        public double zdouble;
+        public LocalDate zdate;
+        public LocalTime ztime;
+        public Instant ztimestamp;
+        public String zstring;
+        public byte[] zbytes;
+        public UUID zuuid;
+        public BitSet zbitmask;
+        public BigDecimal zdecimal;
+        public BigInteger znumber;
     }
 }
