@@ -15,23 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**
- * Cluster service factory.
+ * A test {@link ConfigurationModule} implementation used to test loading by {@link ServiceLoaderModulesProvider}.
  */
-public interface ClusterServiceFactory {
-    /**
-     * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
-     *
-     * @param context              Cluster context.
-     * @param networkConfiguration Network configuration.
-     * @return New cluster service.
-     */
-    ClusterService createClusterService(
-            ClusterLocalConfiguration context,
-            NetworkConfiguration networkConfiguration
-    );
+public class TestConfigurationModule implements ConfigurationModule {
+    /** {@inheritDoc} */
+    @Override
+    public ConfigurationType type() {
+        return ConfigurationType.LOCAL;
+    }
 }

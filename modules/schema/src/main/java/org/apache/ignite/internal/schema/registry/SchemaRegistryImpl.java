@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema.registry;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,14 +26,12 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.internal.schema.row.Row;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -148,8 +148,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     public Collection<Row> resolve(Collection<BinaryRow> rows) {
         final SchemaDescriptor curSchema = waitLatestSchema();
 
-        return rows.stream().map(row -> resolveInternal(row, curSchema))
-                .collect(Collectors.toList());
+        return rows.stream().map(row -> resolveInternal(row, curSchema)).collect(toList());
     }
 
     /**
@@ -160,8 +159,12 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * @param curSchema The latest available local schema.
      * @return Schema-aware rows.
      */
-    @NotNull
+    @Nullable
     private Row resolveInternal(BinaryRow row, SchemaDescriptor curSchema) {
+        if (row == null) {
+            return null;
+        }
+
         final SchemaDescriptor rowSchema = schema(row.schemaVersion());
 
         if (curSchema.version() == rowSchema.version()) {

@@ -36,8 +36,8 @@ public interface Table {
      *
      * @return Table name.
      */
-    @NotNull String tableName();
-    
+    @NotNull String name();
+
     /**
      * Creates record view of table for record class mapper provided.
      *
@@ -46,14 +46,14 @@ public interface Table {
      * @return Table record view.
      */
     <R> RecordView<R> recordView(Mapper<R> recMapper);
-    
+
     /**
      * Creates record view of table regarding the binary object concept.
      *
      * @return Table record view.
      */
     RecordView<Tuple> recordView();
-    
+
     /**
      * Creates record view of table for record class provided.
      *
@@ -64,7 +64,7 @@ public interface Table {
     default <R> RecordView<R> recordView(Class<R> recCls) {
         return recordView(Mapper.of(recCls));
     }
-    
+
     /**
      * Creates key-value view of table for key-value class mappers provided.
      *
@@ -75,14 +75,14 @@ public interface Table {
      * @return Table key-value view.
      */
     <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper);
-    
+
     /**
      * Creates key-value view of table regarding the binary object concept.
      *
      * @return Table key-value view.
      */
     KeyValueView<Tuple, Tuple> keyValueView();
-    
+
     /**
      * Creates key-value view of table for key and value classes provided.
      *

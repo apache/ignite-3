@@ -17,14 +17,20 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
@@ -48,7 +54,7 @@ public class ConfigurationRegistryTest {
                         List.of()
                 )
         );
-        
+
         // Check that everything is fine.
         ConfigurationRegistry configRegistry = new ConfigurationRegistry(
                 List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
@@ -57,10 +63,10 @@ public class ConfigurationRegistryTest {
                 List.of(ExtendedFirstRootConfigurationSchema.class),
                 List.of()
         );
-        
+
         configRegistry.stop();
     }
-    
+
     @Test
     void testValidationPolymorphicConfigurationExtensions() {
         // There is a polymorphic extension that is missing from the schema.
@@ -74,7 +80,7 @@ public class ConfigurationRegistryTest {
                         List.of(Second0PolymorphicConfigurationSchema.class)
                 )
         );
-        
+
         // There are two polymorphic extensions with the same id.
         assertThrows(
                 IllegalArgumentException.class,
@@ -86,7 +92,7 @@ public class ConfigurationRegistryTest {
                         List.of(First0PolymorphicConfigurationSchema.class, ErrorFirst0PolymorphicConfigurationSchema.class)
                 )
         );
-        
+
         // Check that everything is fine.
         ConfigurationRegistry configRegistry = new ConfigurationRegistry(
                 List.of(ThirdRootConfiguration.KEY, FourthRootConfiguration.KEY, FifthRootConfiguration.KEY),
@@ -101,139 +107,230 @@ public class ConfigurationRegistryTest {
                         Third1PolymorphicConfigurationSchema.class
                 )
         );
-        
+
         configRegistry.stop();
     }
-    
+
+    @Test
+    void missingPolymorphicExtension() {
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> new ConfigurationRegistry(
+                        List.of(ThirdRootConfiguration.KEY),
+                        Map.of(),
+                        new TestConfigurationStorage(LOCAL),
+                        List.of(),
+                        List.of()
+                )
+        );
+
+        assertThat(ex.getMessage(), is("Polymorphic configuration schemas for which no extensions were found: "
+                + "[class org.apache.ignite.internal.configuration.ConfigurationRegistryTest$"
+                + "FirstPolymorphicConfigurationSchema]"));
+    }
+
+    @Test
+    void testComplicatedPolymorphicConfig() throws Exception {
+        ConfigurationRegistry registry = new ConfigurationRegistry(
+                List.of(SixthRootConfiguration.KEY),
+                Map.of(),
+                new TestConfigurationStorage(LOCAL),
+                List.of(),
+                List.of(Fourth0PolymorphicConfigurationSchema.class)
+        );
+
+        registry.start();
+
+        try {
+            registry.getConfiguration(SixthRootConfiguration.KEY).change(c -> c
+                    .changePoly(toFirst0Polymorphic(0))
+                    .changePolyNamed(c0 -> c0.create("1", toFirst0Polymorphic(1)))
+                    .changeEntity(c0 -> c0.changePoly(toFirst0Polymorphic(2))
+                            .changePolyNamed(c1 -> c1.create("3", toFirst0Polymorphic(3))))
+                    .changeEntityNamed(c0 -> c0.create("4",
+                            c1 -> c1.changePoly(toFirst0Polymorphic(4))
+                                    .changePolyNamed(c2 -> c2.create("5", toFirst0Polymorphic(5)))))
+            ).get(1, SECONDS);
+        } finally {
+            registry.stop();
+        }
+    }
+
+    private Consumer<FourthPolymorphicChange> toFirst0Polymorphic(int v) {
+        return c -> c.convert(Fourth0PolymorphicChange.class).changeIntVal(v).changeStrVal(Integer.toString(v));
+    }
+
     /**
      * First root configuration.
      */
     @ConfigurationRoot(rootName = "first")
     public static class FirstRootConfigurationSchema {
-        /** String field. */
         @Value(hasDefault = true)
         public String str = "str";
     }
-    
+
     /**
-     * First root configuration.
+     * Second root configuration.
      */
     @ConfigurationRoot(rootName = "second")
     public static class SecondRootConfigurationSchema {
-        /** String field. */
         @Value(hasDefault = true)
         public String str = "str";
     }
-    
+
     /**
      * First extended root configuration.
      */
     @InternalConfiguration
     public static class ExtendedFirstRootConfigurationSchema extends FirstRootConfigurationSchema {
-        /** String field. */
         @Value(hasDefault = true)
         public String strEx = "str";
     }
-    
+
     /**
      * Third root configuration.
      */
     @ConfigurationRoot(rootName = "third")
     public static class ThirdRootConfigurationSchema {
-        /** First polymorphic configuration scheme. */
         @ConfigValue
         public FirstPolymorphicConfigurationSchema polymorphicConfig;
     }
-    
+
     /**
      * Fourth root configuration.
      */
     @ConfigurationRoot(rootName = "fourth")
     public static class FourthRootConfigurationSchema {
-        /** Second polymorphic configuration scheme. */
         @ConfigValue
         public SecondPolymorphicConfigurationSchema polymorphicConfig;
     }
-    
+
     /**
      * Fifth root configuration.
      */
     @ConfigurationRoot(rootName = "fifth")
     public static class FifthRootConfigurationSchema {
-        /** Third polymorphic configuration scheme. */
         @ConfigValue
         public ThirdPolymorphicConfigurationSchema polymorphicConfig;
     }
-    
+
+    /**
+     * Sixth root configuration.
+     */
+    @ConfigurationRoot(rootName = "sixth")
+    public static class SixthRootConfigurationSchema {
+        @ConfigValue
+        public FourthPolymorphicConfigurationSchema poly;
+
+        @NamedConfigValue
+        public FourthPolymorphicConfigurationSchema polyNamed;
+
+        @ConfigValue
+        public EntityConfigurationSchema entity;
+
+        @NamedConfigValue
+        public EntityConfigurationSchema entityNamed;
+    }
+
+    /**
+     * Inner configuration schema.
+     */
+    @Config
+    public static class EntityConfigurationSchema {
+        @ConfigValue
+        public FourthPolymorphicConfigurationSchema poly;
+
+        @NamedConfigValue
+        public FourthPolymorphicConfigurationSchema polyNamed;
+    }
+
     /**
      * Simple first polymorphic configuration scheme.
      */
     @PolymorphicConfig
     public static class FirstPolymorphicConfigurationSchema {
-        /** Polymorphic type id field. */
         @PolymorphicId
         public String typeId;
     }
-    
+
     /**
      * First {@link FirstPolymorphicConfigurationSchema} extension.
      */
     @PolymorphicConfigInstance("first0")
     public static class First0PolymorphicConfigurationSchema extends FirstPolymorphicConfigurationSchema {
     }
-    
+
     /**
      * Second {@link FirstPolymorphicConfigurationSchema} extension.
      */
     @PolymorphicConfigInstance("first1")
     public static class First1PolymorphicConfigurationSchema extends FirstPolymorphicConfigurationSchema {
     }
-    
+
     /**
      * First error {@link FirstPolymorphicConfigurationSchema} extension.
      */
     @PolymorphicConfigInstance("first0")
     public static class ErrorFirst0PolymorphicConfigurationSchema extends FirstPolymorphicConfigurationSchema {
     }
-    
+
     /**
      * Second polymorphic configuration scheme.
      */
     @PolymorphicConfig
     public static class SecondPolymorphicConfigurationSchema {
-        /** Polymorphic type id field. */
         @PolymorphicId
         public String typeId;
     }
-    
+
     /**
      * First {@link SecondPolymorphicConfigurationSchema} extension.
      */
     @PolymorphicConfigInstance("second0")
     public static class Second0PolymorphicConfigurationSchema extends SecondPolymorphicConfigurationSchema {
     }
-    
+
     /**
      * Third polymorphic configuration scheme.
      */
     @PolymorphicConfig
     public static class ThirdPolymorphicConfigurationSchema {
-        /** Polymorphic type id field. */
         @PolymorphicId(hasDefault = true)
         public String typeId = "third0";
     }
-    
+
     /**
      * First {@link ThirdPolymorphicConfigurationSchema} extension.
      */
     @PolymorphicConfigInstance("third0")
     public static class Third0PolymorphicConfigurationSchema extends ThirdPolymorphicConfigurationSchema {
     }
-    
+
     /**
-     * First {@link ThirdPolymorphicConfigurationSchema} extension.
+     * Second {@link ThirdPolymorphicConfigurationSchema} extension.
      */
     @PolymorphicConfigInstance("third1")
     public static class Third1PolymorphicConfigurationSchema extends ThirdPolymorphicConfigurationSchema {
+    }
+
+    /**
+     * Fourth polymorphic configuration scheme.
+     */
+    @PolymorphicConfig
+    public static class FourthPolymorphicConfigurationSchema {
+        @PolymorphicId(hasDefault = true)
+        public String typeId = "fourth0";
+
+        @Value
+        public String strVal;
+    }
+
+    /**
+     * First {@link FourthPolymorphicConfigurationSchema} extension.
+     */
+    @PolymorphicConfigInstance("fourth0")
+    public static class Fourth0PolymorphicConfigurationSchema extends FourthPolymorphicConfigurationSchema {
+        @Value
+        public int intVal;
     }
 }

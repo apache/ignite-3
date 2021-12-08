@@ -22,14 +22,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLStreamHandler;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.Ignition;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.ItUtils;
+import org.apache.ignite.internal.app.IgnitionImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -180,9 +188,7 @@ class ItIgnitionTest {
         try {
             ig1 = IgnitionManager.start("node-0", "{\n"
                     + "    \"node\": {\n"
-                    + "        \"metastorageNodes\": [\n"
-                    + "            \"node-0\", \"node-1\", \"node-2\"\n"
-                    + "        ]\n"
+                    + "       \"metastorageNodes\":[ \"node-0\" ]\n"
                     + "    },\n"
                     + "    \"network\": {\n"
                     + "      \"port\": 3344,\n"
@@ -194,9 +200,7 @@ class ItIgnitionTest {
 
             ig2 = IgnitionManager.start("other-name", "{\n"
                     + "    \"node\": {\n"
-                    + "        \"metastorageNodes\": [\n"
-                    + "            \"node-0\", \"node-1\", \"node-2\"\n"
-                    + "        ]\n"
+                    + "        \"metastorageNodes\":[ \"node-0\" ]\n"
                     + "    },\n"
                     + "    \"network\": {\n"
                     + "      \"port\": 3345,\n"
@@ -209,6 +213,32 @@ class ItIgnitionTest {
             assertEquals(ig2.name(), "other-name");
         } finally {
             IgniteUtils.closeAll(ig2, ig1);
+        }
+    }
+
+    /**
+     * Tests scenario when we try to start single-node cluster with several metastorage nodes in config.
+     * TODO: test should be rewritten after init phase will be developed https://issues.apache.org/jira/browse/IGNITE-14414
+     */
+    @Test
+    void testStartNodeClusterWithTwoMetastorageInConfig() throws Exception {
+        try {
+            IgnitionManager.start("node-0", "{\n"
+                    + "    \"node\": {\n"
+                    + "        \"metastorageNodes\": [\n"
+                    + "            \"node-0\", \"node-1\", \"node-2\"\n"
+                    + "        ]\n"
+                    + "    },\n"
+                    + "    \"network\": {\n"
+                    + "      \"port\": 3344,\n"
+                    + "      \"nodeFinder\": {\n"
+                    + "        \"netClusterNodes\": [ \"localhost:3345\"]\n"
+                    + "      }\n"
+                    + "    }\n"
+                    + "}", workDir.resolve("node-0"));
+        } catch (IgniteException e) {
+            assertEquals(e.getCause().getMessage(), "Cannot start meta storage manager "
+                    + "because it is not allowed to start several metastorage nodes.");
         }
     }
 
@@ -230,5 +260,62 @@ class ItIgnitionTest {
                     "Unable to parse user-specific configuration."
             ));
         }
+    }
+
+    /**
+     * Tests scenario when we try to start node with URL configuration.
+     */
+    @Test
+    void testStartNodeWithUrlConfig() throws Exception {
+        Ignition ign = new IgnitionImpl();
+
+        String nodeName = "node-url-config";
+
+        String cfg = "{\n"
+                + "  node.metastorageNodes: [ \"" + nodeName + "\" ],\n"
+                + "  network: {\n"
+                + "    port: " + PORTS[0] + "\n"
+                + "  }\n"
+                + "}";
+
+        URL url = buildUrl("testURL.txt", cfg);
+
+        startedNodes.add(ign.start(nodeName, url, workDir.resolve(nodeName)));
+    }
+
+    /**
+     * Test URL with content in memory.
+     *
+     * @param path URL path.
+     * @param data Data is available by URL.
+     * @return URL.
+     * @throws Exception If failed.
+     */
+    private URL buildUrl(String path, String data) throws Exception {
+        URLStreamHandler handler = new URLStreamHandler() {
+            private byte[] content = data.getBytes(StandardCharsets.UTF_8);
+
+            @Override
+            protected URLConnection openConnection(URL url) {
+                return new URLConnection(url) {
+                    @Override
+                    public void connect() {
+                        connected = true;
+                    }
+
+                    @Override
+                    public long getContentLengthLong() {
+                        return content.length;
+                    }
+
+                    @Override
+                    public InputStream getInputStream() {
+                        return new ByteArrayInputStream(content);
+                    }
+                };
+            }
+        };
+
+        return new URL("memory", "", -1, path, handler);
     }
 }

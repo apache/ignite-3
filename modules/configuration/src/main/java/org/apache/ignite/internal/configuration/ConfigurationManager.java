@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.configuration;
 
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
-
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
 import java.lang.annotation.Annotation;
@@ -43,7 +41,7 @@ import org.intellij.lang.annotations.Language;
 public class ConfigurationManager implements IgniteComponent {
     /** Configuration registry. */
     private final ConfigurationRegistry registry;
-    
+
     /**
      * Constructor.
      *
@@ -63,8 +61,6 @@ public class ConfigurationManager implements IgniteComponent {
             Collection<Class<?>> internalSchemaExtensions,
             Collection<Class<?>> polymorphicSchemaExtensions
     ) {
-        checkConfigurationType(rootKeys, storage);
-        
         registry = new ConfigurationRegistry(
                 rootKeys,
                 validators,
@@ -73,20 +69,20 @@ public class ConfigurationManager implements IgniteComponent {
                 polymorphicSchemaExtensions
         );
     }
-    
+
     /** {@inheritDoc} */
     @Override
     public void start() {
         registry.start();
     }
-    
+
     /** {@inheritDoc} */
     @Override
     public void stop() {
         // TODO: IGNITE-15161 Implement component's stop.
         registry.stop();
     }
-    
+
     /**
      * Bootstrap configuration manager with customer user cfg.
      *
@@ -96,10 +92,10 @@ public class ConfigurationManager implements IgniteComponent {
      */
     public void bootstrap(@Language("HOCON") String hoconStr) throws InterruptedException, ExecutionException {
         ConfigObject hoconCfg = ConfigFactory.parseString(hoconStr).root();
-        
+
         registry.change(HoconConverter.hoconSource(hoconCfg)).get();
     }
-    
+
     /**
      * Get configuration registry.
      *

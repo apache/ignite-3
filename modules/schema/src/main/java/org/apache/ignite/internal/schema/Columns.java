@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.NoSuchElementException;
@@ -33,7 +32,7 @@ import org.apache.ignite.internal.tostring.S;
  *
  * @see #COLUMN_COMPARATOR
  */
-public class Columns implements Serializable {
+public class Columns {
     public static final int[][] EMPTY_FOLDING_TABLE = new int[0][];
 
     public static final int[] EMPTY_FOLDING_MASK = new int[0];
@@ -271,7 +270,7 @@ public class Columns implements Serializable {
         if (hasVarlengthColumns()) {
             numFixsize++;
         }
-        
+
         int fixsizeNullMapSize = (numFixsize + 7) / 8;
         int maxLen = 0;
 

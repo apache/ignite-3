@@ -6,6 +6,7 @@
     },
     "network": {
         "port": 3344,
+        "portRange": 10,
         "nodeFinder": {
             "netClusterNodes": [
                 "localhost:3344"

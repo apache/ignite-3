@@ -62,7 +62,7 @@ public class SqlExamplesTest {
                         + "    Richard, Miles, St. Petersburg\n"
         );
     }
-    
+
     /**
      * Start node.
      *
@@ -76,7 +76,7 @@ public class SqlExamplesTest {
                 workDir
         );
     }
-    
+
     /**
      * Stop node.
      */
@@ -86,7 +86,7 @@ public class SqlExamplesTest {
     }
 
     /**
-     * Removes a previously created work directory.
+     * Removes a work directory created by {@link SqlExamplesTest}.
      */
     @BeforeEach
     @AfterEach

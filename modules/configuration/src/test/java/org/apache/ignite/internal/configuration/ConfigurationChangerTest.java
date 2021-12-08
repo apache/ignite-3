@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.Serializable;
 import java.lang.annotation.Retention;
@@ -38,7 +39,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.NamedListView;
@@ -53,6 +57,7 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
+import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
@@ -69,7 +74,7 @@ public class ConfigurationChangerTest {
     @Retention(RUNTIME)
     @interface MaybeInvalid {
     }
-    
+
     /**
      * First configuration schema.
      */
@@ -78,11 +83,11 @@ public class ConfigurationChangerTest {
         @ConfigValue
         @MaybeInvalid
         public SecondConfigurationSchema child;
-        
+
         @NamedConfigValue
         public ThirdConfigurationSchema elements;
     }
-    
+
     /**
      * Second configuration schema.
      */
@@ -91,11 +96,11 @@ public class ConfigurationChangerTest {
         @Value
         @Immutable
         public int intCfg;
-        
+
         @Value
         public String strCfg;
     }
-    
+
     /**
      * Third configuration schema.
      */
@@ -104,16 +109,16 @@ public class ConfigurationChangerTest {
         @Value
         public String strCfg;
     }
-    
+
     private static ConfigurationAsmGenerator cgen = new ConfigurationAsmGenerator();
-    
+
     private final TestConfigurationStorage storage = new TestConfigurationStorage(LOCAL);
-    
+
     @AfterAll
     public static void afterAll() {
         cgen = null;
     }
-    
+
     /**
      * Test simple change of configuration.
      */
@@ -121,19 +126,19 @@ public class ConfigurationChangerTest {
     public void testSimpleConfigurationChange() throws Exception {
         ConfigurationChanger changer = createChanger(KEY);
         changer.start();
-        
+
         changer.change(source(KEY, (FirstChange parent) -> parent
                 .changeChild(change -> change.changeIntCfg(1).changeStrCfg("1"))
                 .changeElements(change -> change.create("a", element -> element.changeStrCfg("1")))
         )).get(1, SECONDS);
-        
+
         FirstView newRoot = (FirstView) changer.getRootNode(KEY);
-        
+
         assertEquals(1, newRoot.child().intCfg());
         assertEquals("1", newRoot.child().strCfg());
         assertEquals("1", newRoot.elements().get("a").strCfg());
     }
-    
+
     /**
      * Test subsequent change of configuration via different changers.
      */
@@ -141,15 +146,15 @@ public class ConfigurationChangerTest {
     public void testModifiedFromAnotherStorage() throws Exception {
         ConfigurationChanger changer1 = createChanger(KEY);
         changer1.start();
-        
+
         ConfigurationChanger changer2 = createChanger(KEY);
         changer2.start();
-        
+
         changer1.change(source(KEY, (FirstChange parent) -> parent
                 .changeChild(change -> change.changeIntCfg(1).changeStrCfg("1"))
                 .changeElements(change -> change.create("a", element -> element.changeStrCfg("1")))
         )).get(1, SECONDS);
-        
+
         changer2.change(source(KEY, (FirstChange parent) -> parent
                 .changeChild(change -> change.changeIntCfg(2).changeStrCfg("2"))
                 .changeElements(change -> change
@@ -157,22 +162,22 @@ public class ConfigurationChangerTest {
                         .create("b", element -> element.changeStrCfg("2"))
                 )
         )).get(1, SECONDS);
-        
+
         FirstView newRoot1 = (FirstView) changer1.getRootNode(KEY);
-        
+
         assertEquals(2, newRoot1.child().intCfg());
         assertEquals("2", newRoot1.child().strCfg());
         assertEquals("2", newRoot1.elements().get("a").strCfg());
         assertEquals("2", newRoot1.elements().get("b").strCfg());
-        
+
         FirstView newRoot2 = (FirstView) changer2.getRootNode(KEY);
-        
+
         assertEquals(2, newRoot2.child().intCfg());
         assertEquals("2", newRoot2.child().strCfg());
         assertEquals("2", newRoot2.elements().get("a").strCfg());
         assertEquals("2", newRoot2.elements().get("b").strCfg());
     }
-    
+
     /**
      * Test that subsequent change of configuration is failed if changes are incompatible.
      */
@@ -180,7 +185,7 @@ public class ConfigurationChangerTest {
     public void testModifiedFromAnotherStorageWithIncompatibleChanges() throws Exception {
         ConfigurationChanger changer1 = createChanger(KEY);
         changer1.start();
-        
+
         Validator<MaybeInvalid, Object> validator = new Validator<>() {
             /** {@inheritDoc} */
             @Override
@@ -188,7 +193,7 @@ public class ConfigurationChangerTest {
                 ctx.addIssue(new ValidationIssue("foo"));
             }
         };
-        
+
         ConfigurationChanger changer2 = new TestConfigurationChanger(
                 cgen,
                 List.of(KEY),
@@ -197,14 +202,14 @@ public class ConfigurationChangerTest {
                 List.of(),
                 List.of()
         );
-        
+
         changer2.start();
-        
+
         changer1.change(source(KEY, (FirstChange parent) -> parent
                 .changeChild(change -> change.changeIntCfg(1).changeStrCfg("1"))
                 .changeElements(change -> change.create("a", element -> element.changeStrCfg("1")))
         )).get(1, SECONDS);
-        
+
         assertThrows(ExecutionException.class, () -> changer2.change(source(KEY, (FirstChange parent) -> parent
                 .changeChild(change -> change.changeIntCfg(2).changeStrCfg("2"))
                 .changeElements(change -> change
@@ -212,47 +217,47 @@ public class ConfigurationChangerTest {
                         .create("b", element -> element.changeStrCfg("2"))
                 )
         )).get(1, SECONDS));
-        
+
         FirstView newRoot = (FirstView) changer2.getRootNode(KEY);
-        
+
         assertEquals(1, newRoot.child().intCfg());
         assertEquals("1", newRoot.child().strCfg());
         assertEquals("1", newRoot.elements().get("a").strCfg());
     }
-    
+
     /**
      * Test that change fails with right exception if storage is inaccessible.
      */
     @Test
     public void testFailedToWrite() {
         ConfigurationChanger changer = createChanger(KEY);
-        
+
         storage.fail(true);
-        
+
         assertThrows(ConfigurationChangeException.class, changer::start);
-        
+
         storage.fail(false);
-        
+
         changer.start();
-        
+
         storage.fail(true);
-        
+
         assertThrows(ExecutionException.class, () -> changer.change(source(KEY, (FirstChange parent) -> parent
                 .changeChild(child -> child.changeIntCfg(1).changeStrCfg("1"))
         )).get(1, SECONDS));
-        
+
         storage.fail(false);
-        
+
         Data dataFromStorage = storage.readAll();
         Map<String, ? extends Serializable> dataMap = dataFromStorage.values();
-        
+
         assertEquals(0, dataMap.size());
-        
+
         FirstView newRoot = (FirstView) changer.getRootNode(KEY);
         assertNotNull(newRoot.child());
         assertNull(newRoot.child().strCfg());
     }
-    
+
     /**
      * Configuration schema with default values for children.
      */
@@ -260,14 +265,14 @@ public class ConfigurationChangerTest {
     public static class DefaultsConfigurationSchema {
         @ConfigValue
         public DefaultsChildConfigurationSchema child;
-        
+
         @NamedConfigValue
         public DefaultsChildConfigurationSchema childrenList;
-        
+
         @Value(hasDefault = true)
         public String defStr = "foo";
     }
-    
+
     /**
      * Configuration schema with default values for children.
      */
@@ -275,100 +280,100 @@ public class ConfigurationChangerTest {
     public static class DefaultsChildConfigurationSchema {
         @Value(hasDefault = true)
         public String defStr = "bar";
-        
+
         @Value(hasDefault = true)
         public String[] arr = {"xyz"};
     }
-    
+
     @Test
     public void defaultsOnInit() throws Exception {
         var changer = createChanger(DefaultsConfiguration.KEY);
-        
+
         changer.start();
-        
+
         changer.initializeDefaults();
-        
+
         DefaultsView root = (DefaultsView) changer.getRootNode(DefaultsConfiguration.KEY);
-        
+
         assertEquals("foo", root.defStr());
         assertEquals("bar", root.child().defStr());
         assertEquals(List.of("xyz"), Arrays.asList(root.child().arr()));
-        
+
         changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange def) -> def
                 .changeChildrenList(children ->
                         children.create("name", child -> {
                         })
                 )
         )).get(1, SECONDS);
-        
+
         root = (DefaultsView) changer.getRootNode(DefaultsConfiguration.KEY);
-        
+
         assertEquals("bar", root.childrenList().get("name").defStr());
     }
-    
+
     /**
      * Tests the {@link DynamicConfigurationChanger#getLatest} method by retrieving different configuration values.
      */
     @Test
     public void testGetLatest() throws Exception {
         ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
-        
+
         changer.start();
-        
+
         changer.initializeDefaults();
-        
+
         ConfigurationSource source = source(
                 DefaultsConfiguration.KEY,
                 (DefaultsChange change) -> change.changeChildrenList(children -> children.create("name", child -> {
                 }))
         );
-        
+
         changer.change(source).get(1, SECONDS);
-        
+
         DefaultsView configurationView = changer.getLatest(List.of("def"));
-        
+
         assertEquals("foo", configurationView.defStr());
         assertEquals("bar", configurationView.child().defStr());
         assertArrayEquals(new String[]{"xyz"}, configurationView.child().arr());
         assertEquals("bar", configurationView.childrenList().get("name").defStr());
     }
-    
+
     /**
      * Tests the {@link DynamicConfigurationChanger#getLatest} method by retrieving different nested configuration values.
      */
     @Test
     public void testGetLatestNested() {
         ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
-        
+
         changer.start();
-        
+
         changer.initializeDefaults();
-        
+
         DefaultsChildView childView = changer.getLatest(List.of("def", "child"));
-        
+
         assertEquals("bar", childView.defStr());
         assertArrayEquals(new String[]{"xyz"}, childView.arr());
-        
+
         String childStrValueView = changer.getLatest(List.of("def", "child", "defStr"));
-        
+
         assertEquals("bar", childStrValueView);
-        
+
         String[] childArrView = changer.getLatest(List.of("def", "child", "arr"));
-        
+
         assertArrayEquals(new String[]{"xyz"}, childArrView);
     }
-    
+
     /**
      * Tests the {@link DynamicConfigurationChanger#getLatest} method by retrieving different Named List configuration values.
      */
     @Test
     public void testGetLatestNamedList() throws Exception {
         ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
-        
+
         changer.start();
-        
+
         changer.initializeDefaults();
-        
+
         ConfigurationSource source = source(
                 DefaultsConfiguration.KEY,
                 (DefaultsChange change) -> change.changeChildrenList(children -> {
@@ -378,32 +383,32 @@ public class ConfigurationChangerTest {
                     });
                 })
         );
-        
+
         changer.change(source).get(1, SECONDS);
-        
+
         for (String name : List.of("name1", "name2")) {
             NamedListView<DefaultsChildView> childrenListView = changer.getLatest(List.of("def", "childrenList"));
-            
+
             DefaultsChildView childrenListElementView = childrenListView.get(name);
-            
+
             assertEquals("bar", childrenListElementView.defStr());
             assertArrayEquals(new String[]{"xyz"}, childrenListElementView.arr());
-            
+
             childrenListElementView = changer.getLatest(List.of("def", "childrenList", name));
-            
+
             assertEquals("bar", childrenListElementView.defStr());
             assertArrayEquals(new String[]{"xyz"}, childrenListElementView.arr());
-            
+
             String childrenListStrValueView = changer.getLatest(List.of("def", "childrenList", name, "defStr"));
-            
+
             assertEquals("bar", childrenListStrValueView);
-            
+
             String[] childrenListArrView = changer.getLatest(List.of("def", "childrenList", name, "arr"));
-            
+
             assertArrayEquals(new String[]{"xyz"}, childrenListArrView);
         }
     }
-    
+
     /**
      * Tests the {@link DynamicConfigurationChanger#getLatest} method by trying to find non-existend values on different configuration
      * levels.
@@ -411,61 +416,137 @@ public class ConfigurationChangerTest {
     @Test
     public void testGetLatestMissingKey() throws Exception {
         ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
-        
+
         changer.start();
-        
+
         changer.initializeDefaults();
-        
+
         ConfigurationSource source = source(
                 DefaultsConfiguration.KEY,
                 (DefaultsChange change) -> change.changeChildrenList(children -> children.create("name", child -> {
                 }))
         );
-        
+
         changer.change(source).get(1, SECONDS);
-        
+
         NoSuchElementException e = assertThrows(NoSuchElementException.class, () -> changer.getLatest(List.of("foo")));
-        
+
         assertThat(e.getMessage(), containsString("foo"));
-        
+
         e = assertThrows(NoSuchElementException.class, () -> changer.getLatest(List.of("def", "foo")));
-        
+
         assertThat(e.getMessage(), containsString("foo"));
-        
+
         e = assertThrows(NoSuchElementException.class, () -> changer.getLatest(List.of("def", "defStr", "foo")));
-        
+
         assertThat(e.getMessage(), containsString("def.defStr.foo"));
-        
+
         e = assertThrows(NoSuchElementException.class, () -> changer.getLatest(List.of("def", "child", "foo")));
-        
+
         assertThat(e.getMessage(), containsString("foo"));
-        
+
         e = assertThrows(
                 NoSuchElementException.class,
                 () -> changer.getLatest(List.of("def", "child", "defStr", "foo"))
         );
-        
+
         assertThat(e.getMessage(), containsString("def.child.defStr.foo"));
-        
+
         e = assertThrows(NoSuchElementException.class, () -> changer.getLatest(List.of("def", "childrenList", "foo")));
-        
+
         assertThat(e.getMessage(), containsString("def.childrenList.foo"));
-        
+
         e = assertThrows(
                 NoSuchElementException.class,
                 () -> changer.getLatest(List.of("def", "childrenList", "name", "foo"))
         );
-        
+
         assertThat(e.getMessage(), containsString("def.childrenList.name.foo"));
-        
+
         e = assertThrows(
                 NoSuchElementException.class,
                 () -> changer.getLatest(List.of("def", "childrenList", "name", "defStr", "foo"))
         );
-        
+
         assertThat(e.getMessage(), containsString("def.childrenList.name.defStr"));
     }
-    
+
+    /**
+     * Check that {@link ConfigurationStorage#lastRevision} always returns the latest revision of the storage,
+     * and that the change will only be applied on the last revision of the storage.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testLastRevision() throws Exception {
+        ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
+
+        changer.start();
+
+        changer.initializeDefaults();
+
+        assertEquals(1, storage.lastRevision().get(1, SECONDS));
+
+        changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> c.changeDefStr("test0"))).get(1, SECONDS);
+        assertEquals(2, storage.lastRevision().get(1, SECONDS));
+
+        // Increase the revision so that the change waits for the latest revision of the configuration to be received from the storage.
+        storage.incrementAndGetRevision();
+        assertEquals(3, storage.lastRevision().get(1, SECONDS));
+
+        AtomicInteger invokeConsumerCnt = new AtomicInteger();
+
+        CompletableFuture<Void> changeFut = changer.change(source(
+                DefaultsConfiguration.KEY,
+                (DefaultsChange c) -> {
+                    invokeConsumerCnt.incrementAndGet();
+
+                    try {
+                        // Let's check that the consumer will be called on the last revision of the repository.
+                        assertEquals(3, storage.lastRevision().get(1, SECONDS));
+                    } catch (Exception e) {
+                        fail(e);
+                    }
+
+                    c.changeDefStr("test1");
+                }
+        ));
+
+        assertThrows(TimeoutException.class, () -> changeFut.get(1, SECONDS));
+        assertEquals(0, invokeConsumerCnt.get());
+
+        // Let's roll back the previous revision so that the new change can be applied.
+        storage.decrementAndGetRevision();
+        assertEquals(2, storage.lastRevision().get(1, SECONDS));
+
+        changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> c.changeDefStr("test00"))).get(1, SECONDS);
+
+        changeFut.get(1, SECONDS);
+        assertEquals(1, invokeConsumerCnt.get());
+    }
+
+    /**
+     * Checks that if we have not changed the configuration, then the update in the storage will still occur.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testUpdateStorageRevisionOnEmptyChanges() throws Exception {
+        ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
+
+        changer.start();
+
+        changer.initializeDefaults();
+
+        assertEquals(1, storage.lastRevision().get(1, SECONDS));
+
+        changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> {})).get(1, SECONDS);
+        assertEquals(2, storage.lastRevision().get(1, SECONDS));
+
+        changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> c.changeDefStr("foo"))).get(1, SECONDS);
+        assertEquals(3, storage.lastRevision().get(1, SECONDS));
+    }
+
     private static <CHANGET> ConfigurationSource source(RootKey<?, ? super CHANGET> rootKey, Consumer<CHANGET> changer) {
         return new ConfigurationSource() {
             @Override
@@ -476,12 +557,12 @@ public class ConfigurationChangerTest {
                         changer.accept((CHANGET) node);
                     }
                 };
-                
+
                 node.construct(rootKey.key(), changerSrc, true);
             }
         };
     }
-    
+
     private ConfigurationChanger createChanger(RootKey<?, ?> rootKey) {
         return new TestConfigurationChanger(cgen, List.of(rootKey), Map.of(), storage, List.of(), List.of());
     }

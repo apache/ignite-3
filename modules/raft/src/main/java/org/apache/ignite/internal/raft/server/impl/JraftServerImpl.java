@@ -26,6 +26,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -92,7 +93,7 @@ public class JraftServerImpl implements RaftServer {
     private ExecutorService requestExecutor;
 
     /**
-     * Constructor.
+     * The constructor.
      *
      * @param service  Cluster service.
      * @param dataPath Data path.
@@ -102,21 +103,22 @@ public class JraftServerImpl implements RaftServer {
     }
 
     /**
-     * Constructor.
+     * The constructor.
      *
      * @param service  Cluster service.
      * @param dataPath Data path.
      * @param opts     Default node options.
      */
-    public JraftServerImpl(
-            ClusterService service,
-            Path dataPath,
-            NodeOptions opts
-    ) {
+    public JraftServerImpl(ClusterService service, Path dataPath, NodeOptions opts) {
         this.service = service;
         this.dataPath = dataPath;
         this.nodeManager = new NodeManager();
         this.opts = opts;
+
+        // Auto-adjust options.
+        this.opts.setRpcConnectTimeoutMs(this.opts.getElectionTimeoutMs() / 3);
+        this.opts.setRpcDefaultTimeout(this.opts.getElectionTimeoutMs() / 2);
+        this.opts.setSharedPools(true);
 
         if (opts.getServerName() == null) {
             opts.setServerName(service.localConfiguration().getName());
@@ -126,6 +128,9 @@ public class JraftServerImpl implements RaftServer {
     /** {@inheritDoc} */
     @Override
     public void start() {
+        assert opts.isSharedPools() : "RAFT server is supposed to run in shared pools mode";
+
+        // Pre-create all pools in shared mode.
         if (opts.getCommonExecutor() == null) {
             opts.setCommonExecutor(JRaftUtils.createCommonExecutor(opts));
         }
@@ -140,6 +145,22 @@ public class JraftServerImpl implements RaftServer {
 
         if (opts.getClientExecutor() == null) {
             opts.setClientExecutor(JRaftUtils.createClientExecutor(opts, opts.getServerName()));
+        }
+
+        if (opts.getVoteTimer() == null) {
+            opts.setVoteTimer(JRaftUtils.createTimer(opts, "JRaft-VoteTimer"));
+        }
+
+        if (opts.getElectionTimer() == null) {
+            opts.setElectionTimer(JRaftUtils.createTimer(opts, "JRaft-ElectionTimer"));
+        }
+
+        if (opts.getStepDownTimer() == null) {
+            opts.setStepDownTimer(JRaftUtils.createTimer(opts, "JRaft-StepDownTimer"));
+        }
+
+        if (opts.getSnapshotTimer() == null) {
+            opts.setSnapshotTimer(JRaftUtils.createTimer(opts, "JRaft-SnapshotTimer"));
         }
 
         requestExecutor = JRaftUtils.createRequestExecutor(opts);
@@ -221,6 +242,22 @@ public class JraftServerImpl implements RaftServer {
             opts.getScheduler().shutdown();
         }
 
+        if (opts.getElectionTimer() != null) {
+            opts.getElectionTimer().stop();
+        }
+
+        if (opts.getVoteTimer() != null) {
+            opts.getVoteTimer().stop();
+        }
+
+        if (opts.getStepDownTimer() != null) {
+            opts.getStepDownTimer().stop();
+        }
+
+        if (opts.getSnapshotTimer() != null) {
+            opts.getSnapshotTimer().stop();
+        }
+
         if (opts.getClientExecutor() != null) {
             ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getClientExecutor());
         }
@@ -250,8 +287,7 @@ public class JraftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr,
-            @Nullable List<Peer> initialConf) {
+    public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr, @Nullable List<Peer> initialConf) {
         if (groups.containsKey(groupId)) {
             return false;
         }
@@ -332,6 +368,12 @@ public class JraftServerImpl implements RaftServer {
      */
     public RaftGroupService raftGroupService(String groupId) {
         return groups.get(groupId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<String> startedGroups() {
+        return groups.keySet();
     }
 
     /**
