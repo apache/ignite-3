@@ -30,37 +30,120 @@ import java.util.UUID;
  * Binary reader.
  */
 public interface MarshallerReader {
+    /**
+     * Skips a value.
+     */
     void skipValue();
 
+    /**
+     * Reads a byte.
+     *
+     * @return Value.
+     */
     byte readByte();
 
+    /**
+     * Reads a short.
+     *
+     * @return Value.
+     */
     short readShort();
 
+    /**
+     * Reads an int.
+     *
+     * @return Value.
+     */
     int readInt();
 
+    /**
+     * Reads a long.
+     *
+     * @return Value.
+     */
     long readLong();
 
+    /**
+     * Reads a float.
+     *
+     * @return Value.
+     */
     float readFloat();
 
+    /**
+     * Reads a double.
+     *
+     * @return Value.
+     */
     double readDouble();
 
+    /**
+     * Reads a string.
+     *
+     * @return Value.
+     */
     String readString();
 
+    /**
+     * Reads a UUID.
+     *
+     * @return Value.
+     */
     UUID readUuid();
 
+    /**
+     * Reads a byte array.
+     *
+     * @return Value.
+     */
     byte[] readBytes();
 
+    /**
+     * Reads a bit set.
+     *
+     * @return Value.
+     */
     BitSet readBitSet();
 
+    /**
+     * Reads a big integer.
+     *
+     * @return Value.
+     */
     BigInteger readBigInt();
 
+    /**
+     * Reads a big decimal.
+     *
+     * @return Value.
+     */
     BigDecimal readBigDecimal();
 
+    /**
+     * Reads a date.
+     *
+     * @return Value.
+     */
     LocalDate readDate();
 
+    /**
+     * Reads a time.
+     *
+     * @return Value.
+     */
     LocalTime readTime();
 
+    /**
+     * Reads a timestamp.
+     *
+     * @return Value.
+     */
     Instant readTimestamp();
 
+    /**
+     * Reads a date with time.
+     *
+     * @return Value.
+     */
     LocalDateTime readDateTime();
 }
