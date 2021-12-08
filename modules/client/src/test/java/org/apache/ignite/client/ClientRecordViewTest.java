@@ -171,6 +171,8 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         Tuple res = table.recordView().get(Tuple.create().set("id", "112").set("gid", 111));
 
         assertNotNull(res);
+        assertEquals(111, res.intValue("gid"));
+        assertEquals(-1, res.byteValue("zbyte")); // TODO: All asserts
     }
 
     @Test
