@@ -76,12 +76,11 @@ public class ClientMarshallerWriter implements MarshallerWriter {
 
     @Override
     public void writeBigInt(BigInteger val) {
-
+        packer.packNumber(val);
     }
 
     @Override
     public void writeBigDecimal(BigDecimal val) {
-
     }
 
     @Override

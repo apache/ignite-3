@@ -75,7 +75,7 @@ public class ClientMarshallerReader implements MarshallerReader {
 
     @Override
     public BigInteger readBigInt() {
-        return unpacker.unpackBigInteger();
+        return unpacker.unpackNumber();
     }
 
     @Override
