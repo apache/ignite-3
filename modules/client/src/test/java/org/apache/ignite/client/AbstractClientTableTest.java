@@ -20,6 +20,7 @@ package org.apache.ignite.client;
 import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_ALL_COLUMNS;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
@@ -93,7 +94,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
                 .set("long", (long)14)
                 .set("float", (float)1.5)
                 .set("double", (double)1.6)
-                .set("date", LocalDateTime.now())
+                .set("date", LocalDate.now())
                 .set("time", LocalTime.now())
                 .set("timestamp", Instant.now())
                 .set("string", name)

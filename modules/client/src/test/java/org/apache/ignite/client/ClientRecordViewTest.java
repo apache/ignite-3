@@ -76,8 +76,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testMissingValueColumnIsIgnored() {
-        // TODO
+    public void testMissingValueColumnsAreSkipped() {
         Table table = fullTable();
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
         RecordView<IncompletePojo> pojoView = table.recordView(IncompletePojo.class);
@@ -92,6 +91,8 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         assertEquals(1, val.gid);
         assertEquals("1", val.id);
+        assertEquals("x", val.string);
+        assertEquals(2, val.bytes[1]);
     }
 
     @Test
