@@ -183,6 +183,11 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
 
         assertThrows(TableAlreadyExistsException.class, () -> finalQueryProc.query("PUBLIC", finalNewTblSql1));
 
+        String finalNewTblSql2 = String.format("CREATE TABLE \"PUBLIC\".%s (c1 int PRIMARY KEY, c2 varbinary(255)) "
+                + "with partitions=1,replicas=1", curMethodName);
+
+        assertThrows(TableAlreadyExistsException.class, () -> finalQueryProc.query("PUBLIC", finalNewTblSql2));
+
         assertThrows(IgniteInternalException.class, () -> finalQueryProc.query("PUBLIC",
                 "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,replicas=1"));
 
@@ -192,9 +197,9 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))",
                 " IF NOT EXISTS " + curMethodName);
 
-        String finalNewTblSql2 = newTblSql;
+        String finalNewTblSql3 = newTblSql;
 
-        assertDoesNotThrow(() -> finalQueryProc.query("PUBLIC", finalNewTblSql2));
+        assertDoesNotThrow(() -> finalQueryProc.query("PUBLIC", finalNewTblSql3));
     }
 
     /**

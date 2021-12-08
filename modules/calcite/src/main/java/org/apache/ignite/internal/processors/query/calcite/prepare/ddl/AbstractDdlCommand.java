@@ -26,8 +26,9 @@ public abstract class AbstractDdlCommand implements DdlCommand {
 
     /**
      * Schema name upon which this statement has been issued - <b>not</b> the name of the schema where this new table will be created.
+     * i.e. in case of: CREATE TABLE "SCH1"."TABL1" ... schema would be "SCH1".
      */
-    private String schemaName;
+    private String commanCurrentSchema;
 
     public String tableName() {
         return tblName;
@@ -38,10 +39,10 @@ public abstract class AbstractDdlCommand implements DdlCommand {
     }
 
     public String schemaName() {
-        return schemaName;
+        return commanCurrentSchema;
     }
 
     public void schemaName(String schemaName) {
-        this.schemaName = schemaName;
+        this.commanCurrentSchema = schemaName;
     }
 }
