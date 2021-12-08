@@ -42,7 +42,7 @@ public abstract class Marshaller {
             final MarshallerColumn col = cols[0];
 
             assert cols.length == 1;
-            // assert mode.typeSpec() == col.type().spec() : "Target type is not compatible.";
+            assert mode == col.type() : "Target type is not compatible.";
             assert !mapper.targetType().isPrimitive() : "Non-nullable types are not allowed.";
 
             return new SimpleMarshaller(FieldAccessor.createIdentityAccessor(col.name(), 0, mode));
