@@ -61,6 +61,16 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertNull(missingVal);
     }
 
+    @Test
+    public void testPojoUpsertBinaryGet() {
+        // TODO
+    }
+
+    @Test
+    public void testPrimitiveUpsertBinaryGet() {
+        // TODO
+    }
+
     private static class PersonPojo {
         public long id;
 
