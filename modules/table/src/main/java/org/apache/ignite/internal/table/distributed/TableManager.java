@@ -1451,7 +1451,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Get local table id by the table name.
      *
      * @param name Table name.
-     * @return Local table id by the name.
+     * @return Local table id by the name or {@code null} if there is no local table with the {@code name}.
      */
     private IgniteUuid getTableIdByName(String name) {
         return tableNamesById.entrySet()
