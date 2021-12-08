@@ -105,13 +105,6 @@ public abstract class Marshaller {
     public abstract void writeObject(Object obj, MarshallerWriter writer) throws MarshallerException;
 
     /**
-     * Gets a value indicating whether this marshaller instance performs a simple mapping from a single column to a primitive value.
-     *
-     * @return True when simple mode, false otherwise.
-     */
-    public abstract boolean isSimple();
-
-    /**
      * Marshaller for objects of natively supported types.
      */
     private static class SimpleMarshaller extends Marshaller {
@@ -152,12 +145,6 @@ public abstract class Marshaller {
         @Override
         public void writeObject(Object obj, MarshallerWriter writer) throws MarshallerException {
             fieldAccessor.write(writer, obj);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean isSimple() {
-            return true;
         }
     }
 
@@ -217,12 +204,6 @@ public abstract class Marshaller {
             for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
                 fieldAccessors[fldIdx].write(writer, obj);
             }
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean isSimple() {
-            return false;
         }
     }
 }

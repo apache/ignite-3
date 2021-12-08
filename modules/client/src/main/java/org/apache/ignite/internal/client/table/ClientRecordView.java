@@ -8,8 +8,8 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
-import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.marshaller.MarshallerUtil;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -27,9 +27,14 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** Underlying table. */
     private final ClientTable tbl;
 
+    /** Simple mapping mode. */
+    private final boolean isSimpleMapping;
+
     public ClientRecordView(ClientTable tbl, Mapper<R> recMapper) {
         this.tbl = tbl;
         this.recMapper = recMapper;
+
+        isSimpleMapping = MarshallerUtil.mode(recMapper.targetType()) != null;
     }
 
     /** {@inheritDoc} */
@@ -50,25 +55,21 @@ public class ClientRecordView<R> implements RecordView<R> {
                     out.packInt(schema.version());
 
                     try {
-                        Marshaller keyMarsh = schema.getKeyMarshaller(recMapper);
-
-                        keyMarsh.writeObject(keyRec, new ClientMarshallerWriter(out));
+                        schema.getKeyMarshaller(recMapper).writeObject(keyRec, new ClientMarshallerWriter(out));
                     } catch (MarshallerException e) {
                         // TODO: ???
                         throw new RuntimeException(e);
                     }
                 },
                 (inSchema, in) -> {
-                    var marsh = inSchema.getValMarshaller(recMapper);
+                    if (isSimpleMapping) {
+                        return keyRec;
+                    }
 
                     try {
-                        var res = (R) marsh.readObject(new ClientMarshallerReader(in), null);
+                        var res = (R) inSchema.getValMarshaller(recMapper).readObject(new ClientMarshallerReader(in), null);
 
-                        if (!marsh.isSimple()) {
-                            Marshaller keyMarsh = inSchema.getKeyMarshaller(recMapper);
-
-                            keyMarsh.copyObject(keyRec, res);
-                        }
+                        inSchema.getKeyMarshaller(recMapper).copyObject(keyRec, res);
 
                         return res;
                     } catch (MarshallerException e) {

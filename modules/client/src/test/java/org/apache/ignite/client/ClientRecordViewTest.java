@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import org.apache.ignite.table.RecordView;
@@ -40,9 +41,11 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         key.id = DEFAULT_ID;
 
         PersonPojo val = pojoView.get(key);
+        PersonPojo missingVal = pojoView.get(new PersonPojo());
 
         assertEquals(DEFAULT_NAME, val.name);
         assertEquals(DEFAULT_ID, val.id);
+        assertNull(missingVal);
     }
 
     @Test
@@ -53,13 +56,10 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         RecordView<Long> primitiveView = table.recordView(Mapper.of(Long.class));
 
         Long val = primitiveView.get(DEFAULT_ID);
+        Long missingVal = primitiveView.get(-1L);
 
         assertEquals(DEFAULT_ID, val);
-    }
-
-    @Test
-    public void testSingleColumnToTypeMapping() {
-        fail("TODO: Test single column mapping - RecordView<Long>, etc.");
+        assertNull(missingVal);
     }
 
     private static class PersonPojo {
