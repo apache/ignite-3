@@ -136,7 +136,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final Map<String, TableImpl> tables = new ConcurrentHashMap<>();
 
     /** Tables. */
-    private final Map<IgniteUuid, TableImpl> tablesById = new ConcurrentHashMap<>();
+    private final Map<IgniteUuid, String> tableNamesById = new ConcurrentHashMap<>();
 
     /** Resolver that resolves a network address to node id. */
     private final Function<NetworkAddress, String> netAddrResolver;
@@ -249,7 +249,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()))
                                                     );
 
-                                            fireEvent(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
+                                            fireEvent(TableEvent.ALTER, new TableEventParameters(getLocalTableById(tblId)), null);
                                         } catch (Exception e) {
                                             fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName), e);
                                         } finally {
@@ -325,7 +325,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             toAdd.removeAll(oldPartitionAssignment);
 
-                            InternalTable internalTable = tablesById.get(tblId).internalTable();
+                            InternalTable internalTable = getLocalTableById(tblId).internalTable();
 
                             // Create new raft nodes according to new assignments.
 
@@ -553,7 +553,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 );
 
                 tables.put(name, table);
-                tablesById.put(tblId, table);
+                tableNamesById.put(tblId, name);
 
                 fireEvent(TableEvent.CREATE, new TableEventParameters(table), null);
             } catch (Exception e) {
@@ -571,7 +571,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private SchemaDescriptor tableSchema(IgniteUuid tblId, int schemaVer) {
         try {
-            TableImpl table = tablesById.get(tblId);
+            TableImpl table = getLocalTableById(tblId);
 
             assert table != null : "Table is undefined [tblId=" + tblId + ']';
 
@@ -653,7 +653,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             assert table != null : "There is no table with the name specified [name=" + name + ']';
 
             tables.remove(name);
-            tablesById.remove(tblId);
+            tableNamesById.remove(tblId);
 
             table.internalTable().storage().destroy();
 
@@ -846,7 +846,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     tblCh);
 
                                             descriptor.columnMapping(SchemaUtils.columnMapper(
-                                                    tablesById.get(tblId).schemaView().schema(currTableView.schemas().size()),
+                                                    getLocalTableById(tblId).schemaView().schema(currTableView.schemas().size()),
                                                     currTableView,
                                                     descriptor,
                                                     tblCh));
@@ -1130,9 +1130,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         EventListener<TableEventParameters> clo = new EventListener<>() {
             @Override
             public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                String tableName = parameters.tableName();
-
-                if (!name.equals(tableName)) {
+                IgniteUuid tableId = parameters.tableId();
+                
+                if (!tableId.equals(getTableIdByName(name))) {
                     return false;
                 }
 
@@ -1174,7 +1174,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return CompletableFuture.completedFuture(null);
         }
 
-        var tbl = tablesById.get(id);
+        var tbl = getLocalTableById(id);
 
         if (tbl != null) {
             return CompletableFuture.completedFuture(tbl);
@@ -1206,7 +1206,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         listen(TableEvent.CREATE, clo);
 
-        tbl = tablesById.get(id);
+        tbl = getLocalTableById(id);
 
         if (tbl != null && getTblFut.complete(tbl) || !isTableConfigured(id) && getTblFut.complete(null)) {
             removeListener(TableEvent.CREATE, clo, null);
@@ -1429,5 +1429,30 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         return CompletableFuture.allOf(futures);
+    }
+    
+    /**
+     * Get local table by table id.
+     *
+     * @param id Table id.
+     * @return Local table by id.
+     */
+    private TableImpl getLocalTableById(IgniteUuid id) {
+        return tables.get(tableNamesById.get(id));
+    }
+    
+    /**
+     * Get local table id by table name.
+     *
+     * @param name Table name.
+     * @return Local table id by name.
+     */
+    private IgniteUuid getTableIdByName(String name) {
+        return tableNamesById.entrySet()
+                .stream()
+                .filter(tblName -> name.equals(tblName.getValue()))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse(null);
     }
 }
