@@ -5,7 +5,9 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
@@ -53,22 +55,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (schema, out) -> writeRec(keyRec, schema, out, TuplePart.KEY),
-                (inSchema, in) -> {
-                    if (isSimpleMapping) {
-                        return keyRec;
-                    }
-
-                    try {
-                        var res = (R) inSchema.getMarshaller(recMapper, TuplePart.VAL).readObject(new ClientMarshallerReader(in), null);
-
-                        inSchema.getMarshaller(recMapper, TuplePart.KEY).copyObject(keyRec, res);
-
-                        return res;
-                    } catch (MarshallerException e) {
-                        // TODO: ???
-                        throw new RuntimeException(e);
-                    }
-                });
+                (inSchema, in) -> readValRec(keyRec, inSchema, in));
     }
 
     /** {@inheritDoc} */
@@ -257,8 +244,23 @@ public class ClientRecordView<R> implements RecordView<R> {
         try {
             schema.getMarshaller(recMapper, part).writeObject(rec, new ClientMarshallerWriter(out));
         } catch (MarshallerException e) {
-            // TODO: ???
-            throw new RuntimeException(e);
+            throw new IgniteClientException(e.getMessage(), e);
+        }
+    }
+
+    private R readValRec(@NotNull R keyRec, ClientSchema inSchema, ClientMessageUnpacker in) {
+        if (isSimpleMapping) {
+            return keyRec;
+        }
+
+        try {
+            var res = (R) inSchema.getMarshaller(recMapper, TuplePart.VAL).readObject(new ClientMarshallerReader(in), null);
+
+            inSchema.getMarshaller(recMapper, TuplePart.KEY).copyObject(keyRec, res);
+
+            return res;
+        } catch (MarshallerException e) {
+            throw new IgniteClientException(e.getMessage(), e);
         }
     }
 }
