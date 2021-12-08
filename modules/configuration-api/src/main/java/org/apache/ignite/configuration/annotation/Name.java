@@ -25,7 +25,32 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 /**
- * TODO: IGNITE-15564 javadoc.
+ * This annotation is used in conjunction with {@link ConfigValue} in case the nested schema contains a field with {@link InjectedName} in
+ * order to be able to set different default values for the field with {@link InjectedName}.
+ * <pre><code>
+ * {@literal @}Config
+ *  public class DataRegionConfigurationSchema {
+ *      {@literal @InjectedName}
+ *       public String name;
+ *
+ *      {@literal @}Value
+ *       public long size;
+ * }
+ *
+ * {@literal @}Config
+ *  public class DataStorageConfigurationSchema {
+ *      {@literal @}Name("defaultInMemory")
+ *      {@literal @}ConfigValue
+ *       public DataRegionConfigurationSchema defaultInMemoryRegion;
+ *
+ *      {@literal @}Name("defaultPersistent")
+ *      {@literal @}ConfigValue
+ *       public DataRegionConfigurationSchema defaultPersistentRegion;
+ * }
+ * </code></pre>
+ *
+ * @see ConfigValue
+ * @see InjectedName
  */
 @Target(FIELD)
 @Retention(RUNTIME)
