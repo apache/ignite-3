@@ -137,7 +137,7 @@ public class DdlSqlToCommandConverter {
 
         createTblCmd.schemaName(deriveSchemaName(createTblNode.name(), ctx));
         createTblCmd.tableName(deriveObjectName(createTblNode.name(), ctx, "tableName"));
-        createTblCmd.ifTableExists(createTblNode.ifNotExists());
+        createTblCmd.ifTableNotExists(createTblNode.ifNotExists());
 
         if (createTblNode.createOptionList() != null) {
             for (SqlNode optNode : createTblNode.createOptionList().getList()) {
@@ -221,12 +221,12 @@ public class DdlSqlToCommandConverter {
 
         alterTblCmd.schemaName(deriveSchemaName(alterTblNode.name(), ctx));
         alterTblCmd.tableName(deriveObjectName(alterTblNode.name(), ctx, "table name"));
-        alterTblCmd.ifTableExists(alterTblNode.ifExists());
+        alterTblCmd.ifTableNotExists(alterTblNode.ifExists());
         alterTblCmd.ifColumnNotExists(alterTblNode.ifNotExistsColumn());
 
         IgniteTypeFactory typeFactory = ctx.typeFactory();
 
-        Set<ColumnDefinition> cols = new HashSet<>(alterTblNode.columns().size());
+        List<ColumnDefinition> cols = new ArrayList<>(alterTblNode.columns().size());
 
         for (SqlNode colNode : alterTblNode.columns()) {
             assert colNode instanceof SqlColumnDeclaration : colNode.getClass();
@@ -261,7 +261,7 @@ public class DdlSqlToCommandConverter {
 
         alterTblCmd.schemaName(deriveSchemaName(alterTblNode.name(), ctx));
         alterTblCmd.tableName(deriveObjectName(alterTblNode.name(), ctx, "table name"));
-        alterTblCmd.ifTableExists(alterTblNode.ifExists());
+        alterTblCmd.ifTableNotExists(alterTblNode.ifExists());
         alterTblCmd.ifColumnExists(alterTblNode.ifExistsColumn());
 
         Set<String> cols = new HashSet<>(alterTblNode.columns().size());
@@ -283,7 +283,7 @@ public class DdlSqlToCommandConverter {
 
         dropTblCmd.schemaName(deriveSchemaName(dropTblNode.name, ctx));
         dropTblCmd.tableName(deriveObjectName(dropTblNode.name, ctx, "tableName"));
-        dropTblCmd.ifTableExists(dropTblNode.ifExists);
+        dropTblCmd.ifTableNotExists(dropTblNode.ifExists);
 
         return dropTblCmd;
     }
@@ -313,6 +313,8 @@ public class DdlSqlToCommandConverter {
         }
 
         createIdxCmd.columns(cols);
+
+        createIdxCmd.ifIndexNotExists(sqlCmd.ifNotExists());
 
         return createIdxCmd;
     }

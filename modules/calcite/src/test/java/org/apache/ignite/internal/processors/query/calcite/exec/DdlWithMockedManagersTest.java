@@ -262,6 +262,10 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
 
         assertThrows(ColumnAlreadyExistsException.class, () -> finalQueryProc.query("PUBLIC", alterCmd));
 
+        String alterCmdNoTbl = String.format("ALTER TABLE %s ADD COLUMN (c3 varchar, c4 int)", curMethodName + "_notExist");
+
+        queryProc.query("PUBLIC", alterCmdNoTbl);
+
         // todo will be implemented after IGNITE-15926
         /*String alterIfExistsCmd = String.format("ALTER TABLE IF EXISTS %s ADD COLUMN (c3 varchar, c4 int)", curMethodName + "NotExist");
 
@@ -315,7 +319,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
         String curMethodName = getCurrentMethodName();
 
         queryProc.query("PUBLIC", String.format("CREATE TABLE %s "
-                + "(c1 int PRIMARY KEY, c2 varchar(255), c3 varchar, c4 varchar, c5 varchar)", curMethodName));
+                + "(c1 int PRIMARY KEY, c2 decimal(10), c3 varchar, c4 varchar, c5 varchar)", curMethodName));
 
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName));
 
@@ -345,6 +349,8 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
                 .equalsIgnoreCase("PUBLIC." + curMethodName)));
 
         queryProc.query("PUBLIC", String.format("CREATE INDEX index1 ON %s (c1)", curMethodName));
+
+        queryProc.query("PUBLIC", String.format("CREATE INDEX IF NOT EXISTS index1 ON %s (c1)", curMethodName));
 
         queryProc.query("PUBLIC", String.format("CREATE INDEX index2 ON %s (c1)", curMethodName));
 

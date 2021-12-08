@@ -27,6 +27,9 @@ public class CreateIndexCommand extends AbstractDdlCommand {
     /** Idx name. */
     private String indexName;
 
+    /** Quietly ignore this command if index already exists. */
+    private boolean ifIdxNotExists;
+
     /** Colunms covered with ordering. */
     List<Pair<String, Boolean>> cols;
 
@@ -46,5 +49,23 @@ public class CreateIndexCommand extends AbstractDdlCommand {
 
     public void columns(List<Pair<String, Boolean>> cols) {
         this.cols = cols;
+    }
+
+    /**
+     * Quietly ignore this command if index already exists.
+     *
+     * @return Quietly ignore flag.
+     */
+    public boolean ifIndexNotExists() {
+        return ifIdxNotExists;
+    }
+
+    /**
+     * Quietly ignore this command if index already exists.
+     *
+     * @param ifIdxNotExists Exists flag.
+     */
+    public void ifIndexNotExists(boolean ifIdxNotExists) {
+        this.ifIdxNotExists = ifIdxNotExists;
     }
 }

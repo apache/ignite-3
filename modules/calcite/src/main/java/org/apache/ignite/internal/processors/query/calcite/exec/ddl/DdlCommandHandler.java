@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -48,6 +49,7 @@ import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
+import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnDefinition;
@@ -119,7 +121,7 @@ public class DdlCommandHandler {
 
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
-        if (cmd.ifTableExists()) {
+        if (cmd.ifTableNotExists()) {
             tableManager.createTableIfNotExists(fullName, tblChanger);
         } else {
             tableManager.createTable(fullName, tblChanger);
@@ -141,6 +143,8 @@ public class DdlCommandHandler {
             return;
         }
 
+        // if (!cmd.ifTableExists()) todo will be implemented after IGNITE-15926
+
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
         addColumnInternal(fullName, cmd.columns(), cmd.ifColumnNotExists());
@@ -151,6 +155,8 @@ public class DdlCommandHandler {
         if (nullOrEmpty(cmd.columns())) {
             return;
         }
+
+        // if (!cmd.ifTableExists()) todo will be implemented after IGNITE-15926
 
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
@@ -176,21 +182,27 @@ public class DdlCommandHandler {
 
         tableManager.alterTable(fullName, chng -> chng.changeIndices(idxes -> {
             if (idxes.get(cmd.indexName()) != null) {
-                throw new IndexAlreadyExistsException(cmd.indexName());
+                if (!cmd.ifIndexNotExists()) {
+                    throw new IndexAlreadyExistsException(cmd.indexName());
+                } else {
+                    return;
+                }
             }
 
             idxes.create(cmd.indexName(), tableIndexChange -> convert(idx.build(), tableIndexChange));
         }));
     }
 
-    /** Handles create index command. */
+    /** Handles drop index command. */
     private void handleDropIndex(DropIndexCommand cmd) {
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
         tableManager.alterTable(fullName, chng -> chng.changeIndices(idxes -> {
             if (idxes.get(cmd.indexName()) == null) {
                 if (!cmd.ifExist()) {
-                    throw new IndexAlreadyExistsException(cmd.indexName());
+                    throw new IndexNotFoundException(cmd.indexName());
+                } else {
+                    return;
                 }
             }
 
@@ -205,13 +217,13 @@ public class DdlCommandHandler {
      * @param colsDef  Columns defenitions.
      * @param colNotExist Flag indicates exceptionally behavior in case of already existing column.
      */
-    private void addColumnInternal(String fullName, Set<ColumnDefinition> colsDef, boolean colNotExist) {
+    private void addColumnInternal(String fullName, List<ColumnDefinition> colsDef, boolean colNotExist) {
         tableManager.alterTable(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
                     Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
 
-                    Set<ColumnDefinition> colsDef0;
+                    List<ColumnDefinition> colsDef0;
 
                     if (!colNotExist) {
                         colsDef.stream().filter(k -> colNamesToOrders.containsKey(k.name())).findAny()
@@ -221,7 +233,7 @@ public class DdlCommandHandler {
 
                         colsDef0 = colsDef;
                     } else {
-                        colsDef0 = colsDef.stream().filter(k -> !colNamesToOrders.containsKey(k.name())).collect(Collectors.toSet());
+                        colsDef0 = colsDef.stream().filter(k -> !colNamesToOrders.containsKey(k.name())).collect(Collectors.toList());
                     }
 
                     for (ColumnDefinition colDef : colsDef0) {
@@ -231,11 +243,11 @@ public class DdlCommandHandler {
     }
 
     /**
-     * Adds a column according to the column definition.
+     * Drops a column(s) exceptional behavior depends on {@code colExist} flag.
      *
      * @param fullName Table with schema name.
-     * @param colNames  Columns defenitions.
-     * @param colNotExist Flag indicates exceptionally behavior in case of already existing column.
+     * @param colNames Columns defenitions.
+     * @param colExist Flag indicates exceptionally behavior in case of already existing column.
      */
     private void dropColumnInternal(String fullName, Set<String> colNames, boolean colExist) {
         tableManager.alterTable(

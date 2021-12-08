@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.processors.query.calcite.prepare.ddl;
 
-import java.util.Set;
+import java.util.List;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 
 /**
@@ -29,13 +29,13 @@ public class AlterTableAddCommand extends AbstractTableDdlCommand {
     private boolean ifColumnNotExists;
 
     /** Columns. */
-    private Set<ColumnDefinition> cols;
+    private List<ColumnDefinition> cols;
 
-    public Set<ColumnDefinition> columns() {
+    public List<ColumnDefinition> columns() {
         return cols;
     }
 
-    public void columns(Set<ColumnDefinition> cols) {
+    public void columns(List<ColumnDefinition> cols) {
         this.cols = cols;
     }
 

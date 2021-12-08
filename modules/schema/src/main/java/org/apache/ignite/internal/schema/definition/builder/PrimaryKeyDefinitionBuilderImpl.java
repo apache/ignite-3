@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema.definition.builder;
 
 import static java.util.Arrays.asList;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -99,7 +98,7 @@ public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, Pri
         if (CollectionUtils.nullOrEmpty(affinityColumns)) {
             affCols = cols;
         } else {
-            affCols = new HashSet<>(affinityColumns);
+            affCols = Set.copyOf(affinityColumns);
 
             if (!cols.containsAll(affCols)) {
                 throw new IllegalStateException("Schema definition error: All affinity columns must be part of key.");

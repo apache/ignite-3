@@ -22,21 +22,21 @@ package org.apache.ignite.internal.processors.query.calcite.prepare.ddl;
  */
 public class AbstractTableDdlCommand extends AbstractDdlCommand {
     /** Quietly ignore this command if table is not exists. */
-    protected boolean ifTableExists;
+    protected boolean ifTableNotExists;
 
     /**
      * Quietly ignore if table exists flag.
      */
-    public boolean ifTableExists() {
-        return ifTableExists;
+    public boolean ifTableNotExists() {
+        return ifTableNotExists;
     }
 
     /**
      * Set quietly ignore flag.
      *
-     * @param ifTableExists Flag.
+     * @param ifTableNotExists Flag.
      */
-    public void ifTableExists(boolean ifTableExists) {
-        this.ifTableExists = ifTableExists;
+    public void ifTableNotExists(boolean ifTableNotExists) {
+        this.ifTableNotExists = ifTableNotExists;
     }
 }
