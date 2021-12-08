@@ -42,6 +42,12 @@ public class AbstractClientTableTest extends AbstractClientTest {
     /** Default id. */
     protected static final Long DEFAULT_ID = 123L;
 
+    protected static final LocalDate localDate = LocalDate.now();
+
+    protected static final LocalTime localTime = LocalTime.now();
+
+    protected static final Instant instant = Instant.now();
+
     protected static Tuple[] sortedTuples(Collection<Tuple> tuples) {
         Tuple[] res = tuples.toArray(new Tuple[0]);
 
@@ -99,9 +105,9 @@ public class AbstractClientTableTest extends AbstractClientTest {
                 .set("zlong", (long)14)
                 .set("zfloat", (float)1.5)
                 .set("zdouble", (double)1.6)
-                .set("zdate", LocalDate.now())
-                .set("ztime", LocalTime.now())
-                .set("ztimestamp", Instant.now())
+                .set("zdate", localDate)
+                .set("ztime", localTime)
+                .set("ztimestamp", instant)
                 .set("zstring", name)
                 .set("zbytes", new byte[]{1, 2})
                 .set("zbitmask", BitSet.valueOf(new byte[]{32}))

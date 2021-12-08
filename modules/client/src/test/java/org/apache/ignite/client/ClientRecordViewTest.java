@@ -122,7 +122,15 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         key.id = String.valueOf(DEFAULT_ID);
 
         AllColumnsPojo res = pojoView.get(key);
-        assertEquals(1, res.zint); // TODO: All asserts
+        assertEquals(11, res.zbyte);
+        assertEquals(12, res.zshort);
+        assertEquals(13, res.zint);
+        assertEquals(14, res.zlong);
+        assertEquals(1.5f, res.zfloat);
+        assertEquals(1.6, res.zdouble);
+        assertEquals(localDate, res.zdate);
+        assertEquals(localTime, res.ztime);
+        assertEquals(instant, res.ztimestamp);
     }
 
     @Test
