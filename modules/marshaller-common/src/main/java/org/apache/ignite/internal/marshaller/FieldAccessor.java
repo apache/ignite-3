@@ -70,11 +70,6 @@ abstract class FieldAccessor {
         try {
             final Field field = type.getDeclaredField(fldName);
 
-            // TODO
-//            if (field.getType().isPrimitive() && col.nullable()) {
-//                throw new IllegalArgumentException("Failed to map non-nullable field to nullable column [name=" + field.getName() + ']');
-//            }
-
             BinaryMode mode = MarshallerUtil.mode(field.getType());
             final MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(type, MethodHandles.lookup());
 
