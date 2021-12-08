@@ -49,16 +49,6 @@ public class HashUtils {
     }
 
     /**
-     * Generates 64-bit hash from the byte array with a seed of zero.
-     *
-     * @param data The input byte array.
-     * @return The 64-bit hash.
-     */
-    public static long hash64(final byte[] data) {
-        return hash64(data, 0, data.length, 0);
-    }
-
-    /**
      * Generates 32-bit hash from the byte array with the given offset, length and seed.
      *
      * @param data   The input byte array.
@@ -71,6 +61,16 @@ public class HashUtils {
         long hash = hash64(data, offset, length, seed);
 
         return (int) (hash ^ (hash >>> 32));
+    }
+
+    /**
+     * Generates 64-bit hash from the byte array with a seed of zero.
+     *
+     * @param data The input byte array.
+     * @return The 64-bit hash.
+     */
+    public static long hash64(final byte[] data) {
+        return hash64(data, 0, data.length, 0);
     }
 
     /**
