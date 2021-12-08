@@ -41,6 +41,8 @@ import org.jetbrains.annotations.NotNull;
 public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     public static final String TABLE_EXISTS = "Table exists";
 
+    public static final String TABLE_ALL_COLUMNS = "all-columns";
+
     private final ConcurrentHashMap<String, TableImpl> tables = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<IgniteUuid, TableImpl> tablesById = new ConcurrentHashMap<>();
@@ -156,9 +158,11 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     @NotNull
     private TableImpl getNewTable(String name) {
+        var registry = new FakeSchemaRegistry(name.equals(TABLE_ALL_COLUMNS) ? this::getAllColumnsSchema : this::getSchema);
+
         return new TableImpl(
                 new FakeInternalTable(name, new IgniteUuid(UUID.randomUUID(), 0)),
-                new FakeSchemaRegistry(this::getSchema),
+                registry,
                 null
         );
     }
@@ -188,5 +192,34 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
             default:
                 return null;
         }
+    }
+
+    /**
+     * Gets the schema.
+     *
+     * @param v Version.
+     * @return Schema descriptor.
+     */
+    private SchemaDescriptor getAllColumnsSchema(Integer v) {
+        return new SchemaDescriptor(
+                v,
+                new Column[]{
+                        new Column("id", NativeTypes.STRING, false),
+                        new Column("gid", NativeTypes.INT32, false)
+                },
+                new Column[]{
+                        new Column("byte", NativeTypes.INT8, true),
+                        new Column("short", NativeTypes.INT16, true),
+                        new Column("int", NativeTypes.INT32, true),
+                        new Column("long", NativeTypes.INT64, true),
+                        new Column("float", NativeTypes.FLOAT, true),
+                        new Column("double", NativeTypes.DOUBLE, true),
+                        new Column("date", NativeTypes.DATE, true),
+                        new Column("time", NativeTypes.time(), true),
+                        new Column("timestamp", NativeTypes.timestamp(), true),
+                        new Column("string", NativeTypes.STRING, true),
+                        new Column("bytes", NativeTypes.BYTES, true),
+                        new Column("uuid", NativeTypes.UUID, true),
+                });
     }
 }
