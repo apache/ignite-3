@@ -31,7 +31,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
  * Binary reader over {@link ClientMessageUnpacker}.
  */
 public class ClientMarshallerReader implements MarshallerReader {
-    /** Unpacker */
+    /** Unpacker. */
     private final ClientMessageUnpacker unpacker;
 
     /**
