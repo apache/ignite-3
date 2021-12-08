@@ -19,7 +19,9 @@ package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.concurrent.CompletionException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.Mapper;
@@ -71,9 +73,23 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         // TODO
     }
 
+    @Test
+    public void testMissingKeyColumnThrowsException() {
+        RecordView<NamePojo> recordView = defaultTable().recordView(NamePojo.class);
+
+        CompletionException e = assertThrows(CompletionException.class, () -> recordView.get(new NamePojo()));
+        IgniteClientException ice = (IgniteClientException) e.getCause();
+
+        assertEquals("No field found for column id", ice.getMessage());
+    }
+
     private static class PersonPojo {
         public long id;
 
+        public String name;
+    }
+
+    private static class NamePojo {
         public String name;
     }
 }
