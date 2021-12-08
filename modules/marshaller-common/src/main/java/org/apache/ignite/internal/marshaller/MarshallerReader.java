@@ -43,11 +43,25 @@ public interface MarshallerReader {
     byte readByte();
 
     /**
+     * Reads a byte.
+     *
+     * @return Value.
+     */
+    Byte readByteBoxed();
+
+    /**
      * Reads a short.
      *
      * @return Value.
      */
     short readShort();
+
+    /**
+     * Reads a short.
+     *
+     * @return Value.
+     */
+    Short readShortBoxed();
 
     /**
      * Reads an int.
@@ -57,11 +71,25 @@ public interface MarshallerReader {
     int readInt();
 
     /**
+     * Reads an int.
+     *
+     * @return Value.
+     */
+    Integer readIntBoxed();
+
+    /**
      * Reads a long.
      *
      * @return Value.
      */
     long readLong();
+
+    /**
+     * Reads a long.
+     *
+     * @return Value.
+     */
+    Long readLongBoxed();
 
     /**
      * Reads a float.
@@ -71,11 +99,25 @@ public interface MarshallerReader {
     float readFloat();
 
     /**
+     * Reads a float.
+     *
+     * @return Value.
+     */
+    Float readFloatBoxed();
+
+    /**
      * Reads a double.
      *
      * @return Value.
      */
     double readDouble();
+
+    /**
+     * Reads a double.
+     *
+     * @return Value.
+     */
+    Double readDoubleBoxed();
 
     /**
      * Reads a string.

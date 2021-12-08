@@ -184,32 +184,32 @@ abstract class FieldAccessor {
 
         switch (mode) {
             case BYTE:
-                val = reader.readByte();
+                val = reader.readByteBoxed();
 
                 break;
 
             case SHORT:
-                val = reader.readShort();
+                val = reader.readShortBoxed();
 
                 break;
 
             case INT:
-                val = reader.readInt();
+                val = reader.readIntBoxed();
 
                 break;
 
             case LONG:
-                val = reader.readLong();
+                val = reader.readLongBoxed();
 
                 break;
 
             case FLOAT:
-                val = reader.readFloat();
+                val = reader.readFloatBoxed();
 
                 break;
 
             case DOUBLE:
-                val = reader.readDouble();
+                val = reader.readDoubleBoxed();
 
                 break;
 

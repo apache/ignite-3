@@ -143,7 +143,6 @@ public class FieldAccessorTest {
      */
     @Test
     public void nullableFieldsAccessor() throws Exception {
-        // TODO: Mute with a ticket?
         MarshallerColumn[] cols = new MarshallerColumn[]{
                 new MarshallerColumn("intCol", INT),
                 new MarshallerColumn("longCol", LONG),
@@ -275,11 +274,17 @@ public class FieldAccessorTest {
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeTimestamp(Mockito.any(Instant.class));
 
         Mockito.doAnswer(rowAnswer).when(mockedRow).readByte();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readByteBoxed();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readShort();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readShortBoxed();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readInt();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readIntBoxed();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readLong();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readLongBoxed();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readFloat();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readFloatBoxed();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readDouble();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readDoubleBoxed();
 
         Mockito.doAnswer(rowAnswer).when(mockedRow).readDate();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readTime();
