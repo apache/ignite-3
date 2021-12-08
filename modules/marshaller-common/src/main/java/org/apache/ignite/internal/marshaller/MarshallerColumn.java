@@ -21,6 +21,9 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Marshaller column.
+ */
 public class MarshallerColumn {
     /** Default "default value supplier". */
     private static final Supplier<Object> NULL_SUPPLIER = () -> null;

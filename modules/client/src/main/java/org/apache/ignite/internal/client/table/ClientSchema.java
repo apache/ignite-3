@@ -65,13 +65,13 @@ public class ClientSchema {
     /** Columns map by name. */
     private final Map<String, ClientColumn> map = new HashMap<>();
 
-    /** */
+    /** Marshaller cache. */
     private final Map<Mapper, Marshaller> marshallers = new ConcurrentHashMap<>();
 
-    /** */
+    /** Marshaller cache. */
     private final Map<Mapper, Marshaller> keyMarshallers = new ConcurrentHashMap<>();
 
-    /** */
+    /** Marshaller cache. */
     private final Map<Mapper, Marshaller> valMarshallers = new ConcurrentHashMap<>();
 
     /**

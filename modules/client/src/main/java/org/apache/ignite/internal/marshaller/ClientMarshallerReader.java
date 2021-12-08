@@ -27,10 +27,18 @@ import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 
+/**
+ * Binary reader over {@link ClientMessageUnpacker}.
+ */
 public class ClientMarshallerReader implements MarshallerReader {
     /** */
     private final ClientMessageUnpacker unpacker;
 
+    /**
+     * Constructor.
+     *
+     * @param unpacker Unpacker.
+     */
     public ClientMarshallerReader(ClientMessageUnpacker unpacker) {
         this.unpacker = unpacker;
     }
