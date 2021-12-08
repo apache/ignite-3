@@ -31,6 +31,7 @@ import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -61,6 +62,7 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
     /**
      * Test.
      */
+    @Disabled
     @ParameterizedTest(name = "tableSize=" + ARGUMENTS_PLACEHOLDER)
     @ValueSource(ints = {1, 10, 512, 513, 2000})
     public void test(int rows) {
