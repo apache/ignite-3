@@ -188,6 +188,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
 
         assertThrows(TableAlreadyExistsException.class, () -> finalQueryProc.query("PUBLIC", finalNewTblSql2));
 
+        // todo: correct exception need to be thrown https://issues.apache.org/jira/browse/IGNITE-16084
         assertThrows(IgniteInternalException.class, () -> finalQueryProc.query("PUBLIC",
                 "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,replicas=1"));
 
