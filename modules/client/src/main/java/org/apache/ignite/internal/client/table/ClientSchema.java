@@ -194,7 +194,6 @@ public class ClientSchema {
                 throw new IgniteException("TODO: " + dataType);
 
             case INT8:
-                // TODO: P_BYTE?
                 return BinaryMode.BYTE;
 
             case INT16:
@@ -224,14 +223,13 @@ public class ClientSchema {
             case DECIMAL:
                 return BinaryMode.DECIMAL;
 
+            // Falls through.
             case BIGINTEGER:
+            case NUMBER:
                 return BinaryMode.NUMBER;
 
             case BITMASK:
                 return BinaryMode.BITSET;
-
-            case NUMBER:
-                return BinaryMode.NUMBER;
 
             case DATE:
                 return BinaryMode.DATE;
