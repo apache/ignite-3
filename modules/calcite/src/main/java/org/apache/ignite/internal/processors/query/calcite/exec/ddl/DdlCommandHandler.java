@@ -200,7 +200,7 @@ public class DdlCommandHandler {
         tableManager.alterTable(fullName, chng -> chng.changeIndices(idxes -> {
             if (idxes.get(cmd.indexName()) == null) {
                 if (!cmd.ifExist()) {
-                    throw new IndexNotFoundException(cmd.indexName());
+                    throw new IndexNotFoundException(cmd.indexName(), fullName);
                 } else {
                     return;
                 }
@@ -262,7 +262,7 @@ public class DdlCommandHandler {
                     for (String colName : colNames) {
                         if (!colNamesToOrders.containsKey(colName)) {
                             if (!colExist) {
-                                throw new ColumnNotFoundException(colName);
+                                throw new ColumnNotFoundException(colName, fullName);
                             }
                         } else {
                             colNames0.add(colName);
