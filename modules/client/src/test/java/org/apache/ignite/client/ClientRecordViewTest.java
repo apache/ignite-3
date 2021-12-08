@@ -195,6 +195,39 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals("No field found for column id", ice.getMessage());
     }
 
+    @Test
+    public void testNullablePrimitiveFields() {
+        RecordView<IncompletePojoNullable> pojoView = fullTable().recordView(IncompletePojoNullable.class);
+        RecordView<Tuple> tupleView = fullTable().recordView();
+
+        var rec = new IncompletePojoNullable();
+        rec.id = "1";
+        rec.gid = 1;
+
+        pojoView.upsert(rec);
+
+        IncompletePojoNullable res = pojoView.get(rec);
+        Tuple binRes = tupleView.get(Tuple.create().set("id", "1").set("gid", 1L));
+
+        assertNotNull(res);
+        assertNotNull(binRes);
+
+        assertNull(res.zbyte);
+        assertNull(res.zshort);
+        assertNull(res.zint);
+        assertNull(res.zlong);
+        assertNull(res.zfloat);
+        assertNull(res.zdouble);
+
+        for (int i = 0; i < binRes.columnCount(); i++) {
+            if (binRes.columnName(i).endsWith("id")) {
+                continue;
+            }
+
+            assertNull(binRes.value(i));
+        }
+    }
+
     private static class PersonPojo {
         public long id;
 
@@ -211,6 +244,17 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         public int gid;
         public String zstring;
         public byte[] zbytes;
+    }
+
+    private static class IncompletePojoNullable {
+        public int gid;
+        public String id;
+        public Byte zbyte;
+        public Short zshort;
+        public Integer zint;
+        public Long zlong;
+        public Float zfloat;
+        public Double zdouble;
     }
 
     private static class AllColumnsPojo {
