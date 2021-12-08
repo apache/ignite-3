@@ -31,9 +31,14 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
  * Binary writer over {@link ClientMessagePacker}.
  */
 public class ClientMarshallerWriter implements MarshallerWriter {
-    /** */
+    /** Packer. */
     private final ClientMessagePacker packer;
 
+    /**
+     * Constructor.
+     *
+     * @param packer Packer.
+     */
     public ClientMarshallerWriter(ClientMessagePacker packer) {
         this.packer = packer;
     }

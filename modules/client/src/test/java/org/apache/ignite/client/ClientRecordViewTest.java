@@ -115,7 +115,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         table.recordView().upsert(allColumnsTableVal("foo"));
 
         var key = new AllColumnsPojo();
-        key.gid = (int)(long)DEFAULT_ID;
+        key.gid = (int) (long) DEFAULT_ID;
         key.id = String.valueOf(DEFAULT_ID);
 
         AllColumnsPojo res = pojoView.get(key);
@@ -178,7 +178,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals(localTime, res.timeValue("ztime"));
         assertEquals(instant, res.timestampValue("ztimestamp"));
         assertEquals("119", res.stringValue("zstring"));
-        assertEquals(120, ((byte[])res.value("zbytes"))[0]);
+        assertEquals(120, ((byte[]) res.value("zbytes"))[0]);
         assertEquals(BitSet.valueOf(new byte[]{121}), res.bitmaskValue("zbitmask"));
         assertEquals(122, ((Number) res.value("zdecimal")).longValue());
         assertEquals(BigInteger.valueOf(123), res.value("znumber"));
