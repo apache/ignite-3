@@ -22,8 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.CompletionException;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 
@@ -76,6 +78,20 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     @Test
     public void testMissingValueColumnIsIgnored() {
         // TODO
+        Table table = fullTable();
+        KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+        RecordView<IncompletePojo> pojoView = table.recordView(IncompletePojo.class);
+
+        kvView.put(fullTableKey(1), fullTableVal("x"));
+
+        var key = new IncompletePojo();
+        key.id = "1";
+        key.gid = 1;
+
+        IncompletePojo val = pojoView.get(key);
+
+        assertEquals(1, val.gid);
+        assertEquals("1", val.id);
     }
 
     @Test
@@ -100,5 +116,12 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
     private static class NamePojo {
         public String name;
+    }
+
+    private static class IncompletePojo {
+        public String id;
+        public int gid;
+        public String string;
+        public byte[] bytes;
     }
 }

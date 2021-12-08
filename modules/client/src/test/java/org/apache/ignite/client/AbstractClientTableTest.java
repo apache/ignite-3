@@ -17,8 +17,14 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_ALL_COLUMNS;
+
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.UUID;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 
@@ -73,5 +79,31 @@ public class AbstractClientTableTest extends AbstractClientTest {
         server.tables().createTableIfNotExists(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
 
         return client.tables().table(DEFAULT_TABLE);
+    }
+
+    protected static Tuple fullTableKey(long id) {
+        return Tuple.create().set("id", id).set("gid", String.valueOf(id));
+    }
+
+    protected static Tuple fullTableVal(String name) {
+        return Tuple.create()
+                .set("byte", (byte)11)
+                .set("short", (short)12)
+                .set("int", (int)13)
+                .set("long", (long)14)
+                .set("float", (float)1.5)
+                .set("double", (double)1.6)
+                .set("date", LocalDateTime.now())
+                .set("time", LocalTime.now())
+                .set("timestamp", Instant.now())
+                .set("string", name)
+                .set("bytes", new byte[]{1, 2})
+                .set("uuid", UUID.randomUUID());
+    }
+
+    protected Table fullTable() {
+        server.tables().createTableIfNotExists(TABLE_ALL_COLUMNS, tbl -> tbl.changeReplicas(1));
+
+        return client.tables().table(TABLE_ALL_COLUMNS);
     }
 }
