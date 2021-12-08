@@ -46,6 +46,18 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     }
 
     @Test
+    public void testBinaryUpsertPrimitiveGet() {
+        Table table = defaultTable();
+        table.recordView().upsert(tuple());
+
+        RecordView<Long> primitiveView = table.recordView(Mapper.of(Long.class));
+
+        Long val = primitiveView.get(DEFAULT_ID);
+
+        assertEquals(DEFAULT_ID, val);
+    }
+
+    @Test
     public void testSingleColumnToTypeMapping() {
         fail("TODO: Test single column mapping - RecordView<Long>, etc.");
     }
