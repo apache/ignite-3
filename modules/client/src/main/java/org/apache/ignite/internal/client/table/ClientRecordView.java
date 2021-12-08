@@ -34,6 +34,12 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** Simple mapping mode. */
     private final boolean isSimpleMapping;
 
+    /**
+     * Constructor.
+     *
+     * @param tbl Underlying table.
+     * @param recMapper Mapper.
+     */
     public ClientRecordView(ClientTable tbl, Mapper<R> recMapper) {
         this.tbl = tbl;
         this.recMapper = recMapper;
@@ -76,6 +82,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         upsertAsync(rec).join();
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Void> upsertAsync(@NotNull R rec) {
         Objects.requireNonNull(rec);
@@ -86,152 +93,182 @@ public class ClientRecordView<R> implements RecordView<R> {
                 r -> null);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void upsertAll(@NotNull Collection<R> recs) {
 
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Void> upsertAllAsync(@NotNull Collection<R> recs) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public R getAndUpsert(@NotNull R rec) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<R> getAndUpsertAsync(@NotNull R rec) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean insert(@NotNull R rec) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> insertAsync(@NotNull R rec) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Collection<R> insertAll(@NotNull Collection<R> recs) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> insertAllAsync(@NotNull Collection<R> recs) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean replace(@NotNull R rec) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean replace(@NotNull R oldRec, @NotNull R newRec) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R rec) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R oldRec, @NotNull R newRec) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public R getAndReplace(@NotNull R rec) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<R> getAndReplaceAsync(@NotNull R rec) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean delete(@NotNull R keyRec) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> deleteAsync(@NotNull R keyRec) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean deleteExact(@NotNull R rec) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> deleteExactAsync(@NotNull R rec) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public R getAndDelete(@NotNull R rec) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<R> getAndDeleteAsync(@NotNull R rec) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Collection<R> deleteAll(@NotNull Collection<R> recs) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@NotNull Collection<R> recs) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Collection<R> deleteAllExact(@NotNull Collection<R> recs) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@NotNull Collection<R> recs) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public <T extends Serializable> T invoke(@NotNull R keyRec, InvokeProcessor<R, R, T> proc) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(@NotNull R keyRec, InvokeProcessor<R, R, T> proc) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public <T extends Serializable> Map<R, T> invokeAll(@NotNull Collection<R> keyRecs, InvokeProcessor<R, R, T> proc) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull <T extends Serializable> CompletableFuture<Map<R, T>> invokeAllAsync(@NotNull Collection<R> keyRecs,
             InvokeProcessor<R, R, T> proc) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @Nullable Transaction transaction() {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public RecordView<R> withTransaction(Transaction tx) {
         return null;
