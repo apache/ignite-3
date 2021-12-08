@@ -95,6 +95,11 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     }
 
     @Test
+    public void testAllColumnsPojo() {
+        // TODO
+    }
+
+    @Test
     public void testMissingKeyColumnThrowsException() {
         RecordView<NamePojo> recordView = defaultTable().recordView(NamePojo.class);
 
