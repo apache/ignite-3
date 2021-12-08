@@ -36,9 +36,9 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     @Test
     public void testBinaryUpsertPojoGet() {
         Table table = defaultTable();
-        table.recordView().upsert(tuple());
-
         RecordView<PersonPojo> pojoView = table.recordView(Mapper.of(PersonPojo.class));
+
+        table.recordView().upsert(tuple());
 
         var key = new PersonPojo();
         key.id = DEFAULT_ID;
@@ -54,9 +54,9 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     @Test
     public void testBinaryUpsertPrimitiveGet() {
         Table table = defaultTable();
-        table.recordView().upsert(tuple());
-
         RecordView<Long> primitiveView = table.recordView(Mapper.of(Long.class));
+
+        table.recordView().upsert(tuple());
 
         Long val = primitiveView.get(DEFAULT_ID);
         Long missingVal = primitiveView.get(-1L);
@@ -72,7 +72,13 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
     @Test
     public void testPrimitiveUpsertBinaryGet() {
-        // TODO
+        Table table = defaultTable();
+        RecordView<Long> primitiveView = table.recordView(Mapper.of(Long.class));
+
+        primitiveView.upsert(DEFAULT_ID);
+
+        Tuple tuple = table.recordView().get(defaultTupleKey());
+        assertEquals(DEFAULT_ID, tuple.longValue(0));
     }
 
     @Test
@@ -87,6 +93,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         key.id = "1";
         key.gid = 1;
 
+        // This POJO does not have fields for all table columns, and this is ok.
         IncompletePojo val = pojoView.get(key);
 
         assertEquals(1, val.gid);
