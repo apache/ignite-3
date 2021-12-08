@@ -19,7 +19,6 @@ package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
