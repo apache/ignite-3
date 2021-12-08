@@ -75,11 +75,6 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testPojoPutBinaryGet() {
-        // TODO
-    }
-
-    @Test
     public void testPrimitivePutBinaryGet() {
         Table table = oneColumnTable();
         RecordView<String> primitiveView = table.recordView(Mapper.of(String.class));
