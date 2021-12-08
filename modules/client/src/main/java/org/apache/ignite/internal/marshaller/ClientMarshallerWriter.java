@@ -71,7 +71,7 @@ public class ClientMarshallerWriter implements MarshallerWriter {
 
     @Override
     public void writeBitSet(BitSet val) {
-
+        packer.packBitSet(val);
     }
 
     @Override
@@ -81,25 +81,26 @@ public class ClientMarshallerWriter implements MarshallerWriter {
 
     @Override
     public void writeBigDecimal(BigDecimal val) {
+        packer.packDecimal(val);
     }
 
     @Override
     public void writeDate(LocalDate val) {
-
+        packer.packDate(val);
     }
 
     @Override
     public void writeTime(LocalTime val) {
-
+        packer.packTime(val);
     }
 
     @Override
     public void writeTimestamp(Instant val) {
-
+        packer.packTimestamp(val);
     }
 
     @Override
     public void writeDateTime(LocalDateTime val) {
-
+        packer.packDateTime(val);
     }
 }
