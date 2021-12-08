@@ -100,6 +100,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals("1", val.id);
         assertEquals("x", val.zstring);
         assertEquals(2, val.zbytes[1]);
+        assertEquals(11, val.zbyte);
     }
 
     @Test
@@ -132,6 +133,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     }
 
     private static class IncompletePojo {
+        public byte zbyte;
         public String id;
         public int gid;
         public String zstring;
