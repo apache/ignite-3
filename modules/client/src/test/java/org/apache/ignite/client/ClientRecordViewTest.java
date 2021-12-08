@@ -98,8 +98,8 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         assertEquals(1, val.gid);
         assertEquals("1", val.id);
-        assertEquals("x", val.string);
-        assertEquals(2, val.bytes[1]);
+        assertEquals("x", val.zstring);
+        assertEquals(2, val.zbytes[1]);
     }
 
     @Test
@@ -134,7 +134,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     private static class IncompletePojo {
         public String id;
         public int gid;
-        public String string;
-        public byte[] bytes;
+        public String zstring;
+        public byte[] zbytes;
     }
 }

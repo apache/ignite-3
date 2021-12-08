@@ -20,11 +20,14 @@ package org.apache.ignite.client;
 import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_ALL_COLUMNS;
 import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_ONE_COLUMN;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.table.Table;
@@ -89,18 +92,21 @@ public class AbstractClientTableTest extends AbstractClientTest {
 
     protected static Tuple fullTableVal(String name) {
         return Tuple.create()
-                .set("byte", (byte)11)
-                .set("short", (short)12)
-                .set("int", (int)13)
-                .set("long", (long)14)
-                .set("float", (float)1.5)
-                .set("double", (double)1.6)
-                .set("date", LocalDate.now())
-                .set("time", LocalTime.now())
-                .set("timestamp", Instant.now())
-                .set("string", name)
-                .set("bytes", new byte[]{1, 2})
-                .set("uuid", UUID.randomUUID());
+                .set("zbyte", (byte)11)
+                .set("zshort", (short)12)
+                .set("zint", (int)13)
+                .set("zlong", (long)14)
+                .set("zfloat", (float)1.5)
+                .set("zdouble", (double)1.6)
+                .set("zdate", LocalDate.now())
+                .set("ztime", LocalTime.now())
+                .set("ztimestamp", Instant.now())
+                .set("zstring", name)
+                .set("zbytes", new byte[]{1, 2})
+                .set("zbitmask", BitSet.valueOf(new byte[]{32}))
+                .set("zdecimal", BigDecimal.valueOf(21))
+                .set("znumber", BigInteger.valueOf(22))
+                .set("zuuid", UUID.randomUUID());
     }
 
     protected Table fullTable() {
