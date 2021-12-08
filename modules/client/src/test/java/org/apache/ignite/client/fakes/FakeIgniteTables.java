@@ -204,8 +204,8 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
         return new SchemaDescriptor(
                 v,
                 new Column[]{
-                        new Column("id", NativeTypes.STRING, false),
-                        new Column("gid", NativeTypes.INT32, false)
+                        new Column("gid", NativeTypes.INT32, false),
+                        new Column("id", NativeTypes.STRING, false)
                 },
                 new Column[]{
                         new Column("byte", NativeTypes.INT8, true),

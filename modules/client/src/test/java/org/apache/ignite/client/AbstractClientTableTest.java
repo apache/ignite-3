@@ -82,7 +82,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
     }
 
     protected static Tuple fullTableKey(long id) {
-        return Tuple.create().set("id", id).set("gid", String.valueOf(id));
+        return Tuple.create().set("gid", id).set("id", String.valueOf(id));
     }
 
     protected static Tuple fullTableVal(String name) {
