@@ -74,6 +74,11 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     }
 
     @Test
+    public void testMissingValueColumnIsIgnored() {
+        // TODO
+    }
+
+    @Test
     public void testMissingKeyColumnThrowsException() {
         RecordView<NamePojo> recordView = defaultTable().recordView(NamePojo.class);
 
@@ -87,6 +92,10 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         public long id;
 
         public String name;
+    }
+
+    private static class IdPojo {
+        public long id;
     }
 
     private static class NamePojo {
