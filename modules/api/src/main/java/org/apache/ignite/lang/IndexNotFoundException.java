@@ -7,10 +7,9 @@ public class IndexNotFoundException extends IgniteException {
     /**
      * Create a new exception with given index name.
      *
-     * @param name Column name.
-     * @param fullName Schema and table name.
+     * @param indexName Index name.
      */
-    public IndexNotFoundException(String name, String fullName) {
-        super(LoggerMessageHelper.format("Index '{}' does not exist in table '{}'", name, fullName));
+    public IndexNotFoundException(String indexName) {
+        super(LoggerMessageHelper.format("Index '{}' does not exist.", indexName));
     }
 }

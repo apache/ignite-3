@@ -200,7 +200,7 @@ public class DdlCommandHandler {
         tableManager.alterTable(fullName, chng -> chng.changeIndices(idxes -> {
             if (idxes.get(cmd.indexName()) == null) {
                 if (!cmd.ifExist()) {
-                    throw new IndexNotFoundException(cmd.indexName(), fullName);
+                    throw new IndexNotFoundException(cmd.indexName());
                 } else {
                     return;
                 }
@@ -259,6 +259,8 @@ public class DdlCommandHandler {
 
                     Set<String> colNames0 = new HashSet<>();
 
+                    Set<String> primaryCols = Set.of(priKey.columns());
+
                     for (String colName : colNames) {
                         if (!colNamesToOrders.containsKey(colName)) {
                             if (!colExist) {
@@ -268,11 +270,9 @@ public class DdlCommandHandler {
                             colNames0.add(colName);
                         }
 
-                        for (String priColName : priKey.columns()) {
-                            if (priColName.equals(colName)) {
-                                throw new IgniteException(LoggerMessageHelper
-                                        .format("Can`t delete column, belongs to primary key: [name={}]", colName));
-                            }
+                        if (primaryCols.contains(colName)) {
+                            throw new IgniteException(LoggerMessageHelper
+                                    .format("Can`t delete column, belongs to primary key: [name={}]", colName));
                         }
                     }
 
