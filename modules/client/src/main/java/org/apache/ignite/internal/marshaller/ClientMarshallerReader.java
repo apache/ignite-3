@@ -43,86 +43,103 @@ public class ClientMarshallerReader implements MarshallerReader {
         this.unpacker = unpacker;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void skipValue() {
         unpacker.skipValues(1);
     }
 
+    /** {@inheritDoc} */
     @Override
     public byte readByte() {
         return unpacker.unpackByte();
     }
 
+    /** {@inheritDoc} */
     @Override
     public short readShort() {
         return unpacker.unpackShort();
     }
 
+    /** {@inheritDoc} */
     @Override
     public int readInt() {
         return unpacker.unpackInt();
     }
 
+    /** {@inheritDoc} */
     @Override
     public long readLong() {
         return unpacker.unpackLong();
     }
 
+    /** {@inheritDoc} */
     @Override
     public float readFloat() {
         return unpacker.unpackFloat();
     }
 
+    /** {@inheritDoc} */
     @Override
     public double readDouble() {
         return unpacker.unpackDouble();
     }
 
+    /** {@inheritDoc} */
     @Override
     public String readString() {
         return unpacker.unpackString();
     }
 
+    /** {@inheritDoc} */
     @Override
     public UUID readUuid() {
         return unpacker.unpackUuid();
     }
 
+    /** {@inheritDoc} */
     @Override
     public byte[] readBytes() {
         return unpacker.readPayload(unpacker.unpackBinaryHeader());
     }
 
+    /** {@inheritDoc} */
     @Override
     public BitSet readBitSet() {
         return unpacker.unpackBitSet();
     }
 
+    /** {@inheritDoc} */
     @Override
     public BigInteger readBigInt() {
         return unpacker.unpackNumber();
     }
 
+    /** {@inheritDoc} */
     @Override
     public BigDecimal readBigDecimal() {
         return unpacker.unpackDecimal();
     }
 
+    /** {@inheritDoc} */
     @Override
     public LocalDate readDate() {
         return unpacker.unpackDate();
     }
 
+    /** {@inheritDoc} */
     @Override
     public LocalTime readTime() {
         return unpacker.unpackTime();
     }
 
+    /** {@inheritDoc} */
     @Override
     public Instant readTimestamp() {
         return unpacker.unpackTimestamp();
     }
 
+    /** {@inheritDoc} */
     @Override
     public LocalDateTime readDateTime() {
         return unpacker.unpackDateTime();
