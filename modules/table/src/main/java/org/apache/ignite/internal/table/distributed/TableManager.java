@@ -1432,20 +1432,26 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Get local table by table id.
+     * Get local table by the table id.
      *
      * @param id Table id.
-     * @return Local table by id.
+     * @return Local table by the id or {@code null} if there is no local table with the {@code id}.
      */
     private TableImpl getLocalTableById(IgniteUuid id) {
-        return tables.get(tableNamesById.get(id));
+        String name = tableNamesById.get(id);
+
+        if (name == null) {
+            return null;
+        }
+
+        return tables.get(name);
     }
 
     /**
-     * Get local table id by table name.
+     * Get local table id by the table name.
      *
      * @param name Table name.
-     * @return Local table id by name.
+     * @return Local table id by the name.
      */
     private IgniteUuid getTableIdByName(String name) {
         return tableNamesById.entrySet()
