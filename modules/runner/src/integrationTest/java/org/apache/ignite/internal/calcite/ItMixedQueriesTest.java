@@ -227,7 +227,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         String selectAllQry = "select * from test_tbl";
 
         sql("drop table if exists test_tbl");
-        sql("create table test_tbl(id int primary key, val varchar) with partitions=10,replicas=2");
+        sql("create table test_tbl(id int primary key, val varchar)");
 
         assertQuery(selectAllQry).columnNames("ID", "VAL").check();
 

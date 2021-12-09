@@ -32,7 +32,7 @@ import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.PrimaryKeyView;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
-import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.AbstractDdlCommand;
+import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.AbstractTableDdlCommand;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.AlterTableDropCommand;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.CreateIndexCommand;
@@ -90,8 +90,8 @@ public class DdlCommandHandler {
 
     /** Validate command. */
     private void validateCommand(DdlCommand cmd) {
-        if (cmd instanceof AbstractDdlCommand) {
-            AbstractDdlCommand cmd0 = (AbstractDdlCommand) cmd;
+        if (cmd instanceof AbstractTableDdlCommand) {
+            AbstractTableDdlCommand cmd0 = (AbstractTableDdlCommand) cmd;
 
             if (IgniteUtils.nullOrEmpty(cmd0.tableName())) {
                 throw new IllegalArgumentException("Table name is undefined.");

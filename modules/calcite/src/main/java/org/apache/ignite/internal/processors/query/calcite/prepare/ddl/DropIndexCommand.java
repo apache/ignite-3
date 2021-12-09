@@ -20,12 +20,21 @@ package org.apache.ignite.internal.processors.query.calcite.prepare.ddl;
 /**
  * DROP INDEX statement.
  */
-public class DropIndexCommand extends AbstractDdlCommand {
+public class DropIndexCommand implements DdlCommand {
     /** Idx name. */
     private String indexName;
 
     /** If exist flag. */
     private boolean ifExist;
+
+    /**
+     * Schema name upon which this statement has been issued - <b>not</b> the name of the schema where this new table will be created.
+     * i.e. in case of: CREATE TABLE "SCH1"."TABL1" ... schema would be "SCH1".
+     */
+    private String commanCurrentSchema;
+
+    /** Table name. */
+    private String tblName;
 
     /** Return idx name. */
     public String indexName() {
@@ -43,5 +52,21 @@ public class DropIndexCommand extends AbstractDdlCommand {
 
     public void ifExist(boolean ifExist) {
         this.ifExist = ifExist;
+    }
+
+    public String tableName() {
+        return tblName;
+    }
+
+    public void tableName(String tblName) {
+        this.tblName = tblName;
+    }
+
+    public String schemaName() {
+        return commanCurrentSchema;
+    }
+
+    public void schemaName(String schemaName) {
+        this.commanCurrentSchema = schemaName;
     }
 }
