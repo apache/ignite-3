@@ -946,7 +946,7 @@ public class ConfigurationUtil {
      * @param schemaField Configuration schema class field.
      * @return {@code true} if the field contains {@link Name}.
      */
-    public static boolean isContainNameAnnotation(Field schemaField) {
+    public static boolean containsNameAnnotation(Field schemaField) {
         return schemaField.isAnnotationPresent(Name.class);
     }
 

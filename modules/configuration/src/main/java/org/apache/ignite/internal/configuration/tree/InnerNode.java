@@ -190,7 +190,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     }
 
     /**
-     * Gets the value of a field with {@link InjectedName}.
+     * Returns the value of a field with {@link InjectedName}.
      */
     public String getInjectedNameFieldValue() {
         return null;

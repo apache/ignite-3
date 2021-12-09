@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.configuration.processor;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -409,8 +411,8 @@ public class ItProcessorTest extends AbstractProcessorTest {
      */
     private static BatchCompilation batchCompile(String packageName, String... classNames) {
         ClassName[] classes = Arrays.stream(classNames)
-            .map(clsName -> ClassName.get(packageName, clsName))
-            .toArray(ClassName[]::new);
+                .map(clsName -> ClassName.get(packageName, clsName))
+                .toArray(ClassName[]::new);
 
         return batchCompile(classes);
     }
@@ -427,7 +429,7 @@ public class ItProcessorTest extends AbstractProcessorTest {
         Throwable t = assertThrows(expErrCls, exec);
 
         if (expSubStr != null) {
-            assertTrue(t.getMessage().contains(expSubStr), () -> String.format("%s not contains %s", t.getMessage(), expSubStr));
+            assertThat(t.getMessage(), containsString(expSubStr));
         }
     }
 }

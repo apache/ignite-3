@@ -51,7 +51,7 @@ import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.vie
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.extensionsFields;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.hasDefault;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isConfigValue;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isContainNameAnnotation;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.containsNameAnnotation;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isDirectAccess;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isInjectedName;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isNamedConfigValue;
@@ -2646,7 +2646,7 @@ public class ConfigurationAsmGenerator {
                 setField = setThisFieldCode(constructMtd, newValue, schemaFieldDef);
             }
 
-            if (isContainNameAnnotation(schemaField)) {
+            if (containsNameAnnotation(schemaField)) {
                 setField = new BytecodeBlock()
                         .append(setField)
                         .append(getThisFieldCode(constructMtd, schemaFieldDef))
