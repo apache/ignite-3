@@ -85,13 +85,14 @@ public class ClientRecordView<R> implements RecordView<R> {
     @Override
     public Collection<R> getAll(@NotNull Collection<R> keyRecs) {
         // TODO: Implement all operations (IGNITE-16087).
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> getAllAsync(@NotNull Collection<R> keyRecs) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -114,182 +115,213 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public void upsertAll(@NotNull Collection<R> recs) {
-
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Void> upsertAllAsync(@NotNull Collection<R> recs) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public R getAndUpsert(@NotNull R rec) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<R> getAndUpsertAsync(@NotNull R rec) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean insert(@NotNull R rec) {
-        return false;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> insertAsync(@NotNull R rec) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public Collection<R> insertAll(@NotNull Collection<R> recs) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> insertAllAsync(@NotNull Collection<R> recs) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean replace(@NotNull R rec) {
-        return false;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean replace(@NotNull R oldRec, @NotNull R newRec) {
-        return false;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R rec) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R oldRec, @NotNull R newRec) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public R getAndReplace(@NotNull R rec) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<R> getAndReplaceAsync(@NotNull R rec) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean delete(@NotNull R keyRec) {
-        return false;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> deleteAsync(@NotNull R keyRec) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean deleteExact(@NotNull R rec) {
-        return false;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> deleteExactAsync(@NotNull R rec) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public R getAndDelete(@NotNull R rec) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<R> getAndDeleteAsync(@NotNull R rec) {
-        return null;
-    }
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }        // TODO: Implement all operations (IGNITE-16087).
+
 
     /** {@inheritDoc} */
     @Override
     public Collection<R> deleteAll(@NotNull Collection<R> recs) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@NotNull Collection<R> recs) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public Collection<R> deleteAllExact(@NotNull Collection<R> recs) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@NotNull Collection<R> recs) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public <T extends Serializable> T invoke(@NotNull R keyRec, InvokeProcessor<R, R, T> proc) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(@NotNull R keyRec, InvokeProcessor<R, R, T> proc) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public <T extends Serializable> Map<R, T> invokeAll(@NotNull Collection<R> keyRecs, InvokeProcessor<R, R, T> proc) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull <T extends Serializable> CompletableFuture<Map<R, T>> invokeAllAsync(@NotNull Collection<R> keyRecs,
             InvokeProcessor<R, R, T> proc) {
-        return null;
+        // TODO: Implement all operations (IGNITE-16087).
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public @Nullable Transaction transaction() {
-        return null;
+        // TODO: Transactions IGNITE-15240
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public RecordView<R> withTransaction(Transaction tx) {
-        return null;
+        // TODO: Transactions IGNITE-15240
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     private void writeRec(@NotNull R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
