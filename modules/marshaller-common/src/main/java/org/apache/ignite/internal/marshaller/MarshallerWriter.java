@@ -37,6 +37,12 @@ public interface MarshallerWriter {
     void writeNull();
 
     /**
+     * Writes absent value indicator.
+     * <p>Absent value means that the user has not specified any value, or the column is not mapped. This is different from null.
+     */
+    void writeAbsentValue();
+
+    /**
      * Writes byte.
      *
      * @param val Value.

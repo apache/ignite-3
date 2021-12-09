@@ -495,7 +495,7 @@ abstract class FieldAccessor {
         /** {@inheritDoc} */
         @Override
         protected void write0(MarshallerWriter writer, Object obj) {
-            writer.writeValue(col, col.defaultValue());
+            writer.writeAbsentValue();
         }
 
         /** {@inheritDoc} */
