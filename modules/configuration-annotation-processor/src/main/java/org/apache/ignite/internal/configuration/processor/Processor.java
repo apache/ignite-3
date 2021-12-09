@@ -68,8 +68,8 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.DirectAccess;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
@@ -152,6 +152,10 @@ public class Processor extends AbstractProcessor {
                     .addModifiers(PUBLIC);
 
             for (VariableElement field : fields) {
+                if (field.getModifiers().contains(STATIC)) {
+                    continue;
+                }
+
                 if (!field.getModifiers().contains(PUBLIC)) {
                     throw new ProcessorException("Field " + clazz.getQualifiedName() + "." + field + " must be public");
                 }
@@ -190,6 +194,14 @@ public class Processor extends AbstractProcessor {
                                 clazz.getQualifiedName(),
                                 field.getSimpleName()
                         ));
+                    }
+                }
+
+                if (field.getAnnotation(InternalId.class) != null) {
+                    if (!isStringClass(field.asType())) {
+                        throw new ProcessorException(
+                            "@InternalId " + clazz.getQualifiedName() + "." + field.getSimpleName() + " field must be a String."
+                        );
                     }
                 }
 
@@ -304,7 +316,8 @@ public class Processor extends AbstractProcessor {
 
         Value valueAnnotation = field.getAnnotation(Value.class);
         PolymorphicId polymorphicIdAnnotation = field.getAnnotation(PolymorphicId.class);
-        if (valueAnnotation != null || polymorphicIdAnnotation != null) {
+        InternalId internalIdAnnotation = field.getAnnotation(InternalId.class);
+        if (valueAnnotation != null || polymorphicIdAnnotation != null || internalIdAnnotation != null) {
             // It is necessary to use class names without loading classes so that we won't
             // accidentally get NoClassDefFoundError
             ClassName confValueClass = ClassName.get("org.apache.ignite.configuration", "ConfigurationValue");
@@ -391,7 +404,7 @@ public class Processor extends AbstractProcessor {
         ClassName consumerClsName = ClassName.get(Consumer.class);
 
         for (VariableElement field : fields) {
-            final Value valAnnotation = field.getAnnotation(Value.class);
+            Value valAnnotation = field.getAnnotation(Value.class);
 
             String fieldName = field.getSimpleName().toString();
             TypeMirror schemaFieldType = field.asType();
@@ -428,7 +441,7 @@ public class Processor extends AbstractProcessor {
             viewClsBuilder.addMethod(getMtdBuilder.build());
 
             // Read only.
-            if (field.getAnnotation(PolymorphicId.class) != null) {
+            if (field.getAnnotation(PolymorphicId.class) != null || field.getAnnotation(InternalId.class) != null) {
                 continue;
             }
 
@@ -774,15 +787,6 @@ public class Processor extends AbstractProcessor {
                     field.getSimpleName()
             ));
         }
-
-        if (field.getAnnotation(DirectAccess.class) != null) {
-            throw new ProcessorException(String.format(
-                    "%s annotation must not be present on nested configuration fields: %s.%s",
-                    simpleName(DirectAccess.class),
-                    field.getEnclosingElement(),
-                    field.getSimpleName()
-            ));
-        }
     }
 
     /**
@@ -792,12 +796,12 @@ public class Processor extends AbstractProcessor {
      * @return {@code true} if class type is {@link String}.
      */
     private boolean isStringClass(TypeMirror type) {
-        TypeMirror objectType = processingEnv
+        TypeMirror stringType = processingEnv
                 .getElementUtils()
                 .getTypeElement(String.class.getCanonicalName())
                 .asType();
 
-        return objectType.equals(type);
+        return stringType.equals(type);
     }
 
     /**

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static org.apache.ignite.internal.configuration.tree.InnerNode.INTERNAL_ID;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.appendKey;
+
 import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
@@ -25,8 +28,12 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.ConfigurationReadOnlyException;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.internal.configuration.direct.DirectPropertyProxy;
+import org.apache.ignite.internal.configuration.direct.DirectValueProxy;
+import org.apache.ignite.internal.configuration.direct.KeyPathNode;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
+import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -54,7 +61,7 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
             boolean listenOnly,
             boolean readOnly
     ) {
-        super(prefix, key, rootKey, changer, listenOnly);
+        super(INTERNAL_ID.equals(key) ? prefix : appendKey(prefix, key), key, rootKey, changer, listenOnly);
 
         this.readOnly = readOnly;
     }
@@ -62,7 +69,13 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
     /** {@inheritDoc} */
     @Override
     public T value() {
-        return refreshValue();
+        if (INTERNAL_ID.equals(key)) {
+            // In this case "refreshValue()" is not of type "T", but an "InnerNode" holding it instead.
+            // "T" must be a string then, this is guarded by external invariants.
+            return (T) ((InnerNode) refreshValue()).internalId();
+        }
+
+        return (T) refreshValue();
     }
 
     /** {@inheritDoc} */
@@ -118,6 +131,16 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
     @Override
     public String key() {
         return key;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public DirectPropertyProxy<T> directProxy() {
+        if (INTERNAL_ID.equals(key)) {
+            return new DirectValueProxy<>(appendKey(keyPath(), new KeyPathNode(INTERNAL_ID)), changer);
+        } else {
+            return new DirectValueProxy<>(keyPath(), changer);
+        }
     }
 
     /** {@inheritDoc} */

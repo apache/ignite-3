@@ -142,10 +142,12 @@ public class NamedListNodeTest {
         assertThat(
                 storageValues,
                 is(Matchers.<Map<String, ? extends Serializable>>allOf(
-                        aMapWithSize(6),
+                        aMapWithSize(8),
+                        hasEntry(format("a.second.<ids>.X"), x0Id),
                         hasEntry(format("a.second.%s.str", x0Id), "foo"),
                         hasEntry(format("a.second.%s.<order>", x0Id), 0),
                         hasEntry(format("a.second.%s.<name>", x0Id), "X"),
+                        hasEntry(format("a.second.%s.third.<ids>.Z0", x0Id), z0Id),
                         hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z0Id), 1),
                         hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z0Id), 0),
                         hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z0Id), "Z0")
@@ -165,10 +167,13 @@ public class NamedListNodeTest {
         assertThat(
                 storageValues,
                 is(Matchers.<Map<String, ? extends Serializable>>allOf(
-                        aMapWithSize(9),
+                        aMapWithSize(12),
+                        hasEntry(format("a.second.<ids>.X"), x0Id),
                         hasEntry(format("a.second.%s.str", x0Id), "foo"),
                         hasEntry(format("a.second.%s.<order>", x0Id), 0),
                         hasEntry(format("a.second.%s.<name>", x0Id), "X"),
+                        hasEntry(format("a.second.%s.third.<ids>.Z0", x0Id), z0Id),
+                        hasEntry(format("a.second.%s.third.<ids>.Z5", x0Id), z5Id),
                         hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z0Id), 1),
                         hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z0Id), 0),
                         hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z0Id), "Z0"),
@@ -189,10 +194,14 @@ public class NamedListNodeTest {
         assertThat(
                 storageValues,
                 is(Matchers.<Map<String, ? extends Serializable>>allOf(
-                        aMapWithSize(12),
+                        aMapWithSize(16),
+                        hasEntry(format("a.second.<ids>.X"), x0Id),
                         hasEntry(format("a.second.%s.str", x0Id), "foo"),
                         hasEntry(format("a.second.%s.<order>", x0Id), 0),
                         hasEntry(format("a.second.%s.<name>", x0Id), "X"),
+                        hasEntry(format("a.second.%s.third.<ids>.Z0", x0Id), z0Id),
+                        hasEntry(format("a.second.%s.third.<ids>.Z2", x0Id), z2Id),
+                        hasEntry(format("a.second.%s.third.<ids>.Z5", x0Id), z5Id),
                         hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z0Id), 1),
                         hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z0Id), 0),
                         hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z0Id), "Z0"),
@@ -216,10 +225,15 @@ public class NamedListNodeTest {
         assertThat(
                 storageValues,
                 is(Matchers.<Map<String, ? extends Serializable>>allOf(
-                        aMapWithSize(15),
+                        aMapWithSize(20),
+                        hasEntry(format("a.second.<ids>.X"), x0Id),
                         hasEntry(format("a.second.%s.str", x0Id), "foo"),
                         hasEntry(format("a.second.%s.<order>", x0Id), 0),
                         hasEntry(format("a.second.%s.<name>", x0Id), "X"),
+                        hasEntry(format("a.second.%s.third.<ids>.Z0", x0Id), z0Id),
+                        hasEntry(format("a.second.%s.third.<ids>.Z2", x0Id), z2Id),
+                        hasEntry(format("a.second.%s.third.<ids>.Z3", x0Id), z3Id),
+                        hasEntry(format("a.second.%s.third.<ids>.Z5", x0Id), z5Id),
                         hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z0Id), 1),
                         hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z0Id), 0),
                         hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z0Id), "Z0"),
@@ -243,10 +257,13 @@ public class NamedListNodeTest {
         assertThat(
                 storageValues,
                 is(Matchers.<Map<String, ? extends Serializable>>allOf(
-                        aMapWithSize(9),
+                    aMapWithSize(12),
+                        hasEntry(format("a.second.<ids>.X"), x0Id),
                         hasEntry(format("a.second.%s.str", x0Id), "foo"),
                         hasEntry(format("a.second.%s.<order>", x0Id), 0),
                         hasEntry(format("a.second.%s.<name>", x0Id), "X"),
+                        hasEntry(format("a.second.%s.third.<ids>.Z0", x0Id), z0Id),
+                        hasEntry(format("a.second.%s.third.<ids>.Z3", x0Id), z3Id),
                         hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z0Id), 1),
                         hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z0Id), 0),
                         hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z0Id), "Z0"),
@@ -264,10 +281,13 @@ public class NamedListNodeTest {
         assertThat(
                 storageValues,
                 is(Matchers.<Map<String, ? extends Serializable>>allOf(
-                        aMapWithSize(9),
+                        aMapWithSize(12),
+                        hasEntry(format("a.second.<ids>.X"), x0Id),
                         hasEntry(format("a.second.%s.str", x0Id), "foo"),
                         hasEntry(format("a.second.%s.<order>", x0Id), 0),
                         hasEntry(format("a.second.%s.<name>", x0Id), "X"),
+                        hasEntry(format("a.second.%s.third.<ids>.Z1", x0Id), z0Id),
+                        hasEntry(format("a.second.%s.third.<ids>.Z3", x0Id), z3Id),
                         hasEntry(format("a.second.%s.third.%s.intVal", x0Id, z0Id), 1),
                         hasEntry(format("a.second.%s.third.%s.<order>", x0Id, z0Id), 0),
                         hasEntry(format("a.second.%s.third.%s.<name>", x0Id, z0Id), "Z1"),

@@ -18,11 +18,50 @@
 package org.apache.ignite.internal.configuration.tree;
 
 import java.util.NoSuchElementException;
+import java.util.UUID;
 
 /**
  * Configuration node implementation.
  */
 public abstract class InnerNode implements TraversableTreeNode, ConstructableTreeNode, Cloneable {
+    /**
+     * Internal id key name.
+     */
+    public static final String INTERNAL_ID = "<internal_id>";
+
+    // TODO make it UUID
+    /**
+     * Internal id of the node. May be {@code null}.
+     */
+    private String internalId;
+
+    /**
+     * Generates new internal id for the node.
+     *
+     * @return Generated internal id.
+     */
+    public String generateInternalId() {
+        return internalId = UUID.randomUUID().toString();
+    }
+
+    /**
+     * Returns internal id of the node.
+     *
+     * @return Internal id of the node.
+     */
+    public final String internalId() {
+        return internalId;
+    }
+
+    /**
+     * Sets a new internal id value to the node.
+     *
+     * @param internalId New internal id value.
+     */
+    public final void internalId(String internalId) {
+        this.internalId = internalId;
+    }
+
     /** {@inheritDoc} */
     @Override
     public final <T> T accept(String key, ConfigurationVisitor<T> visitor) {

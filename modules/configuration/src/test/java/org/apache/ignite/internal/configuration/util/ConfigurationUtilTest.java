@@ -374,10 +374,11 @@ public class ConfigurationUtilTest {
                         )
                 ),
                 is(allOf(
-                        aMapWithSize(3),
-                        hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]child[.]str"), hasToString("foo")),
-                        hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]<order>"), is(0)),
-                        hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]<name>"), hasToString("name"))
+                        aMapWithSize(4),
+                        hasEntry(matchesPattern("root[.]elements[.]<ids>[.]name"), hasToString(matchesPattern("[-\\w]{36}"))),
+                        hasEntry(matchesPattern("root[.]elements[.][-\\w]{36}[.]child[.]str"), hasToString("foo")),
+                        hasEntry(matchesPattern("root[.]elements[.][-\\w]{36}[.]<order>"), is(0)),
+                        hasEntry(matchesPattern("root[.]elements[.][-\\w]{36}[.]<name>"), hasToString("name"))
                 ))
         );
 
@@ -393,10 +394,11 @@ public class ConfigurationUtilTest {
                         .changeElements(elements -> elements.delete("name"))
                 ),
                 is(allOf(
-                        aMapWithSize(3),
-                        hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]child[.]str"), nullValue()),
-                        hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]<order>"), nullValue()),
-                        hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]<name>"), nullValue())
+                        aMapWithSize(4),
+                        hasEntry(matchesPattern("root[.]elements[.]<ids>[.]name"), nullValue()),
+                        hasEntry(matchesPattern("root[.]elements[.][-\\w]{36}[.]child[.]str"), nullValue()),
+                        hasEntry(matchesPattern("root[.]elements[.][-\\w]{36}[.]<order>"), nullValue()),
+                        hasEntry(matchesPattern("root[.]elements[.][-\\w]{36}[.]<name>"), nullValue())
                 ))
         );
     }

@@ -26,7 +26,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListChange;
@@ -49,6 +48,9 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
     /** Name of a synthetic configuration property that's used to store "key" of the named list element in the storage. */
     public static final String NAME = "<name>";
+
+    /** Name of a synthetic configuration property that's used to store mapping fron names to internal identifiers in the storage. */
+    public static final String IDS = "<ids>";
 
     /** Configuration name for the synthetic key. */
     private final String syntheticKeyName;
@@ -341,6 +343,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
             reverseIdMap.remove(element.internalId);
 
             element.internalId = internalId;
+            element.value.internalId(internalId);
 
             reverseIdMap.put(internalId, key);
         }
@@ -497,9 +500,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
          */
         ElementDescriptor(InnerNode value) {
             this.value = value;
-            // Remove dashes so that id would be a bit shorter and easier to validate in tests.
-            // This string won't be visible by end users anyway.
-            internalId = UUID.randomUUID().toString().replace("-", "");
+
+            internalId = value.generateInternalId();
         }
 
         /**

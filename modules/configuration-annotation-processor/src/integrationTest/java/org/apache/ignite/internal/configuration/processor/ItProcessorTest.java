@@ -27,7 +27,6 @@ import com.google.testing.compile.Compilation;
 import com.squareup.javapoet.ClassName;
 import java.util.Arrays;
 import java.util.List;
-import org.apache.ignite.configuration.annotation.DirectAccess;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -120,22 +119,6 @@ public class ItProcessorTest extends AbstractProcessorTest {
                         "SimpleConfigurationSchema",
                         "ErrorInternal5ConfigurationSchema"
                 )
-        );
-    }
-
-    /**
-     * Tests that placing the {@link DirectAccess} annotation on fields that represents sub-configurations results in an error.
-     */
-    @Test
-    void testDirectAccessConfiguration() {
-        String packageName = "org.apache.ignite.internal.configuration.processor.internal";
-
-        ClassName source = ClassName.get(packageName, "InvalidDirectAccessConfigurationSchema");
-
-        Compilation compilation = compile(source);
-
-        assertThat(compilation).hadErrorContaining(
-                "@DirectAccess annotation must not be present on nested configuration fields"
         );
     }
 

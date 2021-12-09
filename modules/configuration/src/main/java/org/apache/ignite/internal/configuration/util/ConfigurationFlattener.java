@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.configuration.util;
 
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.KEY_SEPARATOR;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.escape;
+
 import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -26,6 +29,7 @@ import java.util.Objects;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
+import org.jetbrains.annotations.NotNull;
 
 /** Utility class that has {@link ConfigurationFlattener#createFlattenedUpdatesMap(SuperRoot, SuperRoot)} method. */
 public class ConfigurationFlattener {
@@ -173,6 +177,8 @@ public class ConfigurationFlattener {
             for (String newNodeKey : newNode.namedListKeys()) {
                 String newNodeInternalId = newNode.internalId(newNodeKey);
 
+                String namedListFullKey = currentKey();
+
                 withTracking(newNodeInternalId, false, false, () -> {
                     InnerNode newNamedElement = newNode.getInnerNode(newNodeKey);
 
@@ -221,9 +227,33 @@ public class ConfigurationFlattener {
                     if (singleTreeTraversal || oldNamedElement == null || newNamedElement == null
                             || !oldNodeKey.equals(newNodeKey)
                     ) {
-                        String idKey = currentKey() + NamedListNode.NAME;
+                        String nameKey = currentKey() + NamedListNode.NAME;
 
-                        resMap.put(idKey, deletion || newNamedElement == null ? null : newNodeKey);
+                        resMap.put(nameKey, deletion || newNamedElement == null ? null : newNodeKey);
+                    }
+
+                    if (singleTreeTraversal) {
+                        if (deletion) {
+                            // Deletion as a part of outer named list element.
+                            resMap.put(idKey(namedListFullKey, oldNodeKey), null);
+                        } else {
+                            // Creation as a part of outer named list's new element.
+                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId);
+                        }
+                    } else {
+                        // Regular deletion.
+                        if (newNamedElement == null) {
+                            resMap.put(idKey(namedListFullKey, oldNodeKey), null);
+                        } else if (oldNamedElement == null) {
+                            // Regular creation.
+                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId);
+                        } else if (!oldNodeKey.equals(newNodeKey)) {
+                            // Rename. Old value is nullified.
+                            resMap.put(idKey(namedListFullKey, oldNodeKey), null);
+
+                            // And new value is initialized.
+                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId);
+                        }
                     }
 
                     return null;
@@ -231,6 +261,13 @@ public class ConfigurationFlattener {
             }
 
             return null;
+        }
+
+        /**
+         * Creates key {@code prefix.<ids>.nodeKey}, escaping {@code nodeKey} before appending it.
+         */
+        @NotNull private String idKey(String prefix, String nodeKey) {
+            return prefix + NamedListNode.IDS + KEY_SEPARATOR + escape(nodeKey);
         }
 
         /**

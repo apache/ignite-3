@@ -15,20 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor.internal;
+package org.apache.ignite.configuration.annotation;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.DirectAccess;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-@ConfigurationRoot(rootName = "invalidDirect")
-public class InvalidDirectAccessConfigurationSchema {
-    @ConfigValue
-    @DirectAccess
-    public DirectAccessConfigurationSchema nested;
-}
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-@Config
-class DirectAccessConfigurationSchema {
+/**
+ * Internal id. Indicates readonly property that contains internal {@code String} identifier for named list elements and {@code null} for
+ * other configuration nodes.
+ */
+@Target(FIELD)
+@Retention(RUNTIME)
+@Documented
+public @interface InternalId {
 }
