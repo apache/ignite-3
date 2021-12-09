@@ -19,7 +19,6 @@ package org.apache.ignite.internal.util;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -291,11 +290,11 @@ public final class ArrayUtils {
      *
      * @param vals Array of values.
      * @param <T>  Array type.
-     * @return {@link List} instance for array.
+     * @return Unmodifiable {@link List} instance for array.
      */
     @SafeVarargs
     public static <T> List<T> asList(@Nullable T... vals) {
-        return nullOrEmpty(vals) ? Collections.emptyList() : Arrays.asList(vals);
+        return nullOrEmpty(vals) ? Collections.emptyList() : List.of(vals);
     }
 
     /**
@@ -306,16 +305,14 @@ public final class ArrayUtils {
      *
      * @param vals Array of values.
      * @param <T>  Array type.
-     * @return {@link Set} instance for input array.
+     * @return Unmodifiable {@link Set} instance for input array.
      */
     @SafeVarargs
     public static <T> Set<T> asSet(@Nullable T... vals) {
         if (nullOrEmpty(vals)) {
             return Collections.emptySet();
         } else {
-            HashSet<T> set = new HashSet<>(vals.length);
-            Collections.addAll(set, vals);
-            return set;
+            return Set.of(vals);
         }
     }
 
