@@ -48,8 +48,8 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** Underlying table. */
     private final ClientTable tbl;
 
-    /** Simple mapping mode. */
-    private final boolean isSimpleMapping;
+    /** Simple mapping mode: single column maps to a basic type. For example, {@code RecordView<String>}.  */
+    private final boolean oneColumnMode;
 
     /**
      * Constructor.
@@ -61,7 +61,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         this.tbl = tbl;
         this.recMapper = recMapper;
 
-        isSimpleMapping = MarshallerUtil.mode(recMapper.targetType()) != null;
+        oneColumnMode = MarshallerUtil.mode(recMapper.targetType()) != null;
     }
 
     /** {@inheritDoc} */
@@ -336,7 +336,7 @@ public class ClientRecordView<R> implements RecordView<R> {
     }
 
     private R readValRec(@NotNull R keyRec, ClientSchema inSchema, ClientMessageUnpacker in) {
-        if (isSimpleMapping) {
+        if (oneColumnMode) {
             return keyRec;
         }
 
