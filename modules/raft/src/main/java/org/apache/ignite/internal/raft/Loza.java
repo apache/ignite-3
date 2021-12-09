@@ -67,7 +67,7 @@ public class Loza implements IgniteComponent {
 
     /** Network timeout. */
     // TODO: IGNITE-15705 Correct value should be investigated
-    private static final int NETWORK_TIMEOUT = 3000;
+    private static final int RPC_TIMEOUT = 3000;
 
     /** Retry delay. */
     private static final int DELAY = 200;
@@ -206,7 +206,7 @@ public class Loza implements IgniteComponent {
                 clusterNetSvc,
                 FACTORY,
                 TIMEOUT,
-                NETWORK_TIMEOUT,
+                RPC_TIMEOUT,
                 peers,
                 true,
                 DELAY,
@@ -324,7 +324,7 @@ public class Loza implements IgniteComponent {
                 clusterNetSvc,
                 FACTORY,
                 10 * TIMEOUT,
-                10 * NETWORK_TIMEOUT,
+                10 * RPC_TIMEOUT,
                 expectedPeers,
                 true,
                 DELAY,
