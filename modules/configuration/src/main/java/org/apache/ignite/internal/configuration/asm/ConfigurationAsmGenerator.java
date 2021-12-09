@@ -2649,9 +2649,10 @@ public class ConfigurationAsmGenerator {
             if (containsNameAnnotation(schemaField)) {
                 setField = new BytecodeBlock()
                         .append(setField)
-                        .append(getThisFieldCode(constructMtd, schemaFieldDef))
-                        .append(constantString(schemaField.getAnnotation(Name.class).value()))
-                        .invokeVirtual(SET_INJECTED_NAME_FIELD_VALUE_MTD);
+                        .append(getThisFieldCode(constructMtd, schemaFieldDef).invoke(
+                                SET_INJECTED_NAME_FIELD_VALUE_MTD,
+                                constantString(schemaField.getAnnotation(Name.class).value())
+                        ));
             }
 
             codeBlock.append(
