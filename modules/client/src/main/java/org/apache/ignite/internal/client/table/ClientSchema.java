@@ -37,7 +37,6 @@ import static org.apache.ignite.internal.client.proto.ClientDataType.TIMESTAMP;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.BinaryMode;
@@ -64,15 +63,6 @@ public class ClientSchema {
 
     /** Columns map by name. */
     private final Map<String, ClientColumn> map = new HashMap<>();
-
-    /** Marshaller cache. */
-    private final Map<Mapper, Marshaller> marshallers = new ConcurrentHashMap<>();
-
-    /** Marshaller cache. */
-    private final Map<Mapper, Marshaller> keyMarshallers = new ConcurrentHashMap<>();
-
-    /** Marshaller cache. */
-    private final Map<Mapper, Marshaller> valMarshallers = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -155,20 +145,8 @@ public class ClientSchema {
     }
 
     public <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
-        return getMarshallerCache(part).computeIfAbsent(mapper, m -> createMarshaller(m, part));
-    }
-
-    private Map<Mapper, Marshaller> getMarshallerCache(TuplePart part) {
-        switch (part) {
-            case KEY:
-                return keyMarshallers;
-
-            case VAL:
-                return valMarshallers;
-
-            default:
-                return marshallers;
-        }
+        // TODO: Cache Marshallers (IGNITE-16094).
+        return createMarshaller(mapper, part);
     }
 
     private Marshaller createMarshaller(Mapper mapper, TuplePart part) {

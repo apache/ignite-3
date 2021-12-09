@@ -17,8 +17,6 @@
 
 package org.apache.ignite.table.mapper;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,10 +26,6 @@ import org.jetbrains.annotations.Nullable;
  * @param <T> Mapped type.
  */
 public interface Mapper<T> {
-    /** Identity mapper cache. */
-    @SuppressWarnings("rawtypes")
-    static final Map<Class, IdentityMapper> identityMappers = new ConcurrentHashMap<>();
-
     /**
      * Creates a mapper for a class.
      *
@@ -62,8 +56,8 @@ public interface Mapper<T> {
      * @return Mapper.
      */
     static <T> Mapper<T> identity(Class<T> targetClass) {
-        //noinspection unchecked
-        return identityMappers.computeIfAbsent(targetClass, IdentityMapper::new);
+        // TODO: Cache mappers (IGNITE-16094).
+        return new IdentityMapper<T>(targetClass);
     }
 
     /**
