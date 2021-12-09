@@ -210,7 +210,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
     public void testCreateTableMultiplePk() throws Exception {
         String curMethodName = getCurrentMethodName();
 
-        String newTblSql = String.format("CREATE TABLE %s (c1 int, c2 int, c3 int, primary key(c1, c2))", curMethodName);
+        String newTblSql = String.format("CREATE TABLE %s (c1 int, c2 int NOT NULL DEFAULT 1, c3 int, primary key(c1, c2))", curMethodName);
 
         queryProc.query("PUBLIC", newTblSql);
 

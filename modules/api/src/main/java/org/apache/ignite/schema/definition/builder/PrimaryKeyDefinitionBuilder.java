@@ -27,7 +27,7 @@ public interface PrimaryKeyDefinitionBuilder extends SchemaObjectBuilder {
     /**
      * Sets affinity columns.
      *
-     * @param cols Affinity columns. Must be a valid subset of ley columns.
+     * @param cols Affinity columns. Must be a valid subset of key columns.
      * @return Primary index builder.
      */
     PrimaryKeyDefinitionBuilder withAffinityColumns(String... cols);
@@ -35,7 +35,7 @@ public interface PrimaryKeyDefinitionBuilder extends SchemaObjectBuilder {
     /**
      * Sets affinity columns.
      *
-     * @param cols Affinity columns. Must be a valid subset of ley columns.
+     * @param cols Affinity columns. Must be a valid subset of key columns.
      * @return Primary index builder.
      */
     PrimaryKeyDefinitionBuilder withAffinityColumns(List<String> cols);

@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.calcite;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -70,5 +72,20 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
             assertEquals(1, rows.size());
             assertEquals(val.length(), rows.get(0).get(0));
         }
+    }
+
+    /** Tests NOT NULL and DEFAULT column constraints. */
+    @Test
+    public void testCheckDefaultsAndNullables() {
+        sql("CREATE TABLE tbl(c1 int primary key, c2 int NOT NULL, c3 int NOT NULL DEFAULT 100)");
+
+        sql("INSERT INTO tbl(c1, c2) VALUES (1, 2)");
+
+        List<List<?>> rows = sql("SELECT c3 FROM tbl");
+
+        assertEquals(Set.of(100), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
+
+        //todo: correct exception https://issues.apache.org/jira/browse/IGNITE-16095
+        assertThrows(IgniteException.class, () -> sql("INSERT INTO tbl(c1, c2) VALUES (2, NULL)"));
     }
 }
