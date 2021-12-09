@@ -291,6 +291,7 @@ public class ClientTable implements Table {
             ClientMessagePacker out,
             boolean skipHeader
     ) {
+        // TODO: Handle missing values and null values differently (IGNITE-16093).
         var vals = new Object[schema.columns().length];
 
         for (var i = 0; i < key.columnCount(); i++) {
