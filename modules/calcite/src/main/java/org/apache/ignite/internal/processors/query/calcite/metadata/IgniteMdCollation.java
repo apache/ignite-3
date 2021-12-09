@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -318,7 +319,7 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
             if (project.e instanceof RexInputRef) {
                 targets.compute(((RexSlot) project.e).getIndex(), (k, v) -> {
                             if (v == null) {
-                                return new ArrayList<>(Collections.singleton(project.i));
+                                return new IntArrayList(Collections.singleton(project.i));
                             } else {
                                 v.add(project.i);
 

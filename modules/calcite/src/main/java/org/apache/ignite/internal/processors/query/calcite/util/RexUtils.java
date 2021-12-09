@@ -25,6 +25,7 @@ import static org.apache.calcite.sql.SqlKind.LESS_THAN_OR_EQUAL;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -636,7 +637,7 @@ public class RexUtils {
             return Collections.emptySet();
         }
 
-        Set<Integer> keys = new HashSet<>();
+        Set<Integer> keys = new IntOpenHashSet();
 
         for (int i = 0; i < row.size(); ++i) {
             if (isNotNull(row.get(i))) {

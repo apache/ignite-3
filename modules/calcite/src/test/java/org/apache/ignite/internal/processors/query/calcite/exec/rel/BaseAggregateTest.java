@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -490,7 +491,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
                 root.register(aggChain);
 
-                Set<Integer> grpId = IntStream.range(0, grps).boxed().collect(Collectors.toSet());
+                Set<Integer> grpId = IntStream.range(0, grps).boxed().collect(Collectors.toCollection(IntOpenHashSet::new));
 
                 while (root.hasNext()) {
                     Object[] row = root.next();

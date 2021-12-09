@@ -44,6 +44,7 @@ import org.apache.ignite.internal.processors.query.calcite.schema.InternalIgnite
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.internal.processors.query.calcite.util.HintUtils;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
@@ -226,7 +227,7 @@ public class PlannerHelper {
                 return (IgniteRel) scan;
             }
 
-            Set<Integer> indexedCols = Set.copyOf(
+            Set<Integer> indexedCols = CollectionUtils.setOf(
                     tbl.getIndex(((AbstractIndexScan) scan).indexName()).collation().getKeys());
 
             spoolNeeded = modifyNode.getUpdateColumnList().stream()

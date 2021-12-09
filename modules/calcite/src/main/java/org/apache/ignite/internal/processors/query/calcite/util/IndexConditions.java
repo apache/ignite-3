@@ -19,8 +19,10 @@ package org.apache.ignite.internal.processors.query.calcite.util;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.ints.IntSets;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.calcite.rel.RelInput;
@@ -112,7 +114,7 @@ public class IndexConditions {
             return Collections.emptySet();
         }
 
-        Set<Integer> keys = new HashSet<>();
+        IntSet keys = new IntOpenHashSet();
 
         int cols = lowerBound != null ? lowerBound.size() : upperBound.size();
 
@@ -123,7 +125,7 @@ public class IndexConditions {
             }
         }
 
-        return Collections.unmodifiableSet(keys);
+        return IntSets.unmodifiable(keys);
     }
 
     /**
