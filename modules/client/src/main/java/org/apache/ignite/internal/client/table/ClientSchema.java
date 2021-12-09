@@ -176,7 +176,7 @@ public class ClientSchema {
         int firstColIdx = 0;
 
         if (part == TuplePart.KEY) {
-            colCount = keyColumnCount();
+            colCount = keyColumnCount;
         } else if (part == TuplePart.VAL) {
             colCount = columns.length - keyColumnCount;
             firstColIdx = keyColumnCount;
