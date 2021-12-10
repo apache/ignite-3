@@ -1011,8 +1011,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
                 }
             } catch (Throwable t) {
-                assert false;
-
                 throw new CompletionException(t);
             }
 

@@ -153,10 +153,6 @@ public class Processor extends AbstractProcessor {
                     .addModifiers(PUBLIC);
 
             for (VariableElement field : fields) {
-                if (field.getModifiers().contains(STATIC)) {
-                    continue;
-                }
-
                 if (!field.getModifiers().contains(PUBLIC)) {
                     throw new ProcessorException("Field " + clazz.getQualifiedName() + "." + field + " must be public");
                 }
