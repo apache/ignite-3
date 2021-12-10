@@ -26,7 +26,7 @@ import java.lang.annotation.Target;
 import java.util.UUID;
 
 /**
- * Internal id. Indicates readonly property that contains internal {@link UUID} identifier for named list elements and {@code null} for
+ * Internal id. Indicates read-only property that contains internal {@link UUID} identifier for named list elements and {@code null} for
  * other configuration nodes.
  */
 @Target(FIELD)

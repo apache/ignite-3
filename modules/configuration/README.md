@@ -89,6 +89,9 @@ public static class FirstPolymorphicInstanceConfigurationSchema extends Polymorp
 * `@PolymorphicId` is similar to the `@Value`, but is used to store the type of polymorphic configuration (`@PolymorphicConfigInstance#value`), must be a `String` and placed as the first field in a schema;
 * `@Immutable` annotation can only be present on fields marked with the `@Value` annotation. Annotated fields cannot be 
   changed after they have been initialized (either manually or by assigning a default value).
+* `@InternalId` is similar to value, but it must be a `UUID` field. Generated property is read-only and has no `change` method associated
+  with it. Internal id value gives every named list element a unique identifier, invariant to renaming. For non-named list elements the
+  value is just `null`.  
 
 ### Polymorphic configuration
 
@@ -296,3 +299,10 @@ parentCfg.polymorphicChild()
 It is possible to execute several change requests for different roots in a single transaction, but all these roots 
 _must have the same storage type_. However, this is only possible using the command line tool via the REST API, 
 there's no public Java API at the moment.
+
+### Accessing up-to-date configuration properties directly from storage
+Sometimes it's desirable to have a peek into the future, to read the configuration state that has not yet been processed by the current
+node. There's API for this purpose.
+
+Please refer to `ConfigurationUtil#directProxy(ConfigurationProperty)` for details. There are many usages of this method in tests. It
+should provide the context.

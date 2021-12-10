@@ -1060,6 +1060,9 @@ public class ConfigurationUtil {
      *     // even after rename despite it looking like name "a" should be resolved once again.
      *     var aElementProxy = directProxy(namedList.get("a"));
      * </code></pre>
+     *
+     * @see #getByInternalId(NamedConfigurationTree, UUID)
+     * @see #getByInternalId(NamedListView, UUID)
      */
     public static <T extends ConfigurationProperty<?>> T directProxy(T property) {
         if (property instanceof DirectPropertyProxy) {
