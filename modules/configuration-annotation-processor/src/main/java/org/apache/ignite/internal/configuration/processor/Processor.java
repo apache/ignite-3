@@ -98,7 +98,7 @@ public class Processor extends AbstractProcessor {
     private static final String EMPTY_FIELD_ERROR_FORMAT = "Field %s cannot be empty: %s";
 
     /** Error format is that the field must be a {@link String}. */
-    private static final String FIELD_MUST_BE_STRING_ERROR_FORMAT = "%s %s.%s field must be String";
+    private static final String FIELD_MUST_BE_STRING_ERROR_FORMAT = "%s %s.%s field must be a String";
 
     /** Postfix with which any configuration schema class name must end. */
     private static final String CONFIGURATION_SCHEMA_POSTFIX = "ConfigurationSchema";
