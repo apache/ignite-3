@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -313,6 +315,23 @@ public class KeyValueViewOperationsSimpleSchemaTest {
             }
         }
     }
+
+    @Test
+    public void getAll() {
+        KeyValueView<Long, Long> kvView = kvView();
+
+        kvView.putAll(Map.of(
+                1L, 11L,
+                3L, 33L
+        ));
+
+        Map<Long, Long> res = kvView.getAll(List.of(1L, 2L, 3L));
+
+        assertEquals(11L, res.get(1L));
+        assertNull(res.get(22L));
+        assertEquals(33L, res.get(3L));
+    }
+
 
     /**
      * Creates key-value view.
