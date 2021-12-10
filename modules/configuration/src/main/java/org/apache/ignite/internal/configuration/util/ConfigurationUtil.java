@@ -1052,7 +1052,7 @@ public class ConfigurationUtil {
      *     // case of a rename. Only after deletion.
      *     var aIdElement = aIdElementProxy.value();
      * </code></pre>
-     *
+     * <p/>
      * Another important case is how already resolved named list elements are being proxied.
      * <pre><code>
      *     // Following code is in fact equivalent to a "getByInternalId(directProxy(namedList), aId);"
