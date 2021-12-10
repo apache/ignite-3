@@ -41,9 +41,9 @@ import java.util.Queue;
 import java.util.RandomAccess;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationProperty;
+import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
@@ -64,6 +64,7 @@ import org.apache.ignite.internal.configuration.direct.DirectNamedListProxy;
 import org.apache.ignite.internal.configuration.direct.DirectPropertyProxy;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -76,9 +77,6 @@ import org.jetbrains.annotations.Nullable;
  * Utility class for configuration.
  */
 public class ConfigurationUtil {
-    /** UUID pattern. */
-    public static final Pattern UUID_PATTERN = Pattern.compile("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}");
-
     /** Configuration source that copies values without modifying tham. */
     public static final ConfigurationSource EMPTY_CFG_SRC = new ConfigurationSource() {
     };
@@ -1031,7 +1029,37 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Direct proxy.
+     * Returns a configuration tree for the purpose of reading configuration directly from the underlying storage. Actual reading is only
+     * happening while invoking {@link ConfigurationTree#value()}. It will either throw {@link NoSuchElementException},
+     * {@link StorageException} or return the value.
+     * <p/>
+     * It is important to understand how it processes named list elements. Imagine having element named {@code a} with internalId
+     * {@code aId}.
+     * <pre><code>
+     *     var namedListProxy = directProxy(namedList);
+     *
+     *     // Creates another proxy.
+     *     var aElementProxy = namedListProxy.get("a");
+     *
+     *     // This operation performs actual reading. It'll throw an exception if element named "a" doesn't exist anymore.
+     *     // It's been renamed or deleted.
+     *     var aElement = aElementProxy.value();
+     *
+     *     // Creates another proxy.
+     *     var aIdElementProxy = getByInternalId(namedListProxy, aId);
+     *
+     *     // This operation performs actual reading as previously stated. But, unlake the access by name, it won't throw an exception in
+     *     // case of a rename. Only after deletion.
+     *     var aIdElement = aIdElementProxy.value();
+     * </code></pre>
+     *
+     * Another important case is how already resolved named list elements are being proxied.
+     * <pre><code>
+     *     // Following code is in fact equivalent to a "getByInternalId(directProxy(namedList), aId);"
+     *     // Already resolved elements are always referenced to by their internal ids. This means that proxy will return a valid value
+     *     // even after rename despite it looking like name "a" should be resolved once again.
+     *     var aElementProxy = directProxy(namedList.get("a"));
+     * </code></pre>
      */
     public static <T extends ConfigurationProperty<?>> T directProxy(T property) {
         if (property instanceof DirectPropertyProxy) {
@@ -1044,12 +1072,7 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Foo.
-     *
-     * @param cfg Cfg.
-     * @param internalId Internal id.
-     * @param <T> Type.
-     * @return Cfg.
+     * Returns named list configuration element by its internal id rather than its name.
      */
     public static <T extends ConfigurationProperty<?>> T getByInternalId(NamedConfigurationTree<T, ?, ?> cfg, UUID internalId) {
         assert cfg instanceof NamedListConfiguration || cfg instanceof DirectNamedListProxy : cfg.getClass();
@@ -1062,12 +1085,7 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Foo.
-     *
-     * @param node Node.
-     * @param internalId Internal id.
-     * @param <N> Type.
-     * @return Node.
+     * Returns named list node element by its internal id rather than its name.
      */
     public static <N> N getByInternalId(NamedListView<N> node, UUID internalId) {
         return node.get(((NamedListNode<?>) node).keyByInternalId(internalId));
