@@ -1012,7 +1012,7 @@ public class Processor extends AbstractProcessor {
 
         if (clazz.getAnnotation(Config.class) == null && clazz.getAnnotation(PolymorphicConfig.class) == null) {
             throw new ProcessorException(String.format(
-                "%s %s.%s can only be in a class with %s",
+                "%s %s.%s can only be present in a class annotated with %s",
                 simpleName(InjectedName.class),
                 clazz.getQualifiedName(),
                 injectedNameField.getSimpleName(),
