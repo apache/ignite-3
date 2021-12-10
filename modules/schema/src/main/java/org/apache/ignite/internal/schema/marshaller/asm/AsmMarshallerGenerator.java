@@ -100,7 +100,7 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
                 LOG.trace("ASM marshaller created: codeGenStage={}us, compileStage={}us. Code: {}",
                         TimeUnit.NANOSECONDS.toMicros(generation), TimeUnit.NANOSECONDS.toMicros(compilationTime), writer);
             } else if (LOG.isDebugEnabled()) {
-                LOG.debug("ASM matshaller created: codeGenStage={}us, compileStage={}us.",
+                LOG.debug("ASM marshaller created: codeGenStage={}us, compileStage={}us.",
                         TimeUnit.NANOSECONDS.toMicros(generation), TimeUnit.NANOSECONDS.toMicros(compilationTime));
             }
 
