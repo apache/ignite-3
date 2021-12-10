@@ -26,6 +26,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
@@ -175,11 +176,11 @@ public class ConfigurationFlattener {
                     : keysToOrderIdx(newNode);
 
             for (String newNodeKey : newNode.namedListKeys()) {
-                String newNodeInternalId = newNode.internalId(newNodeKey);
+                UUID newNodeInternalId = newNode.internalId(newNodeKey);
 
                 String namedListFullKey = currentKey();
 
-                withTracking(newNodeInternalId, false, false, () -> {
+                withTracking(newNodeInternalId.toString(), false, false, () -> {
                     InnerNode newNamedElement = newNode.getInnerNode(newNodeKey);
 
                     String oldNodeKey = oldNode.keyByInternalId(newNodeInternalId);
@@ -238,7 +239,7 @@ public class ConfigurationFlattener {
                             resMap.put(idKey(namedListFullKey, oldNodeKey), null);
                         } else {
                             // Creation as a part of outer named list's new element.
-                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId);
+                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId.toString());
                         }
                     } else {
                         // Regular deletion.
@@ -246,13 +247,13 @@ public class ConfigurationFlattener {
                             resMap.put(idKey(namedListFullKey, oldNodeKey), null);
                         } else if (oldNamedElement == null) {
                             // Regular creation.
-                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId);
+                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId.toString());
                         } else if (!oldNodeKey.equals(newNodeKey)) {
                             // Rename. Old value is nullified.
                             resMap.put(idKey(namedListFullKey, oldNodeKey), null);
 
                             // And new value is initialized.
-                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId);
+                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId.toString());
                         }
                     }
 

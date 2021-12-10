@@ -40,6 +40,7 @@ import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.RandomAccess;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationProperty;
@@ -76,7 +77,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ConfigurationUtil {
     /** UUID pattern. */
-    private static final Pattern UUID_PATTERN = Pattern.compile("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}");
+    public static final Pattern UUID_PATTERN = Pattern.compile("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}");
 
     /** Configuration source that copies values without modifying tham. */
     public static final ConfigurationSource EMPTY_CFG_SRC = new ConfigurationSource() {
@@ -821,7 +822,7 @@ public class ConfigurationUtil {
 
                         String name = pathNode.unresolvedName
                                 ? pathNode.key
-                                : node.keyByInternalId(pathNode.key);
+                                : node.keyByInternalId(UUID.fromString(pathNode.key));
 
                         return visitInnerNode(name, node.getInnerNode(name));
                     }
@@ -938,12 +939,14 @@ public class ConfigurationUtil {
             var orderedKeys = new ArrayList<>(((NamedListView<?>) node).namedListKeys());
 
             for (Map.Entry<String, ?> entry : map.entrySet()) {
-                String internalId = entry.getKey();
+                String internalIdStr = entry.getKey();
 
                 // This is the mapping of internal ids to names. Skip it.
-                if (NamedListNode.IDS.equals(internalId)) {
+                if (NamedListNode.IDS.equals(internalIdStr)) {
                     continue;
                 }
+
+                UUID internalId = UUID.fromString(internalIdStr);
 
                 Object val = entry.getValue();
 
@@ -1048,16 +1051,12 @@ public class ConfigurationUtil {
      * @param <T> Type.
      * @return Cfg.
      */
-    public static <T extends ConfigurationProperty<?>> T getByInternalId(NamedConfigurationTree<T, ?, ?> cfg, String internalId) {
+    public static <T extends ConfigurationProperty<?>> T getByInternalId(NamedConfigurationTree<T, ?, ?> cfg, UUID internalId) {
         assert cfg instanceof NamedListConfiguration || cfg instanceof DirectNamedListProxy : cfg.getClass();
 
         if (cfg instanceof NamedListConfiguration) {
             return (T) ((NamedListConfiguration<T, ?, ?>) cfg).getByInternalId(internalId);
         } else {
-            if (!UUID_PATTERN.matcher(internalId).matches()) {
-                throw new IllegalArgumentException("internalId");
-            }
-
             return (T) ((DirectNamedListProxy<T, ?, ?>) cfg).getByInternalId(internalId);
         }
     }
@@ -1070,7 +1069,7 @@ public class ConfigurationUtil {
      * @param <N> Type.
      * @return Node.
      */
-    public static <N> N getByInternalId(NamedListView<N> node, String internalId) {
+    public static <N> N getByInternalId(NamedListView<N> node, UUID internalId) {
         return node.get(((NamedListNode<?>) node).keyByInternalId(internalId));
     }
 }

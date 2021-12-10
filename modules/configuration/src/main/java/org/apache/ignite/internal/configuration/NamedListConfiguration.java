@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BiFunction;
 import org.apache.ignite.configuration.ConfigurationProperty;
@@ -115,7 +116,7 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
      * @param internalId Internal id.
      * @return Named list element, associated with the passed internal id, or {@code null} if it doesn't exist.
      */
-    public T getByInternalId(String internalId) {
+    public T getByInternalId(UUID internalId) {
         var value = (NamedListNode<?>) value();
 
         return (T) members.get(value.keyByInternalId(internalId));

@@ -57,7 +57,7 @@ public class InternalIdTest {
     @InternalConfiguration
     public static class InternalIdInternalConfigurationSchema extends InternalIdParentConfigurationSchema {
         @InternalId
-        public String id;
+        public UUID id;
     }
 
     /** Schema for the polumorphic configuration. */
@@ -67,7 +67,7 @@ public class InternalIdTest {
         public String type;
 
         @InternalId
-        public String id;
+        public UUID id;
     }
 
     /** Single polymorhic extension. */
@@ -102,7 +102,7 @@ public class InternalIdTest {
     public void testInternalExtension() {
         InternalIdParentConfiguration cfg = registry.getConfiguration(InternalIdParentConfiguration.KEY);
 
-        String internalId = UUID.randomUUID().toString();
+        UUID internalId = UUID.randomUUID();
 
         // Put it there manually, this simplifies the test.
         ((InnerNode) cfg.value()).internalId(internalId);
@@ -124,7 +124,7 @@ public class InternalIdTest {
         // Create polymorphic instance.
         cfg.polymorphic().change(list -> list.create("a", element -> {
             // Check that id is accessible via "raw" instance.
-            String internalId = element.id();
+            UUID internalId = element.id();
 
             assertThat(internalId, is(notNullValue()));
 
@@ -137,7 +137,7 @@ public class InternalIdTest {
         // Read internal id from the named list directly.
         var list = (NamedListNode<InternalIdPolymorphicView>) cfg.polymorphic().value();
 
-        String internalId = list.internalId("a");
+        UUID internalId = list.internalId("a");
 
         // Check that this internal id matches the one from raw InnerNode list element.
         assertThat(list.getInnerNode("a").internalId(), is(equalTo(internalId)));

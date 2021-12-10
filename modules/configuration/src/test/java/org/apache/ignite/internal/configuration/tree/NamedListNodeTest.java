@@ -134,8 +134,8 @@ public class NamedListNodeTest {
         a.second().change(b -> b.create("X", x -> x.changeThird(xb -> xb.create("Z0", z0 -> {
         })))).get();
 
-        String x0Id = ((NamedListNode<?>) a.second().value()).internalId("X");
-        String z0Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z0");
+        String x0Id = ((NamedListNode<?>) a.second().value()).internalId("X").toString();
+        String z0Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z0").toString();
 
         Map<String, ? extends Serializable> storageValues = storage.readAll().values();
 
@@ -160,7 +160,7 @@ public class NamedListNodeTest {
         x.third().change(xb -> xb.create("Z5", z5 -> {
         })).get();
 
-        String z5Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z5");
+        String z5Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z5").toString();
 
         storageValues = storage.readAll().values();
 
@@ -187,7 +187,7 @@ public class NamedListNodeTest {
         x.third().change(xb -> xb.create(1, "Z2", z2 -> {
         })).get();
 
-        String z2Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z2");
+        String z2Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z2").toString();
 
         storageValues = storage.readAll().values();
 
@@ -218,7 +218,7 @@ public class NamedListNodeTest {
         x.third().change(xb -> xb.createAfter("Z2", "Z3", z3 -> {
         })).get();
 
-        String z3Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z3");
+        String z3Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z3").toString();
 
         storageValues = storage.readAll().values();
 

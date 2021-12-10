@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListChange;
@@ -62,7 +63,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     private final OrderedMap<ElementDescriptor> map;
 
     /** Mapping from internal ids to public keys. */
-    private final Map<String, String> reverseIdMap;
+    private final Map<UUID, String> reverseIdMap;
 
     /** Field name with {@link PolymorphicId}. */
     @Nullable
@@ -336,7 +337,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
      * @param key        Key to update. Should be present in the named list. Nothing will happen if the key is missing.
      * @param internalId New id to associate with the key.
      */
-    public void setInternalId(String key, String internalId) {
+    public void setInternalId(String key, UUID internalId) {
         ElementDescriptor element = map.get(key);
 
         if (element != null) {
@@ -356,7 +357,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
      * @return Internal id.
      * @throws IllegalArgumentException If {@code key} is not found in the named list.
      */
-    public String internalId(String key) {
+    public UUID internalId(String key) {
         ElementDescriptor element = map.get(key);
 
         if (element == null) {
@@ -372,7 +373,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
      * @param internalId Internat id.
      * @return Key.
      */
-    public String keyByInternalId(String internalId) {
+    public String keyByInternalId(UUID internalId) {
         return reverseIdMap.get(internalId);
     }
 
@@ -381,7 +382,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
      *
      * @return Set of internal ids.
      */
-    public Collection<String> internalIds() {
+    public Collection<UUID> internalIds() {
         return Collections.unmodifiableSet(reverseIdMap.keySet());
     }
 
@@ -487,7 +488,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
      */
     private static class ElementDescriptor {
         /** Element's internal id. */
-        public String internalId;
+        public UUID internalId;
 
         /** Element node value. */
         @Nullable
@@ -510,7 +511,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
          * @param internalId Internal id.
          * @param value      Node instance.
          */
-        private ElementDescriptor(String internalId, InnerNode value) {
+        private ElementDescriptor(UUID internalId, InnerNode value) {
             this.internalId = internalId;
             this.value = value;
         }

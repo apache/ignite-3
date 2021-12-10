@@ -73,7 +73,7 @@ public class DirectPropertiesTest {
     @Config
     public static class DirectNestedConfigurationSchema {
         @InternalId
-        public String id;
+        public UUID id;
 
         @Value(hasDefault = true)
         public String str = "bar";
@@ -88,7 +88,7 @@ public class DirectPropertiesTest {
     @Config
     public static class DirectNested2ConfigurationSchema {
         @InternalId
-        public String id;
+        public UUID id;
 
         @Value(hasDefault = true)
         public String str = "bar";
@@ -158,7 +158,7 @@ public class DirectPropertiesTest {
                 .change(change -> change.create("foo", value -> {}))
                 .get(1, TimeUnit.SECONDS);
 
-        String fooId = cfg.children().get("foo").id().value();
+        UUID fooId = cfg.children().get("foo").id().value();
 
         assertThat(fooId, is(notNullValue()));
 
@@ -205,7 +205,7 @@ public class DirectPropertiesTest {
                 }))
                 .get(1, TimeUnit.SECONDS);
 
-        String fooId = cfg.children().get("foo").id().value();
+        UUID fooId = cfg.children().get("foo").id().value();
 
         assertThat(fooId, is(notNullValue()));
 
@@ -251,8 +251,8 @@ public class DirectPropertiesTest {
                 .change(list -> list.create("foo", e -> e.changeChildren2(list2 -> list2.create("boo", e2 -> {}))))
                 .get(1, TimeUnit.SECONDS);
 
-        String fooId = cfg.children().get("foo").id().value();
-        String booId = cfg.children().get("foo").children2().get("boo").id().value();
+        UUID fooId = cfg.children().get("foo").id().value();
+        UUID booId = cfg.children().get("foo").children2().get("boo").id().value();
 
         assertThat(booId, is(notNullValue()));
 
@@ -381,8 +381,8 @@ public class DirectPropertiesTest {
                 .change(list -> list.create("foo", e -> e.changeChildren2(list2 -> list2.create("boo", e2 -> {}))))
                 .get(1, TimeUnit.SECONDS);
 
-        String fooId = cfg.children().get("foo").id().value();
-        String booId = cfg.children().get("foo").children2().get("boo").id().value();
+        UUID fooId = cfg.children().get("foo").id().value();
+        UUID booId = cfg.children().get("foo").children2().get("boo").id().value();
 
         assertThat(booId, is(notNullValue()));
 
@@ -508,7 +508,7 @@ public class DirectPropertiesTest {
                 .change(list -> list.create("foo", e -> e.changeChildren2(list2 -> list2.create("boo", e2 -> {}))))
                 .get(1, TimeUnit.SECONDS);
 
-        String fakeId = UUID.randomUUID().toString();
+        UUID fakeId = UUID.randomUUID();
 
         assertThrows(NoSuchElementException.class, () -> directProxy(cfg).children().get("a").value());
         assertThrows(NoSuchElementException.class, () -> getByInternalId(directProxy(cfg).children(), fakeId).value());

@@ -101,6 +101,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -836,7 +837,7 @@ public class ConfigurationAsmGenerator {
         MethodDefinition internalIdMtd = classDef.declareMethod(
                 of(PUBLIC),
                 schemaField.getName(),
-                type(String.class)
+                type(UUID.class)
         );
 
         // return this.internalId();

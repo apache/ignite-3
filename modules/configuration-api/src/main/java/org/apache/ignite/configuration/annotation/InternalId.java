@@ -23,9 +23,10 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
+import java.util.UUID;
 
 /**
- * Internal id. Indicates readonly property that contains internal {@code String} identifier for named list elements and {@code null} for
+ * Internal id. Indicates readonly property that contains internal {@link UUID} identifier for named list elements and {@code null} for
  * other configuration nodes.
  */
 @Target(FIELD)

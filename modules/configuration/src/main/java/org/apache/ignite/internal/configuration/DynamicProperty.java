@@ -71,7 +71,7 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
     public T value() {
         if (INTERNAL_ID.equals(key)) {
             // In this case "refreshValue()" is not of type "T", but an "InnerNode" holding it instead.
-            // "T" must be a string then, this is guarded by external invariants.
+            // "T" must be a UUID then, this is guarded by external invariants.
             return (T) ((InnerNode) refreshValue()).internalId();
         }
 

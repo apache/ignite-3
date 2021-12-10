@@ -43,6 +43,7 @@ import java.util.NoSuchElementException;
 import java.util.RandomAccess;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -331,8 +332,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             if (idx == pathSize - 2 && INTERNAL_ID.equals(lastPathNode.key)) {
                 assert lastPathNode.unresolvedName == false : path;
 
-                // Despite the fact that this cast looks very stupid, it is correct. Internal ids are always strings.
-                return (T) internalId;
+                // Despite the fact that this cast looks very stupid, it is correct. Internal ids are always UUIDs.
+                return (T) UUID.fromString(internalId);
             }
 
             prefixJoiner.add(internalId);
@@ -360,7 +361,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             if (name != null) {
                 // Id is already known.
-                return (T) path.get(pathSize - 2).key;
+                return (T) UUID.fromString(path.get(pathSize - 2).key);
             } else {
                 throw new NoSuchElementException(prefixJoiner.toString());
             }

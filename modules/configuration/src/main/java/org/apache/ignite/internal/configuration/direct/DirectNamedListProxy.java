@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.direct;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.appendKey;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -69,8 +70,8 @@ public class DirectNamedListProxy<T extends ConfigurationProperty<VIEWT>, VIEWT,
      * @param internalId Internal id.
      * @return Named list element, associated with the passed internal id, or {@code null} if it doesn't exist.
      */
-    public T getByInternalId(String internalId) {
-        return creator.apply(appendKey(keys, new KeyPathNode(internalId, false)), changer);
+    public T getByInternalId(UUID internalId) {
+        return creator.apply(appendKey(keys, new KeyPathNode(internalId.toString(), false)), changer);
     }
 
     /** {@inheritDoc} */

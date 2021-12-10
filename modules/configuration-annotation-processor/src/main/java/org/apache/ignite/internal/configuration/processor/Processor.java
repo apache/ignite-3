@@ -44,6 +44,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.annotation.processing.AbstractProcessor;
@@ -187,7 +188,7 @@ public class Processor extends AbstractProcessor {
 
                 PolymorphicId polymorphicId = field.getAnnotation(PolymorphicId.class);
                 if (polymorphicId != null) {
-                    if (!isStringClass(field.asType())) {
+                    if (!isClass(field.asType(), String.class)) {
                         throw new ProcessorException(String.format(
                                 "%s %s.%s field field must be String.",
                                 simpleName(PolymorphicId.class),
@@ -198,9 +199,9 @@ public class Processor extends AbstractProcessor {
                 }
 
                 if (field.getAnnotation(InternalId.class) != null) {
-                    if (!isStringClass(field.asType())) {
+                    if (!isClass(field.asType(), UUID.class)) {
                         throw new ProcessorException(
-                            "@InternalId " + clazz.getQualifiedName() + "." + field.getSimpleName() + " field must be a String."
+                            "@InternalId " + clazz.getQualifiedName() + "." + field.getSimpleName() + " field must be a UUID."
                         );
                     }
                 }
@@ -790,15 +791,12 @@ public class Processor extends AbstractProcessor {
     }
 
     /**
-     * Check if a class type is {@link String}.
-     *
-     * @param type Class type.
-     * @return {@code true} if class type is {@link String}.
+     * Check if a {@code type} is a {@code clazz} Class.
      */
-    private boolean isStringClass(TypeMirror type) {
+    private boolean isClass(TypeMirror type, Class<?> clazz) {
         TypeMirror stringType = processingEnv
                 .getElementUtils()
-                .getTypeElement(String.class.getCanonicalName())
+                .getTypeElement(clazz.getCanonicalName())
                 .asType();
 
         return stringType.equals(type);

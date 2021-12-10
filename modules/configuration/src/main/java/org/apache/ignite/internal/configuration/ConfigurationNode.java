@@ -265,7 +265,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
                 }
 
                 // This is important, node is added as a resolved named list entry here.
-                res.add(new KeyPathNode(innerNode.internalId(), false));
+                res.add(new KeyPathNode(innerNode.internalId().toString(), false));
 
                 if (keys.size() == idx) {
                     return res;
