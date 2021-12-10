@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
@@ -68,7 +69,7 @@ public class HoconConverterTest {
         public HoconPrimitivesConfigurationSchema primitivesList;
 
         /** Polymorphic config. */
-        @org.apache.ignite.configuration.annotation.ConfigValue
+        @NamedConfigValue(syntheticKeyName = "poly")
         public HoconPolymorphicConfigurationSchema polymorphicCfg;
     }
 
@@ -144,8 +145,8 @@ public class HoconConverterTest {
     @PolymorphicConfig
     public static class HoconPolymorphicConfigurationSchema {
         /** Polymorphic type id field. */
-        @PolymorphicId(hasDefault = true)
-        public String typeId = "first";
+        @PolymorphicId
+        public String typeId;
     }
 
     /**
@@ -220,9 +221,9 @@ public class HoconConverterTest {
 
     @Test
     public void toHoconBasic() {
-        assertEquals("root{arraysList=[],polymorphicCfg{longVal=0,typeId=first},primitivesList=[]}", asHoconStr(List.of()));
+        assertEquals("root{arraysList=[],polymorphicCfg=[],primitivesList=[]}", asHoconStr(List.of()));
 
-        assertEquals("arraysList=[],polymorphicCfg{longVal=0,typeId=first},primitivesList=[]", asHoconStr(List.of("root")));
+        assertEquals("arraysList=[],polymorphicCfg=[],primitivesList=[]", asHoconStr(List.of("root")));
 
         assertEquals("[]", asHoconStr(List.of("root", "arraysList")));
 
@@ -302,7 +303,7 @@ public class HoconConverterTest {
     /**
      * Retrieves the HOCON configuration located at the given path.
      */
-    private String asHoconStr(List<String> basePath, String... path) {
+    private static String asHoconStr(List<String> basePath, String... path) {
         List<String> fullPath = Stream.concat(basePath.stream(), Arrays.stream(path)).collect(Collectors.toList());
 
         ConfigValue hoconCfg = HoconConverter.represent(registry, fullPath);
@@ -582,39 +583,45 @@ public class HoconConverterTest {
     @Test
     void testPolymorphicConfig() throws Throwable {
         // Check defaults.
-        assertEquals("root{arraysList=[],polymorphicCfg{longVal=0,typeId=first},primitivesList=[]}", asHoconStr(List.of()));
+        assertEquals("root{arraysList=[],polymorphicCfg=[],primitivesList=[]}", asHoconStr(List.of()));
 
         // Check change type.
-        change("root.polymorphicCfg.typeId = second");
+        change("root.polymorphicCfg = [{poly = name, typeId = second}]");
 
-        assertInstanceOf(HoconSecondPolymorphicInstanceConfiguration.class, configuration.polymorphicCfg());
-        assertEquals("root{arraysList=[],polymorphicCfg{intVal=0,typeId=second},primitivesList=[]}", asHoconStr(List.of()));
+        assertInstanceOf(HoconSecondPolymorphicInstanceConfiguration.class, configuration.polymorphicCfg().get("name"));
+        assertEquals("root{arraysList=[],polymorphicCfg=[{intVal=0,poly=name,typeId=second}],primitivesList=[]}", asHoconStr(List.of()));
 
         // Check change field.
-        change("root.polymorphicCfg.intVal = 10");
-        assertEquals("root{arraysList=[],polymorphicCfg{intVal=10,typeId=second},primitivesList=[]}", asHoconStr(List.of()));
+        change("root.polymorphicCfg.name.intVal = 10");
+        assertEquals("root{arraysList=[],polymorphicCfg=[{intVal=10,poly=name,typeId=second}],primitivesList=[]}", asHoconStr(List.of()));
 
         // Check error: unknown typeId.
         assertThrowsIllegalArgException(
-                () -> change("root.polymorphicCfg.typeId = ERROR"),
+                () -> change("root.polymorphicCfg.name.typeId = ERROR"),
                 "Polymorphic configuration type is not correct: ERROR"
         );
 
         // Check error: try update field from typeId = first.
         assertThrowsIllegalArgException(
-                () -> change("root.polymorphicCfg.longVal = 10"),
-                "'root.polymorphicCfg' configuration doesn't have the 'longVal' sub-configuration"
+                () -> change("root.polymorphicCfg.name.longVal = 10"),
+                "'root.polymorphicCfg.name' configuration doesn't have the 'longVal' sub-configuration"
         );
     }
 
     /**
      * Updates the configuration using the provided HOCON string.
      */
-    private void change(String hocon) throws Throwable {
+    private static void change(String hocon) throws Throwable {
         try {
             registry.change(hoconSource(ConfigFactory.parseString(hocon).root())).get(1, SECONDS);
         } catch (ExecutionException e) {
-            throw e.getCause();
+            Throwable cause = e.getCause();
+
+            if (cause instanceof ConfigurationChangeException) {
+                throw cause.getCause();
+            } else {
+                throw cause;
+            }
         }
     }
 
