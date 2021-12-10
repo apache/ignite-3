@@ -32,7 +32,8 @@ import java.util.UUID;
  * annotation, and so on.
  *
  * @param <T> Type of which objects the mapper handles.
- * @apiNote Implementation shouldn't use this interface directly, please, use {@link PojoMapper} or {@link OneColumnMapper} instead.
+ * @apiNote Implementation shouldn't use this interface directly, please, use {@link PojoMapper} or {@link OneColumnMapper}
+ *         instead.
  * @see PojoMapper
  * @see OneColumnMapper
  */
@@ -50,6 +51,7 @@ public interface Mapper<T> {
      */
     static <O> Mapper<O> of(Class<O> cls) {
         if (nativelySupported(cls)) {
+            // TODO: Cache mappers (IGNITE-16094).
             return new OneColumnMapperImpl<>(cls, null, null);
         } else {
             return builder(cls).automap().build();
@@ -149,8 +151,8 @@ public interface Mapper<T> {
      */
     static <O> Class<O> ensureValidPojo(Class<O> cls) {
         if (nativelySupported(cls) || cls.isAnonymousClass() || cls.isLocalClass() || cls.isSynthetic() || cls.isPrimitive() || cls.isEnum()
-                || cls.isArray() || cls.isAnnotation() || (cls.isMemberClass() && !Modifier.isStatic(cls.getModifiers()))
-                || Modifier.isAbstract(cls.getModifiers())) {
+                    || cls.isArray() || cls.isAnnotation() || (cls.isMemberClass() && !Modifier.isStatic(cls.getModifiers()))
+                    || Modifier.isAbstract(cls.getModifiers())) {
             throw new IllegalArgumentException("Class is of unsupported kind: " + cls.getName());
         }
 
@@ -171,15 +173,16 @@ public interface Mapper<T> {
      */
     private static boolean nativelySupported(Class<?> type) {
         return !type.isPrimitive()
-                && (String.class == type
-                || UUID.class == type
-                || BitSet.class == type
-                || byte[].class == type
-                || LocalDate.class == type
-                || LocalTime.class == type
-                || LocalDateTime.class == type
-                || Instant.class == type
-                || Number.class.isAssignableFrom(type)); // Byte, Short, Integer, Long, Float, Double, BigInteger, BigDecimal
+                       && (String.class == type
+                                   || UUID.class == type
+                                   || BitSet.class == type
+                                   || byte[].class == type
+                                   || LocalDate.class == type
+                                   || LocalTime.class == type
+                                   || LocalDateTime.class == type
+                                   || Instant.class == type
+                                   || Number.class
+                                              .isAssignableFrom(type)); // Byte, Short, Integer, Long, Float, Double, BigInteger, BigDecimal
     }
 
     /**

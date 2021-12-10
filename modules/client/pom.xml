@@ -48,6 +48,11 @@
             <artifactId>ignite-client-common</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-marshaller-common</artifactId>
+        </dependency>
+
         <!-- 3rd party dependencies -->
         <dependency>
             <groupId>org.msgpack</groupId>
