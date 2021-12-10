@@ -308,37 +308,43 @@ public class ItProcessorTest extends AbstractProcessorTest {
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorInjectedName0ConfigurationSchema"),
-                InjectedName.class.getSimpleName()
+                "@InjectedName org.apache.ignite.internal.configuration.processor.injectedname.ErrorInjectedName0ConfigurationSchema.name"
+                        + " field must be a String"
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorInjectedName1ConfigurationSchema"),
-                InjectedName.class.getSimpleName()
+                "org.apache.ignite.internal.configuration.processor.injectedname.ErrorInjectedName1ConfigurationSchema contains more than"
+                        + " one field with @InjectedName"
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorInjectedName2ConfigurationSchema"),
-                InjectedName.class.getSimpleName()
+                "org.apache.ignite.internal.configuration.processor.injectedname.ErrorInjectedName2ConfigurationSchema.name must contain"
+                        + " only one @InjectedName"
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorInjectedName3ConfigurationSchema"),
-                InjectedName.class.getSimpleName()
+                "@InjectedName org.apache.ignite.internal.configuration.processor.injectedname.ErrorInjectedName3ConfigurationSchema.name"
+                        + " can only be present in a class annotated with @Config or @PolymorphicConfig"
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorInjectedName4ConfigurationSchema"),
-                InjectedName.class.getSimpleName()
+                "@InjectedName org.apache.ignite.internal.configuration.processor.injectedname.ErrorInjectedName4ConfigurationSchema.name2"
+                        + " can only be present in a class annotated with @Config or @PolymorphicConfig"
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorInjectedName5ConfigurationSchema"),
-                InjectedName.class.getSimpleName()
+                "@InjectedName org.apache.ignite.internal.configuration.processor.injectedname.ErrorInjectedName5ConfigurationSchema.name2"
+                        + " can only be present in a class annotated with @Config or @PolymorphicConfig"
         );
     }
 
@@ -352,13 +358,15 @@ public class ItProcessorTest extends AbstractProcessorTest {
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorName0ConfigurationSchema"),
-                Name.class.getSimpleName()
+                "@Name org.apache.ignite.internal.configuration.processor.injectedname.ErrorName0ConfigurationSchema.simple can only be"
+                        + " with @ConfigValue"
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorName1ConfigurationSchema"),
-                Name.class.getSimpleName()
+                "Missing @Name for field: "
+                        + "org.apache.ignite.internal.configuration.processor.injectedname.ErrorName1ConfigurationSchema.simple"
         );
     }
 
@@ -374,7 +382,7 @@ public class ItProcessorTest extends AbstractProcessorTest {
 
         BatchCompilation batchCompile = batchCompile(cls0, cls1);
 
-        assertEquals(Compilation.Status.SUCCESS, batchCompile.getCompilationStatus().status());
+        assertThat(batchCompile.getCompilationStatus()).succeededWithoutWarnings();
 
         assertEquals(2 * 3, batchCompile.generated().size());
 
@@ -394,7 +402,7 @@ public class ItProcessorTest extends AbstractProcessorTest {
 
         BatchCompilation batchCompile = batchCompile(cls0, cls1);
 
-        assertEquals(Compilation.Status.SUCCESS, batchCompile.getCompilationStatus().status());
+        assertThat(batchCompile.getCompilationStatus()).succeededWithoutWarnings();
 
         assertEquals(2 * 3, batchCompile.generated().size());
 

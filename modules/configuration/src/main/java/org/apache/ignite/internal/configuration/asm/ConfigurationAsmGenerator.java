@@ -1739,6 +1739,8 @@ public class ConfigurationAsmGenerator {
                 Class<?> fieldImplClass = isDirectAccess(schemaField) ? DirectDynamicProperty.class : DynamicProperty.class;
 
                 // newValue = new DynamicProperty(this.keys, fieldName, rootKey, changer, listenOnly, injectedNameField);
+                // If the field contains @InjectedName, then we pass the parent node as prefix = (super.keys - last_element)
+                // and key = super.key.
                 newValue = newInstance(
                         fieldImplClass,
                         isInjectedName(schemaField) ? invokeStatic(REMOVE_LAST_KEY_MTD, thisKeysVar) : thisKeysVar,

@@ -282,7 +282,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
         reverseIdMap.put(element.internalId, newKey);
 
-        map.get(newKey).value.setInjectedNameFieldValue(newKey);
+        element.value.setInjectedNameFieldValue(newKey);
 
         return this;
     }

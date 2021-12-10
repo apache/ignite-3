@@ -960,7 +960,7 @@ public class ConfigurationUtil {
         if (keys.isEmpty() || keys.size() == 1) {
             return List.of();
         } else {
-            return new ArrayList<>(keys.subList(0, keys.size() - 1));
+            return List.copyOf(keys.subList(0, keys.size() - 1));
         }
     }
 }

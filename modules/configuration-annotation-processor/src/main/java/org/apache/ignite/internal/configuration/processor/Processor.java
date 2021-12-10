@@ -580,9 +580,9 @@ public class Processor extends AbstractProcessor {
             checkNotContainsPolymorphicIdField(clazz, Config.class, fields);
         }
 
-        validateInjectedNameFieldsIfPresents(clazz, fields);
+        validateInjectedNameFields(clazz, fields);
 
-        validateNameFieldsIfPresents(clazz, fields);
+        validateNameFields(clazz, fields);
     }
 
     /**
@@ -975,7 +975,7 @@ public class Processor extends AbstractProcessor {
      * @param fields Class fields.
      * @throws ProcessorException If the class validation fails.
      */
-    private void validateInjectedNameFieldsIfPresents(TypeElement clazz, List<VariableElement> fields) {
+    private void validateInjectedNameFields(TypeElement clazz, List<VariableElement> fields) {
         List<VariableElement> injectedNameFields = collectAnnotatedFields(fields, InjectedName.class);
 
         if (injectedNameFields.isEmpty()) {
@@ -1028,7 +1028,7 @@ public class Processor extends AbstractProcessor {
      * @param fields Class fields.
      * @throws ProcessorException If the class validation fails.
      */
-    private void validateNameFieldsIfPresents(TypeElement clazz, List<VariableElement> fields) {
+    private void validateNameFields(TypeElement clazz, List<VariableElement> fields) {
         List<VariableElement> nameFields = collectAnnotatedFields(fields, org.apache.ignite.configuration.annotation.Name.class);
 
         if (nameFields.isEmpty()) {
@@ -1056,10 +1056,11 @@ public class Processor extends AbstractProcessor {
      *      for the nested schema with {@link InjectedName}.
      */
     private void checkMissingNameForInjectedName(VariableElement field) {
-        TypeElement fieldType = processingEnv.getElementUtils().getTypeElement(field.asType().toString());
+        TypeElement fieldType = (TypeElement) processingEnv.getTypeUtils().asElement(field.asType());
 
-        if (!collectAnnotatedFields(fields(fieldType), InjectedName.class).isEmpty()
-                && field.getAnnotation(org.apache.ignite.configuration.annotation.Name.class) == null) {
+        List<VariableElement> fields = collectAnnotatedFields(fields(fieldType), InjectedName.class);
+
+        if (!fields.isEmpty() && field.getAnnotation(org.apache.ignite.configuration.annotation.Name.class) == null) {
             throw new ProcessorException(String.format(
                     "Missing %s for field: %s.%s",
                     simpleName(org.apache.ignite.configuration.annotation.Name.class),
