@@ -1038,11 +1038,11 @@ public class Processor extends AbstractProcessor {
         for (VariableElement nameField : nameFields) {
             if (nameField.getAnnotation(ConfigValue.class) == null) {
                 throw new ProcessorException(String.format(
-                    "%s %s.%s can only be with %s",
+                    "%s annotation can only be used with %s: %s.%s",
                     simpleName(org.apache.ignite.configuration.annotation.Name.class),
+                    simpleName(ConfigValue.class),
                     clazz.getQualifiedName(),
-                    nameField.getSimpleName(),
-                    simpleName(ConfigValue.class)
+                    nameField.getSimpleName()
                 ));
             }
         }

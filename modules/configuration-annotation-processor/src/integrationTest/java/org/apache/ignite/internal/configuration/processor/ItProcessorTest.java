@@ -358,8 +358,8 @@ public class ItProcessorTest extends AbstractProcessorTest {
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorName0ConfigurationSchema"),
-                "@Name org.apache.ignite.internal.configuration.processor.injectedname.ErrorName0ConfigurationSchema.simple can only be"
-                        + " with @ConfigValue"
+                "@Name annotation can only be used with @ConfigValue: "
+                        + "org.apache.ignite.internal.configuration.processor.injectedname.ErrorName0ConfigurationSchema.simple"
         );
 
         assertThrowsEx(

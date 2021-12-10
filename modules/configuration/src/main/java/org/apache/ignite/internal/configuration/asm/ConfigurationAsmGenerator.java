@@ -1738,9 +1738,11 @@ public class ConfigurationAsmGenerator {
             if (isValue(schemaField) || isPolymorphicId(schemaField) || isInjectedName(schemaField)) {
                 Class<?> fieldImplClass = isDirectAccess(schemaField) ? DirectDynamicProperty.class : DynamicProperty.class;
 
-                // newValue = new DynamicProperty(this.keys, fieldName, rootKey, changer, listenOnly, injectedNameField);
-                // If the field contains @InjectedName, then we pass the parent node as prefix = (super.keys - last_element)
-                // and key = super.key.
+                // A field with @InjectedName is special (auxiliary), it is not stored in storages as a regular field, and therefore there
+                // is no direct access to it. It is stored in the InnerNode and does not participate in its traversal, so in order to get
+                // it we need to get the InnerNode, and only then the value of this field.
+
+                // newValue = new DynamicProperty(this.keys, fieldName, rootKey, changer, listenOnly, readOnly, injectedNameField);
                 newValue = newInstance(
                         fieldImplClass,
                         isInjectedName(schemaField) ? invokeStatic(REMOVE_LAST_KEY_MTD, thisKeysVar) : thisKeysVar,
