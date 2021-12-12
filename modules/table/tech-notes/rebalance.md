@@ -77,7 +77,7 @@ metastoreInvoke: // atomic metastore call through multi-invoke api
 - Change peers state initiated for every raft group
 
 ## When changePeers done inside the raft group - stop all redundant nodes
-**Trigger**: When leader applied new Configuration with list of resulting peers `<applied peer>`, it calls `onChangePeersCommitted(<applied peers> -> closure)`
+**Trigger**: When leader applied new Configuration with list of resulting peers `<applied peer>`, it calls `onChangePeersCommitted(<applied peers>)`
 
 **Pseudocode**:
 ```
@@ -90,9 +90,9 @@ metastoreInvoke: \\ atomic
 ```
 
 Failover helpers (detailed failover scenarious must be developed in future)
-- `onLeaderChanged()` - must be executed from the new leader when raft group changes the leader. Maybe we actually need to also check if a new lease is received.
+- `onLeaderElected()` - must be executed from the new leader when raft group elected the new leader. Maybe we actually need to also check if a new lease is received.
 - `onChangePeersError()` - must be executed when any errors during changePeers occurred.
-- `onChangePeersCommitted(peers -> closure)` - must be executed with the list of new peers when changePeers has successfully done.
+- `onChangePeersCommitted(peers)` - must be executed with the list of new peers when changePeers has successfully done.
 
 At the moment, this set of listeners seems to enough for restart rebalance and/or notify node's failover mechanism about fatal issues. Failover scenarios will be explained with more details during first phase of implementation.
 
@@ -106,6 +106,26 @@ At the moment, this set of listeners seems to enough for restart rebalance and/o
 **Result**:
 - Raft clients for new assignments refreshed
 - Redundant raft nodes stopped
+
+# Failover
+We need to provide Failover thread, which can handle the following cases:
+- `changePeers` can't start even catchup process, because of any new raft nodes wasn't started yet for instance.
+- `changePeers` failed to complete catchup due to catchup timeout, for example.
+
+We have the following mechanisms for handling these cases:
+- `onChangerPeersError(errorContext)`, which must schedule retries, if needed
+- Separate special thread must process all needed retries on the current node
+- If current node is not the leader of partition raft group anymore - it will request `changePeers` with legacy term, receive appropriate answer from the leader and stop retries for this partition.
+- If leader changed, new node will receive onLeaderElected() invoke and start needed changePeers from the pending key. Also, it will create new failover thread for retry logic.
+- If failover exhaust maximum number for query retries - it must notify about the issue global node failover (details must be specified later)
+
+
+# Metastore rebalance
+It seems, that rebalance of metastore can be handled the same process, because:
+- during the any stage of `changePeers` raft group can handle any another entries
+- any rebalance failures must not end up by raft group unavailability (if majority is kept)
+
+Also, failover mechanism above doesn't use metastore, but raft term and special listeners.
 
 # Further optimisations:
 ## 'Smart' raft change peers:
