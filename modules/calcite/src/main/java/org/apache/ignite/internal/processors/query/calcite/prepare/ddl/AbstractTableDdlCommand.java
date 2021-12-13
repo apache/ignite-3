@@ -27,10 +27,7 @@ public class AbstractTableDdlCommand implements DdlCommand {
     /** Quietly ignore this command if table is not exists. */
     protected boolean ifTableExists;
 
-    /**
-     * Schema name upon which this statement has been issued - <b>not</b> the name of the schema where this new table will be created.
-     * i.e. in case of: CREATE TABLE "SCH1"."TABL1" ... schema would be "SCH1".
-     */
+    /** Schema name where this new table will be created. */
     private String commanCurrentSchema;
 
     public String tableName() {

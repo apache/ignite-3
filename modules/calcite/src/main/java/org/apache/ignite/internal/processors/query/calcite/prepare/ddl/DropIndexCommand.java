@@ -27,12 +27,6 @@ public class DropIndexCommand implements DdlCommand {
     /** If exist flag. */
     private boolean ifExist;
 
-    /**
-     * Schema name upon which this statement has been issued - <b>not</b> the name of the schema where this new table will be created.
-     * i.e. in case of: CREATE TABLE "SCH1"."TABL1" ... schema would be "SCH1".
-     */
-    private String commanCurrentSchema;
-
     /** Return idx name. */
     public String indexName() {
         return indexName;
@@ -49,13 +43,5 @@ public class DropIndexCommand implements DdlCommand {
 
     public void ifExist(boolean ifExist) {
         this.ifExist = ifExist;
-    }
-
-    public String schemaName() {
-        return commanCurrentSchema;
-    }
-
-    public void schemaName(String schemaName) {
-        this.commanCurrentSchema = schemaName;
     }
 }
