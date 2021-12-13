@@ -29,6 +29,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.BitSet;
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.table.KeyValueView;
@@ -228,10 +230,43 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         }
     }
 
+    @Test
+    public void testGetAll() {
+        Table table = defaultTable();
+        RecordView<PersonPojo> pojoView = table.recordView(Mapper.of(PersonPojo.class));
+
+        table.recordView().upsert(tuple());
+        table.recordView().upsert(tuple(100L, "100"));
+
+        Collection<PersonPojo> keys = List.of(
+                new PersonPojo(DEFAULT_ID, "blabla"),
+                new PersonPojo(101L, "1234"),
+                new PersonPojo(100L, "qwerty"));
+
+        Collection<PersonPojo> res = pojoView.getAll(keys);
+
+        // TODO
+        assertEquals(2, res.size());
+    }
+
+    @Test
+    public void testGetAllPrimitive() {
+        // TODO
+    }
+
     private static class PersonPojo {
         public long id;
 
         public String name;
+
+        public PersonPojo() {
+            // No-op.
+        }
+
+        public PersonPojo(long id, String name) {
+            this.id = id;
+            this.name = name;
+        }
     }
 
     private static class NamePojo {
