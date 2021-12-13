@@ -563,7 +563,8 @@ public class ItNodeTest {
 
         int stoppedCounterAfterNodesStart = stoppedCounter.get();
 
-        assertTrue(waitForCondition(() -> startedCounter.get() - stoppedCounterAfterNodesStart == 2, 5_000));
+        assertTrue(waitForCondition(() -> startedCounter.get() - stoppedCounterAfterNodesStart == 2, 5_000),
+                startedCounter.get() + "");
 
         PeerId targetPeer = followers.get(0).getNodeId().getPeerId().copy();
         LOG.info("Transfer leadership from {} to {}", leader, targetPeer);
@@ -571,7 +572,8 @@ public class ItNodeTest {
         Thread.sleep(1000);
         cluster.waitLeader();
 
-        assertTrue(waitForCondition(() -> startedCounter.get() - stoppedCounterAfterNodesStart == 4, 5_000));
+        assertTrue(waitForCondition(() -> startedCounter.get() - stoppedCounterAfterNodesStart == 4, 5_000),
+                startedCounter.get() + "");
 
         for (Node node : cluster.getNodes())
             node.clearReplicatorStateListeners();
