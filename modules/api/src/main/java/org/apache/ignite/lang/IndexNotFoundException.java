@@ -24,7 +24,7 @@ public class IndexNotFoundException extends IgniteException {
     /**
      * Create a new exception with given index name.
      *
-     * @param indexName Index name.
+     * @param indexName Index canonical name.
      */
     public IndexNotFoundException(String indexName) {
         super(LoggerMessageHelper.format("Index '{}' does not exist.", indexName));

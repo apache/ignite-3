@@ -25,7 +25,7 @@ public class AbstractTableDdlCommand implements DdlCommand {
     private String tblName;
 
     /** Quietly ignore this command if table is not exists. */
-    protected boolean ifTableNotExists;
+    protected boolean ifTableExists;
 
     /**
      * Schema name upon which this statement has been issued - <b>not</b> the name of the schema where this new table will be created.
@@ -52,8 +52,8 @@ public class AbstractTableDdlCommand implements DdlCommand {
     /**
      * Quietly ignore if table exists flag.
      */
-    public boolean ifTableNotExists() {
-        return ifTableNotExists;
+    public boolean ifTableExists() {
+        return ifTableExists;
     }
 
     /**
@@ -61,7 +61,7 @@ public class AbstractTableDdlCommand implements DdlCommand {
      *
      * @param ifTableNotExists Flag.
      */
-    public void ifTableNotExists(boolean ifTableNotExists) {
-        this.ifTableNotExists = ifTableNotExists;
+    public void ifTableExists(boolean ifTableNotExists) {
+        this.ifTableExists = ifTableNotExists;
     }
 }

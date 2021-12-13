@@ -85,6 +85,12 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
 
         assertEquals(Set.of(100), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 
+        sql("ALTER TABLE tbl ADD COLUMN c4 int NOT NULL DEFAULT 101");
+
+        rows = sql("SELECT c4 FROM tbl");
+
+        assertEquals(Set.of(101), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
+
         //todo: correct exception https://issues.apache.org/jira/browse/IGNITE-16095
         assertThrows(IgniteException.class, () -> sql("INSERT INTO tbl(c1, c2) VALUES (2, NULL)"));
     }

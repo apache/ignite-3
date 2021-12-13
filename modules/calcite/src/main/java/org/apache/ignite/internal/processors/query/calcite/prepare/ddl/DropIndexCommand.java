@@ -33,9 +33,6 @@ public class DropIndexCommand implements DdlCommand {
      */
     private String commanCurrentSchema;
 
-    /** Table name. */
-    private String tblName;
-
     /** Return idx name. */
     public String indexName() {
         return indexName;
@@ -52,14 +49,6 @@ public class DropIndexCommand implements DdlCommand {
 
     public void ifExist(boolean ifExist) {
         this.ifExist = ifExist;
-    }
-
-    public String tableName() {
-        return tblName;
-    }
-
-    public void tableName(String tblName) {
-        this.tblName = tblName;
     }
 
     public String schemaName() {

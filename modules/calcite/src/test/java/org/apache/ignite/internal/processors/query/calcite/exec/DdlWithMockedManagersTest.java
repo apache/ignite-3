@@ -27,9 +27,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -38,7 +35,6 @@ import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchem
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -81,9 +77,6 @@ import org.mockito.quality.Strictness;
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class DdlWithMockedManagersTest extends IgniteAbstractTest {
-    /** Table partitions. */
-    private static final int PARTITIONS = 32;
-
     /** Node name. */
     private static final String NODE_NAME = "node1";
 
@@ -229,21 +222,23 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
 
         queryProc.query("PUBLIC", newTblSql);
 
+        queryProc.query("PUBLIC", "DROP TABLE " + curMethodName);
+
         // todo will be implemented after IGNITE-15926
         /*SqlQueryProcessor finalQueryProc = queryProc;
         
         assertThrows(IgniteInternalCheckedException.class, () -> finalQueryProc.query("PUBLIC",
             "DROP TABLE " + curMethodName + "_not_exist"));
-
+    
         assertThrows(IgniteInternalCheckedException.class, () -> finalQueryProc.query("PUBLIC",
             "DROP TABLE " + curMethodName));
 
         assertThrows(IgniteInternalCheckedException.class, () -> finalQueryProc.query("PUBLIC",
             "DROP TABLE PUBLIC." + curMethodName));
 
-        queryProc.query("PUBLIC", "DROP TABLE IF EXISTS PUBLIC." + curMethodName);*/
+        queryProc.query("PUBLIC", "DROP TABLE IF EXISTS PUBLIC." + curMethodName);
 
-        queryProc.query("PUBLIC", "DROP TABLE PUBLIC." + curMethodName);
+        queryProc.query("PUBLIC", "DROP TABLE PUBLIC." + curMethodName);*/
 
         assertTrue(tblManager.tables().stream().noneMatch(t -> t.name()
                 .equalsIgnoreCase("PUBLIC." + curMethodName)));
@@ -265,6 +260,10 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
         String alterCmd = String.format("ALTER TABLE %s ADD COLUMN (c3 varchar, c4 int)", curMethodName);
 
         queryProc.query("PUBLIC", alterCmd);
+
+        String alterCmd1 = String.format("ALTER TABLE %s ADD COLUMN c5 int NOT NULL DEFAULT 1", curMethodName);
+
+        queryProc.query("PUBLIC", alterCmd1);
 
         assertThrows(ColumnAlreadyExistsException.class, () -> finalQueryProc.query("PUBLIC", alterCmd));
 
@@ -403,17 +402,6 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
         try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
             schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(anyInt(), any()))
                     .thenReturn(mock(SchemaDescriptor.class));
-        }
-
-        try (MockedStatic<AffinityUtils> affinityServiceMock = mockStatic(AffinityUtils.class)) {
-            ArrayList<List<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
-
-            for (int part = 0; part < PARTITIONS; part++) {
-                assignment.add(new ArrayList<>(Collections.singleton(node)));
-            }
-
-            affinityServiceMock.when(() -> AffinityUtils.calculateAssignments(any(), anyInt(), anyInt()))
-                    .thenReturn(assignment);
         }
 
         when(cs.messagingService()).thenAnswer(invocation -> {

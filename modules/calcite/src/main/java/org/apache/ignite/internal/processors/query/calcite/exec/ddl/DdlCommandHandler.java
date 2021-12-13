@@ -49,7 +49,6 @@ import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
-import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnDefinition;
@@ -121,7 +120,7 @@ public class DdlCommandHandler {
 
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
-        if (cmd.ifTableNotExists()) {
+        if (cmd.ifTableExists()) {
             tableManager.createTableIfNotExists(fullName, tblChanger);
         } else {
             tableManager.createTable(fullName, tblChanger);
@@ -195,19 +194,7 @@ public class DdlCommandHandler {
 
     /** Handles drop index command. */
     private void handleDropIndex(DropIndexCommand cmd) {
-        String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
-
-        tableManager.alterTable(fullName, chng -> chng.changeIndices(idxes -> {
-            if (idxes.get(cmd.indexName()) == null) {
-                if (!cmd.ifExist()) {
-                    throw new IndexNotFoundException(cmd.indexName());
-                } else {
-                    return;
-                }
-            }
-
-            idxes.delete(cmd.indexName());
-        }));
+        throw new UnsupportedOperationException("DROP INDEX command not supported for now.");
     }
 
     /**

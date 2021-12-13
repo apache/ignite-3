@@ -137,7 +137,7 @@ public class DdlSqlToCommandConverter {
 
         createTblCmd.schemaName(deriveSchemaName(createTblNode.name(), ctx));
         createTblCmd.tableName(deriveObjectName(createTblNode.name(), ctx, "tableName"));
-        createTblCmd.ifTableNotExists(createTblNode.ifNotExists());
+        createTblCmd.ifTableExists(createTblNode.ifNotExists());
 
         if (createTblNode.createOptionList() != null) {
             for (SqlNode optNode : createTblNode.createOptionList().getList()) {
@@ -221,7 +221,7 @@ public class DdlSqlToCommandConverter {
 
         alterTblCmd.schemaName(deriveSchemaName(alterTblNode.name(), ctx));
         alterTblCmd.tableName(deriveObjectName(alterTblNode.name(), ctx, "table name"));
-        alterTblCmd.ifTableNotExists(alterTblNode.ifExists());
+        alterTblCmd.ifTableExists(alterTblNode.ifExists());
         alterTblCmd.ifColumnNotExists(alterTblNode.ifNotExistsColumn());
 
         IgniteTypeFactory typeFactory = ctx.typeFactory();
@@ -234,13 +234,18 @@ public class DdlSqlToCommandConverter {
             SqlColumnDeclaration col = (SqlColumnDeclaration) colNode;
 
             assert col.name.isSimple();
-            assert col.expression == null : "Unexpected column default value" + col.expression;
+
+            Object dflt = null;
+            if (col.expression != null) {
+                dflt = ((SqlLiteral) col.expression).getValue();
+            }
 
             String name = col.name.getSimple();
             RelDataType type = ctx.planner().convert(col.dataType);
 
             ColumnDefinitionBuilder col0 = SchemaBuilders.column(name, typeFactory.columnType(type))
-                    .asNullable(type.isNullable());
+                    .asNullable(type.isNullable())
+                    .withDefaultValueExpression(dflt);
 
             cols.add(col0.build());
         }
@@ -261,7 +266,7 @@ public class DdlSqlToCommandConverter {
 
         alterTblCmd.schemaName(deriveSchemaName(alterTblNode.name(), ctx));
         alterTblCmd.tableName(deriveObjectName(alterTblNode.name(), ctx, "table name"));
-        alterTblCmd.ifTableNotExists(alterTblNode.ifExists());
+        alterTblCmd.ifTableExists(alterTblNode.ifExists());
         alterTblCmd.ifColumnExists(alterTblNode.ifExistsColumn());
 
         Set<String> cols = new HashSet<>(alterTblNode.columns().size());
@@ -283,7 +288,7 @@ public class DdlSqlToCommandConverter {
 
         dropTblCmd.schemaName(deriveSchemaName(dropTblNode.name, ctx));
         dropTblCmd.tableName(deriveObjectName(dropTblNode.name, ctx, "tableName"));
-        dropTblCmd.ifTableNotExists(dropTblNode.ifExists);
+        dropTblCmd.ifTableExists(dropTblNode.ifExists);
 
         return dropTblCmd;
     }
@@ -325,8 +330,6 @@ public class DdlSqlToCommandConverter {
     private DropIndexCommand convertDropIndex(IgniteSqlDropIndex sqlCmd, PlanningContext ctx) {
         DropIndexCommand dropCmd = new DropIndexCommand();
 
-        dropCmd.schemaName(deriveSchemaName(sqlCmd.tableName(), ctx));
-        dropCmd.tableName(deriveObjectName(sqlCmd.tableName(), ctx, "table name"));
         dropCmd.indexName(sqlCmd.idxName().getSimple());
         dropCmd.ifExist(sqlCmd.ifExists());
 

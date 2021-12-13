@@ -224,16 +224,10 @@ SqlDrop SqlDropIndex(Span s, boolean replace) :
 {
     final boolean ifExists;
     final SqlIdentifier idxId;
-    final SqlIdentifier tblId;
 }
 {
-    <INDEX> 
-    ifExists = IfExistsOpt()
-    idxId = SimpleIdentifier()
-    <ON>
-    tblId = CompoundIdentifier()
-    {
-         return new IgniteSqlDropIndex(s.end(this), ifExists, tblId, idxId);
+    <INDEX> ifExists = IfExistsOpt() idxId = CompoundIdentifier() {
+        return new IgniteSqlDropIndex(s.end(this), ifExists, idxId);
     }
 }
 
@@ -275,6 +269,8 @@ SqlNode ColumnWithType() :
     SqlIdentifier id;
     SqlDataTypeSpec type;
     boolean nullable = true;
+    final ColumnStrategy strategy;
+    final SqlNode dflt;
     final Span s = Span.of();
 }
 {
@@ -285,8 +281,19 @@ SqlNode ColumnWithType() :
             nullable = false;
         }
     ]
+    (
+        <DEFAULT_> { s.add(this); } dflt = Literal() {
+            strategy = ColumnStrategy.DEFAULT;
+        }
+    |
+        {
+            dflt = null;
+            strategy = nullable ? ColumnStrategy.NULLABLE
+                : ColumnStrategy.NOT_NULLABLE;
+        }
+    )
     {
-        return SqlDdlNodes.column(s.add(id).end(this), id, type.withNullable(nullable), null, null);
+        return SqlDdlNodes.column(s.add(id).end(this), id, type.withNullable(nullable), dflt, strategy);
     }
 }
 

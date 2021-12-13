@@ -36,23 +36,19 @@ public class IgniteSqlDropIndex extends SqlDrop {
     /** Index name. */
     private final SqlIdentifier indexName;
 
-    /** Table name. */
-    private final SqlIdentifier tableName;
-
     /** Sql operator. */
     private static final SqlOperator OPERATOR =
             new SqlSpecialOperator("DROP INDEX", SqlKind.DROP_INDEX);
 
     /** Constructor. */
-    public IgniteSqlDropIndex(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName, SqlIdentifier idxName) {
+    public IgniteSqlDropIndex(SqlParserPos pos, boolean ifExists, SqlIdentifier idxName) {
         super(OPERATOR, pos, ifExists);
         indexName = Objects.requireNonNull(idxName, "index name");
-        tableName = Objects.requireNonNull(tblName, "table name");
     }
 
     /** {@inheritDoc} */
     @Override public List<SqlNode> getOperandList() {
-        return ImmutableNullableList.of(indexName, tableName);
+        return ImmutableNullableList.of(indexName);
     }
 
     /** {@inheritDoc} */
@@ -64,18 +60,10 @@ public class IgniteSqlDropIndex extends SqlDrop {
         }
 
         indexName.unparse(writer, leftPrec, rightPrec);
-
-        writer.keyword("ON");
-
-        tableName.unparse(writer, 0, 0);
     }
 
     public SqlIdentifier idxName() {
         return indexName;
-    }
-
-    public SqlIdentifier tableName() {
-        return tableName;
     }
 
     public boolean ifExists() {
