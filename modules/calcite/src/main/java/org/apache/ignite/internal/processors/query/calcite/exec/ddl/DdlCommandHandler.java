@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.query.calcite.exec.ddl;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -35,11 +36,13 @@ import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningConte
 import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.AbstractTableDdlCommand;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.AlterTableDropCommand;
+import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.CreateIndexCommand;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.CreateTableCommand;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.DdlCommand;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.DropTableCommand;
+import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -51,7 +54,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnDefinition;
+import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.PrimaryKeyDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
@@ -64,9 +67,14 @@ public class DdlCommandHandler {
         tableManager = tblManager;
     }
 
+    /** Planning context. */
+    private PlanningContext pctx;
+
     /** Handles ddl commands. */
     public void handle(DdlCommand cmd, PlanningContext pctx) throws IgniteInternalCheckedException {
         validateCommand(cmd);
+
+        this.pctx = pctx;
 
         if (cmd instanceof CreateTableCommand) {
             handleCreateTable((CreateTableCommand) cmd);
@@ -100,13 +108,25 @@ public class DdlCommandHandler {
 
     /** Handles create table command. */
     private void handleCreateTable(CreateTableCommand cmd) {
-        PrimaryKeyDefinitionBuilder pkeyDef = SchemaBuilders.primaryKey();
+        final PrimaryKeyDefinitionBuilder pkeyDef = SchemaBuilders.primaryKey();
         pkeyDef.withColumns(cmd.primaryKeyColumns());
         pkeyDef.withAffinityColumns(cmd.affColumns());
 
+        final IgniteTypeFactory typeFactory = pctx.typeFactory();
+
+        final List<org.apache.ignite.schema.definition.ColumnDefinition> colsInner = new ArrayList<>();
+
+        for (ColumnDefinition col : cmd.columns()) {
+            ColumnDefinitionBuilder col0 = SchemaBuilders.column(col.name(), typeFactory.columnType(col.type()))
+                    .asNullable(col.nullable())
+                    .withDefaultValueExpression(col.defaultValue());
+
+            colsInner.add(col0.build());
+        }
+
         Consumer<TableChange> tblChanger = tblCh -> {
             TableChange conv = convert(SchemaBuilders.tableBuilder(cmd.schemaName(), cmd.tableName())
-                    .columns(cmd.columns())
+                    .columns(colsInner)
                     .withPrimaryKey(pkeyDef.build()).build(), tblCh);
 
             if (cmd.partitions() != null) {
@@ -223,8 +243,14 @@ public class DdlCommandHandler {
                         colsDef0 = colsDef.stream().filter(k -> !colNamesToOrders.containsKey(k.name())).collect(Collectors.toList());
                     }
 
-                    for (ColumnDefinition colDef : colsDef0) {
-                        cols.create(colDef.name(), colChg -> convert(colDef, colChg));
+                    final IgniteTypeFactory typeFactory = pctx.typeFactory();
+
+                    for (ColumnDefinition col : colsDef0) {
+                        ColumnDefinitionBuilder col0 = SchemaBuilders.column(col.name(), typeFactory.columnType(col.type()))
+                                .asNullable(col.nullable())
+                                .withDefaultValueExpression(col.defaultValue());
+
+                        cols.create(col.name(), colChg -> convert(col0.build(), colChg));
                     }
                 }));
     }

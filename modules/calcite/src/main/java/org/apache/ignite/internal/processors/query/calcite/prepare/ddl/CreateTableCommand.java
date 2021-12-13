@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.query.calcite.prepare.ddl;
 
 import java.util.List;
-import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.jetbrains.annotations.Nullable;
 
 /**

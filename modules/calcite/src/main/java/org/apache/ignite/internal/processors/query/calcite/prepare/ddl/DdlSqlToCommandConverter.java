@@ -53,12 +53,8 @@ import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTa
 import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOption;
 import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOptionEnum;
 import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlDropIndex;
-import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnDefinition;
-import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
 
 /**
  * DdlSqlToCommandConverter. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -118,7 +114,7 @@ public class DdlSqlToCommandConverter {
         }
 
         if (ddlNode instanceof IgniteSqlDropIndex) {
-            return convertDropIndex((IgniteSqlDropIndex) ddlNode, ctx);
+            return convertDropIndex((IgniteSqlDropIndex) ddlNode);
         }
 
         throw new IgniteException("Unsupported operation ["
@@ -153,7 +149,6 @@ public class DdlSqlToCommandConverter {
                 .collect(Collectors.toList());
 
         IgnitePlanner planner = ctx.planner();
-        IgniteTypeFactory typeFactory = ctx.typeFactory();
 
         List<ColumnDefinition> cols = new ArrayList<>(colDeclarations.size());
 
@@ -172,11 +167,7 @@ public class DdlSqlToCommandConverter {
                 dflt = ((SqlLiteral) col.expression).getValue();
             }
 
-            ColumnDefinitionBuilder col0 = SchemaBuilders.column(name, typeFactory.columnType(relType))
-                    .asNullable(relType.isNullable())
-                    .withDefaultValueExpression(dflt);
-
-            cols.add(col0.build());
+            cols.add(new ColumnDefinition(name, relType, dflt));
         }
 
         createTblCmd.columns(cols);
@@ -224,8 +215,6 @@ public class DdlSqlToCommandConverter {
         alterTblCmd.ifTableExists(alterTblNode.ifExists());
         alterTblCmd.ifColumnNotExists(alterTblNode.ifNotExistsColumn());
 
-        IgniteTypeFactory typeFactory = ctx.typeFactory();
-
         List<ColumnDefinition> cols = new ArrayList<>(alterTblNode.columns().size());
 
         for (SqlNode colNode : alterTblNode.columns()) {
@@ -241,13 +230,9 @@ public class DdlSqlToCommandConverter {
             }
 
             String name = col.name.getSimple();
-            RelDataType type = ctx.planner().convert(col.dataType);
+            RelDataType relType = ctx.planner().convert(col.dataType);
 
-            ColumnDefinitionBuilder col0 = SchemaBuilders.column(name, typeFactory.columnType(type))
-                    .asNullable(type.isNullable())
-                    .withDefaultValueExpression(dflt);
-
-            cols.add(col0.build());
+            cols.add(new ColumnDefinition(name, relType, dflt));
         }
 
         alterTblCmd.columns(cols);
@@ -327,7 +312,7 @@ public class DdlSqlToCommandConverter {
     /**
      * Converts drop index to appropriate wrapper.
      */
-    private DropIndexCommand convertDropIndex(IgniteSqlDropIndex sqlCmd, PlanningContext ctx) {
+    private DropIndexCommand convertDropIndex(IgniteSqlDropIndex sqlCmd) {
         DropIndexCommand dropCmd = new DropIndexCommand();
 
         dropCmd.indexName(sqlCmd.idxName().getSimple());
