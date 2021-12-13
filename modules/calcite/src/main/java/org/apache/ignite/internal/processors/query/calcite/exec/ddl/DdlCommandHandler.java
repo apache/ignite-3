@@ -53,6 +53,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.LoggerMessageHelper;
+import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.PrimaryKeyDefinitionBuilder;
@@ -140,10 +141,12 @@ public class DdlCommandHandler {
 
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
-        if (cmd.ifTableExists()) {
-            tableManager.createTableIfNotExists(fullName, tblChanger);
-        } else {
+        try {
             tableManager.createTable(fullName, tblChanger);
+        } catch (TableAlreadyExistsException ex) {
+            if (!cmd.ifTableExists()) {
+                throw ex;
+            }
         }
     }
 

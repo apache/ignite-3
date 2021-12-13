@@ -23,6 +23,7 @@ import java.util.function.Consumer;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
+import org.apache.ignite.lang.TableNotExistsException;
 import org.apache.ignite.table.Table;
 
 /**
@@ -59,40 +60,11 @@ public interface IgniteTables {
     CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange);
 
     /**
-     * Creates a new table with the given {@code name} or returns an existing one with the same {@code name}.
-     *
-     * <p>Note: the configuration of the existed table will NOT be validated against the given {@code tableInitChange}.
-     *
-     * @param name            Table name.
-     * @param tableInitChange Table changer.
-     * @return Existing or newly created table.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
-     *                         <ul>
-     *                             <li>the node is stopping.</li>
-     *                         </ul>
-     */
-    Table createTableIfNotExists(String name, Consumer<TableChange> tableInitChange);
-
-    /**
-     * Creates a new table with the given {@code name} or returns an existing one with the same {@code name}.
-     *
-     * <p>Note: the configuration of the existed table will NOT be validated against the given {@code tableInitChange}.
-     *
-     * @param name            Table name.
-     * @param tableInitChange Table changer.
-     * @return Future representing pending completion of the operation.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
-     *                         <ul>
-     *                             <li>the node is stopping.</li>
-     *                         </ul>
-     */
-    CompletableFuture<Table> createTableIfNotExistsAsync(String name, Consumer<TableChange> tableInitChange);
-
-    /**
      * Alter a cluster table.
      *
      * @param name        Table name.
      * @param tableChange Table changer.
+     * @throws TableNotExistsException If a table with the name does not exist.
      * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
@@ -110,6 +82,7 @@ public interface IgniteTables {
      *                         <ul>
      *                             <li>the node is stopping.</li>
      *                         </ul>
+     * @see TableNotExistsException
      */
     CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange);
 
@@ -118,6 +91,7 @@ public interface IgniteTables {
      * effect.
      *
      * @param name Table name.
+     * @throws TableNotExistsException If a table with the name does not exist.
      * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
@@ -135,6 +109,7 @@ public interface IgniteTables {
      *                         <ul>
      *                             <li>the node is stopping.</li>
      *                         </ul>
+     * @see TableNotExistsException
      */
     CompletableFuture<Void> dropTableAsync(String name);
 
