@@ -377,7 +377,11 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         try {
             for (int i = 0; i < cnt; i++) {
-                res.add((R) marshaller.readObject(reader, null));
+                if (in.unpackBoolean()) {
+                    res.add((R) marshaller.readObject(reader, null));
+                } else {
+                    res.add(null);
+                }
             }
         } catch (MarshallerException e) {
             throw new IgniteClientException(e.getMessage(), e);
