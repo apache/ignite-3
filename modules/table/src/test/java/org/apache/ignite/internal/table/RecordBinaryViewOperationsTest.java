@@ -360,7 +360,6 @@ public class RecordBinaryViewOperationsTest {
         assertTrue(res.contains(rec1));
     }
 
-
     /**
      * Check tuples equality.
      *

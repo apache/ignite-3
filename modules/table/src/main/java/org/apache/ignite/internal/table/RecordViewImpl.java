@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.table;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -75,9 +78,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
         BinaryRow keyRow = marshalKey(keyRec);  // Convert to portable format to pass TX/storage layer.
 
-        return tbl.get(keyRow, tx)  // Load async.
-                .thenApply(this::wrap) // Binary -> schema-aware row
-                .thenApply(this::unmarshal); // Deserialize.
+        return tbl.get(keyRow, tx).thenApply(this::unmarshal);
     }
 
     /** {@inheritDoc} */
@@ -89,7 +90,9 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> getAllAsync(@NotNull Collection<R> keyRecs) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(keyRecs);
+
+        return tbl.getAll(marshalKeys(keyRecs), tx).thenApply(this::unmarshal);
     }
 
     /** {@inheritDoc} */
@@ -103,8 +106,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<Void> upsertAsync(@NotNull R rec) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(rec));
 
-        return tbl.upsert(keyRow, tx).thenAccept(ignore -> {
-        });
+        return tbl.upsert(keyRow, tx);
     }
 
     /** {@inheritDoc} */
@@ -116,7 +118,9 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Void> upsertAllAsync(@NotNull Collection<R> recs) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(recs);
+
+        return tbl.upsertAll(marshal(recs), tx);
     }
 
     /** {@inheritDoc} */
@@ -156,7 +160,9 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> insertAllAsync(@NotNull Collection<R> recs) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(recs);
+
+        return tbl.insertAll(marshal(recs), tx).thenApply(this::unmarshal);
     }
 
     /** {@inheritDoc} */
@@ -253,7 +259,9 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@NotNull Collection<R> recs) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(recs);
+
+        return tbl.deleteAll(marshal(recs), tx).thenApply(this::unmarshal);
     }
 
     /** {@inheritDoc} */
@@ -265,7 +273,9 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@NotNull Collection<R> recs) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(recs);
+
+        return tbl.deleteAllExact(marshal(recs), tx).thenApply(this::unmarshal);
     }
 
     /** {@inheritDoc} */
@@ -308,8 +318,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     }
 
     /**
-    /**
-     * Returns marshaller.
+     * /** Returns marshaller.
      *
      * @param schemaVersion Schema version.
      * @return Marshaller.
@@ -381,17 +390,79 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     }
 
     /**
-     * Returns schema-aware row.
+     * Marshal records.
      *
-     * @param row Binary row.
+     * @param recs Records collection.
+     * @return Binary rows collection.
      */
-    private Row wrap(BinaryRow row) {
-        if (row == null) {
-            return null;
+    private Collection<BinaryRow> marshal(@NotNull Collection<R> recs) {
+        final RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+
+        List<BinaryRow> rows = new ArrayList<>(recs.size());
+
+        try {
+            for (R rec : recs) {
+                final BinaryRow row = marsh.marshal(Objects.requireNonNull(rec));
+
+                rows.add(row);
+            }
+
+            return rows;
+        } catch (MarshallerException e) {
+            throw new IgniteException(e);
+        }
+    }
+
+    /**
+     * Marshal key-records.
+     *
+     * @param recs Records collection.
+     * @return Binary rows collection.
+     */
+    private Collection<BinaryRow> marshalKeys(@NotNull Collection<R> recs) {
+        final RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+
+        List<BinaryRow> rows = new ArrayList<>(recs.size());
+
+        try {
+            for (R rec : recs) {
+                final BinaryRow row = marsh.marshalKey(Objects.requireNonNull(rec));
+
+                rows.add(row);
+            }
+
+            return rows;
+        } catch (MarshallerException e) {
+            throw new IgniteException(e);
+        }
+    }
+
+    /**
+     * Unmarshal records.
+     *
+     * @param rows Row collection.
+     * @return Records collection.
+     */
+    @NotNull
+    public Collection<R> unmarshal(Collection<BinaryRow> rows) {
+        if (rows.isEmpty()) {
+            return Collections.emptyList();
         }
 
-        final SchemaDescriptor rowSchema = schemaReg.schema(row.schemaVersion()); // Get a schema for row.
+        final RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
 
-        return new Row(rowSchema, row);
+        List<R> recs = new ArrayList<>(rows.size());
+
+        try {
+            for (Row row : schemaReg.resolve(rows)) {
+                if (row != null) {
+                    recs.add(marsh.unmarshal(row));
+                }
+            }
+
+            return recs;
+        } catch (MarshallerException e) {
+            throw new IgniteException(e);
+        }
     }
 }

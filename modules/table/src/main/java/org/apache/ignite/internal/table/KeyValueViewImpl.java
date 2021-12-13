@@ -20,12 +20,13 @@ package org.apache.ignite.internal.table;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
@@ -68,130 +68,85 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         marshallerFactory = (schema) -> new KvMarshallerImpl<>(schema, keyMapper, valueMapper);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public V get(@NotNull K key) {
         return sync(getAsync(key));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public @NotNull
     CompletableFuture<V> getAsync(@NotNull K key) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(key), null);
 
-        return tbl.get(keyRow, tx)
-                       .thenApply(this::unmarshalValue); // row -> deserialized obj.
+        return tbl.get(keyRow, tx).thenApply(this::unmarshalValue);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public Map<K, V> getAll(@NotNull Collection<K> keys) {
         return sync(getAllAsync(keys));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public @NotNull
     CompletableFuture<Map<K, V>> getAllAsync(@NotNull Collection<K> keys) {
         Objects.requireNonNull(keys);
 
-        List<BinaryRow> keyRows = new ArrayList<>(keys.size());
-
-        for (K keyRec : keys) {
-            final BinaryRow keyRow = marshal(keyRec, null);
-
-            keyRows.add(keyRow);
-        }
-
-        return tbl.getAll(keyRows, tx)
-                       .thenApply(ts -> ts.stream().filter(Objects::nonNull)
-                                                .map(this::unmarshalPair)
-                                                .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
+        return tbl.getAll(marshal(keys), tx).thenApply(this::unmarshalPairs);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean contains(@NotNull K key) {
         return get(key) != null;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> containsAsync(@NotNull K key) {
         return getAsync(key).thenApply(Objects::nonNull);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void put(@NotNull K key, V val) {
         sync(putAsync(key, val));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public @NotNull
     CompletableFuture<Void> putAsync(@NotNull K key, V val) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(key), val);
 
-        return tbl.upsert(keyRow, tx).thenAccept(ignore -> {
-        });
+        return tbl.upsert(keyRow, tx);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void putAll(@NotNull Map<K, V> pairs) {
         sync(putAllAsync(pairs));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public @NotNull
     CompletableFuture<Void> putAllAsync(@NotNull Map<K, V> pairs) {
         Objects.requireNonNull(pairs);
 
-        List<BinaryRow> rows = new ArrayList<>(pairs.size());
-
-        for (Map.Entry<K, V> pair : pairs.entrySet()) {
-            final BinaryRow row = marshal(pair.getKey(), pair.getValue());
-
-            rows.add(row);
-        }
-
-        return tbl.upsertAll(rows, tx);
+        return tbl.upsertAll(marshal(pairs), tx);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public V getAndPut(@NotNull K key, V val) {
         return sync(getAndPutAsync(key, val));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public @NotNull
     CompletableFuture<V> getAndPutAsync(@NotNull K key, V val) {
@@ -200,17 +155,13 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         return tbl.getAndUpsert(keyRow, tx).thenApply(this::unmarshalValue);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean putIfAbsent(@NotNull K key, @NotNull V val) {
         return sync(putIfAbsentAsync(key, val));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public @NotNull
     CompletableFuture<Boolean> putIfAbsentAsync(@NotNull K key, V val) {
@@ -219,25 +170,19 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         return tbl.insert(keyRow, tx);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean remove(@NotNull K key) {
         return sync(removeAsync(key));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean remove(@NotNull K key, @NotNull V val) {
         return sync(removeAsync(key, val));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public @NotNull
     CompletableFuture<Boolean> removeAsync(@NotNull K key) {
@@ -246,9 +191,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         return tbl.delete(keyRow, tx);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull K key, @NotNull V val) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(key), Objects.requireNonNull(val));
@@ -256,34 +199,29 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         return tbl.deleteExact(keyRow, tx);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public Collection<K> removeAll(@NotNull Collection<K> keys) {
         return sync(removeAllAsync(keys));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public @NotNull
     CompletableFuture<Collection<K>> removeAllAsync(@NotNull Collection<K> keys) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(keys);
+
+        return tbl.deleteAll(marshal(keys), tx).thenApply(this::unmarshalKeys);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+
+    /** {@inheritDoc} */
     @Override
     public V getAndRemove(@NotNull K key) {
         return sync(getAndRemoveAsync(key));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public @NotNull
     CompletableFuture<V> getAndRemoveAsync(@NotNull K key) {
@@ -292,25 +230,19 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         return tbl.getAndDelete(keyRow, tx).thenApply(this::unmarshalValue);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean replace(@NotNull K key, V val) {
         return sync(replaceAsync(key, val));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean replace(@NotNull K key, @NotNull V oldVal, @NotNull V newVal) {
         return sync(replaceAsync(key, oldVal, newVal));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, @NotNull V val) {
         BinaryRow row = marshal(Objects.requireNonNull(key), Objects.requireNonNull(val));
@@ -318,9 +250,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         return tbl.replace(row, tx);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, @NotNull V oldVal, @NotNull V newVal) {
         Objects.requireNonNull(key);
@@ -331,17 +261,13 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         return tbl.replace(oldRow, newRow, tx);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public V getAndReplace(@NotNull K key, V val) {
         return sync(getAndReplaceAsync(key, val));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public @NotNull
     CompletableFuture<V> getAndReplaceAsync(@NotNull K key, V val) {
@@ -350,18 +276,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         return tbl.getAndReplace(row, tx).thenApply(this::unmarshalValue);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public <R extends Serializable> R invoke(@NotNull K key, InvokeProcessor<K, V, R> proc,
             Serializable... args) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public @NotNull <R extends Serializable> CompletableFuture<R> invokeAsync(
             @NotNull K key,
@@ -371,9 +293,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public <R extends Serializable> Map<K, R> invokeAll(
             @NotNull Collection<K> keys,
@@ -383,9 +303,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public @NotNull <R extends Serializable> CompletableFuture<Map<K, R>> invokeAllAsync(
             @NotNull Collection<K> keys,
@@ -394,9 +312,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public KeyValueViewImpl<K, V> withTransaction(Transaction tx) {
         throw new UnsupportedOperationException("Not implemented yet.");
@@ -442,28 +358,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /**
-     * Unmarshal value object from given binary row.
-     *
-     * @param binaryRow Binary row.
-     * @return Value object.
-     */
-    private Pair<K, V> unmarshalPair(BinaryRow binaryRow) {
-        if (binaryRow == null) {
-            return null;
-        }
-
-        Row row = schemaReg.resolve(binaryRow);
-
-        KvMarshaller<K, V> marshaller = marshaller(row.schemaVersion());
-
-        try {
-            return new Pair<>(marshaller.unmarshalKey(row), marshaller.unmarshalValue(row));
-        } catch (MarshallerException e) {
-            throw new IgniteException(e);
-        }
-    }
-
-    /**
      * Marshal key-value pair to a row.
      *
      * @param key Key object.
@@ -480,4 +374,114 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         }
     }
 
+    /**
+     * Marshal keys to a row.
+     *
+     * @param keys Key objects.
+     * @return Binary rows.
+     */
+    @NotNull
+    public Collection<BinaryRow> marshal(@NotNull Collection<K> keys) {
+        final KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+
+        List<BinaryRow> keyRows = new ArrayList<>(keys.size());
+
+        try {
+            for (K key : keys) {
+                final BinaryRow keyRow = marsh.marshal(Objects.requireNonNull(key), null);
+
+                keyRows.add(keyRow);
+            }
+        } catch (MarshallerException e) {
+            throw new IgniteException(e);
+        }
+
+        return keyRows;
+    }
+
+    /**
+     * Marshal key-value pairs.
+     *
+     * @param pairs Key-value map.
+     * @return Binary rows.
+     */
+    @NotNull
+    public List<BinaryRow> marshal(@NotNull Map<K, V> pairs) {
+        final KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+
+        List<BinaryRow> rows = new ArrayList<>(pairs.size());
+
+        try {
+            for (Map.Entry<K, V> pair : pairs.entrySet()) {
+                final BinaryRow row = marsh.marshal(Objects.requireNonNull(pair.getKey()), pair.getValue());
+
+                rows.add(row);
+            }
+        } catch (MarshallerException e) {
+            throw new IgniteException(e);
+        }
+
+        return rows;
+    }
+
+    /**
+     * Marshal keys.
+     *
+     * @param rows Binary rows.
+     * @return Keys.
+     */
+    @NotNull
+    public Collection<K> unmarshalKeys(Collection<BinaryRow> rows) {
+        if (rows.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        final KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+
+        List<K> keys = new ArrayList<>(rows.size());
+
+        try {
+            for (BinaryRow row : rows) {
+                if (row != null) {
+                    keys.add(marsh.unmarshalKey(schemaReg.resolve(row)));
+                }
+            }
+
+            return keys;
+        } catch (MarshallerException e) {
+            throw new IgniteException(e);
+        }
+    }
+
+
+    /**
+     * Marshal key-value pairs.
+     *
+     * @param rows Binary rows.
+     * @return Key-value pairs.
+     */
+    @NotNull
+    public Map<K, V> unmarshalPairs(Collection<BinaryRow> rows) {
+        if (rows.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        final KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+
+        Map<K, V> pairs = new HashMap<>(rows.size());
+
+        try {
+            for (BinaryRow row : rows) {
+                if (row != null) {
+                    Row row0 = schemaReg.resolve(row);
+
+                    pairs.put(marsh.unmarshalKey(row0), marsh.unmarshalValue(row0));
+                }
+            }
+
+            return pairs;
+        } catch (MarshallerException e) {
+            throw new IgniteException(e);
+        }
+    }
 }

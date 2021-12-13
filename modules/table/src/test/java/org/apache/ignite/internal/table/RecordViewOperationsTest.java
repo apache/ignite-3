@@ -36,7 +36,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -271,6 +273,25 @@ public class RecordViewOperationsTest {
         assertNull(tbl.get(key));
     }
 
+    @Test
+    public void getAll() {
+        final TestObjectWithAllTypes key1 = key(rnd);
+        final TestObjectWithAllTypes key2 = key(rnd);
+        final TestObjectWithAllTypes key3 = key(rnd);
+        final TestObjectWithAllTypes val1 = randomObject(rnd, key1);
+        final TestObjectWithAllTypes val3 = randomObject(rnd, key3);
+
+        RecordView<TestObjectWithAllTypes> tbl = recordView();
+
+        tbl.upsertAll(List.of(val1, val3));
+
+        Collection<TestObjectWithAllTypes> res = tbl.getAll(List.of(key1, /*key2,*/ key3));
+
+        assertEquals(2, res.size());
+        assertTrue(res.contains(val1));
+        assertTrue(res.contains(val3));
+    }
+
     /**
      * Creates RecordView.
      */
@@ -323,9 +344,9 @@ public class RecordViewOperationsTest {
 
         // Validate all types are tested.
         Set<NativeTypeSpec> testedTypes = Arrays.stream(valCols).map(c -> c.type().spec())
-                .collect(Collectors.toSet());
+                                                  .collect(Collectors.toSet());
         Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
-                .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
+                                                  .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 
         assertEquals(Collections.emptySet(), missedTypes);
 

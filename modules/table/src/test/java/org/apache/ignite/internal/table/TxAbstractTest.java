@@ -541,11 +541,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         Collection<Tuple> ret = accounts.recordView().getAll(keys);
 
-        assertEquals(2, ret.size());
-
-        for (Tuple tuple : ret) {
-            assertNull(tuple);
-        }
+        assertEquals(0, ret.size());
 
         accounts.recordView().upsert(makeValue(1, 100.));
         accounts.recordView().upsert(makeValue(2, 200.));

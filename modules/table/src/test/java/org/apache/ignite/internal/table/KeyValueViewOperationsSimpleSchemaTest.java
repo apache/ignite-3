@@ -327,11 +327,11 @@ public class KeyValueViewOperationsSimpleSchemaTest {
 
         Map<Long, Long> res = kvView.getAll(List.of(1L, 2L, 3L));
 
+        assertEquals(2, res.size());
         assertEquals(11L, res.get(1L));
-        assertNull(res.get(22L));
         assertEquals(33L, res.get(3L));
+        assertNull(res.get(22L));
     }
-
 
     /**
      * Creates key-value view.
