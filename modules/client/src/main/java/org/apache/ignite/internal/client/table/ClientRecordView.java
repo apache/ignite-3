@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.table;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
@@ -88,18 +89,19 @@ public class ClientRecordView<R> implements RecordView<R> {
     public Collection<R> getAll(@NotNull Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return tbl.doSchemaOutInOpAsync(
-                ClientOp.TUPLE_GET_ALL,
-                (schema, out) -> writeRecs(keyRecs, schema, out, TuplePart.KEY),
-                (inSchema, in) -> readValRec(keyRec, inSchema, in),
-                Collections.emptyList());
+        return getAllAsync(keyRecs).join();
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> getAllAsync(@NotNull Collection<R> keyRecs) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(keyRecs);
+
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET_ALL,
+                (schema, out) -> writeRecs(keyRecs, schema, out, TuplePart.KEY),
+                this::readRecs,
+                Collections.emptyList());
     }
 
     /** {@inheritDoc} */
@@ -360,6 +362,28 @@ public class ClientRecordView<R> implements RecordView<R> {
         } catch (MarshallerException e) {
             throw new IgniteClientException(e.getMessage(), e);
         }
+    }
+
+    private Collection<R> readRecs(ClientSchema inSchema, ClientMessageUnpacker in) {
+        var cnt = in.unpackInt();
+        var res = new ArrayList<R>(cnt);
+
+        if (cnt == 0) {
+            return res;
+        }
+
+        Marshaller marshaller = inSchema.getMarshaller(recMapper, TuplePart.KEY_AND_VAL);
+        var reader = new ClientMarshallerReader(in);
+
+        try {
+            for (int i = 0; i < cnt; i++) {
+                res.add((R) marshaller.readObject(reader, null));
+            }
+        } catch (MarshallerException e) {
+            throw new IgniteClientException(e.getMessage(), e);
+        }
+
+        return res;
     }
 
     private R readValRec(@NotNull R keyRec, ClientSchema inSchema, ClientMessageUnpacker in) {
