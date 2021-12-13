@@ -319,7 +319,7 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
             if (project.e instanceof RexInputRef) {
                 targets.compute(((RexSlot) project.e).getIndex(), (k, v) -> {
                             if (v == null) {
-                                return new IntArrayList(Collections.singleton(project.i));
+                                return IntArrayList.of(project.i);
                             } else {
                                 v.add(project.i);
 
