@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -29,6 +30,7 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
+import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallerUtil;
 import org.apache.ignite.table.InvokeProcessor;
@@ -84,8 +86,13 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public Collection<R> getAll(@NotNull Collection<R> keyRecs) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(keyRecs);
+
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET_ALL,
+                (schema, out) -> writeRecs(keyRecs, schema, out, TuplePart.KEY),
+                (inSchema, in) -> readValRec(keyRec, inSchema, in),
+                Collections.emptyList());
     }
 
     /** {@inheritDoc} */
@@ -328,8 +335,28 @@ public class ClientRecordView<R> implements RecordView<R> {
         out.packIgniteUuid(tbl.tableId());
         out.packInt(schema.version());
 
+        Marshaller marshaller = schema.getMarshaller(recMapper, part);
+        ClientMarshallerWriter writer = new ClientMarshallerWriter(out);
+
         try {
-            schema.getMarshaller(recMapper, part).writeObject(rec, new ClientMarshallerWriter(out));
+            marshaller.writeObject(rec, writer);
+        } catch (MarshallerException e) {
+            throw new IgniteClientException(e.getMessage(), e);
+        }
+    }
+
+    private void writeRecs(@NotNull Collection<R> recs, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+        out.packIgniteUuid(tbl.tableId());
+        out.packInt(schema.version());
+        out.packInt(recs.size());
+
+        Marshaller marshaller = schema.getMarshaller(recMapper, part);
+        ClientMarshallerWriter writer = new ClientMarshallerWriter(out);
+
+        try {
+            for (R rec : recs) {
+                marshaller.writeObject(rec, writer);
+            }
         } catch (MarshallerException e) {
             throw new IgniteClientException(e.getMessage(), e);
         }
@@ -340,10 +367,15 @@ public class ClientRecordView<R> implements RecordView<R> {
             return keyRec;
         }
 
-        try {
-            var res = (R) inSchema.getMarshaller(recMapper, TuplePart.VAL).readObject(new ClientMarshallerReader(in), null);
+        Marshaller keyMarshaller = inSchema.getMarshaller(recMapper, TuplePart.KEY);
+        Marshaller valMarshaller = inSchema.getMarshaller(recMapper, TuplePart.VAL);
 
-            inSchema.getMarshaller(recMapper, TuplePart.KEY).copyObject(keyRec, res);
+        ClientMarshallerReader reader = new ClientMarshallerReader(in);
+
+        try {
+            var res = (R) valMarshaller.readObject(reader, null);
+
+            keyMarshaller.copyObject(keyRec, res);
 
             return res;
         } catch (MarshallerException e) {
