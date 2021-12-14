@@ -53,6 +53,7 @@ import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.index.IndexDefinition;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -119,7 +120,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * Before each.
      */
     @BeforeEach
-    void beforeEach(TestInfo testInfo) throws Exception {
+    void beforeEach(TestInfo testInfo) {
         String metastorageNodeName = IgniteTestUtils.testNodeName(testInfo, 0);
 
         clusterNodes = IntStream.range(0, nodesBootstrapCfg.size()).mapToObj(value -> {
@@ -206,6 +207,98 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         });
 
         assertNotNull(createTblIfNotExistsFut.get(10, TimeUnit.SECONDS));
+    }
+
+    /**
+     * Test scenario when we have lagged node, and tables with the same name are created, deleted and created again.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testGetTableFromLaggedNode() throws Exception {
+        clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
+
+        Ignite ignite0 = clusterNodes.get(0);
+
+        Ignite ignite1 = clusterNodes.get(1);
+
+        WatchListenerInhibitor ignite1Inhibitor = metastorageEventsInhibitor(ignite1);
+
+        ignite1Inhibitor.startInhibit();
+
+        Table tbl = createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
+
+        Tuple tableKey = Tuple.create()
+                .set("key", 123L);
+
+        Tuple value = Tuple.create()
+                .set("valInt", 1234)
+                .set("valStr", "some string row");
+
+        tbl.keyValueView().put(tableKey, value);
+
+        assertEquals(value, tbl.keyValueView().get(tableKey));
+
+        ignite0.tables().dropTable(TABLE_NAME);
+
+        tbl = createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
+
+        Tuple otherValue = Tuple.create()
+                .set("valInt", 12345)
+                .set("valStr", "some other string row");
+
+        tbl.keyValueView().put(tableKey, otherValue);
+
+        assertEquals(otherValue, tbl.keyValueView().get(tableKey));
+
+        ignite1Inhibitor.stopInhibit();
+
+        assertEquals(otherValue, ignite1.tables().table(TABLE_NAME).keyValueView().get(tableKey));
+    }
+
+    /**
+     * Test scenario when we have lagged node, and tables with the same name are deleted and created again.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testGetTableFromLaggedNode2() throws Exception {
+        clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
+
+        Ignite ignite0 = clusterNodes.get(0);
+
+        Ignite ignite1 = clusterNodes.get(1);
+
+        Table tbl = createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
+
+        Tuple tableKey = Tuple.create()
+                .set("key", 123L);
+
+        Tuple value = Tuple.create()
+                .set("valInt", 1234)
+                .set("valStr", "some string row");
+
+        tbl.keyValueView().put(tableKey, value);
+
+        assertEquals(value, tbl.keyValueView().get(tableKey));
+
+        assertEquals(value, ignite1.tables().table(TABLE_NAME).keyValueView().get(tableKey));
+
+        WatchListenerInhibitor ignite1Inhibitor = metastorageEventsInhibitor(ignite1);
+
+        ignite1Inhibitor.startInhibit();
+
+        Tuple otherValue = Tuple.create()
+                .set("valInt", 12345)
+                .set("valStr", "some other string row");
+
+        tbl.keyValueView().put(tableKey, otherValue);
+
+        assertEquals(otherValue, tbl.keyValueView().get(tableKey));
+
+        ignite1Inhibitor.stopInhibit();
+
+        assertEquals(otherValue, ignite1.tables().table(TABLE_NAME).keyValueView().get(tableKey));
     }
 
     /**
@@ -427,7 +520,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         return node.tables().createTable(
                 schemaName + "." + shortTableName,
                 tblCh -> convert(SchemaBuilders.tableBuilder(schemaName, shortTableName).columns(
-                    cols).withPrimaryKey("key").build(), tblCh).changeReplicas(2).changePartitions(10)
+                    cols).withPrimaryKey("key").build(), tblCh).changeReplicas(3).changePartitions(10)
         );
     }
 
@@ -447,7 +540,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
                         SchemaBuilders.column("valStr", ColumnType.string())
                                 .withDefaultValueExpression("default").build()
                         )).withPrimaryKey("key").build(),
-                        tblCh).changeReplicas(2).changePartitions(10)
+                        tblCh).changeReplicas(3).changePartitions(10)
         );
     }
 

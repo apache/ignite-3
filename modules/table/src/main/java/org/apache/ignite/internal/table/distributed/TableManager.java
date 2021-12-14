@@ -1089,7 +1089,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return tableAsync(name, true);
+            return (CompletableFuture<Table>) tableAsync(name, true);
         } finally {
             busyLock.leaveBusy();
         }
@@ -1114,52 +1114,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param checkConfiguration True when the method checks a configuration before tries to get a table, false otherwise.
      * @return A table or {@code null} if table does not exist.
      */
-    private CompletableFuture<Table> tableAsync(String name, boolean checkConfiguration) {
+    private CompletableFuture<? extends Table> tableAsync(String name, boolean checkConfiguration) {
         if (checkConfiguration && !isTableConfigured(name)) {
             return CompletableFuture.completedFuture(null);
         }
 
-        Table tbl = tables.get(name);
+        ExtendedTableView view = (ExtendedTableView) ConfigurationUtil.directValue(tablesCfg.tables()).get(name);
 
-        if (tbl != null) {
-            return CompletableFuture.completedFuture(tbl);
-        }
-
-        CompletableFuture<Table> getTblFut = new CompletableFuture<>();
-
-        EventListener<TableEventParameters> clo = new EventListener<>() {
-            @Override
-            public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                IgniteUuid tableId = parameters.tableId();
-
-                if (!tableId.equals(getTableIdByName(name))) {
-                    return false;
-                }
-
-                if (e == null) {
-                    getTblFut.complete(parameters.table());
-                } else {
-                    getTblFut.completeExceptionally(e);
-                }
-
-                return true;
-            }
-
-            @Override
-            public void remove(@NotNull Throwable e) {
-                getTblFut.completeExceptionally(e);
-            }
-        };
-
-        listen(TableEvent.CREATE, clo);
-
-        tbl = tables.get(name);
-
-        if (tbl != null && getTblFut.complete(tbl) || !isTableConfigured(name) && getTblFut.complete(null)) {
-            removeListener(TableEvent.CREATE, clo, null);
-        }
-
-        return getTblFut;
+        return tableAsyncInternal(IgniteUuid.fromString(view.id()));
     }
 
     /**
