@@ -277,8 +277,7 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public R getAndDelete(@NotNull R keyRec) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return getAndDeleteAsync(keyRec).join();
     }
 
     /** {@inheritDoc} */

@@ -419,6 +419,21 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     }
 
     @Test
+    public void testGetAndDelete() {
+        RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
+
+        pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
+
+        PersonPojo res1 = pojoView.getAndDelete(new PersonPojo(DEFAULT_ID));
+        PersonPojo res2 = pojoView.getAndDelete(new PersonPojo(100L));
+
+        assertEquals(DEFAULT_NAME, res1.name);
+        assertNull(pojoView.get(new PersonPojo(DEFAULT_ID)));
+
+        assertNull(res2);
+    }
+
+    @Test
     public void testDeleteAll() {
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
