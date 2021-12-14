@@ -34,7 +34,7 @@ import org.jetbrains.annotations.NotNull;
  * in one-to-one manner using {@link #map} and/or {@link #map(String, String, TypeConverter)} methods, all missed columns and/or fields
  * become unmapped, and will be ignored during further table operations.
  *
- * <p>Calling {@link #automap()} method changes default behavior, and maps all the missed fields to the
+ * <p>Calling {@link #automap()} method maps all matching fields to columns by name. Any fields that don't match a column by name are ignored.
  * columns, which names are match. A field or a column pair for which wasn't found will be ignored.
  *
  * <p>TBD: add some code examples.
