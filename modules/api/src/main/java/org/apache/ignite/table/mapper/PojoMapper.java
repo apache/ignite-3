@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface PojoMapper<T> extends Mapper<T> {
     /**
-     * Return a field name for given column name when POJO individual fields are mapped to columns, otherwise fails.
+     * Returns a field name for a given column name when POJO individual fields are mapped to columns, otherwise fails.
      *
      * @param columnName Column name.
      * @return Field name or {@code null} if no field mapped to a column.
