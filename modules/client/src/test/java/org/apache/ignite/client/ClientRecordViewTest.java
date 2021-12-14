@@ -261,7 +261,17 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
     @Test
     public void testGetAllPrimitive() {
-        // TODO
+        Table table = oneColumnTable();
+        RecordView<String> primitiveView = table.recordView(Mapper.of(String.class));
+
+        primitiveView.upsert("a");
+        primitiveView.upsert("c");
+
+        String[] res = primitiveView.getAll(List.of("a", "b", "c")).toArray(new String[0]);
+
+        assertEquals("a", res[0]);
+        assertNull(res[1]);
+        assertEquals("c", res[2]);
     }
 
     private static class PersonPojo {
