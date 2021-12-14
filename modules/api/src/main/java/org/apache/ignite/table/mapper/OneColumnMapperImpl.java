@@ -17,6 +17,7 @@
 
 package org.apache.ignite.table.mapper;
 
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -34,7 +35,7 @@ class OneColumnMapperImpl<ObjectT> implements OneColumnMapper<ObjectT> {
     /** Converter. */
     private final TypeConverter<ObjectT, ?> converter;
 
-    OneColumnMapperImpl(Class<ObjectT> targetType, String mappedColumn, TypeConverter<ObjectT, ?> converter) {
+    OneColumnMapperImpl(@NotNull Class<ObjectT> targetType, @Nullable String mappedColumn, @Nullable TypeConverter<ObjectT, ?> converter) {
         this.targetType = targetType;
         this.mappedColumn = mappedColumn;
         this.converter = converter;
