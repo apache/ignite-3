@@ -246,13 +246,13 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public Collection<R> deleteAll(@NotNull Collection<R> recs) {
-        return sync(deleteAllAsync(recs));
+    public Collection<R> deleteAll(@NotNull Collection<R> keyRecs) {
+        return sync(deleteAllAsync(keyRecs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@NotNull Collection<R> recs) {
+    public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@NotNull Collection<R> keyRecs) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 

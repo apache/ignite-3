@@ -294,14 +294,14 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<R> deleteAll(@NotNull Collection<R> recs) {
+    public Collection<R> deleteAll(@NotNull Collection<R> keyRecs) {
         // TODO: Implement all operations (IGNITE-16087).
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@NotNull Collection<R> recs) {
+    public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@NotNull Collection<R> keyRecs) {
         // TODO: Implement all operations (IGNITE-16087).
         throw new UnsupportedOperationException("Not implemented yet.");
     }

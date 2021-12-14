@@ -277,16 +277,16 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Tuple> deleteAll(@NotNull Collection<Tuple> recs) {
-        return sync(deleteAllAsync(recs));
+    public Collection<Tuple> deleteAll(@NotNull Collection<Tuple> keyRecs) {
+        return sync(deleteAllAsync(keyRecs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<Tuple>> deleteAllAsync(@NotNull Collection<Tuple> recs) {
-        Objects.requireNonNull(recs);
+    public @NotNull CompletableFuture<Collection<Tuple>> deleteAllAsync(@NotNull Collection<Tuple> keyRecs) {
+        Objects.requireNonNull(keyRecs);
 
-        return tbl.deleteAll(mapToBinary(recs, true), tx).thenApply(this::wrap);
+        return tbl.deleteAll(mapToBinary(keyRecs, true), tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */

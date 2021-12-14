@@ -246,18 +246,18 @@ public interface RecordView<R> {
     /**
      * Remove records with the same key columns values as the given one has from the table.
      *
-     * @param recs Records with key columns set. The records cannot be {@code null}.
+     * @param keyRecs Records with key columns set. The records cannot be {@code null}.
      * @return Records with key columns set that did not exist.
      */
-    Collection<R> deleteAll(@NotNull Collection<R> recs);
+    Collection<R> deleteAll(@NotNull Collection<R> keyRecs);
 
     /**
      * Asynchronously remove records with the same key columns values as the given one has from the table.
      *
-     * @param recs Records with key columns set. The records cannot be {@code null}.
+     * @param keyRecs Records with key columns set. The records cannot be {@code null}.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@NotNull Collection<R> recs);
+    @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@NotNull Collection<R> keyRecs);
 
     /**
      * Remove given records from the table.
