@@ -253,18 +253,18 @@ public class Example {
         }
 
         KeyValueView<OrderKey, OrderValue> orderKvView = t
-                .keyValueView(
-                        Mapper.of(OrderKey.class, "key"),
-                        Mapper.builder(OrderValue.class)
-                                /*.map("billingDetails", (row) -> {
-                                    BinaryObject binObj = row.binaryObjectValue("conditionalDetails");
-                                    int type = row.intValue("type");
+                                                                 .keyValueView(
+                                                                         Mapper.of(OrderKey.class, "key"),
+                                                                         Mapper.builder(OrderValue.class)
+                                                                                 /*.map("billingDetails", (row) -> {
+                                                                                     BinaryObject binObj = row.binaryObjectValue("conditionalDetails");
+                                                                                     int type = row.intValue("type");
 
-                                    return type == 0
-                                            ? BinaryObjects.deserialize(binObj, CreditCard.class)
-                                            : BinaryObjects.deserialize(binObj, BankAccount.class);
-                                })*/
-                                .build());
+                                                                                     return type == 0
+                                                                                             ? BinaryObjects.deserialize(binObj, CreditCard.class)
+                                                                                             : BinaryObjects.deserialize(binObj, BankAccount.class);
+                                                                                 })*/
+                                                                                 .build());
 
         OrderValue ov = orderKvView.get(new OrderKey(1, 1));
 
@@ -300,8 +300,8 @@ public class Example {
 
         // Manual deserialization is possible as well.
         Object billingDetails = orderRecord.type == 0
-                ? BinaryObjects.deserialize(binObj, CreditCard.class)
-                : BinaryObjects.deserialize(binObj, BankAccount.class);
+                                        ? BinaryObjects.deserialize(binObj, CreditCard.class)
+                                        : BinaryObjects.deserialize(binObj, BankAccount.class);
     }
 
     /**
@@ -382,7 +382,7 @@ public class Example {
 
         RecordView<TruncatedRecord> truncatedView = t.recordView(
                 Mapper.builder(TruncatedRecord.class)
-                        .convert(serializer, "upgradedObject")
+                        .convert("upgradedObject", serializer)
                         .map("updradedObject", "updradedObject")
                         .build());
 
@@ -540,7 +540,7 @@ public class Example {
         Mapper.builder(Employee.class)
                 //TODO: Will it be useful to set a bunch of columns that will use same converter (serializer) ???
                 // if so, then conflicts with the right next case.
-                .convert(marsh, "colData")
+                .convert("colData", marsh)
                 .map("fieldData", "colData")
                 .build();
         // OR another way to do the same
@@ -556,7 +556,7 @@ public class Example {
         KeyValueView<Long, Employee2> v2 = t.keyValueView(
                 Mapper.of(Long.class),
                 Mapper.builder(Employee2.class)
-                        .convert(marsh, "colData")
+                        .convert("colData", marsh)
                         .map("fieldData", "colData")
                         .build()
         );
@@ -668,33 +668,29 @@ public class Example {
         }
 
         RecordView<UserRecord> truncatedView2 = t.recordView(
-                Mapper.builder(UserRecord.class)
+                Mapper.of(
                         // Next two functions of compatible interfaces parametrized with compatible generic types.
-                        // TODO: Do we require top-level class with a certain interface here ???
-                        .map(
-                                (obj) -> obj == null
-                                        ? null
-                                        : Tuple.create(Map.of(
-                                                "colPerson", BinaryObjects.serialize(obj),
-                                                "colDepartment", (obj.person instanceof EmploeeV2) ? 1 : 0
-                                        )),
+                        (obj) -> obj == null
+                                         ? null
+                                         : Tuple.create(Map.of(
+                                                 "colPerson", BinaryObjects.serialize(obj),
+                                                 "colDepartment", (obj.person instanceof EmploeeV2) ? 1 : 0
+                                         )),
 
-                                (row) -> {
-                                    if (row == null) {
-                                        return null;
-                                    }
+                        (row) -> {
+                            if (row == null) {
+                                return null;
+                            }
 
-                                    UserRecord rec = new UserRecord();
-                                    int dep = row.intValue("colDepartment");
+                            UserRecord rec = new UserRecord();
+                            int dep = row.intValue("colDepartment");
 
-                                    rec.department = dep;
-                                    rec.person = dep == 0 ? BinaryObjects.deserialize(row.binaryObjectValue("colPerson"), Emploee.class)
-                                            : BinaryObjects.deserialize(row.binaryObjectValue("colPerson"), EmploeeV2.class);
+                            rec.department = dep;
+                            rec.person = dep == 0 ? BinaryObjects.deserialize(row.binaryObjectValue("colPerson"), Emploee.class)
+                                                 : BinaryObjects.deserialize(row.binaryObjectValue("colPerson"), EmploeeV2.class);
 
-                                    return rec;
-                                })
-                        .build());
-
+                            return rec;
+                        })
+        );
     }
-
 }

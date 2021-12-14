@@ -261,8 +261,8 @@ public class MapperTest {
         // Duplicate converters.
         assertThrows(IllegalArgumentException.class, () -> Mapper.builder(TestObject.class)
                                                                    .map("id", "key")
-                                                                   .convert(new TestConverter(), "val1")
-                                                                   .convert(new TestConverter(), "val1")
+                                                                   .convert("val1", new TestConverter())
+                                                                   .convert("val1", new TestConverter())
         );
 
         MapperBuilder<TestObject> usedBuilder = Mapper.builder(TestObject.class).map("id", "key");
@@ -315,7 +315,7 @@ public class MapperTest {
         // Converter call order
         {
             PojoMapper<TestObject> mapper = (PojoMapper<TestObject>) Mapper.builder(TestObject.class)
-                                                                             .map("id", "col1").convert(new TestConverter(), "col1")
+                                                                             .map("id", "col1").convert("col1", new TestConverter())
                                                                              .build();
 
             assertEquals("id", mapper.fieldForColumn("col1"));
@@ -328,7 +328,7 @@ public class MapperTest {
         // Converter call order
         {
             PojoMapper<TestObject> mapper = (PojoMapper<TestObject>) Mapper.builder(TestObject.class)
-                                                                             .convert(new TestConverter(), "col1")
+                                                                             .convert("col1", new TestConverter())
                                                                              .map("id", "col1").build();
 
             assertEquals("id", mapper.fieldForColumn("col1"));
@@ -340,7 +340,7 @@ public class MapperTest {
 
         {
             PojoMapper<TestObject> mapper = (PojoMapper<TestObject>) Mapper.builder(TestObject.class)
-                                                                             .convert(new TestConverter(), "col2")
+                                                                             .convert("col2", new TestConverter())
                                                                              .map("id", "col1", new TestConverter()).build();
 
             assertEquals("id", mapper.fieldForColumn("col1"));
@@ -369,7 +369,7 @@ public class MapperTest {
         // Converter with automap
         {
             PojoMapper<TestObject> mapper = (PojoMapper<TestObject>) Mapper.builder(TestObject.class)
-                                                                             .convert(new TestConverter(), "col1").automap().build();
+                                                                             .convert("col1", new TestConverter()).automap().build();
 
             assertEquals("id", mapper.fieldForColumn("id"));
             assertNotNull(mapper.converterForColumn("col1"));

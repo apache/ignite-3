@@ -25,6 +25,9 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
+import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Mapper interface defines methods that are required for a marshaller to map class field names to table columns.
@@ -50,7 +53,7 @@ public interface Mapper<T> {
      * @return Mapper for key objects representing a single key column.
      * @throws IllegalArgumentException If {@code type} is of unsupported kind.
      */
-    static <O> Mapper<O> of(Class<O> type) {
+    static <O> Mapper<O> of(@NotNull Class<O> type) {
         if (nativelySupported(type)) {
             // TODO: Cache mappers (IGNITE-16094).
             return new OneColumnMapperImpl<>(type, null, null);
@@ -69,7 +72,7 @@ public interface Mapper<T> {
      * @return Mapper for objects representing a one column.
      * @throws IllegalArgumentException If {@code type} is of unsupported kind.
      */
-    static <O> Mapper<O> of(Class<O> type, String columnName) {
+    static <O> Mapper<O> of(@NotNull Class<O> type, @NotNull String columnName) {
         return new OneColumnMapperImpl<>(ensureNativelySupported(type), columnName, null);
     }
 
@@ -85,7 +88,11 @@ public interface Mapper<T> {
      * @return Mapper for objects representing a one column.
      * @throws IllegalArgumentException If {@code type} is of unsupported kind.
      */
-    static <ObjectT, ColumnT> Mapper<ObjectT> of(Class<ObjectT> type, String columnName, TypeConverter<ObjectT, ColumnT> converter) {
+    static <ObjectT, ColumnT> Mapper<ObjectT> of(
+            @NotNull Class<ObjectT> type,
+            @NotNull String columnName,
+            @NotNull TypeConverter<ObjectT, ColumnT> converter
+    ) {
         return new OneColumnMapperImpl<>(Objects.requireNonNull(type), Objects.requireNonNull(columnName),
                 Objects.requireNonNull(converter));
     }
@@ -103,13 +110,24 @@ public interface Mapper<T> {
      * @throws IllegalArgumentException If a field name has not paired column name in {@code fieldColumnPairs}, or {@code type} is of
      *                                  unsupported kind.
      */
-    static <O> Mapper<O> of(Class<O> type, String fieldName, String columnName, String... fieldColumnPairs) {
+    static <O> Mapper<O> of(@NotNull Class<O> type, @NotNull String fieldName, @NotNull String columnName, String... fieldColumnPairs) {
         if (fieldColumnPairs.length % 2 != 0) {
             throw new IllegalArgumentException(
                     "Missed a column name, which the field is mapped to: " + fieldColumnPairs[fieldColumnPairs.length - 1]);
         }
 
         return builder(type).map(Objects.requireNonNull(fieldName), Objects.requireNonNull(columnName), fieldColumnPairs).build();
+    }
+
+    /**
+     * Adds a manual functional mapping for an object and row represented by tuple.
+     *
+     * @param objectToRow Object to tuple function.
+     * @param rowToObject Tuple to object function.
+     * @return {@code this} for chaining.
+     */
+    static <O> Mapper<O> of(Function<O, Tuple> objectToRow, Function<Tuple, O> rowToObject) {
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**
@@ -121,7 +139,7 @@ public interface Mapper<T> {
      * @return Mapper builder.
      * @throws IllegalArgumentException If {@code type} is of unsupported kind.
      */
-    static <O> MapperBuilder<O> builder(Class<O> type) {
+    static <O> MapperBuilder<O> builder(@NotNull Class<O> type) {
         if (nativelySupported(type)) {
             return new MapperBuilder<>(type, null);
         } else {
@@ -136,7 +154,7 @@ public interface Mapper<T> {
      * @return {@code type} if it is of natively supported kind.
      * @throws IllegalArgumentException If {@code type} is invalid and can't be used in one-column mapping.
      */
-    static <O> Class<O> ensureNativelySupported(Class<O> type) {
+    static <O> Class<O> ensureNativelySupported(@NotNull Class<O> type) {
         if (nativelySupported(type)) {
             return type;
         }
@@ -151,7 +169,7 @@ public interface Mapper<T> {
      * @return {@code type} if it is valid POJO.
      * @throws IllegalArgumentException If {@code type} can't be used as POJO for mapping and/or of invalid kind.
      */
-    static <O> Class<O> ensureValidPojo(Class<O> type) {
+    static <O> Class<O> ensureValidPojo(@NotNull Class<O> type) {
         Objects.requireNonNull(type);
 
         if (nativelySupported(type) || type.isAnonymousClass() || type.isLocalClass() || type.isSynthetic() || type.isPrimitive()

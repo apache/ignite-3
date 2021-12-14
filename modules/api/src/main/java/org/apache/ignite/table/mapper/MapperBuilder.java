@@ -23,8 +23,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
-import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -34,7 +32,8 @@ import org.jetbrains.annotations.NotNull;
  * in one-to-one manner using {@link #map} and/or {@link #map(String, String, TypeConverter)} methods, all missed columns and/or fields
  * become unmapped, and will be ignored during further table operations.
  *
- * <p>Calling {@link #automap()} method maps all matching fields to columns by name. Any fields that don't match a column by name are ignored.
+ * <p>Calling {@link #automap()} method maps all matching fields to columns by name. Any fields that don't match a column by name are
+ * ignored.
  * columns, which names are match. A field or a column pair for which wasn't found will be ignored.
  *
  * <p>TBD: add some code examples.
@@ -165,36 +164,20 @@ public final class MapperBuilder<T> {
             @NotNull TypeConverter<ObjectT, ColumnT> converter
     ) {
         map(fieldName, columnName);
-        convert(converter, columnName);
+        convert(columnName, converter);
 
         return this;
     }
 
     /**
-     * Adds a manual functional mapping for an object and row represented by tuple.
-     *
-     * @param objectToRow Object to tuple function.
-     * @param rowToObject Tuple to object function.
-     * @return {@code this} for chaining.
-     */
-    public MapperBuilder<T> map(Function<T, Tuple> objectToRow, Function<Tuple, T> rowToObject) {
-        ensureNotStale();
-
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /**
      * Sets a converter for a column, which value must be converted before write/after read.
      *
-     * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
-     * @param columnName Column name.
      * @param <ObjectT>  Value type. Must match the object field type, if a field mapped to given column, or the object type {@link T}
      * @param <ColumnT>  Column type.
+     * @param columnName Column name.
+     * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
      */
-    public <ObjectT, ColumnT> MapperBuilder<T> convert(
-            @NotNull TypeConverter<ObjectT, ColumnT> converter,
-            @NotNull String columnName
-    ) {
+    public <ObjectT, ColumnT> MapperBuilder<T> convert(@NotNull String columnName, @NotNull TypeConverter<ObjectT, ColumnT> converter) {
         ensureNotStale();
 
         if (columnConverters.put(columnName, converter) != null) {
@@ -205,8 +188,8 @@ public final class MapperBuilder<T> {
     }
 
     /**
-     * Maps all matching fields to columns by name. Any fields that don't match a column by name are ignored.
-     * then left the column unmapped.
+     * Maps all matching fields to columns by name. Any fields that don't match a column by name are ignored. then left the column
+     * unmapped.
      *
      * @return {@code this} for chaining.
      */
