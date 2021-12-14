@@ -368,6 +368,22 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals("new_name2", pojoView.get(new PersonPojo(DEFAULT_ID)).name);
     }
 
+    @Test
+    public void testGetAndReplace() {
+        RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
+
+        pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
+
+        PersonPojo res1 = pojoView.getAndReplace(new PersonPojo(DEFAULT_ID, "new_name"));
+        PersonPojo res2 = pojoView.getAndReplace(new PersonPojo(100L, "name"));
+
+        assertEquals(DEFAULT_NAME, res1.name);
+        assertEquals("new_name", pojoView.get(new PersonPojo(DEFAULT_ID)).name);
+
+        assertNull(res2);
+        assertNull(pojoView.get(new PersonPojo(100L)));
+    }
+
     private static class PersonPojo {
         public long id;
 

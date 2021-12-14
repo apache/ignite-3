@@ -226,15 +226,18 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public R getAndReplace(@NotNull R rec) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return getAndReplaceAsync(rec).join();
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<R> getAndReplaceAsync(@NotNull R rec) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(rec);
+
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET_AND_REPLACE,
+                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                (s, r) -> readValRec(rec, s, r));
     }
 
     /** {@inheritDoc} */
@@ -311,21 +314,18 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public <T extends Serializable> T invoke(@NotNull R keyRec, InvokeProcessor<R, R, T> proc) {
-        // TODO: Implement all operations (IGNITE-16087).
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(@NotNull R keyRec, InvokeProcessor<R, R, T> proc) {
-        // TODO: Implement all operations (IGNITE-16087).
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public <T extends Serializable> Map<R, T> invokeAll(@NotNull Collection<R> keyRecs, InvokeProcessor<R, R, T> proc) {
-        // TODO: Implement all operations (IGNITE-16087).
         throw new UnsupportedOperationException();
     }
 
@@ -333,7 +333,6 @@ public class ClientRecordView<R> implements RecordView<R> {
     @Override
     public @NotNull <T extends Serializable> CompletableFuture<Map<R, T>> invokeAllAsync(@NotNull Collection<R> keyRecs,
             InvokeProcessor<R, R, T> proc) {
-        // TODO: Implement all operations (IGNITE-16087).
         throw new UnsupportedOperationException();
     }
 
