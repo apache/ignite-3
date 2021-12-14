@@ -205,7 +205,7 @@ public final class MapperBuilder<T> {
     /**
      * Sets a converter for a column, which value must be converted before write/after read.
      *
-     * @param <ObjectT>  Value type. Must match the object field type, if a field mapped to given column, or the object type {@link T}
+     * @param <ObjectT>  Value type. Must match either the object field type if a field mapped to given column, or the object type {@link T}
      * @param <ColumnT>  Column type.
      * @param columnName Column name.
      * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
@@ -221,8 +221,7 @@ public final class MapperBuilder<T> {
     }
 
     /**
-     * Maps all matching fields to columns by name. Any fields that don't match a column by name are ignored. then left the column
-     * unmapped.
+     * Maps all matching fields to columns by name. Any fields that don't match a column by name are ignored.
      *
      * @return {@code this} for chaining.
      */
