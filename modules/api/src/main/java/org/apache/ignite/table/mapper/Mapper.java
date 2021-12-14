@@ -17,19 +17,22 @@
 
 package org.apache.ignite.table.mapper;
 
-import java.lang.reflect.Modifier;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
+import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Mapper interface defines methods that are required for a marshaller to map class field names to table columns.
  *
- * <p>NB: Anonymous, local, inner classes, and special types are NOT supported, and mapper will not be created for them: e.g. interfaces,
- * annotation, and so on.
+ * <p>NB: Only natively supported types, top-level POJOs or static nested classes are supported. Anonymous, local, inner classes,
+ * interfaces, annotation, and so on, causes an exception.
  *
  * @param <T> Type of which objects the mapper handles.
  * @apiNote Implementation shouldn't use this interface directly, please, use {@link PojoMapper} or {@link OneColumnMapper}
@@ -39,53 +42,58 @@ import java.util.UUID;
  */
 public interface Mapper<T> {
     /**
-     * Shortcut method creates a mapper for class. Natively supported types will be mapped to a single schema column, otherwise individual
+     * Creates a mapper for the specified class. Natively supported types will be mapped to a single schema column, otherwise individual
      * object fields will be mapped to columns with the same name.
      *
-     * <p>Note: Natively supported types can be mapped to a single key/value column, otherwise table operation will ends up with exception.
-     * Use {@link #of(Class, String)} instead, to map to a concrete column name.
+     * <p>Note: Natively supported types can be mapped only to a single key/value column. If table may have more than one column, then
+     * table operation will fail with exception. Use {@link #of(Class, String)} instead, to map to a concrete column name.
      *
-     * @param cls Target type.
+     * @param type Target type.
      * @return Mapper for key objects representing a single key column.
-     * @throws IllegalArgumentException If {@code cls} is of unsupported kind.
+     * @throws IllegalArgumentException If {@code type} is of unsupported kind.
      */
-    static <O> Mapper<O> of(Class<O> cls) {
-        if (nativelySupported(cls)) {
+    static <O> Mapper<O> of(@NotNull Class<O> type) {
+        if (nativelySupported(type)) {
             // TODO: Cache mappers (IGNITE-16094).
-            return new OneColumnMapperImpl<>(cls, null, null);
+            return new OneColumnMapperImpl<>(type, null, null);
         } else {
-            return builder(cls).automap().build();
+            return builder(type).automap().build();
         }
     }
 
     /**
-     * Creates a mapper for the case when an object represents an only one-column.
+     * Creates a mapper for the case when an object represents only one column.
      *
-     * <p>The mapper can be used as key, value, or record mapper. However, single column record looks as degraded case.
+     * <p>The mapper can be used as a key, value, or record mapper. However, a single-column record looks like a degraded case.
      *
-     * @param cls        Parametrized type of which objects the mapper will handle.
+     * @param type       Parametrized type of which objects the mapper will handle.
      * @param columnName Column name to map object to.
      * @return Mapper for objects representing a one column.
-     * @throws IllegalArgumentException If {@code cls} is of unsupported kind.
+     * @throws IllegalArgumentException If {@code type} is of unsupported kind.
      */
-    static <O> Mapper<O> of(Class<O> cls, String columnName) {
-        return new OneColumnMapperImpl<>(ensureNativelySupported(cls), columnName, null);
+    static <O> Mapper<O> of(@NotNull Class<O> type, @NotNull String columnName) {
+        return new OneColumnMapperImpl<>(ensureNativelySupported(type), columnName, null);
     }
 
     /**
-     * Creates a mapper for the case when an object represents an only one-column and additional transformation is required.
+     * Creates a mapper for the case when an object represents only one column and additional transformation is required.
      *
      * <p>The mapper can be used as key, value, or record mapper. However, single column record looks as degraded case.
      *
-     * @param cls        Parametrized type of which objects the mapper will handle.
+     * @param type       Parametrized type of which objects the mapper will handle.
      * @param columnName Column name to map object to.
      * @param <ObjectT>  Mapper target type.
      * @param <ColumnT>  MUST be a type, which compatible with the column type.
      * @return Mapper for objects representing a one column.
-     * @throws IllegalArgumentException If {@code cls} is of unsupported kind.
+     * @throws IllegalArgumentException If {@code type} is of unsupported kind.
      */
-    static <ObjectT, ColumnT> Mapper<ObjectT> of(Class<ObjectT> cls, String columnName, TypeConverter<ObjectT, ColumnT> converter) {
-        return new OneColumnMapperImpl<>(cls, columnName, converter);
+    static <ObjectT, ColumnT> Mapper<ObjectT> of(
+            @NotNull Class<ObjectT> type,
+            @NotNull String columnName,
+            @NotNull TypeConverter<ObjectT, ColumnT> converter
+    ) {
+        return new OneColumnMapperImpl<>(Objects.requireNonNull(type), Objects.requireNonNull(columnName),
+                Objects.requireNonNull(converter));
     }
 
     /**
@@ -93,21 +101,33 @@ public interface Mapper<T> {
      *
      * <p>The mapper can be used as key, value, or record mapper.
      *
-     * @param cls              Parametrized type of which objects the mapper will handle.
+     * @param type             Parametrized type of which objects the mapper will handle.
      * @param fieldName        Object field name.
      * @param columnName       Column name.
      * @param fieldColumnPairs Vararg that accepts (fieldName, columnName) pairs.
      * @return Mapper .
-     * @throws IllegalArgumentException If a field name has not paired column name in {@code fieldColumnPairs}, or {@code cls} is of
+     * @throws IllegalArgumentException If a field name has not paired column name in {@code fieldColumnPairs}, or {@code type} is of
      *                                  unsupported kind.
      */
-    static <O> Mapper<O> of(Class<O> cls, String fieldName, String columnName, String... fieldColumnPairs) {
+    static <O> Mapper<O> of(@NotNull Class<O> type, @NotNull String fieldName, @NotNull String columnName, String... fieldColumnPairs) {
         if (fieldColumnPairs.length % 2 != 0) {
             throw new IllegalArgumentException(
                     "Missed a column name, which the field is mapped to: " + fieldColumnPairs[fieldColumnPairs.length - 1]);
         }
 
-        return builder(cls).map(fieldName, columnName, fieldColumnPairs).build();
+        return builder(type).map(Objects.requireNonNull(fieldName), Objects.requireNonNull(columnName), fieldColumnPairs).build();
+    }
+
+    /**
+     * Adds a manual functional mapping for an object and row represented by tuple.
+     *
+     * @param objectToRow Object to tuple function.
+     * @param rowToObject Tuple to object function.
+     * @return {@code this} for chaining.
+     */
+    static <O> Mapper<O> of(Function<O, Tuple> objectToRow, Function<Tuple, O> rowToObject) {
+        //TODO: implement custom user mapping https://issues.apache.org/jira/browse/IGNITE-16116
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**
@@ -115,54 +135,31 @@ public interface Mapper<T> {
      *
      * <p>Note: Builder itself can't be reused.
      *
-     * @param cls Parametrized type of which objects the mapper will handle. Class MUST have the default constructor,
+     * @param type Parametrized type of which objects the mapper will handle. Class MUST have the default constructor,
      * @return Mapper builder.
-     * @throws IllegalArgumentException If {@code cls} is of unsupported kind.
+     * @throws IllegalArgumentException If {@code type} is of unsupported kind.
      */
-    static <O> MapperBuilder<O> builder(Class<O> cls) {
-        if (nativelySupported(cls)) {
-            return new MapperBuilder<>(cls, null);
+    static <O> MapperBuilder<O> builder(@NotNull Class<O> type) {
+        if (nativelySupported(type)) {
+            return new MapperBuilder<>(type, null);
         } else {
-            return new MapperBuilder<>(cls);
+            return new MapperBuilder<>(type);
         }
     }
 
     /**
      * Ensures class is of natively supported kind and can be used in one-column mapping.
      *
-     * @param cls Class to validate.
-     * @return {@code cls} if it is of natively supported kind.
-     * @throws IllegalArgumentException If {@code cls} is invalid and can't be used in one-column mapping.
+     * @param type Class to validate.
+     * @return {@code type} if it is of natively supported kind.
+     * @throws IllegalArgumentException If {@code type} is invalid and can't be used in one-column mapping.
      */
-    static <O> Class<O> ensureNativelySupported(Class<O> cls) {
-        if (nativelySupported(cls)) {
-            return cls;
+    static <O> Class<O> ensureNativelySupported(@NotNull Class<O> type) {
+        if (nativelySupported(type)) {
+            return type;
         }
 
-        throw new IllegalArgumentException("Class has no native support (type converter required): " + cls.getName());
-    }
-
-    /**
-     * Ensures class is of the supported kind for POJO mapping.
-     *
-     * @param cls Class to validate.
-     * @return {@code cls} if it is valid POJO.
-     * @throws IllegalArgumentException If {@code cls} can't be used as POJO for mapping and/or of invalid kind.
-     */
-    static <O> Class<O> ensureValidPojo(Class<O> cls) {
-        if (nativelySupported(cls) || cls.isAnonymousClass() || cls.isLocalClass() || cls.isSynthetic() || cls.isPrimitive() || cls.isEnum()
-                    || cls.isArray() || cls.isAnnotation() || (cls.isMemberClass() && !Modifier.isStatic(cls.getModifiers()))
-                    || Modifier.isAbstract(cls.getModifiers())) {
-            throw new IllegalArgumentException("Class is of unsupported kind: " + cls.getName());
-        }
-
-        try {
-            cls.getDeclaredConstructor();
-
-            return cls;
-        } catch (NoSuchMethodException e) {
-            throw new IllegalArgumentException("Class must have default constructor: " + cls.getName());
-        }
+        throw new IllegalArgumentException("Class has no native support (type converter required): " + type.getName());
     }
 
     /**
@@ -171,8 +168,8 @@ public interface Mapper<T> {
      * @param type Class to check.
      * @return {@code True} if given type is supported natively, and can be mapped to a single column.
      */
-    private static boolean nativelySupported(Class<?> type) {
-        return !type.isPrimitive()
+    static boolean nativelySupported(Class<?> type) {
+        return !Objects.requireNonNull(type).isPrimitive()
                        && (String.class == type
                                    || UUID.class == type
                                    || BitSet.class == type

@@ -21,15 +21,15 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Mapper implementation which maps fields of objects of type {@link T} to the columns by their names. Intended to use only with natively
- * supported types.
+ * Mapper implementation which maps fields of objects of type {@link T} to the columns by their names. Every mapped field either must be of
+ * natively supported type, or a converter must be provided.
  *
  * @param <T> Target type.
  * @see OneColumnMapper
  */
 public interface PojoMapper<T> extends Mapper<T> {
     /**
-     * Return a field name for given column name when POJO individual fields are mapped to columns, otherwise fails.
+     * Returns a field name for a given column name when POJO individual fields are mapped to columns, otherwise fails.
      *
      * @param columnName Column name.
      * @return Field name or {@code null} if no field mapped to a column.

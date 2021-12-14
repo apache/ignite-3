@@ -18,24 +18,23 @@
 package org.apache.ignite.table.mapper;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
-import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Mapper builder provides methods for mapping object fields to columns.
  *
- * <p>By default, a user must explicitly map needed fields with columns
+ * <p>By default, the user must explicitly map required fields to columns
  * in one-to-one manner using {@link #map} and/or {@link #map(String, String, TypeConverter)} methods, all missed columns and/or fields
  * become unmapped, and will be ignored during further table operations.
  *
- * <p>Calling {@link #automap()} method changes default behavior, and maps all the missed fields to the
- * columns, which names are match. A field or a column pair for which wasn't found will be ignored.
+ * <p>Calling {@link #automap()} method maps all matching fields to columns by name. Any fields that don't match a column by name are
+ * ignored.
  *
  * <p>TBD: add some code examples.
  *
@@ -68,7 +67,7 @@ public final class MapperBuilder<T> {
      * @param targetType Target type.
      */
     MapperBuilder(@NotNull Class<T> targetType) {
-        this.targetType = Mapper.ensureValidPojo(targetType);
+        this.targetType = ensureValidPojo(targetType);
 
         mappedToColumn = null;
         columnToFields = new HashMap<>(targetType.getDeclaredFields().length);
@@ -85,6 +84,39 @@ public final class MapperBuilder<T> {
 
         mappedToColumn = mappedColumn;
         columnToFields = null;
+    }
+
+    /**
+     * Ensures class is of the supported kind for POJO mapping.
+     *
+     * @param type Class to validate.
+     * @return {@code type} if it is valid POJO.
+     * @throws IllegalArgumentException If {@code type} can't be used as POJO for mapping and/or of invalid kind.
+     */
+    public <O> Class<O> ensureValidPojo(@NotNull Class<O> type) {
+        if (Mapper.nativelySupported(type)) {
+            throw new IllegalArgumentException("Unsupported class. Can't map fields of natively supported type: " + type.getName());
+        } else if (type.isAnonymousClass() || type.isLocalClass() || type.isSynthetic()
+                           || (type.isMemberClass() && !Modifier.isStatic(type.getModifiers()))) {
+            throw new IllegalArgumentException(
+                    "Unsupported class. Only top-level or nested static classes are supported: " + type.getName());
+        } else if (Modifier.isAbstract(type.getModifiers())) {
+            throw new IllegalArgumentException("Unsupported class. Abstract classes are not supported: " + type.getName());
+        } else if (type.isEnum()) {
+            throw new IllegalArgumentException("Unsupported class. Enum is not supported, please use a converter: " + type.getName());
+        } else if (type.isArray()) {
+            throw new IllegalArgumentException("Unsupported class. Arrays are not supported: " + type.getName());
+        } else if (type.isAnnotation() || type.isInterface()) {
+            throw new IllegalArgumentException("Unsupported class. Interfaces are not supported: " + type.getName());
+        }
+
+        try {
+            type.getDeclaredConstructor();
+
+            return type;
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("Class must have default constructor: " + type.getName());
+        }
     }
 
     /**
@@ -135,7 +167,7 @@ public final class MapperBuilder<T> {
         if (columnToFields == null) {
             throw new IllegalArgumentException("Natively supported types doesn't support field mapping.");
         } else if (fieldColumnPairs.length % 2 != 0) {
-            throw new IllegalArgumentException("Missed a column name, which the field is mapped to.");
+            throw new IllegalArgumentException("fieldColumnPairs length should be even.");
         } else if (columnToFields.put(Objects.requireNonNull(columnName), requireValidField(fieldName)) != null) {
             throw new IllegalArgumentException("Mapping for a column already exists: " + columnName);
         }
@@ -153,8 +185,8 @@ public final class MapperBuilder<T> {
      * Maps a field to a column with using type converter. The value will be converted before write to and after read from column using
      * provided converter.
      *
-     * @param <ObjectT>  MUST match the object field type, if the individual field mapped to given column.
-     * @param <ColumnT>  MUST be a type, which compatible with the column type.
+     * @param <ObjectT>  Value type. Must match the object field type if the individual field is mapped to a given column.
+     * @param <ColumnT>  Column type.
      * @param fieldName  Field name.
      * @param columnName Column name.
      * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
@@ -165,36 +197,20 @@ public final class MapperBuilder<T> {
             @NotNull TypeConverter<ObjectT, ColumnT> converter
     ) {
         map(fieldName, columnName);
-        convert(converter, columnName);
+        convert(columnName, converter);
 
         return this;
     }
 
     /**
-     * Adds a manual functional mapping for an object and row represented by tuple.
-     *
-     * @param objectToRow Object to tuple function.
-     * @param rowToObject Tuple to object function.
-     * @return {@code this} for chaining.
-     */
-    public MapperBuilder<T> map(Function<T, Tuple> objectToRow, Function<Tuple, T> rowToObject) {
-        ensureNotStale();
-
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /**
      * Sets a converter for a column, which value must be converted before write/after read.
      *
-     * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
+     * @param <ObjectT>  Value type. Must match either the object field type if a field mapped to given column, or the object type {@link T}
+     * @param <ColumnT>  Column type.
      * @param columnName Column name.
-     * @param <ObjectT>  MUST match the object field type, if a field mapped to given column, or the object type {@link T}
-     * @param <ColumnT>  MUST be a type, which compatible with the column type.
+     * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
      */
-    public <ObjectT, ColumnT> MapperBuilder<T> convert(
-            @NotNull TypeConverter<ObjectT, ColumnT> converter,
-            @NotNull String columnName
-    ) {
+    public <ObjectT, ColumnT> MapperBuilder<T> convert(@NotNull String columnName, @NotNull TypeConverter<ObjectT, ColumnT> converter) {
         ensureNotStale();
 
         if (columnConverters.put(columnName, converter) != null) {
@@ -205,8 +221,7 @@ public final class MapperBuilder<T> {
     }
 
     /**
-     * Make mapper treat missed columns as they mapped to the field of the same name. If class {@link T} has no field for the missed column,
-     * then left the column unmapped.
+     * Maps all matching fields to columns by name. Any fields that don't match a column by name are ignored.
      *
      * @return {@code this} for chaining.
      */
@@ -222,7 +237,7 @@ public final class MapperBuilder<T> {
      * Builds mapper.
      *
      * @return Mapper.
-     * @throws IllegalStateException if nothing were mapped, or more than one column were mapped to the same field.
+     * @throws IllegalStateException if nothing was mapped, or more than one column was mapped to the same field.
      */
     public Mapper<T> build() {
         ensureNotStale();

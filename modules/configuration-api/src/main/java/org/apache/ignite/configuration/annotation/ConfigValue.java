@@ -28,11 +28,9 @@ import java.lang.annotation.Target;
  * This annotation marks configuration schema field as a configuration tree node.
  * <pre><code>
  * {@literal @}Config
- * public class FooConfigurationSchema {
- *
+ *  public class FooConfigurationSchema {
  *      {@literal @}ConfigValue
- *      private SomeOtherConfiguration someOther;
- *
+ *       public SomeOtherConfiguration someOther;
  * }
  * </code></pre>
  */
