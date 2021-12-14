@@ -113,10 +113,8 @@ public class MapperTest {
 
         // One-column mapping with converter.
         assertEquals("col1", ((OneColumnMapper<String>) Mapper.of(String.class, "col1", conv)).mappedColumn());
-        assertEquals("col1", ((OneColumnMapper<String>) Mapper.of(String.class, "col1", null)).mappedColumn());
 
         assertNotNull(((OneColumnMapper<String>) Mapper.of(String.class, "col1", conv)).converter());
-        assertNull(((OneColumnMapper<String>) Mapper.of(String.class, "col1", null)).converter());
 
         // Multi-column mapping
         assertThrows(IllegalArgumentException.class, () -> Mapper.of(String.class, "value", "col1"));

@@ -35,7 +35,6 @@ import org.jetbrains.annotations.NotNull;
  *
  * <p>Calling {@link #automap()} method maps all matching fields to columns by name. Any fields that don't match a column by name are
  * ignored.
- * columns, which names are match. A field or a column pair for which wasn't found will be ignored.
  *
  * <p>TBD: add some code examples.
  *
