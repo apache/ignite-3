@@ -205,7 +205,7 @@ public final class MapperBuilder<T> {
     }
 
     /**
-     * Make mapper treat missed columns as they mapped to the field of the same name. If class {@link T} has no field for the missed column,
+     * Maps all matching fields to columns by name. Any fields that don't match a column by name are ignored.
      * then left the column unmapped.
      *
      * @return {@code this} for chaining.
