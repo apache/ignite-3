@@ -98,7 +98,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
                 (schema, out) -> writeRecs(keyRecs, schema, out, TuplePart.KEY),
-                this::readRecs,
+                this::readRecsNullable,
                 Collections.emptyList());
     }
 
@@ -375,7 +375,15 @@ public class ClientRecordView<R> implements RecordView<R> {
         }
     }
 
-    private Collection<R> readRecs(ClientSchema inSchema, ClientMessageUnpacker in) {
+    private Collection<R> readRecsNullable(ClientSchema schema, ClientMessageUnpacker in) {
+        return readRecs(schema, in, true);
+    }
+
+    private Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in) {
+        return readRecs(schema, in, false);
+    }
+
+    private Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in, boolean nullable) {
         var cnt = in.unpackInt();
         var res = new ArrayList<R>(cnt);
 
@@ -383,15 +391,15 @@ public class ClientRecordView<R> implements RecordView<R> {
             return res;
         }
 
-        Marshaller marshaller = inSchema.getMarshaller(recMapper, TuplePart.KEY_AND_VAL);
+        Marshaller marshaller = schema.getMarshaller(recMapper, TuplePart.KEY_AND_VAL);
         var reader = new ClientMarshallerReader(in);
 
         try {
             for (int i = 0; i < cnt; i++) {
-                if (in.unpackBoolean()) {
-                    res.add((R) marshaller.readObject(reader, null));
-                } else {
+                if (nullable && !in.unpackBoolean()) {
                     res.add(null);
+                } else {
+                    res.add((R) marshaller.readObject(reader, null));
                 }
             }
         } catch (MarshallerException e) {
@@ -401,13 +409,13 @@ public class ClientRecordView<R> implements RecordView<R> {
         return res;
     }
 
-    private R readValRec(@NotNull R keyRec, ClientSchema inSchema, ClientMessageUnpacker in) {
+    private R readValRec(@NotNull R keyRec, ClientSchema schema, ClientMessageUnpacker in) {
         if (oneColumnMode) {
             return keyRec;
         }
 
-        Marshaller keyMarshaller = inSchema.getMarshaller(recMapper, TuplePart.KEY);
-        Marshaller valMarshaller = inSchema.getMarshaller(recMapper, TuplePart.VAL);
+        Marshaller keyMarshaller = schema.getMarshaller(recMapper, TuplePart.KEY);
+        Marshaller valMarshaller = schema.getMarshaller(recMapper, TuplePart.VAL);
 
         ClientMarshallerReader reader = new ClientMarshallerReader(in);
 
