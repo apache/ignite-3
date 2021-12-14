@@ -143,15 +143,20 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public R getAndUpsert(@NotNull R rec) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(rec);
+
+        return getAndUpsertAsync(rec).join();
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<R> getAndUpsertAsync(@NotNull R rec) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(rec);
+
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_UPSERT,
+                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                (s, r) -> readValRec(rec, s, r));
     }
 
     /** {@inheritDoc} */
