@@ -61,7 +61,7 @@ public interface Mapper<T> {
     /**
      * Creates a mapper for the case when an object represents only one column.
      *
-     * <p>The mapper can be used as key, value, or record mapper. However, single column record looks as degraded case.
+     * <p>The mapper can be used as a key, value, or record mapper. However, a single-column record looks like a degraded case.
      *
      * @param cls        Parametrized type of which objects the mapper will handle.
      * @param columnName Column name to map object to.
