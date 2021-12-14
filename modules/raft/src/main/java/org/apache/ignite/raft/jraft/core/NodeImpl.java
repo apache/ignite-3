@@ -26,6 +26,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
@@ -2753,8 +2754,8 @@ public class NodeImpl implements Node, RaftServerService {
                 if (peer.equals(this.serverId)) {
                     continue;
                 }
-    
-                rpcClientService.connectAsync(peer.getEndpoint()).thenAccept(ok -> {
+
+                CompletableFuture<Void> future = rpcClientService.connectAsync(peer.getEndpoint()).thenAccept(ok -> {
                     if (!ok) {
                         LOG.warn("Node {} failed to init channel, address={}.", getNodeId(), peer.getEndpoint());
                         return;
@@ -2772,6 +2773,8 @@ public class NodeImpl implements Node, RaftServerService {
                             .build();
                     this.rpcClientService.preVote(peer.getEndpoint(), done.request, done);
                 });
+
+                future.join();
             }
             this.prevVoteCtx.grant(this.serverId);
             if (this.prevVoteCtx.isGranted()) {

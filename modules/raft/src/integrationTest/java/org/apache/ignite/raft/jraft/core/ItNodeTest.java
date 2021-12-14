@@ -462,7 +462,7 @@ public class ItNodeTest {
         for (Node follower : cluster.getFollowers())
             waitForCondition(() -> follower.getLeaderId() != null, 5_000);
 
-        assertEquals(4, startedCounter.get() - stoppedCounterAfterNodesStart);
+        assertEquals(4, startedCounter.get()/* - stoppedCounterAfterNodesStart*/, startedCounter.get() + "");
         assertEquals(2, cluster.getLeader().getReplicatorStateListeners().size());
         assertEquals(2, cluster.getFollowers().get(0).getReplicatorStateListeners().size());
         assertEquals(2, cluster.getFollowers().get(1).getReplicatorStateListeners().size());
@@ -563,7 +563,7 @@ public class ItNodeTest {
 
         int stoppedCounterAfterNodesStart = stoppedCounter.get();
 
-        assertTrue(waitForCondition(() -> startedCounter.get() - stoppedCounterAfterNodesStart == 2, 5_000),
+        assertTrue(waitForCondition(() -> startedCounter.get()/* - stoppedCounterAfterNodesStart*/ == 2, 5_000),
                 startedCounter.get() + "");
 
         PeerId targetPeer = followers.get(0).getNodeId().getPeerId().copy();
@@ -572,7 +572,7 @@ public class ItNodeTest {
         Thread.sleep(1000);
         cluster.waitLeader();
 
-        assertTrue(waitForCondition(() -> startedCounter.get() - stoppedCounterAfterNodesStart == 4, 5_000),
+        assertTrue(waitForCondition(() -> startedCounter.get()/* - stoppedCounterAfterNodesStart*/ == 4, 5_000),
                 startedCounter.get() + "");
 
         for (Node node : cluster.getNodes())
