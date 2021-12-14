@@ -54,6 +54,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.lang.TableAlreadyExistsException;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.PrimaryKeyDefinitionBuilder;
@@ -154,9 +155,13 @@ public class DdlCommandHandler {
     private void handleDropTable(DropTableCommand cmd) {
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
-        // if (!cmd.ifTableExists()) todo will be implemented after IGNITE-15926
-
-        tableManager.dropTable(fullName);
+        try {
+            tableManager.dropTable(fullName);
+        } catch (TableNotFoundException ex) {
+            if (!cmd.ifTableExists()) {
+                throw ex;
+            }
+        }
     }
 
     /** Handles add column command. */
@@ -165,11 +170,15 @@ public class DdlCommandHandler {
             return;
         }
 
-        // if (!cmd.ifTableExists()) todo will be implemented after IGNITE-15926
-
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
-        addColumnInternal(fullName, cmd.columns(), cmd.ifColumnNotExists());
+        try {
+            addColumnInternal(fullName, cmd.columns(), cmd.ifColumnNotExists());
+        } catch (TableNotFoundException ex) {
+            if (!cmd.ifTableExists()) {
+                throw ex;
+            }
+        }
     }
 
     /** Handles drop column command. */
@@ -178,11 +187,15 @@ public class DdlCommandHandler {
             return;
         }
 
-        // if (!cmd.ifTableExists()) todo will be implemented after IGNITE-15926
-
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
-        dropColumnInternal(fullName, cmd.columns(), cmd.ifColumnExists());
+        try {
+            dropColumnInternal(fullName, cmd.columns(), cmd.ifColumnExists());
+        } catch (TableNotFoundException ex) {
+            if (!cmd.ifTableExists()) {
+                throw ex;
+            }
+        }
     }
 
     /** Handles create index command. */

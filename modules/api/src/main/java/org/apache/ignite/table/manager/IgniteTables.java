@@ -23,7 +23,7 @@ import java.util.function.Consumer;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
-import org.apache.ignite.lang.TableNotExistsException;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.table.Table;
 
 /**
@@ -60,11 +60,11 @@ public interface IgniteTables {
     CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange);
 
     /**
-     * Alter a cluster table.
+     * Alter a cluster table. If appropriate table does not be found, an exception will be thrown.
      *
      * @param name        Table name.
      * @param tableChange Table changer.
-     * @throws TableNotExistsException If a table with the name does not exist.
+     * @throws TableNotFoundException If a table with the name does not exist.
      * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
@@ -73,7 +73,8 @@ public interface IgniteTables {
     void alterTable(String name, Consumer<TableChange> tableChange);
 
     /**
-     * Alter a cluster table.
+     * Alter a cluster table. If appropriate table does not be found, a future will be
+     * completed with exception.
      *
      * @param name        Table name.
      * @param tableChange Table changer.
@@ -82,16 +83,15 @@ public interface IgniteTables {
      *                         <ul>
      *                             <li>the node is stopping.</li>
      *                         </ul>
-     * @see TableNotExistsException
+     * @see TableNotFoundException
      */
     CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange);
 
     /**
-     * Drops a table with the name specified. If a table with the specified name does not exist in the cluster, the operation has no
-     * effect.
+     * Drops a table with the name specified. If appropriate table does not be found, an exception will be thrown.
      *
      * @param name Table name.
-     * @throws TableNotExistsException If a table with the name does not exist.
+     * @throws TableNotFoundException If a table with the name does not exist.
      * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
@@ -100,8 +100,8 @@ public interface IgniteTables {
     void dropTable(String name);
 
     /**
-     * Drops a table with the name specified. If a table with the specified name does not exist in the cluster, the operation has no
-     * effect.
+     * Drops a table with the name specified. If appropriate table does not be found, a future will be
+     * completed with exception.
      *
      * @param name Table name.
      * @return Future representing pending completion of the operation.
@@ -109,7 +109,7 @@ public interface IgniteTables {
      *                         <ul>
      *                             <li>the node is stopping.</li>
      *                         </ul>
-     * @see TableNotExistsException
+     * @see TableNotFoundException
      */
     CompletableFuture<Void> dropTableAsync(String name);
 

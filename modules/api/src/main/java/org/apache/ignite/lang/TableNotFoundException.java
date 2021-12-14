@@ -18,15 +18,15 @@
 package org.apache.ignite.lang;
 
 /**
- * This exception is thrown when a table failed to be dropped or altered, because there is no table with the name.
+ * Exception is thrown when appropriate table can`t be found.
  */
-public class TableNotExistsException extends IgniteException {
+public class TableNotFoundException extends IgniteException {
     /**
      * Create a new exception with given table name.
      *
      * @param name Table name.
      */
-    public TableNotExistsException(String name) {
+    public TableNotFoundException(String name) {
         super(LoggerMessageHelper.format("Table does not exist [name={}]", name));
     }
 }

@@ -90,7 +90,7 @@ import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
-import org.apache.ignite.lang.TableNotExistsException;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
@@ -801,13 +801,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tableAsync(name, true).thenAccept(tbl -> {
             if (tbl == null) {
-                tblFut.completeExceptionally(new TableNotExistsException(name));
+                tblFut.completeExceptionally(new TableNotFoundException(name));
             } else {
                 IgniteUuid tblId = ((TableImpl) tbl).tableId();
 
                 tablesCfg.tables().change(ch -> {
                     if (ch.get(name) == null) {
-                        throw new TableNotExistsException(name);
+                        throw new TableNotFoundException(name);
                     }
 
                     ch.update(name, tblCh -> {
@@ -851,7 +851,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     if (t != null) {
                         Throwable ex = getRootCause(t);
 
-                        if (ex instanceof TableNotExistsException) {
+                        if (ex instanceof TableNotFoundException) {
                             tblFut.completeExceptionally(ex);
                         } else {
                             LOG.error(LoggerMessageHelper.format("Table wasn't altered [name={}]", name), ex);
@@ -925,12 +925,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             // In case of drop it's an optimization that allows not to fire drop-change-closure if there's no such
             // distributed table and the local config has lagged behind.
             if (tbl == null) {
-                dropTblFut.completeExceptionally(new TableNotExistsException(name));
+                dropTblFut.completeExceptionally(new TableNotFoundException(name));
             } else {
                 tablesCfg.tables()
                         .change(change -> {
                             if (change.get(name) == null) {
-                                throw new TableNotExistsException(name);
+                                throw new TableNotFoundException(name);
                             }
 
                             change.delete(name);
@@ -939,7 +939,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             if (t != null) {
                                 Throwable ex = getRootCause(t);
 
-                                if (ex instanceof TableNotExistsException) {
+                                if (ex instanceof TableNotFoundException) {
                                     dropTblFut.completeExceptionally(ex);
                                 } else {
                                     LOG.error(LoggerMessageHelper.format("Table wasn't dropped [name={}]", name), ex);
