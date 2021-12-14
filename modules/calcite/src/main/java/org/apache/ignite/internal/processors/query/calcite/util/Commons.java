@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.processors.query.calcite.util.BaseQuery
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.io.Reader;
 import java.io.StringReader;
@@ -600,8 +601,8 @@ public final class Commons {
      * @param elems Elems.
      * @return The longest possible prefix of {@code seq}.
      */
-    public static List<Integer> maxPrefix(List<Integer> seq, Collection<Integer> elems) {
-        List<Integer> res = new IntArrayList();
+    public static IntList maxPrefix(List<Integer> seq, Collection<Integer> elems) {
+        IntList res = new IntArrayList();
 
         Set<Integer> elems0 = new IntOpenHashSet(elems);
 

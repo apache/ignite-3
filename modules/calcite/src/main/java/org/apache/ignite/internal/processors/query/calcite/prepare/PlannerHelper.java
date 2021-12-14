@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -227,12 +228,12 @@ public class PlannerHelper {
                 return (IgniteRel) scan;
             }
 
-            Set<Integer> indexedCols = CollectionUtils.setOf(
+            IntSet indexedCols = CollectionUtils.setOf(
                     tbl.getIndex(((AbstractIndexScan) scan).indexName()).collation().getKeys());
 
             spoolNeeded = modifyNode.getUpdateColumnList().stream()
                     .map(tbl.descriptor()::columnDescriptor)
-                    .map(ColumnDescriptor::fieldIndex)
+                    .mapToInt(ColumnDescriptor::fieldIndex)
                     .anyMatch(indexedCols::contains);
 
             return (IgniteRel) scan;

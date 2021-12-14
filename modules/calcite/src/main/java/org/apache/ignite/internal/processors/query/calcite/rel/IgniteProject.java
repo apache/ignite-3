@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.processors.query.calcite.trait.TraitUti
 
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -111,7 +112,7 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
                 input.getRowType().getFieldCount(), getProjects());
 
         ImmutableIntList keys = distribution.getKeys();
-        List<Integer> srcKeys = new IntArrayList(keys.size());
+        IntList srcKeys = new IntArrayList(keys.size());
 
         for (int key : keys) {
             int src = mapping.getSourceOpt(key);
@@ -124,7 +125,7 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
         }
 
         if (srcKeys.size() == keys.size()) {
-            return Pair.of(nodeTraits, List.of(in.replace(hash(srcKeys, distribution.function()))));
+            return Pair.of(nodeTraits, List.of(in.replace(hash(ImmutableIntList.copyOf(srcKeys), distribution.function()))));
         }
 
         return Pair.of(nodeTraits.replace(single()), List.of(in.replace(single())));

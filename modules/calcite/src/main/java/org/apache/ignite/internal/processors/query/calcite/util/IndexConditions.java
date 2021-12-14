@@ -22,9 +22,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.ints.IntSets;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rex.RexNode;
@@ -109,9 +107,9 @@ public class IndexConditions {
      * Keys.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public Set<Integer> keys() {
+    public IntSet keys() {
         if (upperBound == null && lowerBound == null) {
-            return Collections.emptySet();
+            return IntSets.EMPTY_SET;
         }
 
         IntSet keys = new IntOpenHashSet();

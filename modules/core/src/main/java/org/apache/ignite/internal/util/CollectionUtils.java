@@ -24,6 +24,7 @@ import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableSet;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.ints.IntSets;
 import java.util.AbstractCollection;
 import java.util.Collection;
@@ -294,7 +295,7 @@ public final class CollectionUtils {
      * @param coll Collection of integer to copy.
      * @return Unmodifiable copy set.
      */
-    public static Set<Integer> setOf(Collection<Integer> coll) {
+    public static IntSet setOf(Collection<Integer> coll) {
         return IntSets.unmodifiable(new IntOpenHashSet(coll));
     }
 }
