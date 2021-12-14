@@ -20,7 +20,7 @@ package org.apache.ignite.table.mapper;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Maps whole object of natively supported type to a one column. Used to map object itself, but not the object fields.
+ * Maps the whole object of natively supported type to a single column. Used to map the object itself, but not the object fields.
  *
  * @apiNote When mapper is used for mapping key/value objects, and the schema contains single key/value column, it is possible to
  *         map object without specifying a column name. However, if there are more columns and no concrete one was specified, then table
