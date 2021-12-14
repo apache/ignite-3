@@ -20,7 +20,7 @@ package org.apache.ignite.lang;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Nullable value interface, which instances wraps real value, is used to distinct cases: 'value is absent', and 'value is {@code null}'.
+ * Represents a value that can be {@code null}. Used to distinguish 'value is absent' and `value is null` cases.
  *
  * @param <T> Value type.
  * @see org.apache.ignite.table.KeyValueView#getNullable(Object)
