@@ -126,7 +126,7 @@ public class ClientRecordView<R> implements RecordView<R> {
     public void upsertAll(@NotNull Collection<R> recs) {
         Objects.requireNonNull(recs);
 
-        throw new UnsupportedOperationException("Not implemented yet.");
+        upsertAllAsync(recs).join();
     }
 
     /** {@inheritDoc} */

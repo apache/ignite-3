@@ -264,14 +264,29 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         Table table = oneColumnTable();
         RecordView<String> primitiveView = table.recordView(Mapper.of(String.class));
 
-        primitiveView.upsert("a");
-        primitiveView.upsert("c");
+        primitiveView.upsertAll(List.of("a", "c"));
 
         String[] res = primitiveView.getAll(List.of("a", "b", "c")).toArray(new String[0]);
 
         assertEquals("a", res[0]);
         assertNull(res[1]);
         assertEquals("c", res[2]);
+    }
+
+    @Test
+    public void testUpsertAll() {
+        RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
+
+        Collection<PersonPojo> pojos = List.of(
+                new PersonPojo(DEFAULT_ID, DEFAULT_NAME),
+                new PersonPojo(100L, "100"),
+                new PersonPojo(101L, "101"));
+
+        pojoView.upsertAll(pojos);
+
+        assertEquals(DEFAULT_NAME, pojoView.get(new PersonPojo(DEFAULT_ID)).name);
+        assertEquals("100", pojoView.get(new PersonPojo(100L)).name);
+        assertEquals("101", pojoView.get(new PersonPojo(101L)).name);
     }
 
     private static class PersonPojo {
@@ -281,6 +296,10 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         public PersonPojo() {
             // No-op.
+        }
+
+        public PersonPojo(long id) {
+            this.id = id;
         }
 
         public PersonPojo(long id, String name) {
