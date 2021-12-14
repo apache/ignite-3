@@ -39,7 +39,7 @@ import java.util.UUID;
  */
 public interface Mapper<T> {
     /**
-     * Shortcut method creates a mapper for class. Natively supported types will be mapped to a single schema column, otherwise individual
+     * Creates a mapper for the specified class. Natively supported types will be mapped to a single schema column, otherwise individual
      * object fields will be mapped to columns with the same name.
      *
      * <p>Note: Natively supported types can be mapped to a single key/value column, otherwise table operation will ends up with exception.
