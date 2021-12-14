@@ -19,9 +19,11 @@ package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -295,14 +297,43 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
 
-        var res1 = pojoView.getAndUpsert(new PersonPojo(DEFAULT_ID, "new_name"));
-        var res2 = pojoView.getAndUpsert(new PersonPojo(100L, "name"));
+        PersonPojo res1 = pojoView.getAndUpsert(new PersonPojo(DEFAULT_ID, "new_name"));
+        PersonPojo res2 = pojoView.getAndUpsert(new PersonPojo(100L, "name"));
 
         assertEquals(DEFAULT_NAME, res1.name);
         assertEquals("new_name", pojoView.get(new PersonPojo(DEFAULT_ID)).name);
 
         assertNull(res2);
         assertEquals("name", pojoView.get(new PersonPojo(100L)).name);
+    }
+
+    @Test
+    public void testInsert() {
+        RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
+
+        pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
+
+        boolean res1 = pojoView.insert(new PersonPojo(DEFAULT_ID, "foobar"));
+        boolean res2 = pojoView.insert(new PersonPojo(100L, "100"));
+
+        assertFalse(res1);
+        assertTrue(res2);
+        assertEquals("100", pojoView.get(new PersonPojo(100L)).name);
+    }
+
+    @Test
+    public void testInsertAll() {
+        RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
+
+        pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
+
+        Collection<PersonPojo> res1 = pojoView.insertAll(List.of(new PersonPojo(10L), new PersonPojo(20L)));
+        Collection<PersonPojo> res2 = pojoView.insertAll(List.of(new PersonPojo(DEFAULT_ID), new PersonPojo(10L)));
+        Collection<PersonPojo> res3 = pojoView.insertAll(List.of(new PersonPojo(DEFAULT_ID), new PersonPojo(30L)));
+
+        assertEquals(0, res1.size());
+        assertEquals(2, res2.size());
+        assertEquals(1, res3.size());
     }
 
     private static class PersonPojo {
