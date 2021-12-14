@@ -695,11 +695,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Creates a new table with the specified name or returns an existing table with the same name.
+     * Internal method that creates a new table with the given {@code name} asynchronously. If a table with the same name already exists,
+     * a future will be completed with {@link TableAlreadyExistsException}.
      *
-     * @param name Table name.
-     * @param tableInitChange Table configuration.
-     * @return A table instance.
+     * @param name            Table name.
+     * @param tableInitChange Table changer.
+     * @return Future representing pending completion of the operation.
+     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     *                         <ul>
+     *                             <li>the node is stopping.</li>
+     *                         </ul>
+     * @see TableAlreadyExistsException
      */
     private CompletableFuture<Table> createTableAsyncInternal(String name, Consumer<TableChange> tableInitChange) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
@@ -789,11 +795,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Internal method for creating table asynchronously.
+     * Internal method that alters a cluster table. If an appropriate table does not exist, a future will be
+     * completed with {@link TableNotFoundException}.
      *
-     * @param name Table name.
-     * @param tableChange Table cahnger.
+     * @param name        Table name.
+     * @param tableChange Table changer.
      * @return Future representing pending completion of the operation.
+     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     *                         <ul>
+     *                             <li>the node is stopping.</li>
+     *                         </ul>
+     * @see TableNotFoundException
      */
     @NotNull
     private CompletableFuture<Void> alterTableAsyncInternal(String name, Consumer<TableChange> tableChange) {
@@ -912,10 +924,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Internal method for drop the table asynchronously.
+     * Internal method that drops a table with the name specified. If appropriate table does not be found, a future will be
+     * completed with {@link TableNotFoundException}.
      *
      * @param name Table name.
      * @return Future representing pending completion of the operation.
+     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     *                         <ul>
+     *                             <li>the node is stopping.</li>
+     *                         </ul>
+     * @see TableNotFoundException
      */
     @NotNull
     private CompletableFuture<Void> dropTableAsyncInternal(String name) {

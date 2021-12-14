@@ -46,7 +46,7 @@ public interface IgniteTables {
 
     /**
      * Creates a new table with the given {@code name} asynchronously. If a table with the same name already exists, a future will be
-     * completed with exception.
+     * completed with the {@link TableAlreadyExistsException}.
      *
      * @param name            Table name.
      * @param tableInitChange Table changer.
@@ -60,7 +60,7 @@ public interface IgniteTables {
     CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange);
 
     /**
-     * Alter a cluster table. If the appropriate table cannot be found, an exception will throw.
+     * Alter a cluster table. If the appropriate table does not exist, an exception will be thrown.
      *
      * @param name        Table name.
      * @param tableChange Table changer.
@@ -73,7 +73,8 @@ public interface IgniteTables {
     void alterTable(String name, Consumer<TableChange> tableChange);
 
     /**
-     * Alter a cluster table. If the appropriate table cannot be found, a future will complete with exception.
+     * Alter a cluster table. If the appropriate table does not exist, a future will be
+     * completed with the {@link TableNotFoundException}.
      *
      * @param name        Table name.
      * @param tableChange Table changer.
@@ -87,7 +88,7 @@ public interface IgniteTables {
     CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange);
 
     /**
-     * Drops a table with the name specified. If the appropriate table cannot be found, an exception will throw.
+     * Drops a table with the name specified. If the appropriate table does not exist, an exception will be thrown.
      *
      * @param name Table name.
      * @throws TableNotFoundException If a table with the {@code name} does not exist.
@@ -99,7 +100,8 @@ public interface IgniteTables {
     void dropTable(String name);
 
     /**
-     * Drops a table with the name specified. If the appropriate table cannot be found, a future will complete with exception.
+     * Drops a table with the name specified. If appropriate table does not be found, a future will be
+     * completed with the {@link TableNotFoundException}.
      *
      * @param name Table name.
      * @return Future representing pending completion of the operation.
