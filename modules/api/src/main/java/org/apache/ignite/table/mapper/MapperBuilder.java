@@ -153,8 +153,8 @@ public final class MapperBuilder<T> {
      * Maps a field to a column with using type converter. The value will be converted before write to and after read from column using
      * provided converter.
      *
-     * @param <ObjectT>  MUST match the object field type, if the individual field mapped to given column.
-     * @param <ColumnT>  MUST be a type, which compatible with the column type.
+     * @param <ObjectT>  Value type. Must match the object field type if the individual field is mapped to a given column.
+     * @param <ColumnT>  Column type.
      * @param fieldName  Field name.
      * @param columnName Column name.
      * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
@@ -188,8 +188,8 @@ public final class MapperBuilder<T> {
      *
      * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
      * @param columnName Column name.
-     * @param <ObjectT>  MUST match the object field type, if a field mapped to given column, or the object type {@link T}
-     * @param <ColumnT>  MUST be a type, which compatible with the column type.
+     * @param <ObjectT>  Value type. Must match the object field type, if a field mapped to given column, or the object type {@link T}
+     * @param <ColumnT>  Column type.
      */
     public <ObjectT, ColumnT> MapperBuilder<T> convert(
             @NotNull TypeConverter<ObjectT, ColumnT> converter,

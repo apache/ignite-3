@@ -21,8 +21,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Mapper implementation which maps fields of objects of type {@link T} to the columns by their names. Intended to use only with natively
- * supported types.
+ * Mapper implementation which maps fields of objects of type {@link T} to the columns by their names. Every mapped field either must be of
+ * natively supported type, or a converter must be provided.
  *
  * @param <T> Target type.
  * @see OneColumnMapper

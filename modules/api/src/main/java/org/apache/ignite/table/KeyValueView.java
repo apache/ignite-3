@@ -68,6 +68,7 @@ public interface KeyValueView<K, V> {
      * @return Wrapped nullable value or {@code null}, if it does not exist.
      */
     default NullableValue<V> getNullable(K key) {
+        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16115
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -79,6 +80,7 @@ public interface KeyValueView<K, V> {
      * @see #getNullable(Object)
      */
     default @NotNull CompletableFuture<NullableValue<V>> getNullableAsync(K key) {
+        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16115
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -92,6 +94,7 @@ public interface KeyValueView<K, V> {
      * @throws IllegalStateException If value for the key exists, and it is {@code null}.
      */
     default V getOrDefault(K key, V defaultValue) {
+        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16115
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -105,6 +108,7 @@ public interface KeyValueView<K, V> {
      * @see #getOrDefault(Object, Object)
      */
     default @NotNull CompletableFuture<V> getOrDefaultAsync(K key, V defaultValue) {
+        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16115
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
