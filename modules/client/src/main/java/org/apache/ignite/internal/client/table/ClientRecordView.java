@@ -295,15 +295,19 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public Collection<R> deleteAll(@NotNull Collection<R> keyRecs) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return deleteAllAsync(keyRecs).join();
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@NotNull Collection<R> keyRecs) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(keyRecs);
+
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_DELETE_ALL,
+                (s, w) -> writeRecs(keyRecs, s, w, TuplePart.KEY),
+                this::readRecs,
+                Collections.emptyList());
     }
 
     /** {@inheritDoc} */
