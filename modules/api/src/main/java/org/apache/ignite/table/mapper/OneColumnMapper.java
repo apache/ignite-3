@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface OneColumnMapper<ObjectT> extends Mapper<ObjectT> {
     /**
-     * Returns a column name the object is mapped to, or {@code null} if not specified. If column name wasn't specified, mapper will to map
+     * Returns a column name the object is mapped to, or {@code null} if not specified. If column name wasn't specified, the mapper maps the entire
      * object to a single available column.
      *
      * <p>Note: If more than one key/value column will be available to map to then table operation will fail with a schema mismatch
