@@ -135,7 +135,7 @@ public final class MapperBuilder<T> {
         if (columnToFields == null) {
             throw new IllegalArgumentException("Natively supported types doesn't support field mapping.");
         } else if (fieldColumnPairs.length % 2 != 0) {
-            throw new IllegalArgumentException("Missed a column name, which the field is mapped to.");
+            throw new IllegalArgumentException("fieldColumnPairs length should be even.");
         } else if (columnToFields.put(Objects.requireNonNull(columnName), requireValidField(fieldName)) != null) {
             throw new IllegalArgumentException("Mapping for a column already exists: " + columnName);
         }
