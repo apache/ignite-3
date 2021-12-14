@@ -252,19 +252,18 @@ public class Example {
             String bankName;
         }
 
-        KeyValueView<OrderKey, OrderValue> orderKvView = t
-                                                                 .keyValueView(
-                                                                         Mapper.of(OrderKey.class, "key"),
-                                                                         Mapper.builder(OrderValue.class)
-                                                                                 /*.map("billingDetails", (row) -> {
-                                                                                     BinaryObject binObj = row.binaryObjectValue("conditionalDetails");
-                                                                                     int type = row.intValue("type");
+        KeyValueView<OrderKey, OrderValue> orderKvView = t.keyValueView(
+                Mapper.of(OrderKey.class, "key"),
+                Mapper.builder(OrderValue.class)
+                        /*.map("billingDetails", (row) -> {
+                            BinaryObject binObj = row.binaryObjectValue("conditionalDetails");
+                            int type = row.intValue("type");
 
-                                                                                     return type == 0
-                                                                                             ? BinaryObjects.deserialize(binObj, CreditCard.class)
-                                                                                             : BinaryObjects.deserialize(binObj, BankAccount.class);
-                                                                                 })*/
-                                                                                 .build());
+                            return type == 0
+                                    ? BinaryObjects.deserialize(binObj, CreditCard.class)
+                                    : BinaryObjects.deserialize(binObj, BankAccount.class);
+                        })*/
+                        .build());
 
         OrderValue ov = orderKvView.get(new OrderKey(1, 1));
 
