@@ -154,7 +154,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         Objects.requireNonNull(rec);
 
         return tbl.doSchemaOutInOpAsync(
-                ClientOp.TUPLE_UPSERT,
+                ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
                 (s, r) -> readValRec(rec, s, r));
     }
