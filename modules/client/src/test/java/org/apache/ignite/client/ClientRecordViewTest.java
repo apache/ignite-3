@@ -43,6 +43,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Record view tests.
  */
+@SuppressWarnings("ZeroLengthArrayAllocation")
 public class ClientRecordViewTest extends AbstractClientTableTest {
     @Test
     public void testBinaryPutPojoGet() {
@@ -243,10 +244,19 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
                 new PersonPojo(101L, "1234"),
                 new PersonPojo(100L, "qwerty"));
 
-        Collection<PersonPojo> res = pojoView.getAll(keys);
+        PersonPojo[] res = pojoView.getAll(keys).toArray(new PersonPojo[0]);
 
-        // TODO
-        assertEquals(2, res.size());
+        assertEquals(3, res.length);
+
+        assertNotNull(res[0]);
+        assertNull(res[1]);
+        assertNotNull(res[2]);
+
+        assertEquals(DEFAULT_ID, res[0].id);
+        assertEquals(DEFAULT_NAME, res[0].name);
+
+        assertEquals(100L, res[2].id);
+        assertEquals("100", res[2].name);
     }
 
     @Test
