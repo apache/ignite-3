@@ -92,12 +92,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 public class RocksDbSortedIndexStorageTest {
     private static final IgniteLogger log = IgniteLogger.forClass(RocksDbSortedIndexStorageTest.class);
 
-    private static final Random random = new Random();
-
     /**
      * Definitions of all supported column types.
      */
     private static final List<ColumnDefinition> ALL_TYPES_COLUMN_DEFINITIONS = allTypesColumnDefinitions();
+
+    private Random random;
 
     @InjectConfiguration(polymorphicExtensions = {
             HashIndexConfigurationSchema.class,
@@ -117,6 +117,12 @@ public class RocksDbSortedIndexStorageTest {
 
     @BeforeEach
     void setUp(@WorkDirectory Path workDir, @InjectConfiguration DataRegionConfiguration dataRegionCfg) {
+        long seed = System.currentTimeMillis();
+
+        log.info("Using random seed: " + seed);
+
+        random = new Random(seed);
+
         createTestConfiguration(dataRegionCfg);
 
         var engine = new RocksDbStorageEngine();
@@ -375,15 +381,15 @@ public class RocksDbSortedIndexStorageTest {
         assertThat(rows, contains(entry1.row(), entry2.row()));
     }
 
-    private static List<ColumnDefinition> shuffledRandomDefinitions() {
+    private List<ColumnDefinition> shuffledRandomDefinitions() {
         return shuffledDefinitions(d -> random.nextBoolean());
     }
 
-    private static List<ColumnDefinition> shuffledDefinitions() {
+    private List<ColumnDefinition> shuffledDefinitions() {
         return shuffledDefinitions(d -> true);
     }
 
-    private static List<ColumnDefinition> shuffledDefinitions(Predicate<ColumnDefinition> filter) {
+    private List<ColumnDefinition> shuffledDefinitions(Predicate<ColumnDefinition> filter) {
         List<ColumnDefinition> shuffledDefinitions = ALL_TYPES_COLUMN_DEFINITIONS.stream()
                 .filter(filter)
                 .collect(toList());

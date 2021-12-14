@@ -171,16 +171,19 @@ public class BinaryRowComparator extends AbstractComparator {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public String name() {
         return getClass().getCanonicalName();
     }
 
+    /** {@inheritDoc} */
     @Override
     public int compare(ByteBuffer a, ByteBuffer b) {
         return innerComparator.compare(a, b);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void close() {
         super.close();

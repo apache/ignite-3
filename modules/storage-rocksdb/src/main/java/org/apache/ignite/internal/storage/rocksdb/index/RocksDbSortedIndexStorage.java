@@ -114,15 +114,15 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
                         // if lower comparator is not null, then the lower bound has not yet been reached
                         if (lowerBoundComparator.compare(row) < 0) {
                             it.next();
+
+                            continue;
                         } else {
                             // once the lower bound is reached, we no longer need to check it
                             lowerBoundComparator = null;
-
-                            return upperBoundComparator.compare(row) <= 0;
                         }
-                    } else {
-                        return upperBoundComparator.compare(row) <= 0;
                     }
+
+                    return upperBoundComparator.compare(row) <= 0;
                 }
 
                 return false;
