@@ -356,7 +356,16 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
     @Test
     public void testReplaceExact() {
+        RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
+        pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
+
+        assertFalse(pojoView.replace(new PersonPojo(DEFAULT_ID, "x"), new PersonPojo(DEFAULT_ID, "new_name")));
+        assertFalse(pojoView.replace(new PersonPojo(-1L, "x"), new PersonPojo(DEFAULT_ID, "new_name")));
+        assertTrue(pojoView.replace(new PersonPojo(DEFAULT_ID, DEFAULT_NAME), new PersonPojo(DEFAULT_ID, "new_name2")));
+
+        assertNull(pojoView.get(new PersonPojo(-1L)));
+        assertEquals("new_name2", pojoView.get(new PersonPojo(DEFAULT_ID)).name);
     }
 
     private static class PersonPojo {
