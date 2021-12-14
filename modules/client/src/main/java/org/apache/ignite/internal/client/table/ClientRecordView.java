@@ -306,7 +306,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
                 (s, w) -> writeRecs(keyRecs, s, w, TuplePart.KEY),
-                this::readRecs,
+                (schema, in) -> readRecs(schema, in, false, TuplePart.KEY),
                 Collections.emptyList());
     }
 
@@ -410,14 +410,14 @@ public class ClientRecordView<R> implements RecordView<R> {
     }
 
     private Collection<R> readRecsNullable(ClientSchema schema, ClientMessageUnpacker in) {
-        return readRecs(schema, in, true);
+        return readRecs(schema, in, true, TuplePart.KEY_AND_VAL);
     }
 
     private Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in) {
-        return readRecs(schema, in, false);
+        return readRecs(schema, in, false, TuplePart.KEY_AND_VAL);
     }
 
-    private Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in, boolean nullable) {
+    private Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in, boolean nullable, TuplePart part) {
         var cnt = in.unpackInt();
         var res = new ArrayList<R>(cnt);
 
@@ -425,7 +425,7 @@ public class ClientRecordView<R> implements RecordView<R> {
             return res;
         }
 
-        Marshaller marshaller = schema.getMarshaller(recMapper, TuplePart.KEY_AND_VAL);
+        Marshaller marshaller = schema.getMarshaller(recMapper, part);
         var reader = new ClientMarshallerReader(in);
 
         try {
