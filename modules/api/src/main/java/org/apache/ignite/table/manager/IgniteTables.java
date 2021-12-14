@@ -60,7 +60,7 @@ public interface IgniteTables {
     CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange);
 
     /**
-     * Alter a cluster table. If the appropriate table does not exist, an exception will be thrown.
+     * Alters a cluster table. If the appropriate table does not exist, an exception will be thrown.
      *
      * @param name        Table name.
      * @param tableChange Table changer.
@@ -73,8 +73,8 @@ public interface IgniteTables {
     void alterTable(String name, Consumer<TableChange> tableChange);
 
     /**
-     * Alter a cluster table. If the appropriate table does not exist, a future will be
-     * completed with the {@link TableNotFoundException}.
+     * Alters a cluster table. If the appropriate table does not exist, a future will
+     * complete with the {@link TableNotFoundException}.
      *
      * @param name        Table name.
      * @param tableChange Table changer.
@@ -100,8 +100,8 @@ public interface IgniteTables {
     void dropTable(String name);
 
     /**
-     * Drops a table with the name specified. If appropriate table does not be found, a future will be
-     * completed with the {@link TableNotFoundException}.
+     * Drops a table with the name specified. If the appropriate table does not exist, a future will
+     * complete with the {@link TableNotFoundException}.
      *
      * @param name Table name.
      * @return Future representing pending completion of the operation.
