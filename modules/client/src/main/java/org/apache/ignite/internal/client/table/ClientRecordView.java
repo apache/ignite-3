@@ -191,29 +191,36 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public boolean replace(@NotNull R rec) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return replaceAsync(rec).join();
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean replace(@NotNull R oldRec, @NotNull R newRec) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return replaceAsync(oldRec, newRec).join();
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R rec) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(rec);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_REPLACE,
+                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R oldRec, @NotNull R newRec) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(oldRec);
+        Objects.requireNonNull(newRec);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_REPLACE_EXACT,
+                (s, w) -> writeRecs(oldRec, newRec, s, w, TuplePart.KEY_AND_VAL),
+                ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */
@@ -353,6 +360,21 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         try {
             marshaller.writeObject(rec, writer);
+        } catch (MarshallerException e) {
+            throw new IgniteClientException(e.getMessage(), e);
+        }
+    }
+
+    private void writeRecs(@NotNull R rec, @NotNull R rec2, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+        out.packIgniteUuid(tbl.tableId());
+        out.packInt(schema.version());
+
+        Marshaller marshaller = schema.getMarshaller(recMapper, part);
+        ClientMarshallerWriter writer = new ClientMarshallerWriter(out);
+
+        try {
+            marshaller.writeObject(rec, writer);
+            marshaller.writeObject(rec2, writer);
         } catch (MarshallerException e) {
             throw new IgniteClientException(e.getMessage(), e);
         }
