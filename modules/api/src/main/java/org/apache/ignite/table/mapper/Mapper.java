@@ -17,7 +17,6 @@
 
 package org.apache.ignite.table.mapper;
 
-import java.lang.reflect.Modifier;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -127,6 +126,7 @@ public interface Mapper<T> {
      * @return {@code this} for chaining.
      */
     static <O> Mapper<O> of(Function<O, Tuple> objectToRow, Function<Tuple, O> rowToObject) {
+        //TODO: implement custom user mapping https://issues.apache.org/jira/browse/IGNITE-16116
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -163,37 +163,12 @@ public interface Mapper<T> {
     }
 
     /**
-     * Ensures class is of the supported kind for POJO mapping.
-     *
-     * @param type Class to validate.
-     * @return {@code type} if it is valid POJO.
-     * @throws IllegalArgumentException If {@code type} can't be used as POJO for mapping and/or of invalid kind.
-     */
-    static <O> Class<O> ensureValidPojo(@NotNull Class<O> type) {
-        Objects.requireNonNull(type);
-
-        if (nativelySupported(type) || type.isAnonymousClass() || type.isLocalClass() || type.isSynthetic() || type.isPrimitive()
-                    || type.isEnum() || type.isArray() || type.isAnnotation() || Modifier.isAbstract(type.getModifiers())
-                    || (type.isMemberClass() && !Modifier.isStatic(type.getModifiers()))) {
-            throw new IllegalArgumentException("Class is of unsupported kind: " + type.getName());
-        }
-
-        try {
-            type.getDeclaredConstructor();
-
-            return type;
-        } catch (NoSuchMethodException e) {
-            throw new IllegalArgumentException("Class must have default constructor: " + type.getName());
-        }
-    }
-
-    /**
      * Checks if class is of natively supported type.
      *
      * @param type Class to check.
      * @return {@code True} if given type is supported natively, and can be mapped to a single column.
      */
-    private static boolean nativelySupported(Class<?> type) {
+    static boolean nativelySupported(Class<?> type) {
         return !Objects.requireNonNull(type).isPrimitive()
                        && (String.class == type
                                    || UUID.class == type

@@ -18,6 +18,7 @@
 package org.apache.ignite.table.mapper;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -67,7 +68,7 @@ public final class MapperBuilder<T> {
      * @param targetType Target type.
      */
     MapperBuilder(@NotNull Class<T> targetType) {
-        this.targetType = Mapper.ensureValidPojo(targetType);
+        this.targetType = ensureValidPojo(targetType);
 
         mappedToColumn = null;
         columnToFields = new HashMap<>(targetType.getDeclaredFields().length);
@@ -84,6 +85,39 @@ public final class MapperBuilder<T> {
 
         mappedToColumn = mappedColumn;
         columnToFields = null;
+    }
+
+    /**
+     * Ensures class is of the supported kind for POJO mapping.
+     *
+     * @param type Class to validate.
+     * @return {@code type} if it is valid POJO.
+     * @throws IllegalArgumentException If {@code type} can't be used as POJO for mapping and/or of invalid kind.
+     */
+    public <O> Class<O> ensureValidPojo(@NotNull Class<O> type) {
+        if (Mapper.nativelySupported(type)) {
+            throw new IllegalArgumentException("Unsupported class. Can't map fields of natively supported type: " + type.getName());
+        } else if (type.isAnonymousClass() || type.isLocalClass() || type.isSynthetic()
+                           || (type.isMemberClass() && !Modifier.isStatic(type.getModifiers()))) {
+            throw new IllegalArgumentException(
+                    "Unsupported class. Only top-level or nested static classes are supported: " + type.getName());
+        } else if (Modifier.isAbstract(type.getModifiers())) {
+            throw new IllegalArgumentException("Unsupported class. Abstract classes are not supported: " + type.getName());
+        } else if (type.isEnum()) {
+            throw new IllegalArgumentException("Unsupported class. Enum is not supported, please use a converter: " + type.getName());
+        } else if (type.isArray()) {
+            throw new IllegalArgumentException("Unsupported class. Arrays are not supported: " + type.getName());
+        } else if (type.isAnnotation() || type.isInterface()) {
+            throw new IllegalArgumentException("Unsupported class. Interfaces are not supported: " + type.getName());
+        }
+
+        try {
+            type.getDeclaredConstructor();
+
+            return type;
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("Class must have default constructor: " + type.getName());
+        }
     }
 
     /**
