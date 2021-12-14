@@ -243,29 +243,35 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public boolean delete(@NotNull R keyRec) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return deleteAsync(keyRec).join();
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> deleteAsync(@NotNull R keyRec) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(keyRec);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_DELETE,
+                (s, w) -> writeRec(keyRec, s, w, TuplePart.KEY),
+                ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean deleteExact(@NotNull R rec) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return deleteExactAsync(rec).join();
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> deleteExactAsync(@NotNull R rec) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(rec);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_DELETE_EXACT,
+                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */
