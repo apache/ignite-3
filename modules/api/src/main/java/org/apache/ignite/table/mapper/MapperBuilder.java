@@ -30,7 +30,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Mapper builder provides methods for mapping object fields to columns.
  *
- * <p>By default, a user must explicitly map needed fields with columns
+ * <p>By default, the user must explicitly map required fields to columns
  * in one-to-one manner using {@link #map} and/or {@link #map(String, String, TypeConverter)} methods, all missed columns and/or fields
  * become unmapped, and will be ignored during further table operations.
  *
