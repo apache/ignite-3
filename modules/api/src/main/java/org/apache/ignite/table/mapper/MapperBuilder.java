@@ -222,7 +222,7 @@ public final class MapperBuilder<T> {
      * Builds mapper.
      *
      * @return Mapper.
-     * @throws IllegalStateException if nothing were mapped, or more than one column were mapped to the same field.
+     * @throws IllegalStateException if nothing was mapped, or more than one column was mapped to the same field.
      */
     public Mapper<T> build() {
         ensureNotStale();
