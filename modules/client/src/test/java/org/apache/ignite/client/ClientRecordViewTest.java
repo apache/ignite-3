@@ -435,6 +435,23 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertNull(pojoView.get(new PersonPojo(3L)));
     }
 
+    @Test
+    public void testDeleteAllExact() {
+        RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
+
+        pojoView.upsertAll(List.of(new PersonPojo(1L, "1"), new PersonPojo(2L, "2"), new PersonPojo(3L, "3")));
+
+        Collection<PersonPojo> res1 = pojoView.deleteAllExact(List.of(new PersonPojo(1L, "a"), new PersonPojo(3L, "b")));
+        Collection<PersonPojo> res2 = pojoView.deleteAllExact(List.of(new PersonPojo(1L, "1"), new PersonPojo(3L, "3")));
+
+        assertEquals(2, res1.size());
+        assertEquals(0, res2.size());
+
+        assertNull(pojoView.get(new PersonPojo(1L)));
+        assertEquals("2", pojoView.get(new PersonPojo(2L)).name);
+        assertNull(pojoView.get(new PersonPojo(3L)));
+    }
+
     private static class PersonPojo {
         public long id;
 
