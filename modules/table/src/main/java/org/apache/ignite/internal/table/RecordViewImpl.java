@@ -232,8 +232,8 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public R getAndDelete(@NotNull R rec) {
-        return sync(getAndDeleteAsync(rec));
+    public R getAndDelete(@NotNull R keyRec) {
+        return sync(getAndDeleteAsync(keyRec));
     }
 
     /** {@inheritDoc} */

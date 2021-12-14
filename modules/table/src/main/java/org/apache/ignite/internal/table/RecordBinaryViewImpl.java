@@ -261,16 +261,16 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getAndDelete(@NotNull Tuple rec) {
-        return sync(getAndDeleteAsync(rec));
+    public Tuple getAndDelete(@NotNull Tuple keyRec) {
+        return sync(getAndDeleteAsync(keyRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(@NotNull Tuple rec) {
-        Objects.requireNonNull(rec);
+    public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(@NotNull Tuple keyRec) {
+        Objects.requireNonNull(keyRec);
 
-        final Row keyRow = marshal(rec, true);
+        final Row keyRow = marshal(keyRec, true);
 
         return tbl.getAndDelete(keyRow, tx).thenApply(this::wrap);
     }

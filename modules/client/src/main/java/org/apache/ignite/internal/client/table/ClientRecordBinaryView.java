@@ -264,19 +264,19 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getAndDelete(@NotNull Tuple rec) {
-        return getAndDeleteAsync(rec).join();
+    public Tuple getAndDelete(@NotNull Tuple keyRec) {
+        return getAndDeleteAsync(keyRec).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(@NotNull Tuple rec) {
-        Objects.requireNonNull(rec);
+    public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(@NotNull Tuple keyRec) {
+        Objects.requireNonNull(keyRec);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
-                (s, w) -> tbl.writeTuple(rec, s, w, false),
-                (schema, in) -> ClientTable.readValueTuple(schema, in, rec));
+                (s, w) -> tbl.writeTuple(keyRec, s, w, true),
+                (schema, in) -> ClientTable.readValueTuple(schema, in, keyRec));
     }
 
     /** {@inheritDoc} */
