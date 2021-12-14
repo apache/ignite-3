@@ -327,13 +327,18 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
 
-        Collection<PersonPojo> res1 = pojoView.insertAll(List.of(new PersonPojo(10L), new PersonPojo(20L)));
+        Collection<PersonPojo> res1 = pojoView.insertAll(List.of(new PersonPojo(10L, "10"), new PersonPojo(20L)));
         Collection<PersonPojo> res2 = pojoView.insertAll(List.of(new PersonPojo(DEFAULT_ID), new PersonPojo(10L)));
-        Collection<PersonPojo> res3 = pojoView.insertAll(List.of(new PersonPojo(DEFAULT_ID), new PersonPojo(30L)));
+        Collection<PersonPojo> res3 = pojoView.insertAll(List.of(new PersonPojo(DEFAULT_ID, "new_name"), new PersonPojo(30L)));
 
         assertEquals(0, res1.size());
         assertEquals(2, res2.size());
         assertEquals(1, res3.size());
+
+        assertEquals("10", pojoView.get(new PersonPojo(10L)).name);
+        assertNull(pojoView.get(new PersonPojo(20L)).name);
+
+        assertEquals("new_name", res3.iterator().next().name);
     }
 
     private static class PersonPojo {
