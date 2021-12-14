@@ -87,8 +87,6 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public Collection<R> getAll(@NotNull Collection<R> keyRecs) {
-        Objects.requireNonNull(keyRecs);
-
         return getAllAsync(keyRecs).join();
     }
 
@@ -124,8 +122,6 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public void upsertAll(@NotNull Collection<R> recs) {
-        Objects.requireNonNull(recs);
-
         upsertAllAsync(recs).join();
     }
 
@@ -143,8 +139,6 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public R getAndUpsert(@NotNull R rec) {
-        Objects.requireNonNull(rec);
-
         return getAndUpsertAsync(rec).join();
     }
 
@@ -162,15 +156,18 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public boolean insert(@NotNull R rec) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return insertAsync(rec).join();
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> insertAsync(@NotNull R rec) {
-        // TODO: Implement all operations (IGNITE-16087).
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(rec);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_INSERT,
+                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */
