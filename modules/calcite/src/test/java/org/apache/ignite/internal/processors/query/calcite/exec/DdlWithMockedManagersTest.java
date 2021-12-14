@@ -228,13 +228,13 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
         SqlQueryProcessor finalQueryProc = queryProc;
 
         assertThrows(TableNotFoundException.class, () -> finalQueryProc.query("PUBLIC",
-            "DROP TABLE " + curMethodName + "_not_exist"));
+                "DROP TABLE " + curMethodName + "_not_exist"));
 
         assertThrows(TableNotFoundException.class, () -> finalQueryProc.query("PUBLIC",
-            "DROP TABLE " + curMethodName));
+                "DROP TABLE " + curMethodName));
 
         assertThrows(TableNotFoundException.class, () -> finalQueryProc.query("PUBLIC",
-            "DROP TABLE PUBLIC." + curMethodName));
+                "DROP TABLE PUBLIC." + curMethodName));
 
         queryProc.query("PUBLIC", "DROP TABLE IF EXISTS PUBLIC." + curMethodName + "_not_exist");
 
