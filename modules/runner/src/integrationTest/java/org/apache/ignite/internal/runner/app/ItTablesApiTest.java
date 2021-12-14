@@ -349,7 +349,9 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that if a table would be created/dropped into any cluster node, this is visible to all other nodes.
+     * Checks that if a table would be created/dropped in any cluster node, this action reflects on all others.
+     * Table management operations should pass in linearize order: if an action completed in one node,
+     * the result has to be visible to another one.
      *
      * @throws Exception If failed.
      */
@@ -581,7 +583,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
     /**
      * Drops the table which name is specified.
-     * If the table did not exist, an exception would be thrown.
+     * If the table does not exist, an exception will be thrown.
      *
      * @param node Cluster node.
      * @param schemaName Schema name.

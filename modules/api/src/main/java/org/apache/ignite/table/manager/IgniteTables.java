@@ -60,11 +60,11 @@ public interface IgniteTables {
     CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange);
 
     /**
-     * Alter a cluster table. If appropriate table does not be found, an exception will be thrown.
+     * Alter a cluster table. If the appropriate table cannot be found, an exception will throw.
      *
      * @param name        Table name.
      * @param tableChange Table changer.
-     * @throws TableNotFoundException If a table with the name does not exist.
+     * @throws TableNotFoundException If a table with the {@code name} does not exist.
      * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
@@ -73,8 +73,7 @@ public interface IgniteTables {
     void alterTable(String name, Consumer<TableChange> tableChange);
 
     /**
-     * Alter a cluster table. If appropriate table does not be found, a future will be
-     * completed with exception.
+     * Alter a cluster table. If the appropriate table cannot be found, a future will complete with exception.
      *
      * @param name        Table name.
      * @param tableChange Table changer.
@@ -88,10 +87,10 @@ public interface IgniteTables {
     CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange);
 
     /**
-     * Drops a table with the name specified. If appropriate table does not be found, an exception will be thrown.
+     * Drops a table with the name specified. If the appropriate table cannot be found, an exception will throw.
      *
      * @param name Table name.
-     * @throws TableNotFoundException If a table with the name does not exist.
+     * @throws TableNotFoundException If a table with the {@code name} does not exist.
      * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
      *                         <ul>
      *                             <li>the node is stopping.</li>
@@ -100,8 +99,7 @@ public interface IgniteTables {
     void dropTable(String name);
 
     /**
-     * Drops a table with the name specified. If appropriate table does not be found, a future will be
-     * completed with exception.
+     * Drops a table with the name specified. If the appropriate table cannot be found, a future will complete with exception.
      *
      * @param name Table name.
      * @return Future representing pending completion of the operation.
