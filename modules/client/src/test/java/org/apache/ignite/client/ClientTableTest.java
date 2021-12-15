@@ -329,4 +329,24 @@ public class ClientTableTest extends AbstractClientTableTest {
         assertEquals(3L, skippedTuples[1].longValue("id"));
         assertEquals("z", skippedTuples[1].stringValue("name"));
     }
+
+    @Test
+    public void testNullableColumnWithDefaultValueSetNullResultNull() {
+        // TODO
+    }
+
+    @Test
+    public void testNullableColumnWithDefaultValueNotSetResultDefault() {
+        // TODO
+    }
+
+    @Test
+    public void testNonNullableColumnWithDefaultValueSetNullResultException() {
+        // TODO
+    }
+
+    @Test
+    public void testNonNullableColumnWithDefaultValueNotSetResultDefault() {
+        // TODO
+    }
 }
