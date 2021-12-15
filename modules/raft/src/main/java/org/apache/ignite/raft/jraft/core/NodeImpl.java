@@ -2720,7 +2720,7 @@ public class NodeImpl implements Node, RaftServerService {
 
     // in writeLock
     private void preVote() {
-        long oldTerm;
+        long preVoteTerm;
         try {
             LOG.info("Node {} term {} start preVote.", getNodeId(), this.currTerm);
             if (this.snapshotExecutor != null && this.snapshotExecutor.isInstallingSnapshot()) {
@@ -2733,7 +2733,7 @@ public class NodeImpl implements Node, RaftServerService {
                 LOG.warn("Node {} can't do preVote as it is not in conf <{}>.", getNodeId(), this.conf);
                 return;
             }
-            oldTerm = this.currTerm;
+            preVoteTerm = this.currTerm;
         }
         finally {
             this.writeLock.unlock();
@@ -2745,7 +2745,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.writeLock.lock();
         try {
             // pre_vote need defense ABA after unlock&writeLock
-            if (oldTerm != this.currTerm) {
+            if (preVoteTerm != this.currTerm) {
                 LOG.warn("Node {} raise term {} when get lastLogId.", getNodeId(), this.currTerm);
                 return;
             }
@@ -2755,7 +2755,7 @@ public class NodeImpl implements Node, RaftServerService {
                     continue;
                 }
 
-                CompletableFuture<Void> future = rpcClientService.connectAsync(peer.getEndpoint()).thenAccept(ok -> {
+                rpcClientService.connectAsync(peer.getEndpoint()).thenAccept(ok -> {
                     if (!ok) {
                         LOG.warn("Node {} failed to init channel, address={}.", getNodeId(), peer.getEndpoint());
                         return;
@@ -2767,14 +2767,12 @@ public class NodeImpl implements Node, RaftServerService {
                             .groupId(this.groupId)
                             .serverId(this.serverId.toString())
                             .peerId(peer.toString())
-                            .term(this.currTerm + 1) // next term
+                            .term(preVoteTerm + 1) // next term
                             .lastLogIndex(lastLogId.getIndex())
                             .lastLogTerm(lastLogId.getTerm())
                             .build();
                     this.rpcClientService.preVote(peer.getEndpoint(), done.request, done);
                 });
-
-                future.join();
             }
             this.prevVoteCtx.grant(this.serverId);
             if (this.prevVoteCtx.isGranted()) {
