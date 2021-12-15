@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -83,6 +84,46 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 (s, w) -> tbl.writeTuples(keys, s, w, true),
                 tbl::readKvTuplesNullable,
                 Collections.emptyMap());
+    }
+
+    /**
+     * Method throws UnsupportedOperationException, unconditionally.
+     *
+     * <p> Binary view doesn't support the operation because there is no ambiguity, {@code null} value means no rows found in the table for
+     * the given key.
+     */
+    @Override
+    public NullableValue<Tuple> getNullable(@NotNull Tuple key) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null values. Please, use get(key) method instead.");
+    }
+
+    /**
+     * Method throws UnsupportedOperationException, unconditionally.
+     *
+     * <p>Binary view doesn't support the operation because there is no ambiguity, {@code null} value means no rows found in the table for
+     * the given key.
+     */
+    @Override
+    public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAsync(@NotNull Tuple key) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null values. Please, use getAsync(key) method instead.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Tuple getOrDefault(@NotNull Tuple key, @NotNull Tuple defaultValue) {
+        return getOrDefaultAsync(key, defaultValue).join();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @NotNull CompletableFuture<Tuple> getOrDefaultAsync(@NotNull Tuple key, @NotNull Tuple defaultValue) {
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(defaultValue);
+
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET,
+                (schema, out) -> tbl.writeTuple(key, schema, out, true),
+                (schema, in) -> Objects.requireNonNullElse(ClientTable.readValueTuple(schema, in), defaultValue));
     }
 
     /** {@inheritDoc} */

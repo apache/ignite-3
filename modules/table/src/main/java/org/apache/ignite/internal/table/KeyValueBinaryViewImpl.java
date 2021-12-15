@@ -86,7 +86,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     /**
      * Method throws UnsupportedOperationException, unconditionally.
      *
-     * <p> Binary view doesn't support the operation because there is no ambigouty, {@code null} value means no rows found in the table for
+     * <p> Binary view doesn't support the operation because there is no ambiguity, {@code null} value means no rows found in the table for
      * the given key.
      */
     @Override
@@ -97,7 +97,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     /**
      * Method throws UnsupportedOperationException, unconditionally.
      *
-     * <p>Binary view doesn't support the operation because there is no ambigouty, {@code null} value means no rows found in the table for
+     * <p>Binary view doesn't support the operation because there is no ambiguity, {@code null} value means no rows found in the table for
      * the given key.
      */
     @Override
@@ -107,13 +107,15 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getOrDefault(@NotNull Tuple key, Tuple defaultValue) {
+    public Tuple getOrDefault(@NotNull Tuple key, @NotNull Tuple defaultValue) {
         return sync(getOrDefaultAsync(key, defaultValue));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getOrDefaultAsync(@NotNull Tuple key, Tuple defaultValue) {
+    public @NotNull CompletableFuture<Tuple> getOrDefaultAsync(@NotNull Tuple key, @NotNull Tuple defaultValue) {
+        Objects.requireNonNull(defaultValue);
+
         BinaryRow keyRow = marshal(Objects.requireNonNull(key), null);
 
         return tbl.get(keyRow, tx).thenApply(r -> r == null ? defaultValue : unmarshal(r));
@@ -138,7 +140,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
             keyRows.add(keyRow);
         }
 
-        return tbl.getAll(keyRows, tx).thenApply(ts -> unmarshal(ts));
+        return tbl.getAll(keyRows, tx).thenApply(this::unmarshal);
     }
 
     /** {@inheritDoc} */

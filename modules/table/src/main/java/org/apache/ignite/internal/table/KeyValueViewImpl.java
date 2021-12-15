@@ -95,13 +95,15 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public V getOrDefault(@NotNull K key, V defaultValue) {
+    public V getOrDefault(@NotNull K key, @NotNull V defaultValue) {
         return sync(getOrDefaultAsync(key, defaultValue));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<V> getOrDefaultAsync(@NotNull K key, V defaultValue) {
+    public @NotNull CompletableFuture<V> getOrDefaultAsync(@NotNull K key, @NotNull V defaultValue) {
+        Objects.requireNonNull(defaultValue);
+
         BinaryRow keyRow = marshal(Objects.requireNonNull(key));
 
         return tbl.get(keyRow, tx).thenApply(r -> r == null ? defaultValue : unmarshalValue(r));

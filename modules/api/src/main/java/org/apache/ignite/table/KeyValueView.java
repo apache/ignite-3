@@ -81,24 +81,26 @@ public interface KeyValueView<K, V> {
     /**
      * Gets a value associated with the given key if exists, returns {@code defaultValue} otherwise.
      *
-     * <p>Note: method has same semantic as {@link #get(Object)} with regard to {@code null} values.
+     * <p>Note: result may be {@code null} if null-values are allowed, and the {@code null} is associated with the key.
      *
      * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
+     * @param defaultValue Default value that. The value cannot be {@code null}.
      * @return Value or {@code defaultValue}, if does not exist.
      * @throws IllegalStateException If value for the key exists, and it is {@code null}.
      */
-    V getOrDefault(@NotNull K key, V defaultValue);
+    V getOrDefault(@NotNull K key, @NotNull V defaultValue);
 
     /**
-     * Gets a nullable value associated with the given key.
+     * Gets a value associated with the given key if exists, returns {@code defaultValue} otherwise.
      *
-     * <p>Note: method has same semantic as {@link #get(Object)} with regard to {@code null} values.
+     * <p>Note: result may be {@code null} if null-values are allowed, and the {@code null} is associated with the key.
      *
      * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
+     * @param defaultValue Default value that. The value cannot be {@code null}.
      * @return Future representing pending completion of the operation.
      * @see #getOrDefault(Object, Object)
      */
-    @NotNull CompletableFuture<V> getOrDefaultAsync(@NotNull K key, V defaultValue);
+    @NotNull CompletableFuture<V> getOrDefaultAsync(@NotNull K key, @NotNull V defaultValue);
 
     /**
      * Get values associated with given keys.
