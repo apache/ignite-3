@@ -226,7 +226,16 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         ignite1Inhibitor.startInhibit();
 
-        Table tbl = createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
+        List<ColumnDefinition> cols = new ArrayList<>();
+        cols.add(SchemaBuilders.column("key", ColumnType.INT64).build());
+        cols.add(SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build());
+        cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValueExpression("default").build());
+
+        Table tbl = ignite0.tables().createTable(
+                SCHEMA + "." + SHORT_TABLE_NAME,
+                tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME).columns(
+                        cols).withPrimaryKey("key").build(), tblCh).changeReplicas(3).changePartitions(10)
+        );
 
         Tuple tableKey = Tuple.create()
                 .set("key", 123L);
@@ -520,7 +529,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         return node.tables().createTable(
                 schemaName + "." + shortTableName,
                 tblCh -> convert(SchemaBuilders.tableBuilder(schemaName, shortTableName).columns(
-                    cols).withPrimaryKey("key").build(), tblCh).changeReplicas(3).changePartitions(10)
+                    cols).withPrimaryKey("key").build(), tblCh).changeReplicas(2).changePartitions(10)
         );
     }
 
@@ -540,7 +549,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
                         SchemaBuilders.column("valStr", ColumnType.string())
                                 .withDefaultValueExpression("default").build()
                         )).withPrimaryKey("key").build(),
-                        tblCh).changeReplicas(3).changePartitions(10)
+                        tblCh).changeReplicas(2).changePartitions(10)
         );
     }
 
