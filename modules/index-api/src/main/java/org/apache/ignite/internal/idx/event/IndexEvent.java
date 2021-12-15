@@ -15,12 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.manager;
+package org.apache.ignite.internal.idx.event;
+
+import org.apache.ignite.internal.manager.Event;
 
 /**
- * The event cas which is produced by event producer component.
- *
- * @see AbstractProducer#fireEvent(Event, EventParameters, Throwable)
+ * Index management events.
  */
-public interface Event {
+public enum IndexEvent implements Event {
+    /** This event is fired when an index was created. */
+    CREATE,
+
+    /** This event is fired when an indexwas dropped. */
+    DROP
 }

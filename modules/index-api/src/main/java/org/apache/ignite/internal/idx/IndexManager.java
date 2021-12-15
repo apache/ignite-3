@@ -15,12 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.manager;
+package org.apache.ignite.internal.idx;
+
+import java.util.List;
+import java.util.UUID;
+import org.apache.ignite.internal.idx.event.IndexEvent;
+import org.apache.ignite.internal.idx.event.IndexEventParameters;
+import org.apache.ignite.internal.manager.Producer;
+import org.apache.ignite.lang.NodeStoppingException;
 
 /**
- * The event cas which is produced by event producer component.
- *
- * @see AbstractProducer#fireEvent(Event, EventParameters, Throwable)
+ * Internal index manager facade provides low-level methods for indexes operations.
  */
-public interface Event {
+public interface IndexManager extends Producer<IndexEvent, IndexEventParameters> {
+    /**
+     * Gets indexes of the table.
+     *
+     * @param tblId Table identifier to lookup indexes.
+     * @return Indexes of the table.
+     * @throws NodeStoppingException If an implementation stopped before the method was invoked.
+     */
+    List<SortedIndex> indexes(UUID tblId) throws NodeStoppingException;
 }
