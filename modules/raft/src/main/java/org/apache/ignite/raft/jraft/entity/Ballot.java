@@ -47,6 +47,8 @@ public class Ballot {
     private final List<UnfoundPeerId> oldPeers = new ArrayList<>();
     private int oldQuorum;
 
+    public long startTerm;
+
     /**
      * Init the ballot with current conf and old conf.
      *

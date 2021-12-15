@@ -1868,10 +1868,15 @@ public class NodeImpl implements Node, RaftServerService {
             }
             while (false);
 
+            boolean granted = request.term() == this.currTerm && candidateId.equals(this.votedId);
+
+            LOG.info(" Node {} received RequestVoteRequest from {}, term={}, currTerm={}, granted={}.",
+                    getNodeId(), request.serverId(), request.term(), this.currTerm, granted);
+
             return raftOptions.getRaftMessagesFactory()
                 .requestVoteResponse()
                 .term(this.currTerm)
-                .granted(request.term() == this.currTerm && candidateId.equals(this.votedId))
+                .granted(granted)
                 .build();
         }
         finally {
@@ -2673,8 +2678,9 @@ public class NodeImpl implements Node, RaftServerService {
                     "Raft node receives higher term pre_vote_response."));
                 return;
             }
-            LOG.info("Node {} received PreVoteResponse from {}, term={}, granted={}.", getNodeId(), peerId,
-                response.term(), response.granted());
+            LOG.info("Node {} received PreVoteResponse from {}, term={}, granted={}, currTerm={}.", getNodeId(), peerId,
+                response.term(), response.granted(), currTerm);
+
             // check granted quorum?
             if (response.granted()) {
                 this.prevVoteCtx.grant(peerId);
@@ -2734,6 +2740,8 @@ public class NodeImpl implements Node, RaftServerService {
                 return;
             }
             preVoteTerm = this.currTerm;
+
+            prevVoteCtx.startTerm = preVoteTerm;
         }
         finally {
             this.writeLock.unlock();
@@ -2776,6 +2784,12 @@ public class NodeImpl implements Node, RaftServerService {
             }
             this.prevVoteCtx.grant(this.serverId);
             if (this.prevVoteCtx.isGranted()) {
+                if (currTerm > prevVoteCtx.startTerm) {
+                    LOG.info("Node {} does not start vote, term={}, preVoteTerm={}.", getNodeId(), this.currTerm, prevVoteCtx.startTerm);
+
+                    return;
+                }
+
                 doUnlock = false;
                 electSelf();
             }
