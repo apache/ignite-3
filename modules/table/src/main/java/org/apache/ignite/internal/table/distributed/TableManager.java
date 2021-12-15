@@ -484,14 +484,7 @@ public class TableManager extends AbstractProducer<TableEvent, TableEventParamet
             return newDataRegion;
         });
 
-        TableStorage tableStorage = engine.createTable(
-                storageDir,
-                tableCfg,
-                dataRegion,
-                (tableCfgView, indexName) -> {
-                    throw new UnsupportedOperationException("Not implemented yet.");
-                }
-        );
+        TableStorage tableStorage = engine.createTable(storageDir, tableCfg, dataRegion);
 
         tableStorage.start();
 

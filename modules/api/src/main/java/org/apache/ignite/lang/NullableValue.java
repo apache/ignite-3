@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller.reflection;
+package org.apache.ignite.lang;
 
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.Serializer;
-import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Factory for reflection-based serializer.
+ * Represents a value that can be {@code null}. Used to distinguish 'value is absent' and `value is null` cases.
+ *
+ * @param <T> Value type.
+ * @see org.apache.ignite.table.KeyValueView#getNullable(Object)
  */
-//TODO: IGNITE-15907 drop
-@Deprecated(forRemoval = true)
-public class JavaSerializerFactory implements SerializerFactory {
-    /** {@inheritDoc} */
-    @Override
-    public Serializer create(SchemaDescriptor schema, Class<?> keyClass, Class<?> valClass) {
-        return new JavaSerializer(schema, keyClass, valClass);
-    }
+public interface NullableValue<T> {
+    /**
+     * Returns wrapped value.
+     *
+     * @return Value.
+     */
+    @Nullable T get();
 }
