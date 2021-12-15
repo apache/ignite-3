@@ -210,68 +210,12 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
 
     /**
-     * Test scenario when we have lagged node, and tables with the same name are created, deleted and created again.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testGetTableFromLaggedNode() throws Exception {
-        clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
-
-        Ignite ignite0 = clusterNodes.get(0);
-
-        Ignite ignite1 = clusterNodes.get(1);
-
-        WatchListenerInhibitor ignite1Inhibitor = metastorageEventsInhibitor(ignite1);
-
-        ignite1Inhibitor.startInhibit();
-
-        List<ColumnDefinition> cols = new ArrayList<>();
-        cols.add(SchemaBuilders.column("key", ColumnType.INT64).build());
-        cols.add(SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build());
-        cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValueExpression("default").build());
-
-        Table tbl = ignite0.tables().createTable(
-                SCHEMA + "." + SHORT_TABLE_NAME,
-                tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME).columns(
-                        cols).withPrimaryKey("key").build(), tblCh).changeReplicas(3).changePartitions(10)
-        );
-
-        Tuple tableKey = Tuple.create()
-                .set("key", 123L);
-
-        Tuple value = Tuple.create()
-                .set("valInt", 1234)
-                .set("valStr", "some string row");
-
-        tbl.keyValueView().put(tableKey, value);
-
-        assertEquals(value, tbl.keyValueView().get(tableKey));
-
-        ignite0.tables().dropTable(TABLE_NAME);
-
-        tbl = createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
-
-        Tuple otherValue = Tuple.create()
-                .set("valInt", 12345)
-                .set("valStr", "some other string row");
-
-        tbl.keyValueView().put(tableKey, otherValue);
-
-        assertEquals(otherValue, tbl.keyValueView().get(tableKey));
-
-        ignite1Inhibitor.stopInhibit();
-
-        assertEquals(otherValue, ignite1.tables().table(TABLE_NAME).keyValueView().get(tableKey));
-    }
-
-    /**
      * Test scenario when we have lagged node, and tables with the same name are deleted and created again.
      *
      * @throws Exception If failed.
      */
     @Test
-    public void testGetTableFromLaggedNode2() throws Exception {
+    public void testGetTableFromLaggedNode() throws Exception {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
         Ignite ignite0 = clusterNodes.get(0);
