@@ -82,6 +82,17 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Writes a "no value" value.
+     */
+    public void packNoValue() {
+        assert !closed : "Packer is closed";
+
+        buf.writeByte(Code.FIXEXT1);
+        buf.writeByte(ClientMsgPackType.NO_VALUE);
+        buf.writeByte(0);
+    }
+
+    /**
      * Writes a boolean value.
      *
      * @param b the value to be written.
