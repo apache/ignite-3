@@ -136,7 +136,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final Map<String, TableImpl> tables = new ConcurrentHashMap<>();
 
     /** Tables. */
-    private final Map<IgniteUuid, String> tableNamesById = new ConcurrentHashMap<>();
+    private final Map<IgniteUuid, TableImpl> tablesById = new ConcurrentHashMap<>();
 
     /** Resolver that resolves a network address to node id. */
     private final Function<NetworkAddress, String> netAddrResolver;
@@ -249,7 +249,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()))
                                                     );
 
-                                            fireEvent(TableEvent.ALTER, new TableEventParameters(getLocalTableById(tblId)), null);
+                                            fireEvent(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
                                         } catch (Exception e) {
                                             fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName), e);
                                         } finally {
@@ -325,7 +325,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             toAdd.removeAll(oldPartitionAssignment);
 
-                            InternalTable internalTable = getLocalTableById(tblId).internalTable();
+                            InternalTable internalTable = tablesById.get(tblId).internalTable();
 
                             // Create new raft nodes according to new assignments.
 
@@ -553,7 +553,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 );
 
                 tables.put(name, table);
-                tableNamesById.put(tblId, name);
+                tablesById.put(tblId, table);
 
                 fireEvent(TableEvent.CREATE, new TableEventParameters(table), null);
             } catch (Exception e) {
@@ -571,7 +571,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private SchemaDescriptor tableSchema(IgniteUuid tblId, int schemaVer) {
         try {
-            TableImpl table = getLocalTableById(tblId);
+            TableImpl table = tablesById.get(tblId);
 
             assert table != null : "Table is undefined [tblId=" + tblId + ']';
 
@@ -653,7 +653,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             assert table != null : "There is no table with the name specified [name=" + name + ']';
 
             tables.remove(name);
-            tableNamesById.remove(tblId);
+            tablesById.remove(tblId);
 
             table.internalTable().storage().destroy();
 
@@ -846,7 +846,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     tblCh);
 
                                             descriptor.columnMapping(SchemaUtils.columnMapper(
-                                                    getLocalTableById(tblId).schemaView().schema(currTableView.schemas().size()),
+                                                    tablesById.get(tblId).schemaView().schema(currTableView.schemas().size()),
                                                     currTableView,
                                                     descriptor,
                                                     tblCh));
@@ -1136,7 +1136,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return CompletableFuture.completedFuture(null);
         }
 
-        var tbl = getLocalTableById(id);
+        var tbl = tablesById.get(id);
 
         if (tbl != null) {
             return CompletableFuture.completedFuture(tbl);
@@ -1168,7 +1168,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         listen(TableEvent.CREATE, clo);
 
-        tbl = getLocalTableById(id);
+        tbl = tablesById.get(id);
 
         if (tbl != null && getTblFut.complete(tbl) || !isTableConfigured(id) && getTblFut.complete(null)) {
             removeListener(TableEvent.CREATE, clo, null);
@@ -1391,36 +1391,5 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         return CompletableFuture.allOf(futures);
-    }
-
-    /**
-     * Get local table by the table id.
-     *
-     * @param id Table id.
-     * @return Local table by the id or {@code null} if there is no local table with the {@code id}.
-     */
-    private TableImpl getLocalTableById(IgniteUuid id) {
-        String name = tableNamesById.get(id);
-
-        if (name == null) {
-            return null;
-        }
-
-        return tables.get(name);
-    }
-
-    /**
-     * Get local table id by the table name.
-     *
-     * @param name Table name.
-     * @return Local table id by the name or {@code null} if there is no local table with the {@code name}.
-     */
-    private IgniteUuid getTableIdByName(String name) {
-        return tableNamesById.entrySet()
-                .stream()
-                .filter(tblName -> name.equals(tblName.getValue()))
-                .map(Map.Entry::getKey)
-                .findFirst()
-                .orElse(null);
     }
 }
