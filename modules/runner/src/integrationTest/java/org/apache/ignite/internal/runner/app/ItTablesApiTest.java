@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
@@ -416,125 +415,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         }
 
         ignite1Inhibitor.stopInhibit();
-    }
-
-    /**
-     * Checks contract all public methods for table management API.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testAllIgniteTablesApi() throws Exception {
-        clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
-
-        Ignite ignite = clusterNodes.get(0);
-
-        Table table = ignite.tables().createTable(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME)
-                .columns(
-                        SchemaBuilders.column("key", ColumnType.INT64).build(),
-                        SchemaBuilders.column("val", ColumnType.string()).build())
-                .withPrimaryKey("key")
-                .build(), tableChange)
-                .changeReplicas(2)
-                .changePartitions(10));
-
-        assertNotNull(table);
-
-        CompletableFuture<Table> tblFut = ignite.tables().createTableAsync(TABLE_NAME + "_async",
-                tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME + "_async")
-                        .columns(
-                                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                                SchemaBuilders.column("val", ColumnType.string()).build())
-                        .withPrimaryKey("key")
-                        .build(), tableChange)
-                        .changeReplicas(2)
-                        .changePartitions(10));
-
-        assertNotNull(tblFut.get());
-
-        assertThrows(TableAlreadyExistsException.class,
-                () -> ignite.tables().createTable(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME)
-                        .columns(
-                                SchemaBuilders.column("new_key", ColumnType.INT64).build(),
-                                SchemaBuilders.column("new_val", ColumnType.string()).build())
-                        .withPrimaryKey("new_key")
-                        .build(), tableChange)
-                        .changeReplicas(2)
-                        .changePartitions(10)));
-
-        CompletableFuture<Table> tblExFut = ignite.tables().createTableAsync(TABLE_NAME + "_async",
-                tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME + "_async")
-                        .columns(
-                                SchemaBuilders.column("new_key", ColumnType.INT64).build(),
-                                SchemaBuilders.column("new_val", ColumnType.string()).build())
-                        .withPrimaryKey("new_key")
-                        .build(), tableChange)
-                        .changeReplicas(2)
-                        .changePartitions(10));
-
-        assertThrows(TableAlreadyExistsException.class, () -> futureResult(tblExFut));
-
-        assertSame(table, ignite.tables().table(TABLE_NAME));
-        assertSame(tblFut.get(), ignite.tables().table(TABLE_NAME + "_async"));
-
-        assertEquals(2, ignite.tables().tables().size());
-
-        ignite.tables().alterTable(TABLE_NAME,
-                chng -> chng.changeColumns(cols -> {
-                    cols.create("name", colChg -> convert(SchemaBuilders.column("name", ColumnType.string()).asNullable(true)
-                            .withDefaultValueExpression("default").build(), colChg));
-                }));
-
-        ignite.tables().alterTableAsync(TABLE_NAME + "_async",
-                chng -> chng.changeColumns(cols -> {
-                    cols.create("name", colChg -> convert(SchemaBuilders.column("name", ColumnType.string()).asNullable(true)
-                            .withDefaultValueExpression("default").build(), colChg));
-                })).get();
-
-        ignite.tables().dropTable(TABLE_NAME);
-
-        ignite.tables().dropTableAsync(TABLE_NAME + "_async").get();
-
-        assertThrows(TableNotFoundException.class, () -> ignite.tables().dropTable(TABLE_NAME));
-
-        CompletableFuture<Void> dropAcyncFut = ignite.tables().dropTableAsync(TABLE_NAME + "_async");
-
-        assertThrows(TableNotFoundException.class, () -> futureResult(dropAcyncFut));
-
-        assertNull(ignite.tables().table(TABLE_NAME));
-        assertNull(ignite.tables().table(TABLE_NAME + "_async"));
-
-        assertEquals(0, ignite.tables().tables().size());
-
-        assertThrows(TableNotFoundException.class, () -> ignite.tables().alterTable(TABLE_NAME,
-                chng -> chng.changeColumns(cols -> {
-                    cols.create("name", colChg -> convert(SchemaBuilders.column("name", ColumnType.string()).asNullable(true)
-                            .withDefaultValueExpression("default").build(), colChg));
-                })));
-
-        CompletableFuture<Void> alterTableAcyncFut = ignite.tables().alterTableAsync(TABLE_NAME + "_async",
-                chng -> chng.changeColumns(cols -> {
-                    cols.create("name", colChg -> convert(SchemaBuilders.column("name", ColumnType.string()).asNullable(true)
-                            .withDefaultValueExpression("default").build(), colChg));
-                }));
-
-        assertThrows(TableNotFoundException.class, () -> futureResult(alterTableAcyncFut));
-    }
-
-    /**
-     * Gets future result and unwrap exception if it was thrown.
-     *
-     * @param fut Some future.
-     * @param <T> Expected future result parameter.
-     * @return Future result.
-     * @throws Throwable If future completed with an exception.
-     */
-    private <T> T futureResult(CompletableFuture<T> fut) throws Throwable {
-        try {
-            return fut.get();
-        } catch (ExecutionException e) {
-            throw e.getCause();
-        }
     }
 
     /**
