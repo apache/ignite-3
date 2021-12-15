@@ -2685,6 +2685,12 @@ public class NodeImpl implements Node, RaftServerService {
             if (response.granted()) {
                 this.prevVoteCtx.grant(peerId);
                 if (this.prevVoteCtx.isGranted()) {
+                    if (currTerm > prevVoteCtx.startTerm) {
+                        LOG.info("Node {} does not start vote in handlePreVoteResponse, term={}, preVoteTerm={}.", getNodeId(), this.currTerm, prevVoteCtx.startTerm);
+
+                        return;
+                    }
+
                     doUnlock = false;
                     electSelf();
                 }
