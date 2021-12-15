@@ -262,8 +262,9 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                         new Column("id", NativeTypes.INT32, false)
                 },
                 new Column[]{
-                        new Column("zbyte", NativeTypes.INT8, true, () -> (byte)42),
-                        new Column("zstring", NativeTypes.STRING, true, () -> "def_str"),
+                        new Column("num", NativeTypes.INT8, true, () -> (byte)42),
+                        new Column("str", NativeTypes.STRING, true, () -> "def_str"),
+                        new Column("str_non_null", NativeTypes.STRING, false, () -> "def_str2"),
                 });
     }
 
