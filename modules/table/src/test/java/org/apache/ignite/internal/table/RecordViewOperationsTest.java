@@ -285,7 +285,7 @@ public class RecordViewOperationsTest {
 
         tbl.upsertAll(List.of(val1, val3));
 
-        Collection<TestObjectWithAllTypes> res = tbl.getAll(List.of(key1, /*key2,*/ key3));
+        Collection<TestObjectWithAllTypes> res = tbl.getAll(List.of(key1, key2, key3));
 
         assertEquals(2, res.size());
         assertTrue(res.contains(val1));
