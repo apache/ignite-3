@@ -350,22 +350,6 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     }
 
     /**
-     * Marshals given key record to a row.
-     *
-     * @param rec Record key object.
-     * @return Binary row.
-     */
-    private BinaryRow marshalKey(@NotNull R rec) {
-        final RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
-
-        try {
-            return marsh.marshalKey(rec);
-        } catch (MarshallerException e) {
-            throw new IgniteException(e);
-        }
-    }
-
-    /**
      * Marshal records.
      *
      * @param recs Records collection.
@@ -384,6 +368,22 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
             }
 
             return rows;
+        } catch (MarshallerException e) {
+            throw new IgniteException(e);
+        }
+    }
+
+    /**
+     * Marshals given key record to a row.
+     *
+     * @param rec Record key object.
+     * @return Binary row.
+     */
+    private BinaryRow marshalKey(@NotNull R rec) {
+        final RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+
+        try {
+            return marsh.marshalKey(rec);
         } catch (MarshallerException e) {
             throw new IgniteException(e);
         }
