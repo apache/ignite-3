@@ -78,7 +78,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     @Override
     public @NotNull
     CompletableFuture<V> getAsync(@NotNull K key) {
-        BinaryRow keyRow = marshal(Objects.requireNonNull(key), null);
+        BinaryRow keyRow = marshal(Objects.requireNonNull(key));
 
         return tbl.get(keyRow, tx).thenApply(this::unmarshalValue);
     }
@@ -106,7 +106,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> containsAsync(@NotNull K key) {
-        BinaryRow keyRow = marshal(Objects.requireNonNull(key), null);
+        BinaryRow keyRow = marshal(Objects.requireNonNull(key));
 
         return tbl.get(keyRow, tx).thenApply(Objects::nonNull);
     }
@@ -187,7 +187,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     @Override
     public @NotNull
     CompletableFuture<Boolean> removeAsync(@NotNull K key) {
-        BinaryRow keyRow = marshal(Objects.requireNonNull(key), null);
+        BinaryRow keyRow = marshal(Objects.requireNonNull(key));
 
         return tbl.delete(keyRow, tx);
     }
@@ -226,7 +226,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     @Override
     public @NotNull
     CompletableFuture<V> getAndRemoveAsync(@NotNull K key) {
-        BinaryRow keyRow = marshal(Objects.requireNonNull(key), null);
+        BinaryRow keyRow = marshal(Objects.requireNonNull(key));
 
         return tbl.getAndDelete(keyRow, tx).thenApply(this::unmarshalValue);
     }
@@ -337,22 +337,16 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /**
-     * Unmarshal value object from given binary row.
+     * Marshal key.
      *
-     * @param binaryRow Binary row.
-     * @return Value object.
+     * @param key Key object.
+     * @return Binary row.
      */
-    private V unmarshalValue(BinaryRow binaryRow) {
-        if (binaryRow == null || !binaryRow.hasValue()) {
-            return null;
-        }
-
-        Row row = schemaReg.resolve(binaryRow);
-
-        KvMarshaller<K, V> marshaller = marshaller(row.schemaVersion());
+    private BinaryRow marshal(@NotNull K key) {
+        final KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
 
         try {
-            return marshaller.unmarshalValue(row);
+            return marsh.marshal(key);
         } catch (MarshallerException e) {
             throw new IgniteException(e);
         }
@@ -389,7 +383,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
         try {
             for (K key : keys) {
-                final BinaryRow keyRow = marsh.marshal(Objects.requireNonNull(key), null);
+                final BinaryRow keyRow = marsh.marshal(Objects.requireNonNull(key));
 
                 keyRows.add(keyRow);
             }
@@ -454,6 +448,27 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         }
     }
 
+    /**
+     * Unmarshal value object from given binary row.
+     *
+     * @param binaryRow Binary row.
+     * @return Value object.
+     */
+    private V unmarshalValue(BinaryRow binaryRow) {
+        if (binaryRow == null || !binaryRow.hasValue()) {
+            return null;
+        }
+
+        Row row = schemaReg.resolve(binaryRow);
+
+        KvMarshaller<K, V> marshaller = marshaller(row.schemaVersion());
+
+        try {
+            return marshaller.unmarshalValue(row);
+        } catch (MarshallerException e) {
+            throw new IgniteException(e);
+        }
+    }
 
     /**
      * Marshal key-value pairs.
