@@ -76,7 +76,19 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public @NotNull CompletableFuture<V> getAsync(@NotNull K key) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(key));
 
-        return tbl.get(keyRow, tx).thenApply(this::unmarshalValue);
+        return tbl.get(keyRow, tx).thenApply(row -> {
+            if (row == null) {
+                return null;
+            }
+
+            V v = unmarshalValue(row);
+
+            if (v == null) {
+                throw new IllegalStateException("Got unexpected 'null' value. Please, use 'getNullable' method instead.");
+            }
+
+            return v;
+        });
     }
 
     /** {@inheritDoc} */
@@ -264,6 +276,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, V val) {
         BinaryRow row = marshal(Objects.requireNonNull(key), val);
+
         return tbl.replace(row, tx);
     }
 

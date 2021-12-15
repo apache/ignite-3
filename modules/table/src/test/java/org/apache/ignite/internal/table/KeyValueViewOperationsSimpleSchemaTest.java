@@ -42,6 +42,7 @@ import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.KeyValueView;
@@ -84,7 +85,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertEquals(22L, tbl.get(1L));
 
         // Remove KV pair.
-        tbl.put(1L, null);
+        tbl.remove(1L);
 
         assertNull(tbl.get(1L));
 
@@ -140,7 +141,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
 
         tbl.put(1L, null);
 
-        assertNull(tbl.get(1L));
+        assertThrows(IgniteException.class, () -> tbl.get(1L));
         assertEquals(new NullableValue<>(null), tbl.getNullable(1L));
 
         // Remove KV pair.
@@ -153,6 +154,8 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         tbl.put(1L, 22L);
         assertEquals(22L, tbl.get(1L));
         assertEquals(new NullableValue<>(22L), tbl.getNullable(1L));
+
+        assertThrows(Throwable.class, () -> tbl.getNullable(null));
     }
 
     @Test
@@ -168,7 +171,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
 
         tbl.put(1L, null);
 
-        assertNull(tbl.get(1L));
+        assertThrows(IgniteException.class, () -> tbl.get(1L));
         assertNull(tbl.getOrDefault(1L, Long.MAX_VALUE));
 
         // Remove KV pair.
@@ -181,6 +184,9 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         tbl.put(1L, 22L);
         assertEquals(22L, tbl.get(1L));
         assertEquals(22L, tbl.getOrDefault(1L, Long.MAX_VALUE));
+
+        assertThrows(Throwable.class, () -> tbl.getOrDefault(null, Long.MAX_VALUE));
+        assertThrows(Throwable.class, () -> tbl.getOrDefault(1L, null));
     }
 
     @Test
@@ -295,7 +301,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
 
         // Remove existed KV pair.
         assertTrue(tbl.replace(1L, null));
-        assertNull(tbl.get(1L));
+        assertNull(tbl.getNullable(1L).value());
 
         // Ignore replace operation for non-existed KV pair.
         assertFalse(tbl.replace(3L, 33L));
@@ -331,7 +337,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
 
         // Replace with null value.
         assertTrue(tbl.replace(1L, 22L, null));
-        assertNull(tbl.get(1L));
+        assertNull(tbl.getNullable(1L).value());
 
         // Replace null value.
         assertTrue(tbl.replace(1L, null, 33L));
@@ -339,6 +345,8 @@ public class KeyValueViewOperationsSimpleSchemaTest {
 
         // Remove non-existed KV pair.
         assertFalse(tbl.replace(2L, null, null));
+
+        assertThrows(Throwable.class, () -> tbl.replace(null, null, 33L));
     }
 
     @Test

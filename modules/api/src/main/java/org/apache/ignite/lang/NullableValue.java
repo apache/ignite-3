@@ -44,7 +44,7 @@ public final class NullableValue<T> {
      *
      * @return Value.
      */
-    @Nullable T get() {
+    public @Nullable T value() {
         return value;
     }
 
