@@ -40,7 +40,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
- * There are tests which check a table managment contract:
+ * There are tests which check a table managment contract.
  * <ul>
  * <li>When a table is already created other tries to create the table have to fail {@link TableAlreadyExistsException}.</li>
  * <li>When a table is not existed, tries to alter or drop the table have to failed {@link TableNotFoundException}.</li>
@@ -291,8 +291,4 @@ public class ItTableApiContractTest extends IgniteAbstractTest {
             throw e.getCause();
         }
     }
-
-
-
-
 }
