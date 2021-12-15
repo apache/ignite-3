@@ -822,7 +822,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<Void> alterTableAsyncInternal(String name, Consumer<TableChange> tableChange) {
         CompletableFuture<Void> tblFut = new CompletableFuture<>();
 
-        tableAsync(name, true).thenAccept(tbl -> {
+        tableAsync(name).thenAccept(tbl -> {
             if (tbl == null) {
                 tblFut.completeExceptionally(new IgniteException(
                         LoggerMessageHelper.format("Table [name={}] does not exist and cannot be altered", name)));
@@ -935,7 +935,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<Void> dropTableAsyncInternal(String name) {
         CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
 
-        tableAsync(name, true).thenAccept(tbl -> {
+        tableAsync(name).thenAccept(tbl -> {
             // In case of drop it's an optimization that allows not to fire drop-change-closure if there's no such
             // distributed table and the local config has lagged behind.
             if (tbl == null) {
@@ -990,7 +990,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         var i = 0;
 
         for (String tblName : tableNames) {
-            tableFuts[i++] = tableAsync(tblName, false);
+            tableFuts[i++] = tableAsync(tblName);
         }
 
         return CompletableFuture.allOf(tableFuts).thenApply(unused -> {
@@ -1089,7 +1089,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return (CompletableFuture<Table>) tableAsync(name, true);
+            IgniteUuid tableId = directTableIgniteUuid(name);
+
+            if (tableId == null) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            return (CompletableFuture<Table>) tableAsyncInternal(tableId, false);
         } finally {
             busyLock.leaveBusy();
         }
@@ -1102,37 +1108,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new NodeStoppingException();
         }
         try {
-            return tableAsyncInternal(id);
+            return (CompletableFuture<TableImpl>) tableAsyncInternal(id, true);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
     /**
-     * Gets a table if it exists or {@code null} if it was not created or was removed before.
-     *
-     * @param checkConfiguration True when the method checks a configuration before tries to get a table, false otherwise.
-     * @return A table or {@code null} if table does not exist.
-     */
-    private CompletableFuture<? extends Table> tableAsync(String name, boolean checkConfiguration) {
-        if (checkConfiguration && !isTableConfigured(name)) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        ExtendedTableView view = (ExtendedTableView) ConfigurationUtil.directValue(tablesCfg.tables()).get(name);
-
-        return tableAsyncInternal(IgniteUuid.fromString(view.id()));
-    }
-
-    /**
      * Internal method for getting table by id.
      *
      * @param id Table id.
+     * @param checkConfiguration {@code True} when the method checks a configuration before trying to get a table, {@code false} otherwise.
      * @return Future representing pending completion of the operation.
      */
     @NotNull
-    private CompletableFuture<TableImpl> tableAsyncInternal(IgniteUuid id) {
-        if (!isTableConfigured(id)) {
+    private CompletableFuture<? extends Table> tableAsyncInternal(IgniteUuid id, boolean checkConfiguration) {
+        if (checkConfiguration && !isTableConfigured(id)) {
             return CompletableFuture.completedFuture(null);
         }
 
@@ -1142,7 +1133,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return CompletableFuture.completedFuture(tbl);
         }
 
-        CompletableFuture<TableImpl> getTblFut = new CompletableFuture<>();
+        CompletableFuture<Table> getTblFut = new CompletableFuture<>();
 
         EventListener<TableEventParameters> clo = new EventListener<>() {
             @Override
@@ -1201,13 +1192,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Checks that the table is configured.
+     * Gets actual id of table with {@code tblName}.
      *
-     * @param name Table name.
-     * @return True if table configured, false otherwise.
+     * @param tblName Name of table
+     * @return Direct id of table, or {@code null} if table with {@code tblName} has not been found.
+     * @see DirectConfigurationProperty
      */
-    private boolean isTableConfigured(String name) {
-        return tableNamesConfigured().contains(name);
+    private IgniteUuid directTableIgniteUuid(String tblName) {
+        ExtendedTableView view = (ExtendedTableView) ConfigurationUtil.directValue(tablesCfg.tables()).get(tblName);
+
+        return view == null ? null : IgniteUuid.fromString(view.id());
     }
 
     /**
