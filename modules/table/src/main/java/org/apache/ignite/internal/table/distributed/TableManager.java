@@ -985,16 +985,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<List<Table>> tablesAsyncInternal() {
-        List<String> tableNames = tableNamesConfigured();
-        var tableFuts = new CompletableFuture[tableNames.size()];
+        List<IgniteUuid> tableIds = directTableIds();
+
+        var tableFuts = new CompletableFuture[tableIds.size()];
+
         var i = 0;
 
-        for (String tblName : tableNames) {
-            tableFuts[i++] = tableAsync(tblName);
+        for (IgniteUuid tblId : tableIds) {
+            tableFuts[i++] = tableAsyncInternal(tblId, false);
         }
 
         return CompletableFuture.allOf(tableFuts).thenApply(unused -> {
-            var tables = new ArrayList<Table>(tableNames.size());
+            var tables = new ArrayList<Table>(tableIds.size());
 
             try {
                 for (var fut : tableFuts) {
@@ -1013,12 +1015,36 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Collects a list of table names from the distributed configuration storage.
+     * Collects a list of direct table ids.
      *
-     * @return A list of table names.
+     * @return A list of direct table ids.
+     * @see DirectConfigurationProperty
      */
-    private List<String> tableNamesConfigured() {
-        return ConfigurationUtil.directValue(tablesCfg.tables()).namedListKeys();
+    private List<IgniteUuid> directTableIds() {
+        NamedListView<TableView> views = ConfigurationUtil.directValue(tablesCfg.tables());
+
+        List<IgniteUuid> tableUuids = new ArrayList<>();
+
+        for (int i = 0; i < views.size(); i++) {
+            ExtendedTableView extView = (ExtendedTableView) views.get(i);
+
+            tableUuids.add(IgniteUuid.fromString(extView.id()));
+        }
+
+        return tableUuids;
+    }
+
+    /**
+     * Gets direct id of table with {@code tblName}.
+     *
+     * @param tblName Name of the table.
+     * @return Direct id of the table, or {@code null} if the table with the {@code tblName} has not been found.
+     * @see DirectConfigurationProperty
+     */
+    private IgniteUuid directTableId(String tblName) {
+        ExtendedTableView view = (ExtendedTableView) ConfigurationUtil.directValue(tablesCfg.tables()).get(tblName);
+
+        return view == null ? null : IgniteUuid.fromString(view.id());
     }
 
     /**
@@ -1089,13 +1115,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            IgniteUuid tableId = directTableIgniteUuid(name);
+            IgniteUuid tableId = directTableId(name);
 
             if (tableId == null) {
                 return CompletableFuture.completedFuture(null);
             }
 
-            return (CompletableFuture<Table>) tableAsyncInternal(tableId, false);
+            return (CompletableFuture) tableAsyncInternal(tableId, false);
         } finally {
             busyLock.leaveBusy();
         }
@@ -1108,7 +1134,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new NodeStoppingException();
         }
         try {
-            return (CompletableFuture<TableImpl>) tableAsyncInternal(id, true);
+            return tableAsyncInternal(id, true);
         } finally {
             busyLock.leaveBusy();
         }
@@ -1122,7 +1148,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future representing pending completion of the operation.
      */
     @NotNull
-    private CompletableFuture<? extends Table> tableAsyncInternal(IgniteUuid id, boolean checkConfiguration) {
+    private CompletableFuture<TableImpl> tableAsyncInternal(IgniteUuid id, boolean checkConfiguration) {
         if (checkConfiguration && !isTableConfigured(id)) {
             return CompletableFuture.completedFuture(null);
         }
@@ -1133,7 +1159,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return CompletableFuture.completedFuture(tbl);
         }
 
-        CompletableFuture<Table> getTblFut = new CompletableFuture<>();
+        CompletableFuture<TableImpl> getTblFut = new CompletableFuture<>();
 
         EventListener<TableEventParameters> clo = new EventListener<>() {
             @Override
@@ -1189,19 +1215,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         return false;
-    }
-
-    /**
-     * Gets actual id of table with {@code tblName}.
-     *
-     * @param tblName Name of table
-     * @return Direct id of table, or {@code null} if table with {@code tblName} has not been found.
-     * @see DirectConfigurationProperty
-     */
-    private IgniteUuid directTableIgniteUuid(String tblName) {
-        ExtendedTableView view = (ExtendedTableView) ConfigurationUtil.directValue(tablesCfg.tables()).get(tblName);
-
-        return view == null ? null : IgniteUuid.fromString(view.id());
     }
 
     /**
