@@ -332,7 +332,17 @@ public class ClientTableTest extends AbstractClientTableTest {
 
     @Test
     public void testNullableColumnWithDefaultValueSetNullResultNull() {
-        // TODO
+        RecordView<Tuple> table = tableWithDefaultValues().recordView();
+
+        var tuple = Tuple.create()
+                .set("id", 1)
+                .set("str", null);
+
+        table.upsert(tuple);
+
+        var res = table.get(tuple);
+
+        assertNull(res.stringValue("str"));
     }
 
     @Test
