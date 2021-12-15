@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.query.calcite.schema;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.core.TableModify;
@@ -38,6 +39,13 @@ import org.jetbrains.annotations.Nullable;
  * Ignite internal table.
  */
 public interface InternalIgniteTable extends IgniteTable {
+    /**
+     * Gets.
+     */
+    default UUID tableId() {
+        return null;
+    }
+
     /** {@inheritDoc} */
     @Override
     default IgniteLogicalTableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl) {

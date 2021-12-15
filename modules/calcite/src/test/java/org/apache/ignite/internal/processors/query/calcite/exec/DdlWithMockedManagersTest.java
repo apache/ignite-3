@@ -39,6 +39,7 @@ import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.idx.IndexManager;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -116,6 +117,9 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
 
     TableManager tblManager;
 
+    @Mock
+    IndexManager idxManager;
+
     SqlQueryProcessor queryProc;
 
     /** Test node. */
@@ -150,7 +154,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
     void before() throws NodeStoppingException {
         tblManager = mockManagers();
 
-        queryProc = new SqlQueryProcessor(cs, tblManager);
+        queryProc = new SqlQueryProcessor(cs, tblManager, idxManager);
 
         queryProc.start();
     }

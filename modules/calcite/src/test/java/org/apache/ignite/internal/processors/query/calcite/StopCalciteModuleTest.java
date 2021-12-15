@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Flow;
+import org.apache.ignite.internal.idx.IndexManager;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -81,6 +82,9 @@ public class StopCalciteModuleTest {
 
     @Mock
     TableManager tableManager;
+
+    @Mock
+    IndexManager idxManager;
 
     @Mock
     MessagingService msgSrvc;
@@ -169,7 +173,7 @@ public class StopCalciteModuleTest {
 
     @Test
     public void testStopQueryOnNodeStop() throws Exception {
-        SqlQueryProcessor qryProc = new SqlQueryProcessor(clusterSrvc, tableManager);
+        SqlQueryProcessor qryProc = new SqlQueryProcessor(clusterSrvc, tableManager, idxManager);
 
         qryProc.start();
 

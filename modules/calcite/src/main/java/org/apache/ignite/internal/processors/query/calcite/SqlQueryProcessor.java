@@ -25,6 +25,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.idx.IndexManager;
+import org.apache.ignite.internal.idx.event.IndexEvent;
+import org.apache.ignite.internal.idx.event.IndexEventParameters;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.processors.query.calcite.exec.ArrayRowHandler;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionService;
@@ -60,14 +63,19 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final TableManager tableManager;
 
+    private final IndexManager idxManager;
+
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Keeps queries plans to avoid expensive planning of the same queries. */
     private final QueryPlanCache planCache = new QueryPlanCacheImpl(PLAN_CACHE_SIZE);
 
-    /** Event listeners to close. */
-    private final List<Pair<TableEvent, EventListener<TableEventParameters>>> evtLsnrs = new ArrayList<>();
+    /** Table event listeners to close. */
+    private final List<Pair<TableEvent, EventListener<TableEventParameters>>> tblEvtLsnrs = new ArrayList<>();
+
+    /** Index event listeners to close. */
+    private final List<Pair<IndexEvent, EventListener<IndexEventParameters>>> idxEvtLsnrs = new ArrayList<>();
 
     private volatile ExecutionService executionSrvc;
 
@@ -77,12 +85,21 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile Map<String, SqlExtension> extensions;
 
+    /**
+     * Create SQL query processor.
+     *
+     * @param clusterSrvc  Cluster service.
+     * @param tableManager Table manager.
+     * @param idxManager   Index manager.
+     */
     public SqlQueryProcessor(
             ClusterService clusterSrvc,
-            TableManager tableManager
+            TableManager tableManager,
+            IndexManager idxManager
     ) {
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
+        this.idxManager = idxManager;
     }
 
     /** {@inheritDoc} */
@@ -123,6 +140,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         registerTableListener(TableEvent.ALTER, new TableUpdatedListener(schemaHolder));
         registerTableListener(TableEvent.DROP, new TableDroppedListener(schemaHolder));
 
+        registerIndexListener(IndexEvent.CREATE, new IndexCreatedListener(schemaHolder));
+        registerIndexListener(IndexEvent.DROP, new IndexDroppedListener(schemaHolder));
+
         taskExecutor.start();
         msgSrvc.start();
         executionSrvc.start();
@@ -132,9 +152,15 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private void registerTableListener(TableEvent evt, AbstractTableEventListener lsnr) {
-        evtLsnrs.add(Pair.of(evt, lsnr));
+        tblEvtLsnrs.add(Pair.of(evt, lsnr));
 
         tableManager.listen(evt, lsnr);
+    }
+
+    private void registerIndexListener(IndexEvent evt, AbstractIndexEventListener lsnr) {
+        idxEvtLsnrs.add(Pair.of(evt, lsnr));
+
+        idxManager.listen(evt, lsnr);
     }
 
     /** {@inheritDoc} */
@@ -160,8 +186,12 @@ public class SqlQueryProcessor implements QueryProcessor {
                 planCache::stop
         );
 
-        Stream<AutoCloseable> closableListeners = evtLsnrs.stream()
-                .map((p) -> () -> tableManager.removeListener(p.left, p.right));
+        Stream<AutoCloseable> closableListeners = Stream.concat(
+                tblEvtLsnrs.stream()
+                    .map((p) -> () -> tableManager.removeListener(p.left, p.right)),
+                idxEvtLsnrs.stream()
+                        .map((p) -> () -> idxManager.removeListener(p.left, p.right))
+        );
 
         toClose.addAll(
                 Stream.concat(closableComponents, closableListeners).collect(Collectors.toList())
@@ -251,6 +281,62 @@ public class SqlQueryProcessor implements QueryProcessor {
             schemaHolder.onSqlTypeDropped(
                     "PUBLIC",
                     parameters.tableName()
+            );
+
+            return false;
+        }
+    }
+
+    private abstract static class AbstractIndexEventListener implements EventListener<IndexEventParameters> {
+        protected final SchemaHolderImpl schemaHolder;
+
+        private AbstractIndexEventListener(
+                SchemaHolderImpl schemaHolder
+        ) {
+            this.schemaHolder = schemaHolder;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void remove(@NotNull Throwable exception) {
+            // No-op.
+        }
+    }
+
+    private static class IndexCreatedListener extends AbstractIndexEventListener {
+        private IndexCreatedListener(
+                SchemaHolderImpl schemaHolder
+        ) {
+            super(schemaHolder);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
+            schemaHolder.onIndexCreated(
+                    "PUBLIC",
+                    parameters.table().name(),
+                    parameters.index()
+            );
+
+            return false;
+        }
+    }
+
+    private static class IndexDroppedListener extends AbstractIndexEventListener {
+        private IndexDroppedListener(
+                SchemaHolderImpl schemaHolder
+        ) {
+            super(schemaHolder);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
+            schemaHolder.onIndexDropped(
+                    "PUBLIC",
+                    parameters.table().name(),
+                    parameters.indexName()
             );
 
             return false;

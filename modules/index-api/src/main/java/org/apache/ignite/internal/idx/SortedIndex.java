@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.idx;
 
 import java.util.BitSet;
+import java.util.List;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.table.Table;
@@ -51,6 +53,13 @@ public interface SortedIndex {
      * @return Indexed table.
      */
     Table table();
+
+    /**
+     * Return indexed columns.
+     *
+     * @return Indexed columns.
+     */
+    List<Column> columns();
 
     /**
      * Return rows between lower and upper bounds. Fill results rows by fields specified at the projection set.

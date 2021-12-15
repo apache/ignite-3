@@ -40,6 +40,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.idx.IndexManagerImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -126,6 +127,9 @@ public class IgniteImpl implements Ignite {
     /** Distributed table manager. */
     private final TableManager distributedTblMgr;
 
+    /** Index manager. */
+    private final IndexManagerImpl idxManager;
+
     /** Rest module. */
     private final RestModule restModule;
 
@@ -211,9 +215,17 @@ public class IgniteImpl implements Ignite {
                 txManager
         );
 
+        idxManager = new IndexManagerImpl(
+                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
+                clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
+                getPartitionsStorePath(workDir),
+                txManager
+        );
+
         qryEngine = new SqlQueryProcessor(
                 clusterSvc,
-                distributedTblMgr
+                distributedTblMgr,
+                idxManager
         );
 
         restModule = new RestModule(nodeCfgMgr, clusterCfgMgr, nettyBootstrapFactory);

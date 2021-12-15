@@ -73,4 +73,14 @@ public class IgniteSchema extends AbstractSchema {
     public void removeTable(String tblName) {
         tblMap.remove(tblName);
     }
+
+    /**
+     * Return internal table.
+     *
+     * @param name Table's name.
+     * @return Internal table.
+     */
+    public InternalIgniteTable internalTable(String name) {
+        return tblMap.get(name);
+    }
 }

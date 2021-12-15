@@ -27,8 +27,10 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.idx.SortedIndex;
 import org.apache.ignite.internal.processors.query.calcite.extension.SqlExtension.ExternalCatalog;
 import org.apache.ignite.internal.processors.query.calcite.extension.SqlExtension.ExternalSchema;
+import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
@@ -149,6 +151,36 @@ public class SchemaHolderImpl implements SchemaHolder {
         IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
 
         schema.removeTable(tableName);
+
+        rebuild();
+    }
+
+    /**
+     * Build new SQL schema when new index is created.
+     */
+    public void onIndexCreated(String schema, String tblName, SortedIndex idx) {
+        InternalIgniteTable tbl = igniteSchemas.get(schema).internalTable(tblName);
+
+        List<Integer> cols = idx.columns().stream().map(Column::schemaIndex).collect(Collectors.toList());
+
+        tbl.addIndex(
+                new IgniteIndex(
+                        TraitUtils.createCollation(cols),
+                        idx,
+                        tbl
+                )
+        );
+
+        rebuild();
+    }
+
+    /**
+     * Build new SQL schema when existed index is dropped.
+     */
+    public void onIndexDropped(String schema, String tblName, String idxName) {
+        InternalIgniteTable tbl = igniteSchemas.get(schema).internalTable(tblName);
+
+        tbl.removeIndex(idxName);
 
         rebuild();
     }
