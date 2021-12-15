@@ -70,8 +70,6 @@ public final class NullableValue<T> {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return "NullableValue{" +
-                       "value=" + value +
-                       '}';
+        return "NullableValue{value=" + value + '}';
     }
 }

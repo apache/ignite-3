@@ -86,7 +86,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     /**
      * Method throws UnsupportedOperationException, unconditionally.
      *
-     * <p> Binary view doesn't support the operation because there is no ambiguity, {@code null} value means no rows found in the table for
+     * <p>Binary view doesn't support the operation because there is no ambiguity, {@code null} value means no rows found in the table for
      * the given key.
      */
     @Override
