@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,28 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller;
-
-import org.apache.ignite.internal.schema.SchemaDescriptor;
+package org.apache.ignite.internal.storage.index;
 
 /**
- * Base serializer class.
+ * Represents an Index row prefix, used to perform prefix scans over the Sorted Index storage.
  */
-public abstract class AbstractSerializer implements Serializer {
-    /** Schema descriptor. */
-    protected final SchemaDescriptor schema;
-
+public interface IndexRowPrefix {
     /**
-     * Constructor.
-     *
-     * @param schema Schema descriptor.
+     * Returns a list of column values that comprise a prefix of an Index row. Values will be sorted in the same order as the
+     * Sorted Index columns, specified by {@link SortedIndexDescriptor#indexRowColumns()}.
      */
-    protected AbstractSerializer(SchemaDescriptor schema) {
-        this.schema = schema;
-    }
-
-    /** {@inheritDoc} */
-    @Override public SchemaDescriptor schema() {
-        return schema;
-    }
+    Object[] prefixColumnValues();
 }

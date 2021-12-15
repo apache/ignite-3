@@ -238,8 +238,8 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public R getAndDelete(@NotNull R rec) {
-        return sync(getAndDeleteAsync(rec));
+    public R getAndDelete(@NotNull R keyRec) {
+        return sync(getAndDeleteAsync(keyRec));
     }
 
     /** {@inheritDoc} */
@@ -252,13 +252,13 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public Collection<R> deleteAll(@NotNull Collection<R> recs) {
-        return sync(deleteAllAsync(recs));
+    public Collection<R> deleteAll(@NotNull Collection<R> keyRecs) {
+        return sync(deleteAllAsync(keyRecs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@NotNull Collection<R> recs) {
+    public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@NotNull Collection<R> keyRecs) {
         Objects.requireNonNull(recs);
 
         return tbl.deleteAll(marshal(recs), tx).thenApply(this::unmarshal);

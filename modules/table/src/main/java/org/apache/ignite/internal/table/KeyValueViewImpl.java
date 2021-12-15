@@ -78,7 +78,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     @Override
     public @NotNull
     CompletableFuture<V> getAsync(@NotNull K key) {
-        BinaryRow keyRow = marshal(Objects.requireNonNull(key), null);
+        BinaryRow keyRow = marshal(Objects.requireNonNull(key));
 
         return tbl.get(keyRow, tx).thenApply(this::unmarshalValue);
     }
@@ -91,8 +91,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull
-    CompletableFuture<Map<K, V>> getAllAsync(@NotNull Collection<K> keys) {
+    public @NotNull CompletableFuture<Map<K, V>> getAllAsync(@NotNull Collection<K> keys) {
         Objects.requireNonNull(keys);
 
         return tbl.getAll(marshal(keys), tx).thenApply(this::unmarshalPairs);
@@ -101,13 +100,16 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     /** {@inheritDoc} */
     @Override
     public boolean contains(@NotNull K key) {
-        return get(key) != null;
+        return sync(containsAsync(key));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> containsAsync(@NotNull K key) {
-        return getAsync(key).thenApply(Objects::nonNull);
+        BinaryRow keyRow = marshal(Objects.requireNonNull(key));
+
+        return tbl.get(keyRow, tx)
+                .thenApply(Objects::nonNull);
     }
 
     /** {@inheritDoc} */
@@ -178,7 +180,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public boolean remove(@NotNull K key, @NotNull V val) {
+    public boolean remove(@NotNull K key, V val) {
         return sync(removeAsync(key, val));
     }
 
@@ -186,16 +188,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     @Override
     public @NotNull
     CompletableFuture<Boolean> removeAsync(@NotNull K key) {
-        BinaryRow keyRow = marshal(Objects.requireNonNull(key), null);
-
+        BinaryRow keyRow = marshal(Objects.requireNonNull(key));
         return tbl.delete(keyRow, tx);
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull K key, @NotNull V val) {
-        BinaryRow keyRow = marshal(Objects.requireNonNull(key), Objects.requireNonNull(val));
-
+    public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull K key, V val) {
+        BinaryRow keyRow = marshal(Objects.requireNonNull(key), val);
         return tbl.deleteExact(keyRow, tx);
     }
 
@@ -225,8 +225,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     @Override
     public @NotNull
     CompletableFuture<V> getAndRemoveAsync(@NotNull K key) {
-        BinaryRow keyRow = marshal(Objects.requireNonNull(key), null);
-
+        BinaryRow keyRow = marshal(Objects.requireNonNull(key));
         return tbl.getAndDelete(keyRow, tx).thenApply(this::unmarshalValue);
     }
 
@@ -238,26 +237,24 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@NotNull K key, @NotNull V oldVal, @NotNull V newVal) {
+    public boolean replace(@NotNull K key, V oldVal, V newVal) {
         return sync(replaceAsync(key, oldVal, newVal));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, @NotNull V val) {
-        BinaryRow row = marshal(Objects.requireNonNull(key), Objects.requireNonNull(val));
-
+    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, V val) {
+        BinaryRow row = marshal(Objects.requireNonNull(key), val);
         return tbl.replace(row, tx);
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, @NotNull V oldVal, @NotNull V newVal) {
+    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, V oldVal, V newVal) {
         Objects.requireNonNull(key);
 
-        BinaryRow oldRow = marshal(key, Objects.requireNonNull(oldVal));
-        BinaryRow newRow = marshal(key, Objects.requireNonNull(newVal));
-
+        BinaryRow oldRow = marshal(key, oldVal);
+        BinaryRow newRow = marshal(key, newVal);
         return tbl.replace(oldRow, newRow, tx);
     }
 

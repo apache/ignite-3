@@ -17,6 +17,9 @@
 
 /**
  * Contains user classes mapping API classes and mapper builders.
+ *
+ * @see org.apache.ignite.table.mapper.Mapper static factory methods.
+ * @see org.apache.ignite.table.mapper.TypeConverter interface for building interceptors for custom type casting or value transformtaion.
  */
 
 package org.apache.ignite.table.mapper;
