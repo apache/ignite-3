@@ -62,11 +62,9 @@ public class Loza implements IgniteComponent {
     private static final int CLIENT_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
 
     /** Timeout. */
-    // TODO: IGNITE-15705 Correct value should be investigated
-    private static final int TIMEOUT = 10000;
+    private static final int RETRY_TIMEOUT = 10000;
 
     /** Network timeout. */
-    // TODO: IGNITE-15705 Correct value should be investigated
     private static final int RPC_TIMEOUT = 3000;
 
     /** Retry delay. */
@@ -205,7 +203,7 @@ public class Loza implements IgniteComponent {
                 groupId,
                 clusterNetSvc,
                 FACTORY,
-                TIMEOUT,
+                RETRY_TIMEOUT,
                 RPC_TIMEOUT,
                 peers,
                 true,
@@ -274,7 +272,7 @@ public class Loza implements IgniteComponent {
                 groupId,
                 clusterNetSvc,
                 FACTORY,
-                TIMEOUT,
+                RETRY_TIMEOUT,
                 peers,
                 true,
                 DELAY,
@@ -323,7 +321,7 @@ public class Loza implements IgniteComponent {
                 groupId,
                 clusterNetSvc,
                 FACTORY,
-                10 * TIMEOUT,
+                10 * RETRY_TIMEOUT,
                 10 * RPC_TIMEOUT,
                 expectedPeers,
                 true,

@@ -611,7 +611,7 @@ public class NodeImpl implements Node, RaftServerService {
             }
         }
     }
-    
+
     /**
      * Method that adjusts election timeout after several consecutive unsuccessful leader elections.
      *
@@ -628,11 +628,11 @@ public class NodeImpl implements Node, RaftServerService {
             electionRoundsWithoutAdjusting++;
             return;
         }
-        
+
         if (!electionAdjusted) {
             initialElectionTimeout = options.getElectionTimeoutMs();
         }
-        
+
         if (options.getElectionTimeoutMs() < NodeOptions.ELECTION_TIMEOUT_MS_MAX) {
             LOG.info("Election timeout was adjusted.");
             resetElectionTimeoutMs(options.getElectionTimeoutMs() * 2);
@@ -640,7 +640,7 @@ public class NodeImpl implements Node, RaftServerService {
             electionRoundsWithoutAdjusting = 0;
         }
     }
-    
+
     /**
      * Method that resets election timeout to initial value after an adjusting.
      *
@@ -654,7 +654,7 @@ public class NodeImpl implements Node, RaftServerService {
             electionRoundsWithoutAdjusting = 0;
         }
     }
-    
+
     /**
      * Whether to allow for launching election or not by comparing node's priority with target priority. And at the same
      * time, if next leader is not elected until next election timeout, it decays its local target priority
@@ -1219,9 +1219,6 @@ public class NodeImpl implements Node, RaftServerService {
             }
             resetLeaderId(PeerId.emptyPeer(), new Status(RaftError.ERAFTTIMEDOUT,
                 "A follower's leader_id is reset to NULL as it begins to request_vote."));
-            if (!options.getRaftOptions().isStepDownWhenVoteTimedout()) {
-                adjustElectionTimeout();
-            }
             this.state = State.STATE_CANDIDATE;
             this.currTerm++;
             this.votedId = this.serverId.copy();
@@ -1291,11 +1288,11 @@ public class NodeImpl implements Node, RaftServerService {
                 this.fsmCaller.onStartFollowing(new LeaderChangeContext(newLeaderId, this.currTerm, status));
             }
             this.leaderId = newLeaderId.copy();
-            
+
             resetElectionTimeoutToInitial();
         }
     }
-    
+
     // in writeLock
     private void checkStepDown(final long requestTerm, final PeerId serverId) {
         final Status status = new Status();
@@ -2852,8 +2849,8 @@ public class NodeImpl implements Node, RaftServerService {
             this.writeLock.unlock();
             return;
         }
-        
-        // This is needed for the node, who won preVote in a previous iteration, but leader wasn't elected.
+
+        // This is needed for the node, which won preVote in a previous iteration, but leader wasn't elected.
         if (this.prevVoteCtx.isGranted())
             adjustElectionTimeout();
 

@@ -121,7 +121,7 @@ public class JraftServerImpl implements RaftServer {
         this.opts.setSharedPools(true);
 
         if (opts.getServerName() == null) {
-            opts.setServerName(service.localConfiguration().getName());
+            this.opts.setServerName(service.localConfiguration().getName());
         }
     }
 
