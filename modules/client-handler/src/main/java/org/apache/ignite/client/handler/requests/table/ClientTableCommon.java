@@ -49,6 +49,8 @@ import org.jetbrains.annotations.NotNull;
  * Common table functionality.
  */
 class ClientTableCommon {
+    private static final Object NO_VALUE = new Object();
+
     /**
      * Writes a schema.
      *
@@ -437,10 +439,15 @@ class ClientTableCommon {
     }
 
     private static void writeColumnValue(ClientMessagePacker packer, Tuple tuple, Column col) {
-        var val = tuple.valueOrDefault(col.name(), null);
+        var val = tuple.valueOrDefault(col.name(), NO_VALUE);
 
         if (val == null) {
             packer.packNil();
+            return;
+        }
+
+        if (val == NO_VALUE) {
+            packer.packNoValue();
             return;
         }
 
