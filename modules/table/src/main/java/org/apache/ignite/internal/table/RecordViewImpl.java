@@ -74,9 +74,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<R> getAsync(@NotNull R keyRec) {
-        Objects.requireNonNull(keyRec);
-
-        BinaryRow keyRow = marshalKey(keyRec);  // Convert to portable format to pass TX/storage layer.
+        BinaryRow keyRow = marshalKey(Objects.requireNonNull(keyRec));
 
         return tbl.get(keyRow, tx).thenApply(this::unmarshal);
     }
@@ -160,9 +158,9 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> insertAllAsync(@NotNull Collection<R> recs) {
-        Objects.requireNonNull(recs);
+        Collection<BinaryRow> rows = marshal(Objects.requireNonNull(recs));
 
-        return tbl.insertAll(marshal(recs), tx).thenApply(this::unmarshal);
+        return tbl.insertAll(rows, tx).thenApply(this::unmarshal);
     }
 
     /** {@inheritDoc} */
@@ -180,7 +178,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R rec) {
-        BinaryRow newRow = marshal(rec);
+        BinaryRow newRow = marshal(Objects.requireNonNull(rec));
 
         return tbl.replace(newRow, tx);
     }
@@ -188,8 +186,8 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R oldRec, @NotNull R newRec) {
-        BinaryRow oldRow = marshal(oldRec);
-        BinaryRow newRow = marshal(newRec);
+        BinaryRow oldRow = marshal(Objects.requireNonNull(oldRec));
+        BinaryRow newRow = marshal(Objects.requireNonNull(newRec));
 
         return tbl.replace(oldRow, newRow, tx);
     }
@@ -203,7 +201,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<R> getAndReplaceAsync(@NotNull R rec) {
-        BinaryRow row = marshal(rec);
+        BinaryRow row = marshal(Objects.requireNonNull(rec));
 
         return tbl.getAndReplace(row, tx).thenApply(this::unmarshal);
     }
@@ -217,7 +215,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> deleteAsync(@NotNull R keyRec) {
-        BinaryRow row = marshalKey(keyRec);
+        BinaryRow row = marshalKey(Objects.requireNonNull(keyRec));
 
         return tbl.delete(row, tx);
     }
@@ -230,8 +228,8 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> deleteExactAsync(@NotNull R rec) {
-        BinaryRow row = marshal(rec);
+    public @NotNull CompletableFuture<Boolean> deleteExactAsync(@NotNull R keyRec) {
+        BinaryRow row = marshal(Objects.requireNonNull(keyRec));
 
         return tbl.deleteExact(row, tx);
     }
@@ -259,9 +257,9 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@NotNull Collection<R> keyRecs) {
-        Objects.requireNonNull(recs);
+        Collection<BinaryRow> rows = marshal(Objects.requireNonNull(keyRecs));
 
-        return tbl.deleteAll(marshal(recs), tx).thenApply(this::unmarshal);
+        return tbl.deleteAll(rows, tx).thenApply(this::unmarshal);
     }
 
     /** {@inheritDoc} */
@@ -272,10 +270,10 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@NotNull Collection<R> recs) {
-        Objects.requireNonNull(recs);
+    public @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@NotNull Collection<R> keyRecs) {
+        Collection<BinaryRow> rows = marshal(Objects.requireNonNull(keyRecs));
 
-        return tbl.deleteAllExact(marshal(recs), tx).thenApply(this::unmarshal);
+        return tbl.deleteAllExact(rows, tx).thenApply(this::unmarshal);
     }
 
     /** {@inheritDoc} */
