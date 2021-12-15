@@ -17,6 +17,7 @@
 
 package org.apache.ignite.lang;
 
+import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -25,11 +26,52 @@ import org.jetbrains.annotations.Nullable;
  * @param <T> Value type.
  * @see org.apache.ignite.table.KeyValueView#getNullable(Object)
  */
-public interface NullableValue<T> {
+public final class NullableValue<T> {
+    /** Wrapped value. */
+    private T value;
+
+    /**
+     * Creates a wrapper for nullable value.
+     *
+     * @param value Value.
+     */
+    public NullableValue(@Nullable T value) {
+        this.value = value;
+    }
+
     /**
      * Returns wrapped value.
      *
      * @return Value.
      */
-    @Nullable T get();
+    @Nullable T get() {
+        return value;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        NullableValue<?> that = (NullableValue<?>) o;
+        return Objects.equals(value, that.value);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int hashCode() {
+        return Objects.hash(value);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return "NullableValue{" +
+                       "value=" + value +
+                       '}';
+    }
 }

@@ -67,10 +67,7 @@ public interface KeyValueView<K, V> {
      * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
      * @return Wrapped nullable value or {@code null}, if it does not exist.
      */
-    default NullableValue<V> getNullable(K key) {
-        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16115
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
+    NullableValue<V> getNullable(@NotNull K key);
 
     /**
      * Gets a nullable value associated with the given key.
@@ -79,10 +76,7 @@ public interface KeyValueView<K, V> {
      * @return Future representing pending completion of the operation.
      * @see #getNullable(Object)
      */
-    default @NotNull CompletableFuture<NullableValue<V>> getNullableAsync(K key) {
-        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16115
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
+    @NotNull CompletableFuture<NullableValue<V>> getNullableAsync(@NotNull K key);
 
     /**
      * Gets a value associated with the given key if exists, returns {@code defaultValue} otherwise.
@@ -93,10 +87,7 @@ public interface KeyValueView<K, V> {
      * @return Value or {@code defaultValue}, if does not exist.
      * @throws IllegalStateException If value for the key exists, and it is {@code null}.
      */
-    default V getOrDefault(K key, V defaultValue) {
-        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16115
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
+    V getOrDefault(@NotNull K key, V defaultValue);
 
     /**
      * Gets a nullable value associated with the given key.
@@ -107,10 +98,7 @@ public interface KeyValueView<K, V> {
      * @return Future representing pending completion of the operation.
      * @see #getOrDefault(Object, Object)
      */
-    default @NotNull CompletableFuture<V> getOrDefaultAsync(K key, V defaultValue) {
-        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16115
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
+    @NotNull CompletableFuture<V> getOrDefaultAsync(@NotNull K key, V defaultValue);
 
     /**
      * Get values associated with given keys.

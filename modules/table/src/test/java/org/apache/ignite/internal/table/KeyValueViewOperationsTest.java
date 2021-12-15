@@ -55,6 +55,7 @@ import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -143,6 +144,61 @@ public class KeyValueViewOperationsTest {
         assertEquals(obj2, tbl.getAndPut(key, obj3));
 
         assertEquals(obj3, tbl.get(key));
+    }
+
+    @Test
+    public void getNullable() {
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes val2 = TestObjectWithAllTypes.randomObject(rnd);
+
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
+
+        assertNull(tbl.getNullable(key));
+
+        // Put KV pair.
+        tbl.put(key, val);
+
+        assertEquals(new NullableValue<>(val), tbl.getNullable(key));
+
+        // Remove KV pair.
+        tbl.remove(key);
+
+        assertNull(tbl.get(key));
+        assertNull(tbl.getNullable(key));
+
+        // Put KV pair.
+        tbl.put(key, val2);
+        assertEquals(val2, tbl.get(key));
+        assertEquals(new NullableValue<>(val2), tbl.getNullable(key));
+    }
+
+    @Test
+    public void getOrDefault() {
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes val2 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes defaultTuple = TestObjectWithAllTypes.randomObject(rnd);
+
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
+
+        assertEquals(defaultTuple, tbl.getOrDefault(key, defaultTuple));
+
+        // Put KV pair.
+        tbl.put(key, val);
+
+        assertEquals(val, tbl.getOrDefault(key, defaultTuple));
+
+        // Remove KV pair.
+        tbl.remove(key);
+
+        assertNull(tbl.get(key));
+        assertEquals(defaultTuple, tbl.getOrDefault(key, defaultTuple));
+
+        // Put KV pair.
+        tbl.put(key, val2);
+        assertEquals(val2, tbl.get(key));
+        assertEquals(val2, tbl.getOrDefault(key, defaultTuple));
     }
 
     @Test

@@ -31,6 +31,7 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -72,12 +73,38 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull
-    CompletableFuture<V> getAsync(@NotNull K key) {
+    public @NotNull CompletableFuture<V> getAsync(@NotNull K key) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(key));
 
-        return tbl.get(keyRow, tx)
-                .thenApply(this::unmarshalValue); // row -> deserialized obj.
+        return tbl.get(keyRow, tx).thenApply(this::unmarshalValue);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NullableValue<V> getNullable(@NotNull K key) {
+        return sync(getNullableAsync(key));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @NotNull CompletableFuture<NullableValue<V>> getNullableAsync(@NotNull K key) {
+        BinaryRow keyRow = marshal(Objects.requireNonNull(key));
+
+        return tbl.get(keyRow, tx).thenApply(r -> r == null ? null : new NullableValue<>(unmarshalValue(r)));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public V getOrDefault(@NotNull K key, V defaultValue) {
+        return sync(getOrDefaultAsync(key, defaultValue));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @NotNull CompletableFuture<V> getOrDefaultAsync(@NotNull K key, V defaultValue) {
+        BinaryRow keyRow = marshal(Objects.requireNonNull(key));
+
+        return tbl.get(keyRow, tx).thenApply(r -> r == null ? defaultValue : unmarshalValue(r));
     }
 
     /** {@inheritDoc} */
@@ -103,8 +130,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<Boolean> containsAsync(@NotNull K key) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(key));
 
-        return tbl.get(keyRow, tx)
-                .thenApply(Objects::nonNull);
+        return tbl.get(keyRow, tx).thenApply(Objects::nonNull);
     }
 
     /** {@inheritDoc} */

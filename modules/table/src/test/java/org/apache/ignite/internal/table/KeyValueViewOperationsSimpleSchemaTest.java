@@ -42,6 +42,7 @@ import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -124,6 +125,62 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertEquals(22L, tbl.getAndPut(1L, 33L));
 
         assertEquals(33L, tbl.get(1L));
+    }
+
+    @Test
+    public void getNullable() {
+        KeyValueView<Long, Long> tbl = kvView();
+
+        assertNull(tbl.getNullable(1L));
+
+        // Put KV pair.
+        tbl.put(1L, 11L);
+
+        assertEquals(new NullableValue<>(11L), tbl.getNullable(1L));
+
+        tbl.put(1L, null);
+
+        assertNull(tbl.get(1L));
+        assertEquals(new NullableValue<>(null), tbl.getNullable(1L));
+
+        // Remove KV pair.
+        tbl.remove(1L);
+
+        assertNull(tbl.get(1L));
+        assertNull(tbl.getNullable(1L));
+
+        // Put KV pair.
+        tbl.put(1L, 22L);
+        assertEquals(22L, tbl.get(1L));
+        assertEquals(new NullableValue<>(22L), tbl.getNullable(1L));
+    }
+
+    @Test
+    public void getOrDefault() {
+        KeyValueView<Long, Long> tbl = kvView();
+
+        assertEquals(Long.MAX_VALUE, tbl.getOrDefault(1L, Long.MAX_VALUE));
+
+        // Put KV pair.
+        tbl.put(1L, 11L);
+
+        assertEquals(11L, tbl.getOrDefault(1L, Long.MAX_VALUE));
+
+        tbl.put(1L, null);
+
+        assertNull(tbl.get(1L));
+        assertNull(tbl.getOrDefault(1L, Long.MAX_VALUE));
+
+        // Remove KV pair.
+        tbl.remove(1L);
+
+        assertNull(tbl.get(1L));
+        assertEquals(Long.MAX_VALUE, tbl.getOrDefault(1L, Long.MAX_VALUE));
+
+        // Put KV pair.
+        tbl.put(1L, 22L);
+        assertEquals(22L, tbl.get(1L));
+        assertEquals(22L, tbl.getOrDefault(1L, Long.MAX_VALUE));
     }
 
     @Test

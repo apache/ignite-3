@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -148,7 +149,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     public Collection<Row> resolve(Collection<BinaryRow> rows) {
         final SchemaDescriptor curSchema = waitLatestSchema();
 
-        return rows.stream().map(row -> resolveInternal(row, curSchema)).collect(toList());
+        return rows.stream().filter(Objects::nonNull).map(row -> resolveInternal(row, curSchema)).collect(toList());
     }
 
     /**

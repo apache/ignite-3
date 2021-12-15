@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
+import java.util.Map;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -166,6 +168,60 @@ public class KeyValueBinaryViewOperationsTest {
 
         assertEqualsValues(schema, val3, tbl.get(key));
         assertNull(tbl.get(Tuple.create().set("id", 2L)));
+    }
+
+    @Test
+    public void getNullable() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("val", NativeTypes.INT64, true)}
+        );
+
+        KeyValueView<Tuple, Tuple> tbl =
+                new KeyValueBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
+
+        assertThrows(UnsupportedOperationException.class, () -> tbl.getNullable(Tuple.create(Map.of("id", 1L))));
+    }
+
+    @Test
+    public void getOrDefault() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("val", NativeTypes.INT64, true)}
+        );
+
+        KeyValueView<Tuple, Tuple> tbl =
+                new KeyValueBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
+
+        final Tuple key = Tuple.create().set("id", 1L);
+        final Tuple val = Tuple.create().set("val", 11L);
+        final Tuple val2 = Tuple.create().set("val", 22L);
+        final Tuple defaultTuple = Tuple.create().set("val", "undefined");
+
+        assertEquals(defaultTuple, tbl.getOrDefault(key, defaultTuple));
+
+        // Put KV pair.
+        tbl.put(key, val);
+
+        assertEquals(val, tbl.getOrDefault(key, defaultTuple));
+
+        tbl.put(key, null);
+
+        assertNull(tbl.get(key));
+        assertNull(tbl.getOrDefault(key, defaultTuple));
+
+        // Remove KV pair.
+        tbl.remove(key);
+
+        assertNull(tbl.get(key));
+        assertEquals(defaultTuple, tbl.getOrDefault(key, defaultTuple));
+
+        // Put KV pair.
+        tbl.put(key, val2);
+        assertEquals(val2, tbl.get(key));
+        assertEquals(val2, tbl.getOrDefault(key, defaultTuple));
     }
 
     @Test
@@ -361,9 +417,9 @@ public class KeyValueBinaryViewOperationsTest {
     /**
      * Check key columns equality.
      *
-     * @param schema Schema.
+     * @param schema   Schema.
      * @param expected Expected tuple.
-     * @param actual Actual tuple.
+     * @param actual   Actual tuple.
      */
     void assertEqualsKeys(SchemaDescriptor schema, Tuple expected, Tuple actual) {
         int nonNullKey = 0;
@@ -388,9 +444,9 @@ public class KeyValueBinaryViewOperationsTest {
     /**
      * Check value columns equality.
      *
-     * @param schema Schema.
+     * @param schema   Schema.
      * @param expected Expected tuple.
-     * @param actual Actual tuple.
+     * @param actual   Actual tuple.
      */
     void assertEqualsValues(SchemaDescriptor schema, Tuple expected, Tuple actual) {
         for (int i = 0; i < schema.valueColumns().length(); i++) {
