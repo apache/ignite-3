@@ -366,28 +366,6 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     }
 
     /**
-     * Unmarshal value object from given binary row.
-     *
-     * @param binaryRow Binary row.
-     * @return Value object.
-     */
-    private R unmarshal(BinaryRow binaryRow) {
-        if (binaryRow == null || !binaryRow.hasValue()) {
-            return null;
-        }
-
-        Row row = schemaReg.resolve(binaryRow);
-
-        RecordMarshaller<R> marshaller = marshaller(row.schemaVersion());
-
-        try {
-            return marshaller.unmarshal(row);
-        } catch (MarshallerException e) {
-            throw new IgniteException(e);
-        }
-    }
-
-    /**
      * Marshal records.
      *
      * @param recs Records collection.
@@ -430,6 +408,28 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
             }
 
             return rows;
+        } catch (MarshallerException e) {
+            throw new IgniteException(e);
+        }
+    }
+
+    /**
+     * Unmarshal value object from given binary row.
+     *
+     * @param binaryRow Binary row.
+     * @return Value object.
+     */
+    private R unmarshal(BinaryRow binaryRow) {
+        if (binaryRow == null || !binaryRow.hasValue()) {
+            return null;
+        }
+
+        Row row = schemaReg.resolve(binaryRow);
+
+        RecordMarshaller<R> marshaller = marshaller(row.schemaVersion());
+
+        try {
+            return marshaller.unmarshal(row);
         } catch (MarshallerException e) {
             throw new IgniteException(e);
         }
