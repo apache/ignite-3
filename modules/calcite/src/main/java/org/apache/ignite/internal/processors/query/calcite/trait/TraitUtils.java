@@ -578,7 +578,7 @@ public class TraitUtils {
      */
     public static RelCollation createCollation(IntSet keys) {
         return RelCollations.of(
-                keys.stream().map(RelFieldCollation::new).collect(Collectors.toList())
+                keys.intStream().mapToObj(RelFieldCollation::new).collect(Collectors.toList())
         );
     }
 

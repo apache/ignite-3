@@ -29,7 +29,6 @@ import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -491,7 +490,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
                 root.register(aggChain);
 
-                IntSet grpId = IntStream.range(0, grps).boxed().collect(Collectors.toCollection(IntOpenHashSet::new));
+                IntSet grpId = new IntOpenHashSet(IntStream.range(0, grps).toArray());
 
                 while (root.hasNext()) {
                     Object[] row = root.next();

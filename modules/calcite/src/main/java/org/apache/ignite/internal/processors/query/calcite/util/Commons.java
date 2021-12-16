@@ -601,12 +601,14 @@ public final class Commons {
      * @param elems Elems.
      * @return The longest possible prefix of {@code seq}.
      */
-    public static IntList maxPrefix(List<Integer> seq, Collection<Integer> elems) {
+    public static IntList maxPrefix(ImmutableIntList seq, Collection<Integer> elems) {
         IntList res = new IntArrayList();
 
-        Set<Integer> elems0 = new IntOpenHashSet(elems);
+        IntOpenHashSet elems0 = new IntOpenHashSet(elems);
 
-        for (Integer e : seq) {
+        int e;
+        for (int i = 0; i < seq.size(); i++) {
+            e = seq.getInt(i);
             if (!elems0.remove(e)) {
                 break;
             }
