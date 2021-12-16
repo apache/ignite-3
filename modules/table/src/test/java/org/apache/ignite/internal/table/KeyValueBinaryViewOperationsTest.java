@@ -277,7 +277,7 @@ public class KeyValueBinaryViewOperationsTest {
         assertNull(tbl.get(key, null));
 
         // Try to remove non-existed key.
-        assertThrows(Exception.class, () -> tbl.remove(key, null));
+        assertThrows(Exception.class, () -> tbl.remove(key, null, null));
         assertNull(tbl.get(key, null));
 
         // Put KV pair.

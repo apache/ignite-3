@@ -241,7 +241,7 @@ public class KeyValueViewOperationsTest {
         assertEquals(obj2, tbl.get(key, null));
 
         // Check null value ignored.
-        assertThrows(Throwable.class, () -> tbl.remove(key, null));
+        assertThrows(Throwable.class, () -> tbl.remove(key, null, null));
         assertEquals(obj2, tbl.get(key, null));
 
         // Delete KV pair with expected value.
@@ -313,7 +313,7 @@ public class KeyValueViewOperationsTest {
         assertEquals(obj2, tbl.get(key, null));
 
         // try remove existed KV pair.
-        assertThrows(Throwable.class, () -> tbl.replace(key, obj2, null));
+        assertThrows(Throwable.class, () -> tbl.replace(key, obj2, null, null));
         assertNotNull(tbl.get(key, null));
     }
 
