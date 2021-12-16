@@ -152,9 +152,10 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         for (int i = 0; i < 10; i++) {
             table.recordView().insert(Tuple.create()
-                    .set("key", Long.valueOf(i))
-                    .set("valInt", i)
-                    .set("valStr", "str_" + i)
+                            .set("key", Long.valueOf(i))
+                            .set("valInt", i)
+                            .set("valStr", "str_" + i),
+                    null
             );
         }
 
@@ -186,28 +187,30 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         for (int i = 10; i < 20; i++) {
             table.recordView().insert(Tuple.create()
-                    .set("key", Long.valueOf(i))
-                    .set("valInt", i)
-                    .set("valStr", "str_" + i)
-                    .set("valStr2", "str2_" + i)
+                            .set("key", Long.valueOf(i))
+                            .set("valInt", i)
+                            .set("valStr", "str_" + i)
+                            .set("valStr2", "str2_" + i),
+                    null
             );
         }
 
         final CompletableFuture insertFut = IgniteTestUtils.runAsync(() ->
                 table1.recordView().insert(Tuple.create()
-                        .set("key", Long.valueOf(0))
-                        .set("valInt", 0)
-                        .set("valStr", "str_" + 0)
-                        .set("valStr2", "str2_" + 0)
-            ));
+                                .set("key", Long.valueOf(0))
+                                .set("valInt", 0)
+                                .set("valStr", "str_" + 0)
+                                .set("valStr2", "str2_" + 0),
+                        null
+                ));
 
         final CompletableFuture getFut = IgniteTestUtils.runAsync(() -> {
-            table1.recordView().get(Tuple.create().set("key", Long.valueOf(10)));
+            table1.recordView().get(Tuple.create().set("key", Long.valueOf(10)), null);
         });
 
         final CompletableFuture checkDefaultFut = IgniteTestUtils.runAsync(() -> {
             assertEquals("default",
-                    table1.recordView().get(Tuple.create().set("key", Long.valueOf(0)))
+                    table1.recordView().get(Tuple.create().set("key", Long.valueOf(0)), null)
                             .value("valStr2"));
         });
 
@@ -227,7 +230,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
             Table tableOnNode = node.tables().table(TABLE_NAME);
 
             for (int i = 0; i < 20; i++) {
-                Tuple row = tableOnNode.recordView().get(Tuple.create().set("key", Long.valueOf(i)));
+                Tuple row = tableOnNode.recordView().get(Tuple.create().set("key", Long.valueOf(i)), null);
 
                 assertNotNull(row);
 

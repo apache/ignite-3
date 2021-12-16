@@ -69,15 +69,15 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public R get(@NotNull R keyRec) {
-        return getAsync(keyRec).join();
+    public R get(@NotNull R keyRec, @Nullable Transaction tx) {
+        return getAsync(keyRec, tx).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<R> getAsync(@NotNull R keyRec) {
+    public @NotNull CompletableFuture<R> getAsync(@NotNull R keyRec, @Nullable Transaction tx) {
         Objects.requireNonNull(keyRec);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (schema, out) -> writeRec(keyRec, schema, out, TuplePart.KEY),
@@ -86,15 +86,15 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<R> getAll(@NotNull Collection<R> keyRecs) {
-        return getAllAsync(keyRecs).join();
+    public Collection<R> getAll(@NotNull Collection<R> keyRecs, @Nullable Transaction tx) {
+        return getAllAsync(keyRecs, tx).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> getAllAsync(@NotNull Collection<R> keyRecs) {
+    public @NotNull CompletableFuture<Collection<R>> getAllAsync(@NotNull Collection<R> keyRecs, @Nullable Transaction tx) {
         Objects.requireNonNull(keyRecs);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
                 (schema, out) -> writeRecs(keyRecs, schema, out, TuplePart.KEY),
@@ -104,15 +104,15 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public void upsert(@NotNull R rec) {
-        upsertAsync(rec).join();
+    public void upsert(@NotNull R rec, @Nullable Transaction tx) {
+        upsertAsync(rec, tx).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> upsertAsync(@NotNull R rec) {
+    public @NotNull CompletableFuture<Void> upsertAsync(@NotNull R rec, @Nullable Transaction tx) {
         Objects.requireNonNull(rec);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
                 (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
@@ -121,15 +121,15 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public void upsertAll(@NotNull Collection<R> recs) {
-        upsertAllAsync(recs).join();
+    public void upsertAll(@NotNull Collection<R> recs, @Nullable Transaction tx) {
+        upsertAllAsync(recs, tx).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> upsertAllAsync(@NotNull Collection<R> recs) {
+    public @NotNull CompletableFuture<Void> upsertAllAsync(@NotNull Collection<R> recs, @Nullable Transaction tx) {
         Objects.requireNonNull(recs);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> writeRecs(recs, s, w, TuplePart.KEY_AND_VAL),
@@ -138,15 +138,15 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public R getAndUpsert(@NotNull R rec) {
-        return getAndUpsertAsync(rec).join();
+    public R getAndUpsert(@NotNull R rec, @Nullable Transaction tx) {
+        return getAndUpsertAsync(rec, tx).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<R> getAndUpsertAsync(@NotNull R rec) {
+    public @NotNull CompletableFuture<R> getAndUpsertAsync(@NotNull R rec, @Nullable Transaction tx) {
         Objects.requireNonNull(rec);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
@@ -155,15 +155,15 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public boolean insert(@NotNull R rec) {
-        return insertAsync(rec).join();
+    public boolean insert(@NotNull R rec, @Nullable Transaction tx) {
+        return insertAsync(rec, tx).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> insertAsync(@NotNull R rec) {
+    public @NotNull CompletableFuture<Boolean> insertAsync(@NotNull R rec, @Nullable Transaction tx) {
         Objects.requireNonNull(rec);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
@@ -172,15 +172,15 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<R> insertAll(@NotNull Collection<R> recs) {
-        return insertAllAsync(recs).join();
+    public Collection<R> insertAll(@NotNull Collection<R> recs, @Nullable Transaction tx) {
+        return insertAllAsync(recs, tx).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> insertAllAsync(@NotNull Collection<R> recs) {
+    public @NotNull CompletableFuture<Collection<R>> insertAllAsync(@NotNull Collection<R> recs, @Nullable Transaction tx) {
         Objects.requireNonNull(recs);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_INSERT_ALL,
                 (s, w) -> writeRecs(recs, s, w, TuplePart.KEY_AND_VAL),
@@ -190,21 +190,21 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@NotNull R rec) {
-        return replaceAsync(rec).join();
+    public boolean replace(@NotNull R rec, @Nullable Transaction tx) {
+        return replaceAsync(rec, tx).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@NotNull R oldRec, @NotNull R newRec) {
-        return replaceAsync(oldRec, newRec).join();
+    public boolean replace(@NotNull R oldRec, @NotNull R newRec, @Nullable Transaction tx) {
+        return replaceAsync(oldRec, newRec, tx).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R rec) {
+    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R rec, @Nullable Transaction tx) {
         Objects.requireNonNull(rec);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
@@ -213,10 +213,10 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R oldRec, @NotNull R newRec) {
+    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R oldRec, @NotNull R newRec, @Nullable Transaction tx) {
         Objects.requireNonNull(oldRec);
         Objects.requireNonNull(newRec);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
                 (s, w) -> writeRecs(oldRec, newRec, s, w, TuplePart.KEY_AND_VAL),
@@ -225,15 +225,15 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public R getAndReplace(@NotNull R rec) {
-        return getAndReplaceAsync(rec).join();
+    public R getAndReplace(@NotNull R rec, @Nullable Transaction tx) {
+        return getAndReplaceAsync(rec, tx).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<R> getAndReplaceAsync(@NotNull R rec) {
+    public @NotNull CompletableFuture<R> getAndReplaceAsync(@NotNull R rec, @Nullable Transaction tx) {
         Objects.requireNonNull(rec);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
@@ -242,15 +242,15 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public boolean delete(@NotNull R keyRec) {
-        return deleteAsync(keyRec).join();
+    public boolean delete(@NotNull R keyRec, @Nullable Transaction tx) {
+        return deleteAsync(keyRec, tx).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> deleteAsync(@NotNull R keyRec) {
+    public @NotNull CompletableFuture<Boolean> deleteAsync(@NotNull R keyRec, @Nullable Transaction tx) {
         Objects.requireNonNull(keyRec);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> writeRec(keyRec, s, w, TuplePart.KEY),
@@ -259,15 +259,15 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public boolean deleteExact(@NotNull R rec) {
-        return deleteExactAsync(rec).join();
+    public boolean deleteExact(@NotNull R rec, @Nullable Transaction tx) {
+        return deleteExactAsync(rec, tx).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> deleteExactAsync(@NotNull R rec) {
+    public @NotNull CompletableFuture<Boolean> deleteExactAsync(@NotNull R rec, @Nullable Transaction tx) {
         Objects.requireNonNull(rec);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
@@ -276,13 +276,13 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public R getAndDelete(@NotNull R keyRec) {
-        return getAndDeleteAsync(keyRec).join();
+    public R getAndDelete(@NotNull R keyRec, @Nullable Transaction tx) {
+        return getAndDeleteAsync(keyRec, tx).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<R> getAndDeleteAsync(@NotNull R keyRec) {
+    public @NotNull CompletableFuture<R> getAndDeleteAsync(@NotNull R keyRec, @Nullable Transaction tx) {
         Objects.requireNonNull(keyRec);
 
         return tbl.doSchemaOutInOpAsync(
@@ -293,15 +293,15 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<R> deleteAll(@NotNull Collection<R> keyRecs) {
-        return deleteAllAsync(keyRecs).join();
+    public Collection<R> deleteAll(@NotNull Collection<R> keyRecs, @Nullable Transaction tx) {
+        return deleteAllAsync(keyRecs, tx).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@NotNull Collection<R> keyRecs) {
+    public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@NotNull Collection<R> keyRecs, @Nullable Transaction tx) {
         Objects.requireNonNull(keyRecs);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
                 (s, w) -> writeRecs(keyRecs, s, w, TuplePart.KEY),
@@ -311,15 +311,15 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<R> deleteAllExact(@NotNull Collection<R> recs) {
-        return deleteAllExactAsync(recs).join();
+    public Collection<R> deleteAllExact(@NotNull Collection<R> recs, @Nullable Transaction tx) {
+        return deleteAllExactAsync(recs, tx).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@NotNull Collection<R> recs) {
+    public @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@NotNull Collection<R> recs, @Nullable Transaction tx) {
         Objects.requireNonNull(recs);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL_EXACT,
                 (s, w) -> writeRecs(recs, s, w, TuplePart.KEY_AND_VAL),
@@ -329,41 +329,37 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public <T extends Serializable> T invoke(@NotNull R keyRec, InvokeProcessor<R, R, T> proc) {
+    public <T extends Serializable> T invoke(@NotNull R keyRec, InvokeProcessor<R, R, T> proc, @Nullable Transaction tx) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(@NotNull R keyRec, InvokeProcessor<R, R, T> proc) {
+    public @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(
+            @NotNull R keyRec,
+            InvokeProcessor<R, R, T> proc,
+            @Nullable Transaction tx
+    ) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    public <T extends Serializable> Map<R, T> invokeAll(@NotNull Collection<R> keyRecs, InvokeProcessor<R, R, T> proc) {
+    public <T extends Serializable> Map<R, T> invokeAll(
+            @NotNull Collection<R> keyRecs,
+            InvokeProcessor<R, R, T> proc,
+            @Nullable Transaction tx
+    ) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull <T extends Serializable> CompletableFuture<Map<R, T>> invokeAllAsync(@NotNull Collection<R> keyRecs,
-            InvokeProcessor<R, R, T> proc) {
+    public @NotNull <T extends Serializable> CompletableFuture<Map<R, T>> invokeAllAsync(
+            @NotNull Collection<R> keyRecs,
+            InvokeProcessor<R, R, T> proc,
+            @Nullable Transaction tx) {
         throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable Transaction transaction() {
-        // TODO: Transactions IGNITE-15240
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public RecordView<R> withTransaction(Transaction tx) {
-        // TODO: Transactions IGNITE-15240
-        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     private void writeRec(@NotNull R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {

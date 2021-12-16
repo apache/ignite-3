@@ -78,28 +78,28 @@ public class KeyValueViewOperationsTest {
 
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
-        assertNull(tbl.get(key));
+        assertNull(tbl.get(key, null));
 
         // Put KV pair.
-        tbl.put(key, obj);
+        tbl.put(key, obj, null);
 
-        assertEquals(obj, tbl.get(key));
-        assertEquals(obj, tbl.get(key));
+        assertEquals(obj, tbl.get(key, null));
+        assertEquals(obj, tbl.get(key, null));
 
         // Update KV pair.
-        tbl.put(key, obj2);
+        tbl.put(key, obj2, null);
 
-        assertEquals(obj2, tbl.get(key));
-        assertEquals(obj2, tbl.get(key));
+        assertEquals(obj2, tbl.get(key, null));
+        assertEquals(obj2, tbl.get(key, null));
 
         // Remove KV pair.
-        tbl.remove(key);
+        tbl.remove(key, null);
 
-        assertNull(tbl.get(key));
+        assertNull(tbl.get(key, null));
 
         // Put KV pair.
-        tbl.put(key, obj3);
-        assertEquals(obj3, tbl.get(key));
+        tbl.put(key, obj3, null);
+        assertEquals(obj3, tbl.get(key, null));
     }
 
     @Test
@@ -110,17 +110,17 @@ public class KeyValueViewOperationsTest {
 
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
-        assertNull(tbl.get(key));
+        assertNull(tbl.get(key, null));
 
         // Insert new KV pair.
-        assertTrue(tbl.putIfAbsent(key, obj));
+        assertTrue(tbl.putIfAbsent(key, obj, null));
 
-        assertEquals(obj, tbl.get(key));
+        assertEquals(obj, tbl.get(key, null));
 
         // Update KV pair.
-        assertFalse(tbl.putIfAbsent(key, obj2));
+        assertFalse(tbl.putIfAbsent(key, obj2, null));
 
-        assertEquals(obj, tbl.get(key));
+        assertEquals(obj, tbl.get(key, null));
     }
 
     @Test
@@ -132,17 +132,17 @@ public class KeyValueViewOperationsTest {
 
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
-        assertNull(tbl.get(key));
+        assertNull(tbl.get(key, null));
 
         // Insert new KV pair.
-        assertNull(tbl.getAndPut(key, obj));
-        assertEquals(obj, tbl.get(key));
+        assertNull(tbl.getAndPut(key, obj, null));
+        assertEquals(obj, tbl.get(key, null));
 
         // Update KV pair.
-        assertEquals(obj, tbl.getAndPut(key, obj2));
-        assertEquals(obj2, tbl.getAndPut(key, obj3));
+        assertEquals(obj, tbl.getAndPut(key, obj2, null));
+        assertEquals(obj2, tbl.getAndPut(key, obj3, null));
 
-        assertEquals(obj3, tbl.get(key));
+        assertEquals(obj3, tbl.get(key, null));
     }
 
     @Test
@@ -155,23 +155,23 @@ public class KeyValueViewOperationsTest {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         // Not-existed value.
-        assertFalse(tbl.contains(key));
+        assertFalse(tbl.contains(key, null));
 
         // Put KV pair.
-        tbl.put(key, obj);
-        assertTrue(tbl.contains(key));
+        tbl.put(key, obj, null);
+        assertTrue(tbl.contains(key, null));
 
         // Delete key.
-        assertTrue(tbl.remove(key));
-        assertFalse(tbl.contains(key));
+        assertTrue(tbl.remove(key, null));
+        assertFalse(tbl.contains(key, null));
 
         // Put KV pair.
-        tbl.put(key, obj2);
-        assertTrue(tbl.contains(key));
+        tbl.put(key, obj2, null);
+        assertTrue(tbl.contains(key, null));
 
         // Delete key.
-        tbl.remove(key2);
-        assertFalse(tbl.contains(key2));
+        tbl.remove(key2, null);
+        assertFalse(tbl.contains(key2, null));
     }
 
     @Test
@@ -184,27 +184,27 @@ public class KeyValueViewOperationsTest {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         // Put KV pair.
-        tbl.put(key, obj);
+        tbl.put(key, obj, null);
 
         // Delete existed key.
-        assertEquals(obj, tbl.get(key));
-        assertTrue(tbl.remove(key));
-        assertNull(tbl.get(key));
+        assertEquals(obj, tbl.get(key, null));
+        assertTrue(tbl.remove(key, null));
+        assertNull(tbl.get(key, null));
 
         // Delete already deleted key.
-        assertFalse(tbl.remove(key));
+        assertFalse(tbl.remove(key, null));
 
         // Put KV pair.
-        tbl.put(key, obj2);
-        assertEquals(obj2, tbl.get(key));
+        tbl.put(key, obj2, null);
+        assertEquals(obj2, tbl.get(key, null));
 
         // Delete existed key.
-        assertTrue(tbl.remove(key));
-        assertNull(tbl.get(key));
+        assertTrue(tbl.remove(key, null));
+        assertNull(tbl.get(key, null));
 
         // Delete not existed key.
-        assertNull(tbl.get(key2));
-        assertFalse(tbl.remove(key2));
+        assertNull(tbl.get(key2, null));
+        assertFalse(tbl.remove(key2, null));
     }
 
     @Test
@@ -217,39 +217,39 @@ public class KeyValueViewOperationsTest {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         // Put KV pair.
-        tbl.put(key, obj);
-        assertEquals(obj, tbl.get(key));
+        tbl.put(key, obj, null);
+        assertEquals(obj, tbl.get(key, null));
 
         // Fails to delete KV pair with unexpected value.
-        assertFalse(tbl.remove(key, obj2));
-        assertEquals(obj, tbl.get(key));
+        assertFalse(tbl.remove(key, obj2, null));
+        assertEquals(obj, tbl.get(key, null));
 
         // Delete KV pair with expected value.
-        assertTrue(tbl.remove(key, obj));
-        assertNull(tbl.get(key));
+        assertTrue(tbl.remove(key, obj, null));
+        assertNull(tbl.get(key, null));
 
         // Once again.
-        assertFalse(tbl.remove(key, obj));
-        assertNull(tbl.get(key));
+        assertFalse(tbl.remove(key, obj, null));
+        assertNull(tbl.get(key, null));
 
         // Try to remove non-existed key.
-        assertFalse(tbl.remove(key, obj));
-        assertNull(tbl.get(key));
+        assertFalse(tbl.remove(key, obj, null));
+        assertNull(tbl.get(key, null));
 
         // Put KV pair.
-        tbl.put(key, obj2);
-        assertEquals(obj2, tbl.get(key));
+        tbl.put(key, obj2, null);
+        assertEquals(obj2, tbl.get(key, null));
 
         // Check null value ignored.
         assertThrows(Throwable.class, () -> tbl.remove(key, null));
-        assertEquals(obj2, tbl.get(key));
+        assertEquals(obj2, tbl.get(key, null));
 
         // Delete KV pair with expected value.
-        assertTrue(tbl.remove(key, obj2));
-        assertNull(tbl.get(key));
+        assertTrue(tbl.remove(key, obj2, null));
+        assertNull(tbl.get(key, null));
 
-        assertFalse(tbl.remove(key2, obj2));
-        assertNull(tbl.get(key2));
+        assertFalse(tbl.remove(key2, obj2, null));
+        assertNull(tbl.get(key2, null));
     }
 
     @Test
@@ -263,30 +263,30 @@ public class KeyValueViewOperationsTest {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         // Ignore replace operation for non-existed KV pair.
-        assertFalse(tbl.replace(key, obj));
-        assertNull(tbl.get(key));
+        assertFalse(tbl.replace(key, obj, null));
+        assertNull(tbl.get(key, null));
 
-        tbl.put(key, obj);
+        tbl.put(key, obj, null);
 
         // Replace existed KV pair.
-        assertTrue(tbl.replace(key, obj2));
-        assertEquals(obj2, tbl.get(key));
+        assertTrue(tbl.replace(key, obj2, null));
+        assertEquals(obj2, tbl.get(key, null));
 
         // Try remove existed KV pair.
-        assertThrows(Throwable.class, () -> tbl.replace(key, null));
-        assertNotNull(tbl.get(key));
-        tbl.remove(key);
+        assertThrows(Throwable.class, () -> tbl.replace(key, null, null));
+        assertNotNull(tbl.get(key, null));
+        tbl.remove(key, null);
 
         // Ignore replace operation for non-existed KV pair.
-        assertFalse(tbl.replace(key, obj3));
-        assertNull(tbl.get(key));
+        assertFalse(tbl.replace(key, obj3, null));
+        assertNull(tbl.get(key, null));
 
-        tbl.put(key, obj3);
-        assertEquals(obj3, tbl.get(key));
+        tbl.put(key, obj3, null);
+        assertEquals(obj3, tbl.get(key, null));
 
         // Trye remove non-existed KV pair.
-        assertThrows(Throwable.class, () -> tbl.replace(key2, null));
-        assertNull(tbl.get(key2));
+        assertThrows(Throwable.class, () -> tbl.replace(key2, null, null));
+        assertNull(tbl.get(key2, null));
     }
 
     @Test
@@ -299,22 +299,22 @@ public class KeyValueViewOperationsTest {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         // Insert KV pair.
-        assertThrows(Throwable.class, () -> tbl.replace(key, null, obj));
-        tbl.put(key, obj);
-        assertEquals(obj, tbl.get(key));
-        assertNull(tbl.get(key2));
+        assertThrows(Throwable.class, () -> tbl.replace(key, null, obj, null));
+        tbl.put(key, obj, null);
+        assertEquals(obj, tbl.get(key, null));
+        assertNull(tbl.get(key2, null));
 
         // Ignore replace operation for non-existed KV pair.
-        assertFalse(tbl.replace(key2, obj, obj2));
-        assertNull(tbl.get(key2));
+        assertFalse(tbl.replace(key2, obj, obj2, null));
+        assertNull(tbl.get(key2, null));
 
         // Replace existed KV pair.
-        assertTrue(tbl.replace(key, obj, obj2));
-        assertEquals(obj2, tbl.get(key));
+        assertTrue(tbl.replace(key, obj, obj2, null));
+        assertEquals(obj2, tbl.get(key, null));
 
         // try remove existed KV pair.
         assertThrows(Throwable.class, () -> tbl.replace(key, obj2, null));
-        assertNotNull(tbl.get(key));
+        assertNotNull(tbl.get(key, null));
     }
 
     /**
@@ -381,8 +381,7 @@ public class KeyValueViewOperationsTest {
                 table,
                 new DummySchemaManagerImpl(schema),
                 keyMapper,
-                valMapper,
-                null
+                valMapper
         );
     }
 

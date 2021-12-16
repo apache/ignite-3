@@ -44,7 +44,7 @@ public class ClientTableTest extends AbstractClientTableTest {
 
         var key = Tuple.create().set("name", "123");
 
-        var ex = assertThrows(CompletionException.class, () -> table.get(key));
+        var ex = assertThrows(CompletionException.class, () -> table.get(key, null));
 
         assertTrue(ex.getMessage().contains("Missed key column: id"),
                 ex.getMessage());
@@ -55,10 +55,10 @@ public class ClientTableTest extends AbstractClientTableTest {
         var table = defaultTable().recordView();
         var tuple = tuple();
 
-        table.upsert(tuple);
+        table.upsert(tuple, null);
 
         Tuple key = tuple(123L);
-        var resTuple = table.get(key);
+        var resTuple = table.get(key, null);
 
         assertEquals(DEFAULT_NAME, resTuple.stringValue("name"));
         assertEquals(DEFAULT_ID, resTuple.longValue("id"));
@@ -92,7 +92,7 @@ public class ClientTableTest extends AbstractClientTableTest {
         var tuple = tuple(42L, "Jack");
         var key = Tuple.create().set("id", 42L);
 
-        var resTuple = table.upsertAsync(tuple).thenCompose(t -> table.getAsync(key)).join();
+        var resTuple = table.upsertAsync(tuple, null).thenCompose(t -> table.getAsync(key, null)).join();
 
         assertEquals("Jack", resTuple.stringValue("name"));
         assertEquals(42L, resTuple.longValue("id"));
@@ -107,14 +107,14 @@ public class ClientTableTest extends AbstractClientTableTest {
         var table = defaultTable();
         var recView = table.recordView();
         Tuple tuple = tuple();
-        recView.upsert(tuple);
+        recView.upsert(tuple, null);
 
         FakeSchemaRegistry.setLastVer(1);
 
         try (var client2 = startClient()) {
             RecordView<Tuple> table2 = client2.tables().table(table.name()).recordView();
             var tuple2 = tuple();
-            var resTuple = table2.get(tuple2);
+            var resTuple = table2.get(tuple2, null);
 
             assertEquals(1, ((ClientTuple) tuple2).schema().version());
             assertEquals(2, ((ClientTuple) resTuple).schema().version());
@@ -131,11 +131,11 @@ public class ClientTableTest extends AbstractClientTableTest {
         var tuple = tuple();
         var tuple2 = tuple(DEFAULT_ID, "abc");
 
-        assertTrue(table.insert(tuple));
-        assertFalse(table.insert(tuple));
-        assertFalse(table.insert(tuple2));
+        assertTrue(table.insert(tuple, null));
+        assertFalse(table.insert(tuple, null));
+        assertFalse(table.insert(tuple2, null));
 
-        var resTuple = table.get(defaultTupleKey());
+        var resTuple = table.get(defaultTupleKey(), null);
         assertTupleEquals(tuple, resTuple);
     }
 
@@ -144,10 +144,10 @@ public class ClientTableTest extends AbstractClientTableTest {
         var table = defaultTable().recordView();
         var tuple = new CustomTuple(25L, "Foo");
 
-        assertTrue(table.insert(tuple));
-        assertFalse(table.insert(tuple));
+        assertTrue(table.insert(tuple, null));
+        assertFalse(table.insert(tuple, null));
 
-        var resTuple = table.get(new CustomTuple(25L));
+        var resTuple = table.get(new CustomTuple(25L), null);
 
         assertTupleEquals(tuple, resTuple);
     }
@@ -155,12 +155,12 @@ public class ClientTableTest extends AbstractClientTableTest {
     @Test
     public void testGetAll() {
         var table = defaultTable().recordView();
-        table.insert(tuple(1L, "1"));
-        table.insert(tuple(2L, "2"));
-        table.insert(tuple(3L, "3"));
+        table.insert(tuple(1L, "1"), null);
+        table.insert(tuple(2L, "2"), null);
+        table.insert(tuple(3L, "3"), null);
 
         List<Tuple> keys = Arrays.asList(tuple(1L), tuple(3L));
-        Tuple[] res = sortedTuples(table.getAll(keys));
+        Tuple[] res = sortedTuples(table.getAll(keys, null));
 
         assertEquals(2, res.length);
 
@@ -176,17 +176,17 @@ public class ClientTableTest extends AbstractClientTableTest {
         var table = defaultTable().recordView();
 
         List<Tuple> data = Arrays.asList(tuple(1L, "1"), tuple(2L, "2"));
-        table.upsertAll(data);
+        table.upsertAll(data, null);
 
-        assertEquals("1", table.get(tuple(1L)).stringValue("name"));
-        assertEquals("2", table.get(tuple(2L)).stringValue("name"));
+        assertEquals("1", table.get(tuple(1L), null).stringValue("name"));
+        assertEquals("2", table.get(tuple(2L), null).stringValue("name"));
 
         List<Tuple> data2 = Arrays.asList(tuple(1L, "10"), tuple(3L, "30"));
-        table.upsertAll(data2);
+        table.upsertAll(data2, null);
 
-        assertEquals("10", table.get(tuple(1L)).stringValue("name"));
-        assertEquals("2", table.get(tuple(2L)).stringValue("name"));
-        assertEquals("30", table.get(tuple(3L)).stringValue("name"));
+        assertEquals("10", table.get(tuple(1L), null).stringValue("name"));
+        assertEquals("2", table.get(tuple(2L), null).stringValue("name"));
+        assertEquals("30", table.get(tuple(3L), null).stringValue("name"));
     }
 
     @Test
@@ -194,97 +194,97 @@ public class ClientTableTest extends AbstractClientTableTest {
         var table = defaultTable().recordView();
 
         List<Tuple> data = Arrays.asList(tuple(1L, "1"), tuple(2L, "2"));
-        var skippedTuples = table.insertAll(data);
+        var skippedTuples = table.insertAll(data, null);
 
         assertEquals(0, skippedTuples.size());
-        assertEquals("1", table.get(tuple(1L)).stringValue("name"));
-        assertEquals("2", table.get(tuple(2L)).stringValue("name"));
+        assertEquals("1", table.get(tuple(1L), null).stringValue("name"));
+        assertEquals("2", table.get(tuple(2L), null).stringValue("name"));
 
         List<Tuple> data2 = Arrays.asList(tuple(1L, "10"), tuple(3L, "30"));
-        var skippedTuples2 = table.insertAll(data2).toArray(new Tuple[0]);
+        var skippedTuples2 = table.insertAll(data2, null).toArray(new Tuple[0]);
 
         assertEquals(1, skippedTuples2.length);
         assertEquals(1L, skippedTuples2[0].longValue("id"));
-        assertEquals("1", table.get(tuple(1L)).stringValue("name"));
-        assertEquals("2", table.get(tuple(2L)).stringValue("name"));
-        assertEquals("30", table.get(tuple(3L)).stringValue("name"));
+        assertEquals("1", table.get(tuple(1L), null).stringValue("name"));
+        assertEquals("2", table.get(tuple(2L), null).stringValue("name"));
+        assertEquals("30", table.get(tuple(3L), null).stringValue("name"));
     }
 
     @Test
     public void testReplace() {
         var table = defaultTable().recordView();
-        table.insert(tuple(1L, "1"));
+        table.insert(tuple(1L, "1"), null);
 
-        assertFalse(table.replace(tuple(3L, "3")));
-        assertNull(table.get(tuple(3L)));
+        assertFalse(table.replace(tuple(3L, "3"), null));
+        assertNull(table.get(tuple(3L), null));
 
-        assertTrue(table.replace(tuple(1L, "2")));
-        assertEquals("2", table.get(tuple(1L)).value("name"));
+        assertTrue(table.replace(tuple(1L, "2"), null));
+        assertEquals("2", table.get(tuple(1L), null).value("name"));
     }
 
     @Test
     public void testReplaceExact() {
         var table = defaultTable().recordView();
-        table.insert(tuple(1L, "1"));
+        table.insert(tuple(1L, "1"), null);
 
-        assertFalse(table.replace(tuple(3L, "3"), tuple(3L, "4")));
-        assertNull(table.get(tuple(3L)));
+        assertFalse(table.replace(tuple(3L, "3"), tuple(3L, "4"), null));
+        assertNull(table.get(tuple(3L), null));
 
-        assertFalse(table.replace(tuple(1L, "2"), tuple(1L, "3")));
-        assertTrue(table.replace(tuple(1L, "1"), tuple(1L, "3")));
-        assertEquals("3", table.get(tuple(1L)).value("name"));
+        assertFalse(table.replace(tuple(1L, "2"), tuple(1L, "3"), null));
+        assertTrue(table.replace(tuple(1L, "1"), tuple(1L, "3"), null));
+        assertEquals("3", table.get(tuple(1L), null).value("name"));
     }
 
     @Test
     public void testGetAndReplace() {
         var table = defaultTable().recordView();
         var tuple = tuple(1L, "1");
-        table.insert(tuple);
+        table.insert(tuple, null);
 
-        assertNull(table.getAndReplace(tuple(3L, "3")));
-        assertNull(table.get(tuple(3L)));
+        assertNull(table.getAndReplace(tuple(3L, "3"), null));
+        assertNull(table.get(tuple(3L), null));
 
-        var replaceRes = table.getAndReplace(tuple(1L, "2"));
+        var replaceRes = table.getAndReplace(tuple(1L, "2"), null);
         assertTupleEquals(tuple, replaceRes);
-        assertEquals("2", table.get(tuple(1L)).value("name"));
+        assertEquals("2", table.get(tuple(1L), null).value("name"));
     }
 
     @Test
     public void testDelete() {
         var table = defaultTable().recordView();
-        table.insert(tuple(1L, "1"));
+        table.insert(tuple(1L, "1"), null);
 
-        assertFalse(table.delete(tuple(2L)));
-        assertTrue(table.delete(tuple(1L)));
-        assertNull(table.get(tuple(1L)));
+        assertFalse(table.delete(tuple(2L), null));
+        assertTrue(table.delete(tuple(1L), null));
+        assertNull(table.get(tuple(1L), null));
     }
 
     @Test
     public void testDeleteExact() {
         var table = defaultTable().recordView();
-        table.insert(tuple(1L, "1"));
-        table.insert(tuple(2L, "2"));
+        table.insert(tuple(1L, "1"), null);
+        table.insert(tuple(2L, "2"), null);
 
-        assertFalse(table.deleteExact(tuple(1L)));
-        assertFalse(table.deleteExact(tuple(1L, "x")));
-        assertTrue(table.deleteExact(tuple(1L, "1")));
-        assertFalse(table.deleteExact(tuple(2L)));
-        assertFalse(table.deleteExact(tuple(3L)));
+        assertFalse(table.deleteExact(tuple(1L), null));
+        assertFalse(table.deleteExact(tuple(1L, "x"), null));
+        assertTrue(table.deleteExact(tuple(1L, "1"), null));
+        assertFalse(table.deleteExact(tuple(2L), null));
+        assertFalse(table.deleteExact(tuple(3L), null));
 
-        assertNull(table.get(tuple(1L)));
-        assertNotNull(table.get(tuple(2L)));
+        assertNull(table.get(tuple(1L), null));
+        assertNotNull(table.get(tuple(2L), null));
     }
 
     @Test
     public void testGetAndDelete() {
         var table = defaultTable().recordView();
         var tuple = tuple(1L, "1");
-        table.insert(tuple);
+        table.insert(tuple, null);
 
-        var deleted = table.getAndDelete(tuple(1L));
+        var deleted = table.getAndDelete(tuple(1L), null);
 
-        assertNull(table.getAndDelete(tuple(1L)));
-        assertNull(table.getAndDelete(tuple(2L)));
+        assertNull(table.getAndDelete(tuple(1L), null));
+        assertNull(table.getAndDelete(tuple(2L), null));
         assertTupleEquals(tuple, deleted);
     }
 
@@ -293,14 +293,14 @@ public class ClientTableTest extends AbstractClientTableTest {
         var table = defaultTable().recordView();
 
         List<Tuple> data = Arrays.asList(tuple(1L, "1"), tuple(2L, "2"));
-        table.insertAll(data);
+        table.insertAll(data, null);
 
         List<Tuple> toDelete = Arrays.asList(tuple(1L, "x"), tuple(3L, "y"), tuple(4L, "z"));
-        var skippedTuples = sortedTuples(table.deleteAll(toDelete));
+        var skippedTuples = sortedTuples(table.deleteAll(toDelete, null));
 
         assertEquals(2, skippedTuples.length);
-        assertNull(table.get(tuple(1L)));
-        assertNotNull(table.get(tuple(2L)));
+        assertNull(table.get(tuple(1L), null));
+        assertNotNull(table.get(tuple(2L), null));
 
         assertEquals(3L, skippedTuples[0].longValue("id"));
         assertNull(skippedTuples[0].stringValue("name"));
@@ -314,14 +314,14 @@ public class ClientTableTest extends AbstractClientTableTest {
         var table = defaultTable().recordView();
 
         List<Tuple> data = Arrays.asList(tuple(1L, "1"), tuple(2L, "2"));
-        table.insertAll(data);
+        table.insertAll(data, null);
 
         List<Tuple> toDelete = Arrays.asList(tuple(1L, "1"), tuple(2L, "y"), tuple(3L, "z"));
-        var skippedTuples = sortedTuples(table.deleteAllExact(toDelete));
+        var skippedTuples = sortedTuples(table.deleteAllExact(toDelete, null));
 
         assertEquals(2, skippedTuples.length);
-        assertNull(table.get(tuple(1L)));
-        assertNotNull(table.get(tuple(2L)));
+        assertNull(table.get(tuple(1L), null));
+        assertNotNull(table.get(tuple(2L), null));
 
         assertEquals(2L, skippedTuples[0].longValue("id"));
         assertEquals("y", skippedTuples[0].stringValue("name"));

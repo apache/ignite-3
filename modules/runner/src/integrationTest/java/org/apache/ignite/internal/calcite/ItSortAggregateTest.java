@@ -74,7 +74,8 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
                             .set("GRP0", i / 10)
                             .set("GRP1", i / 100)
                             .set("VAL0", 1)
-                            .set("VAL1", 2)
+                            .set("VAL1", 2),
+                    null
             );
         }
     }

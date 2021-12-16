@@ -85,19 +85,19 @@ public class RecordBinaryViewOperationsTest {
         final Tuple newTuple = Tuple.create().set("id", 1L).set("val", 22L);
         final Tuple nonExistedTuple = Tuple.create().set("id", 2L);
 
-        assertNull(tbl.get(Tuple.create().set("id", 1L)));
+        assertNull(tbl.get(Tuple.create().set("id", 1L), null));
 
         // Insert new tuple.
-        assertTrue(tbl.insert(tuple));
+        assertTrue(tbl.insert(tuple, null));
 
-        assertEqualsRows(schema, tuple, tbl.get(Tuple.create().set("id", 1L)));
+        assertEqualsRows(schema, tuple, tbl.get(Tuple.create().set("id", 1L), null));
 
         // Ignore insert operation for exited row.
-        assertFalse(tbl.insert(newTuple));
+        assertFalse(tbl.insert(newTuple, null));
 
-        assertEqualsRows(schema, tuple, tbl.get(Tuple.create().set("id", 1L)));
+        assertEqualsRows(schema, tuple, tbl.get(Tuple.create().set("id", 1L), null));
 
-        assertNull(tbl.get(nonExistedTuple));
+        assertNull(tbl.get(nonExistedTuple, null));
     }
 
     @Test
@@ -114,19 +114,19 @@ public class RecordBinaryViewOperationsTest {
         final Tuple newTuple = Tuple.create().set("id", 1L).set("val", 22L);
         final Tuple nonExistedTuple = Tuple.create().set("id", 2L);
 
-        assertNull(tbl.get(Tuple.create().set("id", 1L)));
+        assertNull(tbl.get(Tuple.create().set("id", 1L), null));
 
         // Insert new tuple.
-        tbl.upsert(tuple);
+        tbl.upsert(tuple, null);
 
-        assertEqualsRows(schema, tuple, tbl.get(Tuple.create().set("id", 1L)));
+        assertEqualsRows(schema, tuple, tbl.get(Tuple.create().set("id", 1L), null));
 
         // Update exited row.
-        tbl.upsert(newTuple);
+        tbl.upsert(newTuple, null);
 
-        assertEqualsRows(schema, newTuple, tbl.get(Tuple.create().set("id", 1L)));
+        assertEqualsRows(schema, newTuple, tbl.get(Tuple.create().set("id", 1L), null));
 
-        assertNull(tbl.get(nonExistedTuple));
+        assertNull(tbl.get(nonExistedTuple, null));
     }
 
     @Test
@@ -142,17 +142,17 @@ public class RecordBinaryViewOperationsTest {
         final Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
         final Tuple newTuple = Tuple.create().set("id", 1L).set("val", 22L);
 
-        assertNull(tbl.get(Tuple.create().set("id", 1L)));
+        assertNull(tbl.get(Tuple.create().set("id", 1L), null));
 
         // Insert new tuple.
-        assertNull(tbl.getAndUpsert(tuple));
+        assertNull(tbl.getAndUpsert(tuple, null));
 
-        assertEqualsRows(schema, tuple, tbl.get(Tuple.create().set("id", 1L)));
+        assertEqualsRows(schema, tuple, tbl.get(Tuple.create().set("id", 1L), null));
 
         // Update exited row.
-        assertEqualsRows(schema, tuple, tbl.getAndUpsert(newTuple));
+        assertEqualsRows(schema, tuple, tbl.getAndUpsert(newTuple, null));
 
-        assertEqualsRows(schema, newTuple, tbl.get(Tuple.create().set("id", 1L)));
+        assertEqualsRows(schema, newTuple, tbl.get(Tuple.create().set("id", 1L), null));
     }
 
     @Test
@@ -165,19 +165,19 @@ public class RecordBinaryViewOperationsTest {
 
         RecordView<Tuple> tbl = createTableImpl(schema).recordView();
 
-        tbl.upsert(Tuple.create().set("id", 1L).set("val", 11L));
+        tbl.upsert(Tuple.create().set("id", 1L).set("val", 11L), null);
 
         final Tuple keyTuple = Tuple.create().set("id", 1L);
 
         // Delete not existed keyTuple.
-        assertFalse(tbl.delete(Tuple.create().set("id", 2L)));
+        assertFalse(tbl.delete(Tuple.create().set("id", 2L), null));
 
         // Delete existed keyTuple.
-        assertTrue(tbl.delete(keyTuple));
-        assertNull(tbl.get(keyTuple));
+        assertTrue(tbl.delete(keyTuple, null));
+        assertNull(tbl.get(keyTuple, null));
 
         // Delete already deleted keyTuple.
-        assertFalse(tbl.delete(keyTuple));
+        assertFalse(tbl.delete(keyTuple, null));
     }
 
     @Test
@@ -195,37 +195,37 @@ public class RecordBinaryViewOperationsTest {
         final Tuple tuple2 = Tuple.create().set("id", 1L).set("val", 22L);
         final Tuple nonExistedTuple = Tuple.create().set("id", 2L).set("val", 22L);
 
-        tbl.insert(tuple);
+        tbl.insert(tuple, null);
 
-        assertEqualsRows(schema, tuple, tbl.get(keyTuple));
+        assertEqualsRows(schema, tuple, tbl.get(keyTuple, null));
 
         // Fails to delete not existed tuple.
-        assertFalse(tbl.deleteExact(nonExistedTuple));
-        assertEqualsRows(schema, tuple, tbl.get(keyTuple));
+        assertFalse(tbl.deleteExact(nonExistedTuple, null));
+        assertEqualsRows(schema, tuple, tbl.get(keyTuple, null));
 
         // Fails to delete tuple with unexpected value.
-        assertFalse(tbl.deleteExact(tuple2));
-        assertEqualsRows(schema, tuple, tbl.get(keyTuple));
+        assertFalse(tbl.deleteExact(tuple2, null));
+        assertEqualsRows(schema, tuple, tbl.get(keyTuple, null));
 
         // TODO: IGNITE-14479: Fix default value usage.
         //        assertFalse(tbl.deleteExact(keyTuple));
         //        assertEqualsRows(schema, tuple, tbl.get(keyTuple));
 
         // Delete tuple with expected value.
-        assertTrue(tbl.deleteExact(tuple));
-        assertNull(tbl.get(keyTuple));
+        assertTrue(tbl.deleteExact(tuple, null));
+        assertNull(tbl.get(keyTuple, null));
 
         // Once again.
-        assertFalse(tbl.deleteExact(tuple));
-        assertNull(tbl.get(keyTuple));
+        assertFalse(tbl.deleteExact(tuple, null));
+        assertNull(tbl.get(keyTuple, null));
 
         // Insert new.
-        tbl.insert(tuple2);
-        assertEqualsRows(schema, tuple2, tbl.get(keyTuple));
+        tbl.insert(tuple2, null);
+        assertEqualsRows(schema, tuple2, tbl.get(keyTuple, null));
 
         // Delete tuple with expected value.
-        assertTrue(tbl.deleteExact(tuple2));
-        assertNull(tbl.get(keyTuple));
+        assertTrue(tbl.deleteExact(tuple2, null));
+        assertNull(tbl.get(keyTuple, null));
     }
 
     @Test
@@ -242,20 +242,20 @@ public class RecordBinaryViewOperationsTest {
         final Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
         final Tuple tuple2 = Tuple.create().set("id", 1L).set("val", 22L);
 
-        assertNull(tbl.get(keyTuple));
+        assertNull(tbl.get(keyTuple, null));
 
         // Ignore replace operation for non-existed row.
-        assertFalse(tbl.replace(tuple));
+        assertFalse(tbl.replace(tuple, null));
 
-        assertNull(tbl.get(keyTuple));
+        assertNull(tbl.get(keyTuple, null));
 
         // Insert row.
-        tbl.insert(tuple);
+        tbl.insert(tuple, null);
 
         // Replace existed row.
-        assertTrue(tbl.replace(tuple2));
+        assertTrue(tbl.replace(tuple2, null));
 
-        assertEqualsRows(schema, tuple2, tbl.get(keyTuple));
+        assertEqualsRows(schema, tuple2, tbl.get(keyTuple, null));
     }
 
     @Test
@@ -271,7 +271,7 @@ public class RecordBinaryViewOperationsTest {
         final Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
         final Tuple tuple2 = Tuple.create().set("id", 1L).set("val", 22L);
 
-        assertNull(tbl.get(Tuple.create().set("id", 1L)));
+        assertNull(tbl.get(Tuple.create().set("id", 1L), null));
 
         // Ignore replace operation for non-existed row.
         // TODO: IGNITE-14479: Fix default value usage.
@@ -281,12 +281,12 @@ public class RecordBinaryViewOperationsTest {
         //        assertNull(tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1)));
 
         // Insert row.
-        tbl.insert(tuple);
+        tbl.insert(tuple, null);
 
         // Replace existed row.
-        assertTrue(tbl.replace(tuple, tuple2));
+        assertTrue(tbl.replace(tuple, tuple2, null));
 
-        assertEqualsRows(schema, tuple2, tbl.get(Tuple.create().set("id", 1L)));
+        assertEqualsRows(schema, tuple2, tbl.get(Tuple.create().set("id", 1L), null));
     }
 
     @Test
@@ -308,17 +308,17 @@ public class RecordBinaryViewOperationsTest {
         final Tuple tuple0 = new TestTupleBuilder().set("id", 1L).set("str", "qweqweqwe").set("val", 11L);
         final Tuple tuple1 = new TestTupleBuilder().set("id", 1L).set("blob", new byte[]{0, 1, 2, 3}).set("val", 22L);
 
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.get(keyTuple0));
-        assertThrowsWithCause(SchemaMismatchException.class, () -> tbl.get(keyTuple1));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.get(keyTuple0, null));
+        assertThrowsWithCause(SchemaMismatchException.class, () -> tbl.get(keyTuple1, null));
 
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(tuple0));
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(tuple1));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(tuple0, null));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(tuple1, null));
 
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(tuple0));
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(tuple1));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(tuple0, null));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(tuple1, null));
 
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(tuple0));
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(tuple1));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(tuple0, null));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(tuple1, null));
     }
 
     @Test
@@ -342,11 +342,11 @@ public class RecordBinaryViewOperationsTest {
         final Tuple tupleExpected0 = Tuple.create().set("id", 0L).set("val", 28L).set("str", "ABC").set("blob", new byte[]{0, 1, 2});
         final Tuple tuple1 = Tuple.create().set("id", 1L).set("val", null).set("str", null).set("blob", null);
 
-        tbl.insert(tuple0);
-        tbl.insert(tuple1);
+        tbl.insert(tuple0, null);
+        tbl.insert(tuple1, null);
 
-        assertEqualsRows(schema, tupleExpected0, tbl.get(keyTuple0));
-        assertEqualsRows(schema, tuple1, tbl.get(keyTuple1));
+        assertEqualsRows(schema, tupleExpected0, tbl.get(keyTuple0, null));
+        assertEqualsRows(schema, tuple1, tbl.get(keyTuple1, null));
     }
 
     /**
@@ -422,7 +422,7 @@ public class RecordBinaryViewOperationsTest {
                 new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager),
                 txManager);
 
-        return new TableImpl(table, new DummySchemaManagerImpl(schema), null);
+        return new TableImpl(table, new DummySchemaManagerImpl(schema));
     }
 
     private <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {

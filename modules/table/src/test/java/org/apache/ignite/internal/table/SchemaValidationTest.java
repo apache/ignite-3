@@ -74,7 +74,8 @@ public class SchemaValidationTest {
 
         RecordView<Tuple> recView = createTableImpl(schema).recordView();
 
-        assertThrowsWithCause(SchemaMismatchException.class, () -> recView.insert(Tuple.create().set("id", 0L).set("invalidCol", 0)));
+        assertThrowsWithCause(SchemaMismatchException.class,
+                () -> recView.insert(Tuple.create().set("id", 0L).set("invalidCol", 0), null));
     }
 
     @Test
@@ -91,18 +92,25 @@ public class SchemaValidationTest {
         Table tbl = createTableImpl(schema);
 
         assertThrowsWithCause(SchemaMismatchException.class,
-                () -> tbl.recordView().get(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)));
-        assertThrowsWithCause(SchemaMismatchException.class, () -> tbl.recordView().get(Tuple.create().set("id", 0L)));
+                () -> tbl.recordView().get(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L), null));
+        assertThrowsWithCause(SchemaMismatchException.class, () -> tbl.recordView().get(Tuple.create().set("id", 0L), null));
 
-        assertThrowsWithCause(SchemaMismatchException.class, () -> tbl.keyValueView().get(Tuple.create().set("id", 0L)));
+        assertThrowsWithCause(SchemaMismatchException.class, () -> tbl.keyValueView().get(Tuple.create().set("id", 0L), null));
         assertThrowsWithCause(SchemaMismatchException.class,
-                () -> tbl.keyValueView().get(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)));
+                () -> tbl.keyValueView().get(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L), null));
 
-        assertThrowsWithCause(SchemaMismatchException.class, () -> tbl.keyValueView().put(Tuple.create().set("id", 0L), Tuple.create()));
         assertThrowsWithCause(SchemaMismatchException.class,
-                () -> tbl.keyValueView().put(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L), Tuple.create()));
-        assertThrowsWithCause(SchemaMismatchException.class, () -> tbl.keyValueView().put(Tuple.create().set("id", 0L).set("affId", 1L),
-                Tuple.create().set("id", 0L).set("val", 0L)));
+                () -> tbl.keyValueView().put(Tuple.create().set("id", 0L), Tuple.create(), null));
+
+        assertThrowsWithCause(SchemaMismatchException.class,
+                () -> tbl.keyValueView().put(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L), Tuple.create(), null));
+
+        assertThrowsWithCause(SchemaMismatchException.class,
+                () -> tbl.keyValueView().put(
+                        Tuple.create().set("id", 0L).set("affId", 1L),
+                        Tuple.create().set("id", 0L).set("val", 0L),
+                        null)
+        );
     }
 
     @Test
@@ -119,14 +127,15 @@ public class SchemaValidationTest {
         RecordView<Tuple> tbl = createTableImpl(schema).recordView();
 
         // Check not-nullable column.
-        assertThrowsWithCause(IllegalArgumentException.class, () -> tbl.insert(Tuple.create().set("id", null)));
-
-        // Check length of the string column
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(Tuple.create().set("id", 0L).set("valString", "qweqwe")));
+        assertThrowsWithCause(IllegalArgumentException.class, () -> tbl.insert(Tuple.create().set("id", null), null));
 
         // Check length of the string column
         assertThrowsWithCause(InvalidTypeException.class,
-                () -> tbl.insert(Tuple.create().set("id", 0L).set("valBytes", new byte[]{0, 1, 2, 3})));
+                () -> tbl.insert(Tuple.create().set("id", 0L).set("valString", "qweqwe"), null));
+
+        // Check length of the string column
+        assertThrowsWithCause(InvalidTypeException.class,
+                () -> tbl.insert(Tuple.create().set("id", 0L).set("valBytes", new byte[]{0, 1, 2, 3}), null));
     }
 
     @Test
@@ -143,14 +152,14 @@ public class SchemaValidationTest {
 
         Tuple tuple = Tuple.create().set("id", 1L);
 
-        tbl.insert(tuple.set("valString", "qwe"));
-        tbl.insert(tuple.set("valString", "qw"));
-        tbl.insert(tuple.set("valString", "q"));
-        tbl.insert(tuple.set("valString", ""));
-        tbl.insert(tuple.set("valString", null));
+        tbl.insert(tuple.set("valString", "qwe"), null);
+        tbl.insert(tuple.set("valString", "qw"), null);
+        tbl.insert(tuple.set("valString", "q"), null);
+        tbl.insert(tuple.set("valString", ""), null);
+        tbl.insert(tuple.set("valString", null), null);
 
         // Check string 3 char length and 9 bytes.
-        tbl.insert(tuple.set("valString", "我是谁"));
+        tbl.insert(tuple.set("valString", "我是谁"), null);
     }
 
     @Test
@@ -167,18 +176,18 @@ public class SchemaValidationTest {
 
         Tuple tuple = Tuple.create().set("id", 1L);
 
-        tbl.insert(tuple.set("valUnlimited", null));
-        tbl.insert(tuple.set("valLimited", null));
-        tbl.insert(tuple.set("valUnlimited", new byte[2]));
-        tbl.insert(tuple.set("valLimited", new byte[2]));
-        tbl.insert(tuple.set("valUnlimited", new byte[3]));
+        tbl.insert(tuple.set("valUnlimited", null), null);
+        tbl.insert(tuple.set("valLimited", null), null);
+        tbl.insert(tuple.set("valUnlimited", new byte[2]), null);
+        tbl.insert(tuple.set("valLimited", new byte[2]), null);
+        tbl.insert(tuple.set("valUnlimited", new byte[3]), null);
 
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(tuple.set("valLimited", new byte[3])));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(tuple.set("valLimited", new byte[3]), null));
 
     }
 
     private TableImpl createTableImpl(SchemaDescriptor schema) {
-        return new TableImpl(createTable(), new DummySchemaManagerImpl(schema), null);
+        return new TableImpl(createTable(), new DummySchemaManagerImpl(schema));
     }
 
     private <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {
