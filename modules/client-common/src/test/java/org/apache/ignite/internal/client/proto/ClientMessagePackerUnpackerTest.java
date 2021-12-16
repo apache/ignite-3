@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.proto;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.buffer.Unpooled;
@@ -318,6 +319,24 @@ public class ClientMessagePackerUnpackerTest {
                 Object[] res = unpacker.unpackObjectArray();
 
                 assertEquals(16L, (Long) res[0]);
+            }
+        }
+    }
+
+    @Test
+    public void testNoValue() {
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            packer.packNoValue();
+
+            var buf = packer.getBuffer();
+
+            byte[] data = new byte[buf.readableBytes()];
+            buf.readBytes(data);
+
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
+                unpacker.skipValues(4);
+
+                assertTrue(unpacker.tryUnpackNoValue());
             }
         }
     }
