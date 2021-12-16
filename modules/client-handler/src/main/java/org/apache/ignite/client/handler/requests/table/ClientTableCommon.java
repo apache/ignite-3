@@ -313,7 +313,7 @@ class ClientTableCommon {
         var tuple = Tuple.create(cnt);
 
         for (int i = 0; i < cnt; i++) {
-            if (unpacker.tryUnpackNil()) {
+            if (unpacker.tryUnpackNoValue()) {
                 continue;
             }
 
