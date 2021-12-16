@@ -130,33 +130,23 @@ namespace Apache.Ignite.Tests.Proto
                 {
                     var w = buf.GetMessageWriter();
 
+                    w.Write(3);
                     w.WriteNoValue();
+                    w.Write("abc");
+
                     w.Flush();
                 },
                 m =>
                 {
                     var r = new MessagePackReader(m);
 
-                    return r.TryReadNoValue();
+                    return (r.TryReadNoValue(), r.ReadInt32(), r.TryReadNoValue(), r.ReadString());
                 });
 
-            var res2 = WriteRead(
-                buf =>
-                {
-                    var w = buf.GetMessageWriter();
-
-                    w.WriteNil();
-                    w.Flush();
-                },
-                m =>
-                {
-                    var r = new MessagePackReader(m);
-
-                    return r.TryReadNoValue();
-                });
-
-            Assert.IsTrue(res1);
-            Assert.IsFalse(res2);
+            Assert.IsFalse(res1.Item1);
+            Assert.AreEqual(3, res1.Item2);
+            Assert.IsTrue(res1.Item3);
+            Assert.AreEqual("abc", res1.Item4);
         }
 
         private static T WriteRead<T>(Action<PooledArrayBufferWriter> write, Func<ReadOnlyMemory<byte>, T> read)
