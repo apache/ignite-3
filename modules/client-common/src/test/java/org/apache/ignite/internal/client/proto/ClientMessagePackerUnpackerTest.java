@@ -329,6 +329,7 @@ public class ClientMessagePackerUnpackerTest {
         try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
             packer.packInt(1);
             packer.packNoValue();
+            packer.packString("s");
 
             var buf = packer.getBuffer();
 
@@ -341,6 +342,7 @@ public class ClientMessagePackerUnpackerTest {
                 assertFalse(unpacker.tryUnpackNoValue());
                 assertEquals(1, unpacker.unpackInt());
                 assertTrue(unpacker.tryUnpackNoValue());
+                assertEquals("s", unpacker.unpackString());
             }
         }
     }
