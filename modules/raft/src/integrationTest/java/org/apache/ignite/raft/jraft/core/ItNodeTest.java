@@ -559,8 +559,7 @@ public class ItNodeTest {
         Thread.sleep(100);
         List<Node> followers = cluster.getFollowers();
 
-        assertTrue(waitForCondition(() -> startedCounter.get() == 2, 5_000),
-                startedCounter.get() + "");
+        assertTrue(waitForCondition(() -> startedCounter.get() == 2, 5_000), startedCounter.get() + "");
 
         PeerId targetPeer = followers.get(0).getNodeId().getPeerId().copy();
         LOG.info("Transfer leadership from {} to {}", leader, targetPeer);
@@ -568,8 +567,7 @@ public class ItNodeTest {
         Thread.sleep(1000);
         cluster.waitLeader();
 
-        assertTrue(waitForCondition(() -> startedCounter.get() == 4, 5_000),
-                startedCounter.get() + "");
+        assertTrue(waitForCondition(() -> startedCounter.get() == 4, 5_000), startedCounter.get() + "");
 
         for (Node node : cluster.getNodes())
             node.clearReplicatorStateListeners();
