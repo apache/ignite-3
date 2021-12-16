@@ -285,7 +285,7 @@ public class KeyValueBinaryViewOperationsTest {
         assertEqualsValues(schema, val2, tbl.get(key, null));
 
         // Check null value ignored.
-        assertThrows(Exception.class, () -> tbl.remove(key, null));
+        assertThrows(Exception.class, () -> tbl.remove(key, null, null));
         assertEqualsValues(schema, val2, tbl.get(key, null));
 
         // Delete KV pair with expected value.
