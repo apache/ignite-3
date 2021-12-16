@@ -253,27 +253,19 @@ public class ClientTable implements Table {
     ) {
         // TODO: Special case for ClientTupleBuilder - it has columns in order
         // TODO: Optimize (IGNITE-16082).
-        var vals = new Object[keyOnly ? schema.keyColumnCount() : schema.columns().length];
-        var tupleSize = tuple.columnCount();
-
-        for (var i = 0; i < tupleSize; i++) {
-            var colName = tuple.columnName(i);
-            var col = schema.column(colName);
-
-            if (keyOnly && !col.key()) {
-                continue;
-            }
-
-            vals[col.schemaIndex()] = tuple.value(i);
-        }
-
         if (!skipHeader) {
             out.packIgniteUuid(id);
             out.packInt(schema.version());
         }
 
-        for (var val : vals) {
-            out.packObject(val);
+        var columns = schema.columns();
+
+        for (var i = 0; i < columns.length; i++) {
+            var col = columns[i];
+
+            Object v = tuple.valueOrDefault(col.name(), NO_VALUE);
+
+            out.packObject(v);
         }
     }
 
