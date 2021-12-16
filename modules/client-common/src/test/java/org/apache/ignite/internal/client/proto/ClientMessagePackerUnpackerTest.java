@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.proto;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.netty.buffer.PooledByteBufAllocator;
@@ -326,6 +327,7 @@ public class ClientMessagePackerUnpackerTest {
     @Test
     public void testNoValue() {
         try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            packer.packInt(1);
             packer.packNoValue();
 
             var buf = packer.getBuffer();
@@ -336,6 +338,8 @@ public class ClientMessagePackerUnpackerTest {
             try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
                 unpacker.skipValues(4);
 
+                assertFalse(unpacker.tryUnpackNoValue());
+                assertEquals(1, unpacker.unpackInt());
                 assertTrue(unpacker.tryUnpackNoValue());
             }
         }
