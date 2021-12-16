@@ -30,11 +30,11 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.idx.MySortedIndexDescriptor;
+import org.apache.ignite.internal.idx.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.jetbrains.annotations.NotNull;
 
@@ -49,7 +49,7 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
 
     private final IndexRow row;
 
-    private final SortedIndexDescriptor descriptor;
+    private final MySortedIndexDescriptor descriptor;
 
     IndexRowWrapper(SortedIndexStorage storage, IndexRow row, Object[] columns) {
         this.descriptor = storage.indexDescriptor();
@@ -63,8 +63,8 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
     static IndexRowWrapper randomRow(SortedIndexStorage indexStorage) {
         var random = new Random();
 
-        Object[] columns = indexStorage.indexDescriptor().indexRowColumns().stream()
-                .map(ColumnDescriptor::column)
+        Object[] columns = indexStorage.indexDescriptor().columns().stream()
+                .map(SortedIndexColumnDescriptor::column)
                 .map(column -> generateRandomValue(random, column.type()))
                 .toArray();
 
@@ -104,7 +104,7 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
             int compare = comparator.compare(columns[i], o.columns[i]);
 
             if (compare != 0) {
-                boolean asc = descriptor.indexRowColumns().get(i).asc();
+                boolean asc = descriptor.columns().get(i).asc();
 
                 return asc ? compare : -compare;
             }

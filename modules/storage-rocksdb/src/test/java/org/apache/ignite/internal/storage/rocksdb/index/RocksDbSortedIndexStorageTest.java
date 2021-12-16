@@ -21,21 +21,16 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.generateRandomValue;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.schema.SchemaBuilders.column;
 import static org.apache.ignite.schema.SchemaBuilders.tableBuilder;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
-import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.sameInstance;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -52,13 +47,15 @@ import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSch
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.idx.MySortedIndexDescriptor;
+import org.apache.ignite.internal.idx.SortedIndexColumnDescriptor;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
 import org.apache.ignite.internal.storage.SearchRow;
-import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.testframework.VariableSource;
@@ -67,15 +64,9 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
-import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
-import org.apache.ignite.schema.definition.index.ColumnarIndexDefinition;
-import org.apache.ignite.schema.definition.index.HashIndexDefinition;
-import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -205,8 +196,8 @@ public class RocksDbSortedIndexStorageTest {
     void testRowSerialization() {
         SortedIndexStorage indexStorage = createIndex(ALL_TYPES_COLUMN_DEFINITIONS);
 
-        Object[] columns = indexStorage.indexDescriptor().indexRowColumns().stream()
-                .map(ColumnDescriptor::column)
+        Object[] columns = indexStorage.indexDescriptor().columns().stream()
+                .map(SortedIndexColumnDescriptor::column)
                 .map(column -> generateRandomValue(random, column.type()))
                 .toArray();
 
@@ -305,80 +296,33 @@ public class RocksDbSortedIndexStorageTest {
         assertThat(actual, is(empty()));
     }
 
-    /**
-     * Tests creating a index that has not been created through the Configuration framework.
-     */
-    @Test
-    void testCreateMissingIndex() {
-        StorageException ex = assertThrows(StorageException.class, () -> tableStorage.getOrCreateSortedIndex("does not exist"));
-
-        assertThat(ex.getMessage(), is(equalTo("Index configuration for \"does not exist\" could not be found")));
-    }
-
-    /**
-     * Tests creating a Sorted Index that has been misconfigured as a Hash Index.
-     */
-    @Test
-    void testCreateMisconfiguredIndex() {
-        HashIndexDefinition definition = SchemaBuilders.hashIndex("wrong type")
-                .withColumns("foo")
-                .build();
-
-        StorageException ex = assertThrows(StorageException.class, () -> createIndex(definition));
-
-        assertThat(ex.getMessage(), is(equalTo("Index \"wrong type\" is not configured as a Sorted Index. Actual type: HASH")));
-    }
-
-    /**
-     * Tests the {@link TableStorage#dropIndex} functionality.
-     */
-    @Test
-    void testDropIndex() throws Exception {
-        SortedIndexStorage storage = createIndex(ALL_TYPES_COLUMN_DEFINITIONS.subList(0, 1));
-
-        String indexName = storage.indexDescriptor().name();
-
-        assertThat(tableStorage.getOrCreateSortedIndex(indexName), is(sameInstance(storage)));
-
-        IndexRowWrapper entry = IndexRowWrapper.randomRow(storage);
-
-        storage.put(entry.row());
-
-        tableStorage.dropIndex(indexName);
-
-        SortedIndexStorage nextStorage = tableStorage.getOrCreateSortedIndex(indexName);
-
-        assertThat(nextStorage, is(not(sameInstance(storage))));
-        assertThat(getSingle(nextStorage, entry), is(nullValue()));
-    }
-
     @ParameterizedTest
     @VariableSource("ALL_TYPES_COLUMN_DEFINITIONS")
     void testNullValues(ColumnDefinition columnDefinition) throws Exception {
-        SortedIndexStorage storage = createIndex(List.of(columnDefinition));
-
-        IndexRowWrapper entry1 = IndexRowWrapper.randomRow(storage);
-
-        Object[] nullArray = storage.indexDescriptor().indexRowColumns().stream()
-                .map(columnDescriptor -> columnDescriptor.indexedColumn() ? null : (byte) random.nextInt())
-                .toArray();
-
-        IndexRow nullRow = storage.indexRowFactory().createIndexRow(nullArray, new ByteArraySearchRow(randomBytes(random, 10)));
-
-        IndexRowWrapper entry2 = new IndexRowWrapper(storage, nullRow, nullArray);
-
-        storage.put(entry1.row());
-        storage.put(entry2.row());
-
-        if (entry1.compareTo(entry2) > 0) {
-            IndexRowWrapper t = entry2;
-            entry2 = entry1;
-            entry1 = t;
-        }
-
-        List<IndexRow> rows = cursorToList(storage.range(entry1::columns, entry2::columns));
-
-        assertThat(rows, contains(entry1.row(), entry2.row()));
+//        SortedIndexStorage storage = createIndex(List.of(columnDefinition));
+//
+//        IndexRowWrapper entry1 = IndexRowWrapper.randomRow(storage);
+//
+//        Object[] nullArray = storage.indexDescriptor().columns().stream()
+//                .map(columnDescriptor -> columnDescriptor.indexedColumn() ? null : (byte) random.nextInt())
+//                .toArray();
+//
+//        IndexRow nullRow = storage.indexRowFactory().createIndexRow(nullArray, new ByteArraySearchRow(randomBytes(random, 10)));
+//
+//        IndexRowWrapper entry2 = new IndexRowWrapper(storage, nullRow, nullArray);
+//
+//        storage.put(entry1.row());
+//        storage.put(entry2.row());
+//
+//        if (entry1.compareTo(entry2) > 0) {
+//            IndexRowWrapper t = entry2;
+//            entry2 = entry1;
+//            entry1 = t;
+//        }
+//
+//        List<IndexRow> rows = cursorToList(storage.range(entry1::columns, entry2::columns));
+//
+//        assertThat(rows, contains(entry1.row(), entry2.row()));
     }
 
     private List<ColumnDefinition> shuffledRandomDefinitions() {
@@ -442,36 +386,16 @@ public class RocksDbSortedIndexStorageTest {
      * Creates a Sorted Index using the given columns.
      */
     private SortedIndexStorage createIndex(List<ColumnDefinition> indexSchema) {
-        SortedIndexDefinitionBuilder indexDefinitionBuilder = SchemaBuilders.sortedIndex("foo");
+        List<SortedIndexColumnDescriptor> cols = new ArrayList<>();
 
-        indexSchema.forEach(column -> {
-            SortedIndexColumnBuilder columnBuilder = indexDefinitionBuilder.addIndexColumn(column.name());
+        for (int i = 0; i < indexSchema.size(); ++i) {
+            ColumnDefinition colDef = indexSchema.get(i);
 
-            if (random.nextBoolean()) {
-                columnBuilder.asc();
-            } else {
-                columnBuilder.desc();
-            }
+            Column col = new Column(i, colDef.name(), SchemaDescriptorConverter.convert(colDef.type()), true);
+            cols.add(new SortedIndexColumnDescriptor(col, random.nextBoolean()));
+        }
 
-            columnBuilder.done();
-        });
-
-        SortedIndexDefinition indexDefinition = indexDefinitionBuilder.build();
-
-        return createIndex(indexDefinition);
-    }
-
-    /**
-     * Creates a Sorted Index using the given index definition.
-     */
-    private SortedIndexStorage createIndex(ColumnarIndexDefinition indexDefinition) {
-        CompletableFuture<Void> createIndexFuture = tableCfg.change(cfg ->
-                cfg.changeIndices(idxList ->
-                        idxList.create(indexDefinition.name(), idx -> convert(indexDefinition, idx))));
-
-        assertThat(createIndexFuture, willBe(nullValue(Void.class)));
-
-        return tableStorage.getOrCreateSortedIndex(indexDefinition.name());
+        return tableStorage.createSortedIndex(new MySortedIndexDescriptor("foo", cols));
     }
 
     /**

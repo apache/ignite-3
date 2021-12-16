@@ -40,6 +40,11 @@ public class TableIndexConfigurationSchema {
     @PolymorphicId
     public String type;
 
+    /** Index identifier. String representation of {@link org.apache.ignite.lang.IgniteUuid}. */
+    @Value
+    @Immutable
+    public String id;
+
     /** Index name. */
     @Value
     @Immutable

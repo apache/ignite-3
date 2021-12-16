@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.idx.event;
 
-import org.apache.ignite.internal.idx.SortedIndex;
+import org.apache.ignite.internal.idx.InternalSortedIndex;
 import org.apache.ignite.internal.manager.EventParameters;
-import org.apache.ignite.table.Table;
 
 /**
  * Table event parameters. There are properties which associate with a concrete table.
@@ -28,19 +27,19 @@ public class IndexEventParameters implements EventParameters {
     /** Index name. */
     private final String idxName;
 
-    /** Indexed table. */
-    private final Table tbl;
+    /** Indexed table name. */
+    private final String tblName;
 
     /** Table instance. */
-    private final SortedIndex idx;
+    private final InternalSortedIndex idx;
 
     /**
      * Constructor.
      *
      * @param idx     Index instance.
      */
-    public IndexEventParameters(SortedIndex idx) {
-        this(idx.name(), idx.table(), idx);
+    public IndexEventParameters(InternalSortedIndex idx) {
+        this(idx.name(), idx.table().name(), idx);
     }
 
 
@@ -51,9 +50,9 @@ public class IndexEventParameters implements EventParameters {
      * @param tbl     Table instance.
      * @param idx     Index.
      */
-    public IndexEventParameters(String idxName, Table tbl, SortedIndex idx) {
+    public IndexEventParameters(String idxName, String tbl, InternalSortedIndex idx) {
         this.idxName = idxName;
-        this.tbl = tbl;
+        this.tblName = tbl;
         this.idx = idx;
     }
 
@@ -61,11 +60,11 @@ public class IndexEventParameters implements EventParameters {
         return idxName;
     }
 
-    public Table table() {
-        return tbl;
+    public String tableName() {
+        return tblName;
     }
 
-    public SortedIndex index() {
+    public InternalSortedIndex index() {
         return idx;
     }
 }

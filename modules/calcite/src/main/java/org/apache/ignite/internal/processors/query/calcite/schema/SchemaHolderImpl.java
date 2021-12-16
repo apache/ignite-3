@@ -27,7 +27,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.idx.SortedIndex;
+import org.apache.ignite.internal.idx.InternalSortedIndex;
 import org.apache.ignite.internal.processors.query.calcite.extension.SqlExtension.ExternalCatalog;
 import org.apache.ignite.internal.processors.query.calcite.extension.SqlExtension.ExternalSchema;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
@@ -158,7 +158,7 @@ public class SchemaHolderImpl implements SchemaHolder {
     /**
      * Build new SQL schema when new index is created.
      */
-    public void onIndexCreated(String schema, String tblName, SortedIndex idx) {
+    public void onIndexCreated(String schema, String tblName, InternalSortedIndex idx) {
         InternalIgniteTable tbl = igniteSchemas.get(schema).internalTable(tblName);
 
         List<Integer> cols = idx.columns().stream().map(Column::schemaIndex).collect(Collectors.toList());

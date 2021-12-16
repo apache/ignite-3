@@ -19,55 +19,51 @@ package org.apache.ignite.internal.idx;
 
 import java.util.BitSet;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.table.Table;
 
 /**
- * Sorted index facade.
+ * Internal index manager facade provides low-level methods for indexes operations.
  */
-public interface SortedIndex {
-    /** Exclude lower bound. */
-    byte GREATER = 0;
+public class InternalSortedIndexImpl implements InternalSortedIndex {
+    private final String name;
 
-    /** Include lower bound. */
-    byte GREATER_OR_EQUAL = 1;
+    private final SortedIndexStorage store;
 
-    /** Exclude upper bound. */
-    byte LESS = 0;
-
-    /** Include upper bound. */
-    byte LESS_OR_EQUAL = 1 << 1;
+    private final Table tbl;
 
     /**
-     * Return index name.
-     *
-     * @return Index name.
+     * Create sorted index.
      */
-    String name();
+    public InternalSortedIndexImpl(String name, SortedIndexStorage store, Table tbl) {
+        this.name = name;
+        this.store = store;
+        this.tbl = tbl;
+    }
 
-    /**
-     * Return indexed table.
-     *
-     * @return Indexed table.
-     */
-    Table table();
+    @Override
+    public String name() {
+        return name;
+    }
 
-    /**
-     * Return indexed columns.
-     *
-     * @return Indexed columns.
-     */
-    List<Column> columns();
+    @Override
+    public Table table() {
+        return tbl;
+    }
 
-    /**
-     * Return rows between lower and upper bounds. Fill results rows by fields specified at the projection set.
-     *
-     * @param low           Lower bound of the scan.
-     * @param up            Lower bound of the scan.
-     * @param scanBoundMask Scan bound mask (specify how to work with rows equals to the bounds: include or exclude).
-     * @param proj          Set of the columns IDs to fill results rows.
-     */
-    Cursor<Row> scan(Row low, Row up, byte scanBoundMask, BitSet proj);
+    @Override
+    public List<Column> columns() {
+        return store.indexDescriptor().columns().stream()
+                .map(SortedIndexColumnDescriptor::column)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public Cursor<Row> scan(Row low, Row up, byte scanBoundMask, BitSet proj) {
+        return null;
+    }
 }

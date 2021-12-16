@@ -40,7 +40,6 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.idx.IndexManager;
 import org.apache.ignite.internal.processors.query.calcite.QueryCancel;
 import org.apache.ignite.internal.processors.query.calcite.extension.SqlExtension;
 import org.apache.ignite.internal.processors.query.calcite.metadata.IgniteMetadata;
@@ -200,10 +199,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     public QueryCancel queryCancel() {
         return qryCancel;
-    }
-
-    public IndexManager indexManager() {
-        return null;
     }
 
     /**

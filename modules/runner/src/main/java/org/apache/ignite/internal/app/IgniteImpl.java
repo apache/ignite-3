@@ -40,6 +40,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.idx.IndexManager;
 import org.apache.ignite.internal.idx.IndexManagerImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -216,6 +217,7 @@ public class IgniteImpl implements Ignite {
         );
 
         idxManager = new IndexManagerImpl(
+                distributedTblMgr,
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
                 getPartitionsStorePath(workDir),
@@ -319,6 +321,7 @@ public class IgniteImpl implements Ignite {
                     clusterCfgMgr,
                     baselineMgr,
                     distributedTblMgr,
+                    idxManager,
                     qryEngine,
                     restModule,
                     clientHandlerModule
@@ -351,7 +354,7 @@ public class IgniteImpl implements Ignite {
     public void stop() {
         if (status.getAndSet(Status.STOPPING) == Status.STARTED) {
             doStopNode(List.of(vaultMgr, nodeCfgMgr, clusterSvc, raftMgr, txManager, metaStorageMgr, clusterCfgMgr, baselineMgr,
-                    distributedTblMgr, qryEngine, restModule, clientHandlerModule, nettyBootstrapFactory));
+                    idxManager, distributedTblMgr, qryEngine, restModule, clientHandlerModule, nettyBootstrapFactory));
         }
     }
 
@@ -363,6 +366,10 @@ public class IgniteImpl implements Ignite {
 
     public QueryProcessor queryEngine() {
         return qryEngine;
+    }
+
+    public IndexManager indexManager() {
+        return idxManager;
     }
 
     /** {@inheritDoc} */

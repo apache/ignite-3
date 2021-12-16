@@ -27,12 +27,12 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Comparator;
+import org.apache.ignite.internal.idx.MySortedIndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.rocksdb.AbstractComparator;
 import org.rocksdb.ComparatorOptions;
 
@@ -53,14 +53,14 @@ public class BinaryRowComparator extends AbstractComparator {
     /**
      * Creates a RocksDB comparator for a Sorted Index identified by the given descriptor.
      */
-    public BinaryRowComparator(SortedIndexDescriptor descriptor) {
+    public BinaryRowComparator(MySortedIndexDescriptor descriptor) {
         this(descriptor, new ComparatorOptions());
     }
 
     /**
      * Internal constructor for capturing the {@code options} parameter for resource management purposes.
      */
-    private BinaryRowComparator(SortedIndexDescriptor descriptor, ComparatorOptions options) {
+    private BinaryRowComparator(MySortedIndexDescriptor descriptor, ComparatorOptions options) {
         super(options);
 
         innerComparator = comparing(
@@ -74,9 +74,9 @@ public class BinaryRowComparator extends AbstractComparator {
     /**
      * Creates a comparator for comparing two {@link BinaryRow}s by converting them into {@link Row}s.
      */
-    private static Comparator<BinaryRow> binaryRowComparator(SortedIndexDescriptor descriptor) {
+    private static Comparator<BinaryRow> binaryRowComparator(MySortedIndexDescriptor descriptor) {
         return comparing(
-                binaryRow -> new Row(descriptor.asSchemaDescriptor(), binaryRow),
+                binaryRow -> new Row(descriptor.schema(), binaryRow),
                 rowComparator(descriptor)
         );
     }
@@ -84,8 +84,8 @@ public class BinaryRowComparator extends AbstractComparator {
     /**
      * Creates a comparator that compares two {@link Row}s by comparing individual columns.
      */
-    private static Comparator<Row> rowComparator(SortedIndexDescriptor descriptor) {
-        return descriptor.indexRowColumns().stream()
+    private static Comparator<Row> rowComparator(MySortedIndexDescriptor descriptor) {
+        return descriptor.columns().stream()
                 .map(columnDescriptor -> {
                     Column column = columnDescriptor.column();
 

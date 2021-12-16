@@ -17,8 +17,14 @@
 
 package org.apache.ignite.internal.processors.query.calcite.schema;
 
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.ignite.internal.idx.SortedIndex;
+import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.idx.InternalSortedIndex;
+import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
+import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGroup;
 
 /**
  * Ignite scannable index.
@@ -28,7 +34,7 @@ public class IgniteIndex {
 
     private final String idxName;
 
-    private final SortedIndex idx;
+    private final InternalSortedIndex idx;
 
     private final InternalIgniteTable tbl;
 
@@ -44,7 +50,7 @@ public class IgniteIndex {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public IgniteIndex(RelCollation collation, SortedIndex idx, InternalIgniteTable tbl) {
+    public IgniteIndex(RelCollation collation, InternalSortedIndex idx, InternalIgniteTable tbl) {
         this(collation, idx.name(), idx, tbl);
     }
 
@@ -52,7 +58,7 @@ public class IgniteIndex {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    private IgniteIndex(RelCollation collation, String name, SortedIndex idx, InternalIgniteTable tbl) {
+    private IgniteIndex(RelCollation collation, String name, InternalSortedIndex idx, InternalIgniteTable tbl) {
         this.collation = collation;
         idxName = name;
         this.idx = idx;
@@ -69,5 +75,17 @@ public class IgniteIndex {
 
     public InternalIgniteTable table() {
         return tbl;
+    }
+
+    public <RowT> Iterable<RowT> scan(
+            ExecutionContext<RowT> ectx,
+            ColocationGroup colocationGrp,
+            Predicate<RowT> filters,
+            Supplier<RowT> lower,
+            Supplier<RowT> upper,
+            Function<RowT, RowT> prj,
+            ImmutableBitSet requiredColumns
+    ) {
+        return null;
     }
 }

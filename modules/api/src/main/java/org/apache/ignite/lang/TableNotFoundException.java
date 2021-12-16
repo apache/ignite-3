@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,22 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.index;
-
-import org.apache.ignite.internal.storage.SearchRow;
+package org.apache.ignite.lang;
 
 /**
- * Temporary API for creating Index rows from a list of column values. All columns must be sorted according to the index columns order,
- * specified by the SortedIndexDescriptor.
+ * This exception is thrown when a new table failed to be created, because a table with same name already exists.
  */
-public interface IndexRowFactory {
+public class TableNotFoundException extends IgniteException {
     /**
-     * Creates an Index row from a list of column values.
+     * Create a new exception with given table name.
+     *
+     * @param name Table name.
      */
-    IndexRow createIndexRow(Object[] columnValues, SearchRow primaryKey);
-
-    /**
-     * Creates an Prefix row from a list of column values.
-     */
-    IndexRowPrefix createIndexRowPrefix(Object[] prefixColumnValues);
+    public TableNotFoundException(String name) {
+        super(LoggerMessageHelper.format("Table not found [name={}]", name));
+    }
 }

@@ -35,6 +35,11 @@
   <dependencies>
     <dependency>
       <groupId>org.apache.ignite</groupId>
+      <artifactId>ignite-schema</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.ignite</groupId>
       <artifactId>ignite-api</artifactId>
     </dependency>
 
@@ -57,25 +62,29 @@
       <artifactId>junit-jupiter-engine</artifactId>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>org.apache.ignite</groupId>
-      <artifactId>ignite-schema</artifactId>
-    </dependency>
   </dependencies>
 
   <build>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>default-testJar</id>
-            <goals>
-              <goal>test-jar</goal>
-            </goals>
-          </execution>
-        </executions>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <dependencies>
+          <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-configuration-annotation-processor</artifactId>
+            <version>${project.version}</version>
+          </dependency>
+        </dependencies>
+        <configuration>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.apache.ignite</groupId>
+              <artifactId>ignite-configuration-annotation-processor</artifactId>
+              <version>${project.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
       </plugin>
     </plugins>
   </build>

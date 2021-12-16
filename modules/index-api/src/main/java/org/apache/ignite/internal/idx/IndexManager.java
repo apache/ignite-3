@@ -35,5 +35,5 @@ public interface IndexManager extends Producer<IndexEvent, IndexEventParameters>
      * @return Indexes of the table.
      * @throws NodeStoppingException If an implementation stopped before the method was invoked.
      */
-    List<SortedIndex> indexes(UUID tblId);
+    List<InternalSortedIndex> indexes(UUID tblId);
 }

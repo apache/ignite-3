@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
+import org.apache.ignite.internal.idx.MySortedIndexDescriptor;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -25,7 +26,6 @@ import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowDeserializer;
 import org.apache.ignite.internal.storage.index.IndexRowFactory;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -38,7 +38,7 @@ import org.rocksdb.RocksIterator;
 public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     private final ColumnFamily indexCf;
 
-    private final SortedIndexDescriptor descriptor;
+    private final MySortedIndexDescriptor descriptor;
 
     private final IndexRowFactory indexRowFactory;
 
@@ -50,7 +50,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
      * @param indexCf Column Family for storing the data.
      * @param descriptor Index descriptor.
      */
-    public RocksDbSortedIndexStorage(ColumnFamily indexCf, SortedIndexDescriptor descriptor) {
+    public RocksDbSortedIndexStorage(ColumnFamily indexCf, MySortedIndexDescriptor descriptor) {
         this.indexCf = indexCf;
         this.descriptor = descriptor;
         this.indexRowFactory = new BinaryIndexRowFactory(descriptor);
@@ -58,7 +58,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
-    public SortedIndexDescriptor indexDescriptor() {
+    public MySortedIndexDescriptor indexDescriptor() {
         return descriptor;
     }
 

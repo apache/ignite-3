@@ -315,7 +315,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         public boolean notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onIndexCreated(
                     "PUBLIC",
-                    parameters.table().name(),
+                    parameters.tableName(),
                     parameters.index()
             );
 
@@ -335,7 +335,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         public boolean notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onIndexDropped(
                     "PUBLIC",
-                    parameters.table().name(),
+                    parameters.tableName(),
                     parameters.indexName()
             );
 

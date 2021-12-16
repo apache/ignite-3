@@ -17,32 +17,34 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
+import java.util.Arrays;
+import org.apache.ignite.internal.idx.MySortedIndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowDeserializer;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 
 /**
  * {@link IndexRowDeserializer} implementation that uses {@link BinaryRow} infrastructure for deserialization purposes.
  */
 class BinaryIndexRowDeserializer implements IndexRowDeserializer {
-    private final SortedIndexDescriptor descriptor;
+    private final MySortedIndexDescriptor descriptor;
 
-    BinaryIndexRowDeserializer(SortedIndexDescriptor descriptor) {
+    BinaryIndexRowDeserializer(MySortedIndexDescriptor descriptor) {
         this.descriptor = descriptor;
     }
 
     @Override
     public Object[] indexedColumnValues(IndexRow indexRow) {
-        var row = new Row(descriptor.asSchemaDescriptor(), new ByteBufferRow(indexRow.rowBytes()));
+        var row = new Row(descriptor.schema(), new ByteBufferRow(indexRow.rowBytes()));
 
-        return descriptor.indexRowColumns().stream()
-                .filter(ColumnDescriptor::indexedColumn)
-                .map(ColumnDescriptor::column)
-                .map(column -> column.type().spec().objectValue(row, column.schemaIndex()))
-                .toArray();
+        Object[] res = new Object[Arrays.stream(descriptor.schema().keyColumns().columns())
+                .mapToInt(column -> column.columnOrder()).max().getAsInt() + 1];
+
+        Arrays.stream(descriptor.schema().keyColumns().columns())
+                .forEach(column -> res[column.columnOrder()] = column.type().spec().objectValue(row, column.schemaIndex()));
+
+        return res;
     }
 }
