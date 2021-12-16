@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.ConfigurationReadOnlyException;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.internal.configuration.direct.DirectPropertyProxy;
 import org.apache.ignite.internal.configuration.direct.DirectValueProxy;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
@@ -43,15 +44,19 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
     /** Value cannot be changed. */
     private final boolean readOnly;
 
+    /** Configuration field with {@link InjectedName}. */
+    private final boolean injectedNameField;
+
     /**
      * Constructor.
      *
-     * @param prefix     Property prefix.
-     * @param key        Property name.
-     * @param rootKey    Root key.
-     * @param changer    Configuration changer.
+     * @param prefix Property prefix.
+     * @param key Property name.
+     * @param rootKey Root key.
+     * @param changer Configuration changer.
      * @param listenOnly Only adding listeners mode, without the ability to get or update the property value.
-     * @param readOnly   Value cannot be changed.
+     * @param readOnly Value cannot be changed.
+     * @param injectedNameField Configuration field with {@link InjectedName}.
      */
     public DynamicProperty(
             List<String> prefix,
@@ -59,11 +64,13 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
             RootKey<?, ?> rootKey,
             DynamicConfigurationChanger changer,
             boolean listenOnly,
-            boolean readOnly
+            boolean readOnly,
+            boolean injectedNameField
     ) {
         super(INTERNAL_ID.equals(key) ? prefix : appendKey(prefix, key), key, rootKey, changer, listenOnly);
 
         this.readOnly = readOnly;
+        this.injectedNameField = injectedNameField;
     }
 
     /** {@inheritDoc} */
@@ -73,9 +80,11 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
             // In this case "refreshValue()" is not of type "T", but an "InnerNode" holding it instead.
             // "T" must be a UUID then, this is guarded by external invariants.
             return (T) ((InnerNode) refreshValue()).internalId();
+        } else if (injectedNameField) {
+            return (T) ((InnerNode) refreshValue()).getInjectedNameFieldValue();
+        } else {
+            return refreshValue();
         }
-
-        return (T) refreshValue();
     }
 
     /** {@inheritDoc} */
