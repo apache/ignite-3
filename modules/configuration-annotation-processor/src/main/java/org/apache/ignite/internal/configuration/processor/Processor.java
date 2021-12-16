@@ -69,7 +69,6 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.DirectAccess;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.InternalId;
@@ -991,7 +990,7 @@ public class Processor extends AbstractProcessor {
 
         VariableElement injectedNameField = injectedNameFields.get(0);
 
-        if (!isStringClass(injectedNameField.asType())) {
+        if (!isClass(injectedNameField.asType(), String.class)) {
             throw new ProcessorException(String.format(
                 FIELD_MUST_BE_STRING_ERROR_FORMAT,
                 simpleName(InjectedName.class),

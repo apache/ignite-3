@@ -54,7 +54,6 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.co
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.extensionsFields;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.hasDefault;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isConfigValue;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isDirectAccess;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isInjectedName;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isInternalId;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isNamedConfigValue;

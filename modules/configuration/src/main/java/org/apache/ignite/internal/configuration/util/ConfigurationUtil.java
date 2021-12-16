@@ -51,11 +51,10 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.DirectAccess;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
-import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.InternalId;
+import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
@@ -1039,16 +1038,6 @@ public class ConfigurationUtil {
      */
     public static boolean isInjectedName(Field schemaField) {
         return schemaField.isAnnotationPresent(InjectedName.class);
-    }
-
-    /**
-     * Checks whether configuration schema field contains {@link DirectAccess}.
-     *
-     * @param schemaField Configuration schema class field.
-     * @return {@code true} if the field contains {@link DirectAccess}.
-     */
-    public static boolean isDirectAccess(Field schemaField) {
-        return schemaField.isAnnotationPresent(DirectAccess.class);
     }
 
     /**

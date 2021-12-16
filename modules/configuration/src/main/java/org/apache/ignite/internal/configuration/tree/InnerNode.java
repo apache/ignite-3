@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.configuration.tree;
 
 import java.util.NoSuchElementException;
-import org.apache.ignite.configuration.annotation.InjectedName;
 import java.util.UUID;
+import org.apache.ignite.configuration.annotation.InjectedName;
 
 /**
  * Configuration node implementation.
