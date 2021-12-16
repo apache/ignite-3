@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,21 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller.reflection;
-
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.Serializer;
-import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
+package org.apache.ignite.internal.storage.index;
 
 /**
- * Factory for reflection-based serializer.
+ * Represents an Index row prefix, used to perform prefix scans over the Sorted Index storage.
  */
-//TODO: IGNITE-15907 drop
-@Deprecated(forRemoval = true)
-public class JavaSerializerFactory implements SerializerFactory {
-    /** {@inheritDoc} */
-    @Override
-    public Serializer create(SchemaDescriptor schema, Class<?> keyClass, Class<?> valClass) {
-        return new JavaSerializer(schema, keyClass, valClass);
-    }
+public interface IndexRowPrefix {
+    /**
+     * Returns a list of column values that comprise a prefix of an Index row. Values will be sorted in the same order as the
+     * Sorted Index columns, specified by {@link SortedIndexDescriptor#indexRowColumns()}.
+     */
+    Object[] prefixColumnValues();
 }

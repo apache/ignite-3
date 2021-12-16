@@ -15,28 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller;
-
-import org.apache.ignite.internal.schema.SchemaDescriptor;
+package org.apache.ignite.internal.network.serialization;
 
 /**
- * Base serializer class.
+ * The uninstantiable null value type.
  */
-public abstract class AbstractSerializer implements Serializer {
-    /** Schema descriptor. */
-    protected final SchemaDescriptor schema;
-
+public final class Null {
     /**
-     * Constructor.
-     *
-     * @param schema Schema descriptor.
+     * Forbidden instantiation.
      */
-    protected AbstractSerializer(SchemaDescriptor schema) {
-        this.schema = schema;
-    }
-
-    /** {@inheritDoc} */
-    @Override public SchemaDescriptor schema() {
-        return schema;
-    }
+    private Null() {}
 }
