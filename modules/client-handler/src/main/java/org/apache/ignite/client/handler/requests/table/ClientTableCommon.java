@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
@@ -49,8 +51,6 @@ import org.jetbrains.annotations.NotNull;
  * Common table functionality.
  */
 class ClientTableCommon {
-    private static final Object NO_VALUE = new Object();
-
     /**
      * Writes a schema.
      *
