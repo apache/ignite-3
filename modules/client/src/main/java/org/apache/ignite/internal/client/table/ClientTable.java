@@ -251,8 +251,6 @@ public class ClientTable implements Table {
             boolean keyOnly,
             boolean skipHeader
     ) {
-        // TODO: Special case for ClientTupleBuilder - it has columns in order
-        // TODO: Optimize (IGNITE-16082).
         if (!skipHeader) {
             out.packIgniteUuid(id);
             out.packInt(schema.version());
