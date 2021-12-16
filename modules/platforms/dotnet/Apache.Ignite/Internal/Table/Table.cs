@@ -443,7 +443,7 @@ namespace Apache.Ignite.Internal.Table
 
                 if (colIdx < 0)
                 {
-                    w.WriteNil();
+                    w.WriteNoValue();
                 }
                 else
                 {

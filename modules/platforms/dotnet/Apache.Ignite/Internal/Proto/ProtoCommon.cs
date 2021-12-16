@@ -17,8 +17,6 @@
 
 namespace Apache.Ignite.Internal.Proto
 {
-    using System.Text;
-
     /// <summary>
     /// Common protocol data.
     /// </summary>
@@ -28,15 +26,5 @@ namespace Apache.Ignite.Internal.Proto
         /// Magic bytes.
         /// </summary>
         public static readonly byte[] MagicBytes = { (byte)'I', (byte)'G', (byte)'N', (byte)'I' };
-
-        /// <summary>
-        /// String encoding.
-        /// </summary>
-        public static readonly Encoding Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
-
-        /// <summary>
-        /// Special "no value" object.
-        /// </summary>
-        public static readonly object NoValue = new object();
     }
 }

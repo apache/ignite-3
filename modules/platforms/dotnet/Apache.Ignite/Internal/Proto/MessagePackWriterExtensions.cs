@@ -108,10 +108,6 @@ namespace Apache.Ignite.Internal.Proto
                     writer.WriteNil();
                     return;
 
-                case var o when o == ProtoCommon.NoValue:
-                    writer.WriteNoValue();
-                    return;
-
                 case string str:
                     writer.Write(str);
                     return;
