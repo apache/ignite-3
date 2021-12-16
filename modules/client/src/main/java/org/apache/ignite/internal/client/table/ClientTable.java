@@ -257,8 +257,9 @@ public class ClientTable implements Table {
         }
 
         var columns = schema.columns();
+        var count = keyOnly ? schema.keyColumnCount() : columns.length;
 
-        for (var i = 0; i < columns.length; i++) {
+        for (var i = 0; i < count; i++) {
             var col = columns[i];
 
             Object v = tuple.valueOrDefault(col.name(), NO_VALUE);
@@ -295,7 +296,9 @@ public class ClientTable implements Table {
 
             Object v = col.key()
                     ? key.valueOrDefault(col.name(), NO_VALUE)
-                    : val.valueOrDefault(col.name(), NO_VALUE);
+                    : val != null
+                            ? val.valueOrDefault(col.name(), NO_VALUE)
+                            : NO_VALUE;
 
             out.packObject(v);
         }
