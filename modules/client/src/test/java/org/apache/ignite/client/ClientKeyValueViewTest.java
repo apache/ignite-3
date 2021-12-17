@@ -189,10 +189,9 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testMissingKeyColumnThrowsException() {
-        // TODO
-        RecordView<NamePojo> recordView = defaultTable().recordView(NamePojo.class);
+        var kvView = defaultTable().keyValueView(NamePojo.class, NamePojo.class);
 
-        CompletionException e = assertThrows(CompletionException.class, () -> recordView.get(new NamePojo()));
+        CompletionException e = assertThrows(CompletionException.class, () -> kvView.get(new NamePojo()));
         IgniteClientException ice = (IgniteClientException) e.getCause();
 
         assertEquals("No field found for column id", ice.getMessage());
