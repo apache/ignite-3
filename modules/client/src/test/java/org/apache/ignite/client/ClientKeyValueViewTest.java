@@ -65,14 +65,14 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     @Test
     public void testBinaryPutPrimitiveGet() {
         Table table = defaultTable();
-        RecordView<Long> primitiveView = table.recordView(Mapper.of(Long.class));
+        KeyValueView<Long, String> primitiveView = table.keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
         table.recordView().upsert(tuple());
 
-        Long val = primitiveView.get(DEFAULT_ID);
-        Long missingVal = primitiveView.get(-1L);
+        String val = primitiveView.get(DEFAULT_ID);
+        String missingVal = primitiveView.get(-1L);
 
-        assertEquals(DEFAULT_ID, val);
+        assertEquals(DEFAULT_NAME, val);
         assertNull(missingVal);
     }
 
