@@ -78,17 +78,19 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testPrimitivePutBinaryGet() {
-        Table table = oneColumnTable();
-        RecordView<String> primitiveView = table.recordView(Mapper.of(String.class));
+        Table table = defaultTable();
+        KeyValueView<Long, String> primitiveView = table.keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        primitiveView.upsert("abc");
+        primitiveView.put(DEFAULT_ID, DEFAULT_NAME);
 
+        // TODO: Why invalid tuple produces a server-side exception?
         Tuple tuple = table.recordView().get(oneColumnTableKey("abc"));
         assertEquals("abc", tuple.stringValue(0));
     }
 
     @Test
     public void testMissingValueColumnsAreSkipped() {
+        // TODO
         Table table = fullTable();
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
         RecordView<IncompletePojo> pojoView = table.recordView(IncompletePojo.class);
@@ -111,6 +113,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testAllColumnsBinaryPutPojoGet() {
+        // TODO
         Table table = fullTable();
         RecordView<AllColumnsPojo> pojoView = table.recordView(Mapper.of(AllColumnsPojo.class));
 
@@ -140,6 +143,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testAllColumnsPojoPutBinaryGet() {
+        // TODO
         Table table = fullTable();
         RecordView<AllColumnsPojo> pojoView = table.recordView(Mapper.of(AllColumnsPojo.class));
 
@@ -189,6 +193,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testMissingKeyColumnThrowsException() {
+        // TODO
         RecordView<NamePojo> recordView = defaultTable().recordView(NamePojo.class);
 
         CompletionException e = assertThrows(CompletionException.class, () -> recordView.get(new NamePojo()));
@@ -199,6 +204,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testNullablePrimitiveFields() {
+        // TODO
         RecordView<IncompletePojoNullable> pojoView = fullTable().recordView(IncompletePojoNullable.class);
         RecordView<Tuple> tupleView = fullTable().recordView();
 
@@ -232,6 +238,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testGetAll() {
+        // TODO
         Table table = defaultTable();
         RecordView<PersonPojo> pojoView = table.recordView(Mapper.of(PersonPojo.class));
 
@@ -260,6 +267,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testGetAllPrimitive() {
+        // TODO
         Table table = oneColumnTable();
         RecordView<String> primitiveView = table.recordView(Mapper.of(String.class));
 
@@ -274,6 +282,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testUpsertAll() {
+        // TODO
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
         Collection<PersonPojo> pojos = List.of(
@@ -290,6 +299,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testGetAndUpsert() {
+        // TODO
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
         pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
@@ -306,6 +316,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testInsert() {
+        // TODO
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
         pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
@@ -320,6 +331,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testInsertAll() {
+        // TODO
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
         pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
@@ -340,6 +352,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testReplace() {
+        // TODO
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
         pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
@@ -353,6 +366,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testReplaceExact() {
+        // TODO
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
         pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
@@ -367,6 +381,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testGetAndReplace() {
+        // TODO
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
         pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
@@ -383,6 +398,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testDelete() {
+        // TODO
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
         pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
@@ -398,6 +414,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testDeleteExact() {
+        // TODO
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
         pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
@@ -417,6 +434,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testGetAndDelete() {
+        // TODO
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
         pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
@@ -432,6 +450,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testDeleteAll() {
+        // TODO
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
         pojoView.upsertAll(List.of(new PersonPojo(1L, "1"), new PersonPojo(2L, "2"), new PersonPojo(3L, "3")));
@@ -449,6 +468,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testDeleteAllExact() {
+        // TODO
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
         pojoView.upsertAll(List.of(new PersonPojo(1L, "1"), new PersonPojo(2L, "2"), new PersonPojo(3L, "3")));
