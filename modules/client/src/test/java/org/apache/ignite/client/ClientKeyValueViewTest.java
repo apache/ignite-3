@@ -311,18 +311,27 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testInsert() {
-        // TODO
-        RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
+    public void testPutNull() {
+        KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
+        pojoView.put(DEFAULT_ID, DEFAULT_NAME);
+        pojoView.put(DEFAULT_ID, null);
 
-        boolean res1 = pojoView.insert(new PersonPojo(DEFAULT_ID, "foobar"));
-        boolean res2 = pojoView.insert(new PersonPojo(100L, "100"));
+        assertNull(pojoView.get(DEFAULT_ID));
+    }
+
+    @Test
+    public void testPutIfAbsent() {
+        KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        pojoView.put(DEFAULT_ID, DEFAULT_NAME);
+
+        boolean res1 = pojoView.putIfAbsent(DEFAULT_ID, "foobar");
+        boolean res2 = pojoView.putIfAbsent(100L, "100");
 
         assertFalse(res1);
         assertTrue(res2);
-        assertEquals("100", pojoView.get(new PersonPojo(100L)).name);
+        assertEquals("100", pojoView.get(100L));
     }
 
     @Test
