@@ -141,6 +141,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
         return client.tables().table(TABLE_ONE_COLUMN);
     }
 
+    /** Person. */
     protected static class PersonPojo {
         public long id;
 
@@ -160,10 +161,12 @@ public class AbstractClientTableTest extends AbstractClientTest {
         }
     }
 
+    /** Name column. */
     protected static class NamePojo {
         public String name;
     }
 
+    /** Partial column set. */
     protected static class IncompletePojo {
         public byte zbyte;
         public String id;
@@ -172,6 +175,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public byte[] zbytes;
     }
 
+    /** Partial column set. */
     protected static class IncompletePojoNullable {
         public int gid;
         public String id;
@@ -183,6 +187,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public Double zdouble;
     }
 
+    /** Columns of all types. */
     protected static class AllColumnsPojo {
         public int gid;
         public String id;
