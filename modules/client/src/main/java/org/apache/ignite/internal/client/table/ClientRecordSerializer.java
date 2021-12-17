@@ -32,6 +32,7 @@ import org.apache.ignite.internal.marshaller.MarshallerUtil;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Record serializer.
@@ -66,14 +67,14 @@ class ClientRecordSerializer<R> {
         return mapper;
     }
 
-    public void writeRec(@NotNull R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+    public void writeRec(@Nullable  R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
         out.packIgniteUuid(tableId);
         out.packInt(schema.version());
 
         writeRecRaw(rec, schema, out, part);
     }
 
-    public void writeRecRaw(@NotNull R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+    public void writeRecRaw(@Nullable R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
         Marshaller marshaller = schema.getMarshaller(mapper, part);
         ClientMarshallerWriter writer = new ClientMarshallerWriter(out);
 
@@ -84,7 +85,7 @@ class ClientRecordSerializer<R> {
         }
     }
 
-    public void writeRecs(@NotNull R rec, @NotNull R rec2, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+    public void writeRecs(@Nullable R rec, @Nullable R rec2, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
         out.packIgniteUuid(tableId);
         out.packInt(schema.version());
 
