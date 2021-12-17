@@ -84,7 +84,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         primitiveView.put(DEFAULT_ID, DEFAULT_NAME);
 
         // TODO: Why invalid tuple produces a server-side exception?
-        Tuple tuple = table.recordView().get(oneColumnTableKey("abc"));
+        Tuple tuple = table.recordView().get(tupleKey(DEFAULT_ID));
         assertEquals("abc", tuple.stringValue(0));
     }
 
@@ -482,68 +482,5 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertNull(pojoView.get(new PersonPojo(1L)));
         assertEquals("2", pojoView.get(new PersonPojo(2L)).name);
         assertNull(pojoView.get(new PersonPojo(3L)));
-    }
-
-    // TODO: Reuse with ClientRecordViewTest
-    private static class PersonPojo {
-        public long id;
-
-        public String name;
-
-        public PersonPojo() {
-            // No-op.
-        }
-
-        public PersonPojo(long id) {
-            this.id = id;
-        }
-
-        public PersonPojo(long id, String name) {
-            this.id = id;
-            this.name = name;
-        }
-    }
-
-    private static class NamePojo {
-        public String name;
-    }
-
-    private static class IncompletePojo {
-        public byte zbyte;
-        public String id;
-        public int gid;
-        public String zstring;
-        public byte[] zbytes;
-    }
-
-    private static class IncompletePojoNullable {
-        public int gid;
-        public String id;
-        public Byte zbyte;
-        public Short zshort;
-        public Integer zint;
-        public Long zlong;
-        public Float zfloat;
-        public Double zdouble;
-    }
-
-    private static class AllColumnsPojo {
-        public int gid;
-        public String id;
-        public byte zbyte;
-        public short zshort;
-        public int zint;
-        public long zlong;
-        public float zfloat;
-        public double zdouble;
-        public LocalDate zdate;
-        public LocalTime ztime;
-        public Instant ztimestamp;
-        public String zstring;
-        public byte[] zbytes;
-        public UUID zuuid;
-        public BitSet zbitmask;
-        public BigDecimal zdecimal;
-        public BigInteger znumber;
     }
 }
