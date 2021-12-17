@@ -30,6 +30,7 @@ import java.math.BigInteger;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -243,19 +244,21 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         Collection<Long> keys = List.of(DEFAULT_ID, 101L, 100L);
 
-        PersonPojo[] res = pojoView.getAll(keys).values().toArray(new PersonPojo[0]);
+        Map<Long, PersonPojo> res = pojoView.getAll(keys);
+        Long[] resKeys = res.keySet().toArray(new Long[0]);
+        PersonPojo[] resVals = res.values().toArray(new PersonPojo[0]);
 
-        assertEquals(3, res.length);
+        assertEquals(3, resVals.length);
 
-        assertNotNull(res[0]);
-        assertNull(res[1]);
-        assertNotNull(res[2]);
+        assertNotNull(resVals[0]);
+        assertNull(resVals[1]);
+        assertNotNull(resVals[2]);
 
-        assertEquals(DEFAULT_ID, res[0].id);
-        assertEquals(DEFAULT_NAME, res[0].name);
+        assertEquals(DEFAULT_ID, resKeys[0]);
+        assertEquals(DEFAULT_NAME, resVals[0].name);
 
-        assertEquals(100L, res[2].id);
-        assertEquals("100", res[2].name);
+        assertEquals(100L, resKeys[2]);
+        assertEquals("100", resVals[2].name);
     }
 
     @Test
