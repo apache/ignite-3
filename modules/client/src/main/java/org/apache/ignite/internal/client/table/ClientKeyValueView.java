@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -298,7 +299,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         var cnt = in.unpackInt();
         assert cnt == keys.size();
 
-        var res = new HashMap<K, V>(cnt);
+        var res = new LinkedHashMap<K, V>(cnt);
 
         Marshaller keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY);
         Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL);
