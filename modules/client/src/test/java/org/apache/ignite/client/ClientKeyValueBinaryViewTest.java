@@ -42,18 +42,18 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         Table table = defaultTable();
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
-        assertNull(kvView.get(defaultTupleKey(), null));
+        assertNull(kvView.get(null, defaultTupleKey()));
     }
 
     @Test
     public void testRecordUpsertKvGet() {
         Table table = defaultTable();
-        table.recordView().upsert(tuple(), null);
+        table.recordView().upsert(null, tuple());
 
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
         Tuple key = defaultTupleKey();
-        Tuple val = kvView.get(key, null);
+        Tuple val = kvView.get(null, key);
 
         assertEquals(DEFAULT_NAME, val.value("name"));
         assertEquals(DEFAULT_NAME, val.value(0));
@@ -68,8 +68,8 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         Tuple key = defaultTupleKey();
         Tuple val = Tuple.create().set("name", "bar");
 
-        kvView.put(key, val, null);
-        Tuple res = table.recordView().get(key, null);
+        kvView.put(null, key, val);
+        Tuple res = table.recordView().get(null, key);
 
         assertEquals("bar", res.stringValue("name"));
         assertEquals(DEFAULT_ID, res.longValue("id"));
@@ -83,8 +83,8 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         Tuple key = defaultTupleKey();
         Tuple val = Tuple.create().set("name", DEFAULT_NAME);
 
-        kvView.put(key, val, null);
-        Tuple resVal = kvView.get(key, null);
+        kvView.put(null, key, val);
+        Tuple resVal = kvView.get(null, key);
 
         assertTupleEquals(val, resVal);
     }
@@ -96,13 +96,13 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
 
         Tuple key = defaultTupleKey();
         Tuple val = Tuple.create().set("name", DEFAULT_NAME);
-        kvView.put(key, val, null);
+        kvView.put(null, key, val);
 
-        Tuple resVal = kvView.get(key, null);
+        Tuple resVal = kvView.get(null, key);
         resVal.set("name", "123");
-        kvView.put(key, resVal, null);
+        kvView.put(null, key, resVal);
 
-        Tuple resVal2 = kvView.get(key, null);
+        Tuple resVal2 = kvView.get(null, key);
 
         assertTupleEquals(resVal, resVal2);
     }
@@ -111,11 +111,11 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
     public void testGetAll() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
 
-        kvView.put(tupleKey(1L), tupleVal("1"), null);
-        kvView.put(tupleKey(2L), tupleVal("2"), null);
-        kvView.put(tupleKey(3L), tupleVal("3"), null);
+        kvView.put(null, tupleKey(1L), tupleVal("1"));
+        kvView.put(null, tupleKey(2L), tupleVal("2"));
+        kvView.put(null, tupleKey(3L), tupleVal("3"));
 
-        Map<Tuple, Tuple> res = kvView.getAll(List.of(tupleKey(1L), tupleKey(3L)), null);
+        Map<Tuple, Tuple> res = kvView.getAll(null, List.of(tupleKey(1L), tupleKey(3L)));
 
         assertEquals(2, res.size());
 
@@ -131,90 +131,90 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
     @Test
     public void testGetAllEmptyKeysReturnsEmptyMap() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
-        kvView.put(tupleKey(1L), tupleVal("1"), null);
+        kvView.put(null, tupleKey(1L), tupleVal("1"));
 
-        Map<Tuple, Tuple> res = kvView.getAll(List.of(), null);
+        Map<Tuple, Tuple> res = kvView.getAll(null, List.of());
         assertEquals(0, res.size());
     }
 
     @Test
     public void testGetAllNonExistentKeysReturnsEmptyMap() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
-        kvView.put(tupleKey(1L), tupleVal("1"), null);
+        kvView.put(null, tupleKey(1L), tupleVal("1"));
 
-        Map<Tuple, Tuple> res = kvView.getAll(List.of(tupleKey(-1L)), null);
+        Map<Tuple, Tuple> res = kvView.getAll(null, List.of(tupleKey(-1L)));
         assertEquals(0, res.size());
     }
 
     @Test
     public void testContains() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
-        kvView.put(tupleKey(1L), tupleVal("1"), null);
+        kvView.put(null, tupleKey(1L), tupleVal("1"));
 
-        assertTrue(kvView.contains(tupleKey(1L), null));
-        assertFalse(kvView.contains(tupleKey(2L), null));
+        assertTrue(kvView.contains(null, tupleKey(1L)));
+        assertFalse(kvView.contains(null, tupleKey(2L)));
     }
 
     @Test
     public void testContainsThrowsOnEmptyKey() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
 
-        var ex = assertThrows(CompletionException.class, () -> kvView.contains(Tuple.create(), null));
+        var ex = assertThrows(CompletionException.class, () -> kvView.contains(null, Tuple.create()));
         assertTrue(ex.getMessage().contains("Missed key column: id"), ex.getMessage());
     }
 
     @Test
     public void testPutAll() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
-        kvView.putAll(Map.of(tupleKey(1L), tupleVal("1"), tupleKey(2L), tupleVal("2")), null);
+        kvView.putAll(null, Map.of(tupleKey(1L), tupleVal("1"), tupleKey(2L), tupleVal("2")));
 
-        assertEquals("1", kvView.get(tupleKey(1L), null).stringValue("name"));
-        assertEquals("2", kvView.get(tupleKey(2L), null).stringValue(0));
+        assertEquals("1", kvView.get(null, tupleKey(1L)).stringValue("name"));
+        assertEquals("2", kvView.get(null, tupleKey(2L)).stringValue(0));
     }
 
     @Test
     public void testPutIfAbsent() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
 
-        assertTrue(kvView.putIfAbsent(tupleKey(1L), tupleVal("1"), null));
-        assertFalse(kvView.putIfAbsent(tupleKey(1L), tupleVal("1"), null));
-        assertFalse(kvView.putIfAbsent(tupleKey(1L), tupleVal("2"), null));
-        assertTrue(kvView.putIfAbsent(tupleKey(2L), tupleVal("1"), null));
+        assertTrue(kvView.putIfAbsent(null, tupleKey(1L), tupleVal("1")));
+        assertFalse(kvView.putIfAbsent(null, tupleKey(1L), tupleVal("1")));
+        assertFalse(kvView.putIfAbsent(null, tupleKey(1L), tupleVal("2")));
+        assertTrue(kvView.putIfAbsent(null, tupleKey(2L), tupleVal("1")));
     }
 
     @Test
     public void testRemove() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
-        kvView.put(tupleKey(1L), tupleVal("1"), null);
+        kvView.put(null, tupleKey(1L), tupleVal("1"));
 
-        assertFalse(kvView.remove(tupleKey(2L), null));
-        assertTrue(kvView.remove(tupleKey(1L), null));
-        assertFalse(kvView.remove(tupleKey(1L), null));
-        assertFalse(kvView.contains(tupleKey(1L), null));
+        assertFalse(kvView.remove(null, tupleKey(2L)));
+        assertTrue(kvView.remove(null, tupleKey(1L)));
+        assertFalse(kvView.remove(null, tupleKey(1L)));
+        assertFalse(kvView.contains(null, tupleKey(1L)));
     }
 
     @Test
     public void testRemoveExact() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
-        kvView.put(tupleKey(1L), tupleVal("1"), null);
+        kvView.put(null, tupleKey(1L), tupleVal("1"));
 
-        assertFalse(kvView.remove(tupleKey(1L), tupleVal("2"), null));
-        assertFalse(kvView.remove(tupleKey(2L), tupleVal("1"), null));
-        assertTrue(kvView.contains(tupleKey(1L), null));
+        assertFalse(kvView.remove(null, tupleKey(1L), tupleVal("2")));
+        assertFalse(kvView.remove(null, tupleKey(2L), tupleVal("1")));
+        assertTrue(kvView.contains(null, tupleKey(1L)));
 
-        assertTrue(kvView.remove(tupleKey(1L), tupleVal("1"), null));
-        assertFalse(kvView.contains(tupleKey(1L), null));
+        assertTrue(kvView.remove(null, tupleKey(1L), tupleVal("1")));
+        assertFalse(kvView.contains(null, tupleKey(1L)));
     }
 
     @Test
     public void testRemoveAll() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
-        kvView.putAll(Map.of(tupleKey(1L), tupleVal("1"), tupleKey(2L), tupleVal("2")), null);
+        kvView.putAll(null, Map.of(tupleKey(1L), tupleVal("1"), tupleKey(2L), tupleVal("2")));
 
-        Collection<Tuple> res = kvView.removeAll(List.of(tupleKey(2L), tupleKey(3L)), null);
+        Collection<Tuple> res = kvView.removeAll(null, List.of(tupleKey(2L), tupleKey(3L)));
 
-        assertTrue(kvView.contains(tupleKey(1L), null));
-        assertFalse(kvView.contains(tupleKey(2L), null));
+        assertTrue(kvView.contains(null, tupleKey(1L)));
+        assertFalse(kvView.contains(null, tupleKey(2L)));
 
         assertEquals(1, res.size());
         assertEquals(3L, res.iterator().next().longValue(0));
@@ -223,64 +223,64 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
     @Test
     public void testReplace() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
-        kvView.put(tupleKey(1L), tupleVal("1"), null);
+        kvView.put(null, tupleKey(1L), tupleVal("1"));
 
-        assertFalse(kvView.replace(tupleKey(3L), tupleVal("3"), null));
-        assertTrue(kvView.replace(tupleKey(1L), tupleVal("2"), null));
-        assertEquals("2", kvView.get(tupleKey(1L), null).stringValue(0));
+        assertFalse(kvView.replace(null, tupleKey(3L), tupleVal("3")));
+        assertTrue(kvView.replace(null, tupleKey(1L), tupleVal("2")));
+        assertEquals("2", kvView.get(null, tupleKey(1L)).stringValue(0));
     }
 
     @Test
     public void testReplaceExact() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
-        kvView.put(tupleKey(1L), tupleVal("1"), null);
+        kvView.put(null, tupleKey(1L), tupleVal("1"));
 
-        assertFalse(kvView.replace(tupleKey(1L), tupleVal("2"), tupleVal("3"), null));
-        assertTrue(kvView.replace(tupleKey(1L), tupleVal("1"), tupleVal("3"), null));
-        assertEquals("3", kvView.get(tupleKey(1L), null).stringValue(0));
+        assertFalse(kvView.replace(null, tupleKey(1L), tupleVal("2"), tupleVal("3")));
+        assertTrue(kvView.replace(null, tupleKey(1L), tupleVal("1"), tupleVal("3")));
+        assertEquals("3", kvView.get(null, tupleKey(1L)).stringValue(0));
     }
 
     @Test
     public void testGetAndReplace() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
-        kvView.put(tupleKey(1L), tupleVal("1"), null);
+        kvView.put(null, tupleKey(1L), tupleVal("1"));
 
-        assertNull(kvView.getAndReplace(tupleKey(2L), tupleVal("2"), null));
+        assertNull(kvView.getAndReplace(null, tupleKey(2L), tupleVal("2")));
 
-        Tuple res = kvView.getAndReplace(tupleKey(1L), tupleVal("2"), null);
+        Tuple res = kvView.getAndReplace(null, tupleKey(1L), tupleVal("2"));
         assertEquals("1", res.stringValue(0));
-        assertEquals("2", kvView.get(tupleKey(1L), null).stringValue(0));
+        assertEquals("2", kvView.get(null, tupleKey(1L)).stringValue(0));
     }
 
     @Test
     public void testGetAndRemove() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
-        kvView.put(tupleKey(1L), tupleVal("1"), null);
+        kvView.put(null, tupleKey(1L), tupleVal("1"));
 
-        Tuple removed = kvView.getAndRemove(tupleKey(1L), null);
+        Tuple removed = kvView.getAndRemove(null, tupleKey(1L));
 
         assertNotNull(removed);
         assertEquals(1, removed.columnCount());
         assertEquals("1", removed.stringValue(0));
         assertEquals("1", removed.stringValue("name"));
 
-        assertFalse(kvView.contains(tupleKey(1L), null));
-        assertNull(kvView.getAndRemove(tupleKey(1L), null));
+        assertFalse(kvView.contains(null, tupleKey(1L)));
+        assertNull(kvView.getAndRemove(null, tupleKey(1L)));
     }
 
     @Test
     public void testGetAndPut() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
-        kvView.put(tupleKey(1L), tupleVal("1"), null);
+        kvView.put(null, tupleKey(1L), tupleVal("1"));
 
-        Tuple res1 = kvView.getAndPut(tupleKey(2L), tupleVal("2"), null);
-        Tuple res2 = kvView.getAndPut(tupleKey(1L), tupleVal("3"), null);
+        Tuple res1 = kvView.getAndPut(null, tupleKey(2L), tupleVal("2"));
+        Tuple res2 = kvView.getAndPut(null, tupleKey(1L), tupleVal("3"));
 
         assertNull(res1);
-        assertEquals("2", kvView.get(tupleKey(2L), null).stringValue(0));
+        assertEquals("2", kvView.get(null, tupleKey(2L)).stringValue(0));
 
         assertNotNull(res2);
         assertEquals("1", res2.stringValue(0));
-        assertEquals("3", kvView.get(tupleKey(1L), null).stringValue(0));
+        assertEquals("3", kvView.get(null, tupleKey(1L)).stringValue(0));
     }
 }

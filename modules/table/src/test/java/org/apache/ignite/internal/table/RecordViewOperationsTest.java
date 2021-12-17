@@ -78,23 +78,23 @@ public class RecordViewOperationsTest {
 
         RecordView<TestObjectWithAllTypes> tbl = recordView();
 
-        assertNull(tbl.get(key, null));
+        assertNull(tbl.get(null, key));
 
         // Insert new row.
-        tbl.upsert(obj, null);
-        assertEquals(obj, tbl.get(key, null));
+        tbl.upsert(null, obj);
+        assertEquals(obj, tbl.get(null, key));
 
         // Upsert row.
-        tbl.upsert(obj2, null);
-        assertEquals(obj2, tbl.get(key, null));
+        tbl.upsert(null, obj2);
+        assertEquals(obj2, tbl.get(null, key));
 
         // Remove row.
-        tbl.delete(key, null);
-        assertNull(tbl.get(key, null));
+        tbl.delete(null, key);
+        assertNull(tbl.get(null, key));
 
         // Insert new row.
-        tbl.upsert(obj3, null);
-        assertEquals(obj3, tbl.get(key, null));
+        tbl.upsert(null, obj3);
+        assertEquals(obj3, tbl.get(null, key));
     }
 
     @Test
@@ -105,15 +105,15 @@ public class RecordViewOperationsTest {
 
         RecordView<TestObjectWithAllTypes> tbl = recordView();
 
-        assertNull(tbl.get(key, null));
+        assertNull(tbl.get(null, key));
 
         // Insert new row.
-        assertTrue(tbl.insert(obj, null));
-        assertEquals(obj, tbl.get(key, null));
+        assertTrue(tbl.insert(null, obj));
+        assertEquals(obj, tbl.get(null, key));
 
         // Ignore existed row pair.
-        assertFalse(tbl.insert(obj2, null));
-        assertEquals(obj, tbl.get(key, null));
+        assertFalse(tbl.insert(null, obj2));
+        assertEquals(obj, tbl.get(null, key));
     }
 
     @Test
@@ -125,17 +125,17 @@ public class RecordViewOperationsTest {
 
         RecordView<TestObjectWithAllTypes> tbl = recordView();
 
-        assertNull(tbl.get(key, null));
+        assertNull(tbl.get(null, key));
 
         // Insert new row.
-        assertNull(tbl.getAndUpsert(obj, null));
-        assertEquals(obj, tbl.get(key, null));
+        assertNull(tbl.getAndUpsert(null, obj));
+        assertEquals(obj, tbl.get(null, key));
 
         // Update exited row.
-        assertEquals(obj, tbl.getAndUpsert(obj2, null));
-        assertEquals(obj2, tbl.getAndUpsert(obj3, null));
+        assertEquals(obj, tbl.getAndUpsert(null, obj2));
+        assertEquals(obj2, tbl.getAndUpsert(null, obj3));
 
-        assertEquals(obj3, tbl.get(key, null));
+        assertEquals(obj3, tbl.get(null, key));
     }
 
     @Test
@@ -147,23 +147,23 @@ public class RecordViewOperationsTest {
         RecordView<TestObjectWithAllTypes> tbl = recordView();
 
         // Delete not existed key.
-        assertNull(tbl.get(key, null));
-        assertFalse(tbl.delete(key, null));
+        assertNull(tbl.get(null, key));
+        assertFalse(tbl.delete(null, key));
 
         // Insert a new row.
-        tbl.upsert(obj, null);
+        tbl.upsert(null, obj);
 
         // Delete existed row.
-        assertEquals(obj, tbl.get(key, null));
-        assertTrue(tbl.delete(key, null));
-        assertNull(tbl.get(key, null));
+        assertEquals(obj, tbl.get(null, key));
+        assertTrue(tbl.delete(null, key));
+        assertNull(tbl.get(null, key));
 
         // Delete already deleted row.
-        assertFalse(tbl.delete(key, null));
+        assertFalse(tbl.delete(null, key));
 
         // Insert a new row.
-        tbl.upsert(obj2, null);
-        assertEquals(obj2, tbl.get(key, null));
+        tbl.upsert(null, obj2);
+        assertEquals(obj2, tbl.get(null, key));
     }
 
     @Test
@@ -175,31 +175,31 @@ public class RecordViewOperationsTest {
         RecordView<TestObjectWithAllTypes> tbl = recordView();
 
         // Insert a new row.
-        tbl.upsert(obj, null);
-        assertEquals(obj, tbl.get(key, null));
+        tbl.upsert(null, obj);
+        assertEquals(obj, tbl.get(null, key));
 
         // Fails to delete row with unexpected value.
-        assertFalse(tbl.deleteExact(obj2, null));
-        assertEquals(obj, tbl.get(key, null));
+        assertFalse(tbl.deleteExact(null, obj2));
+        assertEquals(obj, tbl.get(null, key));
 
         // Delete row with expected value.
-        assertTrue(tbl.deleteExact(obj, null));
-        assertNull(tbl.get(key, null));
+        assertTrue(tbl.deleteExact(null, obj));
+        assertNull(tbl.get(null, key));
 
         // Try to remove non-existed key.
-        assertFalse(tbl.deleteExact(obj, null));
-        assertNull(tbl.get(key, null));
+        assertFalse(tbl.deleteExact(null, obj));
+        assertNull(tbl.get(null, key));
 
         // Insert a new row.
-        tbl.upsert(obj2, null);
-        assertEquals(obj2, tbl.get(key, null));
+        tbl.upsert(null, obj2);
+        assertEquals(obj2, tbl.get(null, key));
 
         // Delete row with expected value.
-        assertTrue(tbl.delete(obj2, null));
-        assertNull(tbl.get(key, null));
+        assertTrue(tbl.delete(null, obj2));
+        assertNull(tbl.get(null, key));
 
-        assertFalse(tbl.delete(obj2, null));
-        assertNull(tbl.get(obj2, null));
+        assertFalse(tbl.delete(null, obj2));
+        assertNull(tbl.get(null, obj2));
     }
 
     @Test
@@ -212,26 +212,26 @@ public class RecordViewOperationsTest {
         RecordView<TestObjectWithAllTypes> tbl = recordView();
 
         // Ignore replace operation for non-existed row.
-        assertFalse(tbl.replace(obj, null));
-        assertNull(tbl.get(key, null));
+        assertFalse(tbl.replace(null, obj));
+        assertNull(tbl.get(null, key));
 
         // Insert new row.
-        tbl.upsert(obj, null);
+        tbl.upsert(null, obj);
 
         // Replace existed row.
-        assertTrue(tbl.replace(obj2, null));
-        assertEquals(obj2, tbl.get(key, null));
+        assertTrue(tbl.replace(null, obj2));
+        assertEquals(obj2, tbl.get(null, key));
 
         // Replace existed row.
-        assertTrue(tbl.replace(obj3, null));
-        assertEquals(obj3, tbl.get(key, null));
+        assertTrue(tbl.replace(null, obj3));
+        assertEquals(obj3, tbl.get(null, key));
 
         // Remove existed row.
-        assertTrue(tbl.delete(key, null));
-        assertNull(tbl.get(key, null));
+        assertTrue(tbl.delete(null, key));
+        assertNull(tbl.get(null, key));
 
-        tbl.upsert(obj, null);
-        assertEquals(obj, tbl.get(key, null));
+        tbl.upsert(null, obj);
+        assertEquals(obj, tbl.get(null, key));
     }
 
     @Test
@@ -245,30 +245,30 @@ public class RecordViewOperationsTest {
         RecordView<TestObjectWithAllTypes> tbl = recordView();
 
         // Ignore replace operation for non-existed row.
-        assertFalse(tbl.replace(obj, obj2, null));
-        assertNull(tbl.get(key, null));
+        assertFalse(tbl.replace(null, obj, obj2));
+        assertNull(tbl.get(null, key));
 
         // Insert new row.
-        tbl.upsert(obj, null);
+        tbl.upsert(null, obj);
 
         // Ignore un-exepected row replacement.
-        assertFalse(tbl.replace(obj2, obj3, null));
-        assertEquals(obj, tbl.get(key, null));
+        assertFalse(tbl.replace(null, obj2, obj3));
+        assertEquals(obj, tbl.get(null, key));
 
         // Replace existed row.
-        assertTrue(tbl.replace(obj, obj2, null));
-        assertEquals(obj2, tbl.get(key, null));
+        assertTrue(tbl.replace(null, obj, obj2));
+        assertEquals(obj2, tbl.get(null, key));
 
         // Replace existed KV pair.
-        assertTrue(tbl.replace(obj2, obj3, null));
-        assertEquals(obj3, tbl.get(key, null));
+        assertTrue(tbl.replace(null, obj2, obj3));
+        assertEquals(obj3, tbl.get(null, key));
 
         // Remove existed row.
-        assertTrue(tbl.delete(key, null));
-        assertNull(tbl.get(key, null));
+        assertTrue(tbl.delete(null, key));
+        assertNull(tbl.get(null, key));
 
-        assertFalse(tbl.replace(key, obj4, null));
-        assertNull(tbl.get(key, null));
+        assertFalse(tbl.replace(null, key, obj4));
+        assertNull(tbl.get(null, key));
     }
 
     /**

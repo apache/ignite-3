@@ -69,13 +69,13 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
         RecordView<Tuple> view = table.recordView();
         for (int i = 0; i < ROWS; i++) {
             view.insert(
+                    null,
                     Tuple.create()
                             .set("ID", i)
                             .set("GRP0", i / 10)
                             .set("GRP1", i / 100)
                             .set("VAL0", 1)
-                            .set("VAL1", 2),
-                    null
+                            .set("VAL1", 2)
             );
         }
     }

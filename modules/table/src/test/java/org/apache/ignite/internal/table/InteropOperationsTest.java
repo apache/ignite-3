@@ -139,8 +139,8 @@ public class InteropOperationsTest {
 
     @AfterEach
     public void clearTable() {
-        TABLE.recordView().delete(Tuple.create().set("id", 1L), null);
-        TABLE.recordView().delete(Tuple.create().set("id", 2L), null);
+        TABLE.recordView().delete(null, Tuple.create().set("id", 1L));
+        TABLE.recordView().delete(null, Tuple.create().set("id", 2L));
     }
 
     /**
@@ -218,7 +218,7 @@ public class InteropOperationsTest {
         Tuple k = Tuple.create().set("id", (long) id);
         Tuple v = createTuple(id, nulls);
 
-        KV_BIN_VIEW.put(k, v, null);
+        KV_BIN_VIEW.put(null, k, v);
     }
 
     /**
@@ -230,8 +230,8 @@ public class InteropOperationsTest {
     private boolean readKeyValueBinary(int id, boolean nulls) {
         Tuple k = Tuple.create().set("id", (long) id);
 
-        Tuple v = KV_BIN_VIEW.get(k, null);
-        boolean contains = KV_BIN_VIEW.contains(k, null);
+        Tuple v = KV_BIN_VIEW.get(null, k);
+        boolean contains = KV_BIN_VIEW.contains(null, k);
 
         assertEquals((v != null), contains);
 
@@ -255,7 +255,7 @@ public class InteropOperationsTest {
     private void writeRecord(int id, boolean nulls) {
         Row r1 = new Row(id, nulls);
 
-        assertTrue(R_VIEW.insert(r1, null));
+        assertTrue(R_VIEW.insert(null, r1));
     }
 
     /**
@@ -268,7 +268,7 @@ public class InteropOperationsTest {
     private boolean readRecord(int id, boolean nulls) {
         Row expected = new Row(id, nulls);
 
-        Row actual = R_VIEW.get(expected, null);
+        Row actual = R_VIEW.get(null, expected);
 
         if (actual == null) {
             return false;
@@ -289,7 +289,7 @@ public class InteropOperationsTest {
         Tuple t1 = createTuple(id, nulls);
         t1.set("id", (long) id);
 
-        assertTrue(R_BIN_VIEW.insert(t1, null));
+        assertTrue(R_BIN_VIEW.insert(null, t1));
     }
 
     /**
@@ -302,7 +302,7 @@ public class InteropOperationsTest {
     private boolean readRecordBinary(int id, boolean nulls) {
         Tuple k = Tuple.create().set("id", (long) id);
 
-        Tuple res = R_BIN_VIEW.get(k, null);
+        Tuple res = R_BIN_VIEW.get(null, k);
 
         if (res == null) {
             return false;
@@ -320,7 +320,7 @@ public class InteropOperationsTest {
      * @param nulls If {@code true} - nullable fields will be filled, if {@code false} - otherwise.
      */
     private void writeKewVal(int id, boolean nulls) {
-        KV_VIEW.put((long) id, new Value(id, nulls), null);
+        KV_VIEW.put(null, (long) id, new Value(id, nulls));
     }
 
     /**
@@ -331,7 +331,7 @@ public class InteropOperationsTest {
      * @return {@code true} if read successfully, {@code false} - otherwise.
      */
     private boolean readKeyValue(int id, boolean nulls) {
-        Value res = KV_VIEW.get(Long.valueOf(id), null);
+        Value res = KV_VIEW.get(null, Long.valueOf(id));
 
         if (res == null) {
             return false;

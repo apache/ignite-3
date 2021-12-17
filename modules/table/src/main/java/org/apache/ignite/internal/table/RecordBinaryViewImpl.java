@@ -60,13 +60,13 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public Tuple get(@NotNull Tuple keyRec, @Nullable Transaction tx) {
-        return sync(getAsync(keyRec, tx));
+    public Tuple get(@Nullable Transaction tx, @NotNull Tuple keyRec) {
+        return sync(getAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple keyRec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, @NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
         final Row keyRow = marshal(keyRec, true); // Convert to portable format to pass TX/storage layer.
@@ -76,13 +76,13 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Tuple> getAll(@NotNull Collection<Tuple> keyRecs, @Nullable Transaction tx) {
-        return sync(getAllAsync(keyRecs, tx));
+    public Collection<Tuple> getAll(@Nullable Transaction tx, @NotNull Collection<Tuple> keyRecs) {
+        return sync(getAllAsync(tx, keyRecs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<Tuple>> getAllAsync(@NotNull Collection<Tuple> keyRecs, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Collection<Tuple>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
         return tbl.getAll(mapToBinary(keyRecs, true), (InternalTransaction) tx).thenApply(this::wrap);
@@ -90,13 +90,13 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public void upsert(@NotNull Tuple rec, @Nullable Transaction tx) {
-        sync(upsertAsync(rec, tx));
+    public void upsert(@Nullable Transaction tx, @NotNull Tuple rec) {
+        sync(upsertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> upsertAsync(@NotNull Tuple rec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
         final Row row = marshal(rec, false);
@@ -106,13 +106,13 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public void upsertAll(@NotNull Collection<Tuple> recs, @Nullable Transaction tx) {
-        sync(upsertAllAsync(recs, tx));
+    public void upsertAll(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
+        sync(upsertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> upsertAllAsync(@NotNull Collection<Tuple> recs, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
         return tbl.upsertAll(mapToBinary(recs, false), (InternalTransaction) tx);
@@ -120,13 +120,13 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getAndUpsert(@NotNull Tuple rec, @Nullable Transaction tx) {
-        return sync(getAndUpsertAsync(rec, tx));
+    public Tuple getAndUpsert(@Nullable Transaction tx, @NotNull Tuple rec) {
+        return sync(getAndUpsertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndUpsertAsync(@NotNull Tuple rec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Tuple> getAndUpsertAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
         final Row row = marshal(rec, false);
@@ -136,13 +136,13 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public boolean insert(@NotNull Tuple rec, @Nullable Transaction tx) {
-        return sync(insertAsync(rec, tx));
+    public boolean insert(@Nullable Transaction tx, @NotNull Tuple rec) {
+        return sync(insertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> insertAsync(@NotNull Tuple rec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
         final Row row = marshal(rec, false);
@@ -152,13 +152,13 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Tuple> insertAll(@NotNull Collection<Tuple> recs, @Nullable Transaction tx) {
-        return sync(insertAllAsync(recs, tx));
+    public Collection<Tuple> insertAll(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
+        return sync(insertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<Tuple>> insertAllAsync(@NotNull Collection<Tuple> recs, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Collection<Tuple>> insertAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
         return tbl.insertAll(mapToBinary(recs, false), (InternalTransaction) tx).thenApply(this::wrap);
@@ -166,19 +166,19 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@NotNull Tuple rec, @Nullable Transaction tx) {
-        return sync(replaceAsync(rec, tx));
+    public boolean replace(@Nullable Transaction tx, @NotNull Tuple rec) {
+        return sync(replaceAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@NotNull Tuple oldRec, @NotNull Tuple newRec, @Nullable Transaction tx) {
-        return sync(replaceAsync(oldRec, newRec, tx));
+    public boolean replace(@Nullable Transaction tx, @NotNull Tuple oldRec, @NotNull Tuple newRec) {
+        return sync(replaceAsync(tx, oldRec, newRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple rec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
         final Row row = marshal(rec, false);
@@ -188,7 +188,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple oldRec, @NotNull Tuple newRec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull Tuple oldRec, @NotNull Tuple newRec) {
         Objects.requireNonNull(oldRec);
         Objects.requireNonNull(newRec);
 
@@ -200,13 +200,13 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getAndReplace(@NotNull Tuple rec, @Nullable Transaction tx) {
-        return sync(getAndReplaceAsync(rec, tx));
+    public Tuple getAndReplace(@Nullable Transaction tx, @NotNull Tuple rec) {
+        return sync(getAndReplaceAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@NotNull Tuple rec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
         final Row row = marshal(rec, false);
@@ -216,13 +216,13 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public boolean delete(@NotNull Tuple keyRec, @Nullable Transaction tx) {
-        return sync(deleteAsync(keyRec, tx));
+    public boolean delete(@Nullable Transaction tx, @NotNull Tuple keyRec) {
+        return sync(deleteAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> deleteAsync(@NotNull Tuple keyRec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, @NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
         final Row keyRow = marshal(keyRec, true);
@@ -232,13 +232,13 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public boolean deleteExact(@NotNull Tuple rec, @Nullable Transaction tx) {
-        return sync(deleteExactAsync(rec, tx));
+    public boolean deleteExact(@Nullable Transaction tx, @NotNull Tuple rec) {
+        return sync(deleteExactAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> deleteExactAsync(@NotNull Tuple rec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
         final Row row = marshal(rec, false);
@@ -248,13 +248,13 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getAndDelete(@NotNull Tuple keyRec, @Nullable Transaction tx) {
-        return sync(getAndDeleteAsync(keyRec, tx));
+    public Tuple getAndDelete(@Nullable Transaction tx, @NotNull Tuple keyRec) {
+        return sync(getAndDeleteAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(@NotNull Tuple keyRec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(@Nullable Transaction tx, @NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
         final Row keyRow = marshal(keyRec, true);
@@ -264,13 +264,13 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Tuple> deleteAll(@NotNull Collection<Tuple> keyRecs, @Nullable Transaction tx) {
-        return sync(deleteAllAsync(keyRecs, tx));
+    public Collection<Tuple> deleteAll(@Nullable Transaction tx, @NotNull Collection<Tuple> keyRecs) {
+        return sync(deleteAllAsync(tx, keyRecs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<Tuple>> deleteAllAsync(@NotNull Collection<Tuple> keyRecs, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Collection<Tuple>> deleteAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
         return tbl.deleteAll(mapToBinary(keyRecs, true), (InternalTransaction) tx).thenApply(this::wrap);
@@ -278,13 +278,13 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Tuple> deleteAllExact(@NotNull Collection<Tuple> recs, @Nullable Transaction tx) {
-        return sync(deleteAllExactAsync(recs, tx));
+    public Collection<Tuple> deleteAllExact(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
+        return sync(deleteAllExactAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<Tuple>> deleteAllExactAsync(@NotNull Collection<Tuple> recs, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Collection<Tuple>> deleteAllExactAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
         return tbl.deleteAllExact(mapToBinary(recs, false), (InternalTransaction) tx).thenApply(this::wrap);
@@ -293,9 +293,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     /** {@inheritDoc} */
     @Override
     public <T extends Serializable> T invoke(
+            @Nullable Transaction tx,
             @NotNull Tuple keyRec,
-            InvokeProcessor<Tuple, Tuple, T> proc,
-            @Nullable Transaction tx
+            InvokeProcessor<Tuple, Tuple, T> proc
     ) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
@@ -303,9 +303,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     /** {@inheritDoc} */
     @Override
     public @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(
+            @Nullable Transaction tx,
             @NotNull Tuple keyRec,
-            InvokeProcessor<Tuple, Tuple, T> proc,
-            @Nullable Transaction tx
+            InvokeProcessor<Tuple, Tuple, T> proc
     ) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
@@ -313,9 +313,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     /** {@inheritDoc} */
     @Override
     public <T extends Serializable> Map<Tuple, T> invokeAll(
+            @Nullable Transaction tx,
             @NotNull Collection<Tuple> keyRecs,
-            InvokeProcessor<Tuple, Tuple, T> proc,
-            @Nullable Transaction tx
+            InvokeProcessor<Tuple, Tuple, T> proc
     ) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
@@ -323,9 +323,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     /** {@inheritDoc} */
     @Override
     public @NotNull <T extends Serializable> CompletableFuture<Map<Tuple, T>> invokeAllAsync(
+            @Nullable Transaction tx,
             @NotNull Collection<Tuple> keyRecs,
-            InvokeProcessor<Tuple, Tuple, T> proc,
-            @Nullable Transaction tx
+            InvokeProcessor<Tuple, Tuple, T> proc
     ) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }

@@ -196,7 +196,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         // TODO: IGNITE-15087 Implement support for transactional SQL
         switch (op) {
             case INSERT:
-                Collection<Tuple> duplicates = tableView.insertAll(tuples, null);
+                Collection<Tuple> duplicates = tableView.insertAll(null, tuples);
 
                 if (!duplicates.isEmpty()) {
                     IgniteTypeFactory typeFactory = context().getTypeFactory();
@@ -216,11 +216,11 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
                 break;
             case UPDATE:
-                tableView.upsertAll(tuples, null);
+                tableView.upsertAll(null, tuples);
 
                 break;
             case DELETE:
-                tableView.deleteAll(tuples, null);
+                tableView.deleteAll(null, tuples);
 
                 break;
             default:

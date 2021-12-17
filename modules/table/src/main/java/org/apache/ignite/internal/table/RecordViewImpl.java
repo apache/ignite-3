@@ -64,13 +64,13 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public R get(@NotNull R keyRec, @Nullable Transaction tx) {
-        return sync(getAsync(keyRec, tx));
+    public R get(@Nullable Transaction tx, @NotNull R keyRec) {
+        return sync(getAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<R> getAsync(@NotNull R keyRec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<R> getAsync(@Nullable Transaction tx, @NotNull R keyRec) {
         Objects.requireNonNull(keyRec);
 
         BinaryRow keyRow = marshalKey(keyRec);  // Convert to portable format to pass TX/storage layer.
@@ -82,25 +82,25 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public Collection<R> getAll(@NotNull Collection<R> keyRecs, @Nullable Transaction tx) {
-        return sync(getAllAsync(keyRecs, tx));
+    public Collection<R> getAll(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
+        return sync(getAllAsync(tx, keyRecs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> getAllAsync(@NotNull Collection<R> keyRecs, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Collection<R>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public void upsert(@NotNull R rec, @Nullable Transaction tx) {
-        sync(upsertAsync(rec, tx));
+    public void upsert(@Nullable Transaction tx, @NotNull R rec) {
+        sync(upsertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> upsertAsync(@NotNull R rec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, @NotNull R rec) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(rec));
 
         return tbl.upsert(keyRow, (InternalTransaction) tx).thenAccept(ignore -> {
@@ -109,25 +109,25 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public void upsertAll(@NotNull Collection<R> recs, @Nullable Transaction tx) {
-        sync(upsertAllAsync(recs, tx));
+    public void upsertAll(@Nullable Transaction tx, @NotNull Collection<R> recs) {
+        sync(upsertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> upsertAllAsync(@NotNull Collection<R> recs, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, @NotNull Collection<R> recs) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public R getAndUpsert(@NotNull R rec, @Nullable Transaction tx) {
-        return sync(getAndUpsertAsync(rec, tx));
+    public R getAndUpsert(@Nullable Transaction tx, @NotNull R rec) {
+        return sync(getAndUpsertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<R> getAndUpsertAsync(@NotNull R rec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<R> getAndUpsertAsync(@Nullable Transaction tx, @NotNull R rec) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(rec));
 
         return tbl.getAndUpsert(keyRow, (InternalTransaction) tx).thenApply(this::unmarshal);
@@ -135,13 +135,13 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public boolean insert(@NotNull R rec, @Nullable Transaction tx) {
-        return sync(insertAsync(rec, tx));
+    public boolean insert(@Nullable Transaction tx, @NotNull R rec) {
+        return sync(insertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> insertAsync(@NotNull R rec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, @NotNull R rec) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(rec));
 
         return tbl.insert(keyRow, (InternalTransaction) tx);
@@ -149,31 +149,31 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public Collection<R> insertAll(@NotNull Collection<R> recs, @Nullable Transaction tx) {
-        return sync(insertAllAsync(recs, tx));
+    public Collection<R> insertAll(@Nullable Transaction tx, @NotNull Collection<R> recs) {
+        return sync(insertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> insertAllAsync(@NotNull Collection<R> recs, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Collection<R>> insertAllAsync(@Nullable Transaction tx, @NotNull Collection<R> recs) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@NotNull R rec, @Nullable Transaction tx) {
-        return sync(replaceAsync(rec, tx));
+    public boolean replace(@Nullable Transaction tx, @NotNull R rec) {
+        return sync(replaceAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@NotNull R oldRec, @NotNull R newRec, @Nullable Transaction tx) {
-        return sync(replaceAsync(oldRec, newRec, tx));
+    public boolean replace(@Nullable Transaction tx, @NotNull R oldRec, @NotNull R newRec) {
+        return sync(replaceAsync(tx, oldRec, newRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R rec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull R rec) {
         BinaryRow newRow = marshal(rec);
 
         return tbl.replace(newRow, (InternalTransaction) tx);
@@ -181,7 +181,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R oldRec, @NotNull R newRec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull R oldRec, @NotNull R newRec) {
         BinaryRow oldRow = marshal(oldRec);
         BinaryRow newRow = marshal(newRec);
 
@@ -190,13 +190,13 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public R getAndReplace(@NotNull R rec, @Nullable Transaction tx) {
-        return sync(getAndReplaceAsync(rec, tx));
+    public R getAndReplace(@Nullable Transaction tx, @NotNull R rec) {
+        return sync(getAndReplaceAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<R> getAndReplaceAsync(@NotNull R rec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<R> getAndReplaceAsync(@Nullable Transaction tx, @NotNull R rec) {
         BinaryRow row = marshal(rec);
 
         return tbl.getAndReplace(row, (InternalTransaction) tx).thenApply(this::unmarshal);
@@ -204,13 +204,13 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public boolean delete(@NotNull R keyRec, @Nullable Transaction tx) {
-        return sync(deleteAsync(keyRec, tx));
+    public boolean delete(@Nullable Transaction tx, @NotNull R keyRec) {
+        return sync(deleteAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> deleteAsync(@NotNull R keyRec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, @NotNull R keyRec) {
         BinaryRow row = marshalKey(keyRec);
 
         return tbl.delete(row, (InternalTransaction) tx);
@@ -218,13 +218,13 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public boolean deleteExact(@NotNull R rec, @Nullable Transaction tx) {
-        return sync(deleteExactAsync(rec, tx));
+    public boolean deleteExact(@Nullable Transaction tx, @NotNull R rec) {
+        return sync(deleteExactAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> deleteExactAsync(@NotNull R rec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, @NotNull R rec) {
         BinaryRow row = marshal(rec);
 
         return tbl.deleteExact(row, (InternalTransaction) tx);
@@ -232,13 +232,13 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public R getAndDelete(@NotNull R keyRec, @Nullable Transaction tx) {
-        return sync(getAndDeleteAsync(keyRec, tx));
+    public R getAndDelete(@Nullable Transaction tx, @NotNull R keyRec) {
+        return sync(getAndDeleteAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<R> getAndDeleteAsync(@NotNull R keyRec, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<R> getAndDeleteAsync(@Nullable Transaction tx, @NotNull R keyRec) {
         BinaryRow row = marshalKey(keyRec);
 
         return tbl.getAndDelete(row, (InternalTransaction) tx).thenApply(this::unmarshal);
@@ -246,40 +246,40 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public Collection<R> deleteAll(@NotNull Collection<R> keyRecs, @Nullable Transaction tx) {
-        return sync(deleteAllAsync(keyRecs, tx));
+    public Collection<R> deleteAll(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
+        return sync(deleteAllAsync(tx, keyRecs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@NotNull Collection<R> keyRecs, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public Collection<R> deleteAllExact(@NotNull Collection<R> recs, @Nullable Transaction tx) {
-        return sync(deleteAllExactAsync(recs, tx));
+    public Collection<R> deleteAllExact(@Nullable Transaction tx, @NotNull Collection<R> recs) {
+        return sync(deleteAllExactAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@NotNull Collection<R> recs, @Nullable Transaction tx) {
+    public @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@Nullable Transaction tx, @NotNull Collection<R> recs) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public <T extends Serializable> T invoke(@NotNull R keyRec, InvokeProcessor<R, R, T> proc, @Nullable Transaction tx) {
+    public <T extends Serializable> T invoke(@Nullable Transaction tx, @NotNull R keyRec, InvokeProcessor<R, R, T> proc) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(
+            @Nullable Transaction tx,
             @NotNull R keyRec,
-            InvokeProcessor<R, R, T> proc,
-            @Nullable Transaction tx
+            InvokeProcessor<R, R, T> proc
     ) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
@@ -287,9 +287,9 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public <T extends Serializable> Map<R, T> invokeAll(
+            @Nullable Transaction tx,
             @NotNull Collection<R> keyRecs,
-            InvokeProcessor<R, R, T> proc,
-            @Nullable Transaction tx
+            InvokeProcessor<R, R, T> proc
     ) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
@@ -297,9 +297,9 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull <T extends Serializable> CompletableFuture<Map<R, T>> invokeAllAsync(
+            @Nullable Transaction tx,
             @NotNull Collection<R> keyRecs,
-            InvokeProcessor<R, R, T> proc,
-            @Nullable Transaction tx
+            InvokeProcessor<R, R, T> proc
     ) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
