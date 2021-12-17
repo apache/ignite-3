@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClientException;
@@ -98,6 +99,10 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     public @NotNull CompletableFuture<Map<K, V>> getAllAsync(@NotNull Collection<K> keys) {
         Objects.requireNonNull(keys);
 
+        if (keys.isEmpty()) {
+            return CompletableFuture.completedFuture(Collections.emptyMap());
+        }
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
                 (schema, out) -> keySer.writeRecs(keys, schema, out, TuplePart.KEY),
@@ -108,12 +113,14 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public boolean contains(@NotNull K key) {
+        // TODO
         return false;
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> containsAsync(@NotNull K key) {
+        // TODO
         return null;
     }
 
@@ -140,13 +147,31 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public void putAll(@NotNull Map<K, V> pairs) {
-
+        putAllAsync(pairs).join();
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Void> putAllAsync(@NotNull Map<K, V> pairs) {
-        return null;
+        Objects.requireNonNull(pairs);
+
+        if (pairs.isEmpty()) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_UPSERT_ALL,
+                (s, w) -> {
+                    w.packIgniteUuid(tbl.tableId());
+                    w.packInt(s.version());
+                    w.packInt(pairs.size());
+
+                    for (Entry<K, V> e : pairs.entrySet()) {
+                        keySer.writeRecRaw(e.getKey(), s, w, TuplePart.KEY);
+                        valSer.writeRecRaw(e.getValue(), s, w, TuplePart.VAL);
+                    }
+                },
+                r -> null);
     }
 
     /** {@inheritDoc} */
