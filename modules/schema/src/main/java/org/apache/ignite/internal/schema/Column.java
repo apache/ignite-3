@@ -251,6 +251,16 @@ public class Column {
         return new Column(schemaIndex, columnOrder, name, type, nullable, defValSup);
     }
 
+    /**
+     * Copy column with new order.
+     *
+     * @param order Column order.
+     * @return Column.
+     */
+    public Column copyWithOrder(int order) {
+        return new Column(-1, order, name, type, nullable, defValSup);
+    }
+
     /** {@inheritDoc} */
     @Override
     public String toString() {

@@ -32,6 +32,7 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.PrimaryKeyView;
 import org.apache.ignite.configuration.schemas.table.TableChange;
+import org.apache.ignite.internal.idx.IndexManager;
 import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.AbstractTableDdlCommand;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.AlterTableAddCommand;
@@ -61,10 +62,13 @@ import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder.
 
 /** DDL commands handler. */
 public class DdlCommandHandler {
-    private final TableManager tableManager;
+    private final TableManager tblManager;
 
-    public DdlCommandHandler(TableManager tblManager) {
-        tableManager = tblManager;
+    private final IndexManager idxManager;
+
+    public DdlCommandHandler(TableManager tblManager, IndexManager idxManager) {
+        this.tblManager = tblManager;
+        this.idxManager = idxManager;
     }
 
     /** Planning context. */
@@ -141,9 +145,9 @@ public class DdlCommandHandler {
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
         if (cmd.ifTableExists()) {
-            tableManager.createTableIfNotExists(fullName, tblChanger);
+            tblManager.createTableIfNotExists(fullName, tblChanger);
         } else {
-            tableManager.createTable(fullName, tblChanger);
+            tblManager.createTable(fullName, tblChanger);
         }
     }
 
@@ -153,7 +157,7 @@ public class DdlCommandHandler {
 
         // if (!cmd.ifTableExists()) todo will be implemented after IGNITE-15926
 
-        tableManager.dropTable(fullName);
+        tblManager.dropTable(fullName);
     }
 
     /** Handles add column command. */
@@ -199,7 +203,7 @@ public class DdlCommandHandler {
 
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
-        tableManager.alterTable(fullName, chng -> chng.changeIndices(idxes -> {
+        tblManager.alterTable(fullName, chng -> chng.changeIndices(idxes -> {
             if (idxes.get(cmd.indexName()) != null) {
                 if (!cmd.ifIndexNotExists()) {
                     throw new IndexAlreadyExistsException(cmd.indexName());
@@ -225,7 +229,7 @@ public class DdlCommandHandler {
      * @param colNotExist Flag indicates exceptionally behavior in case of already existing column.
      */
     private void addColumnInternal(String fullName, List<ColumnDefinition> colsDef, boolean colNotExist) {
-        tableManager.alterTable(
+        tblManager.alterTable(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
                     Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
@@ -263,7 +267,7 @@ public class DdlCommandHandler {
      * @param colExist Flag indicates exceptionally behavior in case of already existing column.
      */
     private void dropColumnInternal(String fullName, Set<String> colNames, boolean colExist) {
-        tableManager.alterTable(
+        tblManager.alterTable(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
                     PrimaryKeyView priKey = chng.primaryKey();

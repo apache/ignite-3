@@ -62,7 +62,7 @@ class PrefixComparator {
         for (int i = 0; i < prefix.length; ++i) {
             SortedIndexColumnDescriptor columnDescriptor = descriptor.columns().get(i);
 
-            int compare = compare(columnDescriptor.column().copy(columnDescriptor.indexSchemaIndex()), row, prefix[i]);
+            int compare = compare(columnDescriptor.column(), row, prefix[i]);
 
             if (compare != 0) {
                 return columnDescriptor.asc() ? compare : -compare;

@@ -89,11 +89,11 @@ public class BinaryRowComparator extends AbstractComparator {
                 .map(columnDescriptor -> {
                     Column column = columnDescriptor.column();
 
-                    Comparator<Row> columnComparator = columnComparator(column.copy(columnDescriptor.indexSchemaIndex()));
+                    Comparator<Row> columnComparator = columnComparator(column);
 
                     if (columnDescriptor.nullable()) {
                         columnComparator = comparingNull(
-                                row -> row.hasNullValue(columnDescriptor.indexSchemaIndex(), column.type().spec()) ? null : row,
+                                row -> row.hasNullValue(column.schemaIndex(), column.type().spec()) ? null : row,
                                 columnComparator
                         );
                     }

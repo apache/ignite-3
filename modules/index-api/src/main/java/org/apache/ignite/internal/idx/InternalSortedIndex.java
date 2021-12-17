@@ -22,6 +22,7 @@ import java.util.List;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.Table;
 
 /**
@@ -41,6 +42,13 @@ public interface InternalSortedIndex {
     byte LESS_OR_EQUAL = 1 << 1;
 
     /**
+     * Return index identifier.
+     *
+     * @return Index identifier.
+     */
+    IgniteUuid id();
+
+    /**
      * Return index name.
      *
      * @return Index name.
@@ -52,7 +60,7 @@ public interface InternalSortedIndex {
      *
      * @return Indexed table.
      */
-    Table table();
+    String tableName();
 
     /**
      * Return indexed columns.
@@ -70,6 +78,4 @@ public interface InternalSortedIndex {
      * @param proj          Set of the columns IDs to fill results rows.
      */
     Cursor<Row> scan(Row low, Row up, byte scanBoundMask, BitSet proj);
-
-
 }

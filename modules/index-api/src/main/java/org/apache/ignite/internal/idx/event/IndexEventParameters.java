@@ -39,7 +39,7 @@ public class IndexEventParameters implements EventParameters {
      * @param idx     Index instance.
      */
     public IndexEventParameters(InternalSortedIndex idx) {
-        this(idx.name(), idx.table().name(), idx);
+        this(idx.name(), idx.tableName(), idx);
     }
 
 

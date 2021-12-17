@@ -17,20 +17,23 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 
 /**
  * Descriptor for creating a Sorted Index Storage.
- *
  */
 public class SortedIndexDescriptor {
     private final String name;
 
     private final List<SortedIndexColumnDescriptor> columns;
 
-    private final SchemaDescriptor idxSchema;
+    private final IndexSchemaDescriptor idxSchema;
 
     /**
      * Creates an Index Descriptor from a given Table Configuration.
@@ -38,20 +41,26 @@ public class SortedIndexDescriptor {
      * @param name        Index name.
      * @param columns     Index's columns.
      */
-    public SortedIndexDescriptor(String name, List<SortedIndexColumnDescriptor> columns) {
+    public SortedIndexDescriptor(String name, final List<SortedIndexColumnDescriptor> columns) {
         this.name = name;
-        this.columns = columns;
-        this.idxSchema = new SchemaDescriptor(
-                0,
-                columns.stream().map(SortedIndexColumnDescriptor::column).toArray(Column[]::new),
-                new Column[0]
+
+        this.idxSchema = new IndexSchemaDescriptor(
+                IntStream.range(0, columns.size())
+                        .mapToObj(i -> columns.get(i).column().copyWithOrder(i))
+                        .toArray(Column[]::new)
         );
 
-        for (Column col : idxSchema.keyColumns().columns()) {
-            SortedIndexColumnDescriptor colDesc = columns.stream().filter(c -> col.name().equals(c.column().name())).findAny().get();
+        this.columns = Arrays.asList(idxSchema.columns()).stream()
+                .sorted(Comparator.comparing(Column::columnOrder))
+                .map(c -> {
+                    SortedIndexColumnDescriptor origDesc = columns.stream()
+                            .filter(origCol -> origCol.column().name().equals(c.name()))
+                            .findAny()
+                            .get();
 
-            colDesc.indexSchemaIndex(col.schemaIndex());
-        }
+                    return new SortedIndexColumnDescriptor(c, origDesc.collation());
+                })
+                .collect(Collectors.toList());
     }
 
     /**

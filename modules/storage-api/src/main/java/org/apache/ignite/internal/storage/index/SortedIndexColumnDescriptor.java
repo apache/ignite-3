@@ -26,13 +26,15 @@ import org.apache.ignite.internal.tostring.S;
 public class SortedIndexColumnDescriptor {
     private final Column column;
 
-    private final boolean asc;
-
-    private int idxSchemaIndex = -1;
+    private final SortedIndexColumnCollation collation;
 
     public SortedIndexColumnDescriptor(Column column, boolean asc) {
+        this(column, new SortedIndexColumnCollation(asc));
+    }
+
+    public SortedIndexColumnDescriptor(Column column, SortedIndexColumnCollation collation) {
         this.column = column;
-        this.asc = asc;
+        this.collation = collation;
     }
 
     /**
@@ -43,10 +45,17 @@ public class SortedIndexColumnDescriptor {
     }
 
     /**
+     * Returns column collation.
+     */
+    public SortedIndexColumnCollation collation() {
+        return collation;
+    }
+
+    /**
      * Returns {@code true} if this column is sorted in ascending order or {@code false} otherwise.
      */
     public boolean asc() {
-        return asc;
+        return collation.asc();
     }
 
     /**
@@ -54,14 +63,6 @@ public class SortedIndexColumnDescriptor {
      */
     public boolean nullable() {
         return column.nullable();
-    }
-
-    public int indexSchemaIndex() {
-        return idxSchemaIndex;
-    }
-
-    public void indexSchemaIndex(int idxSchemaIndex) {
-        this.idxSchemaIndex = idxSchemaIndex;
     }
 
     @Override

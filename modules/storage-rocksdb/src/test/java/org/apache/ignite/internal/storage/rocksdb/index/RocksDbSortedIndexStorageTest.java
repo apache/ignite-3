@@ -392,7 +392,7 @@ public class RocksDbSortedIndexStorageTest {
         for (int i = 0; i < indexSchema.size(); ++i) {
             ColumnDefinition colDef = indexSchema.get(i);
 
-            Column col = new Column(i, colDef.name(), SchemaDescriptorConverter.convert(colDef.type()), true);
+            Column col = new Column(colDef.name(), SchemaDescriptorConverter.convert(colDef.type()), true);
             cols.add(new SortedIndexColumnDescriptor(col, random.nextBoolean()));
         }
 

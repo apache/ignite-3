@@ -61,7 +61,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final ClusterService clusterSrvc;
 
-    private final TableManager tableManager;
+    private final TableManager tblManager;
 
     private final IndexManager idxManager;
 
@@ -89,16 +89,16 @@ public class SqlQueryProcessor implements QueryProcessor {
      * Create SQL query processor.
      *
      * @param clusterSrvc  Cluster service.
-     * @param tableManager Table manager.
+     * @param tblManager Table manager.
      * @param idxManager   Index manager.
      */
     public SqlQueryProcessor(
             ClusterService clusterSrvc,
-            TableManager tableManager,
+            TableManager tblManager,
             IndexManager idxManager
     ) {
         this.clusterSrvc = clusterSrvc;
-        this.tableManager = tableManager;
+        this.tblManager = tblManager;
         this.idxManager = idxManager;
     }
 
@@ -130,7 +130,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 msgSrvc,
                 planCache,
                 schemaHolder,
-                tableManager,
+                tblManager,
+                idxManager,
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
                 extensions
@@ -154,7 +155,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private void registerTableListener(TableEvent evt, AbstractTableEventListener lsnr) {
         tblEvtLsnrs.add(Pair.of(evt, lsnr));
 
-        tableManager.listen(evt, lsnr);
+        tblManager.listen(evt, lsnr);
     }
 
     private void registerIndexListener(IndexEvent evt, AbstractIndexEventListener lsnr) {
@@ -188,7 +189,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         Stream<AutoCloseable> closableListeners = Stream.concat(
                 tblEvtLsnrs.stream()
-                    .map((p) -> () -> tableManager.removeListener(p.left, p.right)),
+                    .map((p) -> () -> tblManager.removeListener(p.left, p.right)),
                 idxEvtLsnrs.stream()
                         .map((p) -> () -> idxManager.removeListener(p.left, p.right))
         );

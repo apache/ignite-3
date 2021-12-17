@@ -22,27 +22,37 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.table.Table;
+import org.apache.ignite.lang.IgniteUuid;
 
 /**
  * Internal index manager facade provides low-level methods for indexes operations.
  */
 public class InternalSortedIndexImpl implements InternalSortedIndex {
+    private final IgniteUuid id;
+
     private final String name;
 
     private final SortedIndexStorage store;
 
-    private final Table tbl;
+    private final TableImpl tbl;
 
     /**
      * Create sorted index.
      */
-    public InternalSortedIndexImpl(String name, SortedIndexStorage store, Table tbl) {
+    public InternalSortedIndexImpl(IgniteUuid id, String name, SortedIndexStorage store, TableImpl tbl) {
+        this.id = id;
         this.name = name;
         this.store = store;
         this.tbl = tbl;
+    }
+
+    @Override
+    public IgniteUuid id() {
+        return id;
     }
 
     @Override
@@ -51,8 +61,8 @@ public class InternalSortedIndexImpl implements InternalSortedIndex {
     }
 
     @Override
-    public Table table() {
-        return tbl;
+    public String tableName() {
+        return tbl.name();
     }
 
     @Override
