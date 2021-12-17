@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -62,11 +63,13 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         valSer = new ClientRecordSerializer<>(tbl.tableId(), valMapper);
     }
 
+    /** {@inheritDoc} */
     @Override
     public V get(@NotNull K key) {
         return getAsync(key).join();
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<V> getAsync(@NotNull K key) {
         Objects.requireNonNull(key);
@@ -77,31 +80,43 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 (inSchema, in) -> valSer.readRec(inSchema, in, TuplePart.VAL));
     }
 
+    /** {@inheritDoc} */
     @Override
     public Map<K, V> getAll(@NotNull Collection<K> keys) {
-        return null;
+        return getAllAsync(keys).join();
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Map<K, V>> getAllAsync(@NotNull Collection<K> keys) {
-        return null;
+        Objects.requireNonNull(keys);
+
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET_ALL,
+                (schema, out) -> keySer.writeRecs(keys, schema, out, TuplePart.KEY),
+                valSer::readRecsNullable,
+                Collections.emptyMap());
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean contains(@NotNull K key) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> containsAsync(@NotNull K key) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void put(@NotNull K key, V val) {
         putAsync(key, val).join();
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Void> putAsync(@NotNull K key, V val) {
         Objects.requireNonNull(key);
@@ -115,133 +130,159 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 r -> null);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void putAll(@NotNull Map<K, V> pairs) {
 
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Void> putAllAsync(@NotNull Map<K, V> pairs) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public V getAndPut(@NotNull K key, V val) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<V> getAndPutAsync(@NotNull K key, V val) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean putIfAbsent(@NotNull K key, @NotNull V val) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@NotNull K key, V val) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean remove(@NotNull K key) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean remove(@NotNull K key, V val) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull K key) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull K key, V val) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Collection<K> removeAll(@NotNull Collection<K> keys) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<K>> removeAllAsync(@NotNull Collection<K> keys) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public V getAndRemove(@NotNull K key) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<V> getAndRemoveAsync(@NotNull K key) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean replace(@NotNull K key, V val) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean replace(@NotNull K key, V oldVal, V newVal) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, V val) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, V oldVal, V newVal) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public V getAndReplace(@NotNull K key, V val) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<V> getAndReplaceAsync(@NotNull K key, V val) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public <R extends Serializable> R invoke(@NotNull K key, InvokeProcessor<K, V, R> proc, Serializable... args) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull <R extends Serializable> CompletableFuture<R> invokeAsync(@NotNull K key, InvokeProcessor<K, V, R> proc,
             Serializable... args) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public <R extends Serializable> Map<K, R> invokeAll(@NotNull Collection<K> keys, InvokeProcessor<K, V, R> proc, Serializable... args) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull <R extends Serializable> CompletableFuture<Map<K, R>> invokeAllAsync(@NotNull Collection<K> keys,
             InvokeProcessor<K, V, R> proc, Serializable... args) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @Nullable Transaction transaction() {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public KeyValueView<K, V> withTransaction(Transaction tx) {
         return null;
