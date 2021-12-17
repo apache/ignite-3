@@ -65,6 +65,10 @@ class ClientRecordSerializer<R> {
         out.packIgniteUuid(tableId);
         out.packInt(schema.version());
 
+        writeRecRaw(rec, schema, out, part);
+    }
+
+    public void writeRecRaw(@NotNull R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
         Marshaller marshaller = schema.getMarshaller(mapper, part);
         ClientMarshallerWriter writer = new ClientMarshallerWriter(out);
 

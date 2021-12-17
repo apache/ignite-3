@@ -83,9 +83,8 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         primitiveView.put(DEFAULT_ID, DEFAULT_NAME);
 
-        // TODO: Why invalid tuple produces a server-side exception?
         Tuple tuple = table.recordView().get(tupleKey(DEFAULT_ID));
-        assertEquals("abc", tuple.stringValue(0));
+        assertEquals(DEFAULT_NAME, tuple.stringValue(1));
     }
 
     @Test
