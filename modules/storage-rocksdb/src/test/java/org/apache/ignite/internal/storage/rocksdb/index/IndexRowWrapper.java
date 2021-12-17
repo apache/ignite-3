@@ -30,7 +30,7 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.idx.MySortedIndexDescriptor;
+import org.apache.ignite.internal.idx.SortedIndexDescriptor;
 import org.apache.ignite.internal.idx.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -49,7 +49,7 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
 
     private final IndexRow row;
 
-    private final MySortedIndexDescriptor descriptor;
+    private final SortedIndexDescriptor descriptor;
 
     IndexRowWrapper(SortedIndexStorage storage, IndexRow row, Object[] columns) {
         this.descriptor = storage.indexDescriptor();

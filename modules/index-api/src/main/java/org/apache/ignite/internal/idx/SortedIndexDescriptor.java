@@ -20,13 +20,12 @@ package org.apache.ignite.internal.idx;
 import java.util.List;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.tostring.S;
 
 /**
  * Descriptor for creating a Sorted Index Storage.
  *
  */
-public class MySortedIndexDescriptor {
+public class SortedIndexDescriptor {
     private final String name;
 
     private final List<SortedIndexColumnDescriptor> columns;
@@ -39,7 +38,7 @@ public class MySortedIndexDescriptor {
      * @param name        Index name.
      * @param columns     Index's columns.
      */
-    public MySortedIndexDescriptor(String name, List<SortedIndexColumnDescriptor> columns) {
+    public SortedIndexDescriptor(String name, List<SortedIndexColumnDescriptor> columns) {
         this.name = name;
         this.columns = columns;
         this.idxSchema = new SchemaDescriptor(
@@ -47,6 +46,12 @@ public class MySortedIndexDescriptor {
                 columns.stream().map(SortedIndexColumnDescriptor::column).toArray(Column[]::new),
                 new Column[0]
         );
+
+        for (Column col : idxSchema.keyColumns().columns()) {
+            SortedIndexColumnDescriptor colDesc = columns.stream().filter(c -> col.name().equals(c.column().name())).findAny().get();
+
+            colDesc.indexSchemaIndex(col.schemaIndex());
+        }
     }
 
     /**

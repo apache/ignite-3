@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 
 import java.util.Arrays;
 import java.util.BitSet;
-import org.apache.ignite.internal.idx.MySortedIndexDescriptor;
+import org.apache.ignite.internal.idx.SortedIndexDescriptor;
 import org.apache.ignite.internal.idx.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
  * Class for comparing a {@link BinaryRow} representing an Index Key with a given prefix of index columns.
  */
 class PrefixComparator {
-    private final MySortedIndexDescriptor descriptor;
+    private final SortedIndexDescriptor descriptor;
     private final @Nullable Object[] prefix;
 
     /**
@@ -41,7 +41,7 @@ class PrefixComparator {
      * @param descriptor Index Descriptor of the enclosing index.
      * @param prefix Prefix to compare the incoming rows against.
      */
-    PrefixComparator(MySortedIndexDescriptor descriptor, IndexRowPrefix prefix) {
+    PrefixComparator(SortedIndexDescriptor descriptor, IndexRowPrefix prefix) {
         assert descriptor.columns().size() >= prefix.prefixColumnValues().length;
 
         this.descriptor = descriptor;
@@ -62,7 +62,7 @@ class PrefixComparator {
         for (int i = 0; i < prefix.length; ++i) {
             SortedIndexColumnDescriptor columnDescriptor = descriptor.columns().get(i);
 
-            int compare = compare(columnDescriptor.column(), row, prefix[i]);
+            int compare = compare(columnDescriptor.column().copy(columnDescriptor.indexSchemaIndex()), row, prefix[i]);
 
             if (compare != 0) {
                 return columnDescriptor.asc() ? compare : -compare;

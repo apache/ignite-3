@@ -218,7 +218,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
     }
 
     private void createIndexLocally(InternalTable tbl, SortedIndexView idx) {
-        MySortedIndexDescriptor idxDesc = new MySortedIndexDescriptor(null, null);
+        SortedIndexDescriptor idxDesc = new SortedIndexDescriptor(null, null);
 
         SortedIndexStorage idxStore = tbl.storage().createSortedIndex(idxDesc);
 

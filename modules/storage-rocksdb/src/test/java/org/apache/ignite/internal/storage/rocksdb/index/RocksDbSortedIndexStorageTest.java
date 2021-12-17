@@ -47,7 +47,7 @@ import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSch
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.idx.MySortedIndexDescriptor;
+import org.apache.ignite.internal.idx.SortedIndexDescriptor;
 import org.apache.ignite.internal.idx.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
@@ -395,7 +395,7 @@ public class RocksDbSortedIndexStorageTest {
             cols.add(new SortedIndexColumnDescriptor(col, random.nextBoolean()));
         }
 
-        return tableStorage.createSortedIndex(new MySortedIndexDescriptor("foo", cols));
+        return tableStorage.createSortedIndex(new SortedIndexDescriptor("foo", cols));
     }
 
     /**

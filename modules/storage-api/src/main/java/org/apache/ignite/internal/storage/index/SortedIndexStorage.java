@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import org.apache.ignite.internal.idx.MySortedIndexDescriptor;
+import org.apache.ignite.internal.idx.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.util.Cursor;
 
@@ -33,7 +33,7 @@ public interface SortedIndexStorage extends AutoCloseable {
     /**
      * Returns the Index Descriptor of this storage.
      */
-    MySortedIndexDescriptor indexDescriptor();
+    SortedIndexDescriptor indexDescriptor();
 
     /**
      * Returns a factory for creating index rows for this storage.

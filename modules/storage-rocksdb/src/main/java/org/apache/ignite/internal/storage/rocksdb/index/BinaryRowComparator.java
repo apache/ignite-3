@@ -27,7 +27,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Comparator;
-import org.apache.ignite.internal.idx.MySortedIndexDescriptor;
+import org.apache.ignite.internal.idx.SortedIndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
@@ -53,14 +53,14 @@ public class BinaryRowComparator extends AbstractComparator {
     /**
      * Creates a RocksDB comparator for a Sorted Index identified by the given descriptor.
      */
-    public BinaryRowComparator(MySortedIndexDescriptor descriptor) {
+    public BinaryRowComparator(SortedIndexDescriptor descriptor) {
         this(descriptor, new ComparatorOptions());
     }
 
     /**
      * Internal constructor for capturing the {@code options} parameter for resource management purposes.
      */
-    private BinaryRowComparator(MySortedIndexDescriptor descriptor, ComparatorOptions options) {
+    private BinaryRowComparator(SortedIndexDescriptor descriptor, ComparatorOptions options) {
         super(options);
 
         innerComparator = comparing(
@@ -74,7 +74,7 @@ public class BinaryRowComparator extends AbstractComparator {
     /**
      * Creates a comparator for comparing two {@link BinaryRow}s by converting them into {@link Row}s.
      */
-    private static Comparator<BinaryRow> binaryRowComparator(MySortedIndexDescriptor descriptor) {
+    private static Comparator<BinaryRow> binaryRowComparator(SortedIndexDescriptor descriptor) {
         return comparing(
                 binaryRow -> new Row(descriptor.schema(), binaryRow),
                 rowComparator(descriptor)
@@ -84,16 +84,16 @@ public class BinaryRowComparator extends AbstractComparator {
     /**
      * Creates a comparator that compares two {@link Row}s by comparing individual columns.
      */
-    private static Comparator<Row> rowComparator(MySortedIndexDescriptor descriptor) {
+    private static Comparator<Row> rowComparator(SortedIndexDescriptor descriptor) {
         return descriptor.columns().stream()
                 .map(columnDescriptor -> {
                     Column column = columnDescriptor.column();
 
-                    Comparator<Row> columnComparator = columnComparator(column);
+                    Comparator<Row> columnComparator = columnComparator(column.copy(columnDescriptor.indexSchemaIndex()));
 
                     if (columnDescriptor.nullable()) {
                         columnComparator = comparingNull(
-                                row -> row.hasNullValue(column.schemaIndex(), column.type().spec()) ? null : row,
+                                row -> row.hasNullValue(columnDescriptor.indexSchemaIndex(), column.type().spec()) ? null : row,
                                 columnComparator
                         );
                     }

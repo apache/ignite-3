@@ -35,7 +35,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.internal.idx.MySortedIndexDescriptor;
+import org.apache.ignite.internal.idx.SortedIndexDescriptor;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -291,7 +291,7 @@ public class RocksDbTableStorage implements TableStorage {
     }
 
     @Override
-    public SortedIndexStorage createSortedIndex(MySortedIndexDescriptor desc) {
+    public SortedIndexStorage createSortedIndex(SortedIndexDescriptor desc) {
         if (stopped) {
             throw new StorageException(new NodeStoppingException());
         }
@@ -412,7 +412,7 @@ public class RocksDbTableStorage implements TableStorage {
     /**
      * Creates a Column Family descriptor for a Sorted Index.
      */
-    private static ColumnFamilyDescriptor sortedIndexCfDescriptor(MySortedIndexDescriptor descriptor) {
+    private static ColumnFamilyDescriptor sortedIndexCfDescriptor(SortedIndexDescriptor descriptor) {
         String cfName = sortedIndexCfName(descriptor.name());
 
         ColumnFamilyOptions options = new ColumnFamilyOptions().setComparator(new BinaryRowComparator(descriptor));

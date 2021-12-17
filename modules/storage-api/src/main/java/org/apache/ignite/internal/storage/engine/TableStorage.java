@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage.engine;
 
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.internal.idx.MySortedIndexDescriptor;
+import org.apache.ignite.internal.idx.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -68,7 +68,7 @@ public interface TableStorage {
      * @throws StorageException if no index has been configured under the given name or it has been configured incorrectly (e.g. it was
      *                          configured as a Hash Index).
      */
-    SortedIndexStorage createSortedIndex(MySortedIndexDescriptor desc);
+    SortedIndexStorage createSortedIndex(SortedIndexDescriptor desc);
 
     /**
      * Destroys the index under the given name and all data in it.

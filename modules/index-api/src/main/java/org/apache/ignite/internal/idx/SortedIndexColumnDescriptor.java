@@ -28,6 +28,8 @@ public class SortedIndexColumnDescriptor {
 
     private final boolean asc;
 
+    private int idxSchemaIndex = -1;
+
     public SortedIndexColumnDescriptor(Column column, boolean asc) {
         this.column = column;
         this.asc = asc;
@@ -52,6 +54,14 @@ public class SortedIndexColumnDescriptor {
      */
     public boolean nullable() {
         return column.nullable();
+    }
+
+    public int indexSchemaIndex() {
+        return idxSchemaIndex;
+    }
+
+    public void indexSchemaIndex(int idxSchemaIndex) {
+        this.idxSchemaIndex = idxSchemaIndex;
     }
 
     @Override
