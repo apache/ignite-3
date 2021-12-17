@@ -38,6 +38,7 @@ import org.apache.ignite.internal.idx.event.IndexEvent;
 import org.apache.ignite.internal.idx.event.IndexEventParameters;
 import org.apache.ignite.internal.manager.AbstractProducer;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -157,7 +158,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                     @Override
                     public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
                         // TODO: is it true? What happens when columns are dropped?
-                        assert false : "Index cannot be updated [ctx=" + ctx +']';
+                        assert false : "Index cannot be updated [ctx=" + ctx + ']';
 
                         return CompletableFuture.completedFuture(null);
                     }

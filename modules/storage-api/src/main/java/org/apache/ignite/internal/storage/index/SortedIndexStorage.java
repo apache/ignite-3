@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import org.apache.ignite.internal.idx.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.util.Cursor;
 

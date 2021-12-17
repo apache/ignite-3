@@ -27,12 +27,12 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Comparator;
-import org.apache.ignite.internal.idx.SortedIndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.rocksdb.AbstractComparator;
 import org.rocksdb.ComparatorOptions;
 

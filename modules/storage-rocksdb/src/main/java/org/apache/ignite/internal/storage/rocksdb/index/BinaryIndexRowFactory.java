@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
-import org.apache.ignite.internal.idx.SortedIndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -26,6 +25,7 @@ import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowFactory;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 
 /**
  * {@link IndexRowFactory} implementation that uses {@link BinaryRow} as the index keys serialization mechanism.

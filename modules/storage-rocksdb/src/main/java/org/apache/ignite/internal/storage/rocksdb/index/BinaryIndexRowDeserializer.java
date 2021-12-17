@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import java.util.Arrays;
-import org.apache.ignite.internal.idx.SortedIndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowDeserializer;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 
 /**
  * {@link IndexRowDeserializer} implementation that uses {@link BinaryRow} infrastructure for deserialization purposes.

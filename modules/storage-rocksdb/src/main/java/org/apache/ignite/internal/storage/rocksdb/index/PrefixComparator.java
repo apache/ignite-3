@@ -19,13 +19,13 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 
 import java.util.Arrays;
 import java.util.BitSet;
-import org.apache.ignite.internal.idx.SortedIndexDescriptor;
-import org.apache.ignite.internal.idx.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
+import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.jetbrains.annotations.Nullable;
 
 /**

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.idx;
+package org.apache.ignite.internal.storage.index;
 
 import java.util.List;
 import org.apache.ignite.internal.schema.Column;

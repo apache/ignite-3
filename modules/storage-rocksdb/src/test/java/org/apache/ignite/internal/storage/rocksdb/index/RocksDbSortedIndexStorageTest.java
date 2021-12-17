@@ -47,8 +47,6 @@ import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSch
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.idx.SortedIndexDescriptor;
-import org.apache.ignite.internal.idx.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
 import org.apache.ignite.internal.storage.SearchRow;
@@ -56,6 +54,8 @@ import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
+import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.testframework.VariableSource;
@@ -299,30 +299,31 @@ public class RocksDbSortedIndexStorageTest {
     @ParameterizedTest
     @VariableSource("ALL_TYPES_COLUMN_DEFINITIONS")
     void testNullValues(ColumnDefinition columnDefinition) throws Exception {
-//        SortedIndexStorage storage = createIndex(List.of(columnDefinition));
-//
-//        IndexRowWrapper entry1 = IndexRowWrapper.randomRow(storage);
-//
-//        Object[] nullArray = storage.indexDescriptor().columns().stream()
-//                .map(columnDescriptor -> columnDescriptor.indexedColumn() ? null : (byte) random.nextInt())
-//                .toArray();
-//
-//        IndexRow nullRow = storage.indexRowFactory().createIndexRow(nullArray, new ByteArraySearchRow(randomBytes(random, 10)));
-//
-//        IndexRowWrapper entry2 = new IndexRowWrapper(storage, nullRow, nullArray);
-//
-//        storage.put(entry1.row());
-//        storage.put(entry2.row());
-//
-//        if (entry1.compareTo(entry2) > 0) {
-//            IndexRowWrapper t = entry2;
-//            entry2 = entry1;
-//            entry1 = t;
-//        }
-//
-//        List<IndexRow> rows = cursorToList(storage.range(entry1::columns, entry2::columns));
-//
-//        assertThat(rows, contains(entry1.row(), entry2.row()));
+        // TODO: disabled temporary
+        //        SortedIndexStorage storage = createIndex(List.of(columnDefinition));
+        //
+        //        IndexRowWrapper entry1 = IndexRowWrapper.randomRow(storage);
+        //
+        //        Object[] nullArray = storage.indexDescriptor().columns().stream()
+        //                .map(columnDescriptor -> columnDescriptor.indexedColumn() ? null : (byte) random.nextInt())
+        //                .toArray();
+        //
+        //        IndexRow nullRow = storage.indexRowFactory().createIndexRow(nullArray, new ByteArraySearchRow(randomBytes(random, 10)));
+        //
+        //        IndexRowWrapper entry2 = new IndexRowWrapper(storage, nullRow, nullArray);
+        //
+        //        storage.put(entry1.row());
+        //        storage.put(entry2.row());
+        //
+        //        if (entry1.compareTo(entry2) > 0) {
+        //            IndexRowWrapper t = entry2;
+        //            entry2 = entry1;
+        //            entry1 = t;
+        //        }
+        //
+        //        List<IndexRow> rows = cursorToList(storage.range(entry1::columns, entry2::columns));
+        //
+        //        assertThat(rows, contains(entry1.row(), entry2.row()));
     }
 
     private List<ColumnDefinition> shuffledRandomDefinitions() {
