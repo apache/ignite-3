@@ -177,13 +177,21 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public V getAndPut(@NotNull K key, V val) {
-        return null;
+        return getAndPutAsync(key, val).join();
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<V> getAndPutAsync(@NotNull K key, V val) {
-        return null;
+        Objects.requireNonNull(key);
+
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET_AND_UPSERT,
+                (s, w) -> {
+                    keySer.writeRec(key, s, w, TuplePart.KEY);
+                    valSer.writeRecRaw(val, s, w, TuplePart.VAL);
+                },
+                (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
     }
 
     /** {@inheritDoc} */
