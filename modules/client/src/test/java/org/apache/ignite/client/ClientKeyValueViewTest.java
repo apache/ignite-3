@@ -263,17 +263,19 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testGetAllPrimitive() {
-        // TODO
-        Table table = oneColumnTable();
-        RecordView<String> primitiveView = table.recordView(Mapper.of(String.class));
+        Table table = defaultTable();
+        KeyValueView<Long, String> pojoView = table.keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        primitiveView.upsertAll(List.of("a", "c"));
+        table.recordView().upsert(tuple());
+        table.recordView().upsert(tuple(100L, "100"));
 
-        String[] res = primitiveView.getAll(List.of("a", "b", "c")).toArray(new String[0]);
+        Collection<Long> keys = List.of(DEFAULT_ID, 101L, 100L);
 
-        assertEquals("a", res[0]);
+        String[] res = pojoView.getAll(keys).values().toArray(new String[0]);
+
+        assertEquals(DEFAULT_NAME, res[0]);
         assertNull(res[1]);
-        assertEquals("c", res[2]);
+        assertEquals("100", res[2]);
     }
 
     @Test
