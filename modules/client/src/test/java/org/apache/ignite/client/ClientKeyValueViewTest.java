@@ -199,15 +199,17 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testNullablePrimitiveFields() {
-        // TODO
-        RecordView<IncompletePojoNullable> pojoView = fullTable().recordView(IncompletePojoNullable.class);
+        KeyValueView<IncompletePojoNullable, IncompletePojoNullable> pojoView = fullTable().keyValueView(
+                IncompletePojoNullable.class,
+                IncompletePojoNullable.class);
+
         RecordView<Tuple> tupleView = fullTable().recordView();
 
         var rec = new IncompletePojoNullable();
         rec.id = "1";
         rec.gid = 1;
 
-        pojoView.upsert(rec);
+        pojoView.put(rec, rec);
 
         IncompletePojoNullable res = pojoView.get(rec);
         Tuple binRes = tupleView.get(Tuple.create().set("id", "1").set("gid", 1L));
