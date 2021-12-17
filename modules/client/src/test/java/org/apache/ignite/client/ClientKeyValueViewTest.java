@@ -27,13 +27,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -111,13 +107,14 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testAllColumnsBinaryPutPojoGet() {
-        // TODO
         Table table = fullTable();
-        RecordView<AllColumnsPojo> pojoView = table.recordView(Mapper.of(AllColumnsPojo.class));
+        KeyValueView<IncompletePojo, AllColumnsPojo> pojoView = table.keyValueView(
+                Mapper.of(IncompletePojo.class),
+                Mapper.of(AllColumnsPojo.class));
 
         table.recordView().upsert(allColumnsTableVal("foo"));
 
-        var key = new AllColumnsPojo();
+        var key = new IncompletePojo();
         key.gid = (int) (long) DEFAULT_ID;
         key.id = String.valueOf(DEFAULT_ID);
 
