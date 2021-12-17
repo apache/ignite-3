@@ -54,10 +54,9 @@ public class ClientRecordView<R> implements RecordView<R> {
         assert tbl != null;
         assert recMapper != null;
 
-        boolean oneColumnMode = MarshallerUtil.mode(recMapper.targetType()) != null;
-
-        this.ser = new ClientRecordSerializer<>(tbl.tableId(), recMapper, oneColumnMode);
         this.tbl = tbl;
+
+        ser = new ClientRecordSerializer<>(tbl.tableId(), recMapper);
     }
 
     /** {@inheritDoc} */

@@ -27,6 +27,7 @@ import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.marshaller.MarshallerUtil;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.NotNull;
@@ -35,8 +36,10 @@ import org.jetbrains.annotations.NotNull;
  * Record serializer.
  */
 class ClientRecordSerializer<R> {
+    /** Table ID. */
     private final IgniteUuid tableId;
 
+    /** Mapper. */
     private final Mapper<R> mapper;
 
     /** Simple mapping mode: single column maps to a basic type. For example, {@code RecordView<String>}.  */
@@ -47,15 +50,15 @@ class ClientRecordSerializer<R> {
      *
      * @param tableId       Table ID.
      * @param mapper        Mapper.
-     * @param oneColumnMode Single column mode flag.
      */
-    public ClientRecordSerializer(IgniteUuid tableId, Mapper<R> mapper, boolean oneColumnMode) {
+    public ClientRecordSerializer(IgniteUuid tableId, Mapper<R> mapper) {
         assert tableId != null;
         assert mapper != null;
 
         this.tableId = tableId;
         this.mapper = mapper;
-        this.oneColumnMode = oneColumnMode;
+
+        oneColumnMode = MarshallerUtil.mode(mapper.targetType()) != null;
     }
 
     public void writeRec(@NotNull R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
