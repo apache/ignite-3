@@ -20,7 +20,10 @@ package org.apache.ignite.internal.client.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -61,12 +64,17 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     @Override
     public V get(@NotNull K key) {
-        return null;
+        return getAsync(key).join();
     }
 
     @Override
     public @NotNull CompletableFuture<V> getAsync(@NotNull K key) {
-        return null;
+        Objects.requireNonNull(key);
+
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET,
+                (schema, out) -> keySer.writeRec(key, schema, out, TuplePart.KEY),
+                (inSchema, in) -> valSer.readRec(inSchema, in, TuplePart.VAL));
     }
 
     @Override

@@ -141,6 +141,17 @@ class ClientRecordSerializer<R> {
         return res;
     }
 
+    public R readRec(ClientSchema schema, ClientMessageUnpacker in, TuplePart part) {
+        Marshaller marshaller = schema.getMarshaller(mapper, part);
+        ClientMarshallerReader reader = new ClientMarshallerReader(in);
+
+        try {
+            return (R) marshaller.readObject(reader, null);
+        } catch (MarshallerException e) {
+            throw new IgniteClientException(e.getMessage(), e);
+        }
+    }
+
     public R readValRec(@NotNull R keyRec, ClientSchema schema, ClientMessageUnpacker in) {
         if (oneColumnMode) {
             return keyRec;
