@@ -295,20 +295,19 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testGetAndUpsert() {
-        // TODO
-        RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
+    public void testGetAndPut() {
+        KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
+        pojoView.put(DEFAULT_ID, DEFAULT_NAME);
 
-        PersonPojo res1 = pojoView.getAndUpsert(new PersonPojo(DEFAULT_ID, "new_name"));
-        PersonPojo res2 = pojoView.getAndUpsert(new PersonPojo(100L, "name"));
+        String res1 = pojoView.getAndPut(DEFAULT_ID, "new_name");
+        String res2 = pojoView.getAndPut(100L, "name");
 
-        assertEquals(DEFAULT_NAME, res1.name);
-        assertEquals("new_name", pojoView.get(new PersonPojo(DEFAULT_ID)).name);
+        assertEquals(DEFAULT_NAME, res1);
+        assertEquals("new_name", pojoView.get(DEFAULT_ID));
 
         assertNull(res2);
-        assertEquals("name", pojoView.get(new PersonPojo(100L)).name);
+        assertEquals("name", pojoView.get(100L));
     }
 
     @Test
