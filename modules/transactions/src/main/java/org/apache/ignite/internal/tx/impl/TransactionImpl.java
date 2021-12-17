@@ -179,16 +179,4 @@ public class TransactionImpl implements InternalTransaction {
 
         return CompletableFuture.allOf(futs);
     }
-
-    /** {@inheritDoc} */
-    @Override
-    public void thread(Thread t) {
-        this.thread = t;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable Thread thread() {
-        return thread;
-    }
 }
