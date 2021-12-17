@@ -18,21 +18,14 @@
 package org.apache.ignite.internal.client.table;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.IgniteClientException;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
-import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
-import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
-import org.apache.ignite.internal.marshaller.Marshaller;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallerUtil;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
@@ -45,14 +38,11 @@ import org.jetbrains.annotations.Nullable;
  * Client record view implementation.
  */
 public class ClientRecordView<R> implements RecordView<R> {
-    /** Mapper. */
-    private final Mapper<R> recMapper;
-
     /** Underlying table. */
     private final ClientTable tbl;
 
-    /** Simple mapping mode: single column maps to a basic type. For example, {@code RecordView<String>}.  */
-    private final boolean oneColumnMode;
+    /** Serializer.  */
+    private final ClientRecordSerializer<R> ser;
 
     /**
      * Constructor.
@@ -61,10 +51,13 @@ public class ClientRecordView<R> implements RecordView<R> {
      * @param recMapper Mapper.
      */
     public ClientRecordView(ClientTable tbl, Mapper<R> recMapper) {
-        this.tbl = tbl;
-        this.recMapper = recMapper;
+        assert tbl != null;
+        assert recMapper != null;
 
-        oneColumnMode = MarshallerUtil.mode(recMapper.targetType()) != null;
+        boolean oneColumnMode = MarshallerUtil.mode(recMapper.targetType()) != null;
+
+        this.ser = new ClientRecordSerializer<>(tbl.tableId(), recMapper, oneColumnMode);
+        this.tbl = tbl;
     }
 
     /** {@inheritDoc} */
@@ -80,8 +73,8 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
-                (schema, out) -> writeRec(keyRec, schema, out, TuplePart.KEY),
-                (inSchema, in) -> readValRec(keyRec, inSchema, in));
+                (schema, out) -> ser.writeRec(keyRec, schema, out, TuplePart.KEY),
+                (inSchema, in) -> ser.readValRec(keyRec, inSchema, in));
     }
 
     /** {@inheritDoc} */
@@ -97,8 +90,8 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
-                (schema, out) -> writeRecs(keyRecs, schema, out, TuplePart.KEY),
-                this::readRecsNullable,
+                (schema, out) -> ser.writeRecs(keyRecs, schema, out, TuplePart.KEY),
+                ser::readRecsNullable,
                 Collections.emptyList());
     }
 
@@ -115,7 +108,7 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
-                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                (s, w) -> ser.writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
                 r -> null);
     }
 
@@ -132,7 +125,7 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
-                (s, w) -> writeRecs(recs, s, w, TuplePart.KEY_AND_VAL),
+                (s, w) -> ser.writeRecs(recs, s, w, TuplePart.KEY_AND_VAL),
                 r -> null);
     }
 
@@ -149,8 +142,8 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
-                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
-                (s, r) -> readValRec(rec, s, r));
+                (s, w) -> ser.writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                (s, r) -> ser.readValRec(rec, s, r));
     }
 
     /** {@inheritDoc} */
@@ -166,7 +159,7 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
-                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                (s, w) -> ser.writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -183,8 +176,8 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_INSERT_ALL,
-                (s, w) -> writeRecs(recs, s, w, TuplePart.KEY_AND_VAL),
-                this::readRecs,
+                (s, w) -> ser.writeRecs(recs, s, w, TuplePart.KEY_AND_VAL),
+                ser::readRecs,
                 Collections.emptyList());
     }
 
@@ -207,7 +200,7 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
-                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                (s, w) -> ser.writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -219,7 +212,7 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
-                (s, w) -> writeRecs(oldRec, newRec, s, w, TuplePart.KEY_AND_VAL),
+                (s, w) -> ser.writeRecs(oldRec, newRec, s, w, TuplePart.KEY_AND_VAL),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -236,8 +229,8 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
-                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
-                (s, r) -> readValRec(rec, s, r));
+                (s, w) -> ser.writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                (s, r) -> ser.readValRec(rec, s, r));
     }
 
     /** {@inheritDoc} */
@@ -253,7 +246,7 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
-                (s, w) -> writeRec(keyRec, s, w, TuplePart.KEY),
+                (s, w) -> ser.writeRec(keyRec, s, w, TuplePart.KEY),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -270,7 +263,7 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
-                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                (s, w) -> ser.writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -287,8 +280,8 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
-                (s, w) -> writeRec(keyRec, s, w, TuplePart.KEY),
-                (s, r) -> readValRec(keyRec, s, r));
+                (s, w) -> ser.writeRec(keyRec, s, w, TuplePart.KEY),
+                (s, r) -> ser.readValRec(keyRec, s, r));
     }
 
     /** {@inheritDoc} */
@@ -304,8 +297,8 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
-                (s, w) -> writeRecs(keyRecs, s, w, TuplePart.KEY),
-                (schema, in) -> readRecs(schema, in, false, TuplePart.KEY),
+                (s, w) -> ser.writeRecs(keyRecs, s, w, TuplePart.KEY),
+                (schema, in) -> ser.readRecs(schema, in, false, TuplePart.KEY),
                 Collections.emptyList());
     }
 
@@ -322,8 +315,8 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL_EXACT,
-                (s, w) -> writeRecs(recs, s, w, TuplePart.KEY_AND_VAL),
-                this::readRecs,
+                (s, w) -> ser.writeRecs(recs, s, w, TuplePart.KEY_AND_VAL),
+                ser::readRecs,
                 Collections.emptyList());
     }
 
@@ -366,104 +359,5 @@ public class ClientRecordView<R> implements RecordView<R> {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    private void writeRec(@NotNull R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
-        out.packIgniteUuid(tbl.tableId());
-        out.packInt(schema.version());
 
-        Marshaller marshaller = schema.getMarshaller(recMapper, part);
-        ClientMarshallerWriter writer = new ClientMarshallerWriter(out);
-
-        try {
-            marshaller.writeObject(rec, writer);
-        } catch (MarshallerException e) {
-            throw new IgniteClientException(e.getMessage(), e);
-        }
-    }
-
-    private void writeRecs(@NotNull R rec, @NotNull R rec2, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
-        out.packIgniteUuid(tbl.tableId());
-        out.packInt(schema.version());
-
-        Marshaller marshaller = schema.getMarshaller(recMapper, part);
-        ClientMarshallerWriter writer = new ClientMarshallerWriter(out);
-
-        try {
-            marshaller.writeObject(rec, writer);
-            marshaller.writeObject(rec2, writer);
-        } catch (MarshallerException e) {
-            throw new IgniteClientException(e.getMessage(), e);
-        }
-    }
-
-    private void writeRecs(@NotNull Collection<R> recs, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
-        out.packIgniteUuid(tbl.tableId());
-        out.packInt(schema.version());
-        out.packInt(recs.size());
-
-        Marshaller marshaller = schema.getMarshaller(recMapper, part);
-        ClientMarshallerWriter writer = new ClientMarshallerWriter(out);
-
-        try {
-            for (R rec : recs) {
-                marshaller.writeObject(rec, writer);
-            }
-        } catch (MarshallerException e) {
-            throw new IgniteClientException(e.getMessage(), e);
-        }
-    }
-
-    private Collection<R> readRecsNullable(ClientSchema schema, ClientMessageUnpacker in) {
-        return readRecs(schema, in, true, TuplePart.KEY_AND_VAL);
-    }
-
-    private Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in) {
-        return readRecs(schema, in, false, TuplePart.KEY_AND_VAL);
-    }
-
-    private Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in, boolean nullable, TuplePart part) {
-        var cnt = in.unpackInt();
-        var res = new ArrayList<R>(cnt);
-
-        if (cnt == 0) {
-            return res;
-        }
-
-        Marshaller marshaller = schema.getMarshaller(recMapper, part);
-        var reader = new ClientMarshallerReader(in);
-
-        try {
-            for (int i = 0; i < cnt; i++) {
-                if (nullable && !in.unpackBoolean()) {
-                    res.add(null);
-                } else {
-                    res.add((R) marshaller.readObject(reader, null));
-                }
-            }
-        } catch (MarshallerException e) {
-            throw new IgniteClientException(e.getMessage(), e);
-        }
-
-        return res;
-    }
-
-    private R readValRec(@NotNull R keyRec, ClientSchema schema, ClientMessageUnpacker in) {
-        if (oneColumnMode) {
-            return keyRec;
-        }
-
-        Marshaller keyMarshaller = schema.getMarshaller(recMapper, TuplePart.KEY);
-        Marshaller valMarshaller = schema.getMarshaller(recMapper, TuplePart.VAL);
-
-        ClientMarshallerReader reader = new ClientMarshallerReader(in);
-
-        try {
-            var res = (R) valMarshaller.readObject(reader, null);
-
-            keyMarshaller.copyObject(keyRec, res);
-
-            return res;
-        } catch (MarshallerException e) {
-            throw new IgniteClientException(e.getMessage(), e);
-        }
-    }
 }
