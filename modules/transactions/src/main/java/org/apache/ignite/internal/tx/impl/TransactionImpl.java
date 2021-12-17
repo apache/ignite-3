@@ -57,9 +57,6 @@ public class TransactionImpl implements InternalTransaction {
     /** Enlisted groups. */
     private Set<RaftGroupService> enlisted = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-    /** Bounded thread. */
-    private Thread thread;
-
     /**
      * The constructor.
      *
