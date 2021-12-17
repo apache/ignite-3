@@ -89,10 +89,9 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testMissingValueColumnsAreSkipped() {
-        // TODO
         Table table = fullTable();
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
-        RecordView<IncompletePojo> pojoView = table.recordView(IncompletePojo.class);
+        KeyValueView<IncompletePojo, IncompletePojo> pojoView = table.keyValueView(IncompletePojo.class, IncompletePojo.class);
 
         kvView.put(allClumnsTableKey(1), allColumnsTableVal("x"));
 
@@ -103,8 +102,8 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         // This POJO does not have fields for all table columns, and this is ok.
         IncompletePojo val = pojoView.get(key);
 
-        assertEquals(1, val.gid);
-        assertEquals("1", val.id);
+        assertEquals(0, val.gid);
+        assertNull(val.id);
         assertEquals("x", val.zstring);
         assertEquals(2, val.zbytes[1]);
         assertEquals(11, val.zbyte);
