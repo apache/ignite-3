@@ -20,11 +20,17 @@ package org.apache.ignite.internal.client.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
+import org.apache.ignite.internal.marshaller.Marshaller;
+import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -94,7 +100,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
                 (schema, out) -> keySer.writeRecs(keys, schema, out, TuplePart.KEY),
-                valSer::readRecsNullable,
+                (schema, in) -> readGetAllResponse(keys, schema, in),
                 Collections.emptyMap());
     }
 
@@ -286,5 +292,31 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     @Override
     public KeyValueView<K, V> withTransaction(Transaction tx) {
         return null;
+    }
+
+    private HashMap<K, V> readGetAllResponse(@NotNull Collection<K> keys, ClientSchema schema, ClientMessageUnpacker in) {
+        var cnt = in.unpackInt();
+        assert cnt == keys.size();
+
+        var res = new HashMap<K, V>(cnt);
+
+        Marshaller keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY);
+        Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL);
+
+        var reader = new ClientMarshallerReader(in);
+
+        try {
+            for (K key : keys) {
+                if (!in.unpackBoolean()) {
+                    res.put(key, null);
+                } else {
+                    res.put((K) keyMarsh.readObject(reader, null), (V) valMarsh.readObject(reader, null));
+                }
+            }
+        } catch (MarshallerException e) {
+            throw new IgniteClientException(e.getMessage(), e);
+        }
+
+        return res;
     }
 }

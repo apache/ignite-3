@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -59,6 +60,10 @@ class ClientRecordSerializer<R> {
         this.mapper = mapper;
 
         oneColumnMode = MarshallerUtil.mode(mapper.targetType()) != null;
+    }
+
+    public Mapper<R> mapper() {
+        return mapper;
     }
 
     public void writeRec(@NotNull R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
@@ -121,11 +126,12 @@ class ClientRecordSerializer<R> {
 
     public Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in, boolean nullable, TuplePart part) {
         var cnt = in.unpackInt();
-        var res = new ArrayList<R>(cnt);
 
         if (cnt == 0) {
-            return res;
+            return Collections.emptyList();
         }
+
+        var res = new ArrayList<R>(cnt);
 
         Marshaller marshaller = schema.getMarshaller(mapper, part);
         var reader = new ClientMarshallerReader(in);
