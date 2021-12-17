@@ -235,19 +235,15 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testGetAll() {
-        // TODO
         Table table = defaultTable();
-        RecordView<PersonPojo> pojoView = table.recordView(Mapper.of(PersonPojo.class));
+        KeyValueView<Long, PersonPojo> pojoView = table.keyValueView(Mapper.of(Long.class), Mapper.of(PersonPojo.class));
 
         table.recordView().upsert(tuple());
         table.recordView().upsert(tuple(100L, "100"));
 
-        Collection<PersonPojo> keys = List.of(
-                new PersonPojo(DEFAULT_ID, "blabla"),
-                new PersonPojo(101L, "1234"),
-                new PersonPojo(100L, "qwerty"));
+        Collection<Long> keys = List.of(DEFAULT_ID, 101L, 100L);
 
-        PersonPojo[] res = pojoView.getAll(keys).toArray(new PersonPojo[0]);
+        PersonPojo[] res = pojoView.getAll(keys).values().toArray(new PersonPojo[0]);
 
         assertEquals(3, res.length);
 
