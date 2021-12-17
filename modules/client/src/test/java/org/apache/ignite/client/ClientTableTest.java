@@ -337,9 +337,9 @@ public class ClientTableTest extends AbstractClientTableTest {
         var tuple = Tuple.create()
                 .set("id", 1);
 
-        table.upsert(tuple);
+        table.upsert(null, tuple);
 
-        var res = table.get(tuple);
+        var res = table.get(null, tuple);
 
         assertEquals("def_str", res.stringValue("str"));
         assertEquals("def_str2", res.stringValue("str_non_null"));
@@ -353,9 +353,9 @@ public class ClientTableTest extends AbstractClientTableTest {
                 .set("id", 1)
                 .set("str", null);
 
-        table.upsert(tuple);
+        table.upsert(null, tuple);
 
-        var res = table.get(tuple);
+        var res = table.get(null, tuple);
 
         assertNull(res.stringValue("str"));
     }
@@ -368,7 +368,7 @@ public class ClientTableTest extends AbstractClientTableTest {
                 .set("id", 1)
                 .set("str_non_null", null);
 
-        var ex = assertThrows(CompletionException.class, () -> table.upsert(tuple));
+        var ex = assertThrows(CompletionException.class, () -> table.upsert(null, tuple));
 
         assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
     }
