@@ -170,7 +170,7 @@ public class KeyValueViewOperationsTest {
         assertTrue(tbl.contains(null, key));
 
         // Delete key.
-        tbl.remove(null, key2, null);
+        tbl.remove(null, key2);
         assertFalse(tbl.contains(null, key2));
     }
 
