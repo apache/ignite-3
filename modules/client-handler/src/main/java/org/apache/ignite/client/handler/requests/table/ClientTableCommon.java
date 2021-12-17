@@ -385,8 +385,7 @@ class ClientTableCommon {
             int type = getClientDataType(col.type().spec());
             Object val = unpacker.unpackObject(type);
             tuple.set(col.name(), val);
-        }
-        catch (MessageTypeException e) {
+        } catch (MessageTypeException e) {
             throw new IgniteException("Incorrect value type for column '" + col.name() + "': " + e.getMessage(), e);
         }
     }
