@@ -125,10 +125,10 @@ public enum DefaultType {
      */
     public ClassDescriptor asClassDescriptor() {
         return new ClassDescriptor(
-            clazz,
-            descriptorId,
-            Collections.emptyList(),
-            SerializationType.DEFAULT
+                clazz,
+                descriptorId,
+                Collections.emptyList(),
+                new Serialization(SerializationType.DEFAULT)
         );
     }
 }

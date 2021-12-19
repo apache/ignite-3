@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.network.serialization;
 
+import static org.apache.ignite.internal.network.serialization.Serialization.Feature.OVERRIDE;
+import static org.apache.ignite.internal.network.serialization.Serialization.Feature.READ_RESOLVE;
+import static org.apache.ignite.internal.network.serialization.Serialization.Feature.WRITE_REPLACE;
 import static org.apache.ignite.internal.network.serialization.SerializationType.ARBITRARY;
 import static org.apache.ignite.internal.network.serialization.SerializationType.EXTERNALIZABLE;
 import static org.apache.ignite.internal.network.serialization.SerializationType.SERIALIZABLE;
@@ -64,7 +67,7 @@ public class ClassDescriptorFactoryTest {
     public void testSerializable() {
         ClassDescriptor descriptor = factory.create(SerializableClass.class);
 
-        checkSerializable(descriptor.serializationType(), false, false, false);
+        checkSerializable(descriptor.serialization(), false, false, false);
         assertEquals(0, descriptor.fields().size());
     }
 
@@ -89,7 +92,7 @@ public class ClassDescriptorFactoryTest {
     public void testSerializableOverride() {
         ClassDescriptor descriptor = factory.create(SerializableOverride.class);
 
-        checkSerializable(descriptor.serializationType(), true, false, false);
+        checkSerializable(descriptor.serialization(), true, false, false);
         assertEquals(0, descriptor.fields().size());
     }
 
@@ -119,7 +122,7 @@ public class ClassDescriptorFactoryTest {
     public void testSerializableOverrideWriteReplace() {
         ClassDescriptor descriptor = factory.create(SerializableOverrideWriteReplace.class);
 
-        checkSerializable(descriptor.serializationType(), true, true, false);
+        checkSerializable(descriptor.serialization(), true, true, false);
         assertEquals(0, descriptor.fields().size());
     }
 
@@ -149,7 +152,7 @@ public class ClassDescriptorFactoryTest {
     public void testSerializableOverrideReadResolve() {
         ClassDescriptor descriptor = factory.create(SerializableOverrideReadResolve.class);
 
-        checkSerializable(descriptor.serializationType(), true, false, true);
+        checkSerializable(descriptor.serialization(), true, false, true);
         assertEquals(0, descriptor.fields().size());
     }
 
@@ -185,7 +188,7 @@ public class ClassDescriptorFactoryTest {
         ClassDescriptor descriptor = factory.create(
                 SerializableOverrideWriteReplaceReadResolve.class);
 
-        checkSerializable(descriptor.serializationType(), true, true, true);
+        checkSerializable(descriptor.serialization(), true, true, true);
         assertEquals(0, descriptor.fields().size());
     }
 
@@ -202,7 +205,7 @@ public class ClassDescriptorFactoryTest {
     public void testSerializableWriteReplace() {
         ClassDescriptor descriptor = factory.create(SerializableWriteReplace.class);
 
-        checkSerializable(descriptor.serializationType(), false, true, false);
+        checkSerializable(descriptor.serialization(), false, true, false);
         assertEquals(0, descriptor.fields().size());
     }
 
@@ -220,7 +223,7 @@ public class ClassDescriptorFactoryTest {
     public void testSerializableReadResolve() {
         ClassDescriptor descriptor = factory.create(SerializableReadResolve.class);
 
-        checkSerializable(descriptor.serializationType(), false, false, true);
+        checkSerializable(descriptor.serialization(), false, false, true);
         assertEquals(0, descriptor.fields().size());
     }
 
@@ -242,7 +245,7 @@ public class ClassDescriptorFactoryTest {
     public void testSerializableWriteReplaceReadResolve() {
         ClassDescriptor descriptor = factory.create(SerializableWriteReplaceReadResolve.class);
 
-        checkSerializable(descriptor.serializationType(), false, true, true);
+        checkSerializable(descriptor.serialization(), false, true, true);
         assertEquals(0, descriptor.fields().size());
     }
 
@@ -361,7 +364,7 @@ public class ClassDescriptorFactoryTest {
         checkDefaultType(descriptor.serializationType());
     }
 
-    private static class SerializableWithWrongSignatures implements Serializable {
+    private static class SerializableWithoutExceptionsOnSpecialMethods implements Serializable {
         private static final long serialVersionUID = 0L;
 
         private void writeObject(ObjectOutputStream out) {
@@ -388,11 +391,11 @@ public class ClassDescriptorFactoryTest {
     }
 
     @Test
-    public void testSerializableWithIncorrectMethodSignatures() {
-        ClassDescriptor descriptor = factory.create(SerializableWithWrongSignatures.class);
+    public void testSerializableWithoutExceptionsOnSpecialMethods() {
+        ClassDescriptor descriptor = factory.create(SerializableWithoutExceptionsOnSpecialMethods.class);
 
         assertNotNull(descriptor);
-        checkSerializable(descriptor.serializationType(), false, false, false);
+        checkSerializable(descriptor.serialization(), true, true, true);
     }
 
     /**
@@ -435,17 +438,18 @@ public class ClassDescriptorFactoryTest {
     /**
      * Checks that serialization type is {@link SerializationType#SERIALIZABLE} and has specific flags.
      *
-     * @param type         Serialization type.
-     * @param override     Has readObject/writeObject/readObjectNoData methods.
-     * @param writeReplace Has writeReplace method.
-     * @param readResolve  Has readResolve method.
+     * @param serialization serialization to check.
+     * @param override      Has readObject/writeObject/readObjectNoData methods.
+     * @param writeReplace  Has writeReplace method.
+     * @param readResolve   Has readResolve method.
      */
-    private void checkSerializable(int type, boolean override, boolean writeReplace, boolean readResolve) {
-        assertEquals(0, type & ARBITRARY);
-        assertEquals(SERIALIZABLE, type & SERIALIZABLE);
-        assertEquals(override ? SERIALIZABLE_OVERRIDE : 0, type & SERIALIZABLE_OVERRIDE);
-        assertEquals(writeReplace ? SERIALIZABLE_WRITE_REPLACE : 0, type & SERIALIZABLE_WRITE_REPLACE);
-        assertEquals(readResolve ? SERIALIZABLE_READ_RESOLVE : 0, type & SERIALIZABLE_READ_RESOLVE);
-        assertEquals(0, type & EXTERNALIZABLE);
+    private void checkSerializable(Serialization serialization, boolean override, boolean writeReplace, boolean readResolve) {
+        int type = serialization.type();
+        assertEquals(SERIALIZABLE, type);
+
+        int features = serialization.features();
+        assertEquals(override ? OVERRIDE : 0, features & OVERRIDE);
+        assertEquals(writeReplace ? WRITE_REPLACE : 0, features & WRITE_REPLACE);
+        assertEquals(readResolve ? READ_RESOLVE : 0, features & READ_RESOLVE);
     }
 }

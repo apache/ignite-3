@@ -104,6 +104,20 @@ public class ClassDescriptorFactoryContext {
     }
 
     /**
+     * Returns a descriptor by its ID or throws an exception if the ID is not known.
+     *
+     * @param descriptorId ID by which to obtain a descriptor
+     * @return descriptor
+     */
+    public ClassDescriptor getRequiredDescriptor(int descriptorId) {
+        ClassDescriptor descriptor = getDescriptor(descriptorId);
+        if (descriptor == null) {
+            throw new IllegalStateException("No descriptor exists with ID=" + descriptorId);
+        }
+        return descriptor;
+    }
+
+    /**
      * Returns {@code true} if there is a descriptor for the id.
      *
      * @param descriptorId Descriptor id.

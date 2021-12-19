@@ -21,6 +21,9 @@ package org.apache.ignite.internal.network.serialization;
  * Serialization type flags.
  */
 public class SerializationType {
+    // TODO: why ints and not enum?
+    // TODO: why powers of 2 if all of them seem mutually exclusive?
+
     /** Used for predefined descriptors like primitive (or boxed int). See {@link DefaultType}. */
     public static final int DEFAULT = 0;
 
