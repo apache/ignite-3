@@ -46,6 +46,8 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     public static final String TABLE_ONE_COLUMN = "one-column";
 
+    public static final String TABLE_WITH_DEFAULT_VALUES = "default-columns";
+
     private final ConcurrentHashMap<String, TableImpl> tables = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<IgniteUuid, TableImpl> tablesById = new ConcurrentHashMap<>();
@@ -172,6 +174,10 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                 history = this::getOneColumnSchema;
                 break;
 
+            case TABLE_WITH_DEFAULT_VALUES:
+                history = this::getDefaultColumnValuesSchema;
+                break;
+
             default:
                 history = this::getSchema;
                 break;
@@ -179,8 +185,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
         return new TableImpl(
                 new FakeInternalTable(name, new IgniteUuid(UUID.randomUUID(), 0)),
-                new FakeSchemaRegistry(history),
-                null
+                new FakeSchemaRegistry(history)
         );
     }
 
@@ -240,6 +245,25 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                         new Column("zbitmask", NativeTypes.bitmaskOf(16), true),
                         new Column("zdecimal", NativeTypes.decimalOf(20, 3), true),
                         new Column("znumber", NativeTypes.numberOf(24), true),
+                });
+    }
+
+    /**
+     * Gets the schema.
+     *
+     * @param v Version.
+     * @return Schema descriptor.
+     */
+    private SchemaDescriptor getDefaultColumnValuesSchema(Integer v) {
+        return new SchemaDescriptor(
+                v,
+                new Column[]{
+                        new Column("id", NativeTypes.INT32, false)
+                },
+                new Column[]{
+                        new Column("num", NativeTypes.INT8, true, () -> (byte) 42),
+                        new Column("str", NativeTypes.STRING, true, () -> "def_str"),
+                        new Column("str_non_null", NativeTypes.STRING, false, () -> "def_str2"),
                 });
     }
 
