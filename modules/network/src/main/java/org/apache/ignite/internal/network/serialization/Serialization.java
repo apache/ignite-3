@@ -28,9 +28,17 @@ public class Serialization {
     private final boolean hasSerializationOverride;
     /** Whether a Serializable/Externalizable has writeReplace() method. */
     private final boolean hasWriteReplace;
-    /** Whether a Serializable/Externalizable has readResolve() method */
+    /** Whether a Serializable/Externalizable has readResolve() method. */
     private final boolean hasReadResolve;
 
+    /**
+     * Creates a new Serialization.
+     *
+     * @param type                     type
+     * @param hasSerializationOverride whether a Serializable has writeObject()/readObject()/readObjectNoData() methods
+     * @param hasWriteReplace          whether a Serializable/Externalizable has writeReplace() method
+     * @param hasReadResolve           whether a Serializable/Externalizable has readResolve() method
+     */
     public Serialization(SerializationType type, boolean hasSerializationOverride, boolean hasWriteReplace, boolean hasReadResolve) {
         this.type = type;
         this.hasSerializationOverride = hasSerializationOverride;
@@ -38,6 +46,11 @@ public class Serialization {
         this.hasReadResolve = hasReadResolve;
     }
 
+    /**
+     * Creates a new Serialization with all optional features disabled.
+     *
+     * @param type serialization type
+     */
     public Serialization(SerializationType type) {
         this(type, false, false, false);
     }
