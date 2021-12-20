@@ -122,7 +122,8 @@ public class ClassDescriptorFactory {
                 clazz,
                 descriptorId,
                 Collections.emptyList(),
-                new Serialization(SerializationType.EXTERNALIZABLE, serializationFeatures(clazz))
+                new Serialization(SerializationType.EXTERNALIZABLE,
+                        hasOverrideSerialization(clazz), hasWriteReplace(clazz), hasReadResolve(clazz))
         );
     }
 
@@ -159,33 +160,24 @@ public class ClassDescriptorFactory {
      */
     private ClassDescriptor serializable(int descriptorId, Class<? extends Serializable> clazz) {
         return new ClassDescriptor(clazz, descriptorId, fields(clazz),
-                new Serialization(SerializationType.SERIALIZABLE, serializationFeatures(clazz)));
+                new Serialization(SerializationType.SERIALIZABLE,
+                        hasOverrideSerialization(clazz), hasWriteReplace(clazz), hasReadResolve(clazz)));
     }
 
-    private int serializationFeatures(Class<? extends Serializable> clazz) {
+    private boolean hasReadResolve(Class<? extends Serializable> clazz) {
+        return getReadResolve(clazz) != null;
+    }
+
+    private boolean hasWriteReplace(Class<? extends Serializable> clazz) {
+        return getWriteReplace(clazz) != null;
+    }
+
+    private boolean hasOverrideSerialization(Class<? extends Serializable> clazz) {
         Method writeObject = getWriteObject(clazz);
         Method readObject = getReadObject(clazz);
         Method readObjectNoData = getReadObjectNoData(clazz);
 
-        boolean overrideSerialization = writeObject != null && readObject != null && readObjectNoData != null;
-
-        Method writeReplace = getWriteReplace(clazz);
-        Method readResolve = getReadResolve(clazz);
-
-        int serializationFeatures = 0;
-
-        if (overrideSerialization) {
-            serializationFeatures |= Serialization.Feature.OVERRIDE;
-        }
-
-        if (writeReplace != null) {
-            serializationFeatures |= Serialization.Feature.WRITE_REPLACE;
-        }
-
-        if (readResolve != null) {
-            serializationFeatures |= Serialization.Feature.READ_RESOLVE;
-        }
-        return serializationFeatures;
+        return writeObject != null && readObject != null && readObjectNoData != null;
     }
 
     /**

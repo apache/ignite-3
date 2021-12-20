@@ -123,7 +123,7 @@ public class ClassDescriptor {
      *
      * @return Serialization type.
      */
-    public int serializationType() {
+    public SerializationType serializationType() {
         return serialization.type();
     }
 

@@ -21,47 +21,40 @@ package org.apache.ignite.internal.network.serialization;
  * Describes how a class is to be serialized.
  */
 public class Serialization {
-    /** Serialization type (see {@link SerializationType}. */
-    private final int type;
+    /** Serialization type. */
+    private final SerializationType type;
 
-    /** Combination of flags defined in Feature. */
-    private final int features;
+    /** Whether a Serializable has writeObject()/readObject()/readObjectNoData() methods. */
+    private final boolean hasSerializationOverride;
+    /** Whether a Serializable/Externalizable has writeReplace() method. */
+    private final boolean hasWriteReplace;
+    /** Whether a Serializable/Externalizable has readResolve() method */
+    private final boolean hasReadResolve;
 
-    public Serialization(int type, int features) {
+    public Serialization(SerializationType type, boolean hasSerializationOverride, boolean hasWriteReplace, boolean hasReadResolve) {
         this.type = type;
-        this.features = features;
+        this.hasSerializationOverride = hasSerializationOverride;
+        this.hasWriteReplace = hasWriteReplace;
+        this.hasReadResolve = hasReadResolve;
     }
 
-    public Serialization(int type) {
-        this(type, 0);
+    public Serialization(SerializationType type) {
+        this(type, false, false, false);
     }
 
-    public int type() {
+    public SerializationType type() {
         return type;
     }
 
-    public int features() {
-        return features;
-    }
-
-    public boolean hasOverride() {
-        return (features & Feature.OVERRIDE) != 0;
+    public boolean hasSerializationOverride() {
+        return hasSerializationOverride;
     }
 
     public boolean hasWriteReplace() {
-        return (features & Feature.WRITE_REPLACE) != 0;
+        return hasWriteReplace;
     }
 
     public boolean hasReadResolve() {
-        return (features & Feature.READ_RESOLVE) != 0;
-    }
-
-    /**
-     * Serialization-related features.
-     */
-    public static class Feature {
-        public static final int OVERRIDE = 1;
-        public static final int WRITE_REPLACE = 2;
-        public static final int READ_RESOLVE = 4;
+        return hasReadResolve;
     }
 }
