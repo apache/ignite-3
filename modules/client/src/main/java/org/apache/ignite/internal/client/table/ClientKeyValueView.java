@@ -265,7 +265,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public boolean replace(@NotNull K key, V val) {
-        return false;
+        return replaceAsync(key, val).join();
     }
 
     /** {@inheritDoc} */
@@ -277,7 +277,15 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, V val) {
-        return null;
+        Objects.requireNonNull(key);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_REPLACE,
+                (s, w) -> {
+                    keySer.writeRec(key, s, w, TuplePart.KEY);
+                    valSer.writeRecRaw(val, s, w, TuplePart.VAL);
+                },
+                ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */
