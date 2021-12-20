@@ -32,6 +32,7 @@ import static java.util.EnumSet.of;
 import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.LAMBDA_METAFACTORY;
 import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.internalName;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isConfigValue;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isInjectedName;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isInternalId;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isNamedConfigValue;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicId;
@@ -198,7 +199,8 @@ class DirectProxyAsmGenerator {
         } else if (isNamedConfigValue(schemaField)) {
             returnType = type(NamedConfigurationTree.class);
         } else {
-            assert isValue(schemaField) || isPolymorphicId(schemaField)  || isInternalId(schemaField) : schemaField;
+            assert isValue(schemaField) || isPolymorphicId(schemaField) || isInjectedName(schemaField)
+                    || isInternalId(schemaField) : schemaField;
 
             returnType = type(ConfigurationValue.class);
         }
@@ -211,7 +213,7 @@ class DirectProxyAsmGenerator {
 
         BytecodeBlock body = methodDef.getBody();
 
-        if (isValue(schemaField) || isPolymorphicId(schemaField) || isInternalId(schemaField)) {
+        if (isValue(schemaField) || isPolymorphicId(schemaField) || isInjectedName(schemaField) || isInternalId(schemaField)) {
             // new DirectValueProxy(appendKey(this.keys, new KeyPathNode("name")), changer);
             // or
             // new DirectValueProxy(appendKey(this.keys, new KeyPathNode("<internal_id>")), changer);

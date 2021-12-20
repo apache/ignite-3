@@ -1836,7 +1836,7 @@ public class ConfigurationAsmGenerator {
                 newValue = newInstance(
                         DynamicProperty.class,
                         thisKeysVar,
-                        constantString(isNamedConfigValue(schemaField) ? InnerNode.INJECTED_NAME
+                        constantString(isInjectedName(schemaField) ? InnerNode.INJECTED_NAME
                                 : isInternalId(schemaField) ? InnerNode.INTERNAL_ID : schemaField.getName()),
                         rootKeyVar,
                         changerVar,
