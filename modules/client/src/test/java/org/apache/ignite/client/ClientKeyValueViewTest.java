@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -441,5 +442,10 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertNull(pojoView.get(1L));
         assertEquals("2", pojoView.get(2L));
         assertNull(pojoView.get(3L));
+    }
+
+    @Test
+    public void testContains() {
+        fail("TODO");
     }
 }
