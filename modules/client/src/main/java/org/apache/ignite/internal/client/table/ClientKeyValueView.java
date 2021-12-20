@@ -266,13 +266,18 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public V getAndRemove(@NotNull K key) {
-        return null;
+        return getAndRemoveAsync(key).join();
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<V> getAndRemoveAsync(@NotNull K key) {
-        return null;
+        Objects.requireNonNull(key);
+
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET_AND_DELETE,
+                (s, w) -> keySer.writeRec(key, s, w, TuplePart.KEY),
+                (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
     }
 
     /** {@inheritDoc} */

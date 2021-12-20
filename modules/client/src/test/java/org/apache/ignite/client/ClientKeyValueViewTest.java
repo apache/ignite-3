@@ -378,7 +378,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testDelete() {
+    public void testRemove() {
         KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
         pojoView.put(DEFAULT_ID, DEFAULT_NAME);
@@ -393,7 +393,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testDeleteExact() {
+    public void testRemoveExact() {
         KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
         pojoView.put(DEFAULT_ID, DEFAULT_NAME);
@@ -412,17 +412,16 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testGetAndDelete() {
-        // TODO
-        RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
+    public void testGetAndRemove() {
+        KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
+        pojoView.put(DEFAULT_ID, DEFAULT_NAME);
 
-        PersonPojo res1 = pojoView.getAndDelete(new PersonPojo(DEFAULT_ID));
-        PersonPojo res2 = pojoView.getAndDelete(new PersonPojo(100L));
+        String res1 = pojoView.getAndRemove(DEFAULT_ID);
+        String res2 = pojoView.getAndRemove(100L);
 
-        assertEquals(DEFAULT_NAME, res1.name);
-        assertNull(pojoView.get(new PersonPojo(DEFAULT_ID)));
+        assertEquals(DEFAULT_NAME, res1);
+        assertNull(pojoView.get(DEFAULT_ID));
 
         assertNull(res2);
     }
