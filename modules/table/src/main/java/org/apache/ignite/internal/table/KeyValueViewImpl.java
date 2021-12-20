@@ -80,7 +80,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public @NotNull CompletableFuture<V> getAsync(@Nullable Transaction tx, @NotNull K key) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(key));
 
-        return tbl.get(keyRow, (InternalTransaction)tx).thenApply(row -> {
+        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(row -> {
             if (row == null) {
                 return null;
             }
@@ -122,7 +122,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
         BinaryRow keyRow = marshal(Objects.requireNonNull(key));
 
-        return tbl.get(keyRow, (InternalTransaction)tx).thenApply(r -> r == null ? defaultValue : unmarshalValue(r));
+        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(r -> r == null ? defaultValue : unmarshalValue(r));
     }
 
     /** {@inheritDoc} */
