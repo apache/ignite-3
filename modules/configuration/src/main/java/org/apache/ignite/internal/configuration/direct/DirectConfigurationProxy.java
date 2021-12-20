@@ -33,7 +33,7 @@ public abstract class DirectConfigurationProxy<VIEWT, CHANGET extends VIEWT>
     /**
      * Constructor.
      *
-     * @param keys    Full path to the node.
+     * @param keys Full path to the node.
      * @param changer Changer.
      */
     protected DirectConfigurationProxy(List<KeyPathNode> keys, DynamicConfigurationChanger changer) {

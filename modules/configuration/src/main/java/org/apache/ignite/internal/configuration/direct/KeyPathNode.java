@@ -50,7 +50,7 @@ public class KeyPathNode {
     /**
      * Constructor for named list elements.
      *
-     * @param key            Key.
+     * @param key Key.
      * @param unresolvedName {@code true} if key is unresolved name, {@code false} if it's an internal id.
      */
     public KeyPathNode(String key, boolean unresolvedName) {

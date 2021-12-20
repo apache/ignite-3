@@ -790,7 +790,7 @@ public class ConfigurationUtil {
                         try {
                             KeyPathNode pathNode = path.get(idx++);
 
-                            assert pathNode.unresolvedName == false;
+                            assert !pathNode.unresolvedName;
 
                             if (INTERNAL_ID.equals(pathNode.key)) {
                                 // It's impossible to get this value with a regular traversal. Just call a method.
@@ -1117,9 +1117,9 @@ public class ConfigurationUtil {
         assert cfg instanceof NamedListConfiguration || cfg instanceof DirectNamedListProxy : cfg.getClass();
 
         if (cfg instanceof NamedListConfiguration) {
-            return (T) ((NamedListConfiguration<T, ?, ?>) cfg).getByInternalId(internalId);
+            return ((NamedListConfiguration<T, ?, ?>) cfg).getByInternalId(internalId);
         } else {
-            return (T) ((DirectNamedListProxy<T, ?, ?>) cfg).getByInternalId(internalId);
+            return ((DirectNamedListProxy<T, ?, ?>) cfg).getByInternalId(internalId);
         }
     }
 

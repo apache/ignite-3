@@ -79,10 +79,10 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
     /**
      * Constructor.
      *
-     * @param keys       Configuration keys.
-     * @param key        Configuration key.
-     * @param rootKey    Root key.
-     * @param changer    Configuration changer.
+     * @param keys Configuration keys.
+     * @param key Configuration key.
+     * @param rootKey Root key.
+     * @param changer Configuration changer.
      * @param listenOnly Only adding listeners mode, without the ability to get or update the property value.
      */
     protected ConfigurationNode(
@@ -227,6 +227,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
             /** Current index. */
             private int idx = 1;
 
+            /** {@inheritDoc} */
             @Nullable
             @Override
             public List<KeyPathNode> visitLeafNode(String key, Serializable val) {
@@ -235,6 +236,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
                 return res;
             }
 
+            /** {@inheritDoc} */
             @Nullable
             @Override
             public List<KeyPathNode> visitInnerNode(String key, InnerNode node) {
@@ -249,6 +251,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
                 return res;
             }
 
+            /** {@inheritDoc} */
             @Nullable
             @Override
             public List<KeyPathNode> visitNamedListNode(String key, NamedListNode node) {

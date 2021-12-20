@@ -20,17 +20,18 @@ package org.apache.ignite.internal.configuration.tree;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.InternalId;
 
 /**
  * Configuration node implementation.
  */
 public abstract class InnerNode implements TraversableTreeNode, ConstructableTreeNode, Cloneable {
-    /**
-     * Internal id key name.
-     */
+    /** Configuration field name with {@link InternalId}. */
     public static final String INTERNAL_ID = "<internal_id>";
 
-    // TODO make it UUID
+    /** Configuration field name with {@link InjectedName}. */
+    public static final String INJECTED_NAME = "<injected_name>";
+
     /**
      * Internal id of the node. May be {@code null}.
      */

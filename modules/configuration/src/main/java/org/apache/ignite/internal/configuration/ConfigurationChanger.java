@@ -269,9 +269,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     public <T> T getLatest(List<KeyPathNode> path) {
         assert !path.isEmpty();
         assert path instanceof RandomAccess : path.getClass();
-        assert path.get(0).unresolvedName == false : path;
+        assert !path.get(0).unresolvedName : path;
 
-        // This map will be merged into the data from the storage. It's required for the convertion into tree to work.
+        // This map will be merged into the data from the storage. It's required for the conversion into tree to work.
         // Namely, named list order indexes and names are mandatory for conversion.
         Map<String, Map<String, Serializable>> extras = new HashMap<>();
 
@@ -292,7 +292,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                 if (keyPathNode.namedListEntry) {
                     prefixJoiner.add(escape(keyPathNode.key));
 
-                    String prefix = prefixJoiner.toString() + KEY_SEPARATOR;
+                    String prefix = prefixJoiner + KEY_SEPARATOR;
 
                     extras.put(prefix, Map.of(
                             prefix + NamedListNode.NAME, "<name_placeholder>",
@@ -309,28 +309,26 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             // Here we have unresolved named list element. Name must be translated into the internal id.
             // There's a special path for this purpose in the storage.
-            String unresolvedNameKey = prefixJoiner.toString() + KEY_SEPARATOR
+            String unresolvedNameKey = prefixJoiner + KEY_SEPARATOR
                     + NamedListNode.IDS + KEY_SEPARATOR
-                    + ConfigurationUtil.escape(keyPathNode.key);
+                    + escape(keyPathNode.key);
 
             // Data from the storage.
             Serializable resolvedName = storage.readLatest(unresolvedNameKey);
 
             if (resolvedName == null) {
-                throw new NoSuchElementException(
-                        prefixJoiner.toString() + KEY_SEPARATOR + ConfigurationUtil.escape(keyPathNode.key)
-                );
+                throw new NoSuchElementException(prefixJoiner + KEY_SEPARATOR + escape(keyPathNode.key));
             }
 
             assert resolvedName instanceof String : resolvedName;
 
-            // Reolved internal id from the map.
+            // Resolved internal id from the map.
             String internalId = (String) resolvedName;
 
             // There's a chance that this is exactly what user wants. If their request ends with
             // `*.get("resourceName").internalId()` then the result can be returned straight away.
             if (idx == pathSize - 2 && INTERNAL_ID.equals(lastPathNode.key)) {
-                assert lastPathNode.unresolvedName == false : path;
+                assert !lastPathNode.unresolvedName : path;
 
                 // Despite the fact that this cast looks very stupid, it is correct. Internal ids are always UUIDs.
                 return (T) UUID.fromString(internalId);
@@ -338,7 +336,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             prefixJoiner.add(internalId);
 
-            String prefix = prefixJoiner.toString() + KEY_SEPARATOR;
+            String prefix = prefixJoiner + KEY_SEPARATOR;
 
             // Real name and 0 index go to extras in case of unresolved named list elements.
             extras.put(prefix, Map.of(
@@ -350,10 +348,10 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         // Exceptional case, the only purpose of it is to ensure that named list element with given internal id does exist.
         // That id must be resolved, otherwise method would already be completed in the loop above.
         if (lastPathNode.key.equals(INTERNAL_ID) && !lastPathNode.unresolvedName && path.get(pathSize - 2).namedListEntry) {
-            assert path.get(pathSize - 2).unresolvedName == false : path;
+            assert !path.get(pathSize - 2).unresolvedName : path;
 
             // Not very elegant, I know. <internal_id> is replaced with the <name> in the prefix.
-            // <name> always exists in named list element and it's an easy way to check element's existence.
+            // <name> always exists in named list element, and it's an easy way to check element's existence.
             String nameStorageKey = prefixJoiner.toString().replaceAll(quote(INTERNAL_ID) + "$", NamedListNode.NAME);
 
             // Data from the storage.
@@ -399,7 +397,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             }
 
             if (lastPathNode.namedListEntry) {
-                // Change element's order index to zero. Convertion won't work if indexes range is not continuous.
+                // Change element's order index to zero. Conversion won't work if indexes range is not continuous.
                 mergedData.put(prefix + KEY_SEPARATOR + NamedListNode.ORDER_IDX, 0);
             }
         }

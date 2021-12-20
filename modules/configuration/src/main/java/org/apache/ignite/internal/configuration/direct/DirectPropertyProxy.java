@@ -41,7 +41,7 @@ public abstract class DirectPropertyProxy<VIEWT> implements ConfigurationPropert
     /**
      * Constructor.
      *
-     * @param keys    Full path to the node.
+     * @param keys Full path to the node.
      * @param changer Changer.
      */
     protected DirectPropertyProxy(

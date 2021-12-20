@@ -30,7 +30,6 @@ import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.internal.configuration.direct.DirectConfigurationProxy;
 import org.apache.ignite.internal.configuration.direct.DirectNamedListProxy;
 import org.apache.ignite.internal.configuration.direct.DirectPropertyProxy;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
@@ -61,15 +60,15 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
     /**
      * Constructor.
      *
-     * @param prefix             Configuration prefix.
-     * @param key                Configuration key.
-     * @param rootKey            Root key.
-     * @param changer            Configuration changer.
-     * @param listenOnly         Only adding listeners mode, without the ability to get or update the property value.
-     * @param cfgCreator         Underlying configuration creator function.
+     * @param prefix Configuration prefix.
+     * @param key Configuration key.
+     * @param rootKey Root key.
+     * @param changer Configuration changer.
+     * @param listenOnly Only adding listeners mode, without the ability to get or update the property value.
+     * @param cfgCreator Underlying configuration creator function.
      * @param directProxyCreator Creator for direct proxies of elements.
-     *                           Required for {@link DirectConfigurationProxy#DirectPropertyProxy(List, DynamicConfigurationChanger)}.
-     * @param anyConfig          Placeholder to add listeners for any configuration.
+     *      Required for {@link DirectPropertyProxy#DirectPropertyProxy(List, DynamicConfigurationChanger)}.
+     * @param anyConfig Placeholder to add listeners for any configuration.
      */
     public NamedListConfiguration(
             List<String> prefix,

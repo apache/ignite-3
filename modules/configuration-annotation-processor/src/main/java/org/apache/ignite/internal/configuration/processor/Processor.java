@@ -327,9 +327,7 @@ public class Processor extends AbstractProcessor {
         InjectedName injectedNameAnnotation = field.getAnnotation(InjectedName.class);
         InternalId internalIdAnnotation = field.getAnnotation(InternalId.class);
 
-        if (valueAnnotation != null
-                || polymorphicIdAnnotation != null
-                || injectedNameAnnotation != null
+        if (valueAnnotation != null || polymorphicIdAnnotation != null || injectedNameAnnotation != null
                 || internalIdAnnotation != null) {
             // It is necessary to use class names without loading classes so that we won't
             // accidentally get NoClassDefFoundError
@@ -454,8 +452,7 @@ public class Processor extends AbstractProcessor {
             viewClsBuilder.addMethod(getMtdBuilder.build());
 
             // Read only.
-            if (field.getAnnotation(PolymorphicId.class) != null
-                    || field.getAnnotation(InjectedName.class) != null
+            if (field.getAnnotation(PolymorphicId.class) != null || field.getAnnotation(InjectedName.class) != null
                     || field.getAnnotation(InternalId.class) != null) {
                 continue;
             }

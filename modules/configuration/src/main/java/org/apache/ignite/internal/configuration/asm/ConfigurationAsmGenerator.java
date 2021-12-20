@@ -1773,13 +1773,13 @@ public class ConfigurationAsmGenerator {
     /**
      * Implements default constructor for the configuration class. It initializes all fields and adds them to members collection.
      *
-     * @param classDef          Configuration impl class definition.
-     * @param schemaClass       Configuration schema class.
-     * @param fieldDefs         Field definitions for all fields of configuration impl class.
-     * @param schemaFields      Fields of the schema class.
-     * @param internalFields    Fields of internal extensions of the configuration schema.
+     * @param classDef Configuration impl class definition.
+     * @param schemaClass Configuration schema class.
+     * @param fieldDefs Field definitions for all fields of configuration impl class.
+     * @param schemaFields Fields of the schema class.
+     * @param internalFields Fields of internal extensions of the configuration schema.
      * @param polymorphicFields Fields of polymorphic extensions of the configuration schema.
-     * @param internalIdField   Internal id field or {@code null} if it's not present.
+     * @param internalIdField Internal id field or {@code null} if it's not present.
      */
     private void addConfigurationImplConstructor(
             ClassDefinition classDef,
@@ -1827,21 +1827,21 @@ public class ConfigurationAsmGenerator {
 
             BytecodeExpression newValue;
 
-            if (isValue(schemaField) || isPolymorphicId(schemaField) || isInjectedName(schemaField)) {
+            if (isValue(schemaField) || isPolymorphicId(schemaField) || isInjectedName(schemaField) || isInternalId(schemaField)) {
                 // A field with @InjectedName is special (auxiliary), it is not stored in storages as a regular field, and therefore there
                 // is no direct access to it. It is stored in the InnerNode and does not participate in its traversal, so in order to get
                 // it we need to get the InnerNode, and only then the value of this field.
 
-                // newValue = new DynamicProperty(super.keys, fieldName, rootKey, changer, listenOnly, readOnly, injectedNameField);
+                // newValue = new DynamicProperty(this.keys, fieldName, rootKey, changer, listenOnly, readOnly);
                 newValue = newInstance(
                         DynamicProperty.class,
-                        isInjectedName(schemaField) ? invokeStatic(REMOVE_LAST_KEY_MTD, thisKeysVar) : thisKeysVar,
-                        isInjectedName(schemaField) ? thisVar.getField("key", String.class) : constantString(isInternalId(schemaField) ? InnerNode.INTERNAL_ID : schemaField.getName()),
+                        thisKeysVar,
+                        constantString(isNamedConfigValue(schemaField) ? InnerNode.INJECTED_NAME
+                                : isInternalId(schemaField) ? InnerNode.INTERNAL_ID : schemaField.getName()),
                         rootKeyVar,
                         changerVar,
                         listenOnlyVar,
-                        constantBoolean(isPolymorphicId(schemaField) || isInjectedName(schemaField) || isInternalId(schemaField)),
-                        constantBoolean(isInjectedName(schemaField))
+                        constantBoolean(isPolymorphicId(schemaField) || isInjectedName(schemaField) || isInternalId(schemaField))
                 );
             } else {
                 SchemaClassesInfo fieldInfo = schemasInfo.get(schemaField.getType());
@@ -1995,7 +1995,8 @@ public class ConfigurationAsmGenerator {
         } else if (isNamedConfigValue(schemaField)) {
             returnType = type(NamedConfigurationTree.class);
         } else {
-            assert isValue(schemaField) || isPolymorphicId(schemaField) || isInjectedName(schemaField) || isInternalId(schemaField) : schemaField;
+            assert isValue(schemaField) || isPolymorphicId(schemaField) || isInjectedName(schemaField)
+                    || isInternalId(schemaField) : schemaField;
 
             returnType = type(ConfigurationValue.class);
         }
@@ -2120,7 +2121,7 @@ public class ConfigurationAsmGenerator {
             ClassDefinition schemaInnerNodeClassDef,
             Collection<Field> schemaFields,
             Collection<Field> polymorphicFields,
-            Field internalIdField
+            @Nullable Field internalIdField
     ) {
         SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
         SchemaClassesInfo polymorphicExtensionClassInfo = schemasInfo.get(polymorphicExtension);
@@ -2258,7 +2259,7 @@ public class ConfigurationAsmGenerator {
             ClassDefinition schemaCfgImplClassDef,
             Collection<Field> schemaFields,
             Collection<Field> polymorphicFields,
-            Field internalIdField
+            @Nullable Field internalIdField
     ) {
         SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
         SchemaClassesInfo polymorphicExtensionClassInfo = schemasInfo.get(polymorphicExtension);

@@ -45,7 +45,7 @@ public class DirectNamedListProxy<T extends ConfigurationProperty<VIEWT>, VIEWT,
     /**
      * Constructor.
      *
-     * @param keys    Full path to the node.
+     * @param keys Full path to the node.
      * @param changer Changer.
      * @param creator Factory to instantiate underlying proxied named list elements.
      */

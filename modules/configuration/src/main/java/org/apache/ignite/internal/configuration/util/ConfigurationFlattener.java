@@ -95,8 +95,8 @@ public class ConfigurationFlattener {
         private boolean singleTreeTraversal;
 
         /**
-         * Makes sense only if {@link #singleTreeTraversal} is {@code true}. Helps distinguishing creation from deletion. Always {@code
-         * false} if {@link #singleTreeTraversal} is {@code false}.
+         * Makes sense only if {@link #singleTreeTraversal} is {@code true}. Helps distinguishing creation from deletion.
+         * Always {@code false} if {@link #singleTreeTraversal} is {@code false}.
          */
         private boolean deletion;
 
@@ -104,7 +104,7 @@ public class ConfigurationFlattener {
          * Constructor.
          *
          * @param oldInnerNodesStack Old nodes stack for recursion.
-         * @param resMap             Map with the result.
+         * @param resMap Map with the result.
          */
         FlattenerVisitor(Deque<InnerNode> oldInnerNodesStack, Map<String, Serializable> resMap) {
             this.oldInnerNodesStack = oldInnerNodesStack;
@@ -172,8 +172,7 @@ public class ConfigurationFlattener {
                     : keysToOrderIdx(oldNode);
 
             // New keys ordering can be ignored if we delete everything.
-            Map<String, Integer> newKeysToOrderIdxMap = deletion ? null
-                    : keysToOrderIdx(newNode);
+            Map<String, Integer> newKeysToOrderIdxMap = deletion ? null : keysToOrderIdx(newNode);
 
             for (String newNodeKey : newNode.namedListKeys()) {
                 UUID newNodeInternalId = newNode.internalId(newNodeKey);

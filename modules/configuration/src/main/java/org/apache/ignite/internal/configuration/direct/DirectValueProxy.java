@@ -29,7 +29,7 @@ public class DirectValueProxy<VIEWT> extends DirectPropertyProxy<VIEWT> implemen
     /**
      * Constructor.
      *
-     * @param keys    Keys.
+     * @param keys Keys.
      * @param changer Changer.
      */
     public DirectValueProxy(
