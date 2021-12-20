@@ -18,8 +18,7 @@
 package org.apache.ignite.sql;
 
 /**
- * SQL result set provides methods to access SQL query result represented as collection of {@link
- * SqlRow}.
+ * SQL result set provides methods to access SQL query result represented as collection of {@link SqlRow}.
  *
  * <p>All the rows in result set have the same structure described in {@link ResultSetMetadata}.
  * ResultSet must be closed after usage to free resources.
@@ -31,21 +30,21 @@ public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
      * @return ResultSet metadata.
      */
     ResultSetMetadata metadata();
-    
+
     /**
      * Returns whether the result set contains rows (SELECT query result), or not (for query of DML, DDL or other kind).
      *
      * @return {@code True} if result set contains rows, {@code false} otherwise.
      */
     boolean hasRowSet();
-    
+
     /**
      * Returns number of row affected by the query.
      *
      * @return Number of rows or {@code -1} if unapplicable.
      */
     int updateCount();
-    
+
     /**
      * Returns result for the conditional query.
      *

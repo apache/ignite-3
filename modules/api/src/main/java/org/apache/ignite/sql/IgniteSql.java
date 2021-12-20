@@ -29,7 +29,7 @@ public interface IgniteSql {
      * @return Session.
      */
     Session newSession();
-    
+
     /**
      * Creates statement.
      *
@@ -39,4 +39,3 @@ public interface IgniteSql {
      */
     Statement newStatement(@NotNull String sql);
 }
-

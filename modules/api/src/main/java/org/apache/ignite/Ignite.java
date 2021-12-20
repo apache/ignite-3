@@ -34,28 +34,28 @@ public interface Ignite extends AutoCloseable {
      * @return Ignite node name.
      */
     String name();
-    
+
     /**
      * Gets an object for manipulate Ignite tables.
      *
      * @return Ignite tables.
      */
     IgniteTables tables();
-    
+
     /**
      * Returns a transaction facade.
      *
      * @return Ignite transactions.
      */
     IgniteTransactions transactions();
-    
+
     /**
      * Returns a facade for SQL query engine.
      *
      * @return Ignite SQL facade.
      */
     IgniteSql sql();
-    
+
     /**
      * Set new baseline nodes for table assignments.
      *

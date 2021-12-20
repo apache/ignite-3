@@ -181,10 +181,10 @@ public class IgniteSqlTest {
 
         igniteTx.beginAsync()
                 .thenCompose(tx0 -> queryMgr.newSession()
-                        .executeAsync("SELECT val FROM tbl where val LIKE {};", tx0, "val%")
-                        .thenCompose(new AsyncPageProcessor())
-                        .thenApply(ignore -> tx0.commitAsync())
-                        .thenApply(ignore -> tx0))
+                                            .executeAsync("SELECT val FROM tbl where val LIKE {};", tx0, "val%")
+                                            .thenCompose(new AsyncPageProcessor())
+                                            .thenApply(ignore -> tx0.commitAsync())
+                                            .thenApply(ignore -> tx0))
                 .get();
 
         Mockito.verify(transaction).commitAsync();
@@ -220,8 +220,8 @@ public class IgniteSqlTest {
     @Test
     public void testMetadata() {
         ResultSet rs = queryMgr.newSession()
-                .execute("SELECT id, val FROM tbl WHERE id < {} AND val LIKE {}; ", null, 10,
-                        "str%");
+                               .execute("SELECT id, val FROM tbl WHERE id < {} AND val LIKE {}; ", null, 10,
+                                       "str%");
 
         SqlRow row = rs.iterator().next();
 
@@ -278,13 +278,13 @@ public class IgniteSqlTest {
                 Mockito.any(),
                 Mockito.any()))
                 .thenAnswer(ans -> Mockito.when(Mockito.mock(ResultSet.class).updateCount())
-                        .thenReturn(1).getMock());
+                                           .thenReturn(1).getMock());
 
         Mockito.when(session.execute(Mockito.eq("SELECT id, val FROM tbl WHERE id < {};"),
                 Mockito.nullable(Transaction.class),
                 Mockito.any()))
                 .thenAnswer(ans -> Mockito.when(Mockito.mock(ResultSet.class).iterator())
-                        .thenReturn(query1Resuls.iterator()).getMock());
+                                           .thenReturn(query1Resuls.iterator()).getMock());
 
         Mockito.when(session.executeAsync(Mockito.eq("SELECT id, val FROM tbl WHERE id == {};"),
                 Mockito.nullable(Transaction.class),
@@ -293,7 +293,7 @@ public class IgniteSqlTest {
                         Mockito.when(Mockito.mock(AsyncResultSet.class).currentPage())
                                 .thenReturn(
                                         List.of(new TestRow().set("id", 1L).set("val", "string 1")
-                                                .build()))
+                                                        .build()))
                                 .getMock())
                 );
 
@@ -341,7 +341,7 @@ public class IgniteSqlTest {
             argument.accept(transaction);
 
             return null;
-        }).when(igniteTx).runInTransaction(Mockito.any());
+        }).when(igniteTx).runInTransaction(Mockito.any(Consumer.class));
 
         Mockito.when(igniteTx.beginAsync()).thenReturn(CompletableFuture.completedFuture(transaction));
     }

@@ -29,7 +29,7 @@ public class SqlException extends IgniteException {
      */
     public SqlException() {
     }
-    
+
     /**
      * Creates a new exception with the given error message.
      *
@@ -38,17 +38,16 @@ public class SqlException extends IgniteException {
     public SqlException(String msg) {
         super(msg);
     }
-    
+
     /**
-     * Creates a new grid exception with the given throwable as a cause and source of error
-     * message.
+     * Creates a new grid exception with the given throwable as a cause and source of error message.
      *
      * @param cause Non-null throwable cause.
      */
     public SqlException(Throwable cause) {
         super(cause);
     }
-    
+
     /**
      * Creates a new exception with the given error message and optional nested exception.
      *

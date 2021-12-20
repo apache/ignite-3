@@ -29,14 +29,14 @@ public interface Statement {
      * @return SQL statement string.
      */
     String query();
-    
+
     /**
      * Returns SQL statement parameters.
      *
      * @return SQL statement parameters.
      */
     Object[] parameters();
-    
+
     /**
      * Sets SQL statement parameters.
      *
@@ -44,7 +44,7 @@ public interface Statement {
      * @return {@code this} for chaining.
      */
     Statement parameters(Object... parameters);
-    
+
     /**
      * Sets SQL statement parameter value by the parameter index.
      *
@@ -53,21 +53,21 @@ public interface Statement {
      * @return {@code this} for chaining.
      */
     Statement parameter(int index, Object value);
-    
+
     /**
      * Resets batch state and clears query parameters.
      *
      * @return {@code this} for chaining.
      */
     Statement resetState();
-    
+
     /**
      * Adds a set of parameters to this statement object's batch of commands.
      *
      * @return {@code this} for chaining.
      */
     Statement addBatch() throws SqlException;
-    
+
     /**
      * Sets query timeout.
      *
@@ -75,7 +75,7 @@ public interface Statement {
      * @param timeUnit Timeunit.
      */
     void queryTimeout(long timeout, TimeUnit timeUnit);
-    
+
     /**
      * Gets query timeout.
      *

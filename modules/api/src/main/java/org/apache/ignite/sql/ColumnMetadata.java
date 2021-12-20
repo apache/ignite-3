@@ -32,21 +32,21 @@ public interface ColumnMetadata {
      * @return Column name.
      */
     String name();
-    
+
     /**
      * Returns column type.
      *
      * @return Column type.
      */
     ColumnType type();
-    
+
     /**
      * Returns column value class.
      *
      * @return Value class.
      */
     Class<?> valueClass();
-    
+
     /**
      * Returns row column nullability flag.
      *
