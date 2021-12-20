@@ -99,6 +99,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -116,8 +117,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItNodeTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ItNodeTest.class);
-
-    private static final int ELECTION_TIMEOUT_MILLIS = 1000;
 
     private static DumpThread dumpThread;
 
