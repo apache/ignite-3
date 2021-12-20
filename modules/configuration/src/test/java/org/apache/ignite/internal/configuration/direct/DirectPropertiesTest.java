@@ -39,7 +39,9 @@ import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.InternalId;
+import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -57,6 +59,7 @@ public class DirectPropertiesTest {
      */
     @ConfigurationRoot(rootName = "root")
     public static class DirectConfigurationSchema {
+        @Name("childTestName")
         @ConfigValue
         public DirectNestedConfigurationSchema child;
 
@@ -72,6 +75,9 @@ public class DirectPropertiesTest {
      */
     @Config
     public static class DirectNestedConfigurationSchema {
+        @InjectedName
+        public String name;
+
         @InternalId
         public UUID id;
 
@@ -570,5 +576,46 @@ public class DirectPropertiesTest {
         assertThrows(ConfigurationListenOnlyException.class, () -> directProxy(children.any()));
         assertThrows(ConfigurationListenOnlyException.class, () -> directProxy(children.any().str()));
         assertThrows(ConfigurationListenOnlyException.class, () -> directProxy(children.any().children2()));
+    }
+
+    @Test
+    void testInjectedNameNestedConfig() {
+        DirectConfiguration cfg = registry.getConfiguration(DirectConfiguration.KEY);
+
+        // From root config.
+        assertThat(directProxy(cfg).child().name().value(), is("childTestName"));
+        assertThat(directProxy(cfg).value().child().name(), is("childTestName"));
+
+        // From nested (child) config.
+        assertThat(directProxy(cfg.child()).name().value(), is("childTestName"));
+        assertThat(directProxy(cfg.child()).value().name(), is("childTestName"));
+
+        // From config property.
+        assertThat(directProxy(cfg.child().name()).value(), is("childTestName"));
+    }
+
+    @Test
+    void testInjectedNameNamedConfig() throws Exception {
+        DirectConfiguration cfg = registry.getConfiguration(DirectConfiguration.KEY);
+
+        cfg.change(c0 -> c0.changeChildren(c1 -> c1.create("0", c2 -> {}))).get(1, TimeUnit.SECONDS);
+
+        // From root config.
+        assertThat(directProxy(cfg).children().get("0").name().value(), is("0"));
+        assertThat(directProxy(cfg).value().children().get("0").name(), is("0"));
+        assertThat(directProxy(cfg).children().value().get("0").name(), is("0"));
+        assertThat(directProxy(cfg).children().get("0").value().name(), is("0"));
+
+        // From nested (children) config.
+        assertThat(directProxy(cfg.children()).get("0").name().value(), is("0"));
+        assertThat(directProxy(cfg.children()).value().get("0").name(), is("0"));
+        assertThat(directProxy(cfg.children()).get("0").value().name(), is("0"));
+
+        // From named element.
+        assertThat(directProxy(cfg.children().get("0")).name().value(), is("0"));
+        assertThat(directProxy(cfg.children().get("0")).value().name(), is("0"));
+
+        // From named element config property.
+        assertThat(directProxy(cfg.children().get("0").name()).value(), is("0"));
     }
 }

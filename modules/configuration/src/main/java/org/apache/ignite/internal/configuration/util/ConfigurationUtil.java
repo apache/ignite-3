@@ -21,6 +21,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.configuration.tree.InnerNode.INJECTED_NAME;
 import static org.apache.ignite.internal.configuration.tree.InnerNode.INTERNAL_ID;
 
 import java.io.Serializable;
@@ -795,6 +796,9 @@ public class ConfigurationUtil {
                             if (INTERNAL_ID.equals(pathNode.key)) {
                                 // It's impossible to get this value with a regular traversal. Just call a method.
                                 return (T) node.internalId();
+                            } else if (INJECTED_NAME.equals(pathNode.key)) {
+                                // It's impossible to get this value with a regular traversal. Just call a method.
+                                return (T) node.getInjectedNameFieldValue();
                             }
 
                             return node.traverseChild(pathNode.key, this, true);

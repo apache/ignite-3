@@ -224,7 +224,8 @@ class DirectProxyAsmGenerator {
                             methodDef.getThis().getField("keys", List.class),
                             newInstance(
                                     KeyPathNode.class,
-                                    constantString(isInternalId(schemaField) ? InnerNode.INTERNAL_ID : fieldName)
+                                    constantString(isInjectedName(schemaField) ? InnerNode.INJECTED_NAME
+                                            : isInternalId(schemaField) ? InnerNode.INTERNAL_ID : fieldName)
                             )
                     ),
                     methodDef.getThis().getField("changer", DynamicConfigurationChanger.class)

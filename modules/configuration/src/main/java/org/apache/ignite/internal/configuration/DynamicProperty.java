@@ -158,8 +158,8 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
     /** {@inheritDoc} */
     @Override
     public DirectPropertyProxy<T> directProxy() {
-        if (internalIdField) {
-            return new DirectValueProxy<>(appendKey(keyPath(), new KeyPathNode(INTERNAL_ID)), changer);
+        if (injectedNameField || internalIdField) {
+            return new DirectValueProxy<>(appendKey(keyPath(), new KeyPathNode(key)), changer);
         } else {
             return new DirectValueProxy<>(keyPath(), changer);
         }

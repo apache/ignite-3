@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration;
 import static java.util.function.Function.identity;
 import static java.util.regex.Pattern.quote;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.configuration.tree.InnerNode.INJECTED_NAME;
 import static org.apache.ignite.internal.configuration.tree.InnerNode.INTERNAL_ID;
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.KEY_SEPARATOR;
@@ -370,6 +371,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         if (lastPathNode.key.equals(INTERNAL_ID) && !path.get(pathSize - 2).namedListEntry) {
             // This is not particularly efficient, but there's no way someone will actually use this case for real outside of tests.
             prefix = prefix.replaceAll(quote(KEY_SEPARATOR + INTERNAL_ID) + "$", "");
+        } else if (lastPathNode.key.contains(INJECTED_NAME)) {
+            prefix = prefix.replaceAll(quote(KEY_SEPARATOR + INJECTED_NAME), "");
         }
 
         // Data from the storage.
