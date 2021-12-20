@@ -113,15 +113,18 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public boolean contains(@NotNull K key) {
-        // TODO
-        return false;
+        return containsAsync(key).join();
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> containsAsync(@NotNull K key) {
-        // TODO
-        return null;
+        Objects.requireNonNull(key);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_CONTAINS_KEY,
+                (schema, out) -> keySer.writeRec(key, schema, out, TuplePart.KEY),
+                ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */

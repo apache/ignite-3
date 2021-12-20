@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -446,6 +445,11 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testContains() {
-        fail("TODO");
+        KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        pojoView.put(DEFAULT_ID, DEFAULT_NAME);
+
+        assertTrue(pojoView.contains(DEFAULT_ID));
+        assertFalse(pojoView.contains(-1L));
     }
 }
