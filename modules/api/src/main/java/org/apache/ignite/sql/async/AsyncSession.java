@@ -31,21 +31,22 @@ public interface AsyncSession {
     /**
      * Executes SQL query in async way.
      *
-     * @param query       SQL query template.
      * @param transaction Transaction to execute the query within or {@code null}.
+     * @param query       SQL query template.
      * @param arguments   Arguments for the template (optional).
      * @return Operation future.
      * @throws SqlException If failed.
      */
-    CompletableFuture<AsyncResultSet> executeAsync(@NotNull String query, @Nullable Transaction transaction, Object... arguments);
+    CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, @NotNull String query,
+            Object... arguments);
 
     /**
      * Executes SQL statement in async way.
      *
-     * @param statement   SQL statement to execute.
      * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param statement   SQL statement to execute.
      * @return Operation future.
      * @throws SqlException If failed.
      */
-    CompletableFuture<AsyncResultSet> executeAsync(@NotNull Statement statement, @Nullable Transaction transaction);
+    CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, @NotNull Statement statement);
 }

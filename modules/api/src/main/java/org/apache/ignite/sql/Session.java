@@ -61,22 +61,22 @@ public interface Session extends AsyncSession, ReactiveSession {
     /**
      * Executes single SQL query.
      *
+     * @param transaction Transaction to execute the query within or {@code null}.
      * @param query       SQL query template.
      * @param arguments   Arguments for the template (optional).
-     * @param transaction Transaction to execute the query within or {@code null}.
      * @return SQL query results set.
      * @throws SqlException If failed.
      */
-    ResultSet execute(@NotNull String query, @Nullable Transaction transaction, Object... arguments);
+    ResultSet execute(@Nullable Transaction transaction, @NotNull String query, Object... arguments);
 
     /**
      * Executes single SQL statement.
      *
-     * @param statement   SQL statement to execute.
      * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param statement   SQL statement to execute.
      * @return SQL query results set.
      */
-    ResultSet execute(@NotNull Statement statement, @Nullable Transaction transaction);
+    ResultSet execute(@Nullable Transaction transaction, @NotNull Statement statement);
 
     /**
      * Executes multi-statement non-transactional SQL query.

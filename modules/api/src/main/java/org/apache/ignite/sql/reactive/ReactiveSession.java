@@ -30,21 +30,22 @@ public interface ReactiveSession {
     /**
      * Executes SQL query in reactive way.
      *
-     * @param query       SQL query template.
      * @param transaction Transaction to execute the query within or {@code null}.
+     * @param query       SQL query template.
      * @param arguments   Arguments for the template (optional).
      * @return Reactive result.
      * @throws SqlException If failed.
      */
-    ReactiveResultSet executeReactive(@NotNull String query, @Nullable Transaction transaction, Object... arguments);
+    ReactiveResultSet executeReactive(@Nullable Transaction transaction, @NotNull String query,
+            Object... arguments);
 
     /**
      * Executes SQL query in reactive way.
      *
-     * @param statement   SQL statement.
      * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param statement   SQL statement.
      * @return Reactive result.
      * @throws SqlException If failed.
      */
-    ReactiveResultSet executeReactive(@NotNull Statement statement, @Nullable Transaction transaction);
+    ReactiveResultSet executeReactive(@Nullable Transaction transaction, @NotNull Statement statement);
 }
