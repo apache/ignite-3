@@ -254,13 +254,23 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public Collection<K> removeAll(@NotNull Collection<K> keys) {
-        return null;
+        return removeAllAsync(keys).join();
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<K>> removeAllAsync(@NotNull Collection<K> keys) {
-        return null;
+        Objects.requireNonNull(keys);
+
+        if (keys.isEmpty()) {
+            return CompletableFuture.completedFuture(Collections.emptyList());
+        }
+
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_DELETE_ALL,
+                (schema, out) -> keySer.writeRecs(keys, schema, out, TuplePart.KEY),
+                (inSchema, in) -> keySer.readRecs(inSchema, in, false, TuplePart.KEY),
+                Collections.emptyList());
     }
 
     /** {@inheritDoc} */

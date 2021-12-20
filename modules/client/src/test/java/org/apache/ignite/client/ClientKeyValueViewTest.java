@@ -427,21 +427,20 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testDeleteAll() {
-        // TODO
-        RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
+    public void testRemoveAll() {
+        KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.upsertAll(List.of(new PersonPojo(1L, "1"), new PersonPojo(2L, "2"), new PersonPojo(3L, "3")));
+        pojoView.putAll(Map.of(1L, "1",2L, "2", 3L, "3"));
 
-        Collection<PersonPojo> res1 = pojoView.deleteAll(List.of(new PersonPojo(10L), new PersonPojo(20L)));
-        Collection<PersonPojo> res2 = pojoView.deleteAll(List.of(new PersonPojo(1L), new PersonPojo(3L)));
+        Collection<Long> res1 = pojoView.removeAll(List.of(10L, 20L));
+        Collection<Long> res2 = pojoView.removeAll(List.of(1L, 3L));
 
         assertEquals(2, res1.size());
         assertEquals(0, res2.size());
 
-        assertNull(pojoView.get(new PersonPojo(1L)));
-        assertEquals("2", pojoView.get(new PersonPojo(2L)).name);
-        assertNull(pojoView.get(new PersonPojo(3L)));
+        assertNull(pojoView.get(1L));
+        assertEquals("2", pojoView.get(2L));
+        assertNull(pojoView.get(3L));
     }
 
     @Test
