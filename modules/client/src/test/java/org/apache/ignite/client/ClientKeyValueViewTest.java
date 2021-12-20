@@ -335,38 +335,16 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testInsertAll() {
-        // TODO
-        RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
-
-        pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
-
-        Collection<PersonPojo> res1 = pojoView.insertAll(List.of(new PersonPojo(10L, "10"), new PersonPojo(20L)));
-        Collection<PersonPojo> res2 = pojoView.insertAll(List.of(new PersonPojo(DEFAULT_ID), new PersonPojo(10L)));
-        Collection<PersonPojo> res3 = pojoView.insertAll(List.of(new PersonPojo(DEFAULT_ID, "new_name"), new PersonPojo(30L)));
-
-        assertEquals(0, res1.size());
-        assertEquals(2, res2.size());
-        assertEquals(1, res3.size());
-
-        assertEquals("10", pojoView.get(new PersonPojo(10L)).name);
-        assertNull(pojoView.get(new PersonPojo(20L)).name);
-
-        assertEquals("new_name", res3.iterator().next().name);
-    }
-
-    @Test
     public void testReplace() {
-        // TODO
-        RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
+        KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
+        pojoView.put(DEFAULT_ID, DEFAULT_NAME);
 
-        assertFalse(pojoView.replace(new PersonPojo(-1L)));
-        assertTrue(pojoView.replace(new PersonPojo(DEFAULT_ID, "new_name")));
+        assertFalse(pojoView.replace(-1L, "x"));
+        assertTrue(pojoView.replace(DEFAULT_ID, "new_name"));
 
-        assertNull(pojoView.get(new PersonPojo(-1L)));
-        assertEquals("new_name", pojoView.get(new PersonPojo(DEFAULT_ID)).name);
+        assertNull(pojoView.get(-1L));
+        assertEquals("new_name", pojoView.get(DEFAULT_ID));
     }
 
     @Test
