@@ -30,9 +30,9 @@ import java.util.LinkedList;
 import org.apache.ignite.lang.IgniteUuid;
 
 /**
- * Default types.
+ * Built-in types.
  */
-public enum DefaultType {
+public enum BuiltinType {
     BYTE(0, byte.class),
     BYTE_BOXED(1, Byte.class),
     SHORT(2, short.class),
@@ -95,7 +95,7 @@ public enum DefaultType {
      * @param descriptorId Descriptor id.
      * @param clazz        Type.
      */
-    DefaultType(int descriptorId, Class<?> clazz) {
+    BuiltinType(int descriptorId, Class<?> clazz) {
         this.descriptorId = descriptorId;
         this.clazz = clazz;
     }
@@ -128,7 +128,7 @@ public enum DefaultType {
                 clazz,
                 descriptorId,
                 Collections.emptyList(),
-                new Serialization(SerializationType.DEFAULT)
+                new Serialization(SerializationType.BUILTIN)
         );
     }
 }

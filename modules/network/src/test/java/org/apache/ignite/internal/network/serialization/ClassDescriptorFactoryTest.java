@@ -326,7 +326,7 @@ public class ClassDescriptorFactoryTest {
         ClassDescriptor arbitraryDescriptor = context.getDescriptor(ArbitraryClass.class);
         assertNotNull(arbitraryDescriptor);
 
-        ClassDescriptor intDescriptor = context.getDescriptor(DefaultType.INT.descriptorId());
+        ClassDescriptor intDescriptor = context.getDescriptor(BuiltinType.INT.descriptorId());
         assertNotNull(intDescriptor);
 
         List<FieldDescriptor> fields = holderDescriptor.fields();
@@ -356,7 +356,7 @@ public class ClassDescriptorFactoryTest {
         ClassDescriptor descriptor = context.getDescriptor(int.class);
 
         assertNotNull(descriptor);
-        checkDefaultType(descriptor.serializationType());
+        checkBuiltInType(descriptor.serializationType());
     }
 
     private static class SerializableWithoutExceptionsOnSpecialMethods implements Serializable {
@@ -406,12 +406,12 @@ public class ClassDescriptorFactoryTest {
     }
 
     /**
-     * Checks that serialization type is {@link SerializationType#DEFAULT}.
+     * Checks that serialization type is {@link SerializationType#BUILTIN}.
      *
      * @param type Serialization type.
      */
-    private void checkDefaultType(SerializationType type) {
-        assertEquals(SerializationType.DEFAULT, type);
+    private void checkBuiltInType(SerializationType type) {
+        assertEquals(SerializationType.BUILTIN, type);
     }
 
     /**

@@ -42,7 +42,7 @@ public class ClassDescriptorFactoryContext {
      * Constructor.
      */
     public ClassDescriptorFactoryContext() {
-        for (DefaultType value : DefaultType.values()) {
+        for (BuiltinType value : BuiltinType.values()) {
             addPredefinedDescriptor(value.clazz(), value.asClassDescriptor());
         }
     }

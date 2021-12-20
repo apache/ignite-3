@@ -21,8 +21,8 @@ package org.apache.ignite.internal.network.serialization;
  * Serialization type.
  */
 public enum SerializationType {
-    /** Used for predefined descriptors like primitive (or boxed int). See {@link DefaultType}. */
-    DEFAULT(0),
+    /** Used for predefined descriptors like primitive (or boxed int). See {@link BuiltinType}. */
+    BUILTIN(0),
     /** Type for classes that are neither serializable nor externalizable.  */
     ARBITRARY(1),
     /** Externalizable. */
