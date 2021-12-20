@@ -216,9 +216,6 @@ public class ConfigurationAsmGenerator {
     /** {@link ConfigurationUtil#addDefaults}. */
     private static final Method ADD_DEFAULTS_MTD;
 
-    /** {@link ConfigurationUtil#removeLastKey}. */
-    private static final Method REMOVE_LAST_KEY_MTD;
-
     /** {@link InnerNode#setInjectedNameFieldValue}. */
     private static final Method SET_INJECTED_NAME_FIELD_VALUE_MTD;
 
@@ -290,8 +287,6 @@ public class ConfigurationAsmGenerator {
             SPECIFIC_CONFIG_TREE_MTD = DynamicConfiguration.class.getDeclaredMethod("specificConfigTree");
 
             ADD_DEFAULTS_MTD = ConfigurationUtil.class.getDeclaredMethod("addDefaults", InnerNode.class);
-
-            REMOVE_LAST_KEY_MTD = ConfigurationUtil.class.getDeclaredMethod("removeLastKey", List.class);
 
             SET_INJECTED_NAME_FIELD_VALUE_MTD = InnerNode.class.getDeclaredMethod("setInjectedNameFieldValue", String.class);
         } catch (NoSuchMethodException nsme) {
