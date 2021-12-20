@@ -217,7 +217,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public boolean remove(@NotNull K key) {
-        return false;
+        return removeAsync(key).join();
     }
 
     /** {@inheritDoc} */
@@ -229,7 +229,12 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull K key) {
-        return null;
+        Objects.requireNonNull(key);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_DELETE,
+                (s, w) -> keySer.writeRec(key, s, w, TuplePart.KEY),
+                ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */

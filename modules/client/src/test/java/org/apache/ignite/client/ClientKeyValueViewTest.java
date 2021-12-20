@@ -379,18 +379,17 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testDelete() {
-        // TODO
-        RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
+        KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.upsert(new PersonPojo(DEFAULT_ID, DEFAULT_NAME));
+        pojoView.put(DEFAULT_ID, DEFAULT_NAME);
 
-        boolean res1 = pojoView.delete(new PersonPojo(DEFAULT_ID));
-        boolean res2 = pojoView.delete(new PersonPojo(100L, "name"));
+        boolean res1 = pojoView.remove(DEFAULT_ID);
+        boolean res2 = pojoView.remove(100L);
 
         assertTrue(res1);
         assertFalse(res2);
 
-        assertNull(pojoView.get(new PersonPojo(DEFAULT_ID)));
+        assertNull(pojoView.get(DEFAULT_ID));
     }
 
     @Test
