@@ -63,8 +63,8 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
 
         assertQuery("select trim(name) tr_name from person").columnNames("TR_NAME").check();
         assertQuery("select trim(name) from person").columnNames("TRIM(BOTH ' ' FROM NAME)").check();
-        assertQuery("select row(1), ceil(salary), floor(salary), position('text' IN salary) from person")
-                .columnNames("ROW(1)", "CEIL(SALARY)", "FLOOR(SALARY)", "POSITION('text' IN SALARY)").check();
+        assertQuery("select ceil(salary), floor(salary), position('text' IN salary) from person")
+                .columnNames("CEIL(SALARY)", "FLOOR(SALARY)", "POSITION('text' IN SALARY)").check();
 
         assertQuery("select count(*) from person").columnNames("COUNT(*)").check();
         assertQuery("select count(name) from person").columnNames("COUNT(NAME)").check();
@@ -89,10 +89,10 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
     @Test
     public void columnOrder() {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "COLUMN_ORDER").columns(
-                SchemaBuilders.column("DOUBLE_C", ColumnType.DOUBLE).asNullable().build(),
-                SchemaBuilders.column("LONG_C", ColumnType.INT64).asNonNull().build(),
-                SchemaBuilders.column("STRING_C", ColumnType.string()).asNullable().build(),
-                SchemaBuilders.column("INT_C", ColumnType.INT32).asNullable().build()
+                SchemaBuilders.column("DOUBLE_C", ColumnType.DOUBLE).asNullable(true).build(),
+                SchemaBuilders.column("LONG_C", ColumnType.INT64).build(),
+                SchemaBuilders.column("STRING_C", ColumnType.string()).asNullable(true).build(),
+                SchemaBuilders.column("INT_C", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("LONG_C").build();
 
         CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
