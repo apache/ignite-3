@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage.index;
 
 /**
- * Class for extracting indexed column values from an {@link IndexRow}.
+ * Class for extracting indexed column values from an {@link IndexBinaryRow}.
  */
 public interface IndexRowDeserializer {
     /**
@@ -27,5 +27,5 @@ public interface IndexRowDeserializer {
      * @param indexRow Index row.
      * @return Values of the indexed columns.
      */
-    Object[] indexedColumnValues(IndexRow indexRow);
+    IndexRow row(IndexBinaryRow indexRow);
 }

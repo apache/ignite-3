@@ -17,26 +17,22 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import org.apache.ignite.internal.storage.PartitionStorage;
-import org.apache.ignite.internal.storage.SearchRow;
-
 /**
  * Represents an Index Row - a set of indexed columns and Primary Key columns (for key uniqueness).
  */
-public interface IndexRow {
+public interface IndexRow extends IndexBinaryRow {
     /**
-     * Returns the serialized presentation of this row as a byte array.
+     * Returns value of the indexed columns specified by index column order.
      *
-     * @return Serialized byte array value.
+     * @param idxColOrder Index column order.
+     * @return Value of the indexed columns.
      */
-    byte[] rowBytes();
+    Object value(int idxColOrder);
 
     /**
-     * Returns the Primary Key that is a part of this row.
+     * Returns count of columns at the index row.
      *
-     * <p>This is a convenience method for easier extraction of the Primary Key to use it for accessing the {@link PartitionStorage}.
-     *
-     * @return Primary key of the associated {@link PartitionStorage}.
+     * @return Count of columns at the index row.
      */
-    SearchRow primaryKey();
+    int columnsCount();
 }

@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
 import java.util.List;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
@@ -397,6 +398,8 @@ public class ItIndexDdlTest extends AbstractBasicIntegrationTest {
         sql("create table test_tbl (id int primary key, c1 int)", true);
 
         sql("create index idx_asc on test_tbl (c1)", true);
+
+        Ignite ign = CLUSTER_NODES.get(0);
 
         insertData(
                 "PUBLIC.TEST_TBL",

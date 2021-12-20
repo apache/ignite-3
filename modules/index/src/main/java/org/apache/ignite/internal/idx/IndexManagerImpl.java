@@ -31,30 +31,24 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.NamedListChange;
+import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.IndexColumnView;
 import org.apache.ignite.configuration.schemas.table.SortedIndexView;
-import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexChange;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
-import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
+import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.idx.event.IndexEvent;
 import org.apache.ignite.internal.idx.event.IndexEventParameters;
 import org.apache.ignite.internal.manager.AbstractProducer;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaUtils;
-import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.storage.index.SortedIndexColumnCollation;
 import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
@@ -63,17 +57,20 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
+import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.lang.TableNotFoundException;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Internal index manager facade provides low-level methods for indexes operations.
  */
 public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventParameters> implements IndexManager, IgniteComponent {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(IndexManagerImpl.class);
+
     private static final IgniteUuidGenerator INDEX_ID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
 
     private final TablesConfiguration tablesCfg;
@@ -87,7 +84,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
     private final TableManager tblMgr;
 
     /** Indexes by canonical name. */
-    private final Map<String, InternalSortedIndex> idxs = new ConcurrentHashMap<>();
+    private final Map<String, InternalSortedIndex> idxsByName = new ConcurrentHashMap<>();
 
     /** Indexes by ID. */
     private final Map<IgniteUuid, InternalSortedIndex> idxsById = new ConcurrentHashMap<>();
@@ -145,6 +142,10 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                         } catch (Exception e) {
                             fireEvent(IndexEvent.CREATE, new IndexEventParameters(idxName, tblName, null), e);
 
+                            LOG.error(LoggerMessageHelper.format(
+                                    "Internal error, index creation failed [name={}, table={}]", idxName, tblName
+                                    ), e);
+
                             return CompletableFuture.completedFuture(e);
                         } finally {
                             busyLock.leaveBusy();
@@ -199,14 +200,16 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
     }
 
     private void onIndexCreate(ConfigurationNotificationEvent<TableIndexView> ctx) throws NodeStoppingException {
-        assert ctx.newValue() instanceof SortedIndexView : "Unsupported index type: " + ctx.newValue();
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-15916
+        assert ((InnerNode) ctx.newValue()).specificNode() instanceof SortedIndexView : "Unsupported index type: " + ctx.newValue();
 
-        ExtendedTableConfiguration tbl = ctx.config(ExtendedTableConfiguration.class);
-        tblMgr.table(IgniteUuid.fromString(tbl.id().value()));
+        ExtendedTableConfiguration tblCfg = ctx.config(TableConfiguration.class);
+
+        TableImpl tbl = tblMgr.table(IgniteUuid.fromString(tblCfg.id().value()));
 
         createIndexLocally(
-                tblMgr.table(IgniteUuid.fromString(tbl.id().value())),
-                (SortedIndexView) ctx.newValue()
+                tbl,
+                ((InnerNode) ctx.newValue()).specificNode()
         );
     }
 
@@ -221,96 +224,59 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
     /** {@inheritDoc} */
     @Override
-    public void createIndex(String name, Consumer<TableChange> tableChange) {
-        join(createIndexAsync(name, tableChange));
+    public InternalSortedIndex createIndex(
+            String idxCanonicalName,
+            String tblCanonicalName,
+            Consumer<TableIndexChange> idxChange
+    ) {
+        return join(createIndexAsync(idxCanonicalName, tblCanonicalName, idxChange));
     }
 
     /** {@inheritDoc} */
     @Override
-    public void createIndexAsync(String name, Consumer<TableChange> tableChange) {
+    public CompletableFuture<InternalSortedIndex> createIndexAsync(
+            String idxCanonicalName,
+            String tblCanonicalName,
+            Consumer<TableIndexChange> idx
+    ) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return alterTableAsyncInternal(name, tableChange);
+            CompletableFuture<InternalSortedIndex> idxFut = new CompletableFuture<>();
+
+            final IgniteUuid idxId = INDEX_ID_GENERATOR.randomUuid();
+
+            tblMgr.alterTableAsync(tblCanonicalName, chng -> chng.changeIndices(idxes -> {
+                if (idxsByName.get(idxCanonicalName) != null) {
+                    throw new IndexAlreadyExistsException(idxCanonicalName);
+                }
+
+                idxes.create(idxCanonicalName, idxCh -> {
+                    idx.accept(idxCh);
+
+                    idxCh.changeId(idxId.toString());
+                });
+            })).whenComplete((res, t) -> {
+                if (t != null) {
+                    Throwable ex = getRootCause(t);
+
+                    if (!(ex instanceof IndexAlreadyExistsException)) {
+                        LOG.error(LoggerMessageHelper.format("Index wasn't created [name={}]", idxCanonicalName), ex);
+                    }
+
+                    idxFut.completeExceptionally(ex);
+                } else {
+                    idxFut.complete(idxsById.get(idxId));
+                }
+            });
+
+            return idxFut;
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    /**
-     * Internal method for creating table asynchronously.
-     *
-     * @param name Table name.
-     * @param idxCh Indexes changer.
-     * @return Future representing pending completion of the operation.
-     */
-    @NotNull
-    private CompletableFuture<Void> alterTableAsyncInternal(
-            String name,
-            Consumer<NamedListChange<TableIndexView, TableIndexChange>> idxCh
-    ) {
-        CompletableFuture<Void> tblFut = new CompletableFuture<>();
-
-        tableAsync(name, true).thenAccept(tbl -> {
-            if (tbl == null) {
-                tblFut.completeExceptionally(new IgniteException(
-                        LoggerMessageHelper.format("Table [name={}] does not exist and cannot be altered", name)));
-            } else {
-                IgniteUuid tblId = ((TableImpl) tbl).tableId();
-
-                tablesCfg.tables().change(ch -> ch.createOrUpdate(name, tblCh -> {
-                            tableChange.accept(tblCh);
-
-                            ((ExtendedTableChange) tblCh).changeSchemas(schemasCh ->
-                                    schemasCh.createOrUpdate(String.valueOf(schemasCh.size() + 1), schemaCh -> {
-                                        ExtendedTableView currTableView = (ExtendedTableView) tablesCfg.tables().get(name).value();
-
-                                        SchemaDescriptor descriptor;
-
-                                        //TODO IGNITE-15747 Remove try-catch and force configuration validation
-                                        // here to ensure a valid configuration passed to prepareSchemaDescriptor() method.
-                                        try {
-                                            descriptor = SchemaUtils.prepareSchemaDescriptor(
-                                                    ((ExtendedTableView) tblCh).schemas().size(),
-                                                    tblCh);
-
-                                            descriptor.columnMapping(SchemaUtils.columnMapper(
-                                                    tablesById.get(tblId).schemaView().schema(currTableView.schemas().size()),
-                                                    currTableView,
-                                                    descriptor,
-                                                    tblCh));
-                                        } catch (IllegalArgumentException ex) {
-                                            // Convert unexpected exceptions here,
-                                            // because validation actually happens later,
-                                            // when bulk configuration update is applied.
-                                            ConfigurationValidationException e =
-                                                    new ConfigurationValidationException(ex.getMessage());
-
-                                            e.addSuppressed(ex);
-
-                                            throw e;
-                                        }
-
-                                        schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(descriptor));
-                                    }));
-                        }
-                )).whenComplete((res, t) -> {
-                    if (t != null) {
-                        Throwable ex = getRootCause(t);
-
-                        LOG.error(LoggerMessageHelper.format("Table wasn't altered [name={}]", name), ex);
-
-                        tblFut.completeExceptionally(ex);
-                    } else {
-                        tblFut.complete(res);
-                    }
-                });
-            }
-        });
-
-        return tblFut;
-    }
 
     /**
      * Waits for future result and return, or unwraps {@link CompletionException} to {@link IgniteException} if failed.
@@ -347,36 +313,27 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
     }
 
     /**
-     * Creates a new table with the specified name or returns an existing table with the same name.
+     * Gets a cause exception for a client.
      *
-     * @param idxName Index canonical name ([schema_name].[index_name]).
-     * @param idxInitChange Table configuration.
-     * @return A table instance.
+     * @param t Exception wrapper.
+     * @return A root exception which will be acceptable to throw for public API.
      */
-    private CompletableFuture<InternalSortedIndex> createIndexAsync(
-            String tableCanonicalName,
-            String idxName,
-            Consumer<TableIndexChange> idxInitChange
-    ) {
-        CompletableFuture<InternalSortedIndex> idxFut = new CompletableFuture<>();
+    //TODO: IGNITE-16051 Implement exception converter for public API.
+    private @NotNull IgniteException getRootCause(Throwable t) {
+        Throwable ex;
 
-        IgniteUuid idxId = INDEX_ID_GENERATOR.randomUuid();
+        if (t instanceof CompletionException) {
+            if (t.getCause() instanceof ConfigurationChangeException) {
+                ex = t.getCause().getCause();
+            } else {
+                ex = t.getCause();
+            }
 
-        TableView tbl = (TableView) tablesCfg.tables().get(tableCanonicalName);
-
-        if (tbl == null) {
-            throw new TableNotFoundException(tableCanonicalName);
+        } else {
+            ex = t;
         }
 
-        tablesCfg.tables().change(chg -> chg.update(tableCanonicalName, tblChg -> {
-            tblChg.changeIndices(idxes -> {
-                idxes.create(idxName, idxChg -> {
-                    idxInitChange.accept(idxChg);
-                });
-            });
-        }));
-
-        return idxFut;
+        return ex instanceof IgniteException ? (IgniteException) ex : new IgniteException(ex);
     }
 
     private void createIndexLocally(TableImpl tbl, SortedIndexView idxView) {
@@ -411,7 +368,9 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                 tbl
         );
 
-        idxs.put(idx.name(), idx);
+        tbl.addRowListener(idx);
+
+        idxsByName.put(idx.name(), idx);
         idxsById.put(idx.id(), idx);
         idxsByTableId.put(tbl.tableId(), idx);
 

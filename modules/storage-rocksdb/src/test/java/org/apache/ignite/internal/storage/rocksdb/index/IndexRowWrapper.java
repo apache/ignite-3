@@ -31,11 +31,14 @@ import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.storage.SearchRow;
+import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -45,16 +48,16 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
     /**
      * Values used to create the Index row.
      */
-    private final Object[] columns;
+    private final Tuple row;
 
-    private final IndexRow row;
+    private final IndexRow idxRow;
 
-    private final SortedIndexDescriptor descriptor;
+    private final SortedIndexDescriptor desc;
 
-    IndexRowWrapper(SortedIndexStorage storage, IndexRow row, Object[] columns) {
-        this.descriptor = storage.indexDescriptor();
+    IndexRowWrapper(SortedIndexStorage storage, IndexBinaryRow idxRow, Tuple row) {
+        this.desc = storage.indexDescriptor();
+        this.idxRow = new IndexRowImpl(idxRow, desc);
         this.row = row;
-        this.columns = columns;
     }
 
     /**
@@ -63,48 +66,70 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
     static IndexRowWrapper randomRow(SortedIndexStorage indexStorage) {
         var random = new Random();
 
-        Object[] columns = indexStorage.indexDescriptor().columns().stream()
+        Tuple row = Tuple.create();
+
+        indexStorage.indexDescriptor().columns().stream()
                 .map(SortedIndexColumnDescriptor::column)
-                .map(column -> generateRandomValue(random, column.type()))
-                .toArray();
+                .forEach(column -> row.set(column.name(), generateRandomValue(random, column.type())));
 
         var primaryKey = new ByteArraySearchRow(randomBytes(random, 25));
 
-        IndexRow row = indexStorage.indexRowFactory().createIndexRow(columns, primaryKey);
+        IndexBinaryRow idxRow = indexStorage.indexRowFactory().createIndexRow(row, primaryKey);
 
-        return new IndexRowWrapper(indexStorage, row, columns);
+        return new IndexRowWrapper(indexStorage, idxRow, row);
     }
 
     /**
      * Creates an Index Key prefix of the given length.
      */
     IndexRowPrefix prefix(int length) {
-        return () -> Arrays.copyOf(columns, length);
+        return new IndexRowPrefix() {
+            @Override
+            public int length() {
+                return length;
+            }
+
+            @Override
+            public Object value(int idxColOrder) {
+                return idxRow.value(idxColOrder);
+            }
+
+            @Override
+            public int columnsCount() {
+                return length;
+            }
+
+            @Override
+            public byte[] rowBytes() {
+                return idxRow.rowBytes();
+            }
+
+            @Override
+            public SearchRow primaryKey() {
+                return idxRow.primaryKey();
+            }
+        };
     }
 
-    IndexRow row() {
-        return row;
-    }
-
-    Object[] columns() {
-        return columns;
+    IndexBinaryRow row() {
+        return idxRow;
     }
 
     @Override
     public int compareTo(@NotNull IndexRowWrapper o) {
-        int sizeCompare = Integer.compare(columns.length, o.columns.length);
+        int sizeCompare = Integer.compare(row.columnCount(), o.row.columnCount());
 
         if (sizeCompare != 0) {
             return sizeCompare;
         }
 
-        for (int i = 0; i < columns.length; ++i) {
-            Comparator<Object> comparator = comparator(columns[i].getClass());
+        for (int i = 0; i < row.columnCount(); ++i) {
+            Comparator<Object> comparator = comparator(row.value(i).getClass());
 
-            int compare = comparator.compare(columns[i], o.columns[i]);
+            int compare = comparator.compare(row.value(i), o.row.value(i));
 
             if (compare != 0) {
-                boolean asc = descriptor.columns().get(i).asc();
+                boolean asc = desc.columns().get(i).asc();
 
                 return asc ? compare : -compare;
             }
@@ -122,12 +147,12 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
             return false;
         }
         IndexRowWrapper that = (IndexRowWrapper) o;
-        return row.equals(that.row);
+        return idxRow.equals(that.idxRow);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(row);
+        return Objects.hash(idxRow);
     }
 
     /**

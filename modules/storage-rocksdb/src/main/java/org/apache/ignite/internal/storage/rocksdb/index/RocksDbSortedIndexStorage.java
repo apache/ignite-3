@@ -21,7 +21,7 @@ import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 import org.apache.ignite.internal.storage.index.IndexRowDeserializer;
 import org.apache.ignite.internal.storage.index.IndexRowFactory;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
@@ -73,7 +73,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
-    public void put(IndexRow row) {
+    public void put(IndexBinaryRow row) {
         assert row.rowBytes().length > 0;
         assert row.primaryKey().keyBytes().length > 0;
 
@@ -85,7 +85,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
-    public void remove(IndexRow key) {
+    public void remove(IndexBinaryRow key) {
         try {
             indexCf.delete(key.rowBytes());
         } catch (RocksDBException e) {
@@ -94,7 +94,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
-    public Cursor<IndexRow> range(IndexRowPrefix lowerBound, IndexRowPrefix upperBound) {
+    public Cursor<IndexBinaryRow> range(IndexRowPrefix lowerBound, IndexRowPrefix upperBound) {
         RocksIterator iter = indexCf.newIterator();
 
         iter.seekToFirst();
@@ -129,8 +129,8 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
             }
 
             @Override
-            protected IndexRow decodeEntry(byte[] key, byte[] value) {
-                return new BinaryIndexRow(key, value);
+            protected IndexBinaryRow decodeEntry(byte[] key, byte[] value) {
+                return new IndexBinaryRowImpl(key, value);
             }
         };
     }

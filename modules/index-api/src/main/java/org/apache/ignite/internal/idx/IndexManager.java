@@ -19,15 +19,48 @@ package org.apache.ignite.internal.idx;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import org.apache.ignite.configuration.schemas.table.TableIndexChange;
 import org.apache.ignite.internal.idx.event.IndexEvent;
 import org.apache.ignite.internal.idx.event.IndexEventParameters;
 import org.apache.ignite.internal.manager.Producer;
+import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.NodeStoppingException;
 
 /**
  * Internal index manager facade provides low-level methods for indexes operations.
  */
 public interface IndexManager extends Producer<IndexEvent, IndexEventParameters> {
+    /**
+     * Creates a new index with the specified name. Throws
+     *
+     * @param idxCanonicalName Index canonical name.
+     * @param tblCanonicalName Table canonical name.
+     * @param idxChange        Index configuration.
+     * @return Index.
+     * @throws IndexAlreadyExistsException if the index exists.
+     */
+    public InternalSortedIndex createIndex(
+            String idxCanonicalName,
+            String tblCanonicalName,
+            Consumer<TableIndexChange> idxChange
+    );
+
+    /**
+     * Create index asynchronously.
+     *
+     * @param idxCanonicalName Index canonical name.
+     * @param tblCanonicalName Table canonical name.
+     * @param idxChange        Index configuration.
+     * @return Index future, that may be completed exceptionally with {@link IndexAlreadyExistsException} if the index exists.
+     */
+    public CompletableFuture<InternalSortedIndex> createIndexAsync(
+            String idxCanonicalName,
+            String tblCanonicalName,
+            Consumer<TableIndexChange> idxChange
+    );
+
     /**
      * Gets indexes of the table.
      *

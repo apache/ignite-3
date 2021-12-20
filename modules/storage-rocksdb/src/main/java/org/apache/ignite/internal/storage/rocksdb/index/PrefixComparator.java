@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
  */
 class PrefixComparator {
     private final SortedIndexDescriptor descriptor;
-    private final @Nullable Object[] prefix;
+    private final @Nullable IndexRowPrefix prefix;
 
     /**
      * Creates a new prefix comparator.
@@ -42,10 +42,10 @@ class PrefixComparator {
      * @param prefix Prefix to compare the incoming rows against.
      */
     PrefixComparator(SortedIndexDescriptor descriptor, IndexRowPrefix prefix) {
-        assert descriptor.columns().size() >= prefix.prefixColumnValues().length;
+        assert descriptor.columns().size() >= prefix.length();
 
         this.descriptor = descriptor;
-        this.prefix = prefix.prefixColumnValues();
+        this.prefix = prefix;
     }
 
     /**
@@ -59,10 +59,10 @@ class PrefixComparator {
     int compare(BinaryRow binaryRow) {
         var row = new Row(descriptor.schema(), binaryRow);
 
-        for (int i = 0; i < prefix.length; ++i) {
+        for (int i = 0; i < prefix.length(); ++i) {
             SortedIndexColumnDescriptor columnDescriptor = descriptor.columns().get(i);
 
-            int compare = compare(columnDescriptor.column(), row, prefix[i]);
+            int compare = compare(columnDescriptor.column(), row, prefix.value(i));
 
             if (compare != 0) {
                 return columnDescriptor.asc() ? compare : -compare;

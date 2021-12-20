@@ -74,6 +74,7 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableStorageRowListener;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
@@ -325,7 +326,8 @@ public class TableManager extends AbstractProducer<TableEvent, TableEventParamet
 
                             toAdd.removeAll(oldPartitionAssignment);
 
-                            InternalTable internalTable = tablesById.get(tblId).internalTable();
+                            TableImpl tbl = tablesById.get(tblId);
+                            InternalTable internalTable = tbl.internalTable();
 
                             // Create new raft nodes according to new assignments.
 
@@ -335,7 +337,7 @@ public class TableManager extends AbstractProducer<TableEvent, TableEventParamet
                                         newPartitionAssignment,
                                         toAdd,
                                         () -> new PartitionListener(tblId,
-                                                new VersionedRowStore(internalTable.storage().getOrCreatePartition(partId), txManager))
+                                                new VersionedRowStore(internalTable.storage().getOrCreatePartition(partId), txManager, tbl))
                                 ).thenAccept(
                                         updatedRaftGroupService -> ((InternalTableImpl) internalTable).updateInternalTableRaftGroupService(
                                                 partId, updatedRaftGroupService)
@@ -488,6 +490,8 @@ public class TableManager extends AbstractProducer<TableEvent, TableEventParamet
 
         tableStorage.start();
 
+        TableStorageRowListener storageUpdLsnr = new TableStorageRowListener();
+
         for (int p = 0; p < partitions; p++) {
             int partId = p;
 
@@ -497,7 +501,7 @@ public class TableManager extends AbstractProducer<TableEvent, TableEventParamet
                                 raftGroupName(tblId, p),
                                 assignment.get(p),
                                 () -> new PartitionListener(tblId,
-                                        new VersionedRowStore(tableStorage.getOrCreatePartition(partId), txManager))
+                                        new VersionedRowStore(tableStorage.getOrCreatePartition(partId), txManager, storageUpdLsnr))
                         )
                 );
             } catch (NodeStoppingException e) {
@@ -551,6 +555,8 @@ public class TableManager extends AbstractProducer<TableEvent, TableEventParamet
                         schemaRegistry,
                         TableManager.this
                 );
+
+                storageUpdLsnr.listen(table);
 
                 tables.put(name, table);
                 tablesById.put(tblId, table);

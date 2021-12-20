@@ -17,16 +17,26 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.SearchRow;
-import org.apache.ignite.table.Tuple;
 
 /**
- * Temporary API for creating Index rows from a list of column values. All columns must be sorted according to the index columns order,
- * specified by the SortedIndexDescriptor.
+ * Represents an Index Row - a set of indexed columns and Primary Key columns (for key uniqueness).
  */
-public interface IndexRowFactory {
+public interface IndexBinaryRow {
     /**
-     * Creates an Index row from a list of column values.
+     * Returns the serialized presentation of this row as a byte array.
+     *
+     * @return Serialized byte array value.
      */
-    IndexBinaryRow createIndexRow(Tuple row, SearchRow primaryKey);
+    byte[] rowBytes();
+
+    /**
+     * Returns the Primary Key that is a part of this row.
+     *
+     * <p>This is a convenience method for easier extraction of the Primary Key to use it for accessing the {@link PartitionStorage}.
+     *
+     * @return Primary key of the associated {@link PartitionStorage}.
+     */
+    SearchRow primaryKey();
 }

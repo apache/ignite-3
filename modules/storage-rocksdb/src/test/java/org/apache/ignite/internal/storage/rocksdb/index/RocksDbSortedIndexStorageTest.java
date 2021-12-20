@@ -52,6 +52,7 @@ import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
@@ -67,6 +68,7 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -196,16 +198,19 @@ public class RocksDbSortedIndexStorageTest {
     void testRowSerialization() {
         SortedIndexStorage indexStorage = createIndex(ALL_TYPES_COLUMN_DEFINITIONS);
 
-        Object[] columns = indexStorage.indexDescriptor().columns().stream()
+        Tuple row = Tuple.create();
+        indexStorage.indexDescriptor().columns().stream()
+                .sequential()
                 .map(SortedIndexColumnDescriptor::column)
-                .map(column -> generateRandomValue(random, column.type()))
-                .toArray();
+                .forEach(column -> row.set(column.name(), generateRandomValue(random, column.type())));
 
-        IndexRow row = indexStorage.indexRowFactory().createIndexRow(columns, new ByteArraySearchRow(new byte[0]));
+        IndexBinaryRow idxBinRow = indexStorage.indexRowFactory().createIndexRow(row, new ByteArraySearchRow(new byte[0]));
 
-        Object[] actual = indexStorage.indexRowDeserializer().indexedColumnValues(row);
+        IndexRow idxRow = indexStorage.indexRowDeserializer().row(idxBinRow);
 
-        assertThat(actual, is(equalTo(columns)));
+        for (int i = 0; i < idxRow.columnsCount(); ++i) {
+            assertThat(row.value(i), is(equalTo(idxRow.value(i))));
+        }
     }
 
     /**
@@ -259,7 +264,7 @@ public class RocksDbSortedIndexStorageTest {
 
         List<byte[]> actual = cursorToList(indexStorage.range(first, last))
                 .stream()
-                .map(IndexRow::primaryKey)
+                .map(IndexBinaryRow::primaryKey)
                 .map(SearchRow::keyBytes)
                 .collect(toList());
 
@@ -291,7 +296,9 @@ public class RocksDbSortedIndexStorageTest {
         indexStorage.put(entry1.row());
         indexStorage.put(entry2.row());
 
-        List<IndexRow> actual = cursorToList(indexStorage.range(entry2::columns, entry1::columns));
+        int colCount = indexStorage.indexDescriptor().columns().size();
+
+        List<IndexBinaryRow> actual = cursorToList(indexStorage.range(entry2.prefix(colCount), entry1.prefix(colCount)));
 
         assertThat(actual, is(empty()));
     }
@@ -416,10 +423,10 @@ public class RocksDbSortedIndexStorageTest {
      * Extracts a single value by a given key or {@code null} if it does not exist.
      */
     @Nullable
-    private static IndexRow getSingle(SortedIndexStorage indexStorage, IndexRowWrapper entry) throws Exception {
-        IndexRowPrefix fullPrefix = entry::columns;
+    private static IndexBinaryRow getSingle(SortedIndexStorage indexStorage, IndexRowWrapper entry) throws Exception {
+        IndexRowPrefix fullPrefix = entry.prefix(indexStorage.indexDescriptor().columns().size());
 
-        List<IndexRow> values = cursorToList(indexStorage.range(fullPrefix, fullPrefix));
+        List<IndexBinaryRow> values = cursorToList(indexStorage.range(fullPrefix, fullPrefix));
 
         assertThat(values, anyOf(empty(), hasSize(1)));
 

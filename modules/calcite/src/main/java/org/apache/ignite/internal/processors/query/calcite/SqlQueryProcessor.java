@@ -241,6 +241,10 @@ public class SqlQueryProcessor implements QueryProcessor {
         /** {@inheritDoc} */
         @Override
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+            if (exception != null) {
+                return false;
+            }
+
             schemaHolder.onSqlTypeCreated(
                     "PUBLIC",
                     parameters.table()
@@ -260,6 +264,10 @@ public class SqlQueryProcessor implements QueryProcessor {
         /** {@inheritDoc} */
         @Override
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+            if (exception != null) {
+                return false;
+            }
+
             schemaHolder.onSqlTypeUpdated(
                     "PUBLIC",
                     parameters.table()
@@ -279,6 +287,10 @@ public class SqlQueryProcessor implements QueryProcessor {
         /** {@inheritDoc} */
         @Override
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+            if (exception != null) {
+                return false;
+            }
+
             schemaHolder.onSqlTypeDropped(
                     "PUBLIC",
                     parameters.tableName()
@@ -314,6 +326,10 @@ public class SqlQueryProcessor implements QueryProcessor {
         /** {@inheritDoc} */
         @Override
         public boolean notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
+            if (exception != null) {
+                return false;
+            }
+
             schemaHolder.onIndexCreated(
                     "PUBLIC",
                     parameters.tableName(),
@@ -334,6 +350,10 @@ public class SqlQueryProcessor implements QueryProcessor {
         /** {@inheritDoc} */
         @Override
         public boolean notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
+            if (exception != null) {
+                return false;
+            }
+
             schemaHolder.onIndexDropped(
                     "PUBLIC",
                     parameters.tableName(),

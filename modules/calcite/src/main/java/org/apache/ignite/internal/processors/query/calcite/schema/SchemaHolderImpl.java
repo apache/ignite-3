@@ -159,7 +159,7 @@ public class SchemaHolderImpl implements SchemaHolder {
      * Build new SQL schema when new index is created.
      */
     public void onIndexCreated(String schema, String tblName, InternalSortedIndex idx) {
-        InternalIgniteTable tbl = igniteSchemas.get(schema).internalTable(tblName);
+        InternalIgniteTable tbl = igniteSchemas.get(schema).internalTable(removeSchema(schema, tblName));
 
         List<Integer> cols = idx.columns().stream().map(Column::schemaIndex).collect(Collectors.toList());
 

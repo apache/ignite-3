@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
-import java.util.Arrays;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowDeserializer;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
@@ -36,15 +34,7 @@ class BinaryIndexRowDeserializer implements IndexRowDeserializer {
     }
 
     @Override
-    public Object[] indexedColumnValues(IndexRow indexRow) {
-        var row = new Row(descriptor.schema(), new ByteBufferRow(indexRow.rowBytes()));
-
-        Object[] res = new Object[Arrays.stream(descriptor.schema().keyColumns().columns())
-                .mapToInt(column -> column.columnOrder()).max().getAsInt() + 1];
-
-        Arrays.stream(descriptor.schema().keyColumns().columns())
-                .forEach(column -> res[column.columnOrder()] = column.type().spec().objectValue(row, column.schemaIndex()));
-
-        return res;
+    public IndexRow row(IndexBinaryRow binRow) {
+        return new IndexRowImpl(binRow, descriptor);
     }
 }

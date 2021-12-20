@@ -20,18 +20,23 @@ package org.apache.ignite.internal.idx;
 import java.util.BitSet;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.table.StorageRowListener;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableRow;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Internal index manager facade provides low-level methods for indexes operations.
  */
-public class InternalSortedIndexImpl implements InternalSortedIndex {
+public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowListener {
     private final IgniteUuid id;
 
     private final String name;
@@ -50,21 +55,25 @@ public class InternalSortedIndexImpl implements InternalSortedIndex {
         this.tbl = tbl;
     }
 
+    /** {@inheritDoc} */
     @Override
     public IgniteUuid id() {
         return id;
     }
 
+    /** {@inheritDoc} */
     @Override
     public String name() {
         return name;
     }
 
+    /** {@inheritDoc} */
     @Override
     public String tableName() {
         return tbl.name();
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Column> columns() {
         return store.indexDescriptor().columns().stream()
@@ -72,8 +81,24 @@ public class InternalSortedIndexImpl implements InternalSortedIndex {
                 .collect(Collectors.toList());
     }
 
+    /** {@inheritDoc} */
     @Override
     public Cursor<Row> scan(Row low, Row up, byte scanBoundMask, BitSet proj) {
         return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onUpdate(@Nullable BinaryRow oldRow, BinaryRow newRow) {
+        Tuple t = TableRow.tuple(tbl.schemaView().resolve(newRow));
+
+
+        store.put();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onRemove(BinaryRow row) {
+
     }
 }

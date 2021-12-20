@@ -49,20 +49,20 @@ public interface SortedIndexStorage extends AutoCloseable {
      *
      * <p>Putting a new value under the same key will overwrite the previous associated value.
      */
-    void put(IndexRow row);
+    void put(IndexBinaryRow row);
 
     /**
      * Removes the given key from the index.
      *
      * <p>Removing a non-existent key is a no-op.
      */
-    void remove(IndexRow row);
+    void remove(IndexBinaryRow row);
 
     /**
      * Returns a range of index values between the lower bound (inclusive) and the upper bound (inclusive).
      */
     // TODO: add options https://issues.apache.org/jira/browse/IGNITE-16059
-    Cursor<IndexRow> range(IndexRowPrefix lowerBound, IndexRowPrefix upperBound);
+    Cursor<IndexBinaryRow> range(IndexRowPrefix lowerBound, IndexRowPrefix upperBound);
 
     /**
      * Removes all data in this index and frees the associated resources.

@@ -201,19 +201,15 @@ public class DdlCommandHandler {
             idx0.done();
         }
 
-        String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
+        String tblCanonicalName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
-        tblManager.alterTable(fullName, chng -> chng.changeIndices(idxes -> {
-            if (idxes.get(cmd.indexName()) != null) {
-                if (!cmd.ifIndexNotExists()) {
-                    throw new IndexAlreadyExistsException(cmd.indexName());
-                } else {
-                    return;
-                }
+        try {
+            idxManager.createIndex(cmd.indexName(), tblCanonicalName, idxCh -> convert(idx.build(), idxCh));
+        } catch (IndexAlreadyExistsException e) {
+            if (!cmd.ifIndexNotExists()) {
+                throw e;
             }
-
-            idxes.create(cmd.indexName(), tableIndexChange -> convert(idx.build(), tableIndexChange));
-        }));
+        }
     }
 
     /** Handles drop index command. */

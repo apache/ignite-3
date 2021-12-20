@@ -20,10 +20,9 @@ package org.apache.ignite.internal.storage.index;
 /**
  * Represents an Index row prefix, used to perform prefix scans over the Sorted Index storage.
  */
-public interface IndexRowPrefix {
+public interface IndexRowPrefix extends IndexRow {
     /**
-     * Returns a list of column values that comprise a prefix of an Index row. Values will be sorted in the same order as the
-     * Sorted Index columns, specified by {@link MySortedIndexDescriptor#indexRowColumns()}.
+     * Returns count of prefix columns.
      */
-    Object[] prefixColumnValues();
+    int length();
 }
