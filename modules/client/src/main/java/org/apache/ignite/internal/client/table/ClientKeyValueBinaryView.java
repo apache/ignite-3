@@ -53,15 +53,15 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple get(@NotNull Tuple key) {
-        return getAsync(key).join();
+    public Tuple get(@Nullable Transaction tx, @NotNull Tuple key) {
+        return getAsync(tx, key).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple key) {
+    public @NotNull CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         Objects.requireNonNull(key);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (schema, out) -> tbl.writeTuple(key, schema, out, true),
@@ -70,15 +70,15 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Map<Tuple, Tuple> getAll(@NotNull Collection<Tuple> keys) {
-        return getAllAsync(keys).join();
+    public Map<Tuple, Tuple> getAll(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
+        return getAllAsync(tx, keys).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@NotNull Collection<Tuple> keys) {
+    public @NotNull CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
         Objects.requireNonNull(keys);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
                 (s, w) -> tbl.writeTuples(keys, s, w, true),
@@ -93,7 +93,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
      * the given key.
      */
     @Override
-    public NullableValue<Tuple> getNullable(@NotNull Tuple key) {
+    public NullableValue<Tuple> getNullable(@Nullable Transaction tx, @NotNull Tuple key) {
         throw new UnsupportedOperationException("Binary view doesn't allow null values. Please, use get(key) method instead.");
     }
 
@@ -104,19 +104,19 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
      * the given key.
      */
     @Override
-    public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAsync(@NotNull Tuple key) {
+    public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         throw new UnsupportedOperationException("Binary view doesn't allow null values. Please, use getAsync(key) method instead.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getOrDefault(@NotNull Tuple key, @NotNull Tuple defaultValue) {
-        return getOrDefaultAsync(key, defaultValue).join();
+    public Tuple getOrDefault(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple defaultValue) {
+        return getOrDefaultAsync(tx, key, defaultValue).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getOrDefaultAsync(@NotNull Tuple key, @NotNull Tuple defaultValue) {
+    public @NotNull CompletableFuture<Tuple> getOrDefaultAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple defaultValue) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(defaultValue);
 
@@ -128,15 +128,15 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public boolean contains(@NotNull Tuple key) {
-        return containsAsync(key).join();
+    public boolean contains(@Nullable Transaction tx, @NotNull Tuple key) {
+        return containsAsync(tx, key).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> containsAsync(@NotNull Tuple key) {
+    public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         Objects.requireNonNull(key);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_KEY,
                 (schema, out) -> tbl.writeTuple(key, schema, out, true),
@@ -145,15 +145,15 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public void put(@NotNull Tuple key, Tuple val) {
-        putAsync(key, val).join();
+    public void put(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+        putAsync(tx, key, val).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> putAsync(@NotNull Tuple key, Tuple val) {
+    public @NotNull CompletableFuture<Void> putAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
         Objects.requireNonNull(key);
-
+        // TODO: Transactions IGNITE-15240
         // TODO IGNITE-15194: Convert Tuple to a schema-order Array as a first step.
         // If it does not match the latest schema, then request latest and convert again.
         return tbl.doSchemaOutOpAsync(
@@ -164,15 +164,15 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public void putAll(@NotNull Map<Tuple, Tuple> pairs) {
-        putAllAsync(pairs).join();
+    public void putAll(@Nullable Transaction tx, @NotNull Map<Tuple, Tuple> pairs) {
+        putAllAsync(tx, pairs).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> putAllAsync(@NotNull Map<Tuple, Tuple> pairs) {
+    public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<Tuple, Tuple> pairs) {
         Objects.requireNonNull(pairs);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> tbl.writeKvTuples(pairs, s, w),
@@ -181,13 +181,14 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getAndPut(@NotNull Tuple key, Tuple val) {
-        return getAndPutAsync(key, val).join();
+    public Tuple getAndPut(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+        return getAndPutAsync(tx, key, val).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndPutAsync(@NotNull Tuple key, Tuple val) {
+    public @NotNull CompletableFuture<Tuple> getAndPutAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> tbl.writeKvTuple(key, val, s, w, false),
@@ -196,13 +197,14 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public boolean putIfAbsent(@NotNull Tuple key, @NotNull Tuple val) {
-        return putIfAbsentAsync(key, val).join();
+    public boolean putIfAbsent(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
+        return putIfAbsentAsync(tx, key, val).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@NotNull Tuple key, Tuple val) {
+    public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> tbl.writeKvTuple(key, val, s, w, false),
@@ -211,21 +213,21 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public boolean remove(@NotNull Tuple key) {
-        return removeAsync(key).join();
+    public boolean remove(@Nullable Transaction tx, @NotNull Tuple key) {
+        return removeAsync(tx, key).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean remove(@NotNull Tuple key, @NotNull Tuple val) {
-        return removeAsync(key, val).join();
+    public boolean remove(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
+        return removeAsync(tx, key, val).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull Tuple key) {
+    public @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         Objects.requireNonNull(key);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> tbl.writeTuple(key, s, w, true),
@@ -234,10 +236,10 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull Tuple key, @NotNull Tuple val) {
+    public @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> tbl.writeKvTuple(key, val, s, w, false),
@@ -246,15 +248,15 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Tuple> removeAll(@NotNull Collection<Tuple> keys) {
-        return removeAllAsync(keys).join();
+    public Collection<Tuple> removeAll(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
+        return removeAllAsync(tx, keys).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<Tuple>> removeAllAsync(@NotNull Collection<Tuple> keys) {
+    public @NotNull CompletableFuture<Collection<Tuple>> removeAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
         Objects.requireNonNull(keys);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
                 (s, w) -> tbl.writeTuples(keys, s, w, true),
@@ -264,13 +266,14 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getAndRemove(@NotNull Tuple key) {
-        return getAndRemoveAsync(key).join();
+    public Tuple getAndRemove(@Nullable Transaction tx, @NotNull Tuple key) {
+        return getAndRemoveAsync(tx, key).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndRemoveAsync(@NotNull Tuple key) {
+    public @NotNull CompletableFuture<Tuple> getAndRemoveAsync(@Nullable Transaction tx, @NotNull Tuple key) {
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> tbl.writeTuple(key, s, w, true),
@@ -279,21 +282,21 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@NotNull Tuple key, Tuple val) {
-        return replaceAsync(key, val).join();
+    public boolean replace(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+        return replaceAsync(tx, key, val).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@NotNull Tuple key, Tuple oldVal, Tuple newVal) {
-        return replaceAsync(key, oldVal, newVal).join();
+    public boolean replace(@Nullable Transaction tx, @NotNull Tuple key, Tuple oldVal, Tuple newVal) {
+        return replaceAsync(tx, key, oldVal, newVal).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple key, Tuple val) {
+    public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
         Objects.requireNonNull(key);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> tbl.writeKvTuple(key, val, s, w, false),
@@ -302,9 +305,9 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple key, Tuple oldVal, Tuple newVal) {
+    public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple oldVal, Tuple newVal) {
         Objects.requireNonNull(key);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
                 (s, w) -> {
@@ -316,15 +319,15 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getAndReplace(@NotNull Tuple key, Tuple val) {
-        return getAndReplaceAsync(key, val).join();
+    public Tuple getAndReplace(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+        return getAndReplaceAsync(tx, key, val).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@NotNull Tuple key, Tuple val) {
+    public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
         Objects.requireNonNull(key);
-
+        // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> tbl.writeKvTuple(key, val, s, w, false),
@@ -334,6 +337,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     /** {@inheritDoc} */
     @Override
     public <R extends Serializable> R invoke(
+            @Nullable Transaction tx,
             @NotNull Tuple key,
             InvokeProcessor<Tuple, Tuple, R> proc,
             Serializable... args
@@ -344,6 +348,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     /** {@inheritDoc} */
     @Override
     public @NotNull <R extends Serializable> CompletableFuture<R> invokeAsync(
+            @Nullable Transaction tx,
             @NotNull Tuple key,
             InvokeProcessor<Tuple, Tuple, R> proc,
             Serializable... args
@@ -354,6 +359,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     /** {@inheritDoc} */
     @Override
     public <R extends Serializable> Map<Tuple, R> invokeAll(
+            @Nullable Transaction tx,
             @NotNull Collection<Tuple> keys,
             InvokeProcessor<Tuple, Tuple, R> proc,
             Serializable... args
@@ -364,24 +370,11 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     /** {@inheritDoc} */
     @Override
     public @NotNull <R extends Serializable> CompletableFuture<Map<Tuple, R>> invokeAllAsync(
+            @Nullable Transaction tx,
             @NotNull Collection<Tuple> keys,
             InvokeProcessor<Tuple, Tuple, R> proc,
             Serializable... args
     ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable Transaction transaction() {
-        // TODO: Transactions IGNITE-15240
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public KeyValueView<Tuple, Tuple> withTransaction(Transaction tx) {
-        // TODO: Transactions IGNITE-15240
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 }

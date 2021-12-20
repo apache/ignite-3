@@ -18,13 +18,14 @@
 package org.apache.ignite.lang;
 
 import java.util.Objects;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents a value that can be {@code null}. Used to distinguish 'value is absent' and `value is null` cases.
  *
  * @param <T> Value type.
- * @see org.apache.ignite.table.KeyValueView#getNullable(Object)
+ * @see org.apache.ignite.table.KeyValueView#getNullable(Transaction, Object)
  */
 public final class NullableValue<T> {
     /** Wrapped value. */
