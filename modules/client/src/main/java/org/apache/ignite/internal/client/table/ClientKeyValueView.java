@@ -356,39 +356,41 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public <R extends Serializable> R invoke(@NotNull K key, InvokeProcessor<K, V, R> proc, Serializable... args) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull <R extends Serializable> CompletableFuture<R> invokeAsync(@NotNull K key, InvokeProcessor<K, V, R> proc,
             Serializable... args) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public <R extends Serializable> Map<K, R> invokeAll(@NotNull Collection<K> keys, InvokeProcessor<K, V, R> proc, Serializable... args) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull <R extends Serializable> CompletableFuture<Map<K, R>> invokeAllAsync(@NotNull Collection<K> keys,
             InvokeProcessor<K, V, R> proc, Serializable... args) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public @Nullable Transaction transaction() {
-        return null;
+        // TODO: Transactions IGNITE-15240
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public KeyValueView<K, V> withTransaction(Transaction tx) {
-        return null;
+        // TODO: Transactions IGNITE-15240
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     private HashMap<K, V> readGetAllResponse(@NotNull Collection<K> keys, ClientSchema schema, ClientMessageUnpacker in) {
