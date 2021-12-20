@@ -117,15 +117,15 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaDescriptor waitLatestSchema() {
+    @Override
+    public SchemaDescriptor waitLatestSchema() {
         int lastVer0 = latestVersionStore.getAsInt();
 
         if (lastVer0 == INITIAL_SCHEMA_VERSION) {
             return schema();
         }
 
-        assert lastVer <= lastVer0 : "Cached schema is earlier than consensus [lastVer=" + lastVer
-                + ", consLastVer=" + lastVer0 + ']';
+        assert lastVer <= lastVer0 : "Cached schema is earlier than consensus [lastVer=" + lastVer + ", consLastVer=" + lastVer0 + ']';
 
         return schema(lastVer0);
     }
@@ -153,8 +153,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     }
 
     /**
-     * Resolves a schema for row.
-     * The method is optimal when the latest schema is already gotten.
+     * Resolves a schema for row. The method is optimal when the latest schema is already got.
      *
      * @param row       Binary row.
      * @param curSchema The latest available local schema.

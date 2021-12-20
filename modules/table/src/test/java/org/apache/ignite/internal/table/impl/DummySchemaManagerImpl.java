@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.impl;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -81,6 +82,6 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
     /** {@inheritDoc} */
     @Override
     public Collection<Row> resolve(Collection<BinaryRow> rows) {
-        return rows.stream().map(this::resolve).collect(Collectors.toList());
+        return rows.stream().filter(Objects::nonNull).map(this::resolve).collect(Collectors.toList());
     }
 }
