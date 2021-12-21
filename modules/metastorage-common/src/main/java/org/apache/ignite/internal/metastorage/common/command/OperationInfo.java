@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.common.command;
 
-import org.apache.ignite.internal.metastorage.common.OperationType;
-
 import java.io.Serializable;
+import org.apache.ignite.internal.metastorage.common.OperationType;
 
 /**
  * Defines operation.
@@ -37,8 +36,8 @@ public class OperationInfo implements Serializable {
     /**
      * Constructs operation with given parameters.
      *
-     * @param key Key.
-     * @param val Value.
+     * @param key  Key.
+     * @param val  Value.
      * @param type Operation type.
      */
     public OperationInfo(byte[] key, byte[] val, OperationType type) {

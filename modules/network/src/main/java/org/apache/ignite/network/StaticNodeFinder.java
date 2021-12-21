@@ -17,36 +17,22 @@
 
 package org.apache.ignite.network;
 
-import java.util.Arrays;
 import java.util.List;
-import org.apache.ignite.configuration.schemas.network.NetworkView;
-
-import static java.util.stream.Collectors.collectingAndThen;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 /**
  * {@code NodeFinder} implementation that encapsulates a predefined list of network addresses.
  */
 public class StaticNodeFinder implements NodeFinder {
-    /** */
+    /** List of seed cluster members. */
     private final List<NetworkAddress> addresses;
 
     /**
+     * Constructor.
+     *
      * @param addresses Addresses of initial cluster members.
      */
     public StaticNodeFinder(List<NetworkAddress> addresses) {
         this.addresses = addresses;
-    }
-
-    /**
-     * Creates a node finder extracting the initial cluster member addresses from the given configuration.
-     *
-     * @param networkConfiguration Network configuration.
-     */
-    public static StaticNodeFinder fromConfiguration(NetworkView networkConfiguration) {
-        return Arrays.stream(networkConfiguration.netClusterNodes())
-            .map(NetworkAddress::from)
-            .collect(collectingAndThen(toUnmodifiableList(), StaticNodeFinder::new));
     }
 
     /** {@inheritDoc} */

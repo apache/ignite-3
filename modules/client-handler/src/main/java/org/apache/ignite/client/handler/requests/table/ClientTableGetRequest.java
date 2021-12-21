@@ -18,8 +18,8 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.proto.ClientMessagePacker;
-import org.apache.ignite.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.manager.IgniteTables;
 
@@ -30,8 +30,8 @@ public class ClientTableGetRequest {
     /**
      * Processes the request.
      *
-     * @param in Unpacker.
-     * @param out Packer.
+     * @param in     Unpacker.
+     * @param out    Packer.
      * @param tables Ignite tables.
      * @return Future.
      */
@@ -43,10 +43,11 @@ public class ClientTableGetRequest {
         String tableName = in.unpackString();
 
         return tables.tableAsync(tableName).thenAccept(table -> {
-            if (table == null)
+            if (table == null) {
                 out.packNil();
-            else
-                out.packUuid(((TableImpl) table).tableId());
+            } else {
+                out.packIgniteUuid(((TableImpl) table).tableId());
+            }
         });
     }
 }

@@ -22,53 +22,92 @@ import java.util.List;
 import java.util.Objects;
 import java.util.RandomAccess;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.configuration.ConfigurationReadOnlyException;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
+import org.apache.ignite.internal.configuration.tree.InnerNode;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Holder for property value. Expected to be used with numbers, strings and other immutable objects, e.g. IP addresses.
  */
-public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T, T> implements ConfigurationValue<T> {
+public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T> implements ConfigurationValue<T> {
+    /** Value cannot be changed. */
+    private final boolean readOnly;
+
+    /** Configuration field with {@link InjectedName}. */
+    private final boolean injectedNameField;
+
     /**
      * Constructor.
+     *
      * @param prefix Property prefix.
      * @param key Property name.
      * @param rootKey Root key.
      * @param changer Configuration changer.
+     * @param listenOnly Only adding listeners mode, without the ability to get or update the property value.
+     * @param readOnly Value cannot be changed.
+     * @param injectedNameField Configuration field with {@link InjectedName}.
      */
     public DynamicProperty(
-        List<String> prefix,
-        String key,
-        RootKey<?, ?> rootKey,
-        ConfigurationChanger changer
+            List<String> prefix,
+            String key,
+            RootKey<?, ?> rootKey,
+            DynamicConfigurationChanger changer,
+            boolean listenOnly,
+            boolean readOnly,
+            boolean injectedNameField
     ) {
-        super(prefix, key, rootKey, changer);
+        super(prefix, key, rootKey, changer, listenOnly);
+
+        this.readOnly = readOnly;
+        this.injectedNameField = injectedNameField;
     }
 
     /** {@inheritDoc} */
-    @Override public T value() {
-        return refreshValue();
+    @Override
+    public T value() {
+        if (injectedNameField) {
+            return (T) ((InnerNode) refreshValue()).getInjectedNameFieldValue();
+        } else {
+            return refreshValue();
+        }
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> update(T newValue) {
+    @Override
+    public CompletableFuture<Void> update(T newValue) {
         Objects.requireNonNull(newValue, "Configuration value cannot be null.");
+
+        if (listenOnly) {
+            throw listenOnlyException();
+        }
+
+        if (readOnly) {
+            throw new ConfigurationReadOnlyException("Read only mode: " + keys);
+        }
 
         assert keys instanceof RandomAccess;
         assert !keys.isEmpty();
 
         ConfigurationSource src = new ConfigurationSource() {
+            /** Current index in the {@code keys}. */
             private int level = 0;
 
-            @Override public void descend(ConstructableTreeNode node) {
+            /** {@inheritDoc} */
+            @Override
+            public void descend(ConstructableTreeNode node) {
                 assert level < keys.size();
 
-                node.construct(keys.get(level++), this);
+                node.construct(keys.get(level++), this, true);
             }
 
-            @Override public <T> T unwrap(Class<T> clazz) {
+            /** {@inheritDoc} */
+            @Override
+            public <T> T unwrap(Class<T> clazz) {
                 assert level == keys.size();
 
                 assert clazz.isInstance(newValue);
@@ -76,17 +115,26 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
                 return clazz.cast(newValue);
             }
 
-            @Override public void reset() {
+            /** {@inheritDoc} */
+            @Override
+            public void reset() {
                 level = 0;
             }
         };
 
         // Use resulting tree as update request for the storage.
-        return changer.change(src, null);
+        return changer.change(src);
     }
 
     /** {@inheritDoc} */
-    @Override public String key() {
+    @Override
+    public String key() {
         return key;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(DynamicProperty.class, this, "key", key, "value", value());
     }
 }

@@ -31,7 +31,6 @@ public class IgniteProperties {
     /** Properties. */
     private static final Properties PROPS;
 
-    /** */
     static {
         PROPS = new Properties();
 
@@ -39,22 +38,24 @@ public class IgniteProperties {
     }
 
     /**
-     * @param path Path.
-     * @param props Properties.
+     * Reads properties.
+     *
+     * @param path     Path.
+     * @param props    Properties.
      * @param throwExc Flag indicating whether to throw an exception or not.
      */
     public static void readProperties(String path, Properties props, boolean throwExc) {
         try (InputStream is = IgniteProperties.class.getClassLoader().getResourceAsStream(path)) {
             if (is == null) {
-                if (throwExc)
+                if (throwExc) {
                     throw new RuntimeException("Failed to find properties file: " + path);
-                else
+                } else {
                     return;
+                }
             }
 
             props.load(is);
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new RuntimeException("Failed to read properties file: " + path, e);
         }
     }
@@ -69,7 +70,9 @@ public class IgniteProperties {
         return PROPS.getProperty(key, "");
     }
 
-    /** */
+    /**
+     * Constructor.
+     */
     private IgniteProperties() {
         // No-op.
     }

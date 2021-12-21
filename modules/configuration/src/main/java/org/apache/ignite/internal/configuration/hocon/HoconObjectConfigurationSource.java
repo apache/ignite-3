@@ -17,20 +17,22 @@
 
 package org.apache.ignite.internal.configuration.hocon;
 
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import com.typesafe.config.ConfigList;
-import com.typesafe.config.ConfigObject;
-import com.typesafe.config.ConfigValue;
-import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
-import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
-import org.jetbrains.annotations.Nullable;
-
 import static java.lang.String.format;
 import static org.apache.ignite.internal.configuration.hocon.HoconPrimitiveConfigurationSource.wrongTypeException;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.appendKey;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.join;
+
+import com.typesafe.config.ConfigList;
+import com.typesafe.config.ConfigObject;
+import com.typesafe.config.ConfigValue;
+import com.typesafe.config.ConfigValueType;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
+import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
+import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link ConfigurationSource} created from a HOCON object.
@@ -54,9 +56,9 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
     /**
      * Creates a {@link ConfigurationSource} from the given HOCON object.
      *
-     * @param ignoredKey Key that needs to be ignored by the source. Can be {@code null}.
-     * @param path Current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgObject}
-     *             is the top-level object.
+     * @param ignoredKey     Key that needs to be ignored by the source. Can be {@code null}.
+     * @param path           Current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgObject} is the
+     *                       top-level object.
      * @param hoconCfgObject HOCON object.
      */
     HoconObjectConfigurationSource(@Nullable String ignoredKey, List<String> path, ConfigObject hoconCfgObject) {
@@ -66,31 +68,38 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T unwrap(Class<T> clazz) {
+    @Override
+    public <T> T unwrap(Class<T> clazz) {
         throw wrongTypeException(clazz, path, -1);
     }
 
     /** {@inheritDoc} */
-    @Override public void descend(ConstructableTreeNode node) {
+    @Override
+    public void descend(ConstructableTreeNode node) {
         for (Map.Entry<String, ConfigValue> entry : hoconCfgObject.entrySet()) {
             String key = entry.getKey();
 
-            if (key.equals(ignoredKey))
+            if (key.equals(ignoredKey)) {
                 continue;
+            }
 
             ConfigValue hoconCfgValue = entry.getValue();
 
             try {
                 switch (hoconCfgValue.valueType()) {
                     case NULL:
-                        node.construct(key, null);
+                        node.construct(key, null, false);
 
                         break;
 
                     case OBJECT: {
                         List<String> path = appendKey(this.path, key);
 
-                        node.construct(key, new HoconObjectConfigurationSource(null, path, (ConfigObject)hoconCfgValue));
+                        node.construct(
+                                key,
+                                new HoconObjectConfigurationSource(null, path, (ConfigObject) hoconCfgValue),
+                                false
+                        );
 
                         break;
                     }
@@ -98,7 +107,7 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
                     case LIST: {
                         List<String> path = appendKey(this.path, key);
 
-                        node.construct(key, new HoconListConfigurationSource(path, (ConfigList)hoconCfgValue));
+                        node.construct(key, new HoconListConfigurationSource(path, (ConfigList) hoconCfgValue), false);
 
                         break;
                     }
@@ -106,22 +115,42 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
                     default: {
                         List<String> path = appendKey(this.path, key);
 
-                        node.construct(key, new HoconPrimitiveConfigurationSource(path, hoconCfgValue));
+                        node.construct(key, new HoconPrimitiveConfigurationSource(path, hoconCfgValue), false);
                     }
                 }
-            }
-            catch (NoSuchElementException e) {
+            } catch (NoSuchElementException e) {
                 if (path.isEmpty()) {
                     throw new IllegalArgumentException(
-                        format("'%s' configuration root doesn't exist", key), e
+                            format("'%s' configuration root doesn't exist", key), e
                     );
-                }
-                else {
+                } else {
                     throw new IllegalArgumentException(
-                        format("'%s' configuration doesn't have the '%s' sub-configuration", join(path), key), e
+                            format("'%s' configuration doesn't have the '%s' sub-configuration", join(path), key), e
                     );
                 }
+            } catch (ConfigurationWrongPolymorphicTypeIdException e) {
+                throw new IllegalArgumentException(
+                        "Polymorphic configuration type is not correct: " + e.getMessage()
+                );
             }
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable String polymorphicTypeId(String fieldName) {
+        ConfigValue typeId = hoconCfgObject.get(fieldName);
+
+        if (typeId == null) {
+            return null;
+        }
+
+        if (typeId.valueType() != ConfigValueType.STRING) {
+            throw new IllegalArgumentException(
+                    format("Invalid Polymorphic Type ID type. Expected %s, got %s", ConfigValueType.STRING, typeId.valueType())
+            );
+        }
+
+        return (String) typeId.unwrapped();
     }
 }

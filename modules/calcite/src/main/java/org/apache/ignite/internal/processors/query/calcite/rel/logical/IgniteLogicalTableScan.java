@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.processors.query.calcite.rel.logical;
 
 import java.util.List;
-
-import com.google.common.collect.ImmutableList;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
@@ -28,37 +26,41 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.processors.query.calcite.rel.ProjectableFilterableTableScan;
 import org.jetbrains.annotations.Nullable;
 
-/** */
+/**
+ * IgniteLogicalTableScan.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
     /** Creates a IgniteTableScan. */
     public static IgniteLogicalTableScan create(
-        RelOptCluster cluster,
-        RelTraitSet traits,
-        RelOptTable tbl,
-        @Nullable List<RexNode> proj,
-        @Nullable RexNode cond,
-        @Nullable ImmutableBitSet requiredColumns
+            RelOptCluster cluster,
+            RelTraitSet traits,
+            RelOptTable tbl,
+            @Nullable List<RexNode> proj,
+            @Nullable RexNode cond,
+            @Nullable ImmutableBitSet requiredColumns
     ) {
         return new IgniteLogicalTableScan(cluster, traits, tbl, proj, cond, requiredColumns);
     }
 
     /**
      * Creates a TableScan.
-     * @param cluster Cluster that this relational expression belongs to.
-     * @param traits Traits of this relational expression.
-     * @param tbl Table definition.
-     * @param proj Projects.
-     * @param cond Filters.
+     *
+     * @param cluster         Cluster that this relational expression belongs to.
+     * @param traits          Traits of this relational expression.
+     * @param tbl             Table definition.
+     * @param proj            Projects.
+     * @param cond            Filters.
      * @param requiredColunms Participating colunms.
      */
     private IgniteLogicalTableScan(
-        RelOptCluster cluster,
-        RelTraitSet traits,
-        RelOptTable tbl,
-        @Nullable List<RexNode> proj,
-        @Nullable RexNode cond,
-        @Nullable ImmutableBitSet requiredColunms
+            RelOptCluster cluster,
+            RelTraitSet traits,
+            RelOptTable tbl,
+            @Nullable List<RexNode> proj,
+            @Nullable RexNode cond,
+            @Nullable ImmutableBitSet requiredColunms
     ) {
-        super(cluster, traits, ImmutableList.of(), tbl, proj, cond, requiredColunms);
+        super(cluster, traits, List.of(), tbl, proj, cond, requiredColunms);
     }
 }

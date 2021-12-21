@@ -22,15 +22,17 @@ import java.util.List;
 /**
  * Determines where to send a row to.
  */
-public interface Destination<Row> {
+public interface Destination<RowT> {
     /**
+     * Get target nodes list by row.
+     *
      * @param row Row.
      * @return Target nodes list for specific row.
      */
-    List<String> targets(Row row);
+    List<String> targets(RowT row);
 
     /**
-     * @return All target nodes.
+     * Get all target nodes.
      */
     List<String> targets();
 }

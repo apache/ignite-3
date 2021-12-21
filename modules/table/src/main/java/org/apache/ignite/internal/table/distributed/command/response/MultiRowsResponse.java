@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.table.distributed.command.response;
 
 import java.io.Serializable;
-import java.util.Collection;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.command.CommandUtils;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
@@ -29,6 +29,7 @@ import org.apache.ignite.internal.table.distributed.command.InsertAllCommand;
 
 /**
  * This class represents a response object that contains a collection {@link BinaryRow} from a batch operation.
+ *
  * @see GetAllCommand
  * @see DeleteAllCommand
  * @see InsertAllCommand
@@ -36,7 +37,7 @@ import org.apache.ignite.internal.table.distributed.command.InsertAllCommand;
  */
 public class MultiRowsResponse implements Serializable {
     /** Binary rows. */
-    private transient Collection<BinaryRow> rows;
+    private transient List<BinaryRow> rows;
 
     /*
      * Row bytes.
@@ -50,18 +51,18 @@ public class MultiRowsResponse implements Serializable {
      *
      * @param rows Collection of binary rows.
      */
-    public MultiRowsResponse(Collection<BinaryRow> rows) {
+    public MultiRowsResponse(List<BinaryRow> rows) {
         this.rows = rows;
 
-        CommandUtils.rowsToBytes(rows, bytes -> rowsBytes = bytes);
+        rowsBytes = CommandUtils.rowsToBytes(rows);
     }
 
     /**
-     * @return Binary rows.
+     * Returns binary rows.
      */
-    public Collection<BinaryRow> getValues() {
+    public List<BinaryRow> getValues() {
         if (rows == null && rowsBytes != null) {
-            rows = new HashSet<>();
+            rows = new ArrayList<>();
 
             CommandUtils.readRows(rowsBytes, rows::add);
         }

@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.socket.nio.NioSocketChannel;
 import java.net.SocketAddress;
 import java.util.Collection;
 import java.util.Collections;
@@ -28,18 +32,17 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
-import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.nio.NioSocketChannel;
+import org.apache.ignite.configuration.schemas.network.NetworkView;
+import org.apache.ignite.configuration.schemas.network.OutboundView;
+import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -56,9 +59,6 @@ public class ConnectionManager {
 
     /** Client bootstrap. */
     private final Bootstrap clientBootstrap;
-
-    /** Client socket channel handler event loop group. */
-    private final EventLoopGroup clientWorkerGroup = new NioEventLoopGroup();
 
     /** Server. */
     private final NettyServer server;
@@ -81,33 +81,45 @@ public class ConnectionManager {
     /** Client handshake manager factory. */
     private final Supplier<HandshakeManager> clientHandshakeManagerFactory;
 
+    /** Start flag. */
+    private final AtomicBoolean started = new AtomicBoolean(false);
+
+    /** Stop flag. */
+    private final AtomicBoolean stopped = new AtomicBoolean(false);
+
     /**
      * Constructor.
      *
-     * @param port Server port.
-     * @param registry Serialization registry.
-     * @param consistentId Consistent id of this node.
+     * @param networkConfiguration          Network configuration.
+     * @param registry                      Serialization registry.
+     * @param consistentId                  Consistent id of this node.
      * @param serverHandshakeManagerFactory Server handshake manager factory.
      * @param clientHandshakeManagerFactory Client handshake manager factory.
+     * @param bootstrapFactory              Bootstrap factory.
      */
     public ConnectionManager(
-        int port,
-        MessageSerializationRegistry registry,
-        String consistentId,
-        Supplier<HandshakeManager> serverHandshakeManagerFactory,
-        Supplier<HandshakeManager> clientHandshakeManagerFactory
+            NetworkView networkConfiguration,
+            MessageSerializationRegistry registry,
+            String consistentId,
+            Supplier<HandshakeManager> serverHandshakeManagerFactory,
+            Supplier<HandshakeManager> clientHandshakeManagerFactory,
+            NettyBootstrapFactory bootstrapFactory
     ) {
         this.serializationRegistry = registry;
         this.consistentId = consistentId;
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
+
         this.server = new NettyServer(
-            port,
-            serverHandshakeManagerFactory.get(),
-            this::onNewIncomingChannel,
-            this::onMessage,
-            serializationRegistry
+                consistentId,
+                networkConfiguration,
+                serverHandshakeManagerFactory,
+                this::onNewIncomingChannel,
+                this::onMessage,
+                serializationRegistry,
+                bootstrapFactory
         );
-        this.clientBootstrap = createClientBootstrap(clientWorkerGroup, serializationRegistry);
+
+        this.clientBootstrap = bootstrapFactory.createClientBootstrap();
     }
 
     /**
@@ -117,25 +129,34 @@ public class ConnectionManager {
      */
     public void start() throws IgniteInternalException {
         try {
+            boolean wasStarted = started.getAndSet(true);
+
+            if (wasStarted) {
+                throw new IgniteInternalException("Attempted to start an already started connection manager");
+            }
+
+            if (stopped.get()) {
+                throw new IgniteInternalException("Attempted to start an already stopped connection manager");
+            }
+
             //TODO: timeout value should be extracted into common configuration
             // https://issues.apache.org/jira/browse/IGNITE-14538
             server.start().get(3, TimeUnit.SECONDS);
 
             LOG.info("Connection created [address=" + server.address() + ']');
-        }
-        catch (ExecutionException e) {
+        } catch (ExecutionException e) {
             Throwable cause = e.getCause();
             throw new IgniteInternalException("Failed to start the connection manager: " + cause.getMessage(), cause);
-        }
-        catch (TimeoutException e) {
+        } catch (TimeoutException e) {
             throw new IgniteInternalException("Timeout while waiting for the connection manager to start", e);
-        }
-        catch (InterruptedException e) {
+        } catch (InterruptedException e) {
             throw new IgniteInternalException("Interrupted while starting the connection manager", e);
         }
     }
 
     /**
+     * Returns server local address.
+     *
      * @return Server local address.
      */
     public SocketAddress getLocalAddress() {
@@ -144,8 +165,9 @@ public class ConnectionManager {
 
     /**
      * Gets a {@link NettySender}, that sends data from this node to another node with the specified address.
+     *
      * @param consistentId Another node's consistent id.
-     * @param address Another node's address.
+     * @param address      Another node's address.
      * @return Sender.
      */
     public CompletableFuture<NettySender> channel(@Nullable String consistentId, SocketAddress address) {
@@ -153,20 +175,21 @@ public class ConnectionManager {
             // If consistent id is known, try looking up a channel by consistent id. There can be an outbound connection
             // or an inbound connection associated with that consistent id.
             NettySender channel = channels.compute(
-                consistentId,
-                (addr, sender) -> (sender == null || !sender.isOpen()) ? null : sender
+                    consistentId,
+                    (addr, sender) -> (sender == null || !sender.isOpen()) ? null : sender
             );
 
-            if (channel != null)
+            if (channel != null) {
                 return CompletableFuture.completedFuture(channel);
+            }
         }
 
         // Get an existing client or create a new one. NettyClient provides a CompletableFuture that resolves
         // when the client is ready for write operations, so previously started client, that didn't establish connection
         // or didn't perform the handhsake operaton, can be reused.
         NettyClient client = clients.compute(address, (addr, existingClient) ->
-            existingClient != null && !existingClient.failedToConnect() && !existingClient.isDisconnected() ?
-                existingClient : connect(addr)
+                existingClient != null && !existingClient.failedToConnect() && !existingClient.isDisconnected()
+                        ? existingClient : connect(addr)
         );
 
         CompletableFuture<NettySender> sender = client.sender();
@@ -179,7 +202,7 @@ public class ConnectionManager {
     /**
      * Callback that is called upon receiving a new message.
      *
-     * @param from Source of the message.
+     * @param from    Source of the message.
      * @param message New message.
      */
     private void onMessage(SocketAddress from, NetworkMessage message) {
@@ -203,17 +226,18 @@ public class ConnectionManager {
      */
     private NettyClient connect(SocketAddress address) {
         var client = new NettyClient(
-            address,
-            serializationRegistry,
-            clientHandshakeManagerFactory.get(),
-            this::onMessage
+                address,
+                serializationRegistry,
+                clientHandshakeManagerFactory.get(),
+                this::onMessage
         );
 
         client.start(clientBootstrap).whenComplete((sender, throwable) -> {
-            if (throwable == null)
+            if (throwable == null) {
                 channels.put(sender.consistentId(), sender);
-            else
+            } else {
                 clients.remove(address);
+            }
         });
 
         return client;
@@ -232,24 +256,29 @@ public class ConnectionManager {
      * Stops the server and all clients.
      */
     public void stop() {
-         Stream<CompletableFuture<Void>> stream = Stream.concat(
-            clients.values().stream().map(NettyClient::stop),
-            Stream.of(server.stop())
+        boolean wasStopped = this.stopped.getAndSet(true);
+
+        if (wasStopped) {
+            return;
+        }
+
+        Stream<CompletableFuture<Void>> stream = Stream.concat(
+                clients.values().stream().map(NettyClient::stop),
+                Stream.of(server.stop())
         );
 
-         CompletableFuture<Void> stopFut = CompletableFuture.allOf(stream.toArray(CompletableFuture<?>[]::new));
+        CompletableFuture<Void> stopFut = CompletableFuture.allOf(stream.toArray(CompletableFuture<?>[]::new));
 
-         try {
-             stopFut.join();
-             // TODO: IGNITE-14538 quietPeriod and timeout should be configurable.
-             clientWorkerGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS).sync();
-         }
-         catch (Exception e) {
-             LOG.warn("Failed to stop the ConnectionManager: {}", e.getMessage());
-         }
+        try {
+            stopFut.join();
+        } catch (Exception e) {
+            LOG.warn("Failed to stop the ConnectionManager: {}", e.getMessage());
+        }
     }
 
     /**
+     * Returns connection manager's {@link #server}.
+     *
      * @return Connection manager's {@link #server}.
      */
     @TestOnly
@@ -258,6 +287,8 @@ public class ConnectionManager {
     }
 
     /**
+     * Returns this node's consistent id.
+     *
      * @return This node's consistent id.
      */
     @TestOnly
@@ -266,6 +297,8 @@ public class ConnectionManager {
     }
 
     /**
+     * Returns collection of all the clients started by this connection manager.
+     *
      * @return Collection of all the clients started by this connection manager.
      */
     @TestOnly
@@ -275,6 +308,8 @@ public class ConnectionManager {
 
 
     /**
+     * Returns map of the channels.
+     *
      * @return Map of the channels.
      */
     @TestOnly
@@ -283,24 +318,24 @@ public class ConnectionManager {
     }
 
     /**
-     * Creates a {@link Bootstrap} for clients, providing channel handlers and options.
+     * Creates a {@link Bootstrap} for clients with channel options provided by a {@link OutboundView}.
      *
-     * @param eventLoopGroup Event loop group for channel handling.
-     * @param serializationRegistry Serialization registry.
+     * @param eventLoopGroup      Event loop group for channel handling.
+     * @param clientConfiguration Client configuration.
      * @return Bootstrap for clients.
      */
     public static Bootstrap createClientBootstrap(
-        EventLoopGroup eventLoopGroup,
-        MessageSerializationRegistry serializationRegistry
+            EventLoopGroup eventLoopGroup,
+            OutboundView clientConfiguration
     ) {
         Bootstrap clientBootstrap = new Bootstrap();
 
         clientBootstrap.group(eventLoopGroup)
-            .channel(NioSocketChannel.class)
-            // See NettyServer#start for netty configuration details.
-            .option(ChannelOption.SO_KEEPALIVE, true)
-            .option(ChannelOption.SO_LINGER, 0)
-            .option(ChannelOption.TCP_NODELAY, true);
+                .channel(NioSocketChannel.class)
+                // See NettyServer#start for netty configuration details.
+                .option(ChannelOption.SO_KEEPALIVE, clientConfiguration.soKeepAlive())
+                .option(ChannelOption.SO_LINGER, clientConfiguration.soLinger())
+                .option(ChannelOption.TCP_NODELAY, clientConfiguration.tcpNoDelay());
 
         return clientBootstrap;
     }

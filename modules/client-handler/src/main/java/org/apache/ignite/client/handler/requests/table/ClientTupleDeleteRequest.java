@@ -17,13 +17,13 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.proto.ClientMessagePacker;
-import org.apache.ignite.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.table.manager.IgniteTables;
-
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
+
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.table.manager.IgniteTables;
 
 /**
  * Client tuple delete request.
@@ -32,8 +32,8 @@ public class ClientTupleDeleteRequest {
     /**
      * Processes the request.
      *
-     * @param in Unpacker.
-     * @param out Packer.
+     * @param in     Unpacker.
+     * @param out    Packer.
      * @param tables Ignite tables.
      * @return Future.
      */
@@ -45,6 +45,6 @@ public class ClientTupleDeleteRequest {
         var table = readTable(in, tables);
         var tuple = readTuple(in, table, true);
 
-        return table.deleteAsync(tuple).thenAccept(out::packBoolean);
+        return table.recordView().deleteAsync(null, tuple).thenAccept(out::packBoolean);
     }
 }

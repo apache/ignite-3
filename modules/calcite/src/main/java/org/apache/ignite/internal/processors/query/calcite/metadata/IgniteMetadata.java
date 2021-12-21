@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.processors.query.calcite.metadata;
 
-import com.google.common.collect.ImmutableList;
+import java.util.List;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.metadata.ChainedRelMetadataProvider;
 import org.apache.calcite.rel.metadata.DefaultRelMetadataProvider;
@@ -26,44 +26,46 @@ import org.apache.calcite.rel.metadata.MetadataDef;
 import org.apache.calcite.rel.metadata.MetadataHandler;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.ignite.internal.processors.query.calcite.prepare.MappingQueryContext;
 import org.apache.ignite.internal.processors.query.calcite.util.IgniteMethod;
 
 /**
  * Utility class, holding metadata related interfaces and metadata providers.
  */
 public class IgniteMetadata {
-    /** */
     public static final RelMetadataProvider METADATA_PROVIDER =
-        ChainedRelMetadataProvider.of(
-            ImmutableList.of(
-                // Ignite specific providers
-                IgniteMdFragmentMapping.SOURCE,
+            ChainedRelMetadataProvider.of(
+                    List.of(
+                            // Ignite specific providers
+                            IgniteMdFragmentMapping.SOURCE,
 
-                // Ignite overriden providers
-                IgniteMdDistribution.SOURCE,
-                IgniteMdPercentageOriginalRows.SOURCE,
-                IgniteMdCumulativeCost.SOURCE,
-                IgniteMdNonCumulativeCost.SOURCE,
-                IgniteMdRowCount.SOURCE,
-                IgniteMdPredicates.SOURCE,
-                IgniteMdCollation.SOURCE,
-                IgniteMdSelectivity.SOURCE,
-                IgniteMdDistinctRowCount.SOURCE,
+                            // Ignite overriden providers
+                            IgniteMdDistribution.SOURCE,
+                            IgniteMdPercentageOriginalRows.SOURCE,
+                            IgniteMdCumulativeCost.SOURCE,
+                            IgniteMdNonCumulativeCost.SOURCE,
+                            IgniteMdRowCount.SOURCE,
+                            IgniteMdPredicates.SOURCE,
+                            IgniteMdCollation.SOURCE,
+                            IgniteMdSelectivity.SOURCE,
+                            IgniteMdDistinctRowCount.SOURCE,
 
-                // Basic providers
-                DefaultRelMetadataProvider.INSTANCE));
+                            // Basic providers
+                            DefaultRelMetadataProvider.INSTANCE));
 
-    /** */
+    /**
+     * Describes the method signature for the methods of the {@link IgniteMdFragmentMapping}.
+     */
     public interface FragmentMappingMetadata extends Metadata {
         MetadataDef<FragmentMappingMetadata> DEF = MetadataDef.of(FragmentMappingMetadata.class,
-            FragmentMappingMetadata.Handler.class, IgniteMethod.FRAGMENT_MAPPING.method());
+                FragmentMappingMetadata.Handler.class, IgniteMethod.FRAGMENT_MAPPING.method());
 
         /** Determines how the rows are distributed. */
-        FragmentMapping fragmentMapping();
+        FragmentMapping fragmentMapping(MappingQueryContext ctx);
 
         /** Handler API. */
         interface Handler extends MetadataHandler<FragmentMappingMetadata> {
-            FragmentMapping fragmentMapping(RelNode r, RelMetadataQuery mq);
+            FragmentMapping fragmentMapping(RelNode r, RelMetadataQuery mq, MappingQueryContext ctx);
         }
     }
 }

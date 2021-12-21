@@ -22,31 +22,36 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
+import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.processors.query.calcite.extension.SqlExtension.ExternalCatalog;
+import org.apache.ignite.internal.processors.query.calcite.extension.SqlExtension.ExternalSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.network.TopologyService;
-
-import static org.apache.ignite.internal.processors.query.calcite.util.Commons.nativeTypeToClass;
+import org.apache.ignite.internal.table.TableImpl;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Holds actual schema and mutates it on schema change, requested by Ignite.
  */
 public class SchemaHolderImpl implements SchemaHolder {
-    /** */
     private final Map<String, IgniteSchema> igniteSchemas = new HashMap<>();
 
-    private final TopologyService topSrvc;
+    private final Map<String, Schema> externalCatalogs = new HashMap<>();
 
-    /** */
+    private final Runnable onSchemaUpdatedCallback;
+
     private volatile SchemaPlus calciteSchema;
 
-    public SchemaHolderImpl(
-        TopologyService topSrvc
-    ) {
-        this.topSrvc = topSrvc;
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
+    public SchemaHolderImpl(Runnable onSchemaUpdatedCallback) {
+        this.onSchemaUpdatedCallback = onSchemaUpdatedCallback;
 
         SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
         newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
@@ -54,8 +59,31 @@ public class SchemaHolderImpl implements SchemaHolder {
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaPlus schema() {
-        return calciteSchema;
+    @Override
+    public SchemaPlus schema(@Nullable String schema) {
+        return schema != null ? calciteSchema.getSubSchema(schema) : calciteSchema;
+    }
+
+    /**
+     * Register an external catalog under given name.
+     *
+     * @param name Name of the external catalog.
+     * @param catalog Catalog to register.
+     */
+    public synchronized void registerExternalCatalog(String name, ExternalCatalog catalog) {
+        catalog.schemaNames().forEach(schemaName -> registerExternalSchema(name, schemaName, catalog.schema(schemaName)));
+
+        rebuild();
+    }
+
+    private void registerExternalSchema(String catalogName, String schemaName, ExternalSchema schema) {
+        Map<String, Table> tables = new HashMap<>();
+
+        schema.tableNames().forEach(name -> tables.put(name, schema.table(name)));
+
+        SchemaPlus schemaPlus = (SchemaPlus) externalCatalogs.computeIfAbsent(catalogName, n -> Frameworks.createRootSchema(false));
+
+        schemaPlus.add(schemaName, new ExternalSchemaHolder(tables));
     }
 
     public synchronized void onSchemaCreated(String schemaName) {
@@ -68,45 +96,55 @@ public class SchemaHolderImpl implements SchemaHolder {
         rebuild();
     }
 
+    /**
+     * OnSqlTypeCreated.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public synchronized void onSqlTypeCreated(
-        String schemaName,
-        String tableName,
-        SchemaDescriptor descriptor
+            String schemaName,
+            TableImpl table
     ) {
         IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
 
-        tableName = tableName.substring(schemaName.length() + 1);
+        SchemaDescriptor descriptor = table.schemaView().schema();
 
         List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()
-            .map(descriptor::column)
-            .sorted(Comparator.comparingInt(Column::schemaIndex))
-            .map(col -> new ColumnDescriptorImpl(
-                col.name(),
-                descriptor.isKeyColumn(col.schemaIndex()),
-                col.schemaIndex(),
-                nativeTypeToClass(col.type()),
-                col::defaultValue
-            ))
-            .collect(Collectors.toList());
+                .map(descriptor::column)
+                .sorted(Comparator.comparingInt(Column::columnOrder))
+                .map(col -> new ColumnDescriptorImpl(
+                        col.name(),
+                        descriptor.isKeyColumn(col.schemaIndex()),
+                        col.schemaIndex(),
+                        col.type(),
+                        col::defaultValue
+                ))
+                .collect(Collectors.toList());
 
-        TableDescriptorImpl desc = new TableDescriptorImpl(topSrvc, colDescriptors);
+        TableDescriptorImpl desc = new TableDescriptorImpl(colDescriptors);
 
-        schema.addTable(tableName, new IgniteTableImpl(desc));
+        schema.addTable(removeSchema(schemaName, table.name()), new IgniteTableImpl(desc, table));
 
         rebuild();
     }
 
-     public void onSqlTypeUpdated(
-         String schemaName,
-         String tableName,
-         SchemaDescriptor descriptor
+    /**
+     * OnSqlTypeUpdated.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
+    public void onSqlTypeUpdated(
+            String schemaName,
+            TableImpl table
     ) {
-        onSqlTypeCreated(schemaName, tableName, descriptor);
+        onSqlTypeCreated(schemaName, table);
     }
 
+    /**
+     * OnSqlTypeDropped.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public synchronized void onSqlTypeDropped(
-        String schemaName,
-        String tableName
+            String schemaName,
+            String tableName
     ) {
         IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
 
@@ -117,8 +155,30 @@ public class SchemaHolderImpl implements SchemaHolder {
 
     private void rebuild() {
         SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
+
         newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
+
         igniteSchemas.forEach(newCalciteSchema::add);
+        externalCatalogs.forEach(newCalciteSchema::add);
+
         calciteSchema = newCalciteSchema;
+
+        onSchemaUpdatedCallback.run();
+    }
+
+    private static String removeSchema(String schemaName, String canonicalName) {
+        return canonicalName.substring(schemaName.length() + 1);
+    }
+
+    private static class ExternalSchemaHolder extends AbstractSchema {
+        private final Map<String, Table> tables;
+
+        public ExternalSchemaHolder(Map<String, Table> tables) {
+            this.tables = tables;
+        }
+
+        @Override protected Map<String, Table> getTableMap() {
+            return tables;
+        }
     }
 }

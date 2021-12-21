@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.processor;
 
+import com.squareup.javapoet.JavaFile;
+import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -29,10 +31,11 @@ import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Name;
+import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
-import com.squareup.javapoet.JavaFile;
-import com.squareup.javapoet.TypeSpec;
 import org.apache.ignite.internal.network.processor.messages.MessageBuilderGenerator;
 import org.apache.ignite.internal.network.processor.messages.MessageFactoryGenerator;
 import org.apache.ignite.internal.network.processor.messages.MessageImplGenerator;
@@ -41,8 +44,8 @@ import org.apache.ignite.internal.network.processor.serialization.MessageSeriali
 import org.apache.ignite.internal.network.processor.serialization.RegistryInitializerGenerator;
 import org.apache.ignite.internal.network.processor.serialization.SerializationFactoryGenerator;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
@@ -53,37 +56,40 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  */
 public class TransferableObjectProcessor extends AbstractProcessor {
     /** {@inheritDoc} */
-    @Override public Set<String> getSupportedAnnotationTypes() {
+    @Override
+    public Set<String> getSupportedAnnotationTypes() {
         return Set.of(Transferable.class.getName());
     }
 
     /** {@inheritDoc} */
-    @Override public SourceVersion getSupportedSourceVersion() {
+    @Override
+    public SourceVersion getSupportedSourceVersion() {
         return SourceVersion.latest();
     }
 
     /** {@inheritDoc} */
-    @Override public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+    @Override
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         try {
             List<MessageClass> messages = annotations.stream()
-                .map(roundEnv::getElementsAnnotatedWith)
-                .flatMap(Collection::stream)
-                .map(TypeElement.class::cast)
-                .map(e -> new MessageClass(processingEnv, e))
-                .collect(Collectors.toList());
+                    .map(roundEnv::getElementsAnnotatedWith)
+                    .flatMap(Collection::stream)
+                    .map(TypeElement.class::cast)
+                    .map(e -> new MessageClass(processingEnv, e))
+                    .collect(Collectors.toList());
 
-            if (messages.isEmpty())
+            if (messages.isEmpty()) {
                 return true;
-
-            validateMessages(messages);
+            }
 
             MessageGroupWrapper messageGroup = getMessageGroup(roundEnv);
+
+            validateMessages(messages);
 
             generateMessageImpls(messages, messageGroup);
 
             generateSerializers(messages, messageGroup);
-        }
-        catch (ProcessingException e) {
+        } catch (ProcessingException e) {
             processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, e.getMessage(), e.getElement());
         }
 
@@ -91,7 +97,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
     }
 
     /**
-     * Generates the following classes for the current compilation unit:
+     * Generates the following classes for the current compilation unit.
      *
      * <ol>
      *     <li>Builder interfaces;</li>
@@ -115,8 +121,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
                 TypeSpec messageImpl = messageImplGenerator.generateMessageImpl(message, builder);
 
                 writeToFile(message.packageName(), messageImpl);
-            }
-            catch (ProcessingException e) {
+            } catch (ProcessingException e) {
                 throw new ProcessingException(e.getMessage(), e.getCause(), message.element());
             }
         }
@@ -128,7 +133,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
     }
 
     /**
-     * Generates the following classes for the current compilation unit:
+     * Generates the following classes for the current compilation unit.
      *
      * <ol>
      *     <li>{@link MessageSerializer};</li>
@@ -140,11 +145,12 @@ public class TransferableObjectProcessor extends AbstractProcessor {
      */
     private void generateSerializers(List<MessageClass> annotatedMessages, MessageGroupWrapper messageGroup) {
         List<MessageClass> serializableMessages = annotatedMessages.stream()
-            .filter(MessageClass::isAutoSerializable)
-            .collect(Collectors.toList());
+                .filter(MessageClass::isAutoSerializable)
+                .collect(Collectors.toList());
 
-        if (serializableMessages.isEmpty())
+        if (serializableMessages.isEmpty()) {
             return;
+        }
 
         var factories = new HashMap<MessageClass, TypeSpec>();
 
@@ -171,8 +177,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
                 writeToFile(message.packageName(), factory);
 
                 factories.put(message, factory);
-            }
-            catch (ProcessingException e) {
+            } catch (ProcessingException e) {
                 throw new ProcessingException(e.getMessage(), e.getCause(), message.element());
             }
         }
@@ -183,7 +188,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
     }
 
     /**
-     * Validates the annotated messages:
+     * Validates the annotated messages.
      *
      * <ol>
      *     <li>{@link Transferable} annotation is present on a valid element;</li>
@@ -199,12 +204,12 @@ public class TransferableObjectProcessor extends AbstractProcessor {
             TypeElement element = message.element();
 
             boolean isValid = element.getKind() == ElementKind.INTERFACE
-                && typeUtils.hasSuperInterface(element, NetworkMessage.class);
+                    && typeUtils.hasSuperInterface(element, NetworkMessage.class);
 
             if (!isValid) {
                 var errorMsg = String.format(
-                    "%s annotation must only be present on interfaces that extend %s",
-                    Transferable.class, NetworkMessage.class
+                        "%s annotation must only be present on interfaces that extend %s",
+                        Transferable.class, NetworkMessage.class
                 );
 
                 throw new ProcessingException(errorMsg, null, element);
@@ -214,8 +219,8 @@ public class TransferableObjectProcessor extends AbstractProcessor {
 
             if (!messageTypesSet.add(messageType)) {
                 var errorMsg = String.format(
-                    "Conflicting message types in a group, message with type %d already exists",
-                    messageType
+                        "Conflicting message types in a group, message with type %d already exists",
+                        messageType
                 );
 
                 throw new ProcessingException(errorMsg, null, element);
@@ -224,20 +229,42 @@ public class TransferableObjectProcessor extends AbstractProcessor {
     }
 
     /**
-     * Extracts and validates the declared message group types marked with the {@link MessageGroup}
-     * annotation.
+     * Extracts and validates the declared message group types marked with the {@link MessageGroup} annotation.
      */
-    private static MessageGroupWrapper getMessageGroup(RoundEnvironment roundEnv) {
-        Set<? extends Element> messagemessageGroupSet = roundEnv.getElementsAnnotatedWith(MessageGroup.class);
+    private MessageGroupWrapper getMessageGroup(RoundEnvironment roundEnv) {
+        Set<? extends Element> messageGroupSet = roundEnv.getElementsAnnotatedWith(MessageGroup.class);
 
-        if (messagemessageGroupSet.size() != 1) {
-            var errorMsg = "Invalid number of message groups (classes annotated with @MessageGroup): " +
-                messagemessageGroupSet.size();
+        if (messageGroupSet.isEmpty()) {
+            Elements elements = processingEnv.getElementUtils();
 
-            throw new ProcessingException(errorMsg);
+            Set<String> packageNames = roundEnv.getRootElements().stream()
+                    .map(elements::getPackageOf)
+                    .map(PackageElement::getQualifiedName)
+                    .map(Name::toString)
+                    .collect(Collectors.toSet());
+
+            throw new ProcessingException(String.format(
+                    "No message groups (classes annotated with @%s) found while processing messages from the following packages: %s",
+                    MessageGroup.class.getSimpleName(),
+                    packageNames
+            ));
         }
 
-        Element singleElement = messagemessageGroupSet.iterator().next();
+        if (messageGroupSet.size() != 1) {
+            List<String> sortedNames = messageGroupSet.stream()
+                    .map(Object::toString)
+                    .sorted()
+                    .collect(Collectors.toList());
+
+            throw new ProcessingException(String.format(
+                    "Invalid number of message groups (classes annotated with @%s), only one can be present in a compilation unit: %s",
+                    MessageGroup.class.getSimpleName(),
+                    sortedNames
+            ));
+        }
+
+        Element singleElement = messageGroupSet.iterator().next();
+
         return new MessageGroupWrapper((TypeElement) singleElement);
     }
 
@@ -247,10 +274,10 @@ public class TransferableObjectProcessor extends AbstractProcessor {
     private void writeToFile(String packageName, TypeSpec typeSpec) {
         try {
             JavaFile
-                .builder(packageName, typeSpec)
-                .indent(" ".repeat(4))
-                .build()
-                .writeTo(processingEnv.getFiler());
+                    .builder(packageName, typeSpec)
+                    .indent(" ".repeat(4))
+                    .build()
+                    .writeTo(processingEnv.getFiler());
         } catch (IOException e) {
             throw new ProcessingException("IO exception during annotation processing", e);
         }

@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.client;
 
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
-
-import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.client.proto.query.ClientMessage;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -31,7 +32,10 @@ import org.apache.ignite.tx.IgniteTransactions;
 /**
  * Implementation of {@link IgniteClient} over TCP protocol.
  */
-public class TcpIgniteClient implements Ignite {
+public class TcpIgniteClient implements IgniteClient {
+    /** Configuration. */
+    private final IgniteClientConfiguration cfg;
+
     /** Channel. */
     private final ReliableChannel ch;
 
@@ -43,7 +47,7 @@ public class TcpIgniteClient implements Ignite {
      *
      * @param cfg Config.
      */
-    public TcpIgniteClient(IgniteClientConfiguration cfg) {
+    private TcpIgniteClient(IgniteClientConfiguration cfg) {
         this(TcpClientChannel::new, cfg);
     }
 
@@ -51,52 +55,90 @@ public class TcpIgniteClient implements Ignite {
      * Constructor with custom channel factory.
      *
      * @param chFactory Channel factory.
-     * @param cfg Config.
+     * @param cfg       Config.
      */
-    public TcpIgniteClient(BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, ClientChannel> chFactory,
-            IgniteClientConfiguration cfg) {
+    private TcpIgniteClient(
+            BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, ClientChannel> chFactory,
+            IgniteClientConfiguration cfg
+    ) {
+        assert chFactory != null;
+        assert cfg != null;
+
+        this.cfg = cfg;
+
         ch = new ReliableChannel(chFactory, cfg);
-
-        try {
-            // TODO: Async init.
-            ch.channelsInit();
-        }
-        catch (Exception e) {
-            ch.close();
-            throw e;
-        }
-
         tables = new ClientTables(ch);
     }
 
     /**
-     * Initializes new instance of {@link IgniteClient}.
+     * Initializes the connection.
+     *
+     * @return Future representing pending completion of the operation.
+     */
+    public CompletableFuture<Void> initAsync() {
+        return ch.channelsInitAsync();
+    }
+
+    /**
+     * Initializes new instance of {@link IgniteClient} and establishes the connection.
      *
      * @param cfg Thin client configuration.
-     * @return Client with successfully opened thin client connection.
+     * @return Future representing pending completion of the operation.
      */
-    public static Ignite start(IgniteClientConfiguration cfg) throws IgniteClientException {
-        return new TcpIgniteClient(cfg);
+    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) throws IgniteClientException {
+        var client = new TcpIgniteClient(cfg);
+
+        return client.initAsync().thenApply(x -> client);
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteTables tables() {
+    @Override
+    public IgniteTables tables() {
         return tables;
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteTransactions transactions() {
+    @Override
+    public IgniteTransactions transactions() {
         return null;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override public void setBaseline(Set<String> baselineNodes) {
+        throw new UnsupportedOperationException();
+    }
+
     /** {@inheritDoc} */
-    @Override public void close() throws Exception {
+    @Override
+    public void close() throws Exception {
         ch.close();
     }
 
     /** {@inheritDoc} */
-    @Override public String name() {
-        // TODO: improve and finalize IGNITE-15164.
-        return null;
+    @Override
+    public String name() {
+        return "thin-client";
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteClientConfiguration configuration() {
+        return cfg;
+    }
+
+    /**
+     * Send ClientMessage request to server size and reads ClientMessage result.
+     *
+     * @param opCode Operation code.
+     * @param req    ClientMessage request.
+     * @param res    ClientMessage result.
+     */
+    public void sendRequest(int opCode, ClientMessage req, ClientMessage res) {
+        ch.serviceAsync(opCode, w -> req.writeBinary(w.out()), p -> {
+            res.readBinary(p.in());
+            return res;
+        }).join();
     }
 }

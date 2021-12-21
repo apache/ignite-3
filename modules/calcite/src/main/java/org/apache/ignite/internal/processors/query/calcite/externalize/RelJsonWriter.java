@@ -14,19 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.processors.query.calcite.externalize;
 
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectWriter;
-import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.sql.SqlExplainLevel;
@@ -39,61 +38,64 @@ import org.apache.ignite.lang.IgniteException;
  * @see RelJsonReader
  */
 public class RelJsonWriter implements RelWriter {
-    /** */
     private static final boolean PRETTY_PRINT = false;
-        // TODO: IgniteSystemProperties.getBoolean("IGNITE_CALCITE_REL_JSON_PRETTY_PRINT", false);
+    // TODO: IgniteSystemProperties.getBoolean("IGNITE_CALCITE_REL_JSON_PRETTY_PRINT", false);
 
-    /** */
     private final RelJson relJson;
 
-    /** */
     private final List<Object> relList = new ArrayList<>();
 
-    /** */
     private final Map<RelNode, String> relIdMap = new IdentityHashMap<>();
 
-    /** */
     private final boolean pretty;
 
-    /** */
     private String previousId;
 
-    /** */
     private List<Pair<String, Object>> items = new ArrayList<>();
 
-    /** */
+    /**
+     * Write to json string.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public static String toJson(RelNode rel) {
-        RelJsonWriter writer = new RelJsonWriter(rel.getCluster(), PRETTY_PRINT);
+        RelJsonWriter writer = new RelJsonWriter(PRETTY_PRINT);
         rel.explain(writer);
 
         return writer.asString();
     }
 
-    /** */
-    public RelJsonWriter(RelOptCluster cluster, boolean pretty) {
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
+    public RelJsonWriter(boolean pretty) {
         this.pretty = pretty;
 
-        relJson = new RelJson(cluster);
+        relJson = new RelJson();
     }
 
     /** {@inheritDoc} */
-    @Override public final void explain(RelNode rel, List<Pair<String, Object>> valueList) {
+    @Override
+    public final void explain(RelNode rel, List<Pair<String, Object>> valueList) {
         explain_(rel, valueList);
     }
 
     /** {@inheritDoc} */
-    @Override public SqlExplainLevel getDetailLevel() {
+    @Override
+    public SqlExplainLevel getDetailLevel() {
         return SqlExplainLevel.ALL_ATTRIBUTES;
     }
 
     /** {@inheritDoc} */
-    @Override public RelWriter item(String term, Object value) {
+    @Override
+    public RelWriter item(String term, Object value) {
         items.add(Pair.of(term, value));
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public RelWriter done(RelNode node) {
+    @Override
+    public RelWriter done(RelNode node) {
         List<Pair<String, Object>> current0 = items;
         items = new ArrayList<>();
         explain_(node, current0);
@@ -101,32 +103,34 @@ public class RelJsonWriter implements RelWriter {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean nest() {
+    @Override
+    public boolean nest() {
         return true;
     }
 
-    /** */
+    /**
+     * AsString.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public String asString() {
         try {
             StringWriter writer = new StringWriter();
             ObjectMapper mapper = new ObjectMapper();
 
             ObjectWriter writer0 = pretty
-                ? mapper.writer(new DefaultPrettyPrinter())
-                : mapper.writer();
+                    ? mapper.writer(new DefaultPrettyPrinter())
+                    : mapper.writer();
 
             writer0
-                .withRootName("rels")
-                .writeValue(writer, relList);
+                    .withRootName("rels")
+                    .writeValue(writer, relList);
 
             return writer.toString();
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new IgniteException(e);
         }
     }
 
-    /** */
     private void explain_(RelNode rel, List<Pair<String, Object>> values) {
         final Map<String, Object> map = relJson.map();
 
@@ -134,15 +138,17 @@ public class RelJsonWriter implements RelWriter {
         map.put("relOp", relJson.classToTypeName(rel.getClass()));
 
         for (Pair<String, Object> value : values) {
-            if (value.right instanceof RelNode)
+            if (value.right instanceof RelNode) {
                 continue;
+            }
 
             map.put(value.left, relJson.toJson(value.right));
         }
         // omit 'inputs: ["3"]' if "3" is the preceding rel
         final List<Object> list = explainInputs(rel.getInputs());
-        if (list.size() != 1 || !list.get(0).equals(previousId))
+        if (list.size() != 1 || !list.get(0).equals(previousId)) {
             map.put("inputs", list);
+        }
 
         final String id = Integer.toString(relIdMap.size());
         relIdMap.put(rel, id);
@@ -152,7 +158,6 @@ public class RelJsonWriter implements RelWriter {
         previousId = id;
     }
 
-    /** */
     private List<Object> explainInputs(List<RelNode> inputs) {
         final List<Object> list = relJson.list();
         for (RelNode input : inputs) {

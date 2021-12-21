@@ -68,13 +68,36 @@ public enum BinaryMode {
     /** Raw byte array. */
     BYTE_ARR(NativeTypeSpec.BYTES),
 
-    /** BitSet.*/
-    BITSET(NativeTypeSpec.BITMASK);
+    /** BitSet. */
+    BITSET(NativeTypeSpec.BITMASK),
 
-    /** Natove type spec. */
+    /** BigInteger. */
+    NUMBER(NativeTypeSpec.NUMBER),
+
+    /** BigDecimal. */
+    DECIMAL(NativeTypeSpec.DECIMAL),
+
+    /** Date. */
+    DATE(NativeTypeSpec.DATE),
+
+    /** Time. */
+    TIME(NativeTypeSpec.TIME),
+
+    /** Datetime. */
+    DATETIME(NativeTypeSpec.DATETIME),
+
+    /** Timestamp. */
+    TIMESTAMP(NativeTypeSpec.TIMESTAMP),
+
+    /** User object. */
+    POJO(NativeTypeSpec.BYTES);
+
+    /** Native type spec. */
     private final NativeTypeSpec typeSpec;
 
     /**
+     * Constructor.
+     *
      * @param typeSpec Native type spec.
      */
     BinaryMode(NativeTypeSpec typeSpec) {
@@ -82,7 +105,7 @@ public enum BinaryMode {
     }
 
     /**
-     * @return Native type spec.
+     * Get native type spec.
      */
     public NativeTypeSpec typeSpec() {
         return typeSpec;

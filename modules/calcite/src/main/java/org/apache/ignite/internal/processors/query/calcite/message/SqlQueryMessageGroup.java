@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.processors.query.calcite.message;
 
+import static org.apache.ignite.internal.processors.query.calcite.message.SqlQueryMessageGroup.GROUP_TYPE;
+
 import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
  * Message types for the sql query processing module.
  */
-@MessageGroup(groupType = 4, groupName = "SqlQueryMessages")
+@MessageGroup(groupType = GROUP_TYPE, groupName = "SqlQueryMessages")
 public final class SqlQueryMessageGroup {
+    public static final short GROUP_TYPE = 4;
+
     public static final short QUERY_START_REQUEST = 0;
 
     public static final short QUERY_START_RESPONSE = 1;

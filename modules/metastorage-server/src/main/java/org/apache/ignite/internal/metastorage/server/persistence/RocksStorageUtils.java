@@ -17,32 +17,28 @@
 
 package org.apache.ignite.internal.metastorage.server.persistence;
 
+import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
+
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.metastorage.server.Value;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.rocksdb.RocksDBException;
-import org.rocksdb.RocksIterator;
-
-import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 
 /**
- * Utility class for {@link RocksDBKeyValueStorage}.
+ * Utility class for {@link RocksDbKeyValueStorage}.
  */
 class RocksStorageUtils {
     /**
-     * VarHandle that gives the access to the elements of a {@code byte[]} array viewed as if it
-     * were a {@code long[]} array. Byte order must be little endian for a correct
-     * lexicographic order comparison.
+     * VarHandle that gives the access to the elements of a {@code byte[]} array viewed as if it were a {@code long[]} array. Byte order
+     * must be little endian for a correct lexicographic order comparison.
      */
     private static final VarHandle LONG_ARRAY_HANDLE = MethodHandles.byteArrayViewVarHandle(
-        long[].class,
-        ByteOrder.LITTLE_ENDIAN
+            long[].class,
+            ByteOrder.LITTLE_ENDIAN
     );
 
     /**
@@ -75,7 +71,7 @@ class RocksStorageUtils {
      * Adds a revision to a key.
      *
      * @param revision Revision.
-     * @param key Key.
+     * @param key      Key.
      * @return Key with a revision.
      */
     static byte[] keyToRocksKey(long revision, byte[] key) {
@@ -116,19 +112,19 @@ class RocksStorageUtils {
         boolean hasValue = valueBytes[Long.BYTES] != 0;
 
         byte[] val;
-        if (hasValue)
-            // Copy the value.
+        if (hasValue) { // Copy the value.
             val = Arrays.copyOfRange(valueBytes, Long.BYTES + 1, valueBytes.length);
-        else
-            // There is no value, mark it as a tombstone.
+        } else { // There is no value, mark it as a tombstone.
             val = TOMBSTONE;
+        }
 
         return new Value(val, updateCounter);
     }
 
     /**
      * Adds an update counter and a tombstone flag to a value.
-     * @param value Value byte array.
+     *
+     * @param value         Value byte array.
      * @param updateCounter Update counter.
      * @return Value with an update counter and a tombstone.
      */
@@ -156,8 +152,8 @@ class RocksStorageUtils {
         assert (bytes.length % Long.BYTES) == 0;
 
         return IntStream.range(0, bytes.length / Long.BYTES)
-            .mapToLong(i -> (long) LONG_ARRAY_HANDLE.get(bytes, i * Long.BYTES))
-            .toArray();
+                .mapToLong(i -> (long) LONG_ARRAY_HANDLE.get(bytes, i * Long.BYTES))
+                .toArray();
     }
 
     /**
@@ -168,8 +164,9 @@ class RocksStorageUtils {
      * @return Byte array with a new value.
      */
     static byte @NotNull [] appendLong(byte @Nullable [] bytes, long value) {
-        if (bytes == null)
+        if (bytes == null) {
             return longToBytes(value);
+        }
 
         // Allocate a one long size bigger array
         var result = new byte[bytes.length + Long.BYTES];
@@ -180,88 +177,5 @@ class RocksStorageUtils {
         LONG_ARRAY_HANDLE.set(result, bytes.length, value);
 
         return result;
-    }
-
-    /**
-     * Iterates over the given iterator passing key-value pairs to the given consumer and
-     * checks the iterator's status afterwards.
-     *
-     * @param iterator Iterator.
-     * @param consumer Consumer of key-value pairs.
-     * @throws RocksDBException If failed.
-     */
-    static void forEach(RocksIterator iterator, RocksBiConsumer consumer) throws RocksDBException {
-        for (; iterator.isValid(); iterator.next())
-            consumer.accept(iterator.key(), iterator.value());
-
-        checkIterator(iterator);
-    }
-
-    /**
-     * Iterates over the given iterator testing key-value pairs with the given predicate and checks
-     * the iterator's status afterwards.
-     *
-     * @param iterator Iterator.
-     * @param consumer Consumer of key-value pairs.
-     * @return {@code true} if a matching key-value pair has been found, {@code false} otherwise.
-     * @throws RocksDBException If failed.
-     */
-    static boolean find(RocksIterator iterator, RocksBiPredicate consumer) throws RocksDBException {
-        for (; iterator.isValid(); iterator.next()) {
-            boolean result = consumer.test(iterator.key(), iterator.value());
-
-            if (result)
-                return true;
-        }
-
-        checkIterator(iterator);
-
-        return false;
-    }
-
-    /**
-     * Checks the status of the iterator and throws an exception if it is not correct.
-     *
-     * @param it RocksDB iterator.
-     * @throws IgniteInternalException if the iterator has an incorrect status.
-     */
-    static void checkIterator(RocksIterator it) {
-        try {
-            it.status();
-        }
-        catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
-        }
-    }
-
-    /**
-     * BiConsumer that can throw {@link RocksDBException}.
-     */
-    @FunctionalInterface
-    interface RocksBiConsumer {
-        /**
-         * Accepts the key and the value of the entry.
-         *
-         * @param key Key.
-         * @param value Value.
-         * @throws RocksDBException If failed to process the key-value pair.
-         */
-        void accept(byte[] key, byte[] value) throws RocksDBException;
-    }
-
-    /**
-     * BiPredicate that can throw {@link RocksDBException}.
-     */
-    @FunctionalInterface
-    interface RocksBiPredicate {
-        /**
-         * Evaluates the predicate on the given key and the given value.
-         *
-         * @param key Key.
-         * @param value Value.
-         * @return {@code true} if the input argument matches the predicate, otherwise {@code false}.
-         * @throws RocksDBException If failed to test the key-value pair.
-         */
-        boolean test(byte[] key, byte[] value) throws RocksDBException;
     }
 }

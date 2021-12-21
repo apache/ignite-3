@@ -17,32 +17,34 @@
 
 package org.apache.ignite.internal.network.netty;
 
-import java.net.SocketAddress;
-import java.util.function.BiConsumer;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import java.net.SocketAddress;
+import java.util.function.BiConsumer;
 import org.apache.ignite.network.NetworkMessage;
 
 /**
  * Network message handler that delegates handling to {@link #messageListener}.
  */
 public class MessageHandler extends ChannelInboundHandlerAdapter {
-    /** Message listener.  */
+    /** Message listener. */
     private final BiConsumer<SocketAddress, NetworkMessage> messageListener;
 
     /**
      * Constructor.
      *
-     * @param listener Message listener.
+     * @param messageListener Message listener.
      */
-    public MessageHandler(BiConsumer<SocketAddress, NetworkMessage> listener) {
-        messageListener = listener;
+    public MessageHandler(BiConsumer<SocketAddress, NetworkMessage> messageListener) {
+        this.messageListener = messageListener;
     }
 
     /** {@inheritDoc} */
-    @Override public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) {
         SocketAddress address = ctx.channel().remoteAddress();
         NetworkMessage message = (NetworkMessage) msg;
+
         messageListener.accept(address, message);
     }
 }

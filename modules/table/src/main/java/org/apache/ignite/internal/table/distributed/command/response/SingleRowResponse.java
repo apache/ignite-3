@@ -25,9 +25,11 @@ import org.apache.ignite.internal.table.distributed.command.GetAndDeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.GetAndReplaceCommand;
 import org.apache.ignite.internal.table.distributed.command.GetAndUpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This class represents a response object message that contains a single {@link BinaryRow}.
+ *
  * @see GetCommand
  * @see GetAndDeleteCommand
  * @see GetAndUpsertCommand
@@ -35,11 +37,11 @@ import org.apache.ignite.internal.table.distributed.command.GetCommand;
  */
 public class SingleRowResponse implements Serializable {
     /** Binary row. */
+    @Nullable
     private transient BinaryRow row;
 
-    /*
-     * Row bytes.
-     * It is a temporary solution, before network have not implement correct serialization BinaryRow.
+    /**
+     * Row bytes. It is a temporary solution, before network have not implement correct serialization BinaryRow.
      * TODO: Remove the field after (IGNITE-14793).
      */
     private byte[] rowBytes;
@@ -49,18 +51,20 @@ public class SingleRowResponse implements Serializable {
      *
      * @param row Binary row.
      */
-    public SingleRowResponse(BinaryRow row) {
+    public SingleRowResponse(@Nullable BinaryRow row) {
         this.row = row;
 
-        CommandUtils.rowToBytes(row, bytes -> rowBytes = bytes);
+        rowBytes = CommandUtils.rowToBytes(row);
     }
 
     /**
-     * @return Binary row.
+     * Returns binary row.
      */
+    @Nullable
     public BinaryRow getValue() {
-        if (row == null && rowBytes != null)
+        if (row == null && rowBytes != null) {
             row = new ByteBufferRow(rowBytes);
+        }
 
         return row;
     }

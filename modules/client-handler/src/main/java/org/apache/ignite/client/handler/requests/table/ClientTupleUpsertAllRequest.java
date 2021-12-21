@@ -17,12 +17,12 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.table.manager.IgniteTables;
-
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuples;
+
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.table.manager.IgniteTables;
 
 /**
  * Client tuple upsert all request.
@@ -31,7 +31,7 @@ public class ClientTupleUpsertAllRequest {
     /**
      * Processes the request.
      *
-     * @param in Unpacker.
+     * @param in     Unpacker.
      * @param tables Ignite tables.
      * @return Future.
      */
@@ -39,6 +39,6 @@ public class ClientTupleUpsertAllRequest {
         var table = readTable(in, tables);
         var tuples = readTuples(in, table, false);
 
-        return table.upsertAllAsync(tuples);
+        return table.recordView().upsertAllAsync(null, tuples);
     }
 }

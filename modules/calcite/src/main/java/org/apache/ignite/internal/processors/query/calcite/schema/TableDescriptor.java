@@ -23,31 +23,21 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.sql2rel.InitializerExpressionFactory;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGroup;
-import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 
 /**
- *
+ * TableDescriptor interface.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public interface TableDescriptor extends RelProtoDataType, InitializerExpressionFactory {
-    /**
-     * @return Distribution.
-     */
+    /** Returns distribution of the table. */
     IgniteDistribution distribution();
 
-    /**
-     * Returns nodes mapping.
-     *
-     * @param ctx Planning context.
-     * @return Nodes mapping.
-     */
-    ColocationGroup colocationGroup(PlanningContext ctx);
-
     /** {@inheritDoc} */
-    @Override default RelDataType apply(RelDataTypeFactory factory) {
-        return rowType((IgniteTypeFactory)factory, null);
+    @Override
+    default RelDataType apply(RelDataTypeFactory factory) {
+        return rowType((IgniteTypeFactory) factory, null);
     }
 
     /**
@@ -57,6 +47,16 @@ public interface TableDescriptor extends RelProtoDataType, InitializerExpression
      * @return Row type for INSERT operation.
      */
     default RelDataType insertRowType(IgniteTypeFactory factory) {
+        return rowType(factory, null);
+    }
+
+    /**
+     * Returns row type containing only key fields.
+     *
+     * @param factory Type factory.
+     * @return Row type for DELETE operation.
+     */
+    default RelDataType deleteRowType(IgniteTypeFactory factory) {
         return rowType(factory, null);
     }
 
@@ -73,7 +73,7 @@ public interface TableDescriptor extends RelProtoDataType, InitializerExpression
     /**
      * Returns row type.
      *
-     * @param factory Type factory.
+     * @param factory     Type factory.
      * @param usedColumns Participating columns numeration.
      * @return Row type.
      */
@@ -82,7 +82,7 @@ public interface TableDescriptor extends RelProtoDataType, InitializerExpression
     /**
      * Checks whether is possible to update a column with a given index.
      *
-     * @param tbl Parent table.
+     * @param tbl    Parent table.
      * @param colIdx Column index.
      * @return {@code True} if update operation is allowed for a column with a given index.
      */
@@ -94,4 +94,18 @@ public interface TableDescriptor extends RelProtoDataType, InitializerExpression
      * @return Column descriptor
      */
     ColumnDescriptor columnDescriptor(String fieldName);
+
+    /**
+     * Returns column descriptor for column of given index.
+     *
+     * @return Column descriptor or null if there is no column with given index.
+     */
+    ColumnDescriptor columnDescriptor(int idx);
+
+    /**
+     * Returns count of columns in the table.
+     *
+     * @return Actual count of columns.
+     */
+    int columnsCount();
 }

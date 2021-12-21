@@ -14,7 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.configuration.storage;
+
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Configuration storage listener for changes.
@@ -23,7 +26,9 @@ package org.apache.ignite.internal.configuration.storage;
 public interface ConfigurationStorageListener {
     /**
      * Method called when entries in storage change.
+     *
      * @param changedEntries Changed entries, key-value pairs and new version of the storage.
+     * @return Completable future that signifies the completion of all custom user listeners execution.
      */
-    void onEntriesChanged(Data changedEntries);
+    CompletableFuture<Void> onEntriesChanged(Data changedEntries);
 }

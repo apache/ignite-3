@@ -17,190 +17,320 @@
 
 package org.apache.ignite.internal.processors.query.calcite.schema;
 
-import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
-import java.util.function.Predicate;
-
-import com.google.common.collect.ImmutableList;
+import java.util.stream.Collectors;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelReferentialConstraint;
+import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
+import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGroup;
-import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
+import org.apache.ignite.internal.processors.query.calcite.prepare.MappingQueryContext;
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
 import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
-
-import static org.apache.ignite.internal.processors.query.calcite.Stubs.resultSetGenerator;
 
 /**
  * Ignite table implementation.
  */
-public class IgniteTableImpl extends AbstractTable implements IgniteTable {
-    /** */
+public class IgniteTableImpl extends AbstractTable implements InternalIgniteTable {
     private final TableDescriptor desc;
 
-    /** */
+    private final TableImpl table;
+
     private final Statistic statistic;
 
-    /** */
-    private volatile Collection<Object[]> rows;
-
-    /** */
     private final Map<String, IgniteIndex> indexes = new ConcurrentHashMap<>();
 
     /**
+     * Constructor.
+     *
      * @param desc Table descriptor.
      */
-    public IgniteTableImpl(TableDescriptor desc) {
+    public IgniteTableImpl(TableDescriptor desc, TableImpl table) {
         this.desc = desc;
+        this.table = table;
+
         statistic = new StatisticsImpl();
     }
 
     /** {@inheritDoc} */
-    @Override public RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet requiredColumns) {
-        return desc.rowType((IgniteTypeFactory)typeFactory, requiredColumns);
+    @Override
+    public RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet requiredColumns) {
+        return desc.rowType((IgniteTypeFactory) typeFactory, requiredColumns);
     }
 
     /** {@inheritDoc} */
-    @Override public Statistic getStatistic() {
+    @Override
+    public Statistic getStatistic() {
         return statistic;
     }
 
 
     /** {@inheritDoc} */
-    @Override public TableDescriptor descriptor() {
+    @Override
+    public TableDescriptor descriptor() {
         return desc;
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteLogicalTableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl) {
-        RelTraitSet traitSet = cluster.traitSetOf(distribution())
-            .replace(RewindabilityTrait.REWINDABLE);
-
-        return IgniteLogicalTableScan.create(cluster, traitSet, relOptTbl, null, null, null);
+    @Override
+    public TableImpl table() {
+        return table;
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteLogicalIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, String idxName) {
-        RelTraitSet traitSet = cluster.traitSetOf(Convention.Impl.NONE)
-            .replace(distribution())
-            .replace(RewindabilityTrait.REWINDABLE)
-            .replace(getIndex(idxName).collation());
-
-        return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTbl, idxName, null, null, null);
-    }
-
-    /** {@inheritDoc} */
-    @Override public <Row> Iterable<Row> scan(
-        ExecutionContext<Row> execCtx,
-        ColocationGroup group,
-        Predicate<Row> filter,
-        Function<Row, Row> rowTransformer,
-        @Nullable ImmutableBitSet usedColumns
+    @Override
+    public IgniteLogicalTableScan toRel(
+            RelOptCluster cluster,
+            RelOptTable relOptTbl,
+            @Nullable List<RexNode> proj,
+            @Nullable RexNode cond,
+            @Nullable ImmutableBitSet requiredColumns
     ) {
-        String locNodeId = execCtx.planningContext().localNodeId();
+        RelTraitSet traitSet = cluster.traitSetOf(distribution())
+                .replace(RewindabilityTrait.REWINDABLE);
 
-        if (group.nodeIds().contains(locNodeId))
-            return (Iterable<Row>) rows(execCtx.getTypeFactory());
-
-        return Collections.emptyList();
+        return IgniteLogicalTableScan.create(cluster, traitSet, relOptTbl, proj, cond, requiredColumns);
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteDistribution distribution() {
+    @Override
+    public IgniteLogicalIndexScan toRel(
+            RelOptCluster cluster,
+            RelOptTable relOptTable,
+            String idxName,
+            List<RexNode> proj,
+            RexNode condition,
+            ImmutableBitSet requiredCols
+    ) {
+        RelTraitSet traitSet = cluster.traitSetOf(Convention.Impl.NONE)
+                .replace(distribution())
+                .replace(RewindabilityTrait.REWINDABLE)
+                .replace(getIndex(idxName).collation());
+
+        return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTable, idxName, proj, condition, requiredCols);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteDistribution distribution() {
         return desc.distribution();
     }
 
     /** {@inheritDoc} */
-    @Override public ColocationGroup colocationGroup(PlanningContext ctx) {
-        return desc.colocationGroup(ctx);
+    @Override
+    public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+        return partitionedGroup();
     }
 
     /** {@inheritDoc} */
-    @Override public Map<String, IgniteIndex> indexes() {
+    @Override
+    public Map<String, IgniteIndex> indexes() {
         return Collections.unmodifiableMap(indexes);
     }
 
     /** {@inheritDoc} */
-    @Override public void addIndex(IgniteIndex idxTbl) {
+    @Override
+    public void addIndex(IgniteIndex idxTbl) {
         indexes.put(idxTbl.name(), idxTbl);
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteIndex getIndex(String idxName) {
+    @Override
+    public IgniteIndex getIndex(String idxName) {
         return indexes.get(idxName);
     }
 
     /** {@inheritDoc} */
-    @Override public void removeIndex(String idxName) {
+    @Override
+    public void removeIndex(String idxName) {
         indexes.remove(idxName);
     }
 
     /** {@inheritDoc} */
-    @Override public <C> C unwrap(Class<C> aCls) {
-        if (aCls.isInstance(desc))
-            return aCls.cast(desc);
+    @Override
+    public <C> C unwrap(Class<C> cls) {
+        if (cls.isInstance(desc)) {
+            return cls.cast(desc);
+        }
 
-        return super.unwrap(aCls);
+        return super.unwrap(cls);
     }
 
-    private Collection<Object[]> rows(IgniteTypeFactory typeFactory) {
-        if (rows == null) {
-            synchronized (this) {
-                if (rows == null)
-                    rows = resultSetGenerator(10, typeFactory, getRowType(typeFactory));
+    /** {@inheritDoc} */
+    @Override
+    public <RowT> RowT toRow(
+            ExecutionContext<RowT> ectx,
+            Tuple row,
+            RowHandler.RowFactory<RowT> factory,
+            @Nullable ImmutableBitSet requiredColumns
+    ) {
+        RowHandler<RowT> handler = factory.handler();
+
+        assert handler == ectx.rowHandler();
+
+        RowT res = factory.create();
+
+        assert handler.columnCount(res) == (requiredColumns == null ? desc.columnsCount() : requiredColumns.cardinality());
+
+        if (requiredColumns == null) {
+            for (int i = 0; i < desc.columnsCount(); i++) {
+                ColumnDescriptor colDesc = desc.columnDescriptor(i);
+
+                handler.set(i, res, row.value(colDesc.fieldIndex()));
+            }
+        } else {
+            for (int i = 0, j = requiredColumns.nextSetBit(0); j != -1; j = requiredColumns.nextSetBit(j + 1), i++) {
+                ColumnDescriptor colDesc = desc.columnDescriptor(j);
+
+                handler.set(i, res, row.value(colDesc.fieldIndex()));
             }
         }
 
-        return rows;
+        return res;
     }
 
-    /** */
+    /** {@inheritDoc} */
+    @Override
+    public <RowT> Tuple toTuple(
+            ExecutionContext<RowT> ectx,
+            RowT row,
+            TableModify.Operation op,
+            Object arg
+    ) {
+        switch (op) {
+            case INSERT:
+                return insertTuple(row, ectx);
+            case DELETE:
+                return deleteTuple(row, ectx);
+            case UPDATE:
+                return updateTuple(row, (List<String>) arg, ectx);
+            case MERGE:
+                throw new UnsupportedOperationException();
+            default:
+                throw new AssertionError();
+        }
+    }
+
+    private <RowT> Tuple insertTuple(RowT row, ExecutionContext<RowT> ectx) {
+        Tuple tuple = Tuple.create(desc.columnsCount());
+
+        RowHandler<RowT> hnd = ectx.rowHandler();
+
+        for (int i = 0; i < desc.columnsCount(); i++) {
+            tuple.set(desc.columnDescriptor(i).name(), hnd.get(i, row));
+        }
+
+        return tuple;
+    }
+
+    private <RowT> Tuple updateTuple(RowT row, List<String> updateColList, ExecutionContext<RowT> ectx) {
+        RowHandler<RowT> hnd = ectx.rowHandler();
+        int offset = desc.columnsCount();
+        Tuple tuple = Tuple.create(desc.columnsCount());
+        Set<String> colsToSkip = new HashSet<>(updateColList);
+
+        for (int i = 0; i < desc.columnsCount(); i++) {
+            String colName = desc.columnDescriptor(i).name();
+
+            if (!colsToSkip.contains(colName)) {
+                tuple.set(colName, hnd.get(i, row));
+            }
+        }
+
+        for (int i = 0; i < updateColList.size(); i++) {
+            final ColumnDescriptor colDesc = Objects.requireNonNull(desc.columnDescriptor(updateColList.get(i)));
+
+            assert !colDesc.key();
+
+            Object fieldVal = hnd.get(i + offset, row);
+
+            tuple.set(colDesc.name(), fieldVal);
+        }
+
+        return tuple;
+    }
+
+    private <RowT> Tuple deleteTuple(RowT row, ExecutionContext<RowT> ectx) {
+        RowHandler<RowT> hnd = ectx.rowHandler();
+        Tuple tuple = Tuple.create();
+
+        int idx = 0;
+        for (int i = 0; i < desc.columnsCount(); i++) {
+            ColumnDescriptor colDesc = desc.columnDescriptor(i);
+
+            if (colDesc.key()) {
+                tuple.set(colDesc.name(), hnd.get(idx++, row));
+            }
+        }
+
+        return tuple;
+    }
+
+    private ColocationGroup partitionedGroup() {
+        List<List<String>> assignments = table.internalTable().assignments().stream()
+                .map(Collections::singletonList)
+                .collect(Collectors.toList());
+
+        return ColocationGroup.forAssignments(assignments);
+    }
+
     private class StatisticsImpl implements Statistic {
         /** {@inheritDoc} */
-        @Override public Double getRowCount() {
-            return (double)rows(new IgniteTypeFactory()).size();
+        @Override
+        public Double getRowCount() {
+            return 10_000d;
         }
 
         /** {@inheritDoc} */
-        @Override public boolean isKey(ImmutableBitSet cols) {
+        @Override
+        public boolean isKey(ImmutableBitSet cols) {
             return false; // TODO
         }
 
         /** {@inheritDoc} */
-        @Override public List<ImmutableBitSet> getKeys() {
+        @Override
+        public List<ImmutableBitSet> getKeys() {
             return null; // TODO
         }
 
         /** {@inheritDoc} */
-        @Override public List<RelReferentialConstraint> getReferentialConstraints() {
-            return ImmutableList.of();
+        @Override
+        public List<RelReferentialConstraint> getReferentialConstraints() {
+            return List.of();
         }
 
         /** {@inheritDoc} */
-        @Override public List<RelCollation> getCollations() {
-            return ImmutableList.of(); // The method isn't used
+        @Override
+        public List<RelCollation> getCollations() {
+            return List.of(); // The method isn't used
         }
 
         /** {@inheritDoc} */
-        @Override public IgniteDistribution getDistribution() {
+        @Override
+        public IgniteDistribution getDistribution() {
             return distribution();
         }
     }

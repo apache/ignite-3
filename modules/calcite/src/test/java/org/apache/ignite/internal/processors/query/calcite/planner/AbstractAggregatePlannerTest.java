@@ -25,25 +25,30 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeSystem
 import org.jetbrains.annotations.NotNull;
 
 /**
- *
+ * AbstractAggregatePlannerTest.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class AbstractAggregatePlannerTest extends AbstractPlannerTest {
     /**
+     * CreateBroadcastTable.
+     *
      * @return REPLICATED test table (ID, VAL0, VAL1, GRP0, GRP1)
      */
-    @NotNull protected TestTable createBroadcastTable() {
+    @NotNull
+    protected TestTable createBroadcastTable() {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         TestTable tbl = new TestTable(
-            new RelDataTypeFactory.Builder(f)
-                .add("ID", f.createJavaType(Integer.class))
-                .add("VAL0", f.createJavaType(Integer.class))
-                .add("VAL1", f.createJavaType(Integer.class))
-                .add("GRP0", f.createJavaType(Integer.class))
-                .add("GRP1", f.createJavaType(Integer.class))
-                .build()) {
+                new RelDataTypeFactory.Builder(f)
+                        .add("ID", f.createJavaType(Integer.class))
+                        .add("VAL0", f.createJavaType(Integer.class))
+                        .add("VAL1", f.createJavaType(Integer.class))
+                        .add("GRP0", f.createJavaType(Integer.class))
+                        .add("GRP1", f.createJavaType(Integer.class))
+                        .build()) {
 
-            @Override public IgniteDistribution distribution() {
+            @Override
+            public IgniteDistribution distribution() {
                 return IgniteDistributions.broadcast();
             }
         };
@@ -51,21 +56,26 @@ public class AbstractAggregatePlannerTest extends AbstractPlannerTest {
     }
 
     /**
+     * CreateAffinityTable.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
      * @return PARTITIONED test table (ID, VAL0, VAL1, GRP0, GRP1)
      */
-    @NotNull protected AbstractPlannerTest.TestTable createAffinityTable() {
+    @NotNull
+    protected AbstractPlannerTest.TestTable createAffinityTable() {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         return new TestTable(
-            new RelDataTypeFactory.Builder(f)
-                .add("ID", f.createJavaType(Integer.class))
-                .add("VAL0", f.createJavaType(Integer.class))
-                .add("VAL1", f.createJavaType(Integer.class))
-                .add("GRP0", f.createJavaType(Integer.class))
-                .add("GRP1", f.createJavaType(Integer.class))
-                .build()) {
+                new RelDataTypeFactory.Builder(f)
+                        .add("ID", f.createJavaType(Integer.class))
+                        .add("VAL0", f.createJavaType(Integer.class))
+                        .add("VAL1", f.createJavaType(Integer.class))
+                        .add("GRP0", f.createJavaType(Integer.class))
+                        .add("GRP1", f.createJavaType(Integer.class))
+                        .build()) {
 
-            @Override public IgniteDistribution distribution() {
+            @Override
+            public IgniteDistribution distribution() {
                 return IgniteDistributions.affinity(0, "test", "hash");
             }
         };

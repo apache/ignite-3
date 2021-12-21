@@ -30,8 +30,8 @@ import org.apache.ignite.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializer;
 
 /**
- * Annotation for interfaces intended to be used as <i>Transferable Object</i>. Such objects are intended to be
- * serialized and sent over the network. The interfaces must obey the following contract:
+ * Annotation for interfaces intended to be used as <i>Transferable Object</i>. Such objects are intended to be serialized and sent over the
+ * network. The interfaces must obey the following contract:
  *
  * <ol>
  *     <li>They must only contain Ignite-style getter methods that represent the objects' properties.</li>
@@ -39,7 +39,7 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  *     requirement is subject to change in the future when nested Transferable Objects will be supported.</li>
  * </ol>
  *
- * When such interface is marked by this annotation, it can be used by the annotation processor to generate
+ * <p>When such interface is marked by this annotation, it can be used by the annotation processor to generate
  * the following classes:
  *
  * <ol>
@@ -48,7 +48,7 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  *     for creating new instances;</li>
  * </ol>
  *
- * If the {@link #autoSerializable} property is set to {@code true}, the annotation processor will additionally generate
+ * <p>If the {@link #autoSerializable} property is set to {@code true}, the annotation processor will additionally generate
  * serialization-related classes:
  *
  * <ol>
@@ -57,7 +57,7 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  *     <li>{@link MessageSerializationFactory}.</li>
  * </ol>
  *
- * Properties of Transferable Objects that can be auto-serialized can only be of <i>directly marshallable type</i>,
+ * <p>Properties of Transferable Objects that can be auto-serialized can only be of <i>directly marshallable type</i>,
  * which is one of the following:
  *
  * <ol>
@@ -72,7 +72,7 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  *     <li>{@code Map} where both keys and values can be of a directly marshallable type.</li>
  * </ol>
  *
- * After all marked interfaces in a module have been processed, the processor will use the
+ * <p>After all marked interfaces in a module have been processed, the processor will use the
  * <i>message group descriptor</i> (class annotated with {@link MessageGroup}) to expose the builders via a
  * Message Factory.
  *
@@ -84,13 +84,15 @@ import org.apache.ignite.network.serialization.MessageSerializer;
 // TODO: Update this annotation according to https://issues.apache.org/jira/browse/IGNITE-14817
 public @interface Transferable {
     /**
-     * @return this message's type as described in {@link NetworkMessage#messageType}
+     * Returns this message's type as described in {@link NetworkMessage#messageType}.
+     *
+     * @return Message type.
      */
     short value();
 
     /**
-     * When this property is set to {@code true} (default), serialization-related classes will be generated in addition
-     * to the message implementation.
+     * When this property is set to {@code true} (default), serialization-related classes will be generated in addition to the message
+     * implementation.
      *
      * @return {code true} if serialization classes need to be generated, {@code false} otherwise
      */

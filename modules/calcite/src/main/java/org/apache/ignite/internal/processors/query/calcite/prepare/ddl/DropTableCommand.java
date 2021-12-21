@@ -20,55 +20,5 @@ package org.apache.ignite.internal.processors.query.calcite.prepare.ddl;
 /**
  * DROP TABLE statement.
  */
-public class DropTableCommand implements DdlCommand {
-    /** Schema name. */
-    private String schemaName;
-
-    /** Table name. */
-    private String tblName;
-
-    /** Quietly ignore this command if table does not exist. */
-    private boolean ifExists;
-
-    /**
-     * @return Schema name.
-     */
-    public String schemaName() {
-        return schemaName;
-    }
-
-    /**
-     * @param schemaName Schema name.
-     */
-    public void schemaName(String schemaName) {
-        this.schemaName = schemaName;
-    }
-
-    /**
-     * @return Table name.
-     */
-    public String tableName() {
-        return tblName;
-    }
-
-    /**
-     * @param tblName Table name.
-     */
-    public void tableName(String tblName) {
-        this.tblName = tblName;
-    }
-
-    /**
-     * @return Quietly ignore this command if table does not exist.
-     */
-    public boolean ifExists() {
-        return ifExists;
-    }
-
-    /**
-     * @param ifExists Quietly ignore this command if table does not exist.
-     */
-    public void ifExists(boolean ifExists) {
-        this.ifExists = ifExists;
-    }
+public class DropTableCommand extends AbstractTableDdlCommand {
 }

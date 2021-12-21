@@ -34,8 +34,6 @@ import org.apache.ignite.raft.jraft.util.StringUtils;
 /**
  * Base template to handle cli requests.
  *
- * 2018-Apr-09 11:51:42 AM
- *
  * @param <T>
  */
 public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequestProcessor<T> {
@@ -59,7 +57,7 @@ public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequ
     /**
      * Process the request with CliRequestContext
      */
-    protected abstract Message processRequest0(CliRequestContext ctx, T request, RpcRequestClosure done);
+    protected abstract Message processRequest0(CliRequestContext ctx, T request, IgniteCliRpcRequestClosure done);
 
     /**
      * Cli request context
@@ -110,7 +108,7 @@ public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequ
                 .newResponse(msgFactory(), st.getCode(), st.getErrorMsg());
         }
         else {
-            return processRequest0(new CliRequestContext(node, groupId, peerId), request, done);
+            return processRequest0(new CliRequestContext(node, groupId, peerId), request, new IgniteCliRpcRequestClosure(node, done));
         }
     }
 

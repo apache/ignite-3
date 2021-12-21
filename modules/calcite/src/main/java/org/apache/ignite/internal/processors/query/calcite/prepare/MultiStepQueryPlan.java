@@ -22,10 +22,13 @@ package org.apache.ignite.internal.processors.query.calcite.prepare;
  */
 public class MultiStepQueryPlan extends AbstractMultiStepPlan {
     /**
-     * @param fieldsMeta Fields metadata.
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @param meta Fields metadata.
      */
-    public MultiStepQueryPlan(QueryTemplate queryTemplate, FieldsMetadata fieldsMeta) {
-        super(queryTemplate, fieldsMeta);
+    public MultiStepQueryPlan(QueryTemplate queryTemplate, ResultSetMetadataInternal meta) {
+        super(queryTemplate, meta);
     }
 
     /** {@inheritDoc} */
@@ -35,6 +38,6 @@ public class MultiStepQueryPlan extends AbstractMultiStepPlan {
 
     /** {@inheritDoc} */
     @Override public QueryPlan copy() {
-        return new MultiStepQueryPlan(queryTemplate, fieldsMetadata);
+        return new MultiStepQueryPlan(queryTemplate, meta);
     }
 }

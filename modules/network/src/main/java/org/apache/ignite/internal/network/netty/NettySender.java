@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.network.netty;
 
-import java.util.concurrent.CompletableFuture;
 import io.netty.channel.Channel;
 import io.netty.handler.stream.ChunkedInput;
-import org.apache.ignite.network.NetworkMessage;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
+import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -40,8 +40,8 @@ public class NettySender {
     /**
      * Constructor.
      *
-     * @param channel Netty channel.
-     * @param launchId Launch id of the remote node.
+     * @param channel      Netty channel.
+     * @param launchId     Launch id of the remote node.
      * @param consistentId Consistent id of the remote node.
      */
     public NettySender(Channel channel, String launchId, String consistentId) {
@@ -61,6 +61,8 @@ public class NettySender {
     }
 
     /**
+     * Returns launch id of the remote node.
+     *
      * @return Launch id of the remote node.
      */
     public String launchId() {
@@ -68,6 +70,8 @@ public class NettySender {
     }
 
     /**
+     * Returns consistent id of the remote node.
+     *
      * @return Consistent id of the remote node.
      */
     public String consistentId() {
@@ -82,6 +86,8 @@ public class NettySender {
     }
 
     /**
+     * Returns {@code true} if the channel is open, {@code false} otherwise.
+     *
      * @return {@code true} if the channel is open, {@code false} otherwise.
      */
     public boolean isOpen() {
@@ -89,6 +95,8 @@ public class NettySender {
     }
 
     /**
+     * Returns channel.
+     *
      * @return Channel.
      */
     @TestOnly

@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.processors.query.calcite.rel.set;
 
 import java.util.List;
-
-import com.google.common.collect.ImmutableList;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelInput;
@@ -36,55 +34,66 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteRelVisitor;
  * Physical node for REDUCE phase of MINUS (EXCEPT) operator.
  */
 public class IgniteReduceMinus extends IgniteMinus implements IgniteReduceSetOp {
-    /** */
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IgniteReduceMinus(
-        RelOptCluster cluster,
-        RelTraitSet traitSet,
-        RelNode input,
-        boolean all,
-        RelDataType rowType
+            RelOptCluster cluster,
+            RelTraitSet traitSet,
+            RelNode input,
+            boolean all,
+            RelDataType rowType
     ) {
-        super(cluster, traitSet, ImmutableList.of(input), all);
+        super(cluster, traitSet, List.of(input), all);
 
         this.rowType = rowType;
     }
 
-    /** */
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IgniteReduceMinus(RelInput input) {
         this(
-            input.getCluster(),
-            input.getTraitSet().replace(IgniteConvention.INSTANCE),
-            input.getInput(),
-            input.getBoolean("all", false),
-            input.getRowType("rowType")
+                input.getCluster(),
+                input.getTraitSet().replace(IgniteConvention.INSTANCE),
+                input.getInput(),
+                input.getBoolean("all", false),
+                input.getRowType("rowType")
         );
     }
 
     /** {@inheritDoc} */
-    @Override public RelWriter explainTerms(RelWriter pw) {
+    @Override
+    public RelWriter explainTerms(RelWriter pw) {
         super.explainTerms(pw)
-            .itemIf("rowType", rowType, pw.getDetailLevel() == SqlExplainLevel.ALL_ATTRIBUTES);
+                .itemIf("rowType", rowType, pw.getDetailLevel() == SqlExplainLevel.ALL_ATTRIBUTES);
 
         return pw;
     }
 
     /** {@inheritDoc} */
-    @Override public SetOp copy(RelTraitSet traitSet, List<RelNode> inputs, boolean all) {
+    @Override
+    public SetOp copy(RelTraitSet traitSet, List<RelNode> inputs, boolean all) {
         return new IgniteReduceMinus(getCluster(), traitSet, sole(inputs), all, rowType);
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteReduceMinus clone(RelOptCluster cluster, List<IgniteRel> inputs) {
+    @Override
+    public IgniteReduceMinus clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteReduceMinus(cluster, getTraitSet(), sole(inputs), all, rowType);
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T accept(IgniteRelVisitor<T> visitor) {
+    @Override
+    public <T> T accept(IgniteRelVisitor<T> visitor) {
         return visitor.visit(this);
     }
 
     /** {@inheritDoc} */
-    @Override public int aggregateFieldsCount() {
+    @Override
+    public int aggregateFieldsCount() {
         return rowType.getFieldCount() + COUNTER_FIELDS_CNT;
     }
 }

@@ -17,32 +17,39 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
+import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.schema.NativeTypes.INT16;
+import static org.apache.ignite.internal.schema.NativeTypes.INT32;
+import static org.apache.ignite.internal.schema.NativeTypes.INT64;
+import static org.apache.ignite.internal.schema.NativeTypes.INT8;
+import static org.apache.ignite.internal.schema.NativeTypes.UUID;
+
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
+import java.util.Set;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaException;
-import org.apache.ignite.schema.ColumnType;
-import org.apache.ignite.schema.SchemaTable;
-
-import static org.apache.ignite.internal.schema.NativeTypes.INT8;
-import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
-import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
-import static org.apache.ignite.internal.schema.NativeTypes.INT32;
-import static org.apache.ignite.internal.schema.NativeTypes.INT64;
-import static org.apache.ignite.internal.schema.NativeTypes.INT16;
-import static org.apache.ignite.internal.schema.NativeTypes.UUID;
+import org.apache.ignite.schema.definition.ColumnDefinition;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.TableDefinition;
 
 /**
- * Build SchemaDescriptor from SchemaTable internal configuration.
+ * Build SchemaDescriptor from Table internal configuration.
  */
 public class SchemaDescriptorConverter {
     /**
@@ -51,7 +58,7 @@ public class SchemaDescriptorConverter {
      * @param colType ColumnType.
      * @return NativeType.
      */
-    private static NativeType convert(ColumnType colType) {
+    public static NativeType convert(ColumnType colType) {
         assert colType != null;
 
         ColumnType.ColumnTypeSpec type = colType.typeSpec();
@@ -81,47 +88,106 @@ public class SchemaDescriptorConverter {
             case DOUBLE:
                 return DOUBLE;
 
-            case DECIMAL:
-                ColumnType.NumericColumnType numType = (ColumnType.NumericColumnType)colType;
+            case DECIMAL: {
+                ColumnType.DecimalColumnType numType = (ColumnType.DecimalColumnType) colType;
 
                 return NativeTypes.decimalOf(numType.precision(), numType.scale());
+            }
             case UUID:
                 return UUID;
 
             case BITMASK:
-                return NativeTypes.bitmaskOf(((ColumnType.VarLenColumnType)colType).length());
+                return NativeTypes.bitmaskOf(((ColumnType.VarLenColumnType) colType).length());
 
-            case STRING:
-                int strLen = ((ColumnType.VarLenColumnType)colType).length();
+            case STRING: {
+                int strLen = ((ColumnType.VarLenColumnType) colType).length();
 
-                if (strLen == 0)
+                if (strLen == 0) {
                     strLen = Integer.MAX_VALUE;
+                }
 
                 return NativeTypes.stringOf(strLen);
+            }
+            case BLOB: {
+                int blobLen = ((ColumnType.VarLenColumnType) colType).length();
 
-            case BLOB:
-                int blobLen = ((ColumnType.VarLenColumnType)colType).length();
-
-                if (blobLen == 0)
+                if (blobLen == 0) {
                     blobLen = Integer.MAX_VALUE;
+                }
 
                 return NativeTypes.blobOf(blobLen);
+            }
+            case DATE:
+                return NativeTypes.DATE;
+            case TIME: {
+                ColumnType.TemporalColumnType temporalType = (ColumnType.TemporalColumnType) colType;
 
+                return NativeTypes.time(temporalType.precision());
+            }
+            case DATETIME: {
+                ColumnType.TemporalColumnType temporalType = (ColumnType.TemporalColumnType) colType;
+
+                return NativeTypes.datetime(temporalType.precision());
+            }
+            case TIMESTAMP: {
+                ColumnType.TemporalColumnType temporalType = (ColumnType.TemporalColumnType) colType;
+
+                return NativeTypes.timestamp(temporalType.precision());
+            }
+
+            case NUMBER: {
+                ColumnType.NumberColumnType numberType = (ColumnType.NumberColumnType) colType;
+
+                return NativeTypes.numberOf(numberType.precision());
+            }
             default:
                 throw new InvalidTypeException("Unexpected type " + type);
         }
     }
 
     /**
-     * Convert column from public configuration to internal.
+     * Creates a column for given column definition.
      *
-     * @param colCfg Column to confvert.
+     * @param colCfg Column definition.
      * @return Internal Column.
      */
-    private static Column convert(org.apache.ignite.schema.Column colCfg) {
+    public static Column convert(int columnOrder, ColumnDefinition colCfg) {
         NativeType type = convert(colCfg.type());
 
-        return new Column(colCfg.name(), type, colCfg.nullable(), new ConstantSupplier(convertDefault(type, (String)colCfg.defaultValue())));
+        return new Column(columnOrder, colCfg.name(), type, colCfg.nullable(),
+                new ConstantSupplier(convertDefault(type, (String) colCfg.defaultValue())));
+    }
+
+    /**
+     * Build schema descriptor by table schema.
+     *
+     * @param schemaVer Schema version.
+     * @param tblCfg    Table schema.
+     * @return SchemaDescriptor.
+     */
+    public static SchemaDescriptor convert(int schemaVer, TableDefinition tblCfg) {
+        Set<String> keyColumnsNames = tblCfg.keyColumns();
+
+        List<Column> keyCols = new ArrayList<>(keyColumnsNames.size());
+        List<Column> valCols = new ArrayList<>(tblCfg.columns().size() - keyColumnsNames.size());
+
+        int idx = 0;
+
+        for (ColumnDefinition col : tblCfg.columns()) {
+            if (keyColumnsNames.contains(col.name())) {
+                keyCols.add(convert(idx, col));
+            } else {
+                valCols.add(convert(idx, col));
+            }
+
+            idx++;
+        }
+
+        return new SchemaDescriptor(
+                schemaVer,
+                keyCols.toArray(Column[]::new),
+                tblCfg.affinityColumns().toArray(String[]::new),
+                valCols.toArray(Column[]::new));
     }
 
     /**
@@ -132,10 +198,9 @@ public class SchemaDescriptorConverter {
      * @return Parsed object.
      */
     private static Serializable convertDefault(NativeType type, String dflt) {
-        if (dflt == null || dflt.isEmpty() && type.spec() != NativeTypeSpec.STRING)
+        if (dflt == null || dflt.isEmpty()) {
             return null;
-
-        assert dflt instanceof String;
+        }
 
         switch (type.spec()) {
             case INT8:
@@ -151,43 +216,24 @@ public class SchemaDescriptorConverter {
             case DOUBLE:
                 return Double.parseDouble(dflt);
             case DECIMAL:
-                return new BigDecimal(dflt);
+                return new BigDecimal(dflt).setScale(((DecimalNativeType) type).scale(), RoundingMode.HALF_UP);
+            case NUMBER:
+                return new BigInteger(dflt);
             case STRING:
                 return dflt;
             case UUID:
                 return java.util.UUID.fromString(dflt);
+            case DATE:
+                return LocalDate.parse(dflt);
+            case TIME:
+                return LocalTime.parse(dflt);
+            case DATETIME:
+                return LocalDateTime.parse(dflt);
+            case TIMESTAMP:
+                return Instant.parse(dflt);
             default:
                 throw new SchemaException("Default value is not supported for type: type=" + type.toString());
         }
-    }
-
-    /**
-     * Build schema descriptor by SchemaTable.
-     *
-     * @param tblId Table id.
-     * @param schemaVer Schema version.
-     * @param tblCfg SchemaTable.
-     * @return SchemaDescriptor.
-     */
-    public static SchemaDescriptor convert(UUID tblId, int schemaVer, SchemaTable tblCfg) {
-        List<org.apache.ignite.schema.Column> keyColsCfg = new ArrayList<>(tblCfg.keyColumns());
-
-        Column[] keyCols = new Column[keyColsCfg.size()];
-
-        for (int i = 0; i < keyCols.length; i++)
-            keyCols[i] = convert(keyColsCfg.get(i));
-
-        String[] affCols = tblCfg.affinityColumns().stream().map(org.apache.ignite.schema.Column::name)
-            .toArray(String[]::new);
-
-        List<org.apache.ignite.schema.Column> valColsCfg = new ArrayList<>(tblCfg.valueColumns());
-
-        Column[] valCols = new Column[valColsCfg.size()];
-
-        for (int i = 0; i < valCols.length; i++)
-            valCols[i] = convert(valColsCfg.get(i));
-
-        return new SchemaDescriptor(tblId, schemaVer, keyCols, affCols, valCols);
     }
 
     /**
@@ -198,14 +244,17 @@ public class SchemaDescriptorConverter {
         private final Serializable val;
 
         /**
+         * Constructor.
+         *
          * @param val Value.
          */
         ConstantSupplier(Serializable val) {
             this.val = val;
         }
 
-        /** {@inheritDoc */
-        @Override public Object get() {
+        /** {@inheritDoc} */
+        @Override
+        public Object get() {
             return val;
         }
     }

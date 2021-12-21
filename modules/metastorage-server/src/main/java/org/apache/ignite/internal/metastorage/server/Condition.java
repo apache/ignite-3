@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.util.Collection;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Defines interface for condition which could be applied to an entry.
- * 
- * @see KeyValueStorage#invoke(Condition, Collection, Collection) 
+ *
+ * @see KeyValueStorage#invoke(Condition, Collection, Collection)
  */
 public interface Condition {
     /**

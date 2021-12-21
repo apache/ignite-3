@@ -17,25 +17,19 @@
 
 package org.apache.ignite.client;
 
-import java.net.InetSocketAddress;
-import java.util.Collections;
-import io.netty.channel.ChannelFuture;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 import io.netty.util.ResourceLeakDetector;
-import org.apache.ignite.app.Ignite;
+import java.net.InetSocketAddress;
+import java.util.Objects;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientHandlerModule;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.slf4j.helpers.NOPLogger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * Base class for client tests.
@@ -43,9 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 public abstract class AbstractClientTest {
     protected static final String DEFAULT_TABLE = "default_test_table";
 
-    protected static ConfigurationRegistry configurationRegistry;
-
-    protected static ChannelFuture serverFuture;
+    protected static TestServer testServer;
 
     protected static Ignite server;
 
@@ -53,58 +45,79 @@ public abstract class AbstractClientTest {
 
     protected static int serverPort;
 
+    /**
+     * Before all.
+     */
     @BeforeAll
-    public static void beforeAll() throws Exception {
+    public static void beforeAll() {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
-        serverFuture = startServer(null);
-        serverPort = ((InetSocketAddress)serverFuture.channel().localAddress()).getPort();
+        server = new FakeIgnite();
+
+        testServer = startServer(10800, 10, server);
+
+        serverPort = getPort(testServer.module());
 
         client = startClient();
     }
 
+    /**
+     * After all.
+     */
     @AfterAll
     public static void afterAll() throws Exception {
         client.close();
-        serverFuture.cancel(true);
-        serverFuture.await();
-        serverFuture.channel().closeFuture().await();
-        configurationRegistry.stop();
+        testServer.close();
     }
 
+    /**
+     * After each.
+     */
     @BeforeEach
     public void beforeEach() {
-        for (var t : server.tables().tables())
-            server.tables().dropTable(t.tableName());
+        for (var t : server.tables().tables()) {
+            server.tables().dropTable(t.name());
+        }
     }
 
+    /**
+     * Returns client.
+     *
+     * @param addrs Addresses.
+     * @return Client.
+     */
     public static Ignite startClient(String... addrs) {
-        if (addrs == null || addrs.length == 0)
-            addrs = new String[]{"127.0.0.2:" + serverPort};
+        if (addrs == null || addrs.length == 0) {
+            addrs = new String[]{"127.0.0.1:" + serverPort};
+        }
 
         var builder = IgniteClient.builder().addresses(addrs);
 
         return builder.build();
     }
 
-    public static ChannelFuture startServer(String host) throws InterruptedException {
-        configurationRegistry = new ConfigurationRegistry(
-                Collections.singletonList(ClientConnectorConfiguration.KEY),
-                Collections.emptyMap(),
-                Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
-        );
-
-        configurationRegistry.start();
-
-        server = new FakeIgnite();
-
-        var module = new ClientHandlerModule(server, NOPLogger.NOP_LOGGER);
-
-        module.prepareStart(configurationRegistry);
-
-        return module.start();
+    /**
+     * Returns server.
+     *
+     * @param port Port.
+     * @param portRange Port range.
+     * @param ignite Ignite.
+     * @return Server.
+     */
+    public static TestServer startServer(
+            int port,
+            int portRange,
+            Ignite ignite
+    ) {
+        return new TestServer(port, portRange, ignite);
     }
 
+    /**
+     * Assertion of {@link Tuple} equality.
+     *
+     * @param x Tuple.
+     * @param y Tuple.
+     */
     public static void assertTupleEquals(Tuple x, Tuple y) {
         if (x == null) {
             assertNull(y);
@@ -117,11 +130,15 @@ public abstract class AbstractClientTest {
             return;
         }
 
-        assertEquals(x.columnCount(), y.columnCount());
+        assertEquals(x.columnCount(), y.columnCount(), x + " != " + y);
 
         for (var i = 0; i < x.columnCount(); i++) {
             assertEquals(x.columnName(i), y.columnName(i));
             assertEquals((Object) x.value(i), y.value(i));
         }
+    }
+
+    public static int getPort(ClientHandlerModule hnd) {
+        return ((InetSocketAddress) Objects.requireNonNull(hnd.localAddress())).getPort();
     }
 }

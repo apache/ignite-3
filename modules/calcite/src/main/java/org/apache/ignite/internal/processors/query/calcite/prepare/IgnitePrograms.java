@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.calcite.plan.RelOptLattice;
 import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.plan.RelOptRule;
@@ -28,7 +30,8 @@ import org.apache.calcite.tools.RuleSet;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
 /**
- *
+ * IgnitePrograms.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgnitePrograms {
     /**
@@ -39,23 +42,29 @@ public class IgnitePrograms {
      */
     public static Program hep(RuleSet rules) {
         return (planner, rel, traits, materializations, lattices) -> {
-                final HepProgramBuilder builder = new HepProgramBuilder();
+            final HepProgramBuilder builder = new HepProgramBuilder();
+            final List<RelOptRule> ruleList = new ArrayList<>();
 
-                for (RelOptRule rule : rules)
-                    builder.addRuleInstance(rule);
+            for (RelOptRule rule : rules) {
+                ruleList.add(rule);
+            }
 
-                final HepPlanner hepPlanner = new HepPlanner(builder.build(), Commons.context(rel), true,
+            builder.addRuleCollection(ruleList);
+
+            final HepPlanner hepPlanner = new HepPlanner(builder.build(), Commons.context(rel), true,
                     null, Commons.context(rel).config().getCostFactory());
 
-                for (RelOptMaterialization materialization : materializations)
-                    hepPlanner.addMaterialization(materialization);
+            for (RelOptMaterialization materialization : materializations) {
+                hepPlanner.addMaterialization(materialization);
+            }
 
-                for (RelOptLattice lattice : lattices)
-                    hepPlanner.addLattice(lattice);
+            for (RelOptLattice lattice : lattices) {
+                hepPlanner.addLattice(lattice);
+            }
 
-                hepPlanner.setRoot(rel);
+            hepPlanner.setRoot(rel);
 
-                return hepPlanner.findBestExp();
+            return hepPlanner.findBestExp();
         };
     }
 

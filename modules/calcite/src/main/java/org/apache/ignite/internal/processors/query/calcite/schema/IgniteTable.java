@@ -14,127 +14,111 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.processors.query.calcite.schema;
 
-import java.util.Map;
-import java.util.function.Function;
-import java.util.function.Predicate;
-
+import java.util.List;
+import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.schema.Schema;
+import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.TranslatableTable;
+import org.apache.calcite.schema.Wrapper;
+import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
-import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGroup;
-import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
-import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
-import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
-import org.jetbrains.annotations.Nullable;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Ignite table.
  */
-public interface IgniteTable extends TranslatableTable {
+public interface IgniteTable extends TranslatableTable, Wrapper {
     /**
-     * @return Table description.
+     * Get table descriptor.
+     *
+     * @return Table descriptor.
      */
     TableDescriptor descriptor();
 
     /** {@inheritDoc} */
-    default @Override RelDataType getRowType(RelDataTypeFactory typeFactory) {
+    @Override
+    default RelDataType getRowType(RelDataTypeFactory typeFactory) {
         return getRowType(typeFactory, null);
     }
 
     /**
-     * Returns new type according {@code usedClumns} param.
+     * Returns new type according {@code requiredColumns} param.
      *
-     * @param typeFactory Factory.
+     * @param typeFactory     Factory.
      * @param requiredColumns Used columns enumeration.
      */
     RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet requiredColumns);
 
     /** {@inheritDoc} */
-    @Override default TableScan toRel(RelOptTable.ToRelContext context, RelOptTable relOptTable) {
+    @Override
+    default TableScan toRel(RelOptTable.ToRelContext context, RelOptTable relOptTable) {
         return toRel(context.getCluster(), relOptTable);
     }
 
     /**
      * Converts table into relational expression.
      *
-     * @param cluster Custer.
+     * @param cluster   Custer.
      * @param relOptTbl Table.
      * @return Table relational expression.
      */
-    IgniteLogicalTableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl);
+    TableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl);
 
     /**
-     * Converts table into relational expression.
+     * Returns table distribution.
      *
-     * @param cluster Custer.
-     * @param relOptTbl Table.
-     * @param idxName Index name.
-     * @return Table relational expression.
-     */
-    IgniteLogicalIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, String idxName);
-
-    /**
-     * Creates rows iterator over the table.
-     *
-     * @param execCtx Execution context.
-     * @param group Colocation group.
-     * @param filter Row filter.
-     * @param rowTransformer Row transformer.
-     * @param usedColumns Used columns enumeration.
-     * @return Rows iterator.
-     */
-    <Row> Iterable<Row> scan(
-            ExecutionContext<Row> execCtx,
-            ColocationGroup group,
-            Predicate<Row> filter,
-            Function<Row, Row> rowTransformer,
-            @Nullable ImmutableBitSet usedColumns);
-
-    /**
-     * Returns nodes mapping.
-     *
-     * @param ctx Planning context.
-     * @return Nodes mapping.
-     */
-    ColocationGroup colocationGroup(PlanningContext ctx);
-
-    /**
      * @return Table distribution.
      */
     IgniteDistribution distribution();
 
-    /**
-     * Returns all table indexes.
-     *
-     * @return Indexes for the current table.
-     */
-    Map<String, IgniteIndex> indexes();
+    /** {@inheritDoc} */
+    @Override
+    default Schema.TableType getJdbcTableType() {
+        return Schema.TableType.TABLE;
+    }
 
-    /**
-     * Adds index to table.
-     *
-     * @param idxTbl Index table.
-     */
-    void addIndex(IgniteIndex idxTbl);
+    /** {@inheritDoc} */
+    @Override
+    default boolean isRolledUp(String column) {
+        return false;
+    }
 
-    /**
-     * Returns index by its name.
-     *
-     * @param idxName Index name.
-     * @return Index.
-     */
-    IgniteIndex getIndex(String idxName);
+    /** {@inheritDoc} */
+    @Override
+    default boolean rolledUpColumnValidInsideAgg(String column, SqlCall call,
+            @Nullable SqlNode parent,
+            @Nullable CalciteConnectionConfig config) {
+        return false;
+    }
 
-    /**
-     * @param idxName Index name.
-     */
-    void removeIndex(String idxName);
+    /** {@inheritDoc} */
+    @Override
+    default Statistic getStatistic() {
+        return new Statistic() {
+            @Override
+            public List<RelCollation> getCollations() {
+                return List.of();
+            }
+        };
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    default <C> @Nullable C unwrap(Class<C> cls) {
+        if (cls.isInstance(this)) {
+            return cls.cast(this);
+        }
+        return null;
+    }
 }

@@ -22,14 +22,17 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Get and remove command for MetaStorageCommandListener that removes an entry
- * for the given key and retrieves a previous entry for the given key.
+ * Get and remove command for MetaStorageCommandListener that removes an entry for the given key and retrieves a previous entry for the
+ * given key.
  */
 public final class GetAndRemoveCommand implements WriteCommand {
     /** The key. Couldn't be {@code null}. */
-    @NotNull private final byte[] key;
+    @NotNull
+    private final byte[] key;
 
     /**
+     * Constructor.
+     *
      * @param key The key. Couldn't be {@code null}.
      */
     public GetAndRemoveCommand(@NotNull ByteArray key) {
@@ -37,7 +40,7 @@ public final class GetAndRemoveCommand implements WriteCommand {
     }
 
     /**
-     * @return The key. Couldn't be {@code null}.
+     * Returns the key. Couldn't be {@code null}.
      */
     public @NotNull byte[] key() {
         return key;

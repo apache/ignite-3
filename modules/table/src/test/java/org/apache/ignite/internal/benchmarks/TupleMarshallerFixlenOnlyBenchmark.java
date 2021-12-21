@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.benchmarks;
 
+import static org.apache.ignite.internal.schema.registry.SchemaRegistryImpl.INITIAL_SCHEMA_VERSION;
+
 import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.Column;
@@ -26,10 +27,10 @@ import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.table.TupleBuilderImpl;
-import org.apache.ignite.internal.table.TupleMarshallerImpl;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -83,14 +84,14 @@ public class TupleMarshallerFixlenOnlyBenchmark {
      */
     public static void main(String[] args) throws RunnerException {
         new Runner(
-            new OptionsBuilder()
-                .include(TupleMarshallerFixlenOnlyBenchmark.class.getSimpleName())
-                .build()
+                new OptionsBuilder()
+                        .include(TupleMarshallerFixlenOnlyBenchmark.class.getSimpleName())
+                        .build()
         ).run();
     }
 
     /**
-     *
+     * Setup.
      */
     @Setup
     public void init() {
@@ -99,32 +100,35 @@ public class TupleMarshallerFixlenOnlyBenchmark {
         rnd = new Random(seed);
 
         schema = new SchemaDescriptor(
-            UUID.randomUUID(),
-            42,
-            new Column[] {new Column("key", NativeTypes.INT64, false)},
-            IntStream.range(0, fieldsCount).boxed()
-                .map(i -> new Column("col" + i, NativeTypes.INT64, nullable))
-                .toArray(Column[]::new)
+                42,
+                new Column[]{new Column("key", NativeTypes.INT64, false)},
+                IntStream.range(0, fieldsCount).boxed()
+                        .map(i -> new Column("col" + i, NativeTypes.INT64, nullable))
+                        .toArray(Column[]::new)
         );
 
-        marshaller = new TupleMarshallerImpl(new SchemaRegistryImpl(v -> null) {
-            @Override public SchemaDescriptor schema() {
+        marshaller = new TupleMarshallerImpl(new SchemaRegistryImpl(v -> null, () -> INITIAL_SCHEMA_VERSION) {
+            @Override
+            public SchemaDescriptor schema() {
                 return schema;
             }
 
-            @Override public SchemaDescriptor schema(int ver) {
+            @Override
+            public SchemaDescriptor schema(int ver) {
                 return schema;
             }
 
-            @Override public int lastSchemaVersion() {
+            @Override
+            public int lastSchemaVersion() {
                 return schema.version();
             }
         });
 
         vals = new Object[schema.valueColumns().length()];
 
-        for (int i = 0; i < vals.length; i++)
+        for (int i = 0; i < vals.length; i++) {
             vals[i] = rnd.nextLong();
+        }
     }
 
     /**
@@ -133,17 +137,18 @@ public class TupleMarshallerFixlenOnlyBenchmark {
      * @param bh Black hole.
      */
     @Benchmark
-    public void measureTupleBuildAndMarshallerCost(Blackhole bh) {
+    public void measureTupleBuildAndMarshallerCost(Blackhole bh) throws TupleMarshallerException {
         final Columns cols = schema.valueColumns();
 
-        final TupleBuilderImpl valBld = new TupleBuilderImpl(schema);
+        final Tuple valBld = Tuple.create(cols.length());
 
-        for (int i = 0; i < cols.length(); i++)
+        for (int i = 0; i < cols.length(); i++) {
             valBld.set(cols.column(i).name(), vals[i]);
+        }
 
-        Tuple keyTuple = new TupleBuilderImpl(schema).set("key", rnd.nextLong()).build();
+        Tuple keyTuple = Tuple.create(1).set("key", rnd.nextLong());
 
-        final Row row = marshaller.marshal(keyTuple, valBld.build());
+        final Row row = marshaller.marshal(keyTuple, valBld);
 
         bh.consume(row);
     }

@@ -21,8 +21,8 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
-import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
 
@@ -91,7 +91,7 @@ public class DefaultTimer implements Timer {
                 @Override
                 public boolean cancel() {
                     final ScheduledFuture<?> f = future;
-                    return f != null && f.cancel(true);
+                    return f != null && f.cancel(false); // Avoid interrupting a thread in the pool.
                 }
             };
         }

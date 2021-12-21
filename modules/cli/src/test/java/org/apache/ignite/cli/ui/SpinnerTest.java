@@ -17,6 +17,8 @@
 
 package org.apache.ignite.cli.ui;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -24,39 +26,28 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 /**
- *
+ * Tests spinner.
  */
 public class SpinnerTest {
-    /** */
+    /** Writer that is used in order to prints formatted representation to the underlying output stream. */
     private PrintWriter out;
 
-    /** */
+    /** CLI output stream. */
     private ByteArrayOutputStream outputStream;
 
-    /**
-     *
-     */
     @BeforeEach
     public void setUp() {
         outputStream = new ByteArrayOutputStream();
         out = new PrintWriter(outputStream);
     }
 
-    /**
-     *
-     */
     @AfterEach
     public void tearDown() throws IOException {
         out.close();
         outputStream.close();
     }
 
-    /**
-     *
-     */
     @Test
     public void testSpinner() {
         var spinner = new Spinner(out, "Waiting");
@@ -74,9 +65,6 @@ public class SpinnerTest {
         assertEquals("\rWaiting.  \rWaiting.. \rWaiting...\rWaiting.  ", outputStream.toString());
     }
 
-    /**
-     *
-     */
     @Test
     public void testSpinnerClose() {
         var spinner = new Spinner(out, "Waiting");

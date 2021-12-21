@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.network;
 
 import java.io.Serializable;
@@ -34,8 +35,10 @@ public class ClusterNode implements Serializable {
     private final NetworkAddress address;
 
     /**
-     * @param id Local id that changes between restarts.
-     * @param name Unique name of a member in a cluster.
+     * Constructor.
+     *
+     * @param id      Local id that changes between restarts.
+     * @param name    Unique name of a member in a cluster.
      * @param address Node address.
      */
     public ClusterNode(String id, String name, NetworkAddress address) {
@@ -45,6 +48,8 @@ public class ClusterNode implements Serializable {
     }
 
     /**
+     * Returns this node's local ID.
+     *
      * @return Node's local id.
      */
     public String id() {
@@ -52,13 +57,17 @@ public class ClusterNode implements Serializable {
     }
 
     /**
-     * @return Unique name of member in cluster. Doesn't change between restarts.
+     * Returns the unique name of this node in a cluster. Doesn't change between restarts.
+     *
+     * @return Unique name of the member in a cluster.
      */
     public String name() {
         return name;
     }
 
     /**
+     * Returns the network address of this node.
+     *
      * @return Network address of this node.
      */
     public NetworkAddress address() {
@@ -66,22 +75,27 @@ public class ClusterNode implements Serializable {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean equals(Object o) {
-        if (this == o)
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
             return true;
-        if (o == null || getClass() != o.getClass())
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
-        ClusterNode that = (ClusterNode)o;
+        }
+        ClusterNode that = (ClusterNode) o;
         return name.equals(that.name) && address.equals(that.address);
     }
 
     /** {@inheritDoc} */
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         return Objects.hash(name, address);
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return S.toString(ClusterNode.class, this);
     }
 }

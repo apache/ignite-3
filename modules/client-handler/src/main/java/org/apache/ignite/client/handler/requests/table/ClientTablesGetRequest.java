@@ -18,7 +18,7 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.manager.IgniteTables;
 
@@ -29,7 +29,7 @@ public class ClientTablesGetRequest {
     /**
      * Processes the request.
      *
-     * @param out Packer.
+     * @param out          Packer.
      * @param igniteTables Ignite tables.
      * @return Future.
      */
@@ -43,8 +43,8 @@ public class ClientTablesGetRequest {
             for (var table : tables) {
                 var tableImpl = (TableImpl) table;
 
-                out.packUuid(tableImpl.tableId());
-                out.packString(table.tableName());
+                out.packIgniteUuid(tableImpl.tableId());
+                out.packString(table.name());
             }
         });
     }

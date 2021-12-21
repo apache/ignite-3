@@ -32,7 +32,9 @@ public class RestApiHttpRequest {
     private final Map<String, String> qryParams;
 
     /**
-     * @param req Request.
+     * Creates a new instance of http request.
+     *
+     * @param req       Request.
      * @param qryParams Query params.
      */
     public RestApiHttpRequest(FullHttpRequest req, Map<String, String> qryParams) {
@@ -55,6 +57,6 @@ public class RestApiHttpRequest {
      * @return Query parameters.
      */
     public Map<String, String> queryParams() {
-       return qryParams;
+        return qryParams;
     }
 }

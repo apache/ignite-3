@@ -30,7 +30,7 @@ import org.apache.ignite.rest.netty.RestApiHttpResponse;
 /**
  * Dispatcher of http requests.
  *
- * Example:
+ * <p>Example:
  * <pre>
  * {@code
  * var router = new Router();
@@ -42,7 +42,7 @@ import org.apache.ignite.rest.netty.RestApiHttpResponse;
  */
 public class Router {
     /** Routes. */
-    private/*public*/ final List<Route> routes;
+    private final List<Route> routes;
 
     /**
      * Creates a new router with the given list of {@code routes}.
@@ -63,15 +63,15 @@ public class Router {
     /**
      * GET query helper.
      *
-     * @param route Route.
+     * @param route      Route.
      * @param acceptType Accept type.
-     * @param hnd Actual handler of the request.
+     * @param hnd        Actual handler of the request.
      * @return Router
      */
     public Router get(
-        String route,
-        AsciiString acceptType,
-        BiConsumer<RestApiHttpRequest, RestApiHttpResponse> hnd
+            String route,
+            AsciiString acceptType,
+            BiConsumer<RestApiHttpRequest, RestApiHttpResponse> hnd
     ) {
         addRoute(new Route(route, HttpMethod.GET, acceptType.toString(), hnd));
         return this;
@@ -81,7 +81,7 @@ public class Router {
      * GET query helper.
      *
      * @param route Route.
-     * @param hnd Actual handler of the request.
+     * @param hnd   Actual handler of the request.
      * @return Router
      */
     public Router get(String route, BiConsumer<RestApiHttpRequest, RestApiHttpResponse> hnd) {
@@ -92,15 +92,15 @@ public class Router {
     /**
      * PUT query helper.
      *
-     * @param route Route.
+     * @param route      Route.
      * @param acceptType Accept type.
-     * @param hnd Actual handler of the request.
+     * @param hnd        Actual handler of the request.
      * @return Router
      */
     public Router put(
-        String route,
-        AsciiString acceptType,
-        BiConsumer<RestApiHttpRequest, RestApiHttpResponse> hnd
+            String route,
+            AsciiString acceptType,
+            BiConsumer<RestApiHttpRequest, RestApiHttpResponse> hnd
     ) {
         addRoute(new Route(route, HttpMethod.PUT, acceptType.toString(), hnd));
         return this;

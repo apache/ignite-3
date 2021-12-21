@@ -19,25 +19,16 @@ package org.apache.ignite.internal.table.distributed.command;
 
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * The command replaces an old entry to a new one.
  */
-public class ReplaceCommand implements WriteCommand {
-    /** Replacing binary row. */
-    private transient BinaryRow row;
-
+public class ReplaceCommand extends SingleKeyCommand implements WriteCommand {
     /** Replaced binary row. */
     private transient BinaryRow oldRow;
-
-    /*
-     * Row bytes.
-     * It is a temporary solution, before network have not implement correct serialization BinaryRow.
-     * TODO: Remove the field after (IGNITE-14793).
-     */
-    private byte[] rowBytes;
 
     /**
      * Old row bytes.
@@ -49,31 +40,17 @@ public class ReplaceCommand implements WriteCommand {
      * Creates a new instance of ReplaceCommand with the given two rows to be replaced each other.
      * Both rows should not be {@code null}.
      *
-     * @param oldRow Old Binary row.
-     * @param row Binary row.
-     */
-    public ReplaceCommand(@NotNull BinaryRow oldRow, @NotNull BinaryRow row) {
-        assert oldRow != null;
-        assert row != null;
-
-        this.oldRow = oldRow;
-        this.row = row;
-
-        CommandUtils.rowToBytes(oldRow, bytes -> oldRowBytes = bytes);
-        CommandUtils.rowToBytes(row, bytes -> rowBytes = bytes);
-    }
-
-    /**
-     * Gets a binary row which will be after replace.
+     * @param oldRow        Old Binary row.
+     * @param row           Binary row.
+     * @param timestamp     The timestamp.
      *
-     * @return Binary row.
+     * @see TransactionalCommand
      */
-    @NotNull
-    public BinaryRow getRow() {
-        if (row == null)
-            row = new ByteBufferRow(rowBytes);
+    public ReplaceCommand(@NotNull BinaryRow oldRow, @NotNull BinaryRow row, @NotNull Timestamp timestamp) {
+        super(row, timestamp);
+        assert oldRow != null;
 
-        return row;
+        oldRowBytes = CommandUtils.rowToBytes(oldRow);
     }
 
     /**
@@ -83,8 +60,9 @@ public class ReplaceCommand implements WriteCommand {
      */
     @NotNull
     public BinaryRow getOldRow() {
-        if (oldRow == null)
+        if (oldRow == null) {
             oldRow = new ByteBufferRow(oldRowBytes);
+        }
 
         return oldRow;
     }

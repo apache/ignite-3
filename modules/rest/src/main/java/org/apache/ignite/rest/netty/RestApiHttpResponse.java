@@ -39,7 +39,7 @@ public class RestApiHttpResponse {
     /**
      * Creates a new HTTP response with the given message body.
      *
-     * @param res Response.
+     * @param res     Response.
      * @param content Content.
      */
     public RestApiHttpResponse(HttpResponse res, byte[] content) {
@@ -68,6 +68,15 @@ public class RestApiHttpResponse {
     }
 
     /**
+     * Returns content in a form of raw bytes.
+     *
+     * @return Content.
+     */
+    public byte[] content() {
+        return content;
+    }
+
+    /**
      * Set JSON representation of input object as response body.
      *
      * @param content Content object.
@@ -78,13 +87,6 @@ public class RestApiHttpResponse {
         this.content = new Gson().toJson(content).getBytes(StandardCharsets.UTF_8);
         headers().set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON.toString());
         return this;
-    }
-
-    /**
-     * @return Content.
-     */
-    public byte[] content() {
-        return content;
     }
 
     /**
@@ -108,6 +110,8 @@ public class RestApiHttpResponse {
     }
 
     /**
+     * Returns protocol version.
+     *
      * @return Protocol version
      */
     public HttpVersion protocolVersion() {
@@ -126,6 +130,8 @@ public class RestApiHttpResponse {
     }
 
     /**
+     * Returns mutable response headers.
+     *
      * @return Mutable response headers.
      */
     public HttpHeaders headers() {

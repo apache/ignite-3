@@ -17,10 +17,13 @@
 
 package org.apache.ignite.client;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.Comparator;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
-
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.client.table.ClientTable;
@@ -28,10 +31,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests client tables.
@@ -45,9 +44,9 @@ public class ClientTablesTest extends AbstractClientTest {
         var tables = client.tables().tables();
         assertEquals(2, tables.size());
 
-        tables.sort(Comparator.comparing(Table::tableName));
-        assertEquals(DEFAULT_TABLE, tables.get(0).tableName());
-        assertEquals("t", tables.get(1).tableName());
+        tables.sort(Comparator.comparing(Table::name));
+        assertEquals(DEFAULT_TABLE, tables.get(0).name());
+        assertEquals("t", tables.get(1).name());
     }
 
     @Test
@@ -61,13 +60,13 @@ public class ClientTablesTest extends AbstractClientTest {
     @Disabled("IGNITE-15179")
     public void testCreateTable() {
         var clientTable = client.tables().createTable("t1", t -> t.changeReplicas(2));
-        assertEquals("t1", clientTable.tableName());
+        assertEquals("t1", clientTable.name());
 
         var serverTables = server.tables().tables();
         assertEquals(1, serverTables.size());
 
         var serverTable = serverTables.get(0);
-        assertEquals("t1", serverTable.tableName());
+        assertEquals("t1", serverTable.name());
         assertEquals(((TableImpl) serverTable).tableId(), ((ClientTable) clientTable).tableId());
     }
 

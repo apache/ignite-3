@@ -17,14 +17,14 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.proto.ClientMessagePacker;
-import org.apache.ignite.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.table.manager.IgniteTables;
-
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuples;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTuples;
+
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.table.manager.IgniteTables;
 
 /**
  * Client tuple delete all exact request.
@@ -46,6 +46,7 @@ public class ClientTupleDeleteAllExactRequest {
         var table = readTable(in, tables);
         var tuples = readTuples(in, table, false);
 
-        return table.deleteAllExactAsync(tuples).thenAccept(skippedTuples -> writeTuples(out, skippedTuples));
+        return table.recordView().deleteAllExactAsync(null, tuples)
+                .thenAccept(skippedTuples -> writeTuples(out, skippedTuples, table.schemaView(), true));
     }
 }

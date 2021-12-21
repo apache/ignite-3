@@ -37,6 +37,8 @@ public class NetworkAddress implements Serializable {
     private final int port;
 
     /**
+     * Constructor.
+     *
      * @param host Host.
      * @param port Port.
      */
@@ -55,8 +57,9 @@ public class NetworkAddress implements Serializable {
     public static NetworkAddress from(String addrStr) {
         Matcher matcher = ADDRESS_PATTERN.matcher(addrStr);
 
-        if (!matcher.matches())
+        if (!matcher.matches()) {
             throw new IllegalArgumentException("Unable to parse the network address from: " + addrStr);
+        }
 
         String host = matcher.group(1);
 
@@ -77,12 +80,15 @@ public class NetworkAddress implements Serializable {
      * Creates a {@code NetworkAddress} from a {@link InetSocketAddress}.
      *
      * @param addr Address.
+     * @return Created network address.
      */
     public static NetworkAddress from(InetSocketAddress addr) {
         return new NetworkAddress(addr.getHostName(), addr.getPort());
     }
 
     /**
+     * Returns the host name.
+     *
      * @return Host name.
      */
     public String host() {
@@ -90,6 +96,8 @@ public class NetworkAddress implements Serializable {
     }
 
     /**
+     * Returns the network port.
+     *
      * @return Port.
      */
     public int port() {
@@ -97,22 +105,27 @@ public class NetworkAddress implements Serializable {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean equals(Object o) {
-        if (this == o)
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
             return true;
-        if (o == null || getClass() != o.getClass())
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
-        NetworkAddress address = (NetworkAddress)o;
+        }
+        NetworkAddress address = (NetworkAddress) o;
         return port == address.port && host.equals(address.host);
     }
 
     /** {@inheritDoc} */
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         return Objects.hash(host, port);
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return host + ":" + port;
     }
 }

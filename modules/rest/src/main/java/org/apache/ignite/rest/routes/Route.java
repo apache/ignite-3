@@ -46,16 +46,18 @@ public class Route {
     private final BiConsumer<RestApiHttpRequest, RestApiHttpResponse> hnd;
 
     /**
-     * @param route Route.
-     * @param method Method.
+     * Create a new URI route with the given parameters.
+     *
+     * @param route      Route.
+     * @param method     Method.
      * @param acceptType Accept type.
-     * @param hnd Request handler.
+     * @param hnd        Request handler.
      */
     public Route(
-        String route,
-        HttpMethod method,
-        String acceptType,
-        BiConsumer<RestApiHttpRequest, RestApiHttpResponse> hnd
+            String route,
+            HttpMethod method,
+            String acceptType,
+            BiConsumer<RestApiHttpRequest, RestApiHttpResponse> hnd
     ) {
         this.route = route;
         this.method = method;
@@ -66,7 +68,7 @@ public class Route {
     /**
      * Handles the query by populating the received response object.
      *
-     * @param req Request.
+     * @param req  Request.
      * @param resp Response.
      */
     public void handle(FullHttpRequest req, RestApiHttpResponse resp) {
@@ -80,22 +82,23 @@ public class Route {
      * @return true if route matches the request, else otherwise.
      */
     public boolean match(HttpRequest req) {
-        return req.method().equals(method) &&
-            matchUri(req.uri()) &&
-            matchContentType(req.headers().get(HttpHeaderNames.CONTENT_TYPE));
+        return req.method().equals(method)
+                && matchUri(req.uri())
+                && matchContentType(req.headers().get(HttpHeaderNames.CONTENT_TYPE));
     }
 
     /**
+     * Returns {@code true} if route matches the request, else otherwise.
+     *
      * @param s Content type.
-     * @return true if route matches the request, else otherwise.
+     * @return {@code true} if route matches the request, else otherwise.
      */
     private boolean matchContentType(String s) {
         return (acceptType == null) || (acceptType.equals(s));
     }
 
     /**
-     * Checks the current route matches input uri.
-     * REST API like URIs "/user/:user" is also supported.
+     * Checks the current route matches input uri. REST API like URIs "/user/:user" is also supported.
      *
      * @param uri Input URI
      * @return true if route matches the request, else otherwise.
@@ -107,14 +110,17 @@ public class Route {
         String part;
         while ((part = realParts.pollFirst()) != null) {
             String receivedPart = receivedParts.pollFirst();
-            if (receivedPart == null)
+            if (receivedPart == null) {
                 return false;
+            }
 
-            if (part.startsWith(":"))
+            if (part.startsWith(":")) {
                 continue;
+            }
 
-            if (!part.equals(receivedPart))
+            if (!part.equals(receivedPart)) {
                 return false;
+            }
         }
 
         return receivedParts.isEmpty();
@@ -125,26 +131,29 @@ public class Route {
      *
      * @param uri Input URI.
      * @return Map of decoded params.
+     * @throws IllegalArgumentException if provided URI is incorrect.
      */
     private Map<String, String> paramsDecode(String uri) {
         var receivedParts = new ArrayDeque<>(Arrays.asList(uri.split("/")));
         var realParts = new ArrayDeque<>(Arrays.asList(route.split("/")));
 
-         Map<String, String> res = new HashMap<>();
+        Map<String, String> res = new HashMap<>();
 
         String part;
         while ((part = realParts.pollFirst()) != null) {
             String receivedPart = receivedParts.pollFirst();
-            if (receivedPart == null)
+            if (receivedPart == null) {
                 throw new IllegalArgumentException("URI is incorrect");
+            }
 
             if (part.startsWith(":")) {
                 res.put(part.substring(1), receivedPart);
                 continue;
             }
 
-            if (!part.equals(receivedPart))
+            if (!part.equals(receivedPart)) {
                 throw new IllegalArgumentException("URI is incorrect");
+            }
         }
 
         return res;

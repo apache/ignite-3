@@ -22,10 +22,9 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 /**
  * Base interface for configuration.
  *
- * @param <VIEW> Type of the value.
- * @param <CHANGE> Type of the object that changes the value of configuration.
+ * @param <VIEWT> Type of the value.
  */
-public interface ConfigurationProperty<VIEW, CHANGE> {
+public interface ConfigurationProperty<VIEWT> {
     /**
      * Get key of this node.
      *
@@ -38,12 +37,19 @@ public interface ConfigurationProperty<VIEW, CHANGE> {
      *
      * @return Value of this property.
      */
-    VIEW value();
+    VIEWT value();
 
     /**
      * Add configuration values listener.
      *
      * @param listener Listener.
      */
-    void listen(ConfigurationListener<VIEW> listener);
+    void listen(ConfigurationListener<VIEWT> listener);
+
+    /**
+     * Remove configuration values listener.
+     *
+     * @param listener Listener.
+     */
+    void stopListen(ConfigurationListener<VIEWT> listener);
 }

@@ -23,7 +23,9 @@ import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Represents a vault unit as entry with key and value, where
+ * Represents a vault unit as entry with key and value.
+ *
+ * <p>Where:
  * <ul>
  *     <li>key - an unique entry's key. Keys are comparable in lexicographic manner and represented as an
  *     array of bytes;</li>
@@ -76,17 +78,21 @@ public final class VaultEntry {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean equals(Object o) {
-        if (this == o)
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
             return true;
-        if (o == null || getClass() != o.getClass())
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
-        VaultEntry entry = (VaultEntry)o;
+        }
+        VaultEntry entry = (VaultEntry) o;
         return key.equals(entry.key) && Arrays.equals(val, entry.val);
     }
 
     /** {@inheritDoc} */
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         int result = Objects.hash(key);
         result = 31 * result + Arrays.hashCode(val);
         return result;

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.basic;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.InvokeClosure;
 import org.apache.ignite.internal.storage.OperationType;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /** Invoke closure implementation for a write operation. */
@@ -29,6 +28,8 @@ public class SimpleWriteInvokeClosure implements InvokeClosure<Void> {
     private final DataRow newRow;
 
     /**
+     * Constructor.
+     *
      * @param newRow Data row to write into the storage.
      */
     public SimpleWriteInvokeClosure(DataRow newRow) {
@@ -36,18 +37,21 @@ public class SimpleWriteInvokeClosure implements InvokeClosure<Void> {
     }
 
     /** {@inheritDoc} */
-    @Override public void call(@NotNull DataRow row) {
+    @Override
+    public void call(@Nullable DataRow row) {
     }
 
     /** {@inheritDoc} */
     @Nullable
-    @Override public DataRow newRow() {
+    @Override
+    public DataRow newRow() {
         return newRow;
     }
 
     /** {@inheritDoc} */
     @Nullable
-    @Override public OperationType operationType() {
+    @Override
+    public OperationType operationType() {
         return OperationType.WRITE;
     }
 }

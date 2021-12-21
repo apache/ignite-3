@@ -17,6 +17,10 @@
 
 package org.apache.ignite.client;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.UUID;
@@ -28,148 +32,300 @@ import org.jetbrains.annotations.NotNull;
  * User-defined test {@link Tuple} implementation.
  */
 public class CustomTuple implements Tuple {
-    /** */
     private final Long id;
 
-    /** */
     private final String name;
 
-    /** */
+    /**
+     * Constructor.
+     *
+     * @param id Id.
+     */
     public CustomTuple(Long id) {
         this(id, null);
     }
 
-    /** */
+    /**
+     * Constructor.
+     *
+     * @param id Id.
+     * @param name Name.
+     */
     public CustomTuple(Long id, String name) {
         this.id = id;
         this.name = name;
     }
 
-    @Override public int columnCount() {
+    /** {@inheritDoc} */
+    @Override
+    public int columnCount() {
         return 2;
     }
 
-    @Override public String columnName(int columnIndex) {
+    /** {@inheritDoc} */
+    @Override
+    public String columnName(int columnIndex) {
         switch (columnIndex) {
-            case 0: return "id";
-            case 1: return "name";
+            case 0:
+                return "id";
+            case 1:
+                return "name";
+            default:
+                break;
         }
 
         return null;
     }
 
-    @Override public Integer columnIndex(String columnName) {
+    /** {@inheritDoc} */
+    @Override
+    public int columnIndex(@NotNull String columnName) {
         switch (columnName) {
-            case "id": return 0;
-            case "name": return 1;
+            case "id":
+                return 0;
+            case "name":
+                return 1;
+            default:
+                break;
         }
 
-        return null;
+        return -1;
     }
 
-    @Override public <T> T valueOrDefault(String columnName, T def) {
+    /** {@inheritDoc} */
+    @Override
+    public <T> T valueOrDefault(@NotNull String columnName, T def) {
         switch (columnName) {
-            case "id": return (T) id;
-            case "name": return (T) name;
+            case "id":
+                return (T) id;
+            case "name":
+                return (T) name;
+            default:
+                break;
         }
 
         return def;
     }
 
-    @Override public <T> T value(String columnName) {
+    /** {@inheritDoc} */
+    @Override
+    public Tuple set(@NotNull String columnName, Object value) {
+        throw new UnsupportedOperationException("Tuple is immutable.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> T value(@NotNull String columnName) {
         return valueOrDefault(columnName, null);
     }
 
-    @Override public <T> T value(int columnIndex) {
+    /** {@inheritDoc} */
+    @Override
+    public <T> T value(int columnIndex) {
         switch (columnIndex) {
-            case 0: return (T) id;
-            case 1: return (T) name;
+            case 0:
+                return (T) id;
+            case 1:
+                return (T) name;
+            default:
+                break;
         }
 
         return null;
     }
 
-    @Override public BinaryObject binaryObjectValue(String columnName) {
+    /** {@inheritDoc} */
+    @Override
+    public BinaryObject binaryObjectValue(@NotNull String columnName) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public BinaryObject binaryObjectValue(int columnIndex) {
+    /** {@inheritDoc} */
+    @Override
+    public BinaryObject binaryObjectValue(int columnIndex) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public byte byteValue(String columnName) {
+    /** {@inheritDoc} */
+    @Override
+    public byte byteValue(@NotNull String columnName) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public byte byteValue(int columnIndex) {
+    /** {@inheritDoc} */
+    @Override
+    public byte byteValue(int columnIndex) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public short shortValue(String columnName) {
+    /** {@inheritDoc} */
+    @Override
+    public short shortValue(@NotNull String columnName) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public short shortValue(int columnIndex) {
+    /** {@inheritDoc} */
+    @Override
+    public short shortValue(int columnIndex) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public int intValue(String columnName) {
+    /** {@inheritDoc} */
+    @Override
+    public int intValue(@NotNull String columnName) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public int intValue(int columnIndex) {
+    /** {@inheritDoc} */
+    @Override
+    public int intValue(int columnIndex) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public long longValue(String columnName) {
+    /** {@inheritDoc} */
+    @Override
+    public long longValue(@NotNull String columnName) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public long longValue(int columnIndex) {
+    /** {@inheritDoc} */
+    @Override
+    public long longValue(int columnIndex) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public float floatValue(String columnName) {
+    /** {@inheritDoc} */
+    @Override
+    public float floatValue(@NotNull String columnName) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public float floatValue(int columnIndex) {
+    /** {@inheritDoc} */
+    @Override
+    public float floatValue(int columnIndex) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public double doubleValue(String columnName) {
+    /** {@inheritDoc} */
+    @Override
+    public double doubleValue(@NotNull String columnName) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public double doubleValue(int columnIndex) {
+    /** {@inheritDoc} */
+    @Override
+    public double doubleValue(int columnIndex) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public String stringValue(String columnName) {
+    /** {@inheritDoc} */
+    @Override
+    public String stringValue(@NotNull String columnName) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public String stringValue(int columnIndex) {
+    /** {@inheritDoc} */
+    @Override
+    public String stringValue(int columnIndex) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public UUID uuidValue(String columnName) {
+    /** {@inheritDoc} */
+    @Override
+    public UUID uuidValue(@NotNull String columnName) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public UUID uuidValue(int columnIndex) {
+    /** {@inheritDoc} */
+    @Override
+    public UUID uuidValue(int columnIndex) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public BitSet bitmaskValue(String columnName) {
+    /** {@inheritDoc} */
+    @Override
+    public BitSet bitmaskValue(@NotNull String columnName) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public BitSet bitmaskValue(int columnIndex) {
+    /** {@inheritDoc} */
+    @Override
+    public BitSet bitmaskValue(int columnIndex) {
         throw new UnsupportedOperationException();
     }
 
-    @NotNull @Override public Iterator<Object> iterator() {
+    /** {@inheritDoc} */
+    @Override
+    public LocalDate dateValue(String columnName) {
         throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public LocalDate dateValue(int columnIndex) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public LocalTime timeValue(String columnName) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public LocalTime timeValue(int columnIndex) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public LocalDateTime datetimeValue(String columnName) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public LocalDateTime datetimeValue(int columnIndex) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Instant timestampValue(String columnName) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Instant timestampValue(int columnIndex) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @NotNull
+    @Override
+    public Iterator<Object> iterator() {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int hashCode() {
+        return Tuple.hashCode(this);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+
+        if (obj instanceof Tuple) {
+            return Tuple.equals(this, (Tuple) obj);
+        }
+
+        return false;
     }
 }

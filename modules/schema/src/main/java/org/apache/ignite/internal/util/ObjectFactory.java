@@ -31,24 +31,24 @@ public class ObjectFactory<T> implements Factory<T> {
     /**
      * Constructor.
      *
-     * @param tClass Class.
+     * @param clazz Class.
+     * @throws IllegalArgumentException If no default constructor found.
      */
-    public ObjectFactory(Class<T> tClass) {
+    public ObjectFactory(Class<T> clazz) {
         try {
-            cnstr = tClass.getDeclaredConstructor();
+            cnstr = clazz.getDeclaredConstructor();
             cnstr.setAccessible(true);
-        }
-        catch (NoSuchMethodException e) {
-            throw new IgniteInternalException("Class has no default constructor: class=" + tClass.getName(), e);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("Class has no default constructor: class=" + clazz.getName(), e);
         }
     }
 
     /** {@inheritDoc} */
-    @Override public T create() throws IgniteInternalException {
+    @Override
+    public T create() throws IgniteInternalException {
         try {
             return cnstr.newInstance();
-        }
-        catch (IllegalAccessException | InvocationTargetException | InstantiationException e) {
+        } catch (IllegalAccessException | InvocationTargetException | InstantiationException e) {
             throw new IgniteInternalException("Failed to instantiate class: " + cnstr.getDeclaringClass().getName(), e);
         }
     }

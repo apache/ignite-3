@@ -17,19 +17,19 @@
 
 package org.apache.ignite.internal.network.netty;
 
-import java.net.SocketAddress;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.stream.ChunkedWriteHandler;
+import java.net.SocketAddress;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.jetbrains.annotations.Nullable;
 
@@ -69,16 +69,16 @@ public class NettyClient {
     /**
      * Constructor.
      *
-     * @param address Destination address.
+     * @param address               Destination address.
      * @param serializationRegistry Serialization registry.
-     * @param manager Client handshake manager.
-     * @param messageListener Message listener.
+     * @param manager               Client handshake manager.
+     * @param messageListener       Message listener.
      */
     public NettyClient(
-        SocketAddress address,
-        MessageSerializationRegistry serializationRegistry,
-        HandshakeManager manager,
-        BiConsumer<SocketAddress, NetworkMessage> messageListener
+            SocketAddress address,
+            MessageSerializationRegistry serializationRegistry,
+            HandshakeManager manager,
+            BiConsumer<SocketAddress, NetworkMessage> messageListener
     ) {
         this.address = address;
         this.serializationRegistry = serializationRegistry;
@@ -94,53 +94,60 @@ public class NettyClient {
      */
     public CompletableFuture<NettySender> start(Bootstrap bootstrapTemplate) {
         synchronized (startStopLock) {
-            if (stopped)
+            if (stopped) {
                 throw new IgniteInternalException("Attempted to start an already stopped NettyClient");
+            }
 
-            if (clientFuture != null)
+            if (clientFuture != null) {
                 throw new IgniteInternalException("Attempted to start an already started NettyClient");
+            }
 
             Bootstrap bootstrap = bootstrapTemplate.clone();
 
             bootstrap.handler(new ChannelInitializer<SocketChannel>() {
                 /** {@inheritDoc} */
-                @Override public void initChannel(SocketChannel ch) {
+                @Override
+                public void initChannel(SocketChannel ch) {
                     ch.pipeline().addLast(
-                        new InboundDecoder(serializationRegistry),
-                        new HandshakeHandler(handshakeManager),
-                        new MessageHandler(messageListener),
-                        new ChunkedWriteHandler(),
-                        new OutboundEncoder(serializationRegistry),
-                        new IoExceptionSuppressingHandler()
+                            new InboundDecoder(serializationRegistry),
+                            new HandshakeHandler(handshakeManager),
+                            new MessageHandler(messageListener),
+                            new ChunkedWriteHandler(),
+                            new OutboundEncoder(serializationRegistry),
+                            new IoExceptionSuppressingHandler()
                     );
                 }
             });
 
             clientFuture = NettyUtils.toChannelCompletableFuture(bootstrap.connect(address))
-                .handle((channel, throwable) -> {
-                    synchronized (startStopLock) {
-                        this.channel = channel;
+                    .handle((channel, throwable) -> {
+                        synchronized (startStopLock) {
+                            this.channel = channel;
 
-                        if (throwable != null)
-                            channelFuture.completeExceptionally(throwable);
-                        else
-                            channelFuture.complete(null);
+                            if (throwable != null) {
+                                channelFuture.completeExceptionally(throwable);
+                            } else {
+                                channelFuture.complete(null);
+                            }
 
-                        if (stopped)
-                            return CompletableFuture.<NettySender>failedFuture(new CancellationException("Client was stopped"));
-                        else if (throwable != null)
-                            return CompletableFuture.<NettySender>failedFuture(throwable);
-                        else
-                            return handshakeManager.handshakeFuture();
-                    }
-                })
-                .thenCompose(Function.identity());
+                            if (stopped) {
+                                return CompletableFuture.<NettySender>failedFuture(new CancellationException("Client was stopped"));
+                            } else if (throwable != null) {
+                                return CompletableFuture.<NettySender>failedFuture(throwable);
+                            } else {
+                                return handshakeManager.handshakeFuture();
+                            }
+                        }
+                    })
+                    .thenCompose(Function.identity());
 
             return clientFuture;
         }
     }
 
     /**
+     * Returns client start future.
+     *
      * @return Client start future.
      */
     @Nullable
@@ -151,29 +158,31 @@ public class NettyClient {
     /**
      * Stops the client.
      *
-     * @return Future that is resolved when the client's channel has closed or an already completed future
-     * for a subsequent call.
+     * @return Future that is resolved when the client's channel has closed or an already completed future for a subsequent call.
      */
     public CompletableFuture<Void> stop() {
         synchronized (startStopLock) {
-            if (stopped)
+            if (stopped) {
                 return CompletableFuture.completedFuture(null);
+            }
 
             stopped = true;
 
-            if (clientFuture == null)
+            if (clientFuture == null) {
                 return CompletableFuture.completedFuture(null);
+            }
 
             return channelFuture
-                .handle((sender, throwable) ->
-                    channel == null ?
-                        CompletableFuture.<Void>completedFuture(null) :
-                        NettyUtils.toCompletableFuture(channel.close()))
-                .thenCompose(Function.identity());
+                    .handle((sender, throwable) ->
+                            channel == null
+                                    ? CompletableFuture.<Void>completedFuture(null) : NettyUtils.toCompletableFuture(channel.close()))
+                    .thenCompose(Function.identity());
         }
     }
 
     /**
+     * Returns {@code true} if the client has failed to connect to the remote server, {@code false} otherwise.
+     *
      * @return {@code true} if the client has failed to connect to the remote server, {@code false} otherwise.
      */
     public boolean failedToConnect() {
@@ -181,6 +190,8 @@ public class NettyClient {
     }
 
     /**
+     * Returns {@code true} if the client has lost the connection or has been stopped, {@code false} otherwise.
+     *
      * @return {@code true} if the client has lost the connection or has been stopped, {@code false} otherwise.
      */
     public boolean isDisconnected() {

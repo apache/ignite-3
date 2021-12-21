@@ -17,33 +17,35 @@
 
 package org.apache.ignite.internal.network.processor.messages;
 
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.TypeSpec;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
 import javax.tools.Diagnostic;
-import com.squareup.javapoet.ClassName;
-import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.TypeSpec;
-import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
 import org.apache.ignite.internal.network.processor.MessageClass;
+import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
 
 /**
  * Class for generating factories for Network Messages inside the given module.
  */
 public class MessageFactoryGenerator {
-    /** */
+    /** Processing environment. */
     private final ProcessingEnvironment processingEnvironment;
 
     /** Message group. */
     private final MessageGroupWrapper messageGroup;
 
     /**
-     * @param processingEnvironment processing environment
-     * @param messageGroup message group
+     * Constructor.
+     *
+     * @param processingEnvironment Processing environment.
+     * @param messageGroup          Message group.
      */
     public MessageFactoryGenerator(
-        ProcessingEnvironment processingEnvironment,
-        MessageGroupWrapper messageGroup
+            ProcessingEnvironment processingEnvironment,
+            MessageGroupWrapper messageGroup
     ) {
         this.processingEnvironment = processingEnvironment;
         this.messageGroup = messageGroup;
@@ -61,19 +63,19 @@ public class MessageFactoryGenerator {
         processingEnvironment.getMessager().printMessage(Diagnostic.Kind.NOTE, "Generating " + factoryName);
 
         TypeSpec.Builder messageFactory = TypeSpec.classBuilder(factoryName)
-            .addModifiers(Modifier.PUBLIC)
-            .addOriginatingElement(messageGroup.element());
+                .addModifiers(Modifier.PUBLIC)
+                .addOriginatingElement(messageGroup.element());
 
         for (MessageClass message : messages) {
             MethodSpec buildMethod = MethodSpec.methodBuilder(message.asMethodName())
-                .addModifiers(Modifier.PUBLIC)
-                .returns(message.builderClassName())
-                .addStatement("return $T.builder()", message.implClassName())
-                .build();
+                    .addModifiers(Modifier.PUBLIC)
+                    .returns(message.builderClassName())
+                    .addStatement("return $T.builder()", message.implClassName())
+                    .build();
 
             messageFactory
-                .addMethod(buildMethod)
-                .addOriginatingElement(message.element());
+                    .addMethod(buildMethod)
+                    .addOriginatingElement(message.element());
         }
 
         return messageFactory.build();

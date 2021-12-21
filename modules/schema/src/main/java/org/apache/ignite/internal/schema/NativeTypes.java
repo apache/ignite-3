@@ -17,39 +17,63 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.BitSet;
-import org.apache.ignite.schema.ColumnType;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.jetbrains.annotations.Contract;
 
 /**
  * A thin wrapper over {@link NativeTypeSpec} to instantiate parameterized constrained types.
  */
 public class NativeTypes {
-    /** */
+    /**
+     * INT8 type.
+     */
     public static final NativeType INT8 = new NativeType(NativeTypeSpec.INT8, 1);
 
-    /** */
+    /**
+     * INT16 type.
+     */
     public static final NativeType INT16 = new NativeType(NativeTypeSpec.INT16, 2);
 
-    /** */
+    /**
+     * INT32 type.
+     */
     public static final NativeType INT32 = new NativeType(NativeTypeSpec.INT32, 4);
 
-    /** */
+    /**
+     * INT64 type.
+     */
     public static final NativeType INT64 = new NativeType(NativeTypeSpec.INT64, 8);
 
-    /** */
+    /**
+     * FLOAT type.
+     */
     public static final NativeType FLOAT = new NativeType(NativeTypeSpec.FLOAT, 4);
 
-    /** */
+    /**
+     * DOUBLE type.
+     */
     public static final NativeType DOUBLE = new NativeType(NativeTypeSpec.DOUBLE, 8);
 
-    /** */
+    /**
+     * UUID type.
+     */
     public static final NativeType UUID = new NativeType(NativeTypeSpec.UUID, 16);
 
-    /** */
+    /**
+     * STRING type.
+     */
     public static final NativeType STRING = new VarlenNativeType(NativeTypeSpec.STRING, Integer.MAX_VALUE);
 
-    /** */
+    /**
+     * BYTES type.
+     */
     public static final NativeType BYTES = new VarlenNativeType(NativeTypeSpec.BYTES, Integer.MAX_VALUE);
+
+    /** Timezone-free three-part value representing a year, month, and day. */
+    public static final NativeType DATE = new NativeType(NativeTypeSpec.DATE, 3);
 
     /** Don't allow to create an instance. */
     private NativeTypes() {
@@ -63,6 +87,16 @@ public class NativeTypes {
      */
     public static NativeType bitmaskOf(int bits) {
         return new BitmaskNativeType(bits);
+    }
+
+    /**
+     * Creates a number type with maximal precision.
+     *
+     * @param precision The number of digits in the number value.
+     * @return Native type.
+     */
+    public static NativeType numberOf(int precision) {
+        return new NumberNativeType(precision);
     }
 
     /**
@@ -89,11 +123,71 @@ public class NativeTypes {
      * Creates a DECIMAL type with maximal precision and scale.
      *
      * @param precision Precision.
-     * @param scale Scale.
+     * @param scale     Scale.
      * @return Native type.
      */
     public static NativeType decimalOf(int precision, int scale) {
-        return new NumericNativeType(precision, scale);
+        return new DecimalNativeType(precision, scale);
+    }
+
+    /**
+     * Creates a TIME type with given precision.
+     *
+     * @param precision Fractional seconds meaningful digits. Allowed values are 0-9 for second to nanosecond precision.
+     * @return Native type.
+     */
+    public static NativeType time(int precision) {
+        return TemporalNativeType.time(precision);
+    }
+
+    /**
+     * Creates a TIME type with default precision.
+     *
+     * @return Native type.
+     * @see #time(int)
+     */
+    public static NativeType time() {
+        return TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
+    }
+
+    /**
+     * Creates DATETIME type as pair (date, time).
+     *
+     * @param precision Fractional seconds meaningful digits. Allowed values are 0-9 for second to nanosecond precision.
+     * @return Native type.
+     */
+    public static NativeType datetime(int precision) {
+        return TemporalNativeType.datetime(precision);
+    }
+
+    /**
+     * Creates DATETIME type with default precision.
+     *
+     * @return Native type.
+     * @see #datetime(int)
+     */
+    public static NativeType datetime() {
+        return TemporalNativeType.datetime(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
+    }
+
+    /**
+     * Creates TIMESTAMP type.
+     *
+     * @param precision Fractional seconds meaningful digits. Allowed values are 0-9 for second to nanosecond precision.
+     * @return Native type.
+     */
+    public static NativeType timestamp(int precision) {
+        return TemporalNativeType.timestamp(precision);
+    }
+
+    /**
+     * Creates TIMESTAMP type with default precision.
+     *
+     * @return Native type.
+     * @see #timestamp(int)
+     */
+    public static NativeType timestamp() {
+        return TemporalNativeType.timestamp(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
     }
 
     /**
@@ -102,11 +196,13 @@ public class NativeTypes {
      * @param val Object to map to native type.
      * @return {@code null} for {@code null} value. Otherwise returns NativeType according to the value's type.
      */
+    @Contract("null -> null")
     public static NativeType fromObject(Object val) {
         NativeTypeSpec spec = NativeTypeSpec.fromObject(val);
 
-        if (spec == null)
+        if (spec == null) {
             return null;
+        }
 
         switch (spec) {
             case INT8:
@@ -130,80 +226,37 @@ public class NativeTypes {
             case UUID:
                 return UUID;
 
+            case DATE:
+                return DATE;
+
+            case TIME:
+                return time();
+
+            case DATETIME:
+                return datetime();
+
+            case TIMESTAMP:
+                return timestamp();
+
             case STRING:
-                return stringOf(((CharSequence)val).length());
+                return stringOf(((CharSequence) val).length());
 
             case BYTES:
-                return blobOf(((byte[])val).length);
+                return blobOf(((byte[]) val).length);
 
             case BITMASK:
-                return bitmaskOf(((BitSet)val).length());
+                return bitmaskOf(((BitSet) val).length());
+
+            case NUMBER:
+                return numberOf(new BigDecimal((BigInteger) val).precision());
+
+            case DECIMAL:
+                return decimalOf(((BigDecimal) val).precision(), ((BigDecimal) val).scale());
 
             default:
                 assert false : "Unexpected type: " + spec;
 
                 return null;
-        }
-    }
-
-    /**
-     * Maps column type to native type.
-     *
-     * @param type Column type.
-     * @return Native type.
-     */
-    public static NativeType from(ColumnType type) {
-        switch (type.typeSpec()) {
-            case INT8:
-                return INT8;
-
-            case INT16:
-                return INT16;
-
-            case INT32:
-                return INT32;
-
-            case INT64:
-                return INT64;
-
-            case UINT8:
-            case UINT16:
-            case UINT32:
-            case UINT64:
-                throw new UnsupportedOperationException("Unsigned types are not supported yet.");
-
-            case FLOAT:
-                return FLOAT;
-
-            case DOUBLE:
-                return DOUBLE;
-
-            case DECIMAL:
-                ColumnType.NumericColumnType numType = (ColumnType.NumericColumnType)type;
-                return new NumericNativeType(numType.precision(), numType.scale());
-
-            case UUID:
-                return UUID;
-
-            case BITMASK:
-                return new BitmaskNativeType(((ColumnType.VarLenColumnType)type).length());
-
-            case STRING:
-                return new VarlenNativeType(
-                    NativeTypeSpec.STRING,
-                    ((ColumnType.VarLenColumnType)type).length() > 0 ?
-                        ((ColumnType.VarLenColumnType)type).length() : Integer.MAX_VALUE
-                );
-
-            case BLOB:
-                return new VarlenNativeType(
-                    NativeTypeSpec.BYTES,
-                    ((ColumnType.VarLenColumnType)type).length() > 0 ?
-                        ((ColumnType.VarLenColumnType)type).length() : Integer.MAX_VALUE
-                );
-
-            default:
-                throw new InvalidTypeException("Unexpected type " + type);
         }
     }
 }

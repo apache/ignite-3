@@ -21,13 +21,15 @@ import org.apache.ignite.network.NetworkMessage;
 
 /**
  * Message serializer.
+ *
  * @param <M> Message type.
  */
 public interface MessageSerializer<M extends NetworkMessage> {
     /**
      * Writes a message to the writer.
+     *
      * @param message Message.
-     * @param writer Message writer.
+     * @param writer  Message writer.
      * @return {@code true } if the message was completely written.
      * @throws MessageMappingException If failed.
      */

@@ -25,13 +25,13 @@ import java.util.concurrent.CompletableFuture;
 public interface Transaction {
     /**
      * Synchronously commits a transaction.
-     * Does nothing if it's already finished by commiting or rolling back.
+     *
+     * @throws TransactionException If a transaction can't be commited.
      */
-    void commit();
+    void commit() throws TransactionException;
 
     /**
      * Asynchronously commits a transaction.
-     * Does nothing if it's already finished by commiting or rolling back.
      *
      * @return The future.
      */
@@ -39,13 +39,13 @@ public interface Transaction {
 
     /**
      * Synchronously rolls back a transaction.
-     * Does nothing if it's already finished by commiting or rolling back.
+     *
+     * @throws TransactionException If a transaction can't be rolled back.
      */
-    void rollback();
+    void rollback() throws TransactionException;
 
     /**
      * Asynchronously rolls back a transaction.
-     * Does nothing if it's already finished by commiting or rolling back.
      *
      * @return The future.
      */

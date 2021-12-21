@@ -17,7 +17,11 @@
 
 package org.apache.ignite.configuration.schemas.table;
 
+import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.DirectAccess;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
@@ -25,9 +29,10 @@ import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
 
 /**
- * Table configuartion schema class.
+ * Table configuration schema class.
  */
 @Config
+@DirectAccess
 public class TableConfigurationSchema {
     /** Table name. */
     @Value
@@ -38,16 +43,25 @@ public class TableConfigurationSchema {
     @Min(0)
     @Max(65000)
     @Value(hasDefault = true)
-    public int partitions = 1024;
+    // todo: https://issues.apache.org/jira/browse/IGNITE-16065, with prewious default it was impossible to start multi node cluster.
+    public int partitions = 20;
 
     /** Count of table partition replicas. */
     @Min(1)
     @Value(hasDefault = true)
     public int replicas = 1;
 
+    /** Data region. */
+    @Value(hasDefault = true)
+    public String dataRegion = DEFAULT_DATA_REGION_NAME;
+
     /** Columns configuration. */
     @NamedConfigValue
     public ColumnConfigurationSchema columns;
+
+    /** Primary key configuration. */
+    @ConfigValue
+    public PrimaryKeyConfigurationSchema primaryKey;
 
     /** Indices configuration. */
     @NamedConfigValue

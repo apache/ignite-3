@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.schema.mapping;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.schema.Column;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Column mapper interface.
  */
-public interface ColumnMapper extends Serializable {
+public interface ColumnMapper {
     /**
      * Add new column.
      *
@@ -37,7 +36,7 @@ public interface ColumnMapper extends Serializable {
      * Remap column with new index.
      *
      * @param from Source column index.
-     * @param to Target column index.
+     * @param to   Target column index.
      * @return {@code this} for chaining.
      */
     public ColumnMapper add(int from, int to);
@@ -51,8 +50,8 @@ public interface ColumnMapper extends Serializable {
     int map(int idx);
 
     /**
-     * Returns a column descriptor with proper default for the given column idx
-     * if column doesn't exists in target schema ({@link #map(int)} returns {@code -1}).
+     * Returns a column descriptor with proper default for the given column idx if column doesn't exists in target schema ({@link #map(int)}
+     * returns {@code -1}).
      *
      * @param idx Column index in source schema.
      * @return Column descriptor or {@code null}.

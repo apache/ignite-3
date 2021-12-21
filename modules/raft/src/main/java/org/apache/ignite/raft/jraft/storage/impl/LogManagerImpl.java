@@ -205,6 +205,9 @@ public class LogManagerImpl implements LogManager {
     }
 
     private void stopDiskThread() {
+        if (this.diskQueue == null)
+            return; // Was not started.
+        
         this.shutDownLatch = new CountDownLatch(1);
         Utils.runInThread(nodeOptions.getCommonExecutor(), () -> this.diskQueue.publishEvent((event, sequence) -> {
             event.reset();
@@ -564,6 +567,7 @@ public class LogManagerImpl implements LogManager {
                     done.run(Status.OK());
                 }
             }
+
             if (endOfBatch) {
                 this.lastId = this.ab.flush();
                 setDiskId(this.lastId);
@@ -908,7 +912,7 @@ public class LogManagerImpl implements LogManager {
             this.readLock.unlock();
         }
         try {
-            c.await();
+            c.await(); // TODO FIXME asch https://issues.apache.org/jira/browse/IGNITE-15974
         }
         catch (final InterruptedException e) {
             Thread.currentThread().interrupt();

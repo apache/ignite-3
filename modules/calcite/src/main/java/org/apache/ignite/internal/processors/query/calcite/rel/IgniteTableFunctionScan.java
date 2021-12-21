@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel;
 
+import static org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils.changeTraits;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Set;
-
-import com.google.common.collect.ImmutableList;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelInput;
@@ -32,13 +33,10 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
 
-import static org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils.changeTraits;
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-
 /**
  * Relational operator for table function scan.
  */
-public class IgniteTableFunctionScan extends TableFunctionScan implements IgniteRel {
+public class IgniteTableFunctionScan extends TableFunctionScan implements InternalIgniteRel {
     /** Default estimate row count. */
     private static final int ESTIMATE_ROW_COUNT = 100;
 
@@ -46,12 +44,12 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Ignite
      * Creates a TableFunctionScan.
      */
     public IgniteTableFunctionScan(
-        RelOptCluster cluster,
-        RelTraitSet traits,
-        RexNode call,
-        RelDataType rowType
+            RelOptCluster cluster,
+            RelTraitSet traits,
+            RexNode call,
+            RelDataType rowType
     ) {
-        super(cluster, traits, ImmutableList.of(), call, null, rowType, null);
+        super(cluster, traits, List.of(), call, null, rowType, null);
     }
 
     /**
@@ -64,25 +62,29 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Ignite
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
+    @Override
+    public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteTableFunctionScan(cluster, getTraitSet(), getCall(), getRowType());
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T accept(IgniteRelVisitor<T> visitor) {
+    @Override
+    public <T> T accept(IgniteRelVisitor<T> visitor) {
         return visitor.visit(this);
     }
 
     /** {@inheritDoc} */
-    @Override public TableFunctionScan copy(RelTraitSet traitSet, List<RelNode> inputs, RexNode rexCall,
-        Type elementType, RelDataType rowType, Set<RelColumnMapping> columnMappings) {
+    @Override
+    public TableFunctionScan copy(RelTraitSet traitSet, List<RelNode> inputs, RexNode rexCall,
+            Type elementType, RelDataType rowType, Set<RelColumnMapping> columnMappings) {
         assert nullOrEmpty(inputs);
 
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public double estimateRowCount(RelMetadataQuery mq) {
+    @Override
+    public double estimateRowCount(RelMetadataQuery mq) {
         return ESTIMATE_ROW_COUNT;
     }
 }

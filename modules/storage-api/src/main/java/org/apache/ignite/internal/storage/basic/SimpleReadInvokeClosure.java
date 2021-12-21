@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.basic;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.InvokeClosure;
 import org.apache.ignite.internal.storage.OperationType;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /** Invoke closure implementation for read operation. */
@@ -30,19 +29,22 @@ public class SimpleReadInvokeClosure implements InvokeClosure<Void> {
     private DataRow row;
 
     /** {@inheritDoc} */
-    @Override public void call(@NotNull DataRow row) {
-        this.row = new SimpleDataRow(row.keyBytes(), row.valueBytes());
+    @Override
+    public void call(@Nullable DataRow row) {
+        this.row = row == null ? null : new SimpleDataRow(row.keyBytes(), row.valueBytes());
     }
 
     /** {@inheritDoc} */
     @Nullable
-    @Override public DataRow newRow() {
+    @Override
+    public DataRow newRow() {
         return null;
     }
 
     /** {@inheritDoc} */
     @Nullable
-    @Override public OperationType operationType() {
+    @Override
+    public OperationType operationType() {
         return OperationType.NOOP;
     }
 

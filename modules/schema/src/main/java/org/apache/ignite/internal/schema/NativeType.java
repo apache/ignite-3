@@ -17,15 +17,13 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * A thin wrapper over {@link NativeTypeSpec} to instantiate parameterized constrained types.
  */
-public class NativeType implements Comparable<NativeType>, Serializable {
-    /** */
+public class NativeType implements Comparable<NativeType> {
     private final NativeTypeSpec typeSpec;
 
     /** Type size in bytes. */
@@ -35,14 +33,16 @@ public class NativeType implements Comparable<NativeType>, Serializable {
      * Constructor for fixed-length types.
      *
      * @param typeSpec Type spec.
-     * @param size Type size in bytes.
+     * @param size     Type size in bytes.
      */
     protected NativeType(NativeTypeSpec typeSpec, int size) {
-        if (!typeSpec.fixedLength())
+        if (!typeSpec.fixedLength()) {
             throw new IllegalArgumentException("Size must be provided only for fixed-length types: " + typeSpec);
+        }
 
-        if (size <= 0)
+        if (size <= 0) {
             throw new IllegalArgumentException("Size must be positive [typeSpec=" + typeSpec + ", size=" + size + ']');
+        }
 
         this.typeSpec = typeSpec;
         this.size = size;
@@ -54,16 +54,17 @@ public class NativeType implements Comparable<NativeType>, Serializable {
      * @param typeSpec Type spec.
      */
     protected NativeType(NativeTypeSpec typeSpec) {
-        if (typeSpec.fixedLength())
-            throw new IllegalArgumentException("Fixed-length types must be created by the " +
-                "length-aware constructor: " + typeSpec);
+        if (typeSpec.fixedLength()) {
+            throw new IllegalArgumentException("Fixed-length types must be created by the "
+                    + "length-aware constructor: " + typeSpec);
+        }
 
         this.typeSpec = typeSpec;
         this.size = 0;
     }
 
     /**
-     * @return Size in bytes of the type if it is a fixlen type. For varlen types the return value is undefined, so the user
+     * Get size in bytes of the type if it is a fixlen type. For varlen types the return value is undefined, so the user
      * should explicitly check {@code spec().fixedLength()} before using this method.
      *
      * @see NativeTypeSpec#fixedLength()
@@ -73,7 +74,7 @@ public class NativeType implements Comparable<NativeType>, Serializable {
     }
 
     /**
-     * @return Type specification enum.
+     * Get type specification enum.
      */
     public NativeTypeSpec spec() {
         return typeSpec;
@@ -90,20 +91,24 @@ public class NativeType implements Comparable<NativeType>, Serializable {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean equals(Object o) {
-        if (this == o)
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
             return true;
+        }
 
-        if (o == null || getClass() != o.getClass())
+        if (o == null || getClass() != o.getClass()) {
             return false;
+        }
 
-        NativeType that = (NativeType)o;
+        NativeType that = (NativeType) o;
 
         return size == that.size && typeSpec == that.typeSpec;
     }
 
     /** {@inheritDoc} */
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         int res = typeSpec.hashCode();
 
         res = 31 * res + size;
@@ -112,29 +117,34 @@ public class NativeType implements Comparable<NativeType>, Serializable {
     }
 
     /** {@inheritDoc} */
-    @Override public int compareTo(NativeType o) {
+    @Override
+    public int compareTo(NativeType o) {
         // Fixed-sized types go first.
-        if (size <= 0 && o.size > 0)
+        if (size <= 0 && o.size > 0) {
             return 1;
+        }
 
-        if (size > 0 && o.size <= 0)
+        if (size > 0 && o.size <= 0) {
             return -1;
+        }
 
         // Either size is -1 for both, or positive for both. Compare sizes, then description.
         int cmp = Integer.compare(size, o.size);
 
-        if (cmp != 0)
+        if (cmp != 0) {
             return cmp;
+        }
 
         return typeSpec.name().compareTo(o.typeSpec.name());
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return S.toString(NativeType.class.getSimpleName(),
-            "name", typeSpec.name(),
-            "sizeInBytes", size,
-            "fixed", typeSpec.fixedLength());
+                "name", typeSpec.name(),
+                "sizeInBytes", size,
+                "fixed", typeSpec.fixedLength());
     }
 
 }

@@ -22,38 +22,29 @@ import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 /**
  * Network configuration of a node.
  *
- * TODO: migrate to common configuration class when it's available, see
- *  https://issues.apache.org/jira/browse/IGNITE-14496
+ * <p>TODO: migrate to common configuration class when it's available, see https://issues.apache.org/jira/browse/IGNITE-14496
  */
 public class ClusterLocalConfiguration {
     /** The network alias of a node. */
     private final String name;
 
-    /** The port. */
-    private final int port;
-
-    /** Node finder. */
-    private final NodeFinder nodeFinder;
-
     /** Message mapper providers. */
     private final MessageSerializationRegistry serializationRegistry;
 
     /**
-     * @param name Local name.
-     * @param port Local port.
-     * @param nodeFinder Node finder for discovering the initial cluster members.
+     * Constructor.
+     *
+     * @param name                  Local name.
      * @param serializationRegistry Message serialization registry.
      */
-    public ClusterLocalConfiguration(
-        String name, int port, NodeFinder nodeFinder, MessageSerializationRegistry serializationRegistry
-    ) {
+    public ClusterLocalConfiguration(String name, MessageSerializationRegistry serializationRegistry) {
         this.name = name;
-        this.port = port;
-        this.nodeFinder = nodeFinder;
         this.serializationRegistry = serializationRegistry;
     }
 
     /**
+     * Returns the network alias of the node.
+     *
      * @return Network alias of a node.
      */
     public String getName() {
@@ -61,20 +52,8 @@ public class ClusterLocalConfiguration {
     }
 
     /**
-     * @return Port.
-     */
-    public int getPort() {
-        return port;
-    }
-
-    /**
-     * @return Node finder for discovering the initial cluster members.
-     */
-    public NodeFinder getNodeFinder() {
-        return nodeFinder;
-    }
-
-    /**
+     * Returns the message serialization registry.
+     *
      * @return Message serialization registry.
      */
     public MessageSerializationRegistry getSerializationRegistry() {

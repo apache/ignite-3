@@ -17,47 +17,46 @@
 
 package org.apache.ignite.internal.processors.query.calcite.util;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.ints.IntSets;
+import java.util.List;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rex.RexNode;
 import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-
 /**
- * Index conditions and bounds holder.
- * Conditions are not printed to terms (serialized). They are used only to calculate selectivity.
+ * Index conditions and bounds holder. Conditions are not printed to terms (serialized). They are used only to calculate selectivity.
  */
 public class IndexConditions {
-    /** */
     private final List<RexNode> lowerCond;
 
-    /** */
     private final List<RexNode> upperCond;
 
-    /** */
     private final List<RexNode> lowerBound;
 
-    /** */
     private final List<RexNode> upperBound;
 
-    /** */
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IndexConditions() {
         this(null, null, null, null);
     }
 
     /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public IndexConditions(
-        @Nullable List<RexNode> lowerCond,
-        @Nullable List<RexNode> upperCond,
-        @Nullable List<RexNode> lowerBound,
-        @Nullable List<RexNode> upperBound
+            @Nullable List<RexNode> lowerCond,
+            @Nullable List<RexNode> upperCond,
+            @Nullable List<RexNode> lowerBound,
+            @Nullable List<RexNode> upperBound
     ) {
         this.lowerCond = lowerCond;
         this.upperCond = upperCond;
@@ -65,7 +64,10 @@ public class IndexConditions {
         this.upperBound = upperBound;
     }
 
-    /** */
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public IndexConditions(RelInput input) {
         lowerCond = null;
         upperCond = null;
@@ -74,70 +76,76 @@ public class IndexConditions {
     }
 
     /**
-     * @return Lower index condition.
+     * Get lower index condition.
      */
     public List<RexNode> lowerCondition() {
         return lowerCond;
     }
 
     /**
-     * @return Upper index condition.
+     * Get upper index condition.
      */
     public List<RexNode> upperCondition() {
         return upperCond;
     }
 
     /**
-     * @return Lower index bounds (a row with values at the index columns).
+     * Get lower index bounds (a row with values at the index columns).
      */
     public List<RexNode> lowerBound() {
         return lowerBound;
     }
 
     /**
-     * @return Upper index bounds (a row with values at the index columns).
+     * Get upper index bounds (a row with values at the index columns).
      */
     public List<RexNode> upperBound() {
         return upperBound;
     }
 
-    /** */
-    public Set<Integer> keys() {
-        if (upperBound == null && lowerBound == null)
-            return Collections.emptySet();
+    /**
+     * Keys.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
+    public IntSet keys() {
+        if (upperBound == null && lowerBound == null) {
+            return IntSets.EMPTY_SET;
+        }
 
-        Set<Integer> keys = new HashSet<>();
+        IntSet keys = new IntOpenHashSet();
 
         int cols = lowerBound != null ? lowerBound.size() : upperBound.size();
 
-        for (int i = 0; i < cols; ++i ) {
+        for (int i = 0; i < cols; ++i) {
             if (upperBound != null && RexUtils.isNotNull(upperBound.get(i))
-                || lowerBound != null && RexUtils.isNotNull(lowerBound.get(i)))
+                    || lowerBound != null && RexUtils.isNotNull(lowerBound.get(i))) {
                 keys.add(i);
+            }
         }
 
-        return Collections.unmodifiableSet(keys);
+        return IntSets.unmodifiable(keys);
     }
 
     /**
      * Describes index bounds.
      *
-     * @param pw Plan writer
-     * @return Plan writer for fluent-explain pattern
+     * @param pw Plan writer.
+     * @return Plan writer for fluent-explain pattern.
      */
     public RelWriter explainTerms(RelWriter pw) {
         return pw
-            .itemIf("lower", lowerBound, !nullOrEmpty(lowerBound))
-            .itemIf("upper", upperBound, !nullOrEmpty(upperBound));
+                .itemIf("lower", lowerBound, !nullOrEmpty(lowerBound))
+                .itemIf("upper", upperBound, !nullOrEmpty(upperBound));
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
-        return "IndexConditions{" +
-            "lowerCond=" + lowerCond +
-            ", upperCond=" + upperCond +
-            ", lowerBound=" + lowerBound +
-            ", upperBound=" + upperBound +
-            '}';
+    @Override
+    public String toString() {
+        return "IndexConditions{"
+                + "lowerCond=" + lowerCond
+                + ", upperCond=" + upperCond
+                + ", lowerBound=" + lowerBound
+                + ", upperBound=" + upperBound
+                + '}';
     }
 }

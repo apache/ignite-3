@@ -35,6 +35,7 @@ public class GetAndReplaceInvokeClosure implements InvokeClosure<Boolean> {
     private final boolean onlyIfExists;
 
     /** Previous data row. */
+    @Nullable
     private DataRow oldRow;
 
     /** {@code true} if this closure replaces a row, {@code false} otherwise. */
@@ -43,7 +44,7 @@ public class GetAndReplaceInvokeClosure implements InvokeClosure<Boolean> {
     /**
      * Constructor.
      *
-     * @param newRow New row.
+     * @param newRow       New row.
      * @param onlyIfExists Whether to insert a new row only if a previous one exists.
      */
     public GetAndReplaceInvokeClosure(@NotNull DataRow newRow, boolean onlyIfExists) {
@@ -52,35 +53,39 @@ public class GetAndReplaceInvokeClosure implements InvokeClosure<Boolean> {
     }
 
     /** {@inheritDoc} */
-    @Override public void call(@NotNull DataRow row) {
+    @Override
+    public void call(@Nullable DataRow row) {
         oldRow = row;
 
-        replaces = row.hasValueBytes() || !onlyIfExists;
+        replaces = row != null || !onlyIfExists;
     }
 
     /** {@inheritDoc} */
-    @Override public @Nullable DataRow newRow() {
+    @Override
+    public @Nullable DataRow newRow() {
         return newRow;
     }
 
     /** {@inheritDoc} */
-    @Override public @Nullable OperationType operationType() {
+    @Override
+    public @Nullable OperationType operationType() {
         return replaces ? OperationType.WRITE : OperationType.NOOP;
     }
 
     /**
+     * Returns previous data row.
+     *
      * @return Previous data row.
      */
-    @NotNull
+    @Nullable
     public DataRow oldRow() {
-        assert oldRow != null;
-
         return oldRow;
     }
 
     /** {@inheritDoc} */
     @NotNull
-    @Override public Boolean result() {
+    @Override
+    public Boolean result() {
         return replaces;
     }
 }

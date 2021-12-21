@@ -20,8 +20,7 @@ package org.apache.ignite.cli.ui;
 import java.io.PrintWriter;
 
 /**
- * Simple ASCII spinner.
- * It should be used for processes with unknown duration instead of {@link ProgressBar}
+ * Simple ASCII spinner. It should be used for processes with unknown duration instead of {@link ProgressBar}
  */
 public class Spinner implements AutoCloseable {
     /** Writer for display spinner. */
@@ -34,6 +33,8 @@ public class Spinner implements AutoCloseable {
     private int spinnerCnt;
 
     /**
+     * Creates a new {@code Spinner}.
+     *
      * @param out Writer to display spinner.
      */
     public Spinner(PrintWriter out) {
@@ -41,7 +42,9 @@ public class Spinner implements AutoCloseable {
     }
 
     /**
-     * @param out Writer to display spinner.
+     * Creates a new {@code Spinner}.
+     *
+     * @param out               Writer to display spinner.
      * @param spinnerPrefixText Spinner prefix text.
      */
     public Spinner(PrintWriter out, String spinnerPrefixText) {
@@ -60,10 +63,9 @@ public class Spinner implements AutoCloseable {
         spinnerCnt = 1 + spinnerCnt % 3;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override public void close() {
+    /** {@inheritDoc} */
+    @Override
+    public void close() {
         out.print("\r" + spinnerPrefixText + "...");
         out.println();
 

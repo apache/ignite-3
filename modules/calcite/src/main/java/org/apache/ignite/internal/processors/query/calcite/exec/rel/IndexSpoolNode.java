@@ -17,44 +17,42 @@
 
 package org.apache.ignite.internal.processors.query.calcite.exec.rel;
 
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+
 import java.util.Comparator;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 import org.apache.ignite.internal.processors.query.calcite.exec.RuntimeHashIndex;
 import org.apache.ignite.internal.processors.query.calcite.exec.RuntimeIndex;
-import org.apache.ignite.internal.processors.query.calcite.exec.RuntimeTreeIndex;
-
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import org.apache.ignite.internal.processors.query.calcite.exec.RuntimeSortedIndex;
 
 /**
  * Index spool node.
  */
-public class IndexSpoolNode<Row> extends AbstractNode<Row> implements SingleNode<Row>, Downstream<Row> {
+public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     /** Scan. */
-    private final ScanNode<Row> scan;
+    private final ScanNode<RowT> scan;
 
-    /** Runtime index */
-    private final RuntimeIndex<Row> idx;
+    /** Runtime index. */
+    private final RuntimeIndex<RowT> idx;
 
-    /** */
     private int requested;
 
-    /** */
     private int waiting;
 
     /**
-     * @param ctx Execution context.
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     private IndexSpoolNode(
-        ExecutionContext<Row> ctx,
-        RelDataType rowType,
-        RuntimeIndex<Row> idx,
-        ScanNode<Row> scan
+            ExecutionContext<RowT> ctx,
+            RelDataType rowType,
+            RuntimeIndex<RowT> idx,
+            ScanNode<RowT> scan
     ) {
         super(ctx, rowType);
 
@@ -62,36 +60,41 @@ public class IndexSpoolNode<Row> extends AbstractNode<Row> implements SingleNode
         this.scan = scan;
     }
 
-    /** */
-    @Override public void onRegister(Downstream<Row> downstream) {
+    @Override
+    public void onRegister(Downstream<RowT> downstream) {
         scan.onRegister(downstream);
     }
 
-    /** */
-    @Override public Downstream<Row> downstream() {
+    @Override
+    public Downstream<RowT> downstream() {
         return scan.downstream();
     }
 
     /** {@inheritDoc} */
-    @Override protected void rewindInternal() {
+    @Override
+    protected void rewindInternal() {
         scan.rewind();
     }
 
     /** {@inheritDoc} */
-    @Override public void rewind() {
+    @Override
+    public void rewind() {
         rewindInternal();
     }
 
     /** {@inheritDoc} */
-    @Override protected Downstream<Row> requestDownstream(int idx) {
-        if (idx != 0)
+    @Override
+    protected Downstream<RowT> requestDownstream(int idx) {
+        if (idx != 0) {
             throw new IndexOutOfBoundsException();
+        }
 
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public void request(int rowsCnt) throws Exception {
+    @Override
+    public void request(int rowsCnt) throws Exception {
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0;
 
@@ -101,12 +104,11 @@ public class IndexSpoolNode<Row> extends AbstractNode<Row> implements SingleNode
             requested = rowsCnt;
 
             requestSource();
-        }
-        else
+        } else {
             scan.request(rowsCnt);
+        }
     }
 
-    /** */
     private void requestSource() throws Exception {
         waiting = inBufSize;
 
@@ -114,19 +116,22 @@ public class IndexSpoolNode<Row> extends AbstractNode<Row> implements SingleNode
     }
 
     /** {@inheritDoc} */
-    @Override public void push(Row row) throws Exception {
+    @Override
+    public void push(RowT row) throws Exception {
         checkState();
 
         idx.push(row);
 
         waiting--;
 
-        if (waiting == 0)
+        if (waiting == 0) {
             context().execute(this::requestSource, this::onError);
+        }
     }
 
     /** {@inheritDoc} */
-    @Override public void end() throws Exception {
+    @Override
+    public void end() throws Exception {
         checkState();
 
         waiting = -1;
@@ -135,69 +140,73 @@ public class IndexSpoolNode<Row> extends AbstractNode<Row> implements SingleNode
     }
 
     /** {@inheritDoc} */
-    @Override protected void closeInternal() {
+    @Override
+    protected void closeInternal() {
         try {
             scan.close();
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             onError(ex);
         }
 
         try {
             idx.close();
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             onError(ex);
         }
 
         super.closeInternal();
     }
 
-    /** */
     private boolean indexReady() {
         return waiting == -1;
     }
 
-    /** */
-    public static <Row> IndexSpoolNode<Row> createTreeSpool(
-        ExecutionContext<Row> ctx,
-        RelDataType rowType,
-        RelCollation collation,
-        Comparator<Row> comp,
-        Predicate<Row> filter,
-        Supplier<Row> lowerIdxBound,
-        Supplier<Row> upperIdxBound
+    /**
+     * CreateTreeSpool.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
+    public static <RowT> IndexSpoolNode<RowT> createTreeSpool(
+            ExecutionContext<RowT> ctx,
+            RelDataType rowType,
+            RelCollation collation,
+            Comparator<RowT> comp,
+            Predicate<RowT> filter,
+            Supplier<RowT> lowerIdxBound,
+            Supplier<RowT> upperIdxBound
     ) {
-        RuntimeTreeIndex<Row> idx = new RuntimeTreeIndex<>(ctx, collation, comp);
+        RuntimeSortedIndex<RowT> idx = new RuntimeSortedIndex<>(ctx, collation, comp);
 
-        ScanNode<Row> scan = new ScanNode<>(
-            ctx,
-            rowType,
-            idx.scan(
+        ScanNode<RowT> scan = new ScanNode<>(
                 ctx,
                 rowType,
-                filter,
-                lowerIdxBound,
-                upperIdxBound
-            )
+                idx.scan(
+                        ctx,
+                        rowType,
+                        filter,
+                        lowerIdxBound,
+                        upperIdxBound
+                )
         );
 
         return new IndexSpoolNode<>(ctx, rowType, idx, scan);
     }
 
-    /** */
-    public static <Row> IndexSpoolNode<Row> createHashSpool(
-        ExecutionContext<Row> ctx,
-        RelDataType rowType,
-        ImmutableBitSet keys,
-        Supplier<Row> searchRow
+    /**
+     * CreateHashSpool.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
+    public static <RowT> IndexSpoolNode<RowT> createHashSpool(
+            ExecutionContext<RowT> ctx,
+            RelDataType rowType,
+            ImmutableBitSet keys,
+            Supplier<RowT> searchRow
     ) {
-        RuntimeHashIndex<Row> idx = new RuntimeHashIndex<>(ctx, keys);
+        RuntimeHashIndex<RowT> idx = new RuntimeHashIndex<>(ctx, keys);
 
-        ScanNode<Row> scan = new ScanNode<>(
-            ctx,
-            rowType,
-            idx.scan(searchRow)
+        ScanNode<RowT> scan = new ScanNode<>(
+                ctx,
+                rowType,
+                idx.scan(searchRow)
         );
 
         return new IndexSpoolNode<>(ctx, rowType, idx, scan);

@@ -18,13 +18,15 @@
 package org.apache.ignite.internal.processors.query.calcite.schema;
 
 import org.apache.calcite.schema.SchemaPlus;
+import org.jetbrains.annotations.Nullable;
 
 /**
- *
+ * SchemaHolder interface.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public interface SchemaHolder {
     /**
-     * @return Schema.
+     * Return specified schema if the schema name is specified or default schema when {@code schema} is {@code null}.
      */
-    SchemaPlus schema();
+    SchemaPlus schema(@Nullable String schema);
 }

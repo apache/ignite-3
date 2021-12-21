@@ -20,6 +20,7 @@ package org.apache.ignite.internal.util;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,11 +56,13 @@ public final class ArrayUtils {
     /** Empty object array. */
     public static final Object[] OBJECT_EMPTY_ARRAY = new Object[0];
 
-    /** */
+    /** {@code byte} array factory. */
     public static final ArrayFactory<byte[]> BYTE_ARRAY = new ArrayFactory<>() {
-        @Override public byte[] of(int len) {
-            if (len < 0)
+        @Override
+        public byte[] of(int len) {
+            if (len < 0) {
                 throw new IgniteInternalException("Read invalid byte array length: " + len);
+            }
 
             switch (len) {
                 case 0:
@@ -71,11 +74,13 @@ public final class ArrayUtils {
         }
     };
 
-    /** */
+    /** {@code short} array factory. */
     public static final ArrayFactory<short[]> SHORT_ARRAY = new ArrayFactory<>() {
-        @Override public short[] of(int len) {
-            if (len < 0)
+        @Override
+        public short[] of(int len) {
+            if (len < 0) {
                 throw new IgniteInternalException("Read invalid short array length: " + len);
+            }
 
             switch (len) {
                 case 0:
@@ -87,11 +92,13 @@ public final class ArrayUtils {
         }
     };
 
-    /** */
+    /** {@code int} array factory. */
     public static final ArrayFactory<int[]> INT_ARRAY = new ArrayFactory<>() {
-        @Override public int[] of(int len) {
-            if (len < 0)
+        @Override
+        public int[] of(int len) {
+            if (len < 0) {
                 throw new IgniteInternalException("Read invalid int array length: " + len);
+            }
 
             switch (len) {
                 case 0:
@@ -103,11 +110,13 @@ public final class ArrayUtils {
         }
     };
 
-    /** */
+    /** {@code long} array factory. */
     public static final ArrayFactory<long[]> LONG_ARRAY = new ArrayFactory<>() {
-        @Override public long[] of(int len) {
-            if (len < 0)
+        @Override
+        public long[] of(int len) {
+            if (len < 0) {
                 throw new IgniteInternalException("Read invalid long array length: " + len);
+            }
 
             switch (len) {
                 case 0:
@@ -119,11 +128,13 @@ public final class ArrayUtils {
         }
     };
 
-    /** */
+    /** {@code float} array factory. */
     public static final ArrayFactory<float[]> FLOAT_ARRAY = new ArrayFactory<>() {
-        @Override public float[] of(int len) {
-            if (len < 0)
+        @Override
+        public float[] of(int len) {
+            if (len < 0) {
                 throw new IgniteInternalException("Read invalid float array length: " + len);
+            }
 
             switch (len) {
                 case 0:
@@ -135,11 +146,13 @@ public final class ArrayUtils {
         }
     };
 
-    /** */
+    /** {@code double} array factory. */
     public static final ArrayFactory<double[]> DOUBLE_ARRAY = new ArrayFactory<>() {
-        @Override public double[] of(int len) {
-            if (len < 0)
+        @Override
+        public double[] of(int len) {
+            if (len < 0) {
                 throw new IgniteInternalException("Read invalid double array length: " + len);
+            }
 
             switch (len) {
                 case 0:
@@ -151,11 +164,13 @@ public final class ArrayUtils {
         }
     };
 
-    /** */
+    /** {@code char} array factory. */
     public static final ArrayFactory<char[]> CHAR_ARRAY = new ArrayFactory<>() {
-        @Override public char[] of(int len) {
-            if (len < 0)
+        @Override
+        public char[] of(int len) {
+            if (len < 0) {
                 throw new IgniteInternalException("Read invalid char array length: " + len);
+            }
 
             switch (len) {
                 case 0:
@@ -167,11 +182,13 @@ public final class ArrayUtils {
         }
     };
 
-    /** */
+    /** {@code boolean} array factory. */
     public static final ArrayFactory<boolean[]> BOOLEAN_ARRAY = new ArrayFactory<>() {
-        @Override public boolean[] of(int len) {
-            if (len < 0)
+        @Override
+        public boolean[] of(int len) {
+            if (len < 0) {
                 throw new IgniteInternalException("Read invalid boolean array length: " + len);
+            }
 
             switch (len) {
                 case 0:
@@ -184,6 +201,8 @@ public final class ArrayUtils {
     };
 
     /**
+     * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
+     *
      * @param arr Array to check.
      * @param <T> Array element type.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
@@ -193,6 +212,8 @@ public final class ArrayUtils {
     }
 
     /**
+     * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
+     *
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
@@ -201,6 +222,8 @@ public final class ArrayUtils {
     }
 
     /**
+     * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
+     *
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
@@ -209,6 +232,8 @@ public final class ArrayUtils {
     }
 
     /**
+     * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
+     *
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
@@ -217,6 +242,8 @@ public final class ArrayUtils {
     }
 
     /**
+     * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
+     *
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
@@ -225,6 +252,8 @@ public final class ArrayUtils {
     }
 
     /**
+     * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
+     *
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
@@ -233,6 +262,8 @@ public final class ArrayUtils {
     }
 
     /**
+     * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
+     *
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
@@ -241,6 +272,8 @@ public final class ArrayUtils {
     }
 
     /**
+     * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
+     *
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
@@ -249,21 +282,38 @@ public final class ArrayUtils {
     }
 
     /**
-     * Converts array to {@link List}. Note that resulting list cannot
-     * be altered in size, as it it based on the passed in array -
-     * only current elements can be changed.
-     * <p>
-     * Note that unlike {@link Arrays#asList(Object[])}, this method is
-     * {@code null}-safe. If {@code null} is passed in, then empty list
+     * Converts array to {@link List}. Note that resulting list cannot be altered in size, as it it based on the passed in array - only
+     * current elements can be changed.
+     *
+     * <p>Note that unlike {@link Arrays#asList(Object[])}, this method is {@code null}-safe. If {@code null} is passed in, then empty list
      * will be returned.
      *
-     * @param vals Array of values
-     * @param <T> Array type.
-     * @return {@link List} instance for array.
+     * @param vals Array of values.
+     * @param <T>  Array type.
+     * @return Unmodifiable {@link List} instance for array.
      */
     @SafeVarargs
     public static <T> List<T> asList(@Nullable T... vals) {
-        return nullOrEmpty(vals) ? Collections.emptyList() : Arrays.asList(vals);
+        return nullOrEmpty(vals) ? Collections.emptyList() : List.of(vals);
+    }
+
+    /**
+     * Converts array to {@link Set}.
+     *
+     * <p>Note that unlike {@link Arrays#asList(Object[])}, this method is {@code null}-safe. If {@code null} is passed in, then empty set
+     * will be returned.
+     *
+     * @param vals Array of values.
+     * @param <T>  Array type.
+     * @return Unmodifiable {@link Set} instance for input array.
+     */
+    @SafeVarargs
+    public static <T> Set<T> asSet(@Nullable T... vals) {
+        if (nullOrEmpty(vals)) {
+            return Collections.emptySet();
+        } else {
+            return Set.of(vals);
+        }
     }
 
     /**
@@ -278,9 +328,9 @@ public final class ArrayUtils {
     public static <T> T[] concat(@Nullable T[] arr, T... obj) {
         T[] newArr;
 
-        if (arr == null || arr.length == 0)
+        if (arr == null || arr.length == 0) {
             newArr = obj;
-        else {
+        } else {
             newArr = Arrays.copyOf(arr, arr.length + obj.length);
 
             System.arraycopy(obj, 0, newArr, arr.length, obj.length);

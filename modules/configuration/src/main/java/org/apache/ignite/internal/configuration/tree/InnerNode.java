@@ -18,100 +18,140 @@
 package org.apache.ignite.internal.configuration.tree;
 
 import java.util.NoSuchElementException;
+import org.apache.ignite.configuration.annotation.InjectedName;
 
-/** */
+/**
+ * Configuration node implementation.
+ */
 public abstract class InnerNode implements TraversableTreeNode, ConstructableTreeNode, Cloneable {
     /** {@inheritDoc} */
-    @Override public final <T> T accept(String key, ConfigurationVisitor<T> visitor) {
+    @Override
+    public final <T> T accept(String key, ConfigurationVisitor<T> visitor) {
         return visitor.visitInnerNode(key, this);
     }
 
     /**
      * Method with auto-generated implementation. Must look like this:
      * <pre><code>
-     * {@literal @}Override public void traverseChildren(ConfigurationVisitor visitor) {
+     * {@literal @}Override public &lt;T&gt; void traverseChildren(ConfigurationVisitor visitor, boolean includeInternal) {
      *     visitor.visitInnerNode("pojoField1", this.pojoField1);
      *
      *     visitor.visitNamedListNode("pojoField2", this.pojoField2);
      *
      *     visitor.visitLeafNode("primitiveField1", this.primitiveField1);
      *
-     *     visitor.visitLeafNode("primitiveField2", this.primitiveField2);
-     * }
-     * </code></pre>
-     *
-     * Order of fields must be the same as they are described in configuration schema.
-     *
-     * @param visitor Configuration visitor.
-     * @param <T> Parameter type of the passed visitor.
-     */
-    public abstract <T> void traverseChildren(ConfigurationVisitor<T> visitor);
-
-    /**
-     * Method with auto-generated implementation. Must look like this:
-     * <pre><code>
-     * {@literal @}Override public void traverseChild(String key, ConfigurationVisitor visitor) throws NoSuchElementException {
-     *     switch (key) {
-     *         case "pojoField1":
-     *             visitor.visitInnerNode("pojoField1", this.pojoField1);
-     *             break;
-     *
-     *         case "pojoField2":
-     *             visitor.visitNamedListNode("pojoField2", this.pojoField2);
-     *             break;
-     *
-     *         case "primitiveField1":
-     *             visitor.visitLeafNode("primitiveField1", this.primitiveField1);
-     *             break;
-     *
-     *         case "primitiveField2":
-     *             visitor.visitLeafNode("primitiveField2", this.primitiveField2);
-     *             break;
-     *
-     *         default:
-     *             throw new NoSuchElementException(key);
+     *     if (includeInternal) {
+     *          visitor.visitLeafNode("primitiveField2", this.primitiveField2);
      *     }
      * }
      * </code></pre>
      *
-     * @param key Name of the child.
-     * @param visitor Configuration visitor.
-     * @param <T> Parameter type of passed visitor.
-     * @return Whatever {@code visitor} returned.
-     * @throws NoSuchElementException If field {@code key} is not found.
+     * <p>Order of fields must be the same as they are described in configuration schema.
+     *
+     * @param visitor         Configuration visitor.
+     * @param includeInternal Include internal configuration nodes (private configuration extensions).
+     * @param <T>             Parameter type of the passed visitor.
      */
-    public abstract <T> T traverseChild(String key, ConfigurationVisitor<T> visitor) throws NoSuchElementException;
+    public abstract <T> void traverseChildren(ConfigurationVisitor<T> visitor, boolean includeInternal);
 
     /**
      * Method with auto-generated implementation. Must look like this:
      * <pre><code>
-     * {@literal @}Override public abstract void construct(String key, ConfigurationSource src) throws NoSuchElementException {
+     * {@literal @}Override public &lt;T&gt; T traverseChild(String key, ConfigurationVisitor visitor, boolean includeInternal) throws
+     *     NoSuchElementException {
+     *     if (includeInternal) {
+     *         switch (key) {
+     *             case "pojoField1":
+     *                 return visitor.visitInnerNode("pojoField1", this.pojoField1);
+     *
+     *             case "pojoField2":
+     *                 return visitor.visitNamedListNode("pojoField2", this.pojoField2);
+     *
+     *             case "primitiveField1":
+     *                 return visitor.visitLeafNode("primitiveField1", this.primitiveField1);
+     *
+     *             case "primitiveField2":
+     *                 return visitor.visitLeafNode("primitiveField2", this.primitiveField2);
+     *
+     *             default:
+     *                 throw new NoSuchElementException(key);
+     *         }
+     *     }
+     *     else {
+     *         switch (key) {
+     *             case "primitiveField2":
+     *                  return visitor.visitLeafNode("primitiveField2", this.primitiveField2);
+     *             default:
+     *                  throw new NoSuchElementException(key);
+     *         }
+     *     }
+     * }
+     * </code></pre>
+     *
+     * @param key             Name of the child.
+     * @param visitor         Configuration visitor.
+     * @param includeInternal Include internal configuration nodes (private configuration extensions).
+     * @param <T>             Parameter type of passed visitor.
+     * @return Whatever {@code visitor} returned.
+     * @throws NoSuchElementException If field {@code key} is not found.
+     */
+    public abstract <T> T traverseChild(
+            String key,
+            ConfigurationVisitor<T> visitor,
+            boolean includeInternal
+    ) throws NoSuchElementException;
+
+    /**
+     * Method with auto-generated implementation. Must look like this:
+     * <pre><code>
+     * {@literal @}Override public abstract void construct(String key, ConfigurationSource src, boolean includeInternal)
+     *     throws NoSuchElementException {
+     *     if (includeInternal) {
+     *         switch (key) {
+     *              case "namedList":
+     *                  if (src == null)
+     *                      namedList = new NamedListNode&lt;&gt;(Foo::new);
+     *                  else
+     *                      src.descend(namedList = namedList.copy());
+     *                  break;
+     *
+     *              case "innerNode":
+     *                  if (src == null)
+     *                      innerNode = null;
+     *                  else
+     *                      src.descend(innerNode = (innerNode == null ? new Bar() : (Bar)innerNode.copy()));
+     *                  break;
+     *
+     *              case "leafInt":
+     *                  leafInt = src == null ? null : src.unwrap(Integer.class);
+     *                  break;
+     *
+     *              case "leafStr":
+     *                  leafStr = src == null ? null : src.unwrap(String.class);
+     *                  break;
+     *
+     *              default: throw new NoSuchElementException(key);
+     *         }
+     *     }
      *     switch (key) {
-     *         case "namedList":
-     *             if (src == null)
-     *                 namedList = new NamedListNode&lt;&gt;(Foo::new);
-     *             else
-     *                 src.descend(namedList = namedList.copy());
-     *             break;
+     *         switch (key) {
+     *              case "leafStr":
+     *                  leafStr = src == null ? null : src.unwrap(String.class);
+     *                  break;
      *
-     *         case "innerNode":
-     *             if (src == null)
-     *                 innerNode = null;
-     *             else
-     *                 src.descend(innerNode = (innerNode == null ? new Bar() : (Bar)innerNode.copy()));
-     *             break;
-     *
-     *         case "leaf":
-     *             leaf = src == null ? null : src.unwrap(Integer.class);
-     *             break;
-     *
-     *         default: throw new NoSuchElementException(key);
+     *              default: throw new NoSuchElementException(key);
+     *         }
      *     }
      * }
      * </code></pre>
      * {@inheritDoc}
      */
-    @Override public abstract void construct(String key, ConfigurationSource src) throws NoSuchElementException;
+    @Override
+    public abstract void construct(
+            String key,
+            ConfigurationSource src,
+            boolean includeInternal
+    ) throws NoSuchElementException;
 
     /**
      * Assigns default value to the corresponding leaf. Defaults are gathered from configuration schema class.
@@ -122,17 +162,44 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     public abstract void constructDefault(String fieldName) throws NoSuchElementException;
 
     /**
+     * Returns class of corresponding configuration schema.
+     *
      * @return Class of corresponding configuration schema.
      */
     public abstract Class<?> schemaType();
 
     /** {@inheritDoc} */
-    @Override public InnerNode copy() {
+    @Override
+    public InnerNode copy() {
         try {
-            return (InnerNode)clone();
-        }
-        catch (CloneNotSupportedException e) {
+            return (InnerNode) clone();
+        } catch (CloneNotSupportedException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /**
+     * Returns specific {@code Node} of the value. Overridden for polymorphic configuration to get a specific polymorphic configuration
+     * instance.
+     *
+     * @param <NODET> Type of the {@code Node}.
+     * @return Specific {@code Node} of the value.
+     */
+    public <NODET> NODET specificNode() {
+        return (NODET) this;
+    }
+
+    /**
+     * Returns the value of a field with {@link InjectedName}.
+     */
+    public String getInjectedNameFieldValue() {
+        return null;
+    }
+
+    /**
+     * Sets the value of a field with {@link InjectedName}.
+     */
+    public void setInjectedNameFieldValue(String value) {
+        // No-op.
     }
 }

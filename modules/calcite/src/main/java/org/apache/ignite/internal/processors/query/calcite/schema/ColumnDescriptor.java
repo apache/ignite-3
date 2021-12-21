@@ -14,38 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.processors.query.calcite.schema;
 
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
+import org.apache.ignite.internal.schema.NativeType;
 
-/** */
+/**
+ * ColumnDescriptor interface.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ */
 public interface ColumnDescriptor {
-    /** */
     boolean key();
 
-    /** */
     boolean hasDefaultValue();
 
-    /** */
     String name();
 
-    /** */
     int fieldIndex();
 
-    /** */
     RelDataType logicalType(IgniteTypeFactory f);
 
-    /** */
-    Class<?> storageType();
+    NativeType storageType();
 
-//    /** */
-//    Object value(ExecutionContext<?> ectx, GridCacheContext<?, ?> cctx, CacheDataRow src)
-//        throws IgniteCheckedException;
-
-    /** */
     Object defaultValue();
-
-    /** */
-    void set(Object dst, Object val);
 }

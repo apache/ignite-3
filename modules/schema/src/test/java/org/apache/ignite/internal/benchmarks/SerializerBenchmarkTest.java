@@ -17,24 +17,29 @@
 
 package org.apache.ignite.internal.benchmarks;
 
-import java.lang.reflect.Field;
-import java.util.EnumSet;
-import java.util.Random;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import javax.annotation.processing.Generated;
+import static org.apache.ignite.internal.schema.NativeTypes.INT64;
+
 import com.facebook.presto.bytecode.Access;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.ClassGenerator;
+import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
+import java.lang.reflect.Field;
+import java.util.EnumSet;
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
+import javax.annotation.processing.Generated;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.Serializer;
-import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
+import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
+import org.apache.ignite.internal.schema.marshaller.asm.AsmMarshallerGenerator;
+import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.util.Factory;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -54,23 +59,21 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-import static org.apache.ignite.internal.schema.NativeTypes.INT64;
-
 /**
  * Serializer benchmark.
  */
 @State(Scope.Benchmark)
-@Warmup(time = 30, timeUnit = TimeUnit.SECONDS)
-@Measurement(time = 60, timeUnit = TimeUnit.SECONDS)
-@BenchmarkMode({Mode.Throughput, Mode.AverageTime})
+@Warmup(time = 30, iterations = 1, timeUnit = TimeUnit.SECONDS)
+@Measurement(time = 60, iterations = 1, timeUnit = TimeUnit.SECONDS)
+@BenchmarkMode({Mode.AverageTime})
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @Fork(jvmArgs = "-Djava.lang.invoke.stringConcat=BC_SB" /* Workaround for Java 9+ */, value = 1)
 public class SerializerBenchmarkTest {
     /** Random. */
     private Random rnd = new Random();
 
-    /** Reflection-based Serializer. */
-    private Serializer serializer;
+    /** Key-value marshaller. */
+    private KvMarshaller<Object, Object> marshaller;
 
     /** Test object factory. */
     private Factory<?> objectFactory;
@@ -83,19 +86,22 @@ public class SerializerBenchmarkTest {
     @Param({"ASM", "Java"})
     public String serializerName;
 
+    /** Schema. */
+    private SchemaDescriptor schema;
+
     /**
-     * Runner.
+     * Benchmark run method.
      */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-            .include(SerializerBenchmarkTest.class.getSimpleName())
-            .build();
+                .include(SerializerBenchmarkTest.class.getSimpleName())
+                .build();
 
         new Runner(opt).run();
     }
 
     /**
-     *
+     * Initialize.
      */
     @Setup
     public void init() {
@@ -105,23 +111,27 @@ public class SerializerBenchmarkTest {
 
         final Class<?> valClass;
 
+        Thread.currentThread().setContextClassLoader(new DynamicClassLoader(AsmMarshallerGenerator.getClassLoader()));
+
         if (fieldsCount == 0) {
             valClass = Long.class;
-            objectFactory = (Factory<Object>)rnd::nextLong;
-        }
-        else {
+            objectFactory = (Factory<Object>) rnd::nextLong;
+        } else {
             valClass = createGeneratedObjectClass(fieldsCount, long.class);
             objectFactory = new ObjectFactory<>(valClass);
         }
 
-        Column[] keyCols = new Column[] {new Column("key", INT64, true)};
-        Column[] valCols = mapFieldsToColumns(valClass);
-        final SchemaDescriptor schema = new SchemaDescriptor(UUID.randomUUID(), 1, keyCols, valCols);
+        schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("key", INT64, true)},
+                mapFieldsToColumns(valClass)
+        );
 
-        if ("Java".equals(serializerName))
-            serializer = SerializerFactory.createJavaSerializerFactory().create(schema, Long.class, valClass);
-        else
-            serializer = SerializerFactory.createGeneratedSerializerFactory().create(schema, Long.class, valClass);
+        KvMarshaller<?, ?> marshaller = ("Java".equals(serializerName))
+                ? new ReflectionMarshallerFactory().create(schema, Long.class, valClass)
+                : new AsmMarshallerGenerator().create(schema, Long.class, valClass);
+
+        this.marshaller = (KvMarshaller<Object, Object>) marshaller;
     }
 
     /**
@@ -135,10 +145,10 @@ public class SerializerBenchmarkTest {
         Long key = rnd.nextLong();
 
         Object val = objectFactory.create();
-        byte[] bytes = serializer.serialize(key, val);
+        BinaryRow row = marshaller.marshal(key, val);
 
-        Object restoredKey = serializer.deserializeKey(bytes);
-        Object restoredVal = serializer.deserializeValue(bytes);
+        Object restoredKey = marshaller.unmarshalKey(new Row(schema, row));
+        Object restoredVal = marshaller.unmarshalValue(new Row(schema, row));
 
         bh.consume(restoredVal);
         bh.consume(restoredKey);
@@ -147,14 +157,15 @@ public class SerializerBenchmarkTest {
     /**
      * Map fields to columns.
      *
-     * @param aClass Object class.
+     * @param cls Object class.
      * @return Columns for schema
      */
-    private Column[] mapFieldsToColumns(Class<?> aClass) {
-        if (aClass == Long.class)
-            return new Column[] {new Column("col0", INT64, true)};
+    private Column[] mapFieldsToColumns(Class<?> cls) {
+        if (cls == Long.class) {
+            return new Column[]{new Column("col0", INT64, true)};
+        }
 
-        final Field[] fields = aClass.getDeclaredFields();
+        final Field[] fields = cls.getDeclaredFields();
         final Column[] cols = new Column[fields.length];
 
         for (int i = 0; i < fields.length; i++) {
@@ -178,30 +189,31 @@ public class SerializerBenchmarkTest {
         final String className = "TestObject";
 
         final ClassDefinition classDef = new ClassDefinition(
-            EnumSet.of(Access.PUBLIC),
-            packageName.replace('.', '/') + '/' + className,
-            ParameterizedType.type(Object.class)
+                EnumSet.of(Access.PUBLIC),
+                packageName.replace('.', '/') + '/' + className,
+                ParameterizedType.type(Object.class)
         );
         classDef.declareAnnotation(Generated.class).setValue("value", getClass().getCanonicalName());
 
-        for (int i = 0; i < maxFields; i++)
+        for (int i = 0; i < maxFields; i++) {
             classDef.declareField(EnumSet.of(Access.PRIVATE), "col" + i, ParameterizedType.type(fieldType));
+        }
 
-        { // Build constructor.
-            final MethodDefinition methodDef = classDef.declareConstructor(EnumSet.of(Access.PUBLIC));
-            final Variable rnd = methodDef.getScope().declareVariable(Random.class, "rnd");
+        // Build constructor.
+        final MethodDefinition methodDef = classDef.declareConstructor(EnumSet.of(Access.PUBLIC));
+        final Variable rnd = methodDef.getScope().declareVariable(Random.class, "rnd");
 
-            final BytecodeBlock body = methodDef.getBody()
+        final BytecodeBlock body = methodDef.getBody()
                 .append(methodDef.getThis())
                 .invokeConstructor(classDef.getSuperClass())
                 .append(rnd.set(BytecodeExpressions.newInstance(Random.class)));
 
-            for (int i = 0; i < maxFields; i++)
-                body.append(methodDef.getThis().setField("col" + i, rnd.invoke("nextLong", long.class).cast(fieldType)));
-
-            body.ret();
+        for (int i = 0; i < maxFields; i++) {
+            body.append(methodDef.getThis().setField("col" + i, rnd.invoke("nextLong", long.class).cast(fieldType)));
         }
 
-        return ClassGenerator.classGenerator(getClass().getClassLoader()).defineClass(classDef, Object.class);
+        body.ret();
+
+        return ClassGenerator.classGenerator(AsmMarshallerGenerator.getClassLoader()).defineClass(classDef, Object.class);
     }
 }

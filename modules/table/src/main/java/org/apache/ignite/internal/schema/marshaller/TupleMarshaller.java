@@ -24,22 +24,33 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Tuple marshaller interface.
- *
- * @apiNote For key tuple marshalling, a {@code marshal(key, null)} method call must be used.
- * A {@code marshal(key} may return the same result, but it validates value columns even if not specified.
- *
  */
 public interface TupleMarshaller {
     /**
+     * Marshals tuple.
+     *
      * @param tuple Record tuple.
      * @return Table row with columns set from given tuples.
+     * @throws TupleMarshallerException If failed to marshal tuple.
      */
-    Row marshal(@NotNull Tuple tuple);
+    Row marshal(@NotNull Tuple tuple) throws TupleMarshallerException;
 
     /**
+     * Marshals KV pair.
+     *
      * @param keyTuple Key tuple.
      * @param valTuple Value tuple.
      * @return Table row with columns set from given tuples.
+     * @throws TupleMarshallerException If failed to marshal tuple.
      */
-    Row marshal(@NotNull Tuple keyTuple, @Nullable Tuple valTuple);
+    Row marshal(@NotNull Tuple keyTuple, @Nullable Tuple valTuple) throws TupleMarshallerException;
+
+    /**
+     * Marshal tuple key part only.
+     *
+     * @param tuple Record tuple with key columns only.
+     * @return Table row with columns set from given tuples.
+     * @throws TupleMarshallerException If failed to marshal tuple.
+     */
+    Row marshalKey(@NotNull Tuple tuple) throws TupleMarshallerException;
 }

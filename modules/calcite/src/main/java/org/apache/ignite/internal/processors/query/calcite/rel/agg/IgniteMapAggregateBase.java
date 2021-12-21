@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.query.calcite.rel.agg;
 
 import java.util.List;
-import com.google.common.collect.ImmutableList;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelInput;
@@ -33,17 +32,18 @@ import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitsAwareIgniteRel;
 
 /**
- *
+ * IgniteMapAggregateBase.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public abstract class IgniteMapAggregateBase extends IgniteAggregate implements TraitsAwareIgniteRel {
     /** {@inheritDoc} */
     protected IgniteMapAggregateBase(
-        RelOptCluster cluster,
-        RelTraitSet traitSet,
-        RelNode input,
-        ImmutableBitSet groupSet,
-        List<ImmutableBitSet> groupSets,
-        List<AggregateCall> aggCalls
+            RelOptCluster cluster,
+            RelTraitSet traitSet,
+            RelNode input,
+            ImmutableBitSet groupSet,
+            List<ImmutableBitSet> groupSets,
+            List<AggregateCall> aggCalls
     ) {
         super(cluster, traitSet, input, groupSet, groupSets, aggCalls);
     }
@@ -54,41 +54,47 @@ public abstract class IgniteMapAggregateBase extends IgniteAggregate implements 
     }
 
     /** {@inheritDoc} */
-    @Override public Pair<RelTraitSet, List<RelTraitSet>> passThroughDistribution(RelTraitSet nodeTraits,
-        List<RelTraitSet> inTraits) {
-        if (TraitUtils.distribution(nodeTraits).satisfies(IgniteDistributions.single()))
+    @Override
+    public Pair<RelTraitSet, List<RelTraitSet>> passThroughDistribution(RelTraitSet nodeTraits,
+            List<RelTraitSet> inTraits) {
+        if (TraitUtils.distribution(nodeTraits).satisfies(IgniteDistributions.single())) {
             return null;
-        else
+        } else {
             return TraitsAwareIgniteRel.super.passThroughDistribution(nodeTraits, inTraits);
+        }
     }
 
     /** {@inheritDoc} */
-    @Override public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
-        RelTraitSet nodeTraits,
-        List<RelTraitSet> inputTraits
+    @Override
+    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
+            RelTraitSet nodeTraits,
+            List<RelTraitSet> inputTraits
     ) {
-        return ImmutableList.of(Pair.of(nodeTraits, ImmutableList.of(inputTraits.get(0))));
+        return List.of(Pair.of(nodeTraits, List.of(inputTraits.get(0))));
     }
 
     /** {@inheritDoc} */
-    @Override public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
-        RelTraitSet nodeTraits,
-        List<RelTraitSet> inputTraits
+    @Override
+    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
+            RelTraitSet nodeTraits,
+            List<RelTraitSet> inputTraits
     ) {
         RelTraitSet in = inputTraits.get(0);
 
-        if (TraitUtils.distribution(in).satisfies(IgniteDistributions.single()))
-            return ImmutableList.of();
+        if (TraitUtils.distribution(in).satisfies(IgniteDistributions.single())) {
+            return List.of();
+        }
 
-        return ImmutableList.of(Pair.of(nodeTraits.replace(TraitUtils.distribution(in)), ImmutableList.of(in)));
+        return List.of(Pair.of(nodeTraits.replace(TraitUtils.distribution(in)), List.of(in)));
     }
 
     /** {@inheritDoc} */
-    @Override public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
-        RelTraitSet nodeTraits,
-        List<RelTraitSet> inTraits
+    @Override
+    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
+            RelTraitSet nodeTraits,
+            List<RelTraitSet> inTraits
     ) {
-        return ImmutableList.of(Pair.of(nodeTraits.replace(TraitUtils.correlation(inTraits.get(0))),
-            inTraits));
+        return List.of(Pair.of(nodeTraits.replace(TraitUtils.correlation(inTraits.get(0))),
+                inTraits));
     }
 }

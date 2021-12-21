@@ -21,7 +21,6 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import org.apache.ignite.internal.storage.DataRow;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Basic array-based implementation of the {@link DataRow}.
@@ -31,50 +30,63 @@ public class SimpleDataRow implements DataRow {
     private final byte[] key;
 
     /** Value array. */
-    private final byte @Nullable [] value;
+    private final byte[] value;
 
-    public SimpleDataRow(byte[] key, byte @Nullable [] value) {
+    /**
+     * Constructor.
+     *
+     * @param key   Key.
+     * @param value Value.
+     */
+    public SimpleDataRow(byte[] key, byte[] value) {
+        assert key != null;
+        assert value != null;
+
         this.key = key;
         this.value = value;
     }
 
     /** {@inheritDoc} */
     @NotNull
-    @Override public ByteBuffer key() {
+    @Override
+    public ByteBuffer key() {
         return ByteBuffer.wrap(key);
     }
 
     /** {@inheritDoc} */
-    @Override public byte @NotNull [] keyBytes() {
+    @Override
+    public byte @NotNull [] keyBytes() {
         return key;
     }
 
     /** {@inheritDoc} */
-    @Nullable
-    @Override public ByteBuffer value() {
-        return value == null ? null : ByteBuffer.wrap(value);
+    @Override
+    public ByteBuffer value() {
+        return ByteBuffer.wrap(value);
     }
 
     /** {@inheritDoc} */
-    @Override public byte @Nullable [] valueBytes() {
+    @Override
+    public byte[] valueBytes() {
         return value;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean hasValueBytes() {
-        return value != null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         SimpleDataRow row = (SimpleDataRow) o;
         return Arrays.equals(key, row.key) && Arrays.equals(value, row.value);
     }
 
     /** {@inheritDoc} */
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         int result = Arrays.hashCode(key);
         result = 31 * result + Arrays.hashCode(value);
         return result;

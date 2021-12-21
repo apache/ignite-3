@@ -17,27 +17,27 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import static org.apache.ignite.lang.LoggerMessageHelper.format;
+
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
-import org.apache.ignite.internal.storage.SearchRow;
-import org.apache.ignite.internal.storage.Storage;
-import org.apache.ignite.internal.storage.basic.DeleteExactInvokeClosure;
-import org.apache.ignite.internal.storage.basic.GetAndRemoveInvokeClosure;
-import org.apache.ignite.internal.storage.basic.GetAndReplaceInvokeClosure;
-import org.apache.ignite.internal.storage.basic.InsertInvokeClosure;
-import org.apache.ignite.internal.storage.basic.ReplaceExactInvokeClosure;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactCommand;
+import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.GetAllCommand;
 import org.apache.ignite.internal.table.distributed.command.GetAndDeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.GetAndReplaceCommand;
@@ -45,279 +45,512 @@ import org.apache.ignite.internal.table.distributed.command.GetAndUpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
+import org.apache.ignite.internal.table.distributed.command.MultiKeyCommand;
 import org.apache.ignite.internal.table.distributed.command.ReplaceCommand;
 import org.apache.ignite.internal.table.distributed.command.ReplaceIfExistCommand;
+import org.apache.ignite.internal.table.distributed.command.SingleKeyCommand;
+import org.apache.ignite.internal.table.distributed.command.TransactionalCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
+import org.apache.ignite.internal.table.distributed.command.scan.ScanCloseCommand;
+import org.apache.ignite.internal.table.distributed.command.scan.ScanInitCommand;
+import org.apache.ignite.internal.table.distributed.command.scan.ScanRetrieveBatchCommand;
+import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
+import org.apache.ignite.internal.tx.Timestamp;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener {
-    /** Partition storage. */
-    private final Storage storage;
+    /** Lock id. */
+    private final IgniteUuid lockId;
+
+    /** The versioned storage. */
+    private final VersionedRowStore storage;
+
+    /** Cursors map. */
+    private final Map<IgniteUuid, CursorMeta> cursors;
+
+    /** Transaction manager. */
+    private final TxManager txManager;
 
     /**
-     * Constructor.
+     * The constructor.
      *
-     * @param storage Storage.
+     * @param lockId Lock id.
+     * @param store  The storage.
      */
-    public PartitionListener(Storage storage) {
-        this.storage = storage;
+    public PartitionListener(IgniteUuid lockId, VersionedRowStore store) {
+        this.lockId = lockId;
+        this.storage = store;
+        this.txManager = store.txManager();
+        this.cursors = new ConcurrentHashMap<>();
     }
 
     /** {@inheritDoc} */
-    @Override public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
-        while (iterator.hasNext()) {
-            CommandClosure<ReadCommand> clo = iterator.next();
+    @Override
+    public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
+        iterator.forEachRemaining((CommandClosure<? extends ReadCommand> clo) -> {
+            Command command = clo.command();
 
-            if (clo.command() instanceof GetCommand) {
-                DataRow readValue = storage.read(extractAndWrapKey(((GetCommand) clo.command()).getKeyRow()));
-
-                ByteBufferRow responseRow = null;
-
-                if (readValue.hasValueBytes())
-                    responseRow = new ByteBufferRow(readValue.valueBytes());
-
-                clo.result(new SingleRowResponse(responseRow));
+            if (!tryEnlistIntoTransaction(command, clo)) {
+                return;
             }
-            else if (clo.command() instanceof GetAllCommand) {
-                Set<BinaryRow> keyRows = ((GetAllCommand)clo.command()).getKeyRows();
 
-                assert keyRows != null && !keyRows.isEmpty();
-
-                List<SearchRow> keys = keyRows.stream().map(PartitionListener::extractAndWrapKey)
-                    .collect(Collectors.toList());
-
-                List<BinaryRow> res = storage
-                    .readAll(keys)
-                    .stream()
-                    .filter(DataRow::hasValueBytes)
-                    .map(read -> new ByteBufferRow(read.valueBytes()))
-                    .collect(Collectors.toList());
-
-                clo.result(new MultiRowsResponse(res));
-            }
-            else
+            if (command instanceof GetCommand) {
+                handleGetCommand((CommandClosure<GetCommand>) clo);
+            } else if (command instanceof GetAllCommand) {
+                handleGetAllCommand((CommandClosure<GetAllCommand>) clo);
+            } else {
                 assert false : "Command was not found [cmd=" + clo.command() + ']';
+            }
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
+        iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
+            Command command = clo.command();
+
+            if (!tryEnlistIntoTransaction(command, clo)) {
+                return;
+            }
+
+            if (command instanceof InsertCommand) {
+                handleInsertCommand((CommandClosure<InsertCommand>) clo);
+            } else if (command instanceof DeleteCommand) {
+                handleDeleteCommand((CommandClosure<DeleteCommand>) clo);
+            } else if (command instanceof ReplaceCommand) {
+                handleReplaceCommand((CommandClosure<ReplaceCommand>) clo);
+            } else if (command instanceof UpsertCommand) {
+                handleUpsertCommand((CommandClosure<UpsertCommand>) clo);
+            } else if (command instanceof InsertAllCommand) {
+                handleInsertAllCommand((CommandClosure<InsertAllCommand>) clo);
+            } else if (command instanceof UpsertAllCommand) {
+                handleUpsertAllCommand((CommandClosure<UpsertAllCommand>) clo);
+            } else if (command instanceof DeleteAllCommand) {
+                handleDeleteAllCommand((CommandClosure<DeleteAllCommand>) clo);
+            } else if (command instanceof DeleteExactCommand) {
+                handleDeleteExactCommand((CommandClosure<DeleteExactCommand>) clo);
+            } else if (command instanceof DeleteExactAllCommand) {
+                handleDeleteExactAllCommand((CommandClosure<DeleteExactAllCommand>) clo);
+            } else if (command instanceof ReplaceIfExistCommand) {
+                handleReplaceIfExistsCommand((CommandClosure<ReplaceIfExistCommand>) clo);
+            } else if (command instanceof GetAndDeleteCommand) {
+                handleGetAndDeleteCommand((CommandClosure<GetAndDeleteCommand>) clo);
+            } else if (command instanceof GetAndReplaceCommand) {
+                handleGetAndReplaceCommand((CommandClosure<GetAndReplaceCommand>) clo);
+            } else if (command instanceof GetAndUpsertCommand) {
+                handleGetAndUpsertCommand((CommandClosure<GetAndUpsertCommand>) clo);
+            } else if (command instanceof ScanInitCommand) {
+                handleScanInitCommand((CommandClosure<ScanInitCommand>) clo);
+            } else if (command instanceof ScanRetrieveBatchCommand) {
+                handleScanRetrieveBatchCommand((CommandClosure<ScanRetrieveBatchCommand>) clo);
+            } else if (command instanceof ScanCloseCommand) {
+                handleScanCloseCommand((CommandClosure<ScanCloseCommand>) clo);
+            } else if (command instanceof FinishTxCommand) {
+                handleFinishTxCommand((CommandClosure<FinishTxCommand>) clo);
+            } else {
+                assert false : "Command was not found [cmd=" + command + ']';
+            }
+        });
+    }
+
+    /**
+     * Attempts to enlist a command into a transaction.
+     *
+     * @param command The command.
+     * @param clo     The closure.
+     * @return {@code true} if a command is compatible with a transaction state or a command is not transactional.
+     */
+    private boolean tryEnlistIntoTransaction(Command command, CommandClosure<?> clo) {
+        if (command instanceof TransactionalCommand) {
+            Timestamp ts = ((TransactionalCommand) command).getTimestamp();
+
+            TxState state = txManager.getOrCreateTransaction(ts);
+
+            if (state != null && state != TxState.PENDING) {
+                clo.result(new TransactionException(format("Failed to enlist a key into a transaction, state={}", state)));
+
+                return false;
+            }
         }
+
+        return true;
     }
 
-    /** {@inheritDoc} */
-    @Override public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-        while (iterator.hasNext()) {
-            CommandClosure<WriteCommand> clo = iterator.next();
+    /**
+     * Handler for the {@link GetCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleGetCommand(CommandClosure<GetCommand> clo) {
+        GetCommand cmd = clo.command();
 
-            if (clo.command() instanceof InsertCommand) {
-                BinaryRow row = ((InsertCommand)clo.command()).getRow();
+        clo.result(new SingleRowResponse(storage.get(cmd.getRow(), cmd.getTimestamp())));
+    }
 
-                assert row.hasValue() : "Insert command should have a value.";
+    /**
+     * Handler for the {@link GetAllCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleGetAllCommand(CommandClosure<GetAllCommand> clo) {
+        GetAllCommand cmd = clo.command();
 
-                DataRow newRow = extractAndWrapKeyValue(row);
+        Collection<BinaryRow> keyRows = cmd.getRows();
 
-                InsertInvokeClosure writeIfAbsent = new InsertInvokeClosure(newRow);
+        assert keyRows != null && !keyRows.isEmpty();
 
-                storage.invoke(newRow, writeIfAbsent);
+        // TODO asch IGNITE-15934 all reads are sequential, can be parallelized ?
+        clo.result(new MultiRowsResponse(storage.getAll(keyRows, cmd.getTimestamp())));
+    }
 
-                clo.result(writeIfAbsent.result());
-            }
-            else if (clo.command() instanceof DeleteCommand) {
-                SearchRow newRow = extractAndWrapKey(((DeleteCommand)clo.command()).getKeyRow());
+    /**
+     * Handler for the {@link InsertCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleInsertCommand(CommandClosure<InsertCommand> clo) {
+        InsertCommand cmd = clo.command();
 
-                var getAndRemoveClosure = new GetAndRemoveInvokeClosure();
+        clo.result(storage.insert(cmd.getRow(), cmd.getTimestamp()));
+    }
 
-                storage.invoke(newRow, getAndRemoveClosure);
+    /**
+     * Handler for the {@link DeleteCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleDeleteCommand(CommandClosure<DeleteCommand> clo) {
+        DeleteCommand cmd = clo.command();
 
-                clo.result(getAndRemoveClosure.result());
-            }
-            else if (clo.command() instanceof ReplaceCommand) {
-                ReplaceCommand cmd = ((ReplaceCommand)clo.command());
+        clo.result(storage.delete(cmd.getRow(), cmd.getTimestamp()));
+    }
 
-                DataRow expected = extractAndWrapKeyValue(cmd.getOldRow());
-                DataRow newRow = extractAndWrapKeyValue(cmd.getRow());
+    /**
+     * Handler for the {@link ReplaceCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleReplaceCommand(CommandClosure<ReplaceCommand> clo) {
+        ReplaceCommand cmd = clo.command();
 
-                var replaceClosure = new ReplaceExactInvokeClosure(expected, newRow);
+        clo.result(storage.replace(cmd.getOldRow(), cmd.getRow(), cmd.getTimestamp()));
+    }
 
-                storage.invoke(expected, replaceClosure);
+    /**
+     * Handler for the {@link UpsertCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleUpsertCommand(CommandClosure<UpsertCommand> clo) {
+        UpsertCommand cmd = clo.command();
 
-                clo.result(replaceClosure.result());
-            }
-            else if (clo.command() instanceof UpsertCommand) {
-                BinaryRow row = ((UpsertCommand)clo.command()).getRow();
+        storage.upsert(cmd.getRow(), cmd.getTimestamp());
 
-                assert row.hasValue() : "Upsert command should have a value.";
+        clo.result(null);
+    }
 
-                storage.write(extractAndWrapKeyValue(row));
+    /**
+     * Handler for the {@link InsertAllCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleInsertAllCommand(CommandClosure<InsertAllCommand> clo) {
+        InsertAllCommand cmd = clo.command();
 
-                clo.result(null);
-            }
-            else if (clo.command() instanceof InsertAllCommand) {
-                Set<BinaryRow> rows = ((InsertAllCommand)clo.command()).getRows();
+        Collection<BinaryRow> rows = cmd.getRows();
 
-                assert rows != null && !rows.isEmpty();
+        assert rows != null && !rows.isEmpty();
 
-                List<DataRow> keyValues = rows.stream().map(PartitionListener::extractAndWrapKeyValue)
-                    .collect(Collectors.toList());
+        clo.result(new MultiRowsResponse(storage.insertAll(rows, cmd.getTimestamp())));
+    }
 
-                List<BinaryRow> res = storage.insertAll(keyValues).stream()
-                    .filter(DataRow::hasValueBytes)
-                    .map(inserted -> new ByteBufferRow(inserted.valueBytes()))
-                    .filter(BinaryRow::hasValue)
-                    .collect(Collectors.toList());
+    /**
+     * Handler for the {@link UpsertAllCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleUpsertAllCommand(CommandClosure<UpsertAllCommand> clo) {
+        UpsertAllCommand cmd = clo.command();
 
-                clo.result(new MultiRowsResponse(res));
-            }
-            else if (clo.command() instanceof UpsertAllCommand) {
-                Set<BinaryRow> rows = ((UpsertAllCommand)clo.command()).getRows();
+        Collection<BinaryRow> rows = cmd.getRows();
 
-                assert rows != null && !rows.isEmpty();
+        assert rows != null && !rows.isEmpty();
 
-                storage.writeAll(rows.stream().map(PartitionListener::extractAndWrapKeyValue).collect(Collectors.toList()));
+        storage.upsertAll(rows, cmd.getTimestamp());
 
-                clo.result(null);
-            }
-            else if (clo.command() instanceof DeleteAllCommand) {
-                Set<BinaryRow> rows = ((DeleteAllCommand)clo.command()).getRows();
+        clo.result(null);
+    }
 
-                assert rows != null && !rows.isEmpty();
+    /**
+     * Handler for the {@link DeleteAllCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleDeleteAllCommand(CommandClosure<DeleteAllCommand> clo) {
+        DeleteAllCommand cmd = clo.command();
 
-                List<SearchRow> keys = rows.stream().map(PartitionListener::extractAndWrapKey)
-                    .collect(Collectors.toList());
+        Collection<BinaryRow> rows = cmd.getRows();
 
-                List<BinaryRow> res = storage.removeAll(keys).stream()
-                    .filter(DataRow::hasValueBytes)
-                    .map(removed -> new ByteBufferRow(removed.valueBytes()))
-                    .filter(BinaryRow::hasValue)
-                    .collect(Collectors.toList());
+        assert rows != null && !rows.isEmpty();
 
-                clo.result(new MultiRowsResponse(res));
-            }
-            else if (clo.command() instanceof DeleteExactCommand) {
-                BinaryRow row = ((DeleteExactCommand)clo.command()).getRow();
+        clo.result(new MultiRowsResponse(storage.deleteAll(rows, cmd.getTimestamp())));
+    }
 
-                assert row != null;
-                assert row.hasValue();
+    /**
+     * Handler for the {@link DeleteExactCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleDeleteExactCommand(CommandClosure<DeleteExactCommand> clo) {
+        DeleteExactCommand cmd = clo.command();
 
-                DataRow keyValue = extractAndWrapKeyValue(row);
+        BinaryRow row = cmd.getRow();
 
-                var deleteExact = new DeleteExactInvokeClosure(keyValue);
+        assert row != null;
+        assert row.hasValue();
 
-                storage.invoke(keyValue, deleteExact);
+        clo.result(storage.deleteExact(row, cmd.getTimestamp()));
+    }
 
-                clo.result(deleteExact.result());
-            }
-            else if (clo.command() instanceof DeleteExactAllCommand) {
-                Set<BinaryRow> rows = ((DeleteExactAllCommand)clo.command()).getRows();
+    /**
+     * Handler for the {@link DeleteExactAllCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleDeleteExactAllCommand(CommandClosure<DeleteExactAllCommand> clo) {
+        DeleteExactAllCommand cmd = clo.command();
 
-                assert rows != null && !rows.isEmpty();
+        Collection<BinaryRow> rows = cmd.getRows();
 
-                List<DataRow> keyValues = rows.stream().map(PartitionListener::extractAndWrapKeyValue)
-                    .collect(Collectors.toList());
+        assert rows != null && !rows.isEmpty();
 
-                List<BinaryRow> res = storage.removeAllExact(keyValues).stream()
-                    .filter(DataRow::hasValueBytes)
-                    .map(inserted -> new ByteBufferRow(inserted.valueBytes()))
-                    .filter(BinaryRow::hasValue)
-                    .collect(Collectors.toList());
+        clo.result(new MultiRowsResponse(storage.deleteAllExact(rows, cmd.getTimestamp())));
+    }
 
-                clo.result(new MultiRowsResponse(res));
-            }
-            else if (clo.command() instanceof ReplaceIfExistCommand) {
-                BinaryRow row = ((ReplaceIfExistCommand)clo.command()).getRow();
+    /**
+     * Handler for the {@link ReplaceIfExistCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleReplaceIfExistsCommand(CommandClosure<ReplaceIfExistCommand> clo) {
+        ReplaceIfExistCommand cmd = clo.command();
 
-                assert row != null;
+        BinaryRow row = cmd.getRow();
 
-                DataRow keyValue = extractAndWrapKeyValue(row);
+        assert row != null;
 
-                var replaceIfExists = new GetAndReplaceInvokeClosure(keyValue, true);
+        clo.result(storage.replace(row, cmd.getTimestamp()));
+    }
 
-                storage.invoke(keyValue, replaceIfExists);
+    /**
+     * Handler for the {@link GetAndDeleteCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleGetAndDeleteCommand(CommandClosure<GetAndDeleteCommand> clo) {
+        GetAndDeleteCommand cmd = clo.command();
 
-                clo.result(replaceIfExists.result());
-            }
-            else if (clo.command() instanceof GetAndDeleteCommand) {
-                BinaryRow row = ((GetAndDeleteCommand)clo.command()).getKeyRow();
+        BinaryRow row = cmd.getRow();
 
-                assert row != null;
+        assert row != null;
 
-                SearchRow keyRow = extractAndWrapKey(row);
+        clo.result(new SingleRowResponse(storage.getAndDelete(row, cmd.getTimestamp())));
+    }
 
-                var getAndRemoveClosure = new GetAndRemoveInvokeClosure();
+    /**
+     * Handler for the {@link GetAndReplaceCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleGetAndReplaceCommand(CommandClosure<GetAndReplaceCommand> clo) {
+        GetAndReplaceCommand cmd = clo.command();
 
-                storage.invoke(keyRow, getAndRemoveClosure);
+        BinaryRow row = cmd.getRow();
 
-                if (getAndRemoveClosure.result())
-                    clo.result(new SingleRowResponse(new ByteBufferRow(getAndRemoveClosure.oldRow().valueBytes())));
-                else
-                    clo.result(new SingleRowResponse(null));
-            }
-            else if (clo.command() instanceof GetAndReplaceCommand) {
-                BinaryRow row = ((GetAndReplaceCommand)clo.command()).getRow();
+        assert row != null && row.hasValue();
 
-                assert row != null && row.hasValue();
+        clo.result(new SingleRowResponse(storage.getAndReplace(row, cmd.getTimestamp())));
+    }
 
-                DataRow keyValue = extractAndWrapKeyValue(row);
+    /**
+     * Handler for the {@link GetAndUpsertCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleGetAndUpsertCommand(CommandClosure<GetAndUpsertCommand> clo) {
+        GetAndUpsertCommand cmd = clo.command();
 
-                var getAndReplace = new GetAndReplaceInvokeClosure(keyValue, true);
+        BinaryRow row = cmd.getRow();
 
-                storage.invoke(keyValue, getAndReplace);
+        assert row != null && row.hasValue();
 
-                DataRow oldRow = getAndReplace.oldRow();
+        clo.result(new SingleRowResponse(storage.getAndUpsert(row, cmd.getTimestamp())));
+    }
 
-                BinaryRow res = oldRow.hasValueBytes() ? new ByteBufferRow(oldRow.valueBytes()) : null;
+    /**
+     * Handler for the {@link FinishTxCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleFinishTxCommand(CommandClosure<FinishTxCommand> clo) {
+        FinishTxCommand cmd = clo.command();
 
-                clo.result(new SingleRowResponse(res));
-            }
-            else if (clo.command() instanceof GetAndUpsertCommand) {
-                BinaryRow row = ((GetAndUpsertCommand)clo.command()).getKeyRow();
+        Timestamp ts = cmd.timestamp();
+        boolean commit = cmd.finish();
 
-                assert row != null && row.hasValue();
+        clo.result(txManager.changeState(ts, TxState.PENDING, commit ? TxState.COMMITED : TxState.ABORTED));
+    }
 
-                DataRow keyValue = extractAndWrapKeyValue(row);
+    /**
+     * Handler for the {@link ScanInitCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleScanInitCommand(CommandClosure<ScanInitCommand> clo) {
+        ScanInitCommand rangeCmd = clo.command();
 
-                var getAndReplace = new GetAndReplaceInvokeClosure(keyValue, false);
+        IgniteUuid cursorId = rangeCmd.scanId();
 
-                storage.invoke(keyValue, getAndReplace);
+        try {
+            Cursor<BinaryRow> cursor = storage.scan(key -> true);
 
-                DataRow oldRow = getAndReplace.oldRow();
-
-                if (oldRow.hasValueBytes())
-                    clo.result(new SingleRowResponse(new ByteBufferRow(oldRow.valueBytes())));
-                else
-                    clo.result(new SingleRowResponse(null));
-            }
-            else
-                assert false : "Command was not found [cmd=" + clo.command() + ']';
+            cursors.put(
+                    cursorId,
+                    new CursorMeta(
+                            cursor,
+                            rangeCmd.requesterNodeId()
+                    )
+            );
+        } catch (StorageException e) {
+            clo.result(e);
         }
+
+        clo.result(null);
+    }
+
+    /**
+     * Handler for the {@link ScanRetrieveBatchCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleScanRetrieveBatchCommand(CommandClosure<ScanRetrieveBatchCommand> clo) {
+        CursorMeta cursorDesc = cursors.get(clo.command().scanId());
+
+        if (cursorDesc == null) {
+            clo.result(new NoSuchElementException(format(
+                    "Cursor with id={} is not found on server side.", clo.command().scanId())));
+
+            return;
+        }
+
+        List<BinaryRow> res = new ArrayList<>();
+
+        try {
+            for (int i = 0; i < clo.command().itemsToRetrieveCount() && cursorDesc.cursor().hasNext(); i++) {
+                res.add(cursorDesc.cursor().next());
+            }
+        } catch (NoSuchElementException e) {
+            clo.result(e);
+        }
+
+        clo.result(new MultiRowsResponse(res));
+    }
+
+    /**
+     * Handler for the {@link ScanCloseCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleScanCloseCommand(CommandClosure<ScanCloseCommand> clo) {
+        CursorMeta cursorDesc = cursors.remove(clo.command().scanId());
+
+        if (cursorDesc == null) {
+            clo.result(null);
+
+            return;
+        }
+
+        try {
+            cursorDesc.cursor().close();
+        } catch (Exception e) {
+            throw new IgniteInternalException(e);
+        }
+
+        clo.result(null);
     }
 
     /** {@inheritDoc} */
-    @Override public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        // Not implemented yet.
+    @Override
+    public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
+        storage.snapshot(path).whenComplete((unused, throwable) -> {
+            doneClo.accept(throwable);
+        });
     }
 
     /** {@inheritDoc} */
-    @Override public boolean onSnapshotLoad(Path path) {
-        // Not implemented yet.
-        return false;
+    @Override
+    public boolean onSnapshotLoad(Path path) {
+        storage.restoreSnapshot(path);
+
+        return true;
     }
 
     /** {@inheritDoc} */
-    @Override public void onShutdown() {
+    @Override
+    public void onShutdown() {
         try {
             storage.close();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new IgniteInternalException("Failed to close storage: " + e.getMessage(), e);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> onBeforeApply(Command command) {
+        if (command instanceof SingleKeyCommand) {
+            SingleKeyCommand cmd0 = (SingleKeyCommand) command;
+
+            return cmd0 instanceof ReadCommand ? txManager.readLock(lockId, cmd0.getRow().keySlice(), cmd0.getTimestamp()) :
+                    txManager.writeLock(lockId, cmd0.getRow().keySlice(), cmd0.getTimestamp());
+        } else if (command instanceof MultiKeyCommand) {
+            MultiKeyCommand cmd0 = (MultiKeyCommand) command;
+
+            Collection<BinaryRow> rows = cmd0.getRows();
+
+            CompletableFuture<Void>[] futs = new CompletableFuture[rows.size()];
+
+            int i = 0;
+            boolean read = cmd0 instanceof ReadCommand;
+
+            for (BinaryRow row : rows) {
+                futs[i++] = read ? txManager.readLock(lockId, row.keySlice(), cmd0.getTimestamp()) :
+                        txManager.writeLock(lockId, row.keySlice(), cmd0.getTimestamp());
+            }
+
+            return CompletableFuture.allOf(futs);
+        }
+
+        return null;
     }
 
     /**
@@ -326,23 +559,52 @@ public class PartitionListener implements RaftGroupListener {
      * @param row Binary row.
      * @return Data row.
      */
-    @NotNull private static DataRow extractAndWrapKeyValue(@NotNull BinaryRow row) {
+    @NotNull
+    private static DataRow extractAndWrapKeyValue(@NotNull BinaryRow row) {
         byte[] key = new byte[row.keySlice().capacity()];
+
         row.keySlice().get(key);
 
         return new SimpleDataRow(key, row.bytes());
     }
 
     /**
-     * Extracts a key from the {@link BinaryRow} and wraps it in a {@link SearchRow}.
-     *
-     * @param row Binary row.
-     * @return Search row.
+     * Returns underlying storage.
      */
-    @NotNull private static SearchRow extractAndWrapKey(@NotNull BinaryRow row) {
-        byte[] key = new byte[row.keySlice().capacity()];
-        row.keySlice().get(key);
+    @TestOnly
+    public VersionedRowStore getStorage() {
+        return storage;
+    }
 
-        return new SimpleDataRow(key, null);
+    /**
+     * Cursor meta information: origin node id and type.
+     */
+    private static class CursorMeta {
+        /** Cursor. */
+        private final Cursor<BinaryRow> cursor;
+
+        /** Id of the node that creates cursor. */
+        private final String requesterNodeId;
+
+        /**
+         * The constructor.
+         *
+         * @param cursor          The cursor.
+         * @param requesterNodeId Id of the node that creates cursor.
+         */
+        CursorMeta(Cursor<BinaryRow> cursor, String requesterNodeId) {
+            this.cursor = cursor;
+            this.requesterNodeId = requesterNodeId;
+        }
+
+        /** Returns cursor. */
+        public Cursor<BinaryRow> cursor() {
+            return cursor;
+        }
+
+        /** Returns id of the node that creates cursor. */
+        public String requesterNodeId() {
+            return requesterNodeId;
+        }
     }
 }

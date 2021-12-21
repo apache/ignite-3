@@ -17,15 +17,14 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.proto.ClientMessagePacker;
-import org.apache.ignite.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.table.manager.IgniteTables;
-import org.msgpack.core.MessageFormat;
-
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeSchema;
+
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.manager.IgniteTables;
 
 /**
  * Client schemas retrieval request.
@@ -34,8 +33,8 @@ public class ClientSchemasGetRequest {
     /**
      * Processes the request.
      *
-     * @param in Unpacker.
-     * @param out Packer.
+     * @param in     Unpacker.
+     * @param out    Packer.
      * @param tables Ignite tables.
      * @return Future.
      * @throws IgniteException When schema registry is no initialized.
@@ -47,18 +46,18 @@ public class ClientSchemasGetRequest {
     ) {
         var table = readTable(in, tables);
 
-        if (in.getNextFormat() == MessageFormat.NIL) {
+        if (in.tryUnpackNil()) {
             // Return the latest schema.
             out.packMapHeader(1);
 
             var schema = table.schemaView().schema();
 
-            if (schema == null)
+            if (schema == null) {
                 throw new IgniteException("Schema registry is not initialized.");
+            }
 
             writeSchema(out, schema.version(), schema);
-        }
-        else {
+        } else {
             var cnt = in.unpackArrayHeader();
             out.packMapHeader(cnt);
 

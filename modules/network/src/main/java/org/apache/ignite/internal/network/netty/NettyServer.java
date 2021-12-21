@@ -17,24 +17,24 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ServerChannel;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.stream.ChunkedWriteHandler;
 import java.net.SocketAddress;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ServerChannel;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.stream.ChunkedWriteHandler;
+import java.util.function.Supplier;
+import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.jetbrains.annotations.Nullable;
@@ -44,23 +44,14 @@ import org.jetbrains.annotations.TestOnly;
  * Netty server channel wrapper.
  */
 public class NettyServer {
-    /** Port range. */
-    private static final int PORT_RANGE = 100;
-
     /** A lock for start and stop operations. */
     private final Object startStopLock = new Object();
 
-    /** {@link NioServerSocketChannel} bootstrapper. */
-    private final ServerBootstrap bootstrap;
+    /** Bootstrap factory. */
+    private final NettyBootstrapFactory bootstrapFactory;
 
-    /** Socket accepter event loop group. */
-    private final NioEventLoopGroup bossGroup = new NioEventLoopGroup();
-
-    /** Socket handler event loop group. */
-    private final NioEventLoopGroup workerGroup = new NioEventLoopGroup();
-
-    /** Server port. */
-    private final int port;
+    /** Server socket configuration. */
+    private final NetworkView configuration;
 
     /** Serialization registry. */
     private final MessageSerializationRegistry serializationRegistry;
@@ -69,7 +60,7 @@ public class NettyServer {
     private final BiConsumer<SocketAddress, NetworkMessage> messageListener;
 
     /** Handshake manager. */
-    private final HandshakeManager handshakeManager;
+    private final Supplier<HandshakeManager> handshakeManager;
 
     /** Server start future. */
     private CompletableFuture<Void> serverStartFuture;
@@ -79,60 +70,40 @@ public class NettyServer {
     private volatile ServerChannel channel;
 
     /** Server close future. */
-    private CompletableFuture<Void> serverCloseFuture = CompletableFuture.allOf(
-        NettyUtils.toCompletableFuture(bossGroup.terminationFuture()),
-        NettyUtils.toCompletableFuture(workerGroup.terminationFuture())
-    );
+    @Nullable
+    private CompletableFuture<Void> serverCloseFuture;
 
     /** New connections listener. */
     private final Consumer<NettySender> newConnectionListener;
 
     /** Flag indicating if {@link #stop()} has been called. */
-    private boolean stopped = false;
+    private boolean stopped;
 
     /**
      * Constructor.
      *
-     * @param port Server port.
-     * @param handshakeManager Handshake manager.
+     * @param consistentId          Consistent id.
+     * @param configuration         Server configuration.
+     * @param handshakeManager      Handshake manager supplier.
      * @param newConnectionListener New connections listener.
-     * @param messageListener Message listener.
+     * @param messageListener       Message listener.
      * @param serializationRegistry Serialization registry.
      */
     public NettyServer(
-        int port,
-        HandshakeManager handshakeManager,
-        Consumer<NettySender> newConnectionListener,
-        BiConsumer<SocketAddress, NetworkMessage> messageListener,
-        MessageSerializationRegistry serializationRegistry
+            String consistentId,
+            NetworkView configuration,
+            Supplier<HandshakeManager> handshakeManager,
+            Consumer<NettySender> newConnectionListener,
+            BiConsumer<SocketAddress, NetworkMessage> messageListener,
+            MessageSerializationRegistry serializationRegistry,
+            NettyBootstrapFactory bootstrapFactory
     ) {
-        this(new ServerBootstrap(), port, handshakeManager, newConnectionListener, messageListener, serializationRegistry);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param bootstrap Server bootstrap.
-     * @param port Server port.
-     * @param handshakeManager Handshake manager.
-     * @param newConnectionListener New connections listener.
-     * @param messageListener Message listener.
-     * @param serializationRegistry Serialization registry.
-     */
-    public NettyServer(
-        ServerBootstrap bootstrap,
-        int port,
-        HandshakeManager handshakeManager,
-        Consumer<NettySender> newConnectionListener,
-        BiConsumer<SocketAddress, NetworkMessage> messageListener,
-        MessageSerializationRegistry serializationRegistry
-    ) {
-        this.bootstrap = bootstrap;
-        this.port = port;
+        this.configuration = configuration;
         this.handshakeManager = handshakeManager;
         this.newConnectionListener = newConnectionListener;
         this.messageListener = messageListener;
         this.serializationRegistry = serializationRegistry;
+        this.bootstrapFactory = bootstrapFactory;
     }
 
     /**
@@ -142,121 +113,106 @@ public class NettyServer {
      */
     public CompletableFuture<Void> start() {
         synchronized (startStopLock) {
-            if (stopped)
+            if (stopped) {
                 throw new IgniteInternalException("Attempted to start an already stopped server");
-
-            if (serverStartFuture != null)
-                throw new IgniteInternalException("Attempted to start an already started server");
-
-            bootstrap.group(bossGroup, workerGroup)
-                .channel(NioServerSocketChannel.class)
-                .childHandler(new ChannelInitializer<SocketChannel>() {
-                    /** {@inheritDoc} */
-                    @Override public void initChannel(SocketChannel ch) {
-                        ch.pipeline().addLast(
-                            /*
-                             * Decoder that uses the MessageReader
-                             * to read chunked data.
-                             */
-                            new InboundDecoder(serializationRegistry),
-                            // Handshake handler.
-                            new HandshakeHandler(handshakeManager),
-                            // Handles decoded NetworkMessages.
-                            new MessageHandler(messageListener),
-                            /*
-                             * Encoder that uses the MessageWriter
-                             * to write chunked data.
-                             */
-                            new ChunkedWriteHandler(),
-                            // Converts NetworkMessage to a ChunkedNetworkMessageInput
-                            new OutboundEncoder(serializationRegistry),
-                            new IoExceptionSuppressingHandler()
-                        );
-
-                        handshakeManager.handshakeFuture().thenAccept(newConnectionListener);
-                    }
-                })
-                /*
-                 * The maximum queue length for incoming connection indications (a request to connect) is set
-                 * to the backlog parameter. If a connection indication arrives when the queue is full,
-                 * the connection is refused.
-                 */
-                .option(ChannelOption.SO_BACKLOG, 128)
-                .option(ChannelOption.SO_REUSEADDR, true)
-                /*
-                 * When the keepalive option is set for a TCP socket and no data has been exchanged across the socket
-                 * in either direction for 2 hours (NOTE: the actual value is implementation dependent),
-                 * TCP automatically sends a keepalive probe to the peer.
-                 */
-                .childOption(ChannelOption.SO_KEEPALIVE, true)
-                /*
-                 * Specify a linger-on-close timeout. This option disables/enables immediate return from a close()
-                 * of a TCP Socket. Enabling this option with a non-zero Integer timeout means that a close() will
-                 * block pending the transmission and acknowledgement of all data written to the peer, at which point
-                 * the socket is closed gracefully. Upon reaching the linger timeout, the socket is closed forcefully,
-                 * with a TCP RST. Enabling the option with a timeout of zero does a forceful close immediately.
-                 * If the specified timeout value exceeds 65,535 it will be reduced to 65,535.
-                 */
-                .childOption(ChannelOption.SO_LINGER, 0)
-                /*
-                 * Disable Nagle's algorithm for this connection. Written data to the network is not buffered pending
-                 * acknowledgement of previously written data. Valid for TCP only. Setting this option reduces
-                 * network latency and and delivery time for small messages.
-                 * For more information, see Socket#setTcpNoDelay(boolean)
-                 * and https://en.wikipedia.org/wiki/Nagle%27s_algorithm.
-                 */
-                .childOption(ChannelOption.TCP_NODELAY, true);
-
-            CompletableFuture<Channel> bindFuture = NettyUtils.toChannelCompletableFuture(bootstrap.bind(port));
-
-            for (int i = 1; i < PORT_RANGE; i++) {
-                int port0 = port + i;
-
-                bindFuture = bindFuture
-                    .thenApply(CompletableFuture::completedFuture)
-                    .exceptionally(err -> NettyUtils.toChannelCompletableFuture(bootstrap.bind(port0)))
-                    .thenCompose(Function.identity());
             }
 
-            serverStartFuture = bindFuture
-                .handle((channel, err) -> {
-                    synchronized (startStopLock) {
-                        CompletableFuture<Void> workerCloseFuture = serverCloseFuture;
+            if (serverStartFuture != null) {
+                throw new IgniteInternalException("Attempted to start an already started server");
+            }
 
-                        if (channel != null) {
-                            CompletableFuture<Void> channelCloseFuture = NettyUtils.toCompletableFuture(channel.closeFuture())
-                                // Shutdown event loops on channel close.
-                                .whenComplete((v, err0) -> shutdownEventLoopGroups());
+            ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
 
-                            serverCloseFuture = CompletableFuture.allOf(channelCloseFuture, workerCloseFuture);
+            bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
+                        /** {@inheritDoc} */
+                        @Override
+                        public void initChannel(SocketChannel ch) {
+                            // Get handshake manager for the new channel.
+                            HandshakeManager manager = handshakeManager.get();
+
+                            ch.pipeline().addLast(
+                                    /*
+                                     * Decoder that uses the MessageReader
+                                     * to read chunked data.
+                                     */
+                                    new InboundDecoder(serializationRegistry),
+                                    // Handshake handler.
+                                    new HandshakeHandler(manager),
+                                    // Handles decoded NetworkMessages.
+                                    new MessageHandler(messageListener),
+                                    /*
+                                     * Encoder that uses the MessageWriter
+                                     * to write chunked data.
+                                     */
+                                    new ChunkedWriteHandler(),
+                                    // Converts NetworkMessage to a ChunkedNetworkMessageInput
+                                    new OutboundEncoder(serializationRegistry),
+                                    new IoExceptionSuppressingHandler()
+                            );
+
+                            manager.handshakeFuture().thenAccept(newConnectionListener);
                         }
+                    });
 
-                        this.channel = (ServerChannel) channel;
+            int port = configuration.port();
+            int portRange = configuration.portRange();
 
-                        // Shutdown event loops if the server has failed to start or has been stopped.
-                        if (err != null || stopped) {
-                            shutdownEventLoopGroups();
+            var bindFuture = new CompletableFuture<Channel>();
 
-                            return workerCloseFuture.handle((unused, throwable) -> {
+            tryBind(bootstrap, port, port + portRange, port, bindFuture);
+
+            serverStartFuture = bindFuture
+                    .handle((channel, err) -> {
+                        synchronized (startStopLock) {
+                            if (channel != null) {
+                                serverCloseFuture = NettyUtils.toCompletableFuture(channel.closeFuture());
+                            }
+
+                            this.channel = (ServerChannel) channel;
+
+                            if (err != null || stopped) {
                                 Throwable stopErr = err != null ? err : new CancellationException("Server was stopped");
 
-                                if (throwable != null)
-                                    stopErr.addSuppressed(throwable);
-
                                 return CompletableFuture.<Void>failedFuture(stopErr);
-                            }).thenCompose(Function.identity());
+                            } else {
+                                return CompletableFuture.<Void>completedFuture(null);
+                            }
                         }
-                        else
-                            return CompletableFuture.<Void>completedFuture(null);
-                    }
-                })
-                .thenCompose(Function.identity());
+                    })
+                    .thenCompose(Function.identity());
 
             return serverStartFuture;
         }
     }
 
     /**
+     * Try bind this server to a port.
+     *
+     * @param bootstrap Bootstrap.
+     * @param port      Target port.
+     * @param endPort   Last port that server can be bound to.
+     * @param startPort Start port.
+     * @param fut       Future.
+     */
+    private void tryBind(ServerBootstrap bootstrap, int port, int endPort, int startPort, CompletableFuture<Channel> fut) {
+        if (port > endPort) {
+            fut.completeExceptionally(new IllegalStateException("No available port in range [" + startPort + "-" + endPort + ']'));
+        }
+
+        bootstrap.bind(port).addListener((ChannelFuture future) -> {
+            if (future.isSuccess()) {
+                fut.complete(future.channel());
+            } else if (future.isCancelled()) {
+                fut.cancel(true);
+            } else {
+                tryBind(bootstrap, port + 1, endPort, startPort, fut);
+            }
+        });
+    }
+
+    /**
+     * Returns gets the local address of the server.
+     *
      * @return Gets the local address of the server.
      */
     public SocketAddress address() {
@@ -266,58 +222,41 @@ public class NettyServer {
     /**
      * Stops the server.
      *
-     * @return Future that is resolved when the server's channel has closed or an already completed future
-     * for a subsequent call.
+     * @return Future that is resolved when the server's channel has closed or an already completed future for a subsequent call.
      */
     public CompletableFuture<Void> stop() {
         synchronized (startStopLock) {
-            if (stopped)
+            if (stopped) {
                 return CompletableFuture.completedFuture(null);
+            }
 
             stopped = true;
 
-            if (serverStartFuture == null)
+            if (serverStartFuture == null) {
                 return CompletableFuture.completedFuture(null);
+            }
+
+            var serverCloseFuture0 = serverCloseFuture;
 
             return serverStartFuture.handle((unused, throwable) -> {
-               if (channel != null)
-                   channel.close();
+                if (channel != null) {
+                    channel.close();
+                }
 
-               return serverCloseFuture;
+                return serverCloseFuture0 == null ? CompletableFuture.<Void>completedFuture(null) : serverCloseFuture0;
             }).thenCompose(Function.identity());
         }
     }
 
     /**
-     * Shutdown event loops.
-     */
-    private void shutdownEventLoopGroups() {
-        // TODO: IGNITE-14538 quietPeriod and timeout should be configurable.
-        bossGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS);
-        workerGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS);
-    }
-
-    /**
+     * Returns {@code true} if the server is running, {@code false} otherwise.
+     *
      * @return {@code true} if the server is running, {@code false} otherwise.
      */
     @TestOnly
     public boolean isRunning() {
-        return channel != null && channel.isOpen() && !bossGroup.isShuttingDown() && !workerGroup.isShuttingDown();
-    }
+        var channel0 = channel;
 
-    /**
-     * @return Accepter event loop group.
-     */
-    @TestOnly
-    public NioEventLoopGroup getBossGroup() {
-        return bossGroup;
-    }
-
-    /**
-     * @return Worker event loop group.
-     */
-    @TestOnly
-    public NioEventLoopGroup getWorkerGroup() {
-        return workerGroup;
+        return channel0 != null && channel0.isOpen();
     }
 }

@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -29,53 +30,73 @@ import org.jetbrains.annotations.NotNull;
  */
 public final class WatchExactKeysCommand implements WriteCommand {
     /** The keys list. Couldn't be {@code null}. */
-    @NotNull private final List<byte[]> keys;
+    @NotNull
+    private final List<byte[]> keys;
 
     /** Start revision inclusive. {@code 0} - all revisions. */
     private final long revision;
 
     /** Id of the node that requests watch. */
-    @NotNull private final String requesterNodeId;
+    @NotNull
+    private final String requesterNodeId;
+
+    /** Id of cursor that is associated with the current command. */
+    @NotNull
+    private final IgniteUuid cursorId;
 
     /**
-     * @param keys The keys collection. Couldn't be {@code null}.
-     * @param revision Start revision inclusive. {@code 0} - all revisions.
-     * @param requesterNodeId Id of the node that requests watch.
+     * Constructor.
      *
+     * @param keys            The keys collection. Couldn't be {@code null}.
+     * @param revision        Start revision inclusive. {@code 0} - all revisions.
+     * @param requesterNodeId Id of the node that requests watch.
+     * @param cursorId        Id of cursor that is associated with the current command.
      */
     public WatchExactKeysCommand(
-        @NotNull Set<ByteArray> keys,
-        long revision,
-        @NotNull String requesterNodeId
+            @NotNull Set<ByteArray> keys,
+            long revision,
+            @NotNull String requesterNodeId,
+            @NotNull IgniteUuid cursorId
     ) {
         this.keys = new ArrayList<>(keys.size());
 
-        for (ByteArray key : keys)
+        for (ByteArray key : keys) {
             this.keys.add(key.bytes());
+        }
 
         this.revision = revision;
 
         this.requesterNodeId = requesterNodeId;
+
+        this.cursorId = cursorId;
     }
 
     /**
-     * @return The keys list. Couldn't be {@code null}.
+     * Returns the keys list. Couldn't be {@code null}.
      */
     public @NotNull List<byte[]> keys() {
         return keys;
     }
 
     /**
-     * @return Start revision inclusive.
+     * Returns start revision inclusive.
      */
     public @NotNull Long revision() {
         return revision;
     }
 
     /**
-     * @return Id of the node that requests range.
+     * Returns id of the node that requests range.
      */
     public @NotNull String requesterNodeId() {
         return requesterNodeId;
+    }
+
+    /**
+     * Returns id of cursor that is associated with the current command.
+     */
+    @NotNull
+    public IgniteUuid getCursorId() {
+        return cursorId;
     }
 }

@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.processors.query.calcite.message;
 
+import static org.apache.ignite.internal.processors.query.calcite.message.SqlQueryMessageGroup.GROUP_TYPE;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
-
 import org.apache.ignite.internal.processors.query.calcite.exec.QueryTaskExecutor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -34,7 +35,8 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyService;
 
 /**
- *
+ * MessageServiceImpl.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class MessageServiceImpl implements MessageService {
     private static final UUID QUERY_ID_STUB = UUID.randomUUID();
@@ -45,45 +47,51 @@ public class MessageServiceImpl implements MessageService {
 
     private final MessagingService messagingSrvc;
 
-    /** */
     private final String locNodeId;
 
-    /** */
     private final QueryTaskExecutor taskExecutor;
 
-    /** */
-    private Map<Short, MessageListener> lsnrs;
+    private volatile Map<Short, MessageListener> lsnrs;
 
-    /** */
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
     public MessageServiceImpl(
-        TopologyService topSrvc,
-        MessagingService messagingSrvc,
-        QueryTaskExecutor taskExecutor
+            TopologyService topSrvc,
+            MessagingService messagingSrvc,
+            QueryTaskExecutor taskExecutor
     ) {
         this.topSrvc = topSrvc;
         this.messagingSrvc = messagingSrvc;
         this.taskExecutor = taskExecutor;
 
         locNodeId = topSrvc.localMember().id();
+    }
 
+    /** {@inheritDoc} */
+    @Override
+    public void start() {
         messagingSrvc.addMessageHandler(SqlQueryMessageGroup.class, this::onMessage);
     }
 
     /** {@inheritDoc} */
-    @Override public void send(String nodeId, NetworkMessage msg) throws IgniteInternalCheckedException {
-        if (locNodeId.equals(nodeId))
+    @Override
+    public void send(String nodeId, NetworkMessage msg) throws IgniteInternalCheckedException {
+        if (locNodeId.equals(nodeId)) {
             onMessage(nodeId, msg);
-        else {
+        } else {
             ClusterNode node = topSrvc.allMembers().stream()
-                .filter(cn -> nodeId.equals(cn.id()))
-                .findFirst()
-                .orElseThrow(() -> new IgniteInternalException("Failed to send message to node (has node left grid?): " + nodeId));
+                    .filter(cn -> nodeId.equals(cn.id()))
+                    .findFirst()
+                    .orElseThrow(() -> new IgniteInternalException("Failed to send message to node (has node left grid?): " + nodeId));
 
             try {
                 messagingSrvc.send(node, msg).get();
             } catch (Exception ex) {
-                if (ex instanceof IgniteInternalCheckedException)
-                    throw (IgniteInternalCheckedException)ex;
+                if (ex instanceof IgniteInternalCheckedException) {
+                    throw (IgniteInternalCheckedException) ex;
+                }
 
                 throw new IgniteInternalCheckedException(ex);
             }
@@ -91,9 +99,11 @@ public class MessageServiceImpl implements MessageService {
     }
 
     /** {@inheritDoc} */
-    @Override public void register(MessageListener lsnr, short type) {
-        if (lsnrs == null)
+    @Override
+    public void register(MessageListener lsnr, short type) {
+        if (lsnrs == null) {
             lsnrs = new HashMap<>();
+        }
 
         MessageListener old = lsnrs.put(type, lsnr);
 
@@ -101,35 +111,33 @@ public class MessageServiceImpl implements MessageService {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean alive(String nodeId) {
+    @Override
+    public boolean alive(String nodeId) {
         return topSrvc.allMembers().stream()
-            .map(ClusterNode::id)
-            .anyMatch(id -> id.equals(nodeId));
+                .map(ClusterNode::id)
+                .anyMatch(id -> id.equals(nodeId));
     }
 
-    /** */
     protected void onMessage(String nodeId, NetworkMessage msg) {
         if (msg instanceof ExecutionContextAwareMessage) {
             ExecutionContextAwareMessage msg0 = (ExecutionContextAwareMessage) msg;
             taskExecutor.execute(msg0.queryId(), msg0.fragmentId(), () -> onMessageInternal(nodeId, msg));
-        }
-        else {
+        } else {
             taskExecutor.execute(
-                QUERY_ID_STUB,
-                ThreadLocalRandom.current().nextLong(1024),
-                () -> onMessageInternal(nodeId, msg)
+                    QUERY_ID_STUB,
+                    ThreadLocalRandom.current().nextLong(1024),
+                    () -> onMessageInternal(nodeId, msg)
             );
         }
     }
 
-    /** */
     private void onMessage(NetworkMessage msg, NetworkAddress addr, String correlationId) {
-        assert msg.groupType() == 3 : "unexpected message group grpType=" + msg.groupType();
+        assert msg.groupType() == GROUP_TYPE : "unexpected message group grpType=" + msg.groupType();
 
         ClusterNode node = topSrvc.getByAddress(addr);
         if (node == null) {
-            LOG.warn("Received a message from a node that has not yet" +
-                    " joined the cluster: addr={}, msg={}", addr, msg);
+            LOG.warn("Received a message from a node that has not yet"
+                    + " joined the cluster: addr={}, msg={}", addr, msg);
 
             return;
         }
@@ -137,7 +145,6 @@ public class MessageServiceImpl implements MessageService {
         onMessage(node.id(), msg);
     }
 
-    /** */
     private void onMessageInternal(String nodeId, NetworkMessage msg) {
         MessageListener lsnr = Objects.requireNonNull(
                 lsnrs.get(msg.messageType()),
@@ -145,5 +152,13 @@ public class MessageServiceImpl implements MessageService {
         );
 
         lsnr.onMessage(nodeId, msg);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void stop() {
+        if (lsnrs != null) {
+            lsnrs.clear();
+        }
     }
 }

@@ -17,9 +17,11 @@
 
 package org.apache.ignite.client.fakes;
 
+import java.util.Collection;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -51,7 +53,7 @@ public class FakeSchemaRegistry implements SchemaRegistry {
     }
 
     /**
-     * Sets the last schema version
+     * Sets the last schema version.
      *
      * @param lastVer Last schema version.
      */
@@ -60,11 +62,14 @@ public class FakeSchemaRegistry implements SchemaRegistry {
     }
 
     /** {@inheritDoc} */
-    @Override @NotNull public SchemaDescriptor schema(int ver) {
+    @Override
+    @NotNull
+    public SchemaDescriptor schema(int ver) {
         SchemaDescriptor desc = schemaCache.get(ver);
 
-        if (desc != null)
+        if (desc != null) {
             return desc;
+        }
 
         desc = history.apply(ver);
 
@@ -74,24 +79,39 @@ public class FakeSchemaRegistry implements SchemaRegistry {
             return desc;
         }
 
-        if (lastVer < ver || ver <= 0)
+        if (lastVer < ver || ver <= 0) {
             throw new SchemaRegistryException("Incorrect schema version requested: ver=" + ver);
-        else
+        } else {
             throw new SchemaRegistryException("Failed to find schema: ver=" + ver);
+        }
     }
 
     /** {@inheritDoc} */
-    @Override public @Nullable SchemaDescriptor schema() {
+    @Override
+    public @Nullable SchemaDescriptor schema() {
         return schema(lastVer);
     }
 
     /** {@inheritDoc} */
-    @Override public int lastSchemaVersion() {
+    @Override public SchemaDescriptor waitLatestSchema() {
+        return schema();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int lastSchemaVersion() {
         return lastVer;
     }
 
     /** {@inheritDoc} */
-    @Override public Row resolve(BinaryRow row) {
-        return new Row(schema(row.schemaVersion()), row);
+    @Override
+    public Row resolve(BinaryRow row) {
+        return row == null ? null : new Row(schema(row.schemaVersion()), row);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Collection<Row> resolve(Collection<BinaryRow> rows) {
+        return rows.stream().map(this::resolve).collect(Collectors.toList());
     }
 }

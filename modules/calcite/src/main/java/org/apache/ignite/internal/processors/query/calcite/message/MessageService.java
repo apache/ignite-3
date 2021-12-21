@@ -17,18 +17,20 @@
 
 package org.apache.ignite.internal.processors.query.calcite.message;
 
+import org.apache.ignite.internal.processors.query.calcite.exec.LifecycleAware;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.network.NetworkMessage;
 
 /**
- *
+ * MessageService interface.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public interface MessageService {
+public interface MessageService extends LifecycleAware {
     /**
      * Sends a message to given node.
      *
      * @param nodeId Node ID.
-     * @param msg Message.
+     * @param msg    Message.
      */
     void send(String nodeId, NetworkMessage msg) throws IgniteInternalCheckedException;
 
@@ -43,7 +45,7 @@ public interface MessageService {
     /**
      * Registers a listener for messages of a given type.
      *
-     * @param lsnr Listener.
+     * @param lsnr  Listener.
      * @param msgId Message id.
      */
     void register(MessageListener lsnr, short msgId);

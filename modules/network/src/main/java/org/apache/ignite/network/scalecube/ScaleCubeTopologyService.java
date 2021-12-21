@@ -14,14 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.network.scalecube;
 
+import io.scalecube.cluster.Cluster;
+import io.scalecube.cluster.Member;
+import io.scalecube.cluster.membership.MembershipEvent;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import io.scalecube.cluster.Member;
-import io.scalecube.cluster.membership.MembershipEvent;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.AbstractTopologyService;
 import org.apache.ignite.network.ClusterNode;
@@ -36,22 +38,21 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(ScaleCubeTopologyService.class);
 
-    /** Local member node. */
-    private ClusterNode localMember;
+    /**
+     * Inner representation of a ScaleCube cluster.
+     */
+    private volatile Cluster cluster;
 
     /** Topology members. */
     private final ConcurrentMap<NetworkAddress, ClusterNode> members = new ConcurrentHashMap<>();
 
     /**
-     * Sets the ScaleCube's local {@link Member}.
+     * Sets the ScaleCube's {@link Cluster}. Needed for cyclic dependency injection.
      *
-     * @param member Local member.
+     * @param cluster Cluster.
      */
-    void setLocalMember(Member member) {
-        localMember = fromMember(member);
-
-        // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
-        onMembershipEvent(MembershipEvent.createAdded(member, null, System.currentTimeMillis()));
+    void setCluster(Cluster cluster) {
+        this.cluster = cluster;
     }
 
     /**
@@ -68,23 +69,32 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
             LOG.info("Node joined: " + member);
 
             fireAppearedEvent(member);
-        }
-        else if (event.isRemoved()) {
-            members.compute(member.address(), // Ignore stale remove event.
-                (k, v) -> v.id().equals(member.id()) ? null : v);
+        } else if (event.isRemoved()) {
+            members.compute(member.address(), (addr, node) -> {
+                // Ignore stale remove event.
+                if (node == null || node.id().equals(member.id())) {
+                    return null;
+                } else {
+                    return node;
+                }
+            });
 
             LOG.info("Node left: " + member);
 
             fireDisappearedEvent(member);
         }
 
-        StringBuilder snapshotMsg = new StringBuilder("Topology snapshot [nodes=").append(members.size()).append("]\n");
+        if (LOG.isInfoEnabled()) {
+            StringBuilder snapshotMsg = new StringBuilder("Topology snapshot [nodes=")
+                    .append(members.size())
+                    .append("]\n");
 
-        for (ClusterNode node : members.values()) {
-            snapshotMsg.append("  ^-- ").append(node).append('\n');
+            for (ClusterNode node : members.values()) {
+                snapshotMsg.append("  ^-- ").append(node).append('\n');
+            }
+
+            LOG.info(snapshotMsg.toString().trim());
         }
-
-        LOG.info(snapshotMsg.toString().trim());
     }
 
     /**
@@ -93,8 +103,9 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      * @param member Appeared cluster member.
      */
     private void fireAppearedEvent(ClusterNode member) {
-        for (TopologyEventHandler handler : getEventHandlers())
+        for (TopologyEventHandler handler : getEventHandlers()) {
             handler.onAppeared(member);
+        }
     }
 
     /**
@@ -103,29 +114,38 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      * @param member Disappeared cluster member.
      */
     private void fireDisappearedEvent(ClusterNode member) {
-        for (TopologyEventHandler handler : getEventHandlers())
+        for (TopologyEventHandler handler : getEventHandlers()) {
             handler.onDisappeared(member);
+        }
     }
 
     /** {@inheritDoc} */
-    @Override public ClusterNode localMember() {
+    @Override
+    public ClusterNode localMember() {
+        Member localMember = cluster.member();
+
         assert localMember != null : "Cluster has not been started";
 
-        return localMember;
+        return fromMember(localMember);
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<ClusterNode> allMembers() {
+    @Override
+    public Collection<ClusterNode> allMembers() {
         return Collections.unmodifiableCollection(members.values());
     }
 
     /** {@inheritDoc} */
-    @Override public ClusterNode getByAddress(NetworkAddress addr) {
+    @Override
+    public ClusterNode getByAddress(NetworkAddress addr) {
         return members.get(addr);
     }
 
     /**
      * Converts the given {@link Member} to a {@link ClusterNode}.
+     *
+     * @param member ScaleCube's cluster member.
+     * @return Cluster node.
      */
     private static ClusterNode fromMember(Member member) {
         var addr = new NetworkAddress(member.address().host(), member.address().port());

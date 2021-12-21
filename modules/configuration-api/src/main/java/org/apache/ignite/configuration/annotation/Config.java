@@ -17,27 +17,28 @@
 
 package org.apache.ignite.configuration.annotation;
 
+import static java.lang.annotation.ElementType.TYPE;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import static java.lang.annotation.ElementType.TYPE;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
 /**
- * This annotation, if applied to a class, marks it as a configuration schema.
- * Annotation processor generates several classes for each configuration schema:
+ * This annotation, if applied to a class, marks it as a configuration schema part. Annotation processor generates
+ * several classes for each configuration schema part:
  * <ul>
- * <li>Config - Represents configuration itself, provides API to init, change and view it. Extends {@code DynamicConfiguration}</li>
+ * <li>Config - Represents configuration itself, provides API to init, change and view it.
+ * Extends {@code DynamicConfiguration}</li>
  * <li>Change - changes config tree</li>
  * <li>View - immutable object to view config tree</li>
  * </ul>
  *
  * <h1 class="header">Example</h1>
- * Here is how to create a root configuration schema:
+ * Here is how to create a configuration schema part:
  * <pre><code>
- * {@literal @}Config(value = "local", root = true)
- * public class LocalConfigurationSchema {
+ * {@literal @}Config
+ * public class SubConfigurationSchema {
  *
  *      {@literal @}Value
  *      public String foo;
@@ -49,8 +50,13 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  *      public SomeOtherConfiguration someOther;
  * }
  * </code></pre>
+ *
+ * <p>The main difference between @{@link ConfigurationRoot} and @{@link Config} is that the former marks schema root,
+ * while the latter is for marking non-root parts of the schema.
+ *
+ * @see ConfigurationRoot
  */
-@Target({ TYPE })
+@Target({TYPE})
 @Retention(RUNTIME)
 @Documented
 public @interface Config {

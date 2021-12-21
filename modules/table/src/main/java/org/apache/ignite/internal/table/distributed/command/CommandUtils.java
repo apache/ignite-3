@@ -25,11 +25,13 @@ import java.util.Collection;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * This is an utility class for serialization cache tuples. It will be removed after another way for serialization is
- * implemented into the network layer.
+ * This is an utility class for serialization cache tuples. It will be removed after another way for serialization is implemented into the
+ * network layer.
  * TODO: Remove it after (IGNITE-14793)
  */
 public class CommandUtils {
@@ -39,72 +41,70 @@ public class CommandUtils {
     /**
      * Writes a list of rows to byte array.
      *
-     * @param rows Collection of rows.
-     * @param consumer Byte array consumer.
+     * @param rows     Collection of rows.
+     * @return         Rows data.
      */
-    public static void rowsToBytes(Collection<BinaryRow> rows, Consumer<byte[]> consumer) {
-        if (rows == null || rows.isEmpty())
-            return;
+    public static byte[] rowsToBytes(Collection<BinaryRow> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return null;
+        }
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             for (BinaryRow row : rows) {
-                rowToBytes(row, bytes -> {
-                    try {
-                        baos.write(intToBytes(bytes.length));
+                if (row == null) {
+                    baos.write(intToBytes(0));
+                } else {
+                    byte[] bytes = rowToBytes(row);
 
-                        baos.write(bytes);
-                    }
-                    catch (IOException e) {
-                        LOG.error("Could not write row to stream [row=" + row + ']', e);
-                    }
-
-                });
+                    baos.write(intToBytes(bytes.length));
+                    baos.write(bytes);
+                }
             }
 
             baos.flush();
 
-            consumer.accept(baos.toByteArray());
-        }
-        catch (IOException e) {
+            return baos.toByteArray();
+        } catch (IOException e) {
             LOG.error("Could not write rows to stream [rows=" + rows.size() + ']', e);
 
-            consumer.accept(null);
+            throw new IgniteInternalException(e);
         }
     }
 
     /**
      * Writes a row to byte array.
      *
-     * @param row Row.
-     * @param consumer Byte array consumer.
+     * @param row      Row.
+     * @return         Row bytes.
      */
-    public static void rowToBytes(BinaryRow row, Consumer<byte[]> consumer) {
-        if (row == null)
-            return;
+    public static byte[] rowToBytes(@Nullable BinaryRow row) {
+        if (row == null) {
+            return null;
+        }
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             row.writeTo(baos);
 
             baos.flush();
 
-            consumer.accept(baos.toByteArray());
-        }
-        catch (IOException e) {
+            return baos.toByteArray();
+        } catch (IOException e) {
             LOG.error("Could not write row to stream [row=" + row + ']', e);
 
-            consumer.accept(null);
+            throw new IgniteInternalException(e);
         }
     }
 
     /**
      * Reads the keys from a byte array.
      *
-     * @param bytes Byte array.
+     * @param bytes    Byte array.
      * @param consumer Consumer for binary row.
      */
     public static void readRows(byte[] bytes, Consumer<BinaryRow> consumer) {
-        if (bytes == null || bytes.length == 0)
+        if (bytes == null || bytes.length == 0) {
             return;
+        }
 
         try (ByteArrayInputStream bais = new ByteArrayInputStream(bytes)) {
             byte[] lenBytes = new byte[4];
@@ -118,7 +118,11 @@ public class CommandUtils {
 
                 int len = bytesToInt(lenBytes);
 
-                assert len > 0;
+                if (len == 0) {
+                    consumer.accept(null);
+
+                    continue;
+                }
 
                 rowBytes = new byte[len];
 
@@ -128,8 +132,7 @@ public class CommandUtils {
 
                 consumer.accept(new ByteBufferRow(rowBytes));
             }
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             LOG.error("Could not read rows from stream.", e);
         }
     }
