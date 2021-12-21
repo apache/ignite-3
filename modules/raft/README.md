@@ -18,7 +18,7 @@ When using many groups it's recommended to use shared mode, otherwise, threads c
 
 Shared pools can be passed to `NodeOptions` as parameter values.
 
-Currently following pools are used:
+Currently, the following pools are used:
 
 ### JRaft-Common-Executor
 A pool for processing short-lived asynchronous tasks.
