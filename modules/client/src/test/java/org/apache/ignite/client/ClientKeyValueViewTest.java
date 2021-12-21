@@ -430,7 +430,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     public void testRemoveAll() {
         KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.putAll(Map.of(1L, "1",2L, "2", 3L, "3"));
+        pojoView.putAll(Map.of(1L, "1", 2L, "2", 3L, "3"));
 
         Collection<Long> res1 = pojoView.removeAll(List.of(10L, 20L));
         Collection<Long> res2 = pojoView.removeAll(List.of(1L, 3L));
