@@ -40,6 +40,10 @@ public class Serialization {
      * @param hasReadResolve           whether a Serializable/Externalizable has readResolve() method
      */
     public Serialization(SerializationType type, boolean hasSerializationOverride, boolean hasWriteReplace, boolean hasReadResolve) {
+        assert type == SerializationType.SERIALIZABLE
+                || (type == SerializationType.EXTERNALIZABLE && !hasSerializationOverride)
+                || (!hasSerializationOverride && !hasWriteReplace && !hasReadResolve);
+
         this.type = type;
         this.hasSerializationOverride = hasSerializationOverride;
         this.hasWriteReplace = hasWriteReplace;

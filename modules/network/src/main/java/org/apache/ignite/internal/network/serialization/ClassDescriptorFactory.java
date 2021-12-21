@@ -37,6 +37,9 @@ import org.jetbrains.annotations.Nullable;
  * Class descriptor factory for the user object serialization.
  */
 public class ClassDescriptorFactory {
+    /** Means that no serialization override is present; used for readability instead of {@code false}. */
+    private static final boolean NO_SERIALIZATION_OVERRIDE = false;
+
     /**
      * Factory context.
      */
@@ -124,7 +127,7 @@ public class ClassDescriptorFactory {
                 Collections.emptyList(),
                 new Serialization(
                         SerializationType.EXTERNALIZABLE,
-                        hasOverrideSerialization(clazz),
+                        NO_SERIALIZATION_OVERRIDE,
                         hasWriteReplace(clazz),
                         hasReadResolve(clazz)
                 )
