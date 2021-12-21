@@ -25,7 +25,6 @@ import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.lang.reflect.Method;
 import java.util.List;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
@@ -37,6 +36,8 @@ import org.apache.ignite.internal.network.serialization.ClassDescriptorFactoryCo
 public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     private final ClassDescriptorFactoryContext descriptorRegistry;
     private final ClassDescriptorFactory descriptorFactory;
+
+    private final SpecialSerializationMethodsCache serializationMethodsCache = new SpecialSerializationMethodsCache();
 
     public DefaultUserObjectMarshaller(ClassDescriptorFactoryContext descriptorRegistry, ClassDescriptorFactory descriptorFactory) {
         this.descriptorRegistry = descriptorRegistry;
@@ -79,7 +80,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         final Object objectToWrite;
         if ((descriptor.isSerializable() || descriptor.isExternalizable()) && descriptor.hasWriteReplace()) {
             // TODO: IGNITE-16155 what if non-Externalizable is returned?
-            objectToWrite = applyWriteReplace(object);
+            objectToWrite = applyWriteReplace(object, descriptor);
         } else {
             objectToWrite = object;
         }
@@ -91,22 +92,8 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         }
     }
 
-    private Object applyWriteReplace(Object object) throws MarshalException {
-        Method writeReplaceMethod;
-        try {
-            writeReplaceMethod = object.getClass().getDeclaredMethod("writeReplace");
-        } catch (NoSuchMethodException e) {
-            throw new MarshalException("writeReplace() was not found on " + object.getClass()
-                    + " even though the descriptor says the class has the method", e);
-        }
-
-        writeReplaceMethod.setAccessible(true);
-
-        try {
-            return writeReplaceMethod.invoke(object);
-        } catch (ReflectiveOperationException e) {
-            throw new MarshalException("writeReplace() invocation failed on " + object, e);
-        }
+    private Object applyWriteReplace(Object object, ClassDescriptor descriptor) throws MarshalException {
+        return serializationMethodsCache.methodsFor(descriptor).writeReplace(object);
 
         // TODO: IGNITE-16155 what if null is returned?
     }
@@ -144,7 +131,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
                 Object readObject = readExternalizable(descriptor, dis);
                 Object resultObject;
                 if (descriptor.hasReadResolve()) {
-                    resultObject = applyReadResolve(readObject);
+                    resultObject = applyReadResolve(readObject, descriptor);
                 } else {
                     resultObject = readObject;
                 }
@@ -186,22 +173,8 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         }
     }
 
-    private Object applyReadResolve(Object object) throws UnmarshalException {
-        Method readResolveMethod;
-        try {
-            readResolveMethod = object.getClass().getDeclaredMethod("readResolve");
-        } catch (NoSuchMethodException e) {
-            throw new UnmarshalException("readResolve() was not found on " + object.getClass()
-                    + " even though the descriptor says the class has the method", e);
-        }
-
-        readResolveMethod.setAccessible(true);
-
-        try {
-            return readResolveMethod.invoke(object);
-        } catch (ReflectiveOperationException e) {
-            throw new UnmarshalException("readResolve() invocation failed on " + object, e);
-        }
+    private Object applyReadResolve(Object object, ClassDescriptor descriptor) throws UnmarshalException {
+        return serializationMethodsCache.methodsFor(descriptor).readResolve(object);
 
         // TODO: IGNITE-16155 what if null is returned?
     }
