@@ -24,7 +24,7 @@ import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 /**
  * Caches {@link SpecialSerializationMethods} per class descriptor.
  */
-public class SpecialSerializationMethodsCache {
+class SpecialSerializationMethodsCache {
     private final ConcurrentMap<Integer, SpecialSerializationMethods> methodsMap = new ConcurrentHashMap<>();
 
     public SpecialSerializationMethods methodsFor(ClassDescriptor descriptor) {
