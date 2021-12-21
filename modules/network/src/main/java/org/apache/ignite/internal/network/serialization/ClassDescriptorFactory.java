@@ -122,8 +122,12 @@ public class ClassDescriptorFactory {
                 clazz,
                 descriptorId,
                 Collections.emptyList(),
-                new Serialization(SerializationType.EXTERNALIZABLE,
-                        hasOverrideSerialization(clazz), hasWriteReplace(clazz), hasReadResolve(clazz))
+                new Serialization(
+                        SerializationType.EXTERNALIZABLE,
+                        hasOverrideSerialization(clazz),
+                        hasWriteReplace(clazz),
+                        hasReadResolve(clazz)
+                )
         );
     }
 
