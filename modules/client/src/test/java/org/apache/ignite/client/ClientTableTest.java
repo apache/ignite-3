@@ -378,7 +378,7 @@ public class ClientTableTest extends AbstractClientTableTest {
     public void testColumnTypeMismatchThrowsException() {
         var tuple = Tuple.create().set("id", "str");
 
-        var ex = assertThrows(CompletionException.class, () -> defaultTable().recordView().upsert(tuple));
+        var ex = assertThrows(CompletionException.class, () -> defaultTable().recordView().upsert(null, tuple));
 
         assertTrue(ex.getMessage().contains("Incorrect value type for column 'id': Expected Integer, but got String"), ex.getMessage());
     }
