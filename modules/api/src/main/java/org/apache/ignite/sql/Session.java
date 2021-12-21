@@ -28,71 +28,86 @@ import org.jetbrains.annotations.Nullable;
  * SQL Session provides methods for query execution.
  */
 public interface Session extends AsyncSession, ReactiveSession {
+    /** Default schema name. */
+    String DEFAULT_SCHEMA = "PUBLIC";
+
     /**
      * Sets default query timeout.
      *
-     * @param timeout  Query timeout value.
+     * @param timeout Query timeout value.
      * @param timeUnit Timeunit.
      */
-    void defaultTimeout(long timeout, TimeUnit timeUnit);
+    void defaultTimeout(long timeout, @NotNull TimeUnit timeUnit);
 
     /**
-     * Gets default query timeout.
+     * Return default query timeout.
      *
-     * @param timeUnit Timeunit.
-     * @return Default query timeout.
+     * @param timeUnit Timeunit to convert timeout to.
+     * @return Default query timeout in the given timeunit.
      */
-    long defaultTimeout(TimeUnit timeUnit);
+    long defaultTimeout(@NotNull TimeUnit timeUnit);
 
     /**
-     * Sets default query schema.
+     * Sets default schema for the session, which the queries will be executed with. The default schema is used for query planning to
+     * resolve table names to their canonical names.
      *
      * @param schema Default schema.
      */
     void defaultSchema(@NotNull String schema);
 
     /**
-     * Gets default query schema.
+     * Returns session default schema.
      *
-     * @return Default query schema.
+     * <p>Default value is {@link #DEFAULT_SCHEMA}.
+     *
+     * @return Session default schema.
+     * @see #defaultSchema(String)
      */
-    String defaultSchema();
+    @NotNull String defaultSchema();
 
     /**
      * Executes single SQL query.
      *
      * @param transaction Transaction to execute the query within or {@code null}.
-     * @param query       SQL query template.
-     * @param arguments   Arguments for the template (optional).
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
      * @return SQL query results set.
      * @throws SqlException If failed.
      */
-    ResultSet execute(@Nullable Transaction transaction, @NotNull String query, Object... arguments);
+    @NotNull ResultSet execute(@Nullable Transaction transaction, @NotNull String query, @Nullable Object... arguments);
 
     /**
      * Executes single SQL statement.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param statement   SQL statement to execute.
+     * @param statement SQL statement to execute.
      * @return SQL query results set.
      */
-    ResultSet execute(@Nullable Transaction transaction, @NotNull Statement statement);
+    @NotNull ResultSet execute(@Nullable Transaction transaction, @NotNull Statement statement);
 
     /**
-     * Executes multi-statement non-transactional SQL query.
+     * Executes multi-statement SQL query.
      *
-     * @param query     SQL query template.
+     * @param query SQL query template.
      * @param arguments Arguments for the template (optional).
      * @throws SqlException If failed.
      */
-    void executeScript(@NotNull String query, Object... arguments);
+    void executeScript(@NotNull String query, @Nullable Object... arguments);
 
     /**
      * Sets session property.
      *
-     * @param name  Property name.
+     * @param name Property name.
      * @param value Property value.
      * @return {@code this} for chaining.
      */
-    Session property(@NotNull String name, Object value);
+    Session property(@NotNull String name, @Nullable Object value);
+
+    /**
+     * Returns session property.
+     *
+     * @param name Property name.
+     * @return Property value.
+     */
+    @Nullable Object property(@NotNull String name);
 }

@@ -25,12 +25,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SqlException extends IgniteException {
     /**
-     * Creates an empty exception.
-     */
-    public SqlException() {
-    }
-
-    /**
      * Creates a new exception with the given error message.
      *
      * @param msg Error message.
@@ -51,7 +45,7 @@ public class SqlException extends IgniteException {
     /**
      * Creates a new exception with the given error message and optional nested exception.
      *
-     * @param msg   Error message.
+     * @param msg Error message.
      * @param cause Optional nested exception (can be {@code null}).
      */
     public SqlException(String msg, @Nullable Throwable cause) {

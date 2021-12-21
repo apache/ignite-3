@@ -18,45 +18,63 @@
 package org.apache.ignite.sql.async;
 
 import java.util.concurrent.CompletionStage;
+import org.apache.ignite.sql.NoRowSetExpectedException;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 
 /**
- * Asynchronous result set.
+ * Asynchronous result set provides methods for query results processing in asynchronous way.
+ *
+ * @see ResultSet
  */
 public interface AsyncResultSet {
     /**
-     * Returns metadata for the results.
+     * Returns metadata for the results if the result contains rows ({@link #hasRowSet()} returns {@code true}).
      *
      * @return ResultSet metadata.
+     * @see ResultSet#metadata()
      */
     ResultSetMetadata metadata();
 
     /**
-     * Returns whether the result set contains rows (SELECT query result), or not (for query of DML, DDL or other kind).
+     * Returns whether the result of the query execution is a collection of rows, or not.
      *
-     * @return {@code True} if result set contains rows, {@code false} otherwise.
+     * <p>Note: when returns {@code false}, then calling {@link #currentPage()} will failed, and either {@link #updateCount()} return
+     * number of affected rows or {@link #applied()} returns {@code true}.
+     *
+     * @return {@code True} if the query returns rows, {@code false} otherwise.
      */
     boolean hasRowSet();
 
     /**
-     * Returns number of row affected by DML query.
+     * Returns number of rows affected by the query or {@code -1} if inapplicable.
      *
-     * @return Number of rows.
+     * <p>Note: when returns {@code -1}, then either {@link #hasRowSet()} or {@link #applied()} returns {@code true}.
+     *
+     * @return Number of rows or {@code -1} if inapplicable.
+     * @see ResultSet#updateCount()
      */
     int updateCount();
 
     /**
-     * Returns result for the conditional query.
+     * Returns whether the query that produce this result was a conditional query, or not. E.g. for the query "Create table if not exists"
+     * the method returns {@code true} when an operation was applied successfully, and {@code false} when an operation was ignored due to
+     * table was already existed.
+     *
+     * <p>Note: when returns {@code false}, then either {@link #updateCount()} return number of affected rows or {@link #hasRowSet()}
+     * returns {@code true}.
      *
      * @return {@code True} if conditional query applied, {@code false} otherwise.
+     * @see ResultSet#applied()
      */
-    boolean wasApplied();
+    boolean applied();
 
     /**
-     * Returns the current page content.
+     * Returns the current page content if the query return rows.
      *
      * @return Iterable over rows.
+     * @throws NoRowSetExpectedException if no row set is expected as a query result.
      */
     Iterable<SqlRow> currentPage();
 
@@ -64,8 +82,9 @@ public interface AsyncResultSet {
      * Fetch the next page of results asynchronously.
      *
      * @return Operation future.
+     * @throws NoRowSetExpectedException if no row set is expected as a query result.
      */
-    CompletionStage<? extends AsyncResultSet> fetchNextPageAsync();
+    CompletionStage<? extends AsyncResultSet> fetchNextPage();
 
     /**
      * Returns whether there are more pages of results.

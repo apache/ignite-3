@@ -17,38 +17,53 @@
 
 package org.apache.ignite.sql;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * SQL result set provides methods to access SQL query result represented as collection of {@link SqlRow}.
  *
  * <p>All the rows in result set have the same structure described in {@link ResultSetMetadata}.
  * ResultSet must be closed after usage to free resources.
+ *
+ * <p>Note: one and only one of following is possible: {@link #hasRowSet()} returns {@code true}, or {@link #applied()} returns
+ * {@code true}, or {@link #updateCount()} return zero or higher value.
  */
 public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
     /**
-     * Returns metadata for the results.
+     * Returns metadata for the results if the result contains rows ({@link #hasRowSet()} returns {@code true}).
      *
-     * @return ResultSet metadata.
+     * @return ResultSet metadata or {@code null} if inapplicable.
      */
-    ResultSetMetadata metadata();
+    @Nullable ResultSetMetadata metadata();
 
     /**
-     * Returns whether the result set contains rows (SELECT query result), or not (for query of DML, DDL or other kind).
+     * Returns whether the result of the query execution is a collection of rows, or not.
      *
-     * @return {@code True} if result set contains rows, {@code false} otherwise.
+     * <p>Note: when returns {@code false}, then calling {@link #iterator()} will failed, and either {@link #updateCount()} return number
+     * of affected rows or {@link #applied()} returns {@code true}.
+     *
+     * @return {@code True} if the query returns rows, {@code false} otherwise.
      */
     boolean hasRowSet();
 
     /**
-     * Returns number of row affected by the query.
+     * Returns number of rows affected by the query or {@code -1} if inapplicable.
      *
-     * @return Number of rows or {@code -1} if unapplicable.
+     * <p>Note: when returns {@code -1}, then either {@link #hasRowSet()} or {@link #applied()} returns {@code true}.
+     *
+     * @return Number of rows or {@code -1} if inapplicable.
      */
     int updateCount();
 
     /**
-     * Returns result for the conditional query.
+     * Returns whether the query that produce this result was a conditional query, or not. E.g. for the query "Create table if not exists"
+     * the method returns {@code true} when an operation was applied successfully, and {@code false} when an operation was ignored due to
+     * table was already existed.
+     *
+     * <p>Note: when returns {@code false}, then either {@link #updateCount()} return number of affected rows or {@link #hasRowSet()}
+     * returns {@code true}.
      *
      * @return {@code True} if conditional query applied, {@code false} otherwise.
      */
-    boolean wasApplied();
+    boolean applied();
 }

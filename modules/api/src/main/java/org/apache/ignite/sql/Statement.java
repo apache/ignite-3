@@ -18,6 +18,8 @@
 package org.apache.ignite.sql;
 
 import java.util.concurrent.TimeUnit;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The object represents parameterized SQL query statement that supports batched query, and provides methods for managing it`s state.
@@ -28,14 +30,14 @@ public interface Statement {
      *
      * @return SQL statement string.
      */
-    String query();
+    @NotNull String query();
 
     /**
-     * Returns SQL statement parameters.
+     * Returns current statement parameters.
      *
-     * @return SQL statement parameters.
+     * @return Current statement parameters.
      */
-    Object[] parameters();
+    @Nullable Object[] parameters();
 
     /**
      * Sets SQL statement parameters.
@@ -43,7 +45,7 @@ public interface Statement {
      * @param parameters SQL statement parameters.
      * @return {@code this} for chaining.
      */
-    Statement parameters(Object... parameters);
+    @NotNull Statement parameters(@Nullable Object... parameters);
 
     /**
      * Sets SQL statement parameter value by the parameter index.
@@ -52,35 +54,35 @@ public interface Statement {
      * @param value Parameter value.
      * @return {@code this} for chaining.
      */
-    Statement parameter(int index, Object value);
+    Statement parameter(int index, @Nullable Object value);
 
     /**
-     * Resets batch state and clears query parameters.
+     * Clears current query parameters. Also, reset batch state if it is a batched query.
      *
      * @return {@code this} for chaining.
      */
     Statement resetState();
 
     /**
-     * Adds a set of parameters to this statement object's batch of commands.
+     * Adds a copy of current set of parameters to this statement object's batch of commands, then clears current parameters.
      *
      * @return {@code this} for chaining.
      */
-    Statement addBatch() throws SqlException;
+    Statement addToBatch() throws SqlException;
 
     /**
      * Sets query timeout.
      *
-     * @param timeout  Query timeout value.
+     * @param timeout Query timeout value.
      * @param timeUnit Timeunit.
      */
-    void queryTimeout(long timeout, TimeUnit timeUnit);
+    void queryTimeout(long timeout, @NotNull TimeUnit timeUnit);
 
     /**
-     * Gets query timeout.
+     * Returns query timeout.
      *
-     * @param timeUnit Timeunit.
-     * @return Query timeout.
+     * @param timeUnit Timeunit to convert timeout to.
+     * @return Query timeout in the given timeunit.
      */
-    long queryTimeout(TimeUnit timeUnit);
+    long queryTimeout(@NotNull TimeUnit timeUnit);
 }

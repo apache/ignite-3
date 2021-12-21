@@ -17,39 +17,18 @@
 
 package org.apache.ignite.sql;
 
-import java.util.List;
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * ResultSet metadata.
+ * Exception is thrown when the query doesn't intend to return any rows. E.g. DML or DDL queries.
  */
-public interface ResultSetMetadata {
+public class NoRowSetExpectedException extends IgniteException {
     /**
-     * Returns number of columns that every row in a result set contains.
+     * Creates an exception.
      *
-     * @return Number of columns.
+     * @param msg Message.
      */
-    int columnsCount();
-
-    /**
-     * Returns metadata with description for every column in result set.
-     *
-     * @return Columns metadata.
-     */
-    List<ColumnMetadata> columns();
-
-    /**
-     * Returns metadata for the requested column.
-     *
-     * @param columnIndex Column index in columns list.
-     * @return Column metadata.
-     */
-    ColumnMetadata column(int columnIndex);
-
-    /**
-     * Returns column index in columns list by given column name.
-     *
-     * @param columnName Columns name which index is resolving.
-     * @return Column index.
-     */
-    int indexOf(String columnName);
+    public NoRowSetExpectedException(String msg) {
+        super(msg);
+    }
 }

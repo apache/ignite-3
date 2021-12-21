@@ -28,12 +28,15 @@ import org.jetbrains.annotations.Nullable;
  * Async Session provides methods for asynchronous query execution.
  */
 public interface AsyncSession {
+    /** Default maximal number of rows in a single page. */
+    int DEFAULT_PAGE_SIZE = 1024;
+
     /**
      * Executes SQL query in async way.
      *
      * @param transaction Transaction to execute the query within or {@code null}.
-     * @param query       SQL query template.
-     * @param arguments   Arguments for the template (optional).
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
      * @return Operation future.
      * @throws SqlException If failed.
      */
@@ -44,9 +47,26 @@ public interface AsyncSession {
      * Executes SQL statement in async way.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param statement   SQL statement to execute.
+     * @param statement SQL statement to execute.
      * @return Operation future.
      * @throws SqlException If failed.
      */
     CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, @NotNull Statement statement);
+
+    /**
+     * Sets default page size for async queries.
+     *
+     * @param pageSize Maximal number of rows in a page.
+     * @return {@code this} for chaining.
+     */
+    AsyncSession pageSize(int pageSize);
+
+    /**
+     * Gets default page size for async queries.
+     *
+     * <p>Default value is {@link #DEFAULT_PAGE_SIZE}.
+     *
+     * @return Maximal number of rows in a page.
+     */
+    int pageSize();
 }

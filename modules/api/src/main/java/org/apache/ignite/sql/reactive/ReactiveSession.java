@@ -31,8 +31,8 @@ public interface ReactiveSession {
      * Executes SQL query in reactive way.
      *
      * @param transaction Transaction to execute the query within or {@code null}.
-     * @param query       SQL query template.
-     * @param arguments   Arguments for the template (optional).
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
      * @return Reactive result.
      * @throws SqlException If failed.
      */
@@ -43,7 +43,7 @@ public interface ReactiveSession {
      * Executes SQL query in reactive way.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param statement   SQL statement.
+     * @param statement SQL statement.
      * @return Reactive result.
      * @throws SqlException If failed.
      */

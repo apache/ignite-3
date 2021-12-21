@@ -18,6 +18,7 @@
 package org.apache.ignite.sql.reactive;
 
 import java.util.concurrent.Flow;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 
@@ -25,33 +26,44 @@ import org.apache.ignite.sql.SqlRow;
  * Reactive result set provides methods to subscribe to the query results in reactive way.
  *
  * <p>Note: It implies to be used with the reactive framework such as ProjectReactor or R2DBC.
+ * @see ResultSet
  */
 public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
     /**
-     * Return publisher for the ResultSet's metadata.
+     * Returns metadata for the results if the result contains rows ({@link #hasRowSet()} returns {@code true}).
      *
      * @return Metadata publisher.
+     * @see ResultSet#metadata()
      */
     Flow.Publisher<ResultSetMetadata> metadata();
 
     /**
-     * Returns whether the result set contains rows (SELECT query result), or not (for query of DML, DDL or other kind).
+     * Returns publisher for the flag that determines whether the result of the query execution is a collection of rows, or not.
      *
-     * @return {@code True} if result set contains rows, {@code false} otherwise.
+     * Note: {@code false} value published means the query either is conditional or is an update query.
+     *
+     * @return HasRowSet flag Publisher.
+     * @see ResultSet#hasRowSet()
      */
     Flow.Publisher<Boolean> hasRowSet();
 
     /**
-     * Returns number of row affected by DML query.
+     * Returns publisher for the number of rows affected by the query.
      *
-     * @return Number of rows.
+     * Note: Number of row equals to {@code -1} means method is inapplicable, and the query either is conditional or returns rows.
+     *
+     * @return Publisher for number of rows.
+     * @see ResultSet#updateCount()
      */
     Flow.Publisher<Integer> updateCount();
 
     /**
-     * Returns result for the conditional query.
+     * Returns publisher for a flag which determines whether the query that produce this result was a conditional query, or not.
      *
-     * @return {@code True} if conditional query applied, {@code false} otherwise.
+     * Note: {@code false} value published means the query either returns rows or is an update query.
+     *
+     * @return AppliedFlag Publisher.
+     * @see ResultSet#applied()
      */
-    Flow.Publisher<Boolean> wasApplied();
+    Flow.Publisher<Boolean> applied();
 }

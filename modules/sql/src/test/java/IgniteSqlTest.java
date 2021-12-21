@@ -80,7 +80,7 @@ public class IgniteSqlTest {
     @Test
     public void testSyncSql() {
         igniteTx.runInTransaction(tx -> {
-            Session sess = queryMgr.newSession();
+            Session sess = queryMgr.createSession();
 
             sess.defaultTimeout(10_000, TimeUnit.MILLISECONDS); // Set default timeout.
             sess.property("memoryQuota", 10 * Constants.MiB); // Set default quota.
@@ -108,7 +108,7 @@ public class IgniteSqlTest {
     public void testSyncSql2() {
         RecordView<Tuple> tbl = getTable();
 
-        Session sess = queryMgr.newSession();
+        Session sess = queryMgr.createSession();
 
         // Execute outside TX.
         ResultSet rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id < {};", 10);
@@ -126,7 +126,7 @@ public class IgniteSqlTest {
 
     @Test
     public void testSyncMultiStatementSql() {
-        Session sess = queryMgr.newSession();
+        Session sess = queryMgr.createSession();
 
         sess.executeScript(
                 "CREATE TABLE tbl(id INTEGER PRIMARY KEY, val VARCHAR);"
@@ -140,15 +140,15 @@ public class IgniteSqlTest {
     public void testStatement() {
         igniteTx.runInTransaction(tx -> {
             // Do the same as query "INSERT INTO tbl VALUES (1, "string 1") (2, "string 2) ... (5, "string 5");"
-            final Statement stmt = queryMgr.newStatement("INSERT INTO tbl VALUES (?, ?)");
+            final Statement stmt = queryMgr.createStatement("INSERT INTO tbl VALUES (?, ?)");
 
-            stmt.parameters(1, "string 1").addBatch();
-            stmt.parameters(2, "string 2").addBatch();
-            stmt.parameters(3, "string 3").addBatch();
-            stmt.parameters(4, "string 4").addBatch();
+            stmt.parameters(1, "string 1").addToBatch();
+            stmt.parameters(2, "string 2").addToBatch();
+            stmt.parameters(3, "string 3").addToBatch();
+            stmt.parameters(4, "string 4").addToBatch();
             stmt.parameters(5, "string 5");
 
-            final ResultSet rs = queryMgr.newSession().execute(tx, stmt);
+            final ResultSet rs = queryMgr.createSession().execute(tx, stmt);
 
             assertEquals(5, rs.updateCount());
 
@@ -172,7 +172,7 @@ public class IgniteSqlTest {
                 }
 
                 if (rs.hasMorePages()) {
-                    return rs.fetchNextPageAsync().thenCompose(this);
+                    return rs.fetchNextPage().thenCompose(this);
                 }
 
                 return CompletableFuture.completedFuture(rs);
@@ -180,7 +180,7 @@ public class IgniteSqlTest {
         }
 
         igniteTx.beginAsync()
-                .thenCompose(tx0 -> queryMgr.newSession()
+                .thenCompose(tx0 -> queryMgr.createSession()
                                             .executeAsync(tx0, "SELECT val FROM tbl where val LIKE {};", "val%")
                                             .thenCompose(new AsyncPageProcessor())
                                             .thenApply(ignore -> tx0.commitAsync())
@@ -199,7 +199,7 @@ public class IgniteSqlTest {
         });
 
         igniteTx.beginAsync().thenApply(tx -> {
-            final Session session = queryMgr.newSession();
+            final Session session = queryMgr.createSession();
 
             session.executeReactive(
                     tx, "SELECT id, val FROM tbl WHERE id < {} AND val LIKE {};", 10,
@@ -219,7 +219,7 @@ public class IgniteSqlTest {
     @Disabled
     @Test
     public void testMetadata() {
-        ResultSet rs = queryMgr.newSession()
+        ResultSet rs = queryMgr.createSession()
                                .execute(null, "SELECT id, val FROM tbl WHERE id < {} AND val LIKE {}; ", 10,
                                        "str%");
 
@@ -265,7 +265,7 @@ public class IgniteSqlTest {
     private void initMock() {
         Session session = Mockito.mock(Session.class);
 
-        Mockito.when(queryMgr.newSession()).thenReturn(session);
+        Mockito.when(queryMgr.createSession()).thenReturn(session);
 
         List<SqlRow> query1Resuls = List.of(
                 new TestRow().set("id", 1L).set("val", "string 1").build(),
@@ -304,7 +304,7 @@ public class IgniteSqlTest {
                     AsyncResultSet page1 = Mockito.mock(AsyncResultSet.class);
                     Mockito.when(page1.currentPage()).thenReturn(query1Resuls);
                     Mockito.when(page1.hasMorePages()).thenReturn(true);
-                    Mockito.when(page1.fetchNextPageAsync())
+                    Mockito.when(page1.fetchNextPage())
                             .thenReturn((CompletionStage) CompletableFuture.completedFuture(page2));
 
                     return CompletableFuture.completedFuture(page1);

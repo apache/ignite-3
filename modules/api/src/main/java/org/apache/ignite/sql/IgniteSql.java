@@ -26,16 +26,16 @@ public interface IgniteSql {
     /**
      * Creates SQL session.
      *
-     * @return Session.
+     * @return A new session.
      */
-    Session newSession();
+    Session createSession();
 
     /**
      * Creates statement.
      *
      * @param sql SQL query template.
-     * @return Prepared statement.
+     * @return A new statement.
      * @throws SqlException If parsing failed.
      */
-    Statement newStatement(@NotNull String sql);
+    Statement createStatement(@NotNull String sql);
 }
