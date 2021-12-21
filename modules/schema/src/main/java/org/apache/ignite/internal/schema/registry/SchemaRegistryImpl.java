@@ -152,8 +152,9 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         List<Row> rows = new ArrayList<>(binaryRows.size());
 
         for (BinaryRow r : binaryRows) {
-            if (r != null)
+            if (r != null) {
                 rows.add(resolveInternal(r, curSchema));
+            }
         }
 
         return rows;
@@ -174,7 +175,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
             return null;
         } else if (curSchema == null) {
             throw new SchemaRegistryException("No schema found for the row: schemaVersion=" + row.schemaVersion());
-        } else  if (curSchema.version() == row.schemaVersion()) {
+        } else if (curSchema.version() == row.schemaVersion()) {
             return new Row(curSchema, row);
         }
 
@@ -223,7 +224,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      *
      * @param desc Schema descriptor.
      * @throws SchemaRegistrationConflictException If schema of provided version was already registered.
-     * @throws SchemaRegistryException             If schema of incorrect version provided.
+     * @throws SchemaRegistryException If schema of incorrect version provided.
      */
     public void onSchemaRegistered(SchemaDescriptor desc) {
         if (lastVer == INITIAL_SCHEMA_VERSION) {
