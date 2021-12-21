@@ -7,7 +7,7 @@ This module contains a fork of a JRaft project <sup id="a1">[1](#f1)</sup>
 The main entry point is `JRaftServerImpl`, which starts server node for handling RAFT messages.
 Responsble for managing one or many RAFT replication groups, see `NodeImpl`.
 
-A RAFT node represents a single group node, which can be voting or non voring (so called learner).
+A RAFT node represents a single group node, which can be voting or non-voting (so called learner).
 
 ## Threading model
 
