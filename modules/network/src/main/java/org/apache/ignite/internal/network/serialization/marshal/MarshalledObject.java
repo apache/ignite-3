@@ -27,7 +27,10 @@ import org.apache.ignite.internal.network.serialization.ClassDescriptor;
  * (including what descriptors were used when marshalling it).
  */
 public class MarshalledObject {
+    /** Marshalled object representation. */
     private final byte[] bytes;
+
+    /** The descriptors that were used while marshalling the object. */
     private final List<ClassDescriptor> usedDescriptors;
 
     /**
@@ -44,10 +47,20 @@ public class MarshalledObject {
         this.usedDescriptors = List.copyOf(usedDescriptors);
     }
 
+    /**
+     * Returns marshalled object representation.
+     *
+     * @return marshalled object representation
+     */
     public byte[] bytes() {
         return Arrays.copyOf(bytes, bytes.length);
     }
 
+    /**
+     * Returns the descriptors that were used while marshalling the object.
+     *
+     * @return the descriptors that were used while marshalling the object
+     */
     public List<ClassDescriptor> usedDescriptors() {
         return usedDescriptors;
     }
