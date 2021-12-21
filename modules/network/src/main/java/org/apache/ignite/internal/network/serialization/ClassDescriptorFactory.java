@@ -164,8 +164,13 @@ public class ClassDescriptorFactory {
      */
     private ClassDescriptor serializable(int descriptorId, Class<? extends Serializable> clazz) {
         return new ClassDescriptor(clazz, descriptorId, fields(clazz),
-                new Serialization(SerializationType.SERIALIZABLE,
-                        hasOverrideSerialization(clazz), hasWriteReplace(clazz), hasReadResolve(clazz)));
+                new Serialization(
+                        SerializationType.SERIALIZABLE,
+                        hasOverrideSerialization(clazz),
+                        hasWriteReplace(clazz),
+                        hasReadResolve(clazz)
+                )
+        );
     }
 
     private boolean hasReadResolve(Class<? extends Serializable> clazz) {
