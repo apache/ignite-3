@@ -117,14 +117,6 @@ class ClientRecordSerializer<R> {
         }
     }
 
-    public Collection<R> readRecsNullable(ClientSchema schema, ClientMessageUnpacker in) {
-        return readRecs(schema, in, true, TuplePart.KEY_AND_VAL);
-    }
-
-    public Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in) {
-        return readRecs(schema, in, false, TuplePart.KEY_AND_VAL);
-    }
-
     public Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in, boolean nullable, TuplePart part) {
         var cnt = in.unpackInt();
 
