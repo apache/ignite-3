@@ -107,7 +107,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
                 (schema, out) -> keySer.writeRecs(keys, schema, out, TuplePart.KEY),
-                (schema, in) -> readGetAllResponse(keys, schema, in),
+                this::readGetAllResponse,
                 Collections.emptyMap());
     }
 
@@ -370,9 +370,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         valSer.writeRecRaw(val, s, w, TuplePart.VAL);
     }
 
-    private HashMap<K, V> readGetAllResponse(@NotNull Collection<K> keys, ClientSchema schema, ClientMessageUnpacker in) {
+    private HashMap<K, V> readGetAllResponse(ClientSchema schema, ClientMessageUnpacker in) {
         var cnt = in.unpackInt();
-        assert cnt == keys.size();
 
         var res = new LinkedHashMap<K, V>(cnt);
 
@@ -382,12 +381,9 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         var reader = new ClientMarshallerReader(in);
 
         try {
-            for (K key : keys) {
-                if (!in.unpackBoolean()) {
-                    res.put(key, null);
-                } else {
-                    res.put((K) keyMarsh.readObject(reader, null), (V) valMarsh.readObject(reader, null));
-                }
+            for (int i = 0; i < cnt; i++) {
+                in.unpackBoolean(); // TODO: Clarify updated GetAll semantics and remove this.
+                res.put((K) keyMarsh.readObject(reader, null), (V) valMarsh.readObject(reader, null));
             }
 
             return res;
