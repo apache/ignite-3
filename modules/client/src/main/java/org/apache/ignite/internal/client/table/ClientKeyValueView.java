@@ -27,6 +27,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -140,10 +141,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
-                (s, w) -> {
-                    keySer.writeRec(key, s, w, TuplePart.KEY);
-                    valSer.writeRecRaw(val, s, w, TuplePart.VAL);
-                },
+                (s, w) -> writeKeyValue(s, w, key, val),
                 r -> null);
     }
 
@@ -190,10 +188,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
-                (s, w) -> {
-                    keySer.writeRec(key, s, w, TuplePart.KEY);
-                    valSer.writeRecRaw(val, s, w, TuplePart.VAL);
-                },
+                (s, w) -> writeKeyValue(s, w, key, val),
                 (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
     }
 
@@ -210,10 +205,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
-                (s, w) -> {
-                    keySer.writeRec(key, s, w, TuplePart.KEY);
-                    valSer.writeRecRaw(val, s, w, TuplePart.VAL);
-                },
+                (s, w) -> writeKeyValue(s, w, key, val),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -247,10 +239,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
-                (s, w) -> {
-                    keySer.writeRec(key, s, w, TuplePart.KEY);
-                    valSer.writeRecRaw(val, s, w, TuplePart.VAL);
-                },
+                (s, w) -> writeKeyValue(s, w, key, val),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -312,10 +301,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
-                (s, w) -> {
-                    keySer.writeRec(key, s, w, TuplePart.KEY);
-                    valSer.writeRecRaw(val, s, w, TuplePart.VAL);
-                },
+                (s, w) -> writeKeyValue(s, w, key, val),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -349,10 +335,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
-                (s, w) -> {
-                    keySer.writeRec(key, s, w, TuplePart.KEY);
-                    valSer.writeRecRaw(val, s, w, TuplePart.VAL);
-                },
+                (s, w) -> writeKeyValue(s, w, key, val),
                 (inSchema, in) -> valSer.readRec(inSchema, in, TuplePart.VAL));
     }
 
@@ -396,6 +379,11 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
+    private void writeKeyValue(ClientSchema s, ClientMessagePacker w, @NotNull K key, V val) {
+        keySer.writeRec(key, s, w, TuplePart.KEY);
+        valSer.writeRecRaw(val, s, w, TuplePart.VAL);
+    }
+
     private HashMap<K, V> readGetAllResponse(@NotNull Collection<K> keys, ClientSchema schema, ClientMessageUnpacker in) {
         var cnt = in.unpackInt();
         assert cnt == keys.size();
@@ -415,10 +403,10 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                     res.put((K) keyMarsh.readObject(reader, null), (V) valMarsh.readObject(reader, null));
                 }
             }
+
+            return res;
         } catch (MarshallerException e) {
             throw new IgniteClientException(e.getMessage(), e);
         }
-
-        return res;
     }
 }
