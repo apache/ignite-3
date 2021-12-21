@@ -37,7 +37,7 @@ public interface ReactiveSession {
      * @throws SqlException If failed.
      */
     ReactiveResultSet executeReactive(@Nullable Transaction transaction, @NotNull String query,
-            Object... arguments);
+            @Nullable Object... arguments);
 
     /**
      * Executes SQL query in reactive way.

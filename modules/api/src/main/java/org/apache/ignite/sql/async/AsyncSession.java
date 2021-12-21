@@ -41,7 +41,7 @@ public interface AsyncSession {
      * @throws SqlException If failed.
      */
     CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, @NotNull String query,
-            Object... arguments);
+            @Nullable Object... arguments);
 
     /**
      * Executes SQL statement in async way.
