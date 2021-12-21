@@ -49,10 +49,10 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         Table table = defaultTable();
         KeyValueView<Long, PersonPojo> pojoView = table.keyValueView(Mapper.of(Long.class), Mapper.of(PersonPojo.class));
 
-        table.recordView().upsert(tuple());
+        table.recordView().upsert(null, tuple());
 
-        PersonPojo val = pojoView.get(DEFAULT_ID);
-        PersonPojo missingVal = pojoView.get(-1L);
+        PersonPojo val = pojoView.get(null, DEFAULT_ID);
+        PersonPojo missingVal = pojoView.get(null, -1L);
 
         assertEquals(DEFAULT_NAME, val.name);
         assertEquals(0, val.id); // Not mapped in value part.
@@ -64,10 +64,10 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         Table table = defaultTable();
         KeyValueView<Long, String> primitiveView = table.keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        table.recordView().upsert(tuple());
+        table.recordView().upsert(null, tuple());
 
-        String val = primitiveView.get(DEFAULT_ID);
-        String missingVal = primitiveView.get(-1L);
+        String val = primitiveView.get(null, DEFAULT_ID);
+        String missingVal = primitiveView.get(null, -1L);
 
         assertEquals(DEFAULT_NAME, val);
         assertNull(missingVal);
@@ -78,9 +78,9 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         Table table = defaultTable();
         KeyValueView<Long, String> primitiveView = table.keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        primitiveView.put(DEFAULT_ID, DEFAULT_NAME);
+        primitiveView.put(null, DEFAULT_ID, DEFAULT_NAME);
 
-        Tuple tuple = table.recordView().get(tupleKey(DEFAULT_ID));
+        Tuple tuple = table.recordView().get(null, tupleKey(DEFAULT_ID));
         assertEquals(DEFAULT_NAME, tuple.stringValue(1));
     }
 
@@ -90,14 +90,14 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
         KeyValueView<IncompletePojo, IncompletePojo> pojoView = table.keyValueView(IncompletePojo.class, IncompletePojo.class);
 
-        kvView.put(allClumnsTableKey(1), allColumnsTableVal("x"));
+        kvView.put(null, allClumnsTableKey(1), allColumnsTableVal("x"));
 
         var key = new IncompletePojo();
         key.id = "1";
         key.gid = 1;
 
         // This POJO does not have fields for all table columns, and this is ok.
-        IncompletePojo val = pojoView.get(key);
+        IncompletePojo val = pojoView.get(null, key);
 
         assertEquals(0, val.gid);
         assertNull(val.id);
@@ -113,13 +113,13 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
                 Mapper.of(IncompletePojo.class),
                 Mapper.of(AllColumnsPojo.class));
 
-        table.recordView().upsert(allColumnsTableVal("foo"));
+        table.recordView().upsert(null, allColumnsTableVal("foo"));
 
         var key = new IncompletePojo();
         key.gid = (int) (long) DEFAULT_ID;
         key.id = String.valueOf(DEFAULT_ID);
 
-        AllColumnsPojo res = pojoView.get(key);
+        AllColumnsPojo res = pojoView.get(null, key);
         assertEquals(11, res.zbyte);
         assertEquals(12, res.zshort);
         assertEquals(13, res.zint);
@@ -164,9 +164,9 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         val.znumber = BigInteger.valueOf(123);
         val.zuuid = uuid;
 
-        pojoView.put(val, val);
+        pojoView.put(null, val, val);
 
-        Tuple res = table.recordView().get(Tuple.create().set("id", "112").set("gid", 111));
+        Tuple res = table.recordView().get(null, Tuple.create().set("id", "112").set("gid", 111));
 
         assertNotNull(res);
         assertEquals(111, res.intValue("gid"));
@@ -192,7 +192,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     public void testMissingKeyColumnThrowsException() {
         var kvView = defaultTable().keyValueView(NamePojo.class, NamePojo.class);
 
-        CompletionException e = assertThrows(CompletionException.class, () -> kvView.get(new NamePojo()));
+        CompletionException e = assertThrows(CompletionException.class, () -> kvView.get(null, new NamePojo()));
         IgniteClientException ice = (IgniteClientException) e.getCause();
 
         assertEquals("No field found for column id", ice.getMessage());
@@ -210,10 +210,10 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         rec.id = "1";
         rec.gid = 1;
 
-        pojoView.put(rec, rec);
+        pojoView.put(null, rec, rec);
 
-        IncompletePojoNullable res = pojoView.get(rec);
-        Tuple binRes = tupleView.get(Tuple.create().set("id", "1").set("gid", 1L));
+        IncompletePojoNullable res = pojoView.get(null, rec);
+        Tuple binRes = tupleView.get(null, Tuple.create().set("id", "1").set("gid", 1L));
 
         assertNotNull(res);
         assertNotNull(binRes);
@@ -239,12 +239,12 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         Table table = defaultTable();
         KeyValueView<Long, PersonPojo> pojoView = table.keyValueView(Mapper.of(Long.class), Mapper.of(PersonPojo.class));
 
-        table.recordView().upsert(tuple());
-        table.recordView().upsert(tuple(100L, "100"));
+        table.recordView().upsert(null, tuple());
+        table.recordView().upsert(null, tuple(100L, "100"));
 
         Collection<Long> keys = List.of(DEFAULT_ID, 101L, 100L);
 
-        Map<Long, PersonPojo> res = pojoView.getAll(keys);
+        Map<Long, PersonPojo> res = pojoView.getAll(null, keys);
         Long[] resKeys = res.keySet().toArray(new Long[0]);
         PersonPojo[] resVals = res.values().toArray(new PersonPojo[0]);
 
@@ -266,12 +266,12 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         Table table = defaultTable();
         KeyValueView<Long, String> pojoView = table.keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        table.recordView().upsert(tuple());
-        table.recordView().upsert(tuple(100L, "100"));
+        table.recordView().upsert(null, tuple());
+        table.recordView().upsert(null, tuple(100L, "100"));
 
         Collection<Long> keys = List.of(DEFAULT_ID, 101L, 100L);
 
-        String[] res = pojoView.getAll(keys).values().toArray(new String[0]);
+        String[] res = pojoView.getAll(null, keys).values().toArray(new String[0]);
 
         assertEquals(DEFAULT_NAME, res[0]);
         assertNull(res[1]);
@@ -287,141 +287,141 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
                 100L, "100",
                 101L, "101");
 
-        pojoView.putAll(pojos);
+        pojoView.putAll(null, pojos);
 
-        assertEquals(DEFAULT_NAME, pojoView.get(DEFAULT_ID));
-        assertEquals("100", pojoView.get(100L));
-        assertEquals("101", pojoView.get(101L));
+        assertEquals(DEFAULT_NAME, pojoView.get(null, DEFAULT_ID));
+        assertEquals("100", pojoView.get(null, 100L));
+        assertEquals("101", pojoView.get(null, 101L));
     }
 
     @Test
     public void testGetAndPut() {
         KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.put(DEFAULT_ID, DEFAULT_NAME);
+        pojoView.put(null, DEFAULT_ID, DEFAULT_NAME);
 
-        String res1 = pojoView.getAndPut(DEFAULT_ID, "new_name");
-        String res2 = pojoView.getAndPut(100L, "name");
+        String res1 = pojoView.getAndPut(null, DEFAULT_ID, "new_name");
+        String res2 = pojoView.getAndPut(null, 100L, "name");
 
         assertEquals(DEFAULT_NAME, res1);
-        assertEquals("new_name", pojoView.get(DEFAULT_ID));
+        assertEquals("new_name", pojoView.get(null, DEFAULT_ID));
 
         assertNull(res2);
-        assertEquals("name", pojoView.get(100L));
+        assertEquals("name", pojoView.get(null, 100L));
     }
 
     @Test
     public void testPutNull() {
         KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.put(DEFAULT_ID, DEFAULT_NAME);
-        pojoView.put(DEFAULT_ID, null);
+        pojoView.put(null, DEFAULT_ID, DEFAULT_NAME);
+        pojoView.put(null, DEFAULT_ID, null);
 
-        assertNull(pojoView.get(DEFAULT_ID));
+        assertNull(pojoView.get(null, DEFAULT_ID));
     }
 
     @Test
     public void testPutIfAbsent() {
         KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.put(DEFAULT_ID, DEFAULT_NAME);
+        pojoView.put(null, DEFAULT_ID, DEFAULT_NAME);
 
-        boolean res1 = pojoView.putIfAbsent(DEFAULT_ID, "foobar");
-        boolean res2 = pojoView.putIfAbsent(100L, "100");
+        boolean res1 = pojoView.putIfAbsent(null, DEFAULT_ID, "foobar");
+        boolean res2 = pojoView.putIfAbsent(null, 100L, "100");
 
         assertFalse(res1);
         assertTrue(res2);
-        assertEquals("100", pojoView.get(100L));
+        assertEquals("100", pojoView.get(null, 100L));
     }
 
     @Test
     public void testReplace() {
         KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.put(DEFAULT_ID, DEFAULT_NAME);
+        pojoView.put(null, DEFAULT_ID, DEFAULT_NAME);
 
-        assertFalse(pojoView.replace(-1L, "x"));
-        assertTrue(pojoView.replace(DEFAULT_ID, "new_name"));
+        assertFalse(pojoView.replace(null, -1L, "x"));
+        assertTrue(pojoView.replace(null, DEFAULT_ID, "new_name"));
 
-        assertNull(pojoView.get(-1L));
-        assertEquals("new_name", pojoView.get(DEFAULT_ID));
+        assertNull(pojoView.get(null, -1L));
+        assertEquals("new_name", pojoView.get(null, DEFAULT_ID));
     }
 
     @Test
     public void testReplaceExact() {
         KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.put(DEFAULT_ID, DEFAULT_NAME);
+        pojoView.put(null, DEFAULT_ID, DEFAULT_NAME);
 
-        assertFalse(pojoView.replace(DEFAULT_ID, "x", "new_name"));
-        assertFalse(pojoView.replace(-1L, "x", "new_name"));
-        assertTrue(pojoView.replace(DEFAULT_ID, DEFAULT_NAME, "new_name2"));
+        assertFalse(pojoView.replace(null, DEFAULT_ID, "x", "new_name"));
+        assertFalse(pojoView.replace(null, -1L, "x", "new_name"));
+        assertTrue(pojoView.replace(null, DEFAULT_ID, DEFAULT_NAME, "new_name2"));
 
-        assertNull(pojoView.get(-1L));
-        assertEquals("new_name2", pojoView.get(DEFAULT_ID));
+        assertNull(pojoView.get(null, -1L));
+        assertEquals("new_name2", pojoView.get(null, DEFAULT_ID));
     }
 
     @Test
     public void testGetAndReplace() {
         KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.put(DEFAULT_ID, DEFAULT_NAME);
+        pojoView.put(null, DEFAULT_ID, DEFAULT_NAME);
 
-        String res1 = pojoView.getAndReplace(DEFAULT_ID, "new_name");
-        String res2 = pojoView.getAndReplace(100L, "name");
+        String res1 = pojoView.getAndReplace(null, DEFAULT_ID, "new_name");
+        String res2 = pojoView.getAndReplace(null, 100L, "name");
 
         assertEquals(DEFAULT_NAME, res1);
-        assertEquals("new_name", pojoView.get(DEFAULT_ID));
+        assertEquals("new_name", pojoView.get(null, DEFAULT_ID));
 
         assertNull(res2);
-        assertNull(pojoView.get(100L));
+        assertNull(pojoView.get(null, 100L));
     }
 
     @Test
     public void testRemove() {
         KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.put(DEFAULT_ID, DEFAULT_NAME);
+        pojoView.put(null, DEFAULT_ID, DEFAULT_NAME);
 
-        boolean res1 = pojoView.remove(DEFAULT_ID);
-        boolean res2 = pojoView.remove(100L);
+        boolean res1 = pojoView.remove(null, DEFAULT_ID);
+        boolean res2 = pojoView.remove(null, 100L);
 
         assertTrue(res1);
         assertFalse(res2);
 
-        assertNull(pojoView.get(DEFAULT_ID));
+        assertNull(pojoView.get(null, DEFAULT_ID));
     }
 
     @Test
     public void testRemoveExact() {
         KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.put(DEFAULT_ID, DEFAULT_NAME);
-        pojoView.put(100L, "100");
+        pojoView.put(null, DEFAULT_ID, DEFAULT_NAME);
+        pojoView.put(null, 100L, "100");
 
-        boolean res1 = pojoView.remove(DEFAULT_ID, "x");
-        boolean res2 = pojoView.remove(100L, "y");
-        boolean res3 = pojoView.remove(100L, "100");
+        boolean res1 = pojoView.remove(null, DEFAULT_ID, "x");
+        boolean res2 = pojoView.remove(null, 100L, "y");
+        boolean res3 = pojoView.remove(null, 100L, "100");
 
         assertFalse(res1);
         assertFalse(res2);
         assertTrue(res3);
 
-        assertNotNull(pojoView.get(DEFAULT_ID));
-        assertNull(pojoView.get(100L));
+        assertNotNull(pojoView.get(null, DEFAULT_ID));
+        assertNull(pojoView.get(null, 100L));
     }
 
     @Test
     public void testGetAndRemove() {
         KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.put(DEFAULT_ID, DEFAULT_NAME);
+        pojoView.put(null, DEFAULT_ID, DEFAULT_NAME);
 
-        String res1 = pojoView.getAndRemove(DEFAULT_ID);
-        String res2 = pojoView.getAndRemove(100L);
+        String res1 = pojoView.getAndRemove(null, DEFAULT_ID);
+        String res2 = pojoView.getAndRemove(null, 100L);
 
         assertEquals(DEFAULT_NAME, res1);
-        assertNull(pojoView.get(DEFAULT_ID));
+        assertNull(pojoView.get(null, DEFAULT_ID));
 
         assertNull(res2);
     }
@@ -430,26 +430,26 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     public void testRemoveAll() {
         KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.putAll(Map.of(1L, "1", 2L, "2", 3L, "3"));
+        pojoView.putAll(null, Map.of(1L, "1", 2L, "2", 3L, "3"));
 
-        Collection<Long> res1 = pojoView.removeAll(List.of(10L, 20L));
-        Collection<Long> res2 = pojoView.removeAll(List.of(1L, 3L));
+        Collection<Long> res1 = pojoView.removeAll(null, List.of(10L, 20L));
+        Collection<Long> res2 = pojoView.removeAll(null, List.of(1L, 3L));
 
         assertEquals(2, res1.size());
         assertEquals(0, res2.size());
 
-        assertNull(pojoView.get(1L));
-        assertEquals("2", pojoView.get(2L));
-        assertNull(pojoView.get(3L));
+        assertNull(pojoView.get(null, 1L));
+        assertEquals("2", pojoView.get(null, 2L));
+        assertNull(pojoView.get(null, 3L));
     }
 
     @Test
     public void testContains() {
         KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        pojoView.put(DEFAULT_ID, DEFAULT_NAME);
+        pojoView.put(null, DEFAULT_ID, DEFAULT_NAME);
 
-        assertTrue(pojoView.contains(DEFAULT_ID));
-        assertFalse(pojoView.contains(-1L));
+        assertTrue(pojoView.contains(null, DEFAULT_ID));
+        assertFalse(pojoView.contains(null, -1L));
     }
 }
