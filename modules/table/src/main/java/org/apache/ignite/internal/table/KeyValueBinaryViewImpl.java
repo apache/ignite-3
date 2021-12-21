@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
@@ -51,7 +50,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     /**
      * The constructor.
      *
-     * @param tbl       Table storage.
+     * @param tbl Table storage.
      * @param schemaReg Schema registry.
      */
     public KeyValueBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg) {
@@ -77,25 +76,29 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /**
-     * Method throws UnsupportedOperationException, unconditionally.
+     * This method is not supported, {@link #get(Transaction, Tuple)} must be used instead.
      *
-     * <p>Binary view doesn't support the operation because there is no ambiguity, {@code null} value means no rows found in the table for
-     * the given key.
+     * <p>Because of binary view doesn't allow null values, binary view method {@link #get(Transaction, Tuple)} returns {@code null} if and
+     * only if no value exists for the given key. Thus, this method is redundant.
+     *
+     * @throws UnsupportedOperationException unconditionally.
      */
     @Override
     public NullableValue<Tuple> getNullable(@Nullable Transaction tx, @NotNull Tuple key) {
-        throw new UnsupportedOperationException("Binary view doesn't allow null values. Please, use get(key) method instead.");
+        throw new UnsupportedOperationException("Binary view doesn't allow null values.");
     }
 
     /**
-     * Method throws UnsupportedOperationException, unconditionally.
+     * This method is not supported, {@link #getAsync(Transaction, Tuple)} must be used instead.
      *
-     * <p>Binary view doesn't support the operation because there is no ambiguity, {@code null} value means no rows found in the table for
-     * the given key.
+     * <p>Because of binary view doesn't allow null values, binary view method {@link #get(Transaction, Tuple)} returns {@code null} if and
+     * only if no value exists for the given key. Thus, this method is redundant.
+     *
+     * @throws UnsupportedOperationException unconditionally.
      */
     @Override
     public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAsync(@Nullable Transaction tx, @NotNull Tuple key) {
-        throw new UnsupportedOperationException("Binary view doesn't allow null values. Please, use getAsync(key) method instead.");
+        throw new UnsupportedOperationException("Binary view doesn't allow null values.");
     }
 
     /** {@inheritDoc} */
@@ -273,7 +276,17 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         }
 
         return tbl.deleteAll(keyRows, (InternalTransaction) tx)
-                       .thenApply(t -> t.stream().filter(Objects::nonNull).map(this::unmarshal).collect(Collectors.toList()));
+                       .thenApply(binaryRows -> {
+                           List<Tuple> tuples = new ArrayList<>(binaryRows.size());
+
+                           for (BinaryRow r : binaryRows) {
+                               if (r != null) {
+                                   tuples.add(this.unmarshal(r));
+                               }
+                           }
+
+                           return tuples;
+                       });
     }
 
     /** {@inheritDoc} */

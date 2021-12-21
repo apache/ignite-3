@@ -90,6 +90,12 @@ public class KeyValueViewOperationsSimpleSchemaTest {
 
         assertNull(tbl.get(null, 1L));
 
+        // Put `null` value.
+        tbl.put(null, 1L, null);
+
+        assertThrows(IgniteException.class, () -> tbl.get(null, 1L));
+        assertNull(tbl.getNullable(null, 1L).get());
+
         // Put KV pair.
         tbl.put(null, 1L, 33L);
         assertEquals(33L, tbl.get(null, 1L));
@@ -302,7 +308,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
 
         // Remove existed KV pair.
         assertTrue(tbl.replace(null, 1L, null));
-        assertNull(tbl.getNullable(null, 1L).value());
+        assertNull(tbl.getNullable(null, 1L).get());
 
         // Ignore replace operation for non-existed KV pair.
         assertFalse(tbl.replace(null, 3L, 33L));
@@ -338,7 +344,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
 
         // Replace with null value.
         assertTrue(tbl.replace(null, 1L, 22L, null));
-        assertNull(tbl.getNullable(null, 1L).value());
+        assertNull(tbl.getNullable(null, 1L).get());
 
         // Replace null value.
         assertTrue(tbl.replace(null, 1L, null, 33L));

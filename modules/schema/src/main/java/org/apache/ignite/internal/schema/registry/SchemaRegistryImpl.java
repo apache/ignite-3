@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.schema.registry;
 
-import static java.util.stream.Collectors.toList;
-
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -33,6 +32,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.internal.schema.row.Row;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -146,30 +146,39 @@ public class SchemaRegistryImpl implements SchemaRegistry {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Row> resolve(Collection<BinaryRow> rows) {
+    public Collection<Row> resolve(Collection<BinaryRow> binaryRows) {
         final SchemaDescriptor curSchema = waitLatestSchema();
 
-        return rows.stream().filter(Objects::nonNull).map(row -> resolveInternal(row, curSchema)).collect(toList());
+        List<Row> rows = new ArrayList<>(binaryRows.size());
+
+        for (BinaryRow r : binaryRows) {
+            if (r != null)
+                rows.add(resolveInternal(r, curSchema));
+        }
+
+        return rows;
     }
 
     /**
      * Resolves a schema for row. The method is optimal when the latest schema is already got.
      *
-     * @param row       Binary row.
+     * @param row Binary row.
      * @param curSchema The latest available local schema.
-     * @return Schema-aware rows.
+     * @return Schema-aware row or {@code null} of the given row is null.
+     * @throws SchemaRegistryException if no schema exists for the given row.
      */
+    @Contract("null, _ -> null")
     @Nullable
-    private Row resolveInternal(BinaryRow row, SchemaDescriptor curSchema) {
+    private Row resolveInternal(@Nullable BinaryRow row, SchemaDescriptor curSchema) {
         if (row == null) {
             return null;
+        } else if (curSchema == null) {
+            throw new SchemaRegistryException("No schema found for the row: schemaVersion=" + row.schemaVersion());
+        } else  if (curSchema.version() == row.schemaVersion()) {
+            return new Row(curSchema, row);
         }
 
         final SchemaDescriptor rowSchema = schema(row.schemaVersion());
-
-        if (curSchema.version() == rowSchema.version()) {
-            return new Row(rowSchema, row);
-        }
 
         ColumnMapper mapping = resolveMapping(curSchema, rowSchema);
 
@@ -177,8 +186,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     }
 
     /**
-     * ResolveMapping.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Get cached or create a column mapper that maps column of current schema to the row schema as they may have different schema indices.
      *
      * @param curSchema Target schema.
      * @param rowSchema Row schema.

@@ -41,10 +41,10 @@ public interface KeyValueView<K, V> {
      * <p>Note: If the value mapper implies a value can be {@code null}, then a suitable method
      * {@link #getNullable(Transaction, Object)} must be used instead.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
      * @return Value or {@code null}, if it does not exist.
-     * @throws IllegalStateException If value for the key exists, and it is {@code null}.
+     * @throws org.apache.ignite.lang.UnexpectedNullValueException If value for the key exists, and it is {@code null}.
      * @see #getNullable(Transaction, Object)
      */
     V get(@Nullable Transaction tx, @NotNull K key);
@@ -55,7 +55,7 @@ public interface KeyValueView<K, V> {
      * <p>Note: If the value mapper implies a value can be {@code null}, then a suitable method
      * {@link #getNullableAsync(Transaction, Object)} must be used instead.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
      * @return Future representing pending completion of the operation.
      * @see #getNullableAsync(Transaction, Object)
@@ -66,7 +66,7 @@ public interface KeyValueView<K, V> {
     /**
      * Gets a nullable value associated with the given key.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
      * @return Wrapped nullable value or {@code null}, if it does not exist.
      */
@@ -75,7 +75,7 @@ public interface KeyValueView<K, V> {
     /**
      * Gets a nullable value associated with the given key.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
      * @return Future representing pending completion of the operation.
      * @see #getNullable(Transaction, Object)
@@ -87,7 +87,7 @@ public interface KeyValueView<K, V> {
      *
      * <p>Note: result may be {@code null} if null-values are allowed, and the {@code null} is associated with the key.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
      * @param defaultValue Default value that. The value cannot be {@code null}.
      * @return Value or {@code defaultValue}, if does not exist.
@@ -100,7 +100,7 @@ public interface KeyValueView<K, V> {
      *
      * <p>Note: result may be {@code null} if null-values are allowed, and the {@code null} is associated with the key.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
      * @param defaultValue Default value that. The value cannot be {@code null}.
      * @return Future representing pending completion of the operation.
@@ -111,7 +111,7 @@ public interface KeyValueView<K, V> {
     /**
      * Get values associated with given keys.
      *
-     * @param tx   The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param keys Keys which associated values are to be returned. The keys cannot be {@code null}.
      * @return Values associated with given keys.
      */
@@ -120,7 +120,7 @@ public interface KeyValueView<K, V> {
     /**
      * Get values associated with given keys.
      *
-     * @param tx   The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param keys Keys whose associated values are to be returned. The keys cannot be {@code null}.
      * @return Future representing pending completion of the operation.
      */
@@ -129,7 +129,7 @@ public interface KeyValueView<K, V> {
     /**
      * Determines if the table contains an entry for the specified key.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which presence is to be tested. The key cannot be {@code null}.
      * @return {@code True} if a value exists for the specified key, {@code false} otherwise.
      */
@@ -138,7 +138,7 @@ public interface KeyValueView<K, V> {
     /**
      * Determines if the table contains an entry for the specified key.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which presence is to be tested. The key cannot be {@code null}.
      * @return Future representing pending completion of the operation.
      */
@@ -147,7 +147,7 @@ public interface KeyValueView<K, V> {
     /**
      * Puts value associated with given key into the table.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key with which the specified value is to be associated. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      */
@@ -156,7 +156,7 @@ public interface KeyValueView<K, V> {
     /**
      * Asynchronously puts value associated with given key into the table.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key with which the specified value is to be associated. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
@@ -166,7 +166,7 @@ public interface KeyValueView<K, V> {
     /**
      * Put associated key-value pairs.
      *
-     * @param tx    The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param pairs Key-value pairs. The pairs cannot be {@code null}.
      */
     void putAll(@Nullable Transaction tx, @NotNull Map<K, V> pairs);
@@ -174,7 +174,7 @@ public interface KeyValueView<K, V> {
     /**
      * Asynchronously put associated key-value pairs.
      *
-     * @param tx    The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param pairs Key-value pairs. The pairs cannot be {@code null}.
      * @return Future representing pending completion of the operation.
      */
@@ -183,7 +183,7 @@ public interface KeyValueView<K, V> {
     /**
      * Puts new or replaces existed value associated with given key into the table.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key with which the specified value is to be associated. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      * @return Replaced value or {@code null}, if not existed.
@@ -193,7 +193,7 @@ public interface KeyValueView<K, V> {
     /**
      * Asynchronously puts new or replaces existed value associated with given key into the table.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key with which the specified value is to be associated. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
@@ -203,7 +203,7 @@ public interface KeyValueView<K, V> {
     /**
      * Puts value associated with given key into the table if not exists.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key with which the specified value is to be associated. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      * @return {@code True} if successful, {@code false} otherwise.
@@ -213,7 +213,7 @@ public interface KeyValueView<K, V> {
     /**
      * Asynchronously puts value associated with given key into the table if not exists.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
@@ -223,7 +223,7 @@ public interface KeyValueView<K, V> {
     /**
      * Removes value associated with given key from the table.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which mapping is to be removed from the table. The key cannot be {@code null}.
      * @return {@code True} if a value associated with the specified key was successfully removed, {@code false} otherwise.
      */
@@ -232,7 +232,7 @@ public interface KeyValueView<K, V> {
     /**
      * Removes an expected value associated with the given key from the table.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which associated value is to be removed from the table. The key cannot be {@code null}.
      * @param val Expected value.
      * @return {@code True} if the expected value for the specified key was successfully removed, {@code false} otherwise.
@@ -242,7 +242,7 @@ public interface KeyValueView<K, V> {
     /**
      * Asynchronously removes value associated with given key from the table.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which mapping is to be removed from the table. The key cannot be {@code null}.
      * @return Future representing pending completion of the operation.
      */
@@ -251,7 +251,7 @@ public interface KeyValueView<K, V> {
     /**
      * Asynchronously removes expected value associated with given key from the table.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which associated the value is to be removed from the table. The key cannot be {@code null}.
      * @param val Expected value.
      * @return Future representing pending completion of the operation.
@@ -261,7 +261,7 @@ public interface KeyValueView<K, V> {
     /**
      * Remove values associated with given keys from the table.
      *
-     * @param tx   The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param keys Keys which mapping is to be removed from the table. The keys cannot be {@code null}.
      * @return Keys which did not exist.
      */
@@ -270,7 +270,7 @@ public interface KeyValueView<K, V> {
     /**
      * Asynchronously remove values associated with given keys from the table.
      *
-     * @param tx   The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param keys Keys which mapping is to be removed from the table. The keys cannot be {@code null}.
      * @return Future representing pending completion of the operation.
      */
@@ -279,7 +279,7 @@ public interface KeyValueView<K, V> {
     /**
      * Gets then removes value associated with given key from the table.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which associated value is to be removed from the table. The key cannot be {@code null}.
      * @return Removed value or {@code null}, if not existed.
      */
@@ -288,7 +288,7 @@ public interface KeyValueView<K, V> {
     /**
      * Asynchronously gets then removes value associated with given key from the table.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A Key which mapping is to be removed from the table. The key cannot be {@code null}.
      * @return Future representing pending completion of the operation.
      */
@@ -305,7 +305,7 @@ public interface KeyValueView<K, V> {
      * }</code></pre>
      * except that the action is performed atomically.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key with which the specified value is associated. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      * @return {@code True} if an old value was replaced, {@code false} otherwise.
@@ -323,8 +323,8 @@ public interface KeyValueView<K, V> {
      * }</code></pre>
      * except that the action is performed atomically.
      *
-     * @param tx     The transaction or {@code null} to auto commit.
-     * @param key    A key with which the specified value is associated. The key cannot be {@code null}.
+     * @param tx The transaction or {@code null} to auto commit.
+     * @param key A key with which the specified value is associated. The key cannot be {@code null}.
      * @param oldVal Expected value associated with the specified key.
      * @param newVal Value to be associated with the specified key.
      * @return {@code True} if an old value was replaced, {@code false} otherwise.
@@ -334,7 +334,7 @@ public interface KeyValueView<K, V> {
     /**
      * Asynchronously replaces the value for a key only if exists. See {@link #replace(Transaction, Object, Object)}.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key with which the specified value is associated. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
@@ -344,8 +344,8 @@ public interface KeyValueView<K, V> {
     /**
      * Asynchronously replaces the expected value for a key. See {@link #replace(Transaction, Object, Object, Object)}
      *
-     * @param tx     The transaction or {@code null} to auto commit.
-     * @param key    A key with which the specified value is associated. The key cannot be {@code null}.
+     * @param tx The transaction or {@code null} to auto commit.
+     * @param key A key with which the specified value is associated. The key cannot be {@code null}.
      * @param oldVal Expected value associated with the specified key.
      * @param newVal Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
@@ -365,7 +365,7 @@ public interface KeyValueView<K, V> {
      * </code></pre>
      * except that the action is performed atomically.
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key with which the specified value is associated. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      * @return Replaced value, or {@code null} if not existed.
@@ -375,7 +375,7 @@ public interface KeyValueView<K, V> {
     /**
      * Asynchronously replaces the value for a given key only if exists. See {@link #getAndReplace(Transaction, Object, Object)}
      *
-     * @param tx  The transaction or {@code null} to auto commit.
+     * @param tx The transaction or {@code null} to auto commit.
      * @param key A key with which the specified value is associated. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
@@ -385,11 +385,11 @@ public interface KeyValueView<K, V> {
     /**
      * Executes invoke processor code against the value associated with the provided key.
      *
-     * @param tx   The transaction or {@code null} to auto commit.
-     * @param key  A key associated with the value that invoke processor will be applied to. The key cannot be {@code null}.
+     * @param tx The transaction or {@code null} to auto commit.
+     * @param key A key associated with the value that invoke processor will be applied to. The key cannot be {@code null}.
      * @param proc Invoke processor.
      * @param args Optional invoke processor arguments.
-     * @param <R>  Invoke processor result type.
+     * @param <R> Invoke processor result type.
      * @return Result of the processing.
      * @see InvokeProcessor
      */
@@ -398,11 +398,11 @@ public interface KeyValueView<K, V> {
     /**
      * Asynchronously executes invoke processor code against the value associated with the provided key.
      *
-     * @param tx   The transaction or {@code null} to auto commit.
-     * @param key  A key associated with the value that invoke processor will be applied to. The key cannot be {@code null}.
+     * @param tx The transaction or {@code null} to auto commit.
+     * @param key A key associated with the value that invoke processor will be applied to. The key cannot be {@code null}.
      * @param proc Invoke processor.
      * @param args Optional invoke processor arguments.
-     * @param <R>  Invoke processor result type.
+     * @param <R> Invoke processor result type.
      * @return Future representing pending completion of the operation.
      * @see InvokeProcessor
      */
@@ -415,8 +415,8 @@ public interface KeyValueView<K, V> {
     /**
      * Executes invoke processor code against values associated with the provided keys.
      *
-     * @param tx   The transaction or {@code null} to auto commit.
-     * @param <R>  Invoke processor result type.
+     * @param tx The transaction or {@code null} to auto commit.
+     * @param <R> Invoke processor result type.
      * @param keys Ordered collection of keys which values associated with should be processed. The keys cannot be {@code null}.
      * @param proc Invoke processor.
      * @param args Optional invoke processor arguments.
@@ -432,8 +432,8 @@ public interface KeyValueView<K, V> {
     /**
      * Asynchronously executes invoke processor code against values associated with the provided keys.
      *
-     * @param tx   The transaction or {@code null} to auto commit.
-     * @param <R>  Invoke processor result type.
+     * @param tx The transaction or {@code null} to auto commit.
+     * @param <R> Invoke processor result type.
      * @param keys Ordered collection of keys which values associated with should be processed. The keys cannot be {@code null}.
      * @param proc Invoke processor.
      * @param args Optional invoke processor arguments.

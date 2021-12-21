@@ -37,6 +37,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -92,7 +93,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
             V v = unmarshalValue(row);
 
             if (v == null) {
-                throw new IllegalStateException("Got unexpected 'null' value. Please, use 'getNullable' method instead.");
+                throw new UnexpectedNullValueException("use `getNullable` or `getNullableAsync` method instead.");
             }
 
             return v;

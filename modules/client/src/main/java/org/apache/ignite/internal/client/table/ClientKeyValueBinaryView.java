@@ -87,25 +87,29 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     }
 
     /**
-     * Method throws UnsupportedOperationException, unconditionally.
+     * This method is not supported, {@link #get(Transaction, Tuple)} must be used instead.
      *
-     * <p>Binary view doesn't support the operation because there is no ambiguity, {@code null} value means no rows found in the table for
-     * the given key.
+     * <p>Because of binary view doesn't allow null values, binary view method {@link #get(Transaction, Tuple)} returns {@code null} if and
+     * only if no value exists for the given key. Thus, this method is redundant.
+     *
+     * @throws UnsupportedOperationException unconditionally.
      */
     @Override
     public NullableValue<Tuple> getNullable(@Nullable Transaction tx, @NotNull Tuple key) {
-        throw new UnsupportedOperationException("Binary view doesn't allow null values. Please, use get(key) method instead.");
+        throw new UnsupportedOperationException("Binary view doesn't allow null values.");
     }
 
     /**
-     * Method throws UnsupportedOperationException, unconditionally.
+     * This method is not supported, {@link #getAsync(Transaction, Tuple)} must be used instead.
      *
-     * <p>Binary view doesn't support the operation because there is no ambiguity, {@code null} value means no rows found in the table for
-     * the given key.
+     * <p>Because of binary view doesn't allow null values, binary view method {@link #get(Transaction, Tuple)} returns {@code null} if and
+     * only if no value exists for the given key. Thus, this method is redundant.
+     *
+     * @throws UnsupportedOperationException unconditionally.
      */
     @Override
     public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAsync(@Nullable Transaction tx, @NotNull Tuple key) {
-        throw new UnsupportedOperationException("Binary view doesn't allow null values. Please, use getAsync(key) method instead.");
+        throw new UnsupportedOperationException("Binary view doesn't allow null values.");
     }
 
     /** {@inheritDoc} */

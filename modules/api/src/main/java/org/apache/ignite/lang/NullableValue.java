@@ -18,14 +18,17 @@
 package org.apache.ignite.lang;
 
 import java.util.Objects;
-import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Represents a value that can be {@code null}. Used to distinguish 'value is absent' and `value is null` cases.
+ * A container object which contains a nullable value. {@code NullableValue} is primarily intended for use as a method return type where
+ * it's not clear if the value is absent or value is {@code null}.
+ *
+ * <p>In contrast to {@link java.util.Optional} this class allows {@code null} values, and allow a method with {@code NullableValue}
+ * returning type to return a {@code null} as well as {@code NullableValue} object. Thus, if the method returns {@code null} that means no
+ * value present, and {@code NullableValue} object means the value is present, but value itself can be {@code null} though.
  *
  * @param <T> Value type.
- * @see org.apache.ignite.table.KeyValueView#getNullable(Transaction, Object)
  */
 public final class NullableValue<T> {
     /** Wrapped value. */
@@ -45,7 +48,7 @@ public final class NullableValue<T> {
      *
      * @return Value.
      */
-    public @Nullable T value() {
+    public @Nullable T get() {
         return value;
     }
 
@@ -71,6 +74,6 @@ public final class NullableValue<T> {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return "NullableValue{value=" + value + '}';
+        return "NullableValue[value=" + value + ']';
     }
 }
