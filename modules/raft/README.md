@@ -14,7 +14,7 @@ A RAFT node represents a single group node, which can be voting or non voring (s
 The implementation uses several thread pools and threads for different purposes.
 
 Each node can work in shared pools mode or start it's dedicated set of pools.
-Then using many groups it's recommended to use shared mode, otherwise threads count may be too big.
+When using many groups it's recommended to use shared mode, otherwise, threads count may be too big.
 
 Shared pools can be passed to `NodeOptions` as parameter values.
 
