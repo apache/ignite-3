@@ -44,7 +44,7 @@ Each replication pair (leader-follower) uses dedicated single thread executor fr
 between replication peer pairs are processed sequentially.
 
 ### NodeImpl-Disruptor
-A striped disruptor for batching FSM user tasks.
+A striped disruptor for batching FSM (finite state machine) user tasks.
 
 ### ReadOnlyService-Disruptor
 A striped disruptor for batching read requests before doing read index request.
