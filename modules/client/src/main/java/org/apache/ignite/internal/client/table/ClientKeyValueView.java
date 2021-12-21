@@ -74,13 +74,13 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public V get(@NotNull K key) {
-        return getAsync(key).join();
+    public V get(@Nullable Transaction tx, @NotNull K key) {
+        return getAsync(tx, key).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<V> getAsync(@NotNull K key) {
+    public @NotNull CompletableFuture<V> getAsync(@Nullable Transaction tx, @NotNull K key) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutInOpAsync(
@@ -91,13 +91,13 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public Map<K, V> getAll(@NotNull Collection<K> keys) {
-        return getAllAsync(keys).join();
+    public Map<K, V> getAll(@Nullable Transaction tx, @NotNull Collection<K> keys) {
+        return getAllAsync(tx, keys).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Map<K, V>> getAllAsync(@NotNull Collection<K> keys) {
+    public @NotNull CompletableFuture<Map<K, V>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<K> keys) {
         Objects.requireNonNull(keys);
 
         if (keys.isEmpty()) {
@@ -113,13 +113,13 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public boolean contains(@NotNull K key) {
-        return containsAsync(key).join();
+    public boolean contains(@Nullable Transaction tx, @NotNull K key) {
+        return containsAsync(tx, key).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> containsAsync(@NotNull K key) {
+    public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, @NotNull K key) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutOpAsync(
@@ -130,13 +130,13 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public void put(@NotNull K key, V val) {
-        putAsync(key, val).join();
+    public void put(@Nullable Transaction tx, @NotNull K key, V val) {
+        putAsync(tx, key, val).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> putAsync(@NotNull K key, V val) {
+    public @NotNull CompletableFuture<Void> putAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutOpAsync(
@@ -147,13 +147,13 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public void putAll(@NotNull Map<K, V> pairs) {
-        putAllAsync(pairs).join();
+    public void putAll(@Nullable Transaction tx, @NotNull Map<K, V> pairs) {
+        putAllAsync(tx, pairs).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> putAllAsync(@NotNull Map<K, V> pairs) {
+    public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<K, V> pairs) {
         Objects.requireNonNull(pairs);
 
         if (pairs.isEmpty()) {
@@ -177,13 +177,13 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public V getAndPut(@NotNull K key, V val) {
-        return getAndPutAsync(key, val).join();
+    public V getAndPut(@Nullable Transaction tx, @NotNull K key, V val) {
+        return getAndPutAsync(tx, key, val).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<V> getAndPutAsync(@NotNull K key, V val) {
+    public @NotNull CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutInOpAsync(
@@ -194,13 +194,13 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public boolean putIfAbsent(@NotNull K key, @NotNull V val) {
-        return putIfAbsentAsync(key, val).join();
+    public boolean putIfAbsent(@Nullable Transaction tx, @NotNull K key, @NotNull V val) {
+        return putIfAbsentAsync(tx, key, val).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@NotNull K key, V val) {
+    public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutOpAsync(
@@ -211,19 +211,19 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public boolean remove(@NotNull K key) {
-        return removeAsync(key).join();
+    public boolean remove(@Nullable Transaction tx, @NotNull K key) {
+        return removeAsync(tx, key).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean remove(@NotNull K key, V val) {
-        return removeAsync(key, val).join();
+    public boolean remove(@Nullable Transaction tx, @NotNull K key, V val) {
+        return removeAsync(tx, key, val).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull K key) {
+    public @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull K key) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutOpAsync(
@@ -234,7 +234,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull K key, V val) {
+    public @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutOpAsync(
@@ -245,13 +245,13 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<K> removeAll(@NotNull Collection<K> keys) {
-        return removeAllAsync(keys).join();
+    public Collection<K> removeAll(@Nullable Transaction tx, @NotNull Collection<K> keys) {
+        return removeAllAsync(tx, keys).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<K>> removeAllAsync(@NotNull Collection<K> keys) {
+    public @NotNull CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, @NotNull Collection<K> keys) {
         Objects.requireNonNull(keys);
 
         if (keys.isEmpty()) {
@@ -267,13 +267,13 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public V getAndRemove(@NotNull K key) {
-        return getAndRemoveAsync(key).join();
+    public V getAndRemove(@Nullable Transaction tx, @NotNull K key) {
+        return getAndRemoveAsync(tx, key).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<V> getAndRemoveAsync(@NotNull K key) {
+    public @NotNull CompletableFuture<V> getAndRemoveAsync(@Nullable Transaction tx, @NotNull K key) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutInOpAsync(
@@ -284,19 +284,19 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@NotNull K key, V val) {
-        return replaceAsync(key, val).join();
+    public boolean replace(@Nullable Transaction tx, @NotNull K key, V val) {
+        return replaceAsync(tx, key, val).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@NotNull K key, V oldVal, V newVal) {
-        return replaceAsync(key, oldVal, newVal).join();
+    public boolean replace(@Nullable Transaction tx, @NotNull K key, V oldVal, V newVal) {
+        return replaceAsync(tx, key, oldVal, newVal).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, V val) {
+    public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutOpAsync(
@@ -307,7 +307,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, V oldVal, V newVal) {
+    public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull K key, V oldVal, V newVal) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutOpAsync(
@@ -324,13 +324,13 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public V getAndReplace(@NotNull K key, V val) {
-        return getAndReplaceAsync(key, val).join();
+    public V getAndReplace(@Nullable Transaction tx, @NotNull K key, V val) {
+        return getAndReplaceAsync(tx, key, val).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<V> getAndReplaceAsync(@NotNull K key, V val) {
+    public @NotNull CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutInOpAsync(
@@ -341,42 +341,28 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public <R extends Serializable> R invoke(@NotNull K key, InvokeProcessor<K, V, R> proc, Serializable... args) {
+    public <R extends Serializable> R invoke(@Nullable Transaction tx, @NotNull K key, InvokeProcessor<K, V, R> proc, Serializable... args) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull <R extends Serializable> CompletableFuture<R> invokeAsync(@NotNull K key, InvokeProcessor<K, V, R> proc,
+    public @NotNull <R extends Serializable> CompletableFuture<R> invokeAsync(@Nullable Transaction tx, @NotNull K key, InvokeProcessor<K, V, R> proc,
             Serializable... args) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    public <R extends Serializable> Map<K, R> invokeAll(@NotNull Collection<K> keys, InvokeProcessor<K, V, R> proc, Serializable... args) {
+    public <R extends Serializable> Map<K, R> invokeAll(@Nullable Transaction tx, @NotNull Collection<K> keys, InvokeProcessor<K, V, R> proc, Serializable... args) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull <R extends Serializable> CompletableFuture<Map<K, R>> invokeAllAsync(@NotNull Collection<K> keys,
+    public @NotNull <R extends Serializable> CompletableFuture<Map<K, R>> invokeAllAsync(@Nullable Transaction tx, @NotNull Collection<K> keys,
             InvokeProcessor<K, V, R> proc, Serializable... args) {
         throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable Transaction transaction() {
-        // TODO: Transactions IGNITE-15240
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public KeyValueView<K, V> withTransaction(Transaction tx) {
-        // TODO: Transactions IGNITE-15240
-        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     private void writeKeyValue(ClientSchema s, ClientMessagePacker w, @NotNull K key, V val) {
