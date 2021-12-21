@@ -82,6 +82,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     @Override
     public @NotNull CompletableFuture<V> getAsync(@Nullable Transaction tx, @NotNull K key) {
         Objects.requireNonNull(key);
+        throwUnsupportedIfTxNotNull(tx);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
@@ -99,6 +100,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     @Override
     public @NotNull CompletableFuture<Map<K, V>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<K> keys) {
         Objects.requireNonNull(keys);
+        throwUnsupportedIfTxNotNull(tx);
 
         if (keys.isEmpty()) {
             return CompletableFuture.completedFuture(Collections.emptyMap());
@@ -121,6 +123,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     @Override
     public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, @NotNull K key) {
         Objects.requireNonNull(key);
+        throwUnsupportedIfTxNotNull(tx);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_KEY,
@@ -138,6 +141,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     @Override
     public @NotNull CompletableFuture<Void> putAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         Objects.requireNonNull(key);
+        throwUnsupportedIfTxNotNull(tx);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
@@ -155,6 +159,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     @Override
     public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<K, V> pairs) {
         Objects.requireNonNull(pairs);
+        throwUnsupportedIfTxNotNull(tx);
 
         if (pairs.isEmpty()) {
             return CompletableFuture.completedFuture(null);
@@ -185,6 +190,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     @Override
     public @NotNull CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         Objects.requireNonNull(key);
+        throwUnsupportedIfTxNotNull(tx);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
@@ -202,6 +208,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     @Override
     public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         Objects.requireNonNull(key);
+        throwUnsupportedIfTxNotNull(tx);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
@@ -225,6 +232,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     @Override
     public @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull K key) {
         Objects.requireNonNull(key);
+        throwUnsupportedIfTxNotNull(tx);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
@@ -236,6 +244,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     @Override
     public @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         Objects.requireNonNull(key);
+        throwUnsupportedIfTxNotNull(tx);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
@@ -253,6 +262,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     @Override
     public @NotNull CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, @NotNull Collection<K> keys) {
         Objects.requireNonNull(keys);
+        throwUnsupportedIfTxNotNull(tx);
 
         if (keys.isEmpty()) {
             return CompletableFuture.completedFuture(Collections.emptyList());
@@ -275,6 +285,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     @Override
     public @NotNull CompletableFuture<V> getAndRemoveAsync(@Nullable Transaction tx, @NotNull K key) {
         Objects.requireNonNull(key);
+        throwUnsupportedIfTxNotNull(tx);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
@@ -291,6 +302,9 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public boolean replace(@Nullable Transaction tx, @NotNull K key, V oldVal, V newVal) {
+        Objects.requireNonNull(key);
+        throwUnsupportedIfTxNotNull(tx);
+
         return replaceAsync(tx, key, oldVal, newVal).join();
     }
 
@@ -298,6 +312,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         Objects.requireNonNull(key);
+        throwUnsupportedIfTxNotNull(tx);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
@@ -309,6 +324,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull K key, V oldVal, V newVal) {
         Objects.requireNonNull(key);
+        throwUnsupportedIfTxNotNull(tx);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
@@ -332,6 +348,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     @Override
     public @NotNull CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         Objects.requireNonNull(key);
+        throwUnsupportedIfTxNotNull(tx);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
@@ -407,6 +424,13 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
             return res;
         } catch (MarshallerException e) {
             throw new IgniteClientException(e.getMessage(), e);
+        }
+    }
+
+    private static void throwUnsupportedIfTxNotNull(Transaction tx) {
+        if (tx != null) {
+            // TODO: IGNITE-15240.
+            throw new UnsupportedOperationException("Not implemented yet.");
         }
     }
 }
