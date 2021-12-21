@@ -78,7 +78,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
             throws IOException, MarshalException {
         final Object objectToWrite;
         if ((descriptor.isSerializable() || descriptor.isExternalizable()) && descriptor.hasWriteReplace()) {
-            // TODO: what if non-Externalizable is returned?
+            // TODO: IGNITE-16155 what if non-Externalizable is returned?
             objectToWrite = applyWriteReplace(object);
         } else {
             objectToWrite = object;
@@ -108,7 +108,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
             throw new MarshalException("writeReplace() invocation failed on " + object, e);
         }
 
-        // TODO: what if null is returned?
+        // TODO: IGNITE-16155 what if null is returned?
     }
 
     private List<ClassDescriptor> writeExternalizable(
@@ -203,6 +203,6 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
             throw new UnmarshalException("readResolve() invocation failed on " + object, e);
         }
 
-        // TODO: what if null is returned?
+        // TODO: IGNITE-16155 what if null is returned?
     }
 }
