@@ -59,18 +59,38 @@ public class Serialization {
         this(type, false, false, false);
     }
 
+    /**
+     * Returns serialization type.
+     *
+     * @return serialization type
+     */
     public SerializationType type() {
         return type;
     }
 
+    /**
+     * Returns whether serialization override (writeObject()/readObject()/readObjectNoData()) is present.
+     *
+     * @return whether serialization override (writeObject()/readObject()/readObjectNoData()) is present
+     */
     public boolean hasSerializationOverride() {
         return hasSerializationOverride;
     }
 
+    /**
+     * Returns whether writeReplace() method is present.
+     *
+     * @return whether writeReplace() method is present
+     */
     public boolean hasWriteReplace() {
         return hasWriteReplace;
     }
 
+    /**
+     * Returns whether readResolve() method is present.
+     *
+     * @return whether readResolve() method is present
+     */
     public boolean hasReadResolve() {
         return hasReadResolve;
     }
