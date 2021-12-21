@@ -23,6 +23,8 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.storage.basic.BinarySearchRow;
+import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.table.StorageRowListener;
@@ -41,9 +43,10 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
 
     private final String name;
 
+    private final TableImpl tbl;
+
     private final SortedIndexStorage store;
 
-    private final TableImpl tbl;
 
     /**
      * Create sorted index.
@@ -92,13 +95,18 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
     public void onUpdate(@Nullable BinaryRow oldRow, BinaryRow newRow) {
         Tuple t = TableRow.tuple(tbl.schemaView().resolve(newRow));
 
+        IndexBinaryRow idxBinRow = store.indexRowFactory().createIndexRow(t, new BinarySearchRow(newRow));
 
-        store.put();
+        store.put(idxBinRow);
     }
 
     /** {@inheritDoc} */
     @Override
     public void onRemove(BinaryRow row) {
+        Tuple t = TableRow.tuple(tbl.schemaView().resolve(row));
 
+        IndexBinaryRow idxBinRow = store.indexRowFactory().createIndexRow(t, new BinarySearchRow(row));
+
+        store.remove(idxBinRow);
     }
 }

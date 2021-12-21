@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.processors.query.calcite.schema;
 
+import java.util.Collections;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -77,6 +78,10 @@ public class IgniteIndex {
         return tbl;
     }
 
+    public InternalSortedIndex index() {
+        return idx;
+    }
+
     public <RowT> Iterable<RowT> scan(
             ExecutionContext<RowT> ectx,
             ColocationGroup colocationGrp,
@@ -86,6 +91,6 @@ public class IgniteIndex {
             Function<RowT, RowT> prj,
             ImmutableBitSet requiredColumns
     ) {
-        return null;
+        return Collections.emptyList();
     }
 }

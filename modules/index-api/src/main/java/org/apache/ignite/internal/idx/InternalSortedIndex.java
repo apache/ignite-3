@@ -23,7 +23,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.table.Table;
 
 /**
  * Sorted index facade.

@@ -34,6 +34,7 @@ import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -102,12 +103,49 @@ public class SchemaHolderImpl implements SchemaHolder {
      * OnSqlTypeCreated.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public synchronized void onSqlTypeCreated(
+    public synchronized void onTableCreated(
             String schemaName,
             TableImpl table
     ) {
         IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
 
+        IgniteTableImpl t = new IgniteTableImpl(createTableDescriptor(table), table);
+
+        schema.addTable(removeSchema(schemaName, table.name()), t);
+
+        rebuild();
+    }
+
+    /**
+     * OnSqlTypeCreated.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
+    public synchronized void onTableUpdated(
+            String schemaName,
+            TableImpl table
+    ) {
+        IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
+
+        String tblName = removeSchema(schemaName, table.name());
+
+        IgniteTableImpl t = new IgniteTableImpl(
+                createTableDescriptor(table),
+                table
+        );
+
+        // Rebuild indexes collation.
+        t.addIndexes(schema.internalTable(tblName).indexes().values().stream()
+                .map(idx -> createIndex(idx.index(), t))
+                .collect(Collectors.toList())
+        );
+
+        schema.addTable(tblName, t);
+
+        rebuild();
+    }
+
+    @NotNull
+    private TableDescriptorImpl createTableDescriptor(TableImpl table) {
         SchemaDescriptor descriptor = table.schemaView().schema();
 
         List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()
@@ -122,29 +160,14 @@ public class SchemaHolderImpl implements SchemaHolder {
                 ))
                 .collect(Collectors.toList());
 
-        TableDescriptorImpl desc = new TableDescriptorImpl(colDescriptors);
-
-        schema.addTable(removeSchema(schemaName, table.name()), new IgniteTableImpl(desc, table));
-
-        rebuild();
-    }
-
-    /**
-     * OnSqlTypeUpdated.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public void onSqlTypeUpdated(
-            String schemaName,
-            TableImpl table
-    ) {
-        onSqlTypeCreated(schemaName, table);
+        return new TableDescriptorImpl(colDescriptors);
     }
 
     /**
      * OnSqlTypeDropped.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public synchronized void onSqlTypeDropped(
+    public synchronized void onTableDropped(
             String schemaName,
             String tableName
     ) {
@@ -161,17 +184,25 @@ public class SchemaHolderImpl implements SchemaHolder {
     public void onIndexCreated(String schema, String tblName, InternalSortedIndex idx) {
         InternalIgniteTable tbl = igniteSchemas.get(schema).internalTable(removeSchema(schema, tblName));
 
-        List<Integer> cols = idx.columns().stream().map(Column::schemaIndex).collect(Collectors.toList());
-
-        tbl.addIndex(
-                new IgniteIndex(
-                        TraitUtils.createCollation(cols),
-                        idx,
-                        tbl
-                )
-        );
+        tbl.addIndex(createIndex(idx, tbl));
 
         rebuild();
+    }
+
+    /**
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-15480
+     * columns mapping should be masted on column ID instead of column name.
+     */
+    private IgniteIndex createIndex(InternalSortedIndex idx, InternalIgniteTable tbl) {
+        List<Integer> cols = idx.columns().stream()
+                .map(c -> tbl.table().schemaView().schema().column(c.name()).columnOrder())
+                .collect(Collectors.toList());
+
+        return new IgniteIndex(
+                TraitUtils.createCollation(cols),
+                idx,
+                tbl
+        );
     }
 
     /**

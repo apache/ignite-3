@@ -397,6 +397,12 @@ public class ItIndexDdlTest extends AbstractBasicIntegrationTest {
     public void dbg() {
         sql("create table test_tbl (id int primary key, c1 int)", true);
 
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         sql("create index idx_asc on test_tbl (c1)", true);
 
         Ignite ign = CLUSTER_NODES.get(0);
@@ -405,10 +411,13 @@ public class ItIndexDdlTest extends AbstractBasicIntegrationTest {
                 "PUBLIC.TEST_TBL",
                 new String[] {"ID", "C1"},
                 new Object[] {0, 1},
-                new Object[] {0, 2},
-                new Object[] {0, 3},
-                new Object[] {0, null}
+                new Object[] {1, 2},
+                new Object[] {2, 3},
+                new Object[] {3, null}
         );
+
+        System.out.println("+++ " + sql("EXPLAIN PLAN FOR SELECT * FROM TEST_TBL WHERE c1 = 1"));
+        System.out.println("+++ " + sql("SELECT * FROM test_tbl WHERE c1 = 1"));
     }
 
     private static Table createTable(String tableName) {

@@ -245,7 +245,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 return false;
             }
 
-            schemaHolder.onSqlTypeCreated(
+            schemaHolder.onTableCreated(
                     "PUBLIC",
                     parameters.table()
             );
@@ -268,7 +268,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 return false;
             }
 
-            schemaHolder.onSqlTypeUpdated(
+            schemaHolder.onTableUpdated(
                     "PUBLIC",
                     parameters.table()
             );
@@ -291,7 +291,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 return false;
             }
 
-            schemaHolder.onSqlTypeDropped(
+            schemaHolder.onTableDropped(
                     "PUBLIC",
                     parameters.tableName()
             );

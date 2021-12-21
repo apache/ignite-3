@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.processors.query.calcite.schema;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -155,6 +156,15 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
     @Override
     public void addIndex(IgniteIndex idxTbl) {
         indexes.put(idxTbl.name(), idxTbl);
+    }
+
+    /**
+     * Add indexes.
+     *
+     * @param idxs Indexes collection.
+     */
+    public void addIndexes(Collection<IgniteIndex> idxs) {
+        idxs.forEach(idx -> indexes.put(idx.name(), idx));
     }
 
     /** {@inheritDoc} */
