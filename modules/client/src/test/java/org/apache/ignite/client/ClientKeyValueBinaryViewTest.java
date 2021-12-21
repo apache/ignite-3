@@ -96,8 +96,8 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
 
         Tuple key = defaultTupleKey();
 
-        kvView.put(key, null);
-        Tuple resVal = kvView.get(key);
+        kvView.put(null, key, null);
+        Tuple resVal = kvView.get(null, key);
 
         assertNull(resVal.stringValue("name"));
     }
