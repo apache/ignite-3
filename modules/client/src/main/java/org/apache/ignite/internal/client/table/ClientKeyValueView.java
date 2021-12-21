@@ -400,7 +400,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         try {
             for (int i = 0; i < cnt; i++) {
-                in.unpackBoolean(); // TODO: Clarify updated GetAll semantics and remove this.
+                in.unpackBoolean(); // TODO: Optimize (IGNITE-16022).
                 res.put((K) keyMarsh.readObject(reader, null), (V) valMarsh.readObject(reader, null));
             }
 
