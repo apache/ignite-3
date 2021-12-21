@@ -45,14 +45,6 @@ class DefaultUserObjectMarshallerTest {
     private static final int READ_RESOLVE_INCREMENT = 1_000;
 
     @Test
-    void marshalsExternalizable() throws Exception {
-        MarshalledObject marshalled = marshaller.marshal(new SimpleExternalizable(42));
-
-        assertThat(marshalled, is(notNullValue()));
-        assertThat(marshalled.bytes(), is(notNullValue()));
-    }
-
-    @Test
     void usesExactlyOneDescriptorWhenMarshallingExternalizable() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new SimpleExternalizable(42));
 
@@ -62,7 +54,7 @@ class DefaultUserObjectMarshallerTest {
     }
 
     @Test
-    void unmarshalsExternalizable() throws Exception {
+    void marshalsAndUnmarshalsExternalizable() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new SimpleExternalizable(42));
 
         SimpleExternalizable unmarshalled = marshaller.unmarshal(marshalled.bytes());
