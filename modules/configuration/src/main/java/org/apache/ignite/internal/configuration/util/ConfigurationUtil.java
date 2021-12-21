@@ -1088,7 +1088,7 @@ public class ConfigurationUtil {
      *     // Creates another proxy.
      *     var aIdElementProxy = getByInternalId(namedListProxy, aId);
      *
-     *     // This operation performs actual reading as previously stated. But, unlake the access by name, it won't throw an exception in
+     *     // This operation performs actual reading as previously stated. But, unlike the access by name, it won't throw an exception in
      *     // case of a rename. Only after deletion.
      *     var aIdElement = aIdElementProxy.value();
      * </code></pre>

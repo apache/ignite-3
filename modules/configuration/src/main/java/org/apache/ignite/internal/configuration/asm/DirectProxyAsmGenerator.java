@@ -99,6 +99,8 @@ class DirectProxyAsmGenerator {
     /** {@link InternalId} field. */
     @Nullable
     private final Field internalIdField;
+
+    /** Class definition that extends the {@link DirectConfigurationProxy}. */
     private ClassDefinition classDef;
 
     static {
@@ -113,7 +115,7 @@ class DirectProxyAsmGenerator {
 
     /**
      * Constructor.
-     * Please refer to indvidual fields for comments.
+     * Please refer to individual fields for comments.
      */
     DirectProxyAsmGenerator(
             ConfigurationAsmGenerator cgen,
