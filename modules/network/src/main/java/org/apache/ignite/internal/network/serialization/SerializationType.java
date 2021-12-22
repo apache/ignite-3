@@ -18,27 +18,25 @@
 package org.apache.ignite.internal.network.serialization;
 
 /**
- * Serialization type flags.
+ * Serialization type.
  */
-public class SerializationType {
-    /** Used for predefined descriptors like primitive (or boxed int). See {@link DefaultType}. */
-    public static final int DEFAULT = 0;
-
+public enum SerializationType {
+    /** Used for predefined descriptors like primitive (or boxed int). See {@link BuiltinType}. */
+    BUILTIN(0),
     /** Type for classes that are neither serializable nor externalizable.  */
-    public static final int ARBITRARY = 1;
-
+    ARBITRARY(1),
     /** Externalizable. */
-    public static final int EXTERNALIZABLE = 1 << 1;
+    EXTERNALIZABLE(2),
+    /** Serializable (but not Externalizable). */
+    SERIALIZABLE(3);
 
-    /** Simple serializable. */
-    public static final int SERIALIZABLE = 1 << 2;
+    private final int value;
 
-    /** Serializable with readObject/writeObject flag. */
-    public static final int SERIALIZABLE_OVERRIDE = 1 << 3;
+    SerializationType(int value) {
+        this.value = value;
+    }
 
-    /** Serializable with writeReplace flag. */
-    public static final int SERIALIZABLE_WRITE_REPLACE = 1 << 4;
-
-    /** Serializable with readResolve flag. */
-    public static final int SERIALIZABLE_READ_RESOLVE = 1 << 5;
+    public int value() {
+        return value;
+    }
 }

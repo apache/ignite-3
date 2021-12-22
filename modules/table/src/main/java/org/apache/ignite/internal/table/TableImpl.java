@@ -26,7 +26,6 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.KeyValueView;
@@ -42,9 +41,6 @@ import org.jetbrains.annotations.TestOnly;
  * Table view implementation for binary objects.
  */
 public class TableImpl implements Table, StorageRowListener {
-    /** Table manager. */
-    private final TableManager tblMgr;
-
     /** Internal table. */
     private final InternalTable tbl;
 
@@ -58,12 +54,10 @@ public class TableImpl implements Table, StorageRowListener {
      *
      * @param tbl       The table.
      * @param schemaReg Table schema registry.
-     * @param tblMgr    Table manager.
      */
-    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, TableManager tblMgr) {
+    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg) {
         this.tbl = tbl;
         this.schemaReg = schemaReg;
-        this.tblMgr = tblMgr;
     }
 
     /**
@@ -97,25 +91,25 @@ public class TableImpl implements Table, StorageRowListener {
     /** {@inheritDoc} */
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
-        return new RecordViewImpl<>(tbl, schemaReg, recMapper, null);
+        return new RecordViewImpl<>(tbl, schemaReg, recMapper);
     }
 
     /** {@inheritDoc} */
     @Override
     public RecordView<Tuple> recordView() {
-        return new RecordBinaryViewImpl(tbl, schemaReg, tblMgr, null);
+        return new RecordBinaryViewImpl(tbl, schemaReg);
     }
 
     /** {@inheritDoc} */
     @Override
     public <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper) {
-        return new KeyValueViewImpl<>(tbl, schemaReg, keyMapper, valMapper, null);
+        return new KeyValueViewImpl<>(tbl, schemaReg, keyMapper, valMapper);
     }
 
     /** {@inheritDoc} */
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
-        return new KeyValueBinaryViewImpl(tbl, schemaReg, tblMgr, null);
+        return new KeyValueBinaryViewImpl(tbl, schemaReg);
     }
 
     /**
