@@ -42,7 +42,7 @@ public interface IndexManager extends Producer<IndexEvent, IndexEventParameters>
      * @return Index.
      * @throws IndexAlreadyExistsException if the index exists.
      */
-    public InternalSortedIndex createIndex(
+    InternalSortedIndex createIndex(
             String idxCanonicalName,
             String tblCanonicalName,
             Consumer<TableIndexChange> idxChange
@@ -56,7 +56,7 @@ public interface IndexManager extends Producer<IndexEvent, IndexEventParameters>
      * @param idxChange        Index configuration.
      * @return Index future, that may be completed exceptionally with {@link IndexAlreadyExistsException} if the index exists.
      */
-    public CompletableFuture<InternalSortedIndex> createIndexAsync(
+    CompletableFuture<InternalSortedIndex> createIndexAsync(
             String idxCanonicalName,
             String tblCanonicalName,
             Consumer<TableIndexChange> idxChange
@@ -66,7 +66,6 @@ public interface IndexManager extends Producer<IndexEvent, IndexEventParameters>
      * Drop index.
      *
      * @param idxCanonicalName Index canonical name.
-     * @return Index future, that may be completed exceptionally with {@link IndexAlreadyExistsException} if the index exists.
      * @throws IndexAlreadyExistsException if the index doesn't exist.
      */
     void dropIndex(String idxCanonicalName);

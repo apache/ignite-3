@@ -53,6 +53,7 @@ import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
+import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
@@ -214,14 +215,20 @@ public class DdlCommandHandler {
 
     /** Handles drop index command. */
     private void handleDropIndex(DropIndexCommand cmd) {
-        idxManager.dropIndex(cmd.indexName());
+        try {
+            idxManager.dropIndex(cmd.indexName());
+        } catch (IndexNotFoundException e) {
+            if (!cmd.ifExist()) {
+                throw e;
+            }
+        }
     }
 
     /**
      * Adds a column according to the column definition.
      *
      * @param fullName Table with schema name.
-     * @param colsDef  Columns defenitions.
+     * @param colsDef  Columns definitions.
      * @param colNotExist Flag indicates exceptionally behavior in case of already existing column.
      */
     private void addColumnInternal(String fullName, List<ColumnDefinition> colsDef, boolean colNotExist) {
