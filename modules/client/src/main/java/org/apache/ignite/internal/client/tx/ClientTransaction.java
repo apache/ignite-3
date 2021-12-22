@@ -28,14 +28,17 @@ import org.apache.ignite.tx.TransactionException;
 public class ClientTransaction implements Transaction {
     private final ReliableChannel ch;
 
+    private final long id;
+
     /**
      * Constructor.
      *
      * @param ch Channel.
+     * @param id Transaction id.
      */
-    public ClientTransaction(ReliableChannel ch) {
-        // TODO: ID. Use incremental generator or an UUID?
+    public ClientTransaction(ReliableChannel ch, long id) {
         this.ch = ch;
+        this.id = id;
     }
 
     /** {@inheritDoc} */

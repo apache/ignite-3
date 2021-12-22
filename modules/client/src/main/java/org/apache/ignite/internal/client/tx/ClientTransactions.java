@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.client.tx;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionException;
 
 /**
  * Client transactions implementation.
@@ -56,18 +54,6 @@ public class ClientTransactions implements IgniteTransactions {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Transaction> beginAsync() {
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void runInTransaction(Consumer<Transaction> clo) throws TransactionException {
-
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <T> T runInTransaction(Function<Transaction, T> clo) throws TransactionException {
-        return null;
+        return ch.serviceAsync(ClientOp.TX_BEGIN, w -> {}, r -> r.in().unpackLong()).thenApply(id -> new ClientTransaction(ch, id));
     }
 }
