@@ -24,17 +24,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.testframework.StaticIgniteAbstractTest;
+import org.apache.ignite.internal.calcite.AbstractBasicIntegrationTest;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.table.Table;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -47,7 +43,7 @@ import org.junit.jupiter.api.TestInfo;
  * <li>When a table is not existed, tries to alter or drop the table have to failed {@link TableNotFoundException}.</li>
  * </ul>
  */
-public class ItTableApiContractTest extends StaticIgniteAbstractTest {
+public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
     /** Schema name. */
     public static final String SCHEMA = "PUBLIC";
 
@@ -57,43 +53,21 @@ public class ItTableApiContractTest extends StaticIgniteAbstractTest {
     /** Table name. */
     public static final String TABLE_NAME = SCHEMA + "." + SHORT_TABLE_NAME;
 
-    /** The configuration contains local properties for starting node with local Meta storage. */
-    private static final Function<String, String> nodeStartupCfg = metastorageNodeName -> "{\n"
-            + "  \"node\": {\n"
-            + "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n"
-            + "  },\n"
-            + "  \"network\": {\n"
-            + "    \"port\":3344,\n"
-            + "    \"nodeFinder\": {\n"
-            + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-            + "    }\n"
-            + "  }\n"
-            + "}";
-
     /** Cluster nodes. */
     private static Ignite ignite;
+
+    /** {@inheritDoc} */
+    @Override
+    public int nodes() {
+        return 1;
+    }
 
     /**
      * Before all tests.
      */
     @BeforeAll
     static void beforeAll(TestInfo testInfo) throws Exception {
-        String metastorageNodeName = IgniteTestUtils.testNodeName(testInfo, 0);
-
-        ignite = IgnitionManager.start(
-                metastorageNodeName,
-                nodeStartupCfg.apply(metastorageNodeName),
-                // Avoid a long file path name (260 characters) for windows.
-                WORK_DIR.resolve(Integer.toString(0))
-        );
-    }
-
-    /**
-     * After all tests.
-     */
-    @AfterAll
-    static void afterAll() throws Exception {
-        ignite.close();
+        ignite = CLUSTER_NODES.get(0);
     }
 
     /**

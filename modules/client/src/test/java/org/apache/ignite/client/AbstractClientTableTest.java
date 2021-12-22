@@ -95,7 +95,13 @@ public class AbstractClientTableTest extends AbstractClientTest {
     }
 
     protected Table tableWithDefaultValues() {
-        server.tables().createTableIfNotExists(TABLE_WITH_DEFAULT_VALUES, tbl -> tbl.changeReplicas(1));
+        Table clientTbl = client.tables().table(TABLE_WITH_DEFAULT_VALUES);
+
+        if (clientTbl != null) {
+            return clientTbl;
+        }
+
+        server.tables().createTable(TABLE_WITH_DEFAULT_VALUES, tbl -> tbl.changeReplicas(1));
 
         return client.tables().table(TABLE_WITH_DEFAULT_VALUES);
     }
@@ -126,9 +132,13 @@ public class AbstractClientTableTest extends AbstractClientTest {
     }
 
     protected Table fullTable() {
-        if (server.tables().table(TABLE_ALL_COLUMNS) == null) {
-            server.tables().createTable(TABLE_ALL_COLUMNS, tbl -> tbl.changeReplicas(1));
+        Table clientTbl = client.tables().table(TABLE_ALL_COLUMNS);
+
+        if (clientTbl != null) {
+            return clientTbl;
         }
+
+        server.tables().createTable(TABLE_ALL_COLUMNS, tbl -> tbl.changeReplicas(1));
 
         return client.tables().table(TABLE_ALL_COLUMNS);
     }
@@ -138,9 +148,13 @@ public class AbstractClientTableTest extends AbstractClientTest {
     }
 
     protected Table oneColumnTable() {
-        if (server.tables().table(TABLE_ONE_COLUMN) == null) {
-            server.tables().createTable(TABLE_ONE_COLUMN, tbl -> tbl.changeReplicas(1));
+        Table clientTbl = client.tables().table(TABLE_ONE_COLUMN);
+
+        if (clientTbl != null) {
+            return clientTbl;
         }
+
+        server.tables().createTable(TABLE_ONE_COLUMN, tbl -> tbl.changeReplicas(1));
 
         return client.tables().table(TABLE_ONE_COLUMN);
     }

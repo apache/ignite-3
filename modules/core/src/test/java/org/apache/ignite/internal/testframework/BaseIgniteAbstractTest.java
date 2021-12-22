@@ -53,7 +53,7 @@ public abstract class BaseIgniteAbstractTest {
      * @param workDir  Work directory.
      * @throws Exception If failed.
      */
-    public void setupBase(TestInfo testInfo, Path workDir) throws Exception {
+    protected void setupBase(TestInfo testInfo, Path workDir) throws Exception {
         log.info(">>> Starting test: {}#{}, displayName: {}, workDir: {}",
                 testInfo.getTestClass().map(Class::getSimpleName).orElseGet(() -> "<null>"),
                 testInfo.getTestMethod().map(Method::getName).orElseGet(() -> "<null>"),
@@ -69,7 +69,7 @@ public abstract class BaseIgniteAbstractTest {
      * @param testInfo Test information oject.
      * @throws Exception If failed.
      */
-    public void tearDownBase(TestInfo testInfo) throws Exception {
+    protected void tearDownBase(TestInfo testInfo) throws Exception {
         log.info(">>> Stopping test: {}#{}, displayName: {}, cost: {}ms.",
                 testInfo.getTestClass().map(Class::getSimpleName).orElseGet(() -> "<null>"),
                 testInfo.getTestMethod().map(Method::getName).orElseGet(() -> "<null>"),
