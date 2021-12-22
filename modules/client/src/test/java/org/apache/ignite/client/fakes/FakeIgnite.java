@@ -49,7 +49,7 @@ public class FakeIgnite implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /**
