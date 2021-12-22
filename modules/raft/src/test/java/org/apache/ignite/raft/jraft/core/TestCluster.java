@@ -39,6 +39,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ExponentialBackoffElectionTimeoutStrategy;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -74,6 +75,11 @@ public class TestCluster {
      * enough to avoid test flakiness. Test environment might give another instability.
      */
     public static final int ELECTION_TIMEOUT_MILLIS = 1000;
+
+    private static final int ELECTION_TIMEOUT_MS_MAX = 11_000;
+
+    // Max number of consecutive unsuccessful elections after which election timeout is adjusted.
+    protected static final int MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING = 3;
 
     private static final IgniteLogger LOG = IgniteLogger.forClass(TestCluster.class);
 
@@ -233,6 +239,15 @@ public class TestCluster {
             nodeOptions.setRaftRpcThreadPoolSize(Utils.cpus());
             nodeOptions.setTimerPoolSize(Utils.cpus() * 2);
             nodeOptions.setRpcProcessorThreadPoolSize(Utils.cpus() * 3);
+
+            //
+            nodeOptions.setElectionTimeoutStrategy(
+                    new ExponentialBackoffElectionTimeoutStrategy(
+                            this.electionTimeoutMs,
+                            ELECTION_TIMEOUT_MS_MAX,
+                            MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING
+                    )
+            );
 
             MockStateMachine fsm = new MockStateMachine(listenAddr);
             nodeOptions.setFsm(fsm);

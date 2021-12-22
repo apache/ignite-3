@@ -18,6 +18,8 @@ package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.lang.ElectionTimeoutStrategy;
+import org.apache.ignite.lang.NoopElectionStrategy;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -49,14 +51,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     // Default: 1200 (1.2s)
     private int electionTimeoutMs = 1200; // follower to candidate timeout
 
-    // The upper bound of the election timeout adjusting. Must be more than timeout of a membership protocol to remove failed node from
-    // the cluster. In our case, we may assume that 11s could be enough as far as 11s is greater than suspicion timeout
-    // for the 1000 nodes cluster with ping interval equals to 500ms.
-    // See NodeIml#adjustElectionTimeout for more details about adjusting election timeouts.
-    public static final int ELECTION_TIMEOUT_MS_MAX = 11_000;
-    
-    // Max number of consecutive unsuccessful elections after which election timeout is adjusted.
-    public static final int MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING = 3;
+    private ElectionTimeoutStrategy electionTimeoutStrategy = new NoopElectionStrategy();
 
     // One node's local priority value would be set to | electionPriority |
     // value when it starts up.If this value is set to 0,the node will never be a leader.
@@ -642,5 +637,13 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      */
     public List<Replicator.ReplicatorStateListener> getReplicationStateListeners() {
         return replicationStateListeners;
+    }
+
+    public ElectionTimeoutStrategy getElectionTimeoutStrategy() {
+        return electionTimeoutStrategy;
+    }
+
+    public void setElectionTimeoutStrategy(ElectionTimeoutStrategy electionTimeoutStrategy) {
+        this.electionTimeoutStrategy = electionTimeoutStrategy;
     }
 }

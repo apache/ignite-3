@@ -36,6 +36,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.NoopElectionStrategy;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -148,8 +149,7 @@ public class NodeImpl implements Node, RaftServerService {
     private ConfigurationEntry conf;
     private StopTransferArg stopTransferArg;
     private boolean electionAdjusted;
-    private int electionRoundsWithoutAdjusting;
-    private int initialElectionTimeout;
+
     /**
      * Raft group and node options and identifier
      */
@@ -613,31 +613,28 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     /**
-     * Method that adjusts election timeout after several consecutive unsuccessful leader elections.
-     *
-     * Notes about general algorithm: the main idea is that in a stable cluster election timeout should be relatively small, but when cluster
-     * has unstable network, we don't want to have a lot of elections, so election timeout is adjusted, while membership layer could solve the
-     * instability problem, for example, by removing failed nodes from the cluster. Hence, the upper bound
-     * of the election timeout adjusting {@link NodeOptions#ELECTION_TIMEOUT_MS_MAX} is the value,
-     * that is guaranteed to be greater than timeout of removing a failed node form the cluster by membership protocol.
-     *
+     * Method that adjusts election timeout after several consecutive unsuccessful leader elections according to {@link
+     * org.apache.ignite.lang.ElectionTimeoutStrategy}
+     * <p>
+     * Notes about general algorithm: the main idea is that in a stable cluster election timeout should be relatively small, but when
+     * cluster has unstable network, we don't want to have a lot of elections, so election timeout is adjusted, while membership layer could
+     * solve the instability problem, for example, by removing failed nodes from the cluster. Hence, the upper bound of the election timeout
+     * adjusting is the value, that is guaranteed to be greater than timeout of removing a
+     * failed node form the cluster by membership protocol.
+     * <p>
      * After a successful leader election election timeout is set to an initial value.
      */
     private void adjustElectionTimeout() {
-        if (electionRoundsWithoutAdjusting < NodeOptions.MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING) {
-            electionRoundsWithoutAdjusting++;
+        if (options.getElectionTimeoutStrategy() instanceof NoopElectionStrategy) {
             return;
         }
 
-        if (!electionAdjusted) {
-            initialElectionTimeout = options.getElectionTimeoutMs();
-        }
+        long timeout = options.getElectionTimeoutStrategy().nextTimeout();
 
-        if (options.getElectionTimeoutMs() < NodeOptions.ELECTION_TIMEOUT_MS_MAX) {
-            LOG.info("Election timeout was adjusted.");
-            resetElectionTimeoutMs(options.getElectionTimeoutMs() * 2);
+        if (timeout != options.getElectionTimeoutMs()) {
+            LOG.info("Election timeout was adjusted according to " + options.getElectionTimeoutStrategy().toString());
+            resetElectionTimeoutMs((int) timeout);
             electionAdjusted = true;
-            electionRoundsWithoutAdjusting = 0;
         }
     }
 
@@ -647,11 +644,10 @@ public class NodeImpl implements Node, RaftServerService {
      * For more details see {@link NodeImpl#adjustElectionTimeout()}.
      */
     private void resetElectionTimeoutToInitial() {
-        if (electionAdjusted) {
+        if (electionAdjusted && !(options.getElectionTimeoutStrategy() instanceof NoopElectionStrategy)) {
             LOG.info("Election timeout was reset to initial value due to successful leader election.");
-            resetElectionTimeoutMs(initialElectionTimeout);
+            resetElectionTimeoutMs((int) options.getElectionTimeoutStrategy().reset());
             electionAdjusted = false;
-            electionRoundsWithoutAdjusting = 0;
         }
     }
 

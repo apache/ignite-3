@@ -3436,7 +3436,7 @@ public class ItNodeTest {
         assertNull(cluster.getLeader());
 
         assertTrue(waitForCondition(() -> followers.stream().allMatch(f -> f.getOptions().getElectionTimeoutMs() > initElectionTimeout),
-                (long) NodeOptions.MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING
+                (long) TestCluster.MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING
                         // need to multiply to 2 because stepDown happens after voteTimer timeout
                         * (initElectionTimeout + followers.get(0).getOptions().getRaftOptions().getMaxElectionDelayMs()) * 2));
 
