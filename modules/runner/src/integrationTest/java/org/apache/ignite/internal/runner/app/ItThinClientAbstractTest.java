@@ -42,7 +42,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Tests thin client connecting to a real server node.
+ * Thin client integration test base class.
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class ItThinClientAbstractTest extends IgniteAbstractTest {
