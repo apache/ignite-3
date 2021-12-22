@@ -54,6 +54,7 @@ import org.apache.ignite.client.handler.requests.table.ClientTupleReplaceExactRe
 import org.apache.ignite.client.handler.requests.table.ClientTupleReplaceRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertAllRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertRequest;
+import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginRequest;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.internal.client.proto.ClientErrorCode;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
@@ -66,6 +67,7 @@ import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.tx.IgniteTransactions;
 
 /**
  * Handles messages from thin clients.
@@ -78,25 +80,34 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** Ignite tables API. */
     private final IgniteTables igniteTables;
 
+    /** Ignite tables API. */
+    private final IgniteTransactions igniteTransactions;
+
+    /** JDBC Handler. */
+    private final JdbcQueryEventHandler jdbcQueryEventHandler;
+
     /** Context. */
     private ClientContext clientContext;
-
-    /** Handler. */
-    private final JdbcQueryEventHandler handler;
 
     /**
      * Constructor.
      *
-     * @param igniteTables Ignite tables API entry point.
-     * @param processor    Sql query processor.
+     * @param igniteTables       Ignite tables API entry point.
+     * @param igniteTransactions Transactions API.
+     * @param processor          Sql query processor.
      */
-    public ClientInboundMessageHandler(IgniteTables igniteTables,
+    public ClientInboundMessageHandler(
+            IgniteTables igniteTables,
+            IgniteTransactions igniteTransactions,
             QueryProcessor processor) {
         assert igniteTables != null;
+        assert igniteTransactions != null;
+        assert processor != null;
 
         this.igniteTables = igniteTables;
+        this.igniteTransactions = igniteTransactions;
 
-        this.handler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables));
+        this.jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables));
     }
 
     /** {@inheritDoc} */
@@ -316,31 +327,37 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientTupleContainsKeyRequest.process(in, out, igniteTables);
 
             case ClientOp.SQL_EXEC:
-                return ClientSqlExecuteRequest.execute(in, out, handler);
+                return ClientSqlExecuteRequest.execute(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_EXEC_BATCH:
-                return ClientSqlExecuteBatchRequest.process(in, out, handler);
+                return ClientSqlExecuteBatchRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_NEXT:
-                return ClientSqlFetchRequest.process(in, out, handler);
+                return ClientSqlFetchRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_CURSOR_CLOSE:
-                return ClientSqlCloseRequest.process(in, out, handler);
+                return ClientSqlCloseRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_TABLE_META:
-                return ClientSqlTableMetadataRequest.process(in, out, handler);
+                return ClientSqlTableMetadataRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_COLUMN_META:
-                return ClientSqlColumnMetadataRequest.process(in, out, handler);
+                return ClientSqlColumnMetadataRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_SCHEMAS_META:
-                return ClientSqlSchemasMetadataRequest.process(in, out, handler);
+                return ClientSqlSchemasMetadataRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_PK_META:
-                return ClientSqlPrimaryKeyMetadataRequest.process(in, out, handler);
+                return ClientSqlPrimaryKeyMetadataRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_QUERY_META:
-                return ClientSqlQueryMetadataRequest.process(in, out, handler);
+                return ClientSqlQueryMetadataRequest.process(in, out, jdbcQueryEventHandler);
+
+            case ClientOp.TX_BEGIN:
+                return ClientTransactionBeginRequest.process(in, out, igniteTransactions);
+
+            case ClientOp.TX_COMMIT:
+            case ClientOp.TX_ROLLBACK:
 
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);

@@ -222,6 +222,7 @@ public class IgniteImpl implements Ignite {
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
+                new IgniteTransactionsImpl(txManager),
                 nodeCfgMgr.configurationRegistry(),
                 nettyBootstrapFactory
         );
