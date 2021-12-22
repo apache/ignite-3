@@ -26,17 +26,17 @@ import org.apache.ignite.lang.IgniteException;
  * Per-connection resource registry.
  */
 public class ClientResourceRegistry {
-    /** Handles. */
+    /** Resources. */
     private final Map<Long, ClientResource> res = new ConcurrentHashMap<>();
 
     /** ID generator. */
     private final AtomicLong idGen = new AtomicLong();
 
     /**
-     * Allocates server handle for an object.
+     * Stores the resource and returns the generated id.
      *
      * @param obj Object.
-     * @return Handle.
+     * @return Id.
      */
     public long put(ClientResource obj) {
         long id = idGen.incrementAndGet();
@@ -47,38 +47,38 @@ public class ClientResourceRegistry {
     }
 
     /**
-     * Gets the object by handle.
+     * Gets the resource by id.
      *
-     * @param hnd Handle.
+     * @param id Id.
      * @return Object.
      */
-    public ClientResource get(long hnd) {
-        ClientResource res = this.res.get(hnd);
+    public ClientResource get(long id) {
+        ClientResource res = this.res.get(id);
 
         if (res == null) {
-            throw new IgniteException("Failed to find resource with id: " + hnd);
+            throw new IgniteException("Failed to find resource with id: " + id);
         }
 
         return res;
     }
 
     /**
-     * Releases the handle.
+     * Removes the resource.
      *
-     * @param hnd Handle.
+     * @param id Id.
      */
-    public ClientResource remove(long hnd) {
-        ClientResource res = this.res.remove(hnd);
+    public ClientResource remove(long id) {
+        ClientResource res = this.res.remove(id);
 
         if (res == null) {
-            throw new IgniteException("Failed to find resource with id: " + hnd);
+            throw new IgniteException("Failed to find resource with id: " + id);
         }
 
         return res;
     }
 
     /**
-     * Cleans all handles and closes all ClientCloseableResources.
+     * Releases all resources.
      */
     public void clean() {
         IgniteException ex = null;
@@ -94,6 +94,8 @@ public class ClientResourceRegistry {
                 }
             }
         }
+
+        res.clear();
 
         if (ex != null) {
             throw ex;

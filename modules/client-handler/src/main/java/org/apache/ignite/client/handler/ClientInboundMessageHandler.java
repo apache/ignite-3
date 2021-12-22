@@ -55,6 +55,8 @@ import org.apache.ignite.client.handler.requests.table.ClientTupleReplaceRequest
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertAllRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginRequest;
+import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
+import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.internal.client.proto.ClientErrorCode;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
@@ -368,7 +370,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientTransactionBeginRequest.process(out, igniteTransactions, resources);
 
             case ClientOp.TX_COMMIT:
+                return ClientTransactionCommitRequest.process(in, resources);
+
             case ClientOp.TX_ROLLBACK:
+                return ClientTransactionRollbackRequest.process(in, resources);
 
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);

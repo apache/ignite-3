@@ -21,7 +21,7 @@ package org.apache.ignite.client.handler;
  * Client resource.
  */
 public interface ClientResource {
-    Object get();
+    <T> T get();
 
     void release();
 }
