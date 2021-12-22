@@ -18,17 +18,14 @@
 package org.apache.ignite.internal.client.tx;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import org.apache.ignite.internal.client.ReliableChannel;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 
 /**
- * Client transactions implementation.
+ * Client transaction.
  */
-public class ClientTransactions implements IgniteTransactions {
+public class ClientTransaction implements Transaction {
     private final ReliableChannel ch;
 
     /**
@@ -36,38 +33,32 @@ public class ClientTransactions implements IgniteTransactions {
      *
      * @param ch Channel.
      */
-    public ClientTransactions(ReliableChannel ch) {
+    public ClientTransaction(ReliableChannel ch) {
+        // TODO: ID. Use incremental generator or an UUID?
         this.ch = ch;
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteTransactions withTimeout(long timeout) {
-        // TODO: IGNITE-16193
-        throw new UnsupportedOperationException();
+    public void commit() throws TransactionException {
+        commitAsync().join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public Transaction begin() {
-        return beginAsync().join();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Transaction> beginAsync() {
+    public CompletableFuture<Void> commitAsync() {
         return null;
     }
 
     /** {@inheritDoc} */
     @Override
-    public void runInTransaction(Consumer<Transaction> clo) throws TransactionException {
-
+    public void rollback() throws TransactionException {
+        rollbackAsync().join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public <T> T runInTransaction(Function<Transaction, T> clo) throws TransactionException {
+    public CompletableFuture<Void> rollbackAsync() {
         return null;
     }
 }
