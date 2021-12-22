@@ -48,6 +48,7 @@ import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribut
 import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,6 +56,8 @@ import org.jetbrains.annotations.Nullable;
  * Ignite table implementation.
  */
 public class IgniteTableImpl extends AbstractTable implements InternalIgniteTable {
+    private final IgniteUuid id;
+
     private final TableDescriptor desc;
 
     private final TableImpl table;
@@ -68,11 +71,18 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
      *
      * @param desc Table descriptor.
      */
-    public IgniteTableImpl(TableDescriptor desc, TableImpl table) {
+    public IgniteTableImpl(IgniteUuid id, TableDescriptor desc, TableImpl table) {
+        this.id = id;
         this.desc = desc;
         this.table = table;
 
         statistic = new StatisticsImpl();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteUuid id() {
+        return id;
     }
 
     /** {@inheritDoc} */
