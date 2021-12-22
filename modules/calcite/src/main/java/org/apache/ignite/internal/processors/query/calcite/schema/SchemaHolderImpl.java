@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.processors.query.calcite.schema;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntLists;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -194,12 +196,13 @@ public class SchemaHolderImpl implements SchemaHolder {
      * columns mapping should be masted on column ID instead of column name.
      */
     private IgniteIndex createIndex(InternalSortedIndex idx, InternalIgniteTable tbl) {
-        List<Integer> cols = idx.columns().stream()
-                .map(c -> tbl.table().schemaView().schema().column(c.name()).columnOrder())
-                .collect(Collectors.toList());
+        IntArrayList cols = IntArrayList.toList(
+                idx.columns().stream()
+                        .mapToInt(c -> tbl.table().schemaView().schema().column(c.name()).columnOrder())
+        );
 
         return new IgniteIndex(
-                TraitUtils.createCollation(cols),
+                TraitUtils.createCollation(IntLists.unmodifiable(cols)),
                 idx,
                 tbl
         );

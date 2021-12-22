@@ -26,6 +26,7 @@ import org.apache.ignite.internal.idx.event.IndexEvent;
 import org.apache.ignite.internal.idx.event.IndexEventParameters;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
+import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 
 /**
@@ -60,6 +61,23 @@ public interface IndexManager extends Producer<IndexEvent, IndexEventParameters>
             String tblCanonicalName,
             Consumer<TableIndexChange> idxChange
     );
+
+    /**
+     * Drop index.
+     *
+     * @param idxCanonicalName Index canonical name.
+     * @return Index future, that may be completed exceptionally with {@link IndexAlreadyExistsException} if the index exists.
+     * @throws IndexAlreadyExistsException if the index doesn't exist.
+     */
+    void dropIndex(String idxCanonicalName);
+
+    /**
+     * Drop index asynchronously.
+     *
+     * @param idxCanonicalName Index canonical name.
+     * @return Index future, that may be completed exceptionally with {@link IndexNotFoundException} if the index doesn't exist.
+     */
+    CompletableFuture<Void> dropIndexAsync(String idxCanonicalName);
 
     /**
      * Gets indexes of the table.

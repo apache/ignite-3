@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.query.calcite.rule;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
@@ -77,7 +78,7 @@ public class FilterSpoolMergeToSortedIndexSpoolRule extends RelRule<FilterSpoolM
             return;
         }
 
-        RelCollation collation = TraitUtils.createCollation(idxCond.keys());
+        RelCollation collation = TraitUtils.createCollation(IntArrayList.of(idxCond.keys().toIntArray()));
 
         RelNode res = new IgniteSortedIndexSpool(
                 cluster,

@@ -106,6 +106,11 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
         return new IndexCursor(cur, needLookup ? this::convertWithTableLookup : this::convertIndexedOnly);
     }
 
+    @Override
+    public void drop() {
+        store.destroy();
+    }
+
     /** {@inheritDoc} */
     @Override
     public void onUpdate(@Nullable BinaryRow oldRow, BinaryRow newRow, int partId) {

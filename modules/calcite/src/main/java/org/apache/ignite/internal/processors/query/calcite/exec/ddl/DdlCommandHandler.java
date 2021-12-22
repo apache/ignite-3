@@ -214,7 +214,7 @@ public class DdlCommandHandler {
 
     /** Handles drop index command. */
     private void handleDropIndex(DropIndexCommand cmd) {
-        throw new UnsupportedOperationException("DROP INDEX command not supported for now.");
+        idxManager.dropIndex(cmd.indexName());
     }
 
     /**

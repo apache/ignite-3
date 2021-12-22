@@ -48,9 +48,19 @@ public class IndexEventParameters implements EventParameters {
      *
      * @param idxName Index name.
      * @param tbl     Table instance.
+     */
+    public IndexEventParameters(String idxName, String tbl) {
+        this(idxName, tbl, null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param idxName Index name.
+     * @param tbl     Table instance.
      * @param idx     Index.
      */
-    public IndexEventParameters(String idxName, String tbl, InternalSortedIndex idx) {
+    private IndexEventParameters(String idxName, String tbl, InternalSortedIndex idx) {
         this.idxName = idxName;
         this.tblName = tbl;
         this.idx = idx;

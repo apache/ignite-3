@@ -79,4 +79,9 @@ public interface InternalSortedIndex {
      * @param scanBoundMask Scan bound mask (specify how to work with rows equals to the bounds: include or exclude).
      */
     Cursor<Tuple> scan(Tuple low, Tuple up, byte scanBoundMask, BitSet proj);
+
+    /**
+     * Drop index.
+     */
+    void drop();
 }

@@ -61,6 +61,7 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
+import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
@@ -88,9 +89,6 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
     /** Indexes by ID. */
     private final Map<IgniteUuid, InternalSortedIndex> idxsById = new ConcurrentHashMap<>();
-
-    /** Indexes by ID. */
-    private final Map<IgniteUuid, InternalSortedIndex> idxsByTableId = new ConcurrentHashMap<>();
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -132,7 +130,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
                         if (!busyLock.enterBusy()) {
                             fireEvent(IndexEvent.CREATE,
-                                    new IndexEventParameters(idxName, tblName, null),
+                                    new IndexEventParameters(idxName, tblName),
                                     new NodeStoppingException());
 
                             return CompletableFuture.completedFuture(new NodeStoppingException());
@@ -140,7 +138,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                         try {
                             onIndexCreate(ctx);
                         } catch (Exception e) {
-                            fireEvent(IndexEvent.CREATE, new IndexEventParameters(idxName, tblName, null), e);
+                            fireEvent(IndexEvent.CREATE, new IndexEventParameters(idxName, tblName), e);
 
                             LOG.error(LoggerMessageHelper.format(
                                     "Internal error, index creation failed [name={}, table={}]", idxName, tblName
@@ -169,7 +167,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
                         if (!busyLock.enterBusy()) {
                             fireEvent(IndexEvent.DROP,
-                                    new IndexEventParameters(idxName, tblName, null),
+                                    new IndexEventParameters(idxName, tblName),
                                     new NodeStoppingException());
 
                             return CompletableFuture.completedFuture(new NodeStoppingException());
@@ -196,7 +194,14 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
     private void onIndexDrop(ConfigurationNotificationEvent<TableIndexView> ctx) {
         TableConfiguration tbl = ctx.config(TableConfiguration.class);
         String tblName = tbl.name().value();
-        String idxName = ctx.newValue().name();
+        IgniteUuid idxId = IgniteUuid.fromString(ctx.oldValue().id());
+
+        InternalSortedIndex idx = idxsById.remove(idxId);
+        idxsByName.remove(idx.name());
+
+        idx.drop();
+
+        fireEvent(IndexEvent.DROP, new IndexEventParameters(idx.name(), tblName), null);
     }
 
     private void onIndexCreate(ConfigurationNotificationEvent<TableIndexView> ctx) throws NodeStoppingException {
@@ -230,6 +235,57 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
             Consumer<TableIndexChange> idxChange
     ) {
         return join(createIndexAsync(idxCanonicalName, tblCanonicalName, idxChange));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void dropIndex(
+            String idxCanonicalName
+    ) {
+        join(dropIndexAsync(idxCanonicalName));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> dropIndexAsync(String idxCanonicalName) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        try {
+            CompletableFuture<Void> idxFut = new CompletableFuture<>();
+
+            InternalSortedIndex idx = idxsByName.get(idxCanonicalName);
+
+            if (idx == null) {
+                idxFut.completeExceptionally(new IndexNotFoundException(idxCanonicalName));
+
+                return idxFut;
+            }
+
+            tblMgr.alterTableAsync(idx.tableName(), chng -> chng.changeIndices(idxes -> {
+                if (idxsByName.get(idxCanonicalName) != null) {
+                    throw new IndexAlreadyExistsException(idxCanonicalName);
+                }
+
+                idxes.delete(idxCanonicalName);
+            })).whenComplete((res, t) -> {
+                if (t != null) {
+                    Throwable ex = getRootCause(t);
+
+                    if (!(ex instanceof IndexNotFoundException)) {
+                        LOG.error(LoggerMessageHelper.format("Index wasn't dropped [name={}]", idxCanonicalName), ex);
+                    }
+
+                    idxFut.completeExceptionally(ex);
+                } else {
+                    idxFut.complete(null);
+                }
+            });
+
+            return idxFut;
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /** {@inheritDoc} */
@@ -276,7 +332,6 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
             busyLock.leaveBusy();
         }
     }
-
 
     /**
      * Waits for future result and return, or unwraps {@link CompletionException} to {@link IgniteException} if failed.
@@ -372,7 +427,6 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
         idxsByName.put(idx.name(), idx);
         idxsById.put(idx.id(), idx);
-        idxsByTableId.put(tbl.tableId(), idx);
 
         fireEvent(IndexEvent.CREATE, new IndexEventParameters(idx), null);
     }
