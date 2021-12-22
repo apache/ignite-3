@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.processors.query.calcite.schema;
 
-import java.util.Collections;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -25,6 +24,7 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.idx.InternalSortedIndex;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
+import org.apache.ignite.internal.processors.query.calcite.exec.IndexScan;
 import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGroup;
 
 /**
@@ -82,15 +82,27 @@ public class IgniteIndex {
         return idx;
     }
 
+    /**
+     * Scan index.
+     */
     public <RowT> Iterable<RowT> scan(
             ExecutionContext<RowT> ectx,
             ColocationGroup colocationGrp,
             Predicate<RowT> filters,
             Supplier<RowT> lower,
             Supplier<RowT> upper,
-            Function<RowT, RowT> prj,
+            Function<RowT, RowT> rowTransformer,
             ImmutableBitSet requiredColumns
     ) {
-        return Collections.emptyList();
+        return new IndexScan<>(
+                this,
+                ectx,
+                colocationGrp,
+                filters,
+                lower,
+                upper,
+                rowTransformer,
+                requiredColumns
+        );
     }
 }

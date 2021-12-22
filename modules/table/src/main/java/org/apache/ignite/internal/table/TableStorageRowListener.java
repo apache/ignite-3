@@ -28,9 +28,9 @@ public class TableStorageRowListener implements StorageRowListener {
 
     /** {@inheritDoc} */
     @Override
-    public void onUpdate(@Nullable BinaryRow oldRow, BinaryRow newRow) {
+    public void onUpdate(@Nullable BinaryRow oldRow, BinaryRow newRow, int partId) {
         if (delegate != null) {
-            delegate.onUpdate(oldRow, newRow);
+            delegate.onUpdate(oldRow, newRow, partId);
         }
     }
 

@@ -47,14 +47,14 @@ import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSch
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
-import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 import org.apache.ignite.internal.storage.index.IndexRow;
-import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -204,7 +204,7 @@ public class RocksDbSortedIndexStorageTest {
                 .map(SortedIndexColumnDescriptor::column)
                 .forEach(column -> row.set(column.name(), generateRandomValue(random, column.type())));
 
-        IndexBinaryRow idxBinRow = indexStorage.indexRowFactory().createIndexRow(row, new ByteArraySearchRow(new byte[0]));
+        IndexBinaryRow idxBinRow = indexStorage.indexRowFactory().createIndexRow(row, new ByteBufferRow(new byte[0]), 0);
 
         IndexRow idxRow = indexStorage.indexRowDeserializer().row(idxBinRow);
 
@@ -256,16 +256,16 @@ public class RocksDbSortedIndexStorageTest {
         List<byte[]> expected = entries.stream()
                 .skip(firstIndex)
                 .limit(lastIndex - firstIndex + 1)
-                .map(e -> e.row().primaryKey().keyBytes())
+                .map(e -> e.row().primaryKey().bytes())
                 .collect(toList());
 
-        IndexRowPrefix first = entries.get(firstIndex).prefix(3);
-        IndexRowPrefix last = entries.get(lastIndex).prefix(5);
+        IndexRow first = entries.get(firstIndex).prefix(3);
+        IndexRow last = entries.get(lastIndex).prefix(5);
 
-        List<byte[]> actual = cursorToList(indexStorage.range(first, last))
+        List<byte[]> actual = cursorToList(indexStorage.range(first, last, r -> true))
                 .stream()
                 .map(IndexBinaryRow::primaryKey)
-                .map(SearchRow::keyBytes)
+                .map(BinaryRow::bytes)
                 .collect(toList());
 
         assertThat(actual, hasSize(lastIndex - firstIndex + 1));
@@ -298,7 +298,7 @@ public class RocksDbSortedIndexStorageTest {
 
         int colCount = indexStorage.indexDescriptor().columns().size();
 
-        List<IndexBinaryRow> actual = cursorToList(indexStorage.range(entry2.prefix(colCount), entry1.prefix(colCount)));
+        List<IndexRow> actual = cursorToList(indexStorage.range(entry2.prefix(colCount), entry1.prefix(colCount), r -> true));
 
         assertThat(actual, is(empty()));
     }
@@ -376,13 +376,13 @@ public class RocksDbSortedIndexStorageTest {
         indexStorage.put(entry2.row());
 
         assertThat(
-                getSingle(indexStorage, entry1).primaryKey().keyBytes(),
-                is(equalTo(entry1.row().primaryKey().keyBytes()))
+                getSingle(indexStorage, entry1).primaryKey().bytes(),
+                is(equalTo(entry1.row().primaryKey().bytes()))
         );
 
         assertThat(
-                getSingle(indexStorage, entry2).primaryKey().keyBytes(),
-                is(equalTo(entry2.row().primaryKey().keyBytes()))
+                getSingle(indexStorage, entry2).primaryKey().bytes(),
+                is(equalTo(entry2.row().primaryKey().bytes()))
         );
 
         indexStorage.remove(entry1.row());
@@ -424,9 +424,9 @@ public class RocksDbSortedIndexStorageTest {
      */
     @Nullable
     private static IndexBinaryRow getSingle(SortedIndexStorage indexStorage, IndexRowWrapper entry) throws Exception {
-        IndexRowPrefix fullPrefix = entry.prefix(indexStorage.indexDescriptor().columns().size());
+        IndexRow fullPrefix = entry.prefix(indexStorage.indexDescriptor().columns().size());
 
-        List<IndexBinaryRow> values = cursorToList(indexStorage.range(fullPrefix, fullPrefix));
+        List<IndexRow> values = cursorToList(indexStorage.range(fullPrefix, fullPrefix, r -> true));
 
         assertThat(values, anyOf(empty(), hasSize(1)));
 

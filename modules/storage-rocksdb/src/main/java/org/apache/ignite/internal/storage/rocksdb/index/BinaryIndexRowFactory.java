@@ -21,7 +21,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 import org.apache.ignite.internal.storage.index.IndexRowFactory;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
@@ -38,7 +37,7 @@ class BinaryIndexRowFactory implements IndexRowFactory {
     }
 
     @Override
-    public IndexBinaryRow createIndexRow(Tuple row, SearchRow primaryKey) {
+    public IndexBinaryRow createIndexRow(Tuple row, BinaryRow pk, int partId) {
         RowAssembler rowAssembler = createRowAssembler(row);
 
         for (Column column : descriptor.schema().keyColumns().columns()) {
@@ -47,7 +46,7 @@ class BinaryIndexRowFactory implements IndexRowFactory {
             RowAssembler.writeValue(rowAssembler, column, columnValue);
         }
 
-        return new IndexBinaryRowImpl(rowAssembler.build(), primaryKey);
+        return new IndexBinaryRowImpl(rowAssembler.build(), pk);
     }
 
     /**

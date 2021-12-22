@@ -146,8 +146,8 @@ public class TableImpl implements Table, StorageRowListener {
     }
 
     @Override
-    public void onUpdate(@Nullable BinaryRow oldRow, BinaryRow newRow) {
-        rowLstns.forEach(l -> l.onUpdate(oldRow, newRow));
+    public void onUpdate(@Nullable BinaryRow oldRow, BinaryRow newRow, int partId) {
+        rowLstns.forEach(l -> l.onUpdate(oldRow, newRow, partId));
     }
 
     @Override

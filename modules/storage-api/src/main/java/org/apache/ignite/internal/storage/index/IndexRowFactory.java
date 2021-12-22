@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import org.apache.ignite.internal.storage.SearchRow;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.table.Tuple;
 
 /**
@@ -28,5 +28,5 @@ public interface IndexRowFactory {
     /**
      * Creates an Index row from a list of column values.
      */
-    IndexBinaryRow createIndexRow(Tuple row, SearchRow primaryKey);
+    IndexBinaryRow createIndexRow(Tuple row, BinaryRow pk, int partId);
 }

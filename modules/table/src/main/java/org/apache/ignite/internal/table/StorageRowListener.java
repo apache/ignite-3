@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 public interface StorageRowListener {
     StorageRowListener NO_OP = new StorageRowListener() {
         @Override
-        public void onUpdate(@Nullable BinaryRow oldRow, BinaryRow newRow) {
+        public void onUpdate(@Nullable BinaryRow oldRow, BinaryRow newRow, int partId) {
             // No-op.
         }
 
@@ -42,7 +42,7 @@ public interface StorageRowListener {
      * @param oldRow Old row.
      * @param newRow New row.
      */
-    void onUpdate(@Nullable BinaryRow oldRow, BinaryRow newRow);
+    void onUpdate(@Nullable BinaryRow oldRow, BinaryRow newRow, int partId);
 
     /**
      * Called when row is removed.

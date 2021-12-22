@@ -30,11 +30,11 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
-import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 import org.apache.ignite.internal.storage.index.IndexRow;
-import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -72,9 +72,9 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
                 .map(SortedIndexColumnDescriptor::column)
                 .forEach(column -> row.set(column.name(), generateRandomValue(random, column.type())));
 
-        var primaryKey = new ByteArraySearchRow(randomBytes(random, 25));
+        var primaryKey = new ByteBufferRow(randomBytes(random, 25));
 
-        IndexBinaryRow idxRow = indexStorage.indexRowFactory().createIndexRow(row, primaryKey);
+        IndexBinaryRow idxRow = indexStorage.indexRowFactory().createIndexRow(row, primaryKey, 0);
 
         return new IndexRowWrapper(indexStorage, idxRow, row);
     }
@@ -82,13 +82,8 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
     /**
      * Creates an Index Key prefix of the given length.
      */
-    IndexRowPrefix prefix(int length) {
-        return new IndexRowPrefix() {
-            @Override
-            public int length() {
-                return length;
-            }
-
+    IndexRow prefix(int length) {
+        return new IndexRow() {
             @Override
             public Object value(int idxColOrder) {
                 return idxRow.value(idxColOrder);
@@ -105,7 +100,7 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
             }
 
             @Override
-            public SearchRow primaryKey() {
+            public BinaryRow primaryKey() {
                 return idxRow.primaryKey();
             }
         };

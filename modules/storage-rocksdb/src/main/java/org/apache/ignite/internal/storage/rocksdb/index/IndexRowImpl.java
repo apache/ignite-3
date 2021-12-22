@@ -21,7 +21,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
@@ -122,7 +121,7 @@ class IndexRowImpl implements IndexRow, IndexBinaryRow {
 
     /** {@inheritDoc} */
     @Override
-    public SearchRow primaryKey() {
+    public BinaryRow primaryKey() {
         return binRow.primaryKey();
     }
 }

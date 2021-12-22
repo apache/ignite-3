@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import java.util.function.Predicate;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.util.Cursor;
 
@@ -60,9 +61,13 @@ public interface SortedIndexStorage extends AutoCloseable {
 
     /**
      * Returns a range of index values between the lower bound (inclusive) and the upper bound (inclusive).
+     *
+     * @param low Lower bound of the range to scan.
+     * @param up Upper bound of the range to scan.
+     * @param filter Row filter. Basically it is used to filter by partition number.
      */
     // TODO: add options https://issues.apache.org/jira/browse/IGNITE-16059
-    Cursor<IndexBinaryRow> range(IndexRowPrefix lowerBound, IndexRowPrefix upperBound);
+    Cursor<IndexRow> range(IndexRow low, IndexRow up, Predicate<IndexRow> filter);
 
     /**
      * Removes all data in this index and frees the associated resources.

@@ -180,7 +180,7 @@ public class AbstractBasicIntegrationTest {
     protected static void insertData(Table table, String[] columnNames, Object[]... tuples) {
         RecordView<Tuple> view = table.recordView();
 
-        int batchSize = 128;
+        int batchSize = 2;
 
         List<Tuple> batch = new ArrayList<>(batchSize);
         for (Object[] tuple : tuples) {

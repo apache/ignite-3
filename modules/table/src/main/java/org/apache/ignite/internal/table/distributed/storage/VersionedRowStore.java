@@ -143,7 +143,7 @@ public class VersionedRowStore {
 
         storage.write(pack(key, new Value(row, pair.getSecond(), ts)));
 
-        lsnr.onUpdate(pair.getSecond(), row);
+        lsnr.onUpdate(pair.getSecond(), row, storage.partitionId());
     }
 
     /**
@@ -224,7 +224,7 @@ public class VersionedRowStore {
 
         storage.write(pack(key, new Value(row, null, ts)));
 
-        lsnr.onUpdate(null, row);
+        lsnr.onUpdate(null, row, storage.partitionId());
 
         return true;
     }

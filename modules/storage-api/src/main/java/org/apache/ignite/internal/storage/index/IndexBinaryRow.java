@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.PartitionStorage;
-import org.apache.ignite.internal.storage.SearchRow;
 
 /**
  * Represents an Index Row - a set of indexed columns and Primary Key columns (for key uniqueness).
@@ -38,5 +38,5 @@ public interface IndexBinaryRow {
      *
      * @return Primary key of the associated {@link PartitionStorage}.
      */
-    SearchRow primaryKey();
+    BinaryRow primaryKey();
 }

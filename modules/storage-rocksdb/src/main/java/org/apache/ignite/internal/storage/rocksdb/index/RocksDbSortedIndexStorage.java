@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
+import java.util.function.Predicate;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexBinaryRow;
+import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowDeserializer;
 import org.apache.ignite.internal.storage.index.IndexRowFactory;
-import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -75,10 +76,10 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     @Override
     public void put(IndexBinaryRow row) {
         assert row.rowBytes().length > 0;
-        assert row.primaryKey().keyBytes().length > 0;
+        assert row.primaryKey().bytes().length > 0;
 
         try {
-            indexCf.put(row.rowBytes(), row.primaryKey().keyBytes());
+            indexCf.put(row.rowBytes(), row.primaryKey().bytes());
         } catch (RocksDBException e) {
             throw new StorageException("Error while adding data to Rocks DB", e);
         }
@@ -94,16 +95,16 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
-    public Cursor<IndexBinaryRow> range(IndexRowPrefix lowerBound, IndexRowPrefix upperBound) {
+    public Cursor<IndexRow> range(IndexRow low, IndexRow up, Predicate<IndexRow> filter) {
         RocksIterator iter = indexCf.newIterator();
 
         iter.seekToFirst();
 
         return new RocksIteratorAdapter<>(iter) {
             @Nullable
-            private PrefixComparator lowerBoundComparator = new PrefixComparator(descriptor, lowerBound);
+            private PrefixComparator lowerBoundComparator = low != null ? new PrefixComparator(descriptor, low) : null;
 
-            private final PrefixComparator upperBoundComparator = new PrefixComparator(descriptor, upperBound);
+            private final PrefixComparator upperBoundComparator = up != null ? new PrefixComparator(descriptor, up) : null;
 
             @Override
             public boolean hasNext() {
@@ -122,15 +123,15 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
                         }
                     }
 
-                    return upperBoundComparator.compare(row) <= 0;
+                    return upperBoundComparator == null || upperBoundComparator.compare(row) <= 0;
                 }
 
                 return false;
             }
 
             @Override
-            protected IndexBinaryRow decodeEntry(byte[] key, byte[] value) {
-                return new IndexBinaryRowImpl(key, value);
+            protected IndexRow decodeEntry(byte[] key, byte[] value) {
+                return indexRowDeserializer.row(new IndexBinaryRowImpl(key, value));
             }
         };
     }

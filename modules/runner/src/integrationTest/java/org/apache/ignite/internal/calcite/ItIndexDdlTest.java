@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.calcite.util.QueryChecker.containsIndex
 import static org.apache.ignite.internal.calcite.util.QueryChecker.containsSubPlan;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -395,29 +397,26 @@ public class ItIndexDdlTest extends AbstractBasicIntegrationTest {
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15107")
     public void dbg() {
-        sql("create table test_tbl (id int primary key, c1 int)", true);
+        sql("create table test_tbl (id int primary key, val0 int, val1 varchar, int val2)", true);
 
-        try {
-            Thread.sleep(5000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        sql("create index idx_asc on test_tbl (c1)", true);
+        sql("create index TEST_IDX on test_tbl (val0, val1)", true);
 
         Ignite ign = CLUSTER_NODES.get(0);
 
         insertData(
                 "PUBLIC.TEST_TBL",
-                new String[] {"ID", "C1"},
-                new Object[] {0, 1},
-                new Object[] {1, 2},
-                new Object[] {2, 3},
-                new Object[] {3, null}
+                new String[] {"ID", "VAL0", "VAL1", "VAL2"},
+                new Object[] {0, 1, "val0", 0},
+                new Object[] {1, 2, "val1", 1},
+                new Object[] {2, 3, "val2", 2},
+                new Object[] {3, null, "val3", 3}
         );
 
-        System.out.println("+++ " + sql("EXPLAIN PLAN FOR SELECT * FROM TEST_TBL WHERE c1 = 1"));
-        System.out.println("+++ " + sql("SELECT * FROM test_tbl WHERE c1 = 1"));
+        assertThat(
+                sql("EXPLAIN PLAN FOR SELECT * FROM TEST_TBL WHERE val0 = 1").toString(),
+                containsString("TEST_IDX"));
+
+        System.out.println("+++ " + sql("SELECT * FROM test_tbl WHERE val0 >= 1 and val1 > 'val'"));
     }
 
     private static Table createTable(String tableName) {

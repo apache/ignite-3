@@ -305,7 +305,15 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         ColocationGroup group = ctx.group(rel.sourceId());
 
-        Iterable<RowT> rowsIter = idx.scan(ctx, group, filters, lower, upper, prj, requiredColumns);
+        Iterable<RowT> rowsIter = idx.scan(
+                ctx,
+                group,
+                filters,
+                lower,
+                upper,
+                prj,
+                requiredColumns != null ? requiredColumns : ImmutableBitSet.range(rowType.getFieldCount())
+        );
 
         return new ScanNode<>(ctx, rowType, rowsIter);
     }

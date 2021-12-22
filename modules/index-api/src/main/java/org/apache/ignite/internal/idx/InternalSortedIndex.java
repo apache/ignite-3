@@ -20,9 +20,9 @@ package org.apache.ignite.internal.idx;
 import java.util.BitSet;
 import java.util.List;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.table.Tuple;
 
 /**
  * Sorted index facade.
@@ -64,7 +64,10 @@ public interface InternalSortedIndex {
     /**
      * Return indexed columns.
      *
-     * @return Indexed columns.
+     * <b>Attention</b>: Column orders and schema index of these columns has no relation to table columns.
+     * Its describe index schema.
+     *
+     * @return Index's columns.
      */
     List<Column> columns();
 
@@ -74,7 +77,6 @@ public interface InternalSortedIndex {
      * @param low           Lower bound of the scan.
      * @param up            Lower bound of the scan.
      * @param scanBoundMask Scan bound mask (specify how to work with rows equals to the bounds: include or exclude).
-     * @param proj          Set of the columns IDs to fill results rows.
      */
-    Cursor<Row> scan(Row low, Row up, byte scanBoundMask, BitSet proj);
+    Cursor<Tuple> scan(Tuple low, Tuple up, byte scanBoundMask, BitSet proj);
 }

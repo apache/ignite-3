@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 
 import java.util.Arrays;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.SearchRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 
 /**
@@ -28,16 +28,16 @@ import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 class IndexBinaryRowImpl implements IndexBinaryRow {
     private final byte[] bytes;
 
-    private final SearchRow pk;
+    private final BinaryRow pk;
 
     IndexBinaryRowImpl(byte[] bytes, byte[] pkBytes) {
         this.bytes = bytes;
-        this.pk = new ByteArraySearchRow(pkBytes);
+        this.pk = new ByteBufferRow(pkBytes);
     }
 
-    IndexBinaryRowImpl(BinaryRow row, SearchRow primaryKey) {
+    IndexBinaryRowImpl(BinaryRow row, BinaryRow pk) {
         this.bytes = row.bytes();
-        this.pk = primaryKey;
+        this.pk = pk;
     }
 
     @Override
@@ -46,7 +46,7 @@ class IndexBinaryRowImpl implements IndexBinaryRow {
     }
 
     @Override
-    public SearchRow primaryKey() {
+    public BinaryRow primaryKey() {
         return pk;
     }
 

@@ -467,7 +467,8 @@ public class RexUtils {
 
         RexBuilder builder = builder(cluster);
         List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
-        List<RexNode> res = makeListOfNullLiterals(builder, types);
+
+        List<RexNode> res = new ArrayList<>();
 
         for (RexNode pred : idxCond) {
             assert pred instanceof RexCall;
@@ -482,7 +483,7 @@ public class RexUtils {
 
             assert index != -1;
 
-            res.set(index, makeCast(builder, cond, types.get(index)));
+            res.add(makeCast(builder, cond, types.get(index)));
         }
 
         return res;
