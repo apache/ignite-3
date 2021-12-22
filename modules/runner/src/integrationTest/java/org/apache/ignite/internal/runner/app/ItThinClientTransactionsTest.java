@@ -44,6 +44,7 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
             Transaction tx = client.transactions().begin();
             assertEquals("1", kvView.get(tx, 1));
 
+            // TODO: Test ALL operations in ALL modes (tuple, kv, binary).
             fail("TODO");
         }
     }
