@@ -182,6 +182,8 @@ public class ByteBufferRow implements BinaryRow {
             ByteBuffer res = ByteBuffer.wrap(buf.limit(off + len).position(0).slice().array());
 
             res.putShort(FLAGS_FIELD_OFFSET, (short) (res.getShort(FLAGS_FIELD_OFFSET) | RowFlags.NO_VALUE_FLAG));
+            res.putShort(FLAGS_FIELD_OFFSET, (short) (res.getShort(FLAGS_FIELD_OFFSET) | RowFlags.NO_VALUE_FLAG));
+            res.order(ByteOrder.LITTLE_ENDIAN);
 
             return new ByteBufferRow(res);
         } finally {

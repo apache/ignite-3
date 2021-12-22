@@ -397,7 +397,7 @@ public class ItIndexDdlTest extends AbstractBasicIntegrationTest {
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15107")
     public void dbg() {
-        sql("create table test_tbl (id int primary key, val0 int, val1 varchar, int val2)", true);
+        sql("create table test_tbl (id int primary key, val0 int, val1 varchar, val2 int)", true);
 
         sql("create index TEST_IDX on test_tbl (val0, val1)", true);
 
@@ -417,6 +417,7 @@ public class ItIndexDdlTest extends AbstractBasicIntegrationTest {
                 containsString("TEST_IDX"));
 
         System.out.println("+++ " + sql("SELECT * FROM test_tbl WHERE val0 >= 1 and val1 > 'val'"));
+        System.out.println("+++ " + sql("SELECT ID, VAL1 FROM test_tbl WHERE val0 >= 1 and val1 > 'val'"));
     }
 
     private static Table createTable(String tableName) {
