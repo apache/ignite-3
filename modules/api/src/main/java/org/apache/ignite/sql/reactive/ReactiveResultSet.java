@@ -26,6 +26,7 @@ import org.apache.ignite.sql.SqlRow;
  * Reactive result set provides methods to subscribe to the query results in reactive way.
  *
  * <p>Note: It implies to be used with the reactive framework such as ProjectReactor or R2DBC.
+ *
  * @see ResultSet
  */
 public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
@@ -40,7 +41,7 @@ public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
     /**
      * Returns publisher for the flag that determines whether the result of the query execution is a collection of rows, or not.
      *
-     * Note: {@code false} value published means the query either is conditional or is an update query.
+     * <p>Note: {@code false} value published means the query either is conditional or is an update query.
      *
      * @return HasRowSet flag Publisher.
      * @see ResultSet#hasRowSet()
@@ -50,7 +51,7 @@ public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
     /**
      * Returns publisher for the number of rows affected by the query.
      *
-     * Note: Number of row equals to {@code -1} means method is inapplicable, and the query either is conditional or returns rows.
+     * <p>Note: Number of row equals to {@code -1} means method is inapplicable, and the query either is conditional or returns rows.
      *
      * @return Publisher for number of rows.
      * @see ResultSet#updateCount()
@@ -60,7 +61,7 @@ public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
     /**
      * Returns publisher for a flag which determines whether the query that produce this result was a conditional query, or not.
      *
-     * Note: {@code false} value published means the query either returns rows or is an update query.
+     * <p>Note: {@code false} value published means the query either returns rows or is an update query.
      *
      * @return AppliedFlag Publisher.
      * @see ResultSet#applied()
