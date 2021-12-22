@@ -27,7 +27,6 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.table.manager.IgniteTables;
-import org.apache.ignite.tx.Transaction;
 
 /**
  * Client tuple get request.
@@ -36,9 +35,10 @@ public class ClientTupleGetRequest {
     /**
      * Processes the request.
      *
-     * @param in     Unpacker.
-     * @param out    Packer.
-     * @param tables Ignite tables.
+     * @param in        Unpacker.
+     * @param out       Packer.
+     * @param tables    Ignite tables.
+     * @param resources Resource registry.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
