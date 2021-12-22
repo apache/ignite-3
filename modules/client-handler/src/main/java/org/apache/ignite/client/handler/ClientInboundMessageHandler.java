@@ -292,52 +292,52 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientTableGetRequest.process(in, out, igniteTables);
 
             case ClientOp.TUPLE_UPSERT:
-                return ClientTupleUpsertRequest.process(in, igniteTables);
+                return ClientTupleUpsertRequest.process(in, igniteTables, resources);
 
             case ClientOp.TUPLE_GET:
                 return ClientTupleGetRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.TUPLE_UPSERT_ALL:
-                return ClientTupleUpsertAllRequest.process(in, igniteTables);
+                return ClientTupleUpsertAllRequest.process(in, igniteTables, resources);
 
             case ClientOp.TUPLE_GET_ALL:
-                return ClientTupleGetAllRequest.process(in, out, igniteTables);
+                return ClientTupleGetAllRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.TUPLE_GET_AND_UPSERT:
-                return ClientTupleGetAndUpsertRequest.process(in, out, igniteTables);
+                return ClientTupleGetAndUpsertRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.TUPLE_INSERT:
-                return ClientTupleInsertRequest.process(in, out, igniteTables);
+                return ClientTupleInsertRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.TUPLE_INSERT_ALL:
-                return ClientTupleInsertAllRequest.process(in, out, igniteTables);
+                return ClientTupleInsertAllRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.TUPLE_REPLACE:
-                return ClientTupleReplaceRequest.process(in, out, igniteTables);
+                return ClientTupleReplaceRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.TUPLE_REPLACE_EXACT:
-                return ClientTupleReplaceExactRequest.process(in, out, igniteTables);
+                return ClientTupleReplaceExactRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.TUPLE_GET_AND_REPLACE:
-                return ClientTupleGetAndReplaceRequest.process(in, out, igniteTables);
+                return ClientTupleGetAndReplaceRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.TUPLE_DELETE:
-                return ClientTupleDeleteRequest.process(in, out, igniteTables);
+                return ClientTupleDeleteRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.TUPLE_DELETE_ALL:
-                return ClientTupleDeleteAllRequest.process(in, out, igniteTables);
+                return ClientTupleDeleteAllRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.TUPLE_DELETE_EXACT:
-                return ClientTupleDeleteExactRequest.process(in, out, igniteTables);
+                return ClientTupleDeleteExactRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.TUPLE_DELETE_ALL_EXACT:
-                return ClientTupleDeleteAllExactRequest.process(in, out, igniteTables);
+                return ClientTupleDeleteAllExactRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.TUPLE_GET_AND_DELETE:
-                return ClientTupleGetAndDeleteRequest.process(in, out, igniteTables);
+                return ClientTupleGetAndDeleteRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.TUPLE_CONTAINS_KEY:
-                return ClientTupleContainsKeyRequest.process(in, out, igniteTables);
+                return ClientTupleContainsKeyRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.SQL_EXEC:
                 return ClientSqlExecuteRequest.execute(in, out, jdbcQueryEventHandler);
