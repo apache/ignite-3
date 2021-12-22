@@ -59,35 +59,4 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     public CompletableFuture<Transaction> beginAsync() {
         return CompletableFuture.completedFuture(txManager.begin());
     }
-
-    /** {@inheritDoc} */
-    @Override
-    public void runInTransaction(Consumer<Transaction> clo) throws TransactionException {
-        runInTransaction(tx -> {
-            clo.accept(tx);
-            return null;
-        });
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <T> T runInTransaction(Function<Transaction, T> clo) throws TransactionException {
-        InternalTransaction tx = txManager.begin();
-
-        try {
-            T ret = clo.apply(tx);
-
-            tx.commit();
-
-            return ret;
-        } catch (Throwable t) {
-            try {
-                tx.rollback(); // Try rolling back on user exception.
-            } catch (Exception e) {
-                t.addSuppressed(e);
-            }
-
-            throw t;
-        }
-    }
 }
