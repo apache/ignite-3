@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -31,6 +33,7 @@ import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallerUtil;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -67,8 +70,9 @@ class ClientRecordSerializer<R> {
         return mapper;
     }
 
-    public void writeRec(@Nullable  R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+    public void writeRec(@Nullable Transaction tx, @Nullable R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
         out.packIgniteUuid(tableId);
+        writeTx(tx, out);
         out.packInt(schema.version());
 
         writeRecRaw(rec, schema, out, part);
@@ -85,8 +89,9 @@ class ClientRecordSerializer<R> {
         }
     }
 
-    public void writeRecs(@Nullable R rec, @Nullable R rec2, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+    public void writeRecs(@Nullable Transaction tx, @Nullable R rec, @Nullable R rec2, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
         out.packIgniteUuid(tableId);
+        writeTx(tx, out);
         out.packInt(schema.version());
 
         Marshaller marshaller = schema.getMarshaller(mapper, part);
@@ -100,8 +105,9 @@ class ClientRecordSerializer<R> {
         }
     }
 
-    public void writeRecs(@NotNull Collection<R> recs, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+    public void writeRecs(@Nullable Transaction tx, @NotNull Collection<R> recs, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
         out.packIgniteUuid(tableId);
+        writeTx(tx, out);
         out.packInt(schema.version());
         out.packInt(recs.size());
 
