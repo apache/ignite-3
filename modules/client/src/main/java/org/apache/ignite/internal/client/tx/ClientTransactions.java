@@ -15,79 +15,59 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.impl;
+package org.apache.ignite.internal.client.tx;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 
 /**
- * Transactions facade implementation.
+ * Client transactions implementation.
  */
-public class IgniteTransactionsImpl implements IgniteTransactions {
-    private final TxManager txManager;
+public class ClientTransactions implements IgniteTransactions {
+    private final ReliableChannel ch;
 
     /**
-     * The constructor.
+     * Constructor.
      *
-     * @param txManager The manager.
+     * @param ch Channel.
      */
-    public IgniteTransactionsImpl(TxManager txManager) {
-        this.txManager = txManager;
+    public ClientTransactions(ReliableChannel ch) {
+        this.ch = ch;
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions withTimeout(long timeout) {
-        // TODO: IGNITE-15936.
+        // TODO: IGNITE-16193
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public Transaction begin() {
-        return txManager.begin();
+        return null;
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Transaction> beginAsync() {
-        return CompletableFuture.completedFuture(txManager.begin());
+        return null;
     }
 
     /** {@inheritDoc} */
     @Override
     public void runInTransaction(Consumer<Transaction> clo) throws TransactionException {
-        runInTransaction(tx -> {
-            clo.accept(tx);
-            return null;
-        });
+
     }
 
     /** {@inheritDoc} */
     @Override
     public <T> T runInTransaction(Function<Transaction, T> clo) throws TransactionException {
-        InternalTransaction tx = txManager.begin();
-
-        try {
-            T ret = clo.apply(tx);
-
-            tx.commit();
-
-            return ret;
-        } catch (Throwable t) {
-            try {
-                tx.rollback(); // Try rolling back on user exception.
-            } catch (Exception e) {
-                t.addSuppressed(e);
-            }
-
-            throw t;
-        }
+        return null;
     }
 }
