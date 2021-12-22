@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.KeyValueView;
@@ -42,6 +43,8 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
 
             Transaction tx = client.transactions().begin();
             assertEquals("1", kvView.get(tx, 1));
+
+            fail("TODO");
         }
     }
 }
