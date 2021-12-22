@@ -340,4 +340,6 @@ public interface MessageWriter {
      * Resets this writer.
      */
     public void reset();
+
+    <T> boolean writeMarshallable(String name, T object);
 }

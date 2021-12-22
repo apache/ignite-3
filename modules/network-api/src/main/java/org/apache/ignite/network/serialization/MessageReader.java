@@ -272,6 +272,8 @@ public interface MessageReader {
     public <M extends Map<?, ?>> M readMap(String name, MessageCollectionItemType keyType,
             MessageCollectionItemType valType, boolean linked);
 
+    <T> T readMarshallable(String name);
+
     /**
      * Tells whether the last invocation of any of the {@code readXXX(...)} methods has fully written the value. {@code False} is returned
      * if there were not enough remaining bytes in a byte buffer.
