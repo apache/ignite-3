@@ -26,6 +26,10 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * SQL Session provides methods for query execution.
+ *
+ * <p>Session is a stateful object and holds setting that intended to be used as defaults for the new queries. Session is thread-safe and
+ * can be reused and shared between threads, which is normal for asynchronous and reactive flow, however, modifying session state from
+ * different threads may lead to the race condition.
  */
 public interface Session extends AsyncSession, ReactiveSession {
     /** Default schema name. */
