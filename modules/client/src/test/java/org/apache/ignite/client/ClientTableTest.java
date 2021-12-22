@@ -385,6 +385,7 @@ public class ClientTableTest extends AbstractClientTableTest {
 
     @Test
     public void testTransactionRollback() {
+        // TODO: Should we write integration tests for this? Only IT or not?
         // TODO: How to organize tests?
         // - Inheritance?
         // - Separate files?
