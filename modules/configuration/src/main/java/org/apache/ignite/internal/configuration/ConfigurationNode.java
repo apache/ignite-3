@@ -79,8 +79,8 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
     /**
      * Constructor.
      *
-     * @param keys Configuration keys.
-     * @param key Configuration key.
+     * @param keys Full path to the current node.
+     * @param key Name of the current node. Same as last element of {@link #keys}.
      * @param rootKey Root key.
      * @param changer Configuration changer.
      * @param listenOnly Only adding listeners mode, without the ability to get or update the property value.
