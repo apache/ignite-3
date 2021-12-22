@@ -18,8 +18,11 @@
 package org.apache.ignite.client.handler.requests.tx;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientResource;
+import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.Transaction;
 
 /**
  * Client transaction begin request.
@@ -30,10 +33,33 @@ public class ClientTransactionBeginRequest {
      *
      * @param out          Packer.
      * @param transactions Transactions.
+     * @param resources    Resources.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(ClientMessagePacker out, IgniteTransactions transactions) {
-        // TODO: Resource registry.
-        return transactions.beginAsync().thenAccept(t -> out.packLong(1));
+    public static CompletableFuture<Void> process(
+            ClientMessagePacker out,
+            IgniteTransactions transactions,
+            ClientResourceRegistry resources) {
+        return transactions.beginAsync().thenAccept(t -> out.packLong(resources.put(new TransactionResource(t))));
+    }
+
+    private static class TransactionResource implements ClientResource {
+        private final Transaction tx;
+
+        private TransactionResource(Transaction tx) {
+            this.tx = tx;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Object get() {
+            return tx;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void release() {
+            tx.rollback();
+        }
     }
 }
