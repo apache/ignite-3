@@ -212,7 +212,7 @@ public class SchemaHolderImpl implements SchemaHolder {
      * Build new SQL schema when existed index is dropped.
      */
     public void onIndexDropped(String schema, String tblName, String idxName) {
-        InternalIgniteTable tbl = igniteSchemas.get(schema).internalTable(tblName);
+        InternalIgniteTable tbl = igniteSchemas.get(schema).internalTable(removeSchema(schema, tblName));
 
         tbl.removeIndex(idxName);
 

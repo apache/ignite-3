@@ -163,7 +163,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                     public @NotNull CompletableFuture<?> onDelete(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
                         TableConfiguration tbl = ctx.config(TableConfiguration.class);
                         String tblName = tbl.name().value();
-                        String idxName = ctx.newValue().name();
+                        String idxName = ctx.oldValue().name();
 
                         if (!busyLock.enterBusy()) {
                             fireEvent(IndexEvent.DROP,
@@ -262,25 +262,23 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                 return idxFut;
             }
 
-            tblMgr.alterTableAsync(idx.tableName(), chng -> chng.changeIndices(idxes -> {
-                if (idxsByName.get(idxCanonicalName) != null) {
-                    throw new IndexAlreadyExistsException(idxCanonicalName);
-                }
+            tablesCfg.tables().change(ch -> ch.createOrUpdate(
+                            idx.tableName(),
+                            tblCh -> tblCh.changeIndices(idxes -> idxes.delete(idxCanonicalName))
+                    ))
+                    .whenComplete((res, t) -> {
+                        if (t != null) {
+                            Throwable ex = getRootCause(t);
 
-                idxes.delete(idxCanonicalName);
-            })).whenComplete((res, t) -> {
-                if (t != null) {
-                    Throwable ex = getRootCause(t);
+                            if (!(ex instanceof IndexNotFoundException)) {
+                                LOG.error(LoggerMessageHelper.format("Index wasn't dropped [name={}]", idxCanonicalName), ex);
+                            }
 
-                    if (!(ex instanceof IndexNotFoundException)) {
-                        LOG.error(LoggerMessageHelper.format("Index wasn't dropped [name={}]", idxCanonicalName), ex);
-                    }
-
-                    idxFut.completeExceptionally(ex);
-                } else {
-                    idxFut.complete(null);
-                }
-            });
+                            idxFut.completeExceptionally(ex);
+                        } else {
+                            idxFut.complete(null);
+                        }
+                    });
 
             return idxFut;
         } finally {

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.idx;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
@@ -51,7 +52,6 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
     private final TableImpl tbl;
 
     private final SortedIndexStorage store;
-
 
     /**
      * Create sorted index.
@@ -140,7 +140,14 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
 
         Tuple t = Tuple.create();
 
-        tbl.schemaView().schema().columnNames().forEach(colName -> t.set(colName, null));
+        // Create the tuple with column order similar to table Binary Row column order.
+        Arrays.stream(tbl.schemaView().schema().keyColumns().columns())
+                .map(Column::name)
+                .forEach(colName -> t.set(colName, null));
+
+        Arrays.stream(tbl.schemaView().schema().valueColumns().columns())
+                .map(Column::name)
+                .forEach(colName -> t.set(colName, null));
 
         for (int i = 0; i < r.columnsCount(); ++i) {
             t.set(store.indexDescriptor().columns().get(i).column().name(), r.value(i));
