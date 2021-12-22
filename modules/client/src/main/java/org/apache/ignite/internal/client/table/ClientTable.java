@@ -35,6 +35,7 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteUuid;
@@ -43,6 +44,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -217,11 +219,12 @@ public class ClientTable implements Table {
      * @param out Out.
      */
     public void writeTuple(
+            @Nullable Transaction tx,
             @NotNull Tuple tuple,
             ClientSchema schema,
             ClientMessagePacker out
     ) {
-        writeTuple(tuple, schema, out, false, false);
+        writeTuple(tx, tuple, schema, out, false, false);
     }
 
     /**
@@ -233,12 +236,13 @@ public class ClientTable implements Table {
      * @param keyOnly Key only.
      */
     public void writeTuple(
+            @Nullable Transaction tx,
             @NotNull Tuple tuple,
             ClientSchema schema,
             ClientMessagePacker out,
             boolean keyOnly
     ) {
-        writeTuple(tuple, schema, out, keyOnly, false);
+        writeTuple(tx, tuple, schema, out, keyOnly, false);
     }
 
     /**
@@ -251,6 +255,7 @@ public class ClientTable implements Table {
      * @param skipHeader Skip header.
      */
     public void writeTuple(
+            @Nullable Transaction tx,
             @NotNull Tuple tuple,
             ClientSchema schema,
             ClientMessagePacker out,
@@ -259,6 +264,7 @@ public class ClientTable implements Table {
     ) {
         if (!skipHeader) {
             out.packIgniteUuid(id);
+            writeTx(tx, out);
             out.packInt(schema.version());
         }
 
@@ -284,6 +290,7 @@ public class ClientTable implements Table {
      * @param skipHeader Skip header.
      */
     public void writeKvTuple(
+            @Nullable Transaction tx,
             @NotNull Tuple key,
             @Nullable Tuple val,
             ClientSchema schema,
@@ -292,6 +299,7 @@ public class ClientTable implements Table {
     ) {
         if (!skipHeader) {
             out.packIgniteUuid(id);
+            writeTx(tx, out);
             out.packInt(schema.version());
         }
 
@@ -317,13 +325,14 @@ public class ClientTable implements Table {
      * @param schema Schema.
      * @param out Out.
      */
-    public void writeKvTuples(Map<Tuple, Tuple> pairs, ClientSchema schema, ClientMessagePacker out) {
+    public void writeKvTuples(@Nullable Transaction tx, Map<Tuple, Tuple> pairs, ClientSchema schema, ClientMessagePacker out) {
         out.packIgniteUuid(id);
+        writeTx(tx, out);
         out.packInt(schema.version());
         out.packInt(pairs.size());
 
         for (Map.Entry<Tuple, Tuple> pair : pairs.entrySet()) {
-            writeKvTuple(pair.getKey(), pair.getValue(), schema, out, true);
+            writeKvTuple(tx, pair.getKey(), pair.getValue(), schema, out, true);
         }
     }
 
@@ -336,17 +345,27 @@ public class ClientTable implements Table {
      * @param keyOnly Key only.
      */
     public void writeTuples(
+            @Nullable Transaction tx,
             @NotNull Collection<Tuple> tuples,
             ClientSchema schema,
             ClientMessagePacker out,
             boolean keyOnly
     ) {
         out.packIgniteUuid(id);
+        writeTx(tx, out);
         out.packInt(schema.version());
         out.packInt(tuples.size());
 
         for (var tuple : tuples) {
-            writeTuple(tuple, schema, out, keyOnly, true);
+            writeTuple(tx, tuple, schema, out, keyOnly, true);
+        }
+    }
+
+    public static void writeTx(@Nullable Transaction tx, ClientMessagePacker out) {
+        if (tx == null) {
+            out.packNil();
+        } else {
+            out.packLong(((ClientTransaction) tx).id());
         }
     }
 

@@ -44,6 +44,15 @@ public class ClientTransaction implements Transaction {
         this.id = id;
     }
 
+    /**
+     * Gets the id.
+     *
+     * @return Id.
+     */
+    public long id() {
+        return id;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void commit() throws TransactionException {

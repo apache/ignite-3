@@ -63,7 +63,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
-                (schema, out) -> tbl.writeTuple(keyRec, schema, out, true),
+                (schema, out) -> tbl.writeTuple(tx, keyRec, schema, out, true),
                 (inSchema, in) -> ClientTable.readValueTuple(inSchema, in, keyRec));
     }
 
@@ -80,7 +80,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
-                (s, w) -> tbl.writeTuples(keyRecs, s, w, true),
+                (s, w) -> tbl.writeTuples(tx, keyRecs, s, w, true),
                 tbl::readTuplesNullable,
                 Collections.emptyList());
     }
@@ -95,12 +95,11 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     @Override
     public @NotNull CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
         Objects.requireNonNull(rec);
-        // TODO: Transactions IGNITE-15240
         // TODO IGNITE-15194: Convert Tuple to a schema-order Array as a first step.
         // If it does not match the latest schema, then request latest and convert again.
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
-                (s, w) -> tbl.writeTuple(rec, s, w),
+                (s, w) -> tbl.writeTuple(tx, rec, s, w),
                 r -> null);
     }
 
@@ -117,7 +116,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
-                (s, w) -> tbl.writeTuples(recs, s, w, false),
+                (s, w) -> tbl.writeTuples(tx, recs, s, w, false),
                 r -> null);
     }
 
@@ -134,7 +133,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
-                (s, w) -> tbl.writeTuple(rec, s, w, false),
+                (s, w) -> tbl.writeTuple(tx, rec, s, w, false),
                 (schema, in) -> ClientTable.readValueTuple(schema, in, rec));
     }
 
@@ -151,7 +150,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
-                (s, w) -> tbl.writeTuple(rec, s, w, false),
+                (s, w) -> tbl.writeTuple(tx, rec, s, w, false),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -168,7 +167,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_INSERT_ALL,
-                (s, w) -> tbl.writeTuples(recs, s, w, false),
+                (s, w) -> tbl.writeTuples(tx, recs, s, w, false),
                 tbl::readTuples,
                 Collections.emptyList());
     }
@@ -192,7 +191,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
-                (s, w) -> tbl.writeTuple(rec, s, w, false),
+                (s, w) -> tbl.writeTuple(tx, rec, s, w, false),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -205,8 +204,8 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
                 (s, w) -> {
-                    tbl.writeTuple(oldRec, s, w, false, false);
-                    tbl.writeTuple(newRec, s, w, false, true);
+                    tbl.writeTuple(tx, oldRec, s, w, false, false);
+                    tbl.writeTuple(tx, newRec, s, w, false, true);
                 },
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -224,7 +223,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
-                (s, w) -> tbl.writeTuple(rec, s, w, false),
+                (s, w) -> tbl.writeTuple(tx, rec, s, w, false),
                 (schema, in) -> ClientTable.readValueTuple(schema, in, rec));
     }
 
@@ -241,7 +240,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
-                (s, w) -> tbl.writeTuple(keyRec, s, w, true),
+                (s, w) -> tbl.writeTuple(tx, keyRec, s, w, true),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -258,7 +257,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
-                (s, w) -> tbl.writeTuple(rec, s, w, false),
+                (s, w) -> tbl.writeTuple(tx, rec, s, w, false),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -275,7 +274,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
-                (s, w) -> tbl.writeTuple(keyRec, s, w, true),
+                (s, w) -> tbl.writeTuple(tx, keyRec, s, w, true),
                 (schema, in) -> ClientTable.readValueTuple(schema, in, keyRec));
     }
 
@@ -292,7 +291,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
-                (s, w) -> tbl.writeTuples(keyRecs, s, w, true),
+                (s, w) -> tbl.writeTuples(tx, keyRecs, s, w, true),
                 (schema, in) -> tbl.readTuples(schema, in, true),
                 Collections.emptyList());
     }
@@ -310,7 +309,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL_EXACT,
-                (s, w) -> tbl.writeTuples(recs, s, w, false),
+                (s, w) -> tbl.writeTuples(tx, recs, s, w, false),
                 tbl::readTuples,
                 Collections.emptyList());
     }

@@ -63,7 +63,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
-                (schema, out) -> tbl.writeTuple(key, schema, out, true),
+                (schema, out) -> tbl.writeTuple(tx, key, schema, out, true),
                 ClientTable::readValueTuple);
     }
 
@@ -80,7 +80,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
-                (s, w) -> tbl.writeTuples(keys, s, w, true),
+                (s, w) -> tbl.writeTuples(tx, keys, s, w, true),
                 tbl::readKvTuplesNullable,
                 Collections.emptyMap());
     }
@@ -98,7 +98,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_KEY,
-                (schema, out) -> tbl.writeTuple(key, schema, out, true),
+                (schema, out) -> tbl.writeTuple(tx, key, schema, out, true),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -117,7 +117,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         // If it does not match the latest schema, then request latest and convert again.
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
-                (s, w) -> tbl.writeKvTuple(key, val, s, w, false),
+                (s, w) -> tbl.writeKvTuple(tx, key, val, s, w, false),
                 r -> null);
     }
 
@@ -134,7 +134,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
-                (s, w) -> tbl.writeKvTuples(pairs, s, w),
+                (s, w) -> tbl.writeKvTuples(tx, pairs, s, w),
                 r -> null);
     }
 
@@ -150,7 +150,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
-                (s, w) -> tbl.writeKvTuple(key, val, s, w, false),
+                (s, w) -> tbl.writeKvTuple(tx, key, val, s, w, false),
                 ClientTable::readValueTuple);
     }
 
@@ -166,7 +166,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
-                (s, w) -> tbl.writeKvTuple(key, val, s, w, false),
+                (s, w) -> tbl.writeKvTuple(tx, key, val, s, w, false),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -189,7 +189,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
-                (s, w) -> tbl.writeTuple(key, s, w, true),
+                (s, w) -> tbl.writeTuple(tx, key, s, w, true),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -201,7 +201,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
-                (s, w) -> tbl.writeKvTuple(key, val, s, w, false),
+                (s, w) -> tbl.writeKvTuple(tx, key, val, s, w, false),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -218,7 +218,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
-                (s, w) -> tbl.writeTuples(keys, s, w, true),
+                (s, w) -> tbl.writeTuples(tx, keys, s, w, true),
                 (schema, in) -> tbl.readTuples(schema, in, true),
                 Collections.emptyList());
     }
@@ -235,7 +235,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
-                (s, w) -> tbl.writeTuple(key, s, w, true),
+                (s, w) -> tbl.writeTuple(tx, key, s, w, true),
                 ClientTable::readValueTuple);
     }
 
@@ -258,7 +258,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
-                (s, w) -> tbl.writeKvTuple(key, val, s, w, false),
+                (s, w) -> tbl.writeKvTuple(tx, key, val, s, w, false),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -270,8 +270,8 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
                 (s, w) -> {
-                    tbl.writeKvTuple(key, oldVal, s, w, false);
-                    tbl.writeKvTuple(key, newVal, s, w, true);
+                    tbl.writeKvTuple(tx, key, oldVal, s, w, false);
+                    tbl.writeKvTuple(tx, key, newVal, s, w, true);
                 },
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -289,7 +289,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
-                (s, w) -> tbl.writeKvTuple(key, val, s, w, false),
+                (s, w) -> tbl.writeKvTuple(tx, key, val, s, w, false),
                 ClientTable::readValueTuple);
     }
 
