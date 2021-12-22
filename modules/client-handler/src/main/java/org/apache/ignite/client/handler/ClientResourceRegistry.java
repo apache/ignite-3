@@ -53,12 +53,13 @@ public class ClientResourceRegistry {
      * @return Object.
      */
     public ClientResource get(long hnd) {
-        ClientResource obj = res.get(hnd);
+        ClientResource res = this.res.get(hnd);
 
-        if (obj == null)
+        if (res == null) {
             throw new IgniteException("Failed to find resource with id: " + hnd);
+        }
 
-        return obj;
+        return res;
     }
 
     /**
@@ -67,7 +68,13 @@ public class ClientResourceRegistry {
      * @param hnd Handle.
      */
     public ClientResource remove(long hnd) {
-        return res.remove(hnd);
+        ClientResource res = this.res.remove(hnd);
+
+        if (res == null) {
+            throw new IgniteException("Failed to find resource with id: " + hnd);
+        }
+
+        return res;
     }
 
     /**
