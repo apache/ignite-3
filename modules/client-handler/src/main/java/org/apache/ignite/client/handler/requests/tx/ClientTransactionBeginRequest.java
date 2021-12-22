@@ -19,7 +19,6 @@ package org.apache.ignite.client.handler.requests.tx;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
-import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.tx.IgniteTransactions;
 
 /**
@@ -29,12 +28,12 @@ public class ClientTransactionBeginRequest {
     /**
      * Processes the request.
      *
-     * @param in           Unpacker.
      * @param out          Packer.
      * @param transactions Transactions.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(ClientMessageUnpacker in, ClientMessagePacker out, IgniteTransactions transactions) {
-        return null;
+    public static CompletableFuture<Void> process(ClientMessagePacker out, IgniteTransactions transactions) {
+        // TODO: Resource registry.
+        return transactions.beginAsync().thenAccept(t -> out.packLong(1));
     }
 }

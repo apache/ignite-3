@@ -126,6 +126,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        // TODO: Clean resources.
+        super.channelInactive(ctx);
+    }
+
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) {
         try {
             writeMagic(ctx);
@@ -354,7 +361,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientSqlQueryMetadataRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.TX_BEGIN:
-                return ClientTransactionBeginRequest.process(in, out, igniteTransactions);
+                return ClientTransactionBeginRequest.process(out, igniteTransactions);
 
             case ClientOp.TX_COMMIT:
             case ClientOp.TX_ROLLBACK:
