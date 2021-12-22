@@ -24,6 +24,8 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCloseRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlColumnMetadataRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteBatchRequest;
@@ -68,6 +70,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.Transaction;
 
 /**
  * Handles messages from thin clients.
@@ -85,6 +88,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
     /** JDBC Handler. */
     private final JdbcQueryEventHandler jdbcQueryEventHandler;
+
+    /** Connection resources. */
+    private final ConcurrentHashMap<Long, Object> resources = new ConcurrentHashMap<>();
+
+    /** Connection resource ID generator. */
+    private final AtomicLong resourceIdGen = new AtomicLong();
 
     /** Context. */
     private ClientContext clientContext;
@@ -129,7 +138,14 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        // TODO: Clean resources.
+        for (Object r : resources.values()) {
+            if (r instanceof AutoCloseable) {
+                ((AutoCloseable) r).close();
+            } else if (r instanceof Transaction) {
+                ((Transaction) r).rollback();
+            }
+        }
+
         super.channelInactive(ctx);
     }
 
