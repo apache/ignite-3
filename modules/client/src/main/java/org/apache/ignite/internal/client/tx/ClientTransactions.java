@@ -27,6 +27,7 @@ import org.apache.ignite.tx.Transaction;
  * Client transactions implementation.
  */
 public class ClientTransactions implements IgniteTransactions {
+    /** Channel. */
     private final ReliableChannel ch;
 
     /**
@@ -54,6 +55,7 @@ public class ClientTransactions implements IgniteTransactions {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Transaction> beginAsync() {
-        return ch.serviceAsync(ClientOp.TX_BEGIN, w -> {}, r -> r.in().unpackLong()).thenApply(id -> new ClientTransaction(ch, id));
+        return ch.serviceAsync(ClientOp.TX_BEGIN, w -> {}, r -> r.in().unpackLong())
+                .thenApply(id -> new ClientTransaction(ch, id));
     }
 }

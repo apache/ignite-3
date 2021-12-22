@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.tx;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 
@@ -26,8 +27,10 @@ import org.apache.ignite.tx.TransactionException;
  * Client transaction.
  */
 public class ClientTransaction implements Transaction {
+    /** Channel. */
     private final ReliableChannel ch;
 
+    /** Transaction id. */
     private final long id;
 
     /**
@@ -50,7 +53,7 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> commitAsync() {
-        return null;
+        return ch.serviceAsync(ClientOp.TX_COMMIT, w -> w.out().packLong(id), r -> null);
     }
 
     /** {@inheritDoc} */
@@ -62,6 +65,6 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        return null;
+        return ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> w.out().packLong(id), r -> null);
     }
 }

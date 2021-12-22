@@ -113,4 +113,10 @@ public class ClientOp {
 
     /** Begin transaction. */
     public static final int TX_BEGIN = 43;
+
+    /** Commit transaction. */
+    public static final int TX_COMMIT = 44;
+
+    /** Rollback transaction. */
+    public static final int TX_ROLLBACK = 45;
 }
