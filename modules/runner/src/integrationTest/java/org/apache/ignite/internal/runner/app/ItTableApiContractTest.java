@@ -27,15 +27,16 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.StaticIgniteAbstractTest;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.table.Table;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -46,7 +47,7 @@ import org.junit.jupiter.api.TestInfo;
  * <li>When a table is not existed, tries to alter or drop the table have to failed {@link TableNotFoundException}.</li>
  * </ul>
  */
-public class ItTableApiContractTest extends IgniteAbstractTest {
+public class ItTableApiContractTest extends StaticIgniteAbstractTest {
     /** Schema name. */
     public static final String SCHEMA = "PUBLIC";
 
@@ -70,29 +71,39 @@ public class ItTableApiContractTest extends IgniteAbstractTest {
             + "}";
 
     /** Cluster nodes. */
-    private Ignite ignite;
+    private static Ignite ignite;
 
     /**
-     * Before each.
+     * Before all tests.
      */
-    @BeforeEach
-    void beforeEach(TestInfo testInfo) throws Exception {
+    @BeforeAll
+    static void beforeAll(TestInfo testInfo) throws Exception {
         String metastorageNodeName = IgniteTestUtils.testNodeName(testInfo, 0);
 
         ignite = IgnitionManager.start(
                 metastorageNodeName,
                 nodeStartupCfg.apply(metastorageNodeName),
                 // Avoid a long file path name (260 characters) for windows.
-                workDir.resolve(Integer.toString(0))
+                WORK_DIR.resolve(Integer.toString(0))
         );
     }
 
     /**
-     * After each.
+     * After all tests.
+     */
+    @AfterAll
+    static void afterAll() throws Exception {
+        ignite.close();
+    }
+
+    /**
+     * Executes after each test.
      */
     @AfterEach
-    void afterEach() throws Exception {
-        ignite.close();
+    void afterTest() {
+        if (ignite.tables().table(TABLE_NAME) != null) {
+            ignite.tables().dropTable(TABLE_NAME);
+        }
     }
 
     /**

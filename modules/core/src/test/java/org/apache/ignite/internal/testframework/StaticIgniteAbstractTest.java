@@ -27,9 +27,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Ignite base test class.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public abstract class IgniteAbstractTest extends BaseIgniteAbstractTest {
+public abstract class StaticIgniteAbstractTest extends BaseIgniteAbstractTest {
     /** Work directory. */
-    protected Path workDir;
+    @WorkDirectory
+    protected static Path WORK_DIR;
 
     /**
      * Invokes before the test will start.
@@ -39,10 +40,8 @@ public abstract class IgniteAbstractTest extends BaseIgniteAbstractTest {
      * @throws Exception If failed.
      */
     @BeforeEach
-    public void setup(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
-        setupBase(testInfo, workDir);
-
-        this.workDir = workDir;
+    public void setup(TestInfo testInfo) throws Exception {
+        setupBase(testInfo, WORK_DIR);
     }
 
     /**

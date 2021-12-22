@@ -65,7 +65,7 @@ public class ItThinClientConnectionTest extends IgniteAbstractTest {
      * Before each.
      */
     @BeforeEach
-    void setup(TestInfo testInfo) {
+    void setup1(TestInfo testInfo) {
         String node0Name = testNodeName(testInfo, 3344);
         String node1Name = testNodeName(testInfo, 3345);
 
@@ -158,11 +158,11 @@ public class ItThinClientConnectionTest extends IgniteAbstractTest {
     }
 
     private static class TestPojo {
-        public TestPojo() {
-            // No-op.
+        TestPojo() {
+//             No-op.
         }
 
-        public TestPojo(int key) {
+        TestPojo(int key) {
             this.key = key;
         }
 
