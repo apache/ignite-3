@@ -36,7 +36,6 @@ public abstract class StaticIgniteAbstractTest extends BaseIgniteAbstractTest {
      * Invokes before the test will start.
      *
      * @param testInfo Test information oject.
-     * @param workDir  Work directory.
      * @throws Exception If failed.
      */
     @BeforeEach
