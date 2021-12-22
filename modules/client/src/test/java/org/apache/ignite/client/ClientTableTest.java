@@ -58,7 +58,7 @@ public class ClientTableTest extends AbstractClientTableTest {
 
         table.upsert(null, tuple);
 
-        Tuple key = tuple(123L);
+        Tuple key = tuple(DEFAULT_ID);
         var resTuple = table.get(null, key);
 
         assertEquals(DEFAULT_NAME, resTuple.stringValue("name"));
@@ -381,5 +381,25 @@ public class ClientTableTest extends AbstractClientTableTest {
         var ex = assertThrows(CompletionException.class, () -> defaultTable().recordView().upsert(null, tuple));
 
         assertTrue(ex.getMessage().contains("Incorrect value type for column 'id': Expected Integer, but got String"), ex.getMessage());
+    }
+
+    @Test
+    public void testTransactionRollback() {
+        // TODO: How to organize tests?
+        // - Inheritance?
+        // - Separate files?
+        var table = defaultTable();
+        var recordView = table.recordView();
+        var tuple = tuple();
+
+        var tx = client.transactions().begin();
+
+        recordView.upsert(tx, tuple);
+        assertNotNull(recordView.get(tx, tuple(DEFAULT_ID)));
+        assertNull(recordView.get(null, tuple(DEFAULT_ID)));
+
+        tx.rollback();
+
+        assertNull(recordView.get(null, tuple(DEFAULT_ID)));
     }
 }
