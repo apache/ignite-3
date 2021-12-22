@@ -52,7 +52,7 @@ import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
-import org.apache.ignite.lang.LoggerMessageHelper;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -300,7 +300,7 @@ public class DdlCommandHandler {
                         }
 
                         if (primaryCols.contains(colName)) {
-                            throw new IgniteException(LoggerMessageHelper
+                            throw new IgniteException(IgniteStringFormatter
                                     .format("Can`t delete column, belongs to primary key: [name={}]", colName));
                         }
                     }

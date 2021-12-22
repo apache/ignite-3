@@ -87,7 +87,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
-import org.apache.ignite.lang.LoggerMessageHelper;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -229,7 +229,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         // Empty assignments might be a valid case if tables are created from within cluster init HOCON
                         // configuration, which is not supported now.
                         assert ((ExtendedTableView) ctx.newValue()).assignments() != null :
-                                LoggerMessageHelper.format("Table [id={}, name={}] has empty assignments.", tblId, tblName);
+                                IgniteStringFormatter.format("Table [id={}, name={}] has empty assignments.", tblId, tblName);
 
                         // TODO: IGNITE-15409 Listener with any placeholder should be used instead.
                         ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName)).schemas()
@@ -761,7 +761,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (ex instanceof TableAlreadyExistsException) {
                             tblFut.completeExceptionally(ex);
                         } else {
-                            LOG.error(LoggerMessageHelper.format("Table wasn't created [name={}]", name), ex);
+                            LOG.error(IgniteStringFormatter.format("Table wasn't created [name={}]", name), ex);
 
                             tblFut.completeExceptionally(ex);
                         }
@@ -866,7 +866,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (ex instanceof TableNotFoundException) {
                             tblFut.completeExceptionally(ex);
                         } else {
-                            LOG.error(LoggerMessageHelper.format("Table wasn't altered [name={}]", name), ex);
+                            LOG.error(IgniteStringFormatter.format("Table wasn't altered [name={}]", name), ex);
 
                             tblFut.completeExceptionally(ex);
                         }
@@ -960,7 +960,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 if (ex instanceof TableNotFoundException) {
                                     dropTblFut.completeExceptionally(ex);
                                 } else {
-                                    LOG.error(LoggerMessageHelper.format("Table wasn't dropped [name={}]", name), ex);
+                                    LOG.error(IgniteStringFormatter.format("Table wasn't dropped [name={}]", name), ex);
 
                                     dropTblFut.completeExceptionally(ex);
                                 }

@@ -36,7 +36,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.lang.LoggerMessageHelper;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
@@ -98,7 +98,7 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < nodes(); i++) {
             String curNodeName = IgniteTestUtils.testNodeName(testInfo, i);
 
-            CLUSTER_NODES.add(IgnitionManager.start(curNodeName, LoggerMessageHelper.format(NODE_BOOTSTRAP_CFG,
+            CLUSTER_NODES.add(IgnitionManager.start(curNodeName, IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
                     metastorageNodes,
                     BASE_PORT + i,
                     connectNodeAddr

@@ -29,7 +29,7 @@ import com.lmax.disruptor.dsl.ProducerType;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteLogger;
 
-import static org.apache.ignite.lang.LoggerMessageHelper.format;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 /**
  * Stripe Disruptor is a set of queues which process several independent groups in one queue (in the stripe).

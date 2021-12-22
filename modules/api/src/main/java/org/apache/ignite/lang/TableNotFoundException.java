@@ -27,6 +27,6 @@ public class TableNotFoundException extends IgniteException {
      * @param name Table name.
      */
     public TableNotFoundException(String name) {
-        super(LoggerMessageHelper.format("Table does not exist [name={}]", name));
+        super(IgniteStringFormatter.format("Table does not exist [name={}]", name));
     }
 }
