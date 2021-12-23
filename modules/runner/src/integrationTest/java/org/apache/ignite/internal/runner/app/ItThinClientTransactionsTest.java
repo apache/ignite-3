@@ -41,7 +41,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Thin client transactions integration test.
  */
-// TODO: Test ALL operations in ALL modes (tuple, kv, binary).
 public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
     @Test
     void testKvViewOperations() {
