@@ -32,11 +32,28 @@ import org.junit.jupiter.api.Test;
 // TODO: Test invalid use cases (closed tx usage, invalid interface usage).
 public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
     @Test
+    void testCommit() {
+        KeyValueView<Integer, String> kvView = kvView();
+        kvView.put(null, 1, "1");
+
+        Transaction tx = client().transactions().begin();
+        assertEquals("1", kvView.get(null, 1));
+        assertEquals("1", kvView.get(tx, 1));
+
+        kvView.put(tx, 1, "2");
+        assertEquals("2", kvView.get(tx, 1));
+
+        tx.commit();
+        assertEquals("2", kvView.get(null, 1));
+    }
+
+    @Test
     void testRollback() {
         KeyValueView<Integer, String> kvView = kvView();
         kvView.put(null, 1, "1");
 
         Transaction tx = client().transactions().begin();
+        assertEquals("1", kvView.get(null, 1));
         assertEquals("1", kvView.get(tx, 1));
 
         kvView.put(tx, 1, "2");
@@ -44,7 +61,6 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
 
         tx.rollback();
         assertEquals("1", kvView.get(null, 1));
-
     }
 
     private KeyValueView<Integer, String> kvView() {
