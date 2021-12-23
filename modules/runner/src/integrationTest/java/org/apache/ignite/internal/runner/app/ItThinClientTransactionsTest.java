@@ -99,6 +99,31 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
     }
 
     @Test
+    void testRecordViewOperations() {
+        RecordView<Rec> recordView = table().recordView(Mapper.of(Rec.class));
+        Rec key = rec(1, null);
+        recordView.upsert(null, rec(1, "1"));
+
+        Transaction tx = client().transactions().begin();
+        recordView.upsert(tx, rec(1, "22"));
+
+        assertFalse(recordView.deleteExact(tx, rec(1, "1")));
+        assertFalse(recordView.insert(tx, rec(1, "111")));
+        assertEquals(rec(1, "22"), recordView.get(tx, key));
+        assertEquals(rec(1, "22"), recordView.getAndUpsert(tx, rec(1, "33")));
+        assertEquals(rec(1, "33"), recordView.getAndReplace(tx, rec(1, "44")));
+        assertTrue(recordView.replace(tx, rec(1, "55")));
+        assertEquals(rec(1, "55"), recordView.getAndDelete(tx, key));
+        assertFalse(recordView.delete(tx, key));
+
+        recordView.upsertAll(tx, List.of(rec(1, "6"), rec(2, "7")));
+        assertEquals(2, recordView.getAll(tx, List.of(key, rec(2, null), rec(3, null))).size());
+
+        tx.rollback();
+        assertEquals(rec(1, "1"), recordView.get(null, key));
+    }
+
+    @Test
     void testRecordViewBinaryOperations() {
         RecordView<Tuple> recordView = table().recordView();
 
@@ -222,5 +247,19 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
 
     private Tuple kv(Integer k, String v) {
         return Tuple.create().set(COLUMN_KEY, k).set(COLUMN_VAL, v);
+    }
+
+    private Rec rec(int key, String val) {
+        var r = new Rec();
+
+        r.key = key;
+        r.val = val;
+
+        return r;
+    }
+
+    private static class Rec {
+        public int key;
+        public String val;
     }
 }
