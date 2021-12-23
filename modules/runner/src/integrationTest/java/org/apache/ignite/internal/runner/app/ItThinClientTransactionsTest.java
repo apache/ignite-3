@@ -108,20 +108,20 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
         Transaction tx = client().transactions().begin();
         recordView.upsert(tx, kv(1, "22"));
 
-        assertFalse(recordView.delete(tx, kv(1, "1")));
+        assertFalse(recordView.deleteExact(tx, kv(1, "1")));
         assertFalse(recordView.insert(tx, kv(1, "111")));
-        assertEquals(val("22"), recordView.get(tx, key));
-        assertEquals(val("22"), recordView.getAndUpsert(tx, kv(1, "33")));
-        assertEquals(val("33"), recordView.getAndReplace(tx, kv(1, "44")));
+        assertEquals(kv(1, "22"), recordView.get(tx, key));
+        assertEquals(kv(1, "22"), recordView.getAndUpsert(tx, kv(1, "33")));
+        assertEquals(kv(1, "33"), recordView.getAndReplace(tx, kv(1, "44")));
         assertTrue(recordView.replace(tx, kv(1, "55")));
-        assertEquals(val("55"), recordView.getAndDelete(tx, key));
+        assertEquals(kv(1, "55"), recordView.getAndDelete(tx, key));
         assertFalse(recordView.delete(tx, key));
 
         recordView.upsertAll(tx, List.of(kv(1, "6"), kv(2, "7")));
         assertEquals(2, recordView.getAll(tx, List.of(key, key(2), key(3))).size());
 
         tx.rollback();
-        assertEquals(val("1"), recordView.get(null, key));
+        assertEquals(kv(1, "1"), recordView.get(null, key));
     }
 
     @Test
