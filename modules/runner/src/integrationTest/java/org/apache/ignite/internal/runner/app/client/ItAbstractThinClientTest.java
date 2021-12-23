@@ -130,6 +130,10 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         IgniteUtils.closeAll(ItUtils.reverse(startedNodes));
     }
 
+    protected void stopNode() throws Exception {
+        startedNodes.remove(0).close();
+    }
+
     protected String getNodeAddress() {
         return getNodeAddresses().get(0);
     }

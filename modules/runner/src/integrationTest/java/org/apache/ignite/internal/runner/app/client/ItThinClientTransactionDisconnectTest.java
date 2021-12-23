@@ -28,12 +28,16 @@ import org.junit.jupiter.api.Test;
  */
 public class ItThinClientTransactionDisconnectTest extends ItAbstractThinClientTest {
     @Test
-    void testTransactionOwnerConnectionLostThrowsExceptionOnTableOperations() {
+    void testTransactionOwnerConnectionLostThrowsExceptionOnTableOperations() throws Exception {
         Table table = client().tables().tables().get(0);
         KeyValueView<Integer, String> kvView = table.keyValueView(Mapper.of(Integer.class), Mapper.of(String.class));
 
         Transaction tx = client().transactions().begin();
 
         kvView.put(tx, 1, "1");
+
+        stopNode();
+
+        kvView.put(tx, 1, "2");
     }
 }
