@@ -18,10 +18,19 @@
 package org.apache.ignite.client.handler;
 
 /**
- * Client resource.
+ * Client resource holder.
  */
 public interface ClientResource {
+    /**
+     * Gets the underlying object.
+     *
+     * @param <T> Object type.
+     * @return Object.
+     */
     <T> T get();
 
+    /**
+     * Releases resources.
+     */
     void release();
 }
