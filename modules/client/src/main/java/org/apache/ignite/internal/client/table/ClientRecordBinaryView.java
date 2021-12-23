@@ -63,8 +63,8 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
-                (schema, out) -> tbl.writeTuple(tx, keyRec, schema, out, true),
-                (inSchema, in) -> ClientTable.readValueTuple(inSchema, in, keyRec));
+                (s, w) -> tbl.writeTuple(tx, keyRec, s, w, true),
+                (s, r) -> ClientTable.readValueTuple(s, r, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -134,7 +134,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> tbl.writeTuple(tx, rec, s, w, false),
-                (schema, in) -> ClientTable.readValueTuple(schema, in, rec));
+                (s, r) -> ClientTable.readValueTuple(s, r, rec));
     }
 
     /** {@inheritDoc} */
@@ -224,7 +224,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> tbl.writeTuple(tx, rec, s, w, false),
-                (schema, in) -> ClientTable.readValueTuple(schema, in, rec));
+                (s, r) -> ClientTable.readValueTuple(s, r, rec));
     }
 
     /** {@inheritDoc} */
@@ -275,7 +275,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> tbl.writeTuple(tx, keyRec, s, w, true),
-                (schema, in) -> ClientTable.readValueTuple(schema, in, keyRec));
+                (s, r) -> ClientTable.readValueTuple(s, r, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -292,7 +292,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
                 (s, w) -> tbl.writeTuples(tx, keyRecs, s, w, true),
-                (schema, in) -> tbl.readTuples(schema, in, true),
+                (s, r) -> tbl.readTuples(s, r, true),
                 Collections.emptyList());
     }
 

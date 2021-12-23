@@ -87,8 +87,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
-                (schema, out) -> keySer.writeRec(tx, key, schema, out, TuplePart.KEY),
-                (inSchema, in) -> valSer.readRec(inSchema, in, TuplePart.VAL));
+                (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
+                (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
     }
 
     /** {@inheritDoc} */
@@ -108,7 +108,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
-                (schema, out) -> keySer.writeRecs(tx, keys, schema, out, TuplePart.KEY),
+                (s, w) -> keySer.writeRecs(tx, keys, s, w, TuplePart.KEY),
                 this::readGetAllResponse,
                 Collections.emptyMap());
     }
@@ -126,7 +126,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_KEY,
-                (schema, out) -> keySer.writeRec(tx, key, schema, out, TuplePart.KEY),
+                (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -263,8 +263,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
-                (schema, out) -> keySer.writeRecs(tx, keys, schema, out, TuplePart.KEY),
-                (inSchema, in) -> keySer.readRecs(inSchema, in, false, TuplePart.KEY),
+                (s, w) -> keySer.writeRecs(tx, keys, s, w, TuplePart.KEY),
+                (s, r) -> keySer.readRecs(s, r, false, TuplePart.KEY),
                 Collections.emptyList());
     }
 
@@ -341,7 +341,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                (inSchema, in) -> valSer.readRec(inSchema, in, TuplePart.VAL));
+                (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
     }
 
     /** {@inheritDoc} */

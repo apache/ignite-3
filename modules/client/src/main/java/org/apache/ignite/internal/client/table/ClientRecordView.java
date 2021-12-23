@@ -67,8 +67,8 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
-                (schema, out) -> ser.writeRec(tx, keyRec, schema, out, TuplePart.KEY),
-                (inSchema, in) -> ser.readValRec(keyRec, inSchema, in));
+                (s, w) -> ser.writeRec(tx, keyRec, s, w, TuplePart.KEY),
+                (s, r) -> ser.readValRec(keyRec, s, r));
     }
 
     /** {@inheritDoc} */
@@ -84,8 +84,8 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
-                (schema, out) -> ser.writeRecs(tx, keyRecs, schema, out, TuplePart.KEY),
-                (schema, in) -> ser.readRecs(schema, in, true, TuplePart.KEY_AND_VAL),
+                (s, w) -> ser.writeRecs(tx, keyRecs, s, w, TuplePart.KEY),
+                (s, r) -> ser.readRecs(s, r, true, TuplePart.KEY_AND_VAL),
                 Collections.emptyList());
     }
 
@@ -292,7 +292,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
                 (s, w) -> ser.writeRecs(tx, keyRecs, s, w, TuplePart.KEY),
-                (schema, in) -> ser.readRecs(schema, in, false, TuplePart.KEY),
+                (s, r) -> ser.readRecs(s, r, false, TuplePart.KEY),
                 Collections.emptyList());
     }
 
