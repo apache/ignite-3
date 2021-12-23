@@ -132,6 +132,10 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
             return descriptorRegistry.getDescriptor(Enum[].class);
         }
 
+        if (isGenericRefArray(objectClass)) {
+            return descriptorRegistry.getDescriptor(Object[].class);
+        }
+
         ClassDescriptor descriptor = descriptorRegistry.getDescriptor(objectClass);
         if (descriptor == null) {
             descriptor = descriptorFactory.create(objectClass);
@@ -151,8 +155,8 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
             throws IOException, MarshalException {
         if (descriptor.isNull()) {
             return List.of(descriptor);
-        } else if (isObjectArray(descriptor)) {
-            return builtInCollectionMarshallers.writeObjectArray((Object[]) object, descriptor, output);
+        } else if (isGenericRefArray(descriptor)) {
+            return builtInCollectionMarshallers.writeGenericRefArray((Object[]) object, descriptor, output);
         } else if (isBuiltInCollection(descriptor)) {
             return builtInCollectionMarshallers.writeBuiltInCollection((Collection<?>) object, descriptor, output);
         } else if (isBuiltInMap(descriptor)) {
@@ -166,8 +170,12 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         }
     }
 
-    private boolean isObjectArray(ClassDescriptor descriptor) {
-        return descriptor.clazz() == Object[].class;
+    private boolean isGenericRefArray(ClassDescriptor descriptor) {
+        return isGenericRefArray(descriptor.clazz());
+    }
+
+    private boolean isGenericRefArray(Class<?> classToCheck) {
+        return classToCheck.isArray() && !builtInMarshallers.supports(classToCheck);
     }
 
     private boolean isBuiltInCollection(ClassDescriptor descriptor) {
@@ -225,8 +233,8 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     private Object readObject(DataInput input, ClassDescriptor descriptor) throws IOException, UnmarshalException {
         if (descriptor.isNull()) {
             return null;
-        } else if (isObjectArray(descriptor)) {
-            return readObjectArray(input);
+        } else if (isGenericRefArray(descriptor)) {
+            return readGenericRefArray(input);
         } else if (isBuiltInCollection(descriptor)) {
             return readBuiltInCollection(input, descriptor);
         } else if (isBuiltInMap(descriptor)) {
@@ -240,8 +248,8 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         }
     }
 
-    private Object[] readObjectArray(DataInput input) throws IOException, UnmarshalException {
-        return BuiltInMarshalling.readRefArray(input, Object[]::new, this::unmarshalFromInput);
+    private Object[] readGenericRefArray(DataInput input) throws IOException, UnmarshalException {
+        return builtInCollectionMarshallers.readGenericRefArray(input, this::unmarshalFromInput);
     }
 
     private Collection<Object> readBuiltInCollection(DataInput input, ClassDescriptor descriptor) throws UnmarshalException, IOException {

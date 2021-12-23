@@ -68,9 +68,15 @@ class BuiltInCollectionMarshallers {
         this.trackingMarshaller = trackingMarshaller;
     }
 
-    List<ClassDescriptor> writeObjectArray(Object[] array, ClassDescriptor arrayDescriptor, DataOutput output)
+    List<ClassDescriptor> writeGenericRefArray(Object[] array, ClassDescriptor arrayDescriptor, DataOutput output)
             throws IOException, MarshalException {
+        output.writeUTF(array.getClass().getComponentType().getName());
         return writeCollection(Arrays.asList(array), arrayDescriptor, output);
+    }
+
+    <T> T[] readGenericRefArray(DataInput input, ValueReader<T> elementReader)
+            throws IOException, UnmarshalException {
+        return BuiltInMarshalling.readGenericRefArray(input, elementReader);
     }
 
     List<ClassDescriptor> writeBuiltInCollection(Collection<?> object, ClassDescriptor descriptor, DataOutput output)

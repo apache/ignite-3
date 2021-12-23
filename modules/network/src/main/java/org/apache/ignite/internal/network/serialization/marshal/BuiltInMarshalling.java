@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.IntFunction;
 import org.apache.ignite.lang.IgniteUuid;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Built-in types marshalling.
@@ -233,12 +234,17 @@ class BuiltInMarshalling {
     }
 
     private static <T extends Enum<T>> Class<T> enumClass(String className) throws IOException {
+        return classByName(className, "enum");
+    }
+
+    @NotNull
+    private static <T> Class<T> classByName(String className, String classKind) throws IOException {
         try {
             // TODO: what classloader to use?
             @SuppressWarnings("unchecked") Class<T> castedClass = (Class<T>) Class.forName(className);
             return castedClass;
         } catch (ClassNotFoundException e) {
-            throw new IOException("Can not load enum class: " + className, e);
+            throw new IOException("Can not load " + classKind + " class: " + className, e);
         }
     }
 
@@ -258,6 +264,15 @@ class BuiltInMarshalling {
         }
         return array;
     }
+
+    static <T> T[] readGenericRefArray(DataInput input, ValueReader<T> elementReader) throws IOException, UnmarshalException {
+        String componentClassName = input.readUTF();
+        Class<T> componentType = classByName(componentClassName, "component");
+        @SuppressWarnings("unchecked")
+        IntFunction<T[]> arrayFactory = len -> (T[]) Array.newInstance(componentType, len);
+        return readRefArray(input, arrayFactory, elementReader);
+    }
+
 
     static void writeStringArray(String[] array, DataOutput output) throws IOException, MarshalException {
         writeRefArray(array, output, stringWriter);

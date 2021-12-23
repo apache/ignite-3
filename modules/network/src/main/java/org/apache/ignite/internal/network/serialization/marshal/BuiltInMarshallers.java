@@ -99,6 +99,16 @@ class BuiltInMarshallers {
         return new BuiltInMarshaller<>(valueRefClass, writer, reader);
     }
 
+    /**
+     * Returns {@code true} if we the given descriptor is a built-in we can handle.
+     *
+     * @param classToCheck the class to check
+     * @return {@code true} if we the given descriptor is a built-in we can handle
+     */
+    boolean supports(Class<?> classToCheck) {
+        return builtInMarshallers.containsKey(classToCheck);
+    }
+
     List<ClassDescriptor> writeBuiltIn(Object object, ClassDescriptor descriptor, DataOutput output) throws IOException, MarshalException {
         BuiltInMarshaller<?> builtInMarshaller = findBuiltInMarshaller(descriptor);
 

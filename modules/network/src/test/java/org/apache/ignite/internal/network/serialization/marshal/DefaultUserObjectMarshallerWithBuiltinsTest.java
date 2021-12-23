@@ -201,6 +201,8 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
                 builtInTypeValueArg(new boolean[]{true, false}, boolean[].class, BuiltinType.BOOLEAN_ARRAY),
                 builtInTypeValueArg(new char[]{'a', 'b'}, char[].class, BuiltinType.CHAR_ARRAY),
                 builtInTypeValueArg(new Object[]{42, "123", null}, Object[].class, BuiltinType.OBJECT_ARRAY),
+                builtInTypeValueArg(new BitSet[]{BitSet.valueOf(new long[]{42, 43}), BitSet.valueOf(new long[]{1, 2}), null},
+                        BitSet[].class, BuiltinType.OBJECT_ARRAY),
                 builtInTypeValueArg(new String[]{"Ignite", "rulez"}, String[].class, BuiltinType.STRING_ARRAY),
                 builtInTypeValueArg(new BigDecimal(42), BigDecimal.class, BuiltinType.DECIMAL),
                 builtInTypeValueArg(new BigDecimal[]{new BigDecimal(42), new BigDecimal(43)}, BigDecimal[].class,

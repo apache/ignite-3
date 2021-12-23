@@ -63,7 +63,7 @@ public enum BuiltinType {
     DOUBLE_ARRAY(26, double[].class),
     BOOLEAN_ARRAY(27, boolean[].class),
     CHAR_ARRAY(28, char[].class),
-    /** An array of arbitrary objects. */
+    /** An arbitrary array of objects (references) except for the cases supported specifically (like String[], Enum{} and so on). */
     OBJECT_ARRAY(29, Object[].class),
     STRING_ARRAY(30, String[].class),
     DECIMAL(31, BigDecimal.class),
