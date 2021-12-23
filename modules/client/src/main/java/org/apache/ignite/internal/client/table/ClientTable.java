@@ -31,6 +31,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -371,14 +372,19 @@ public class ClientTable implements Table {
         if (tx == null) {
             out.packNil();
         } else {
-            if (!(tx instanceof ClientTransaction)) {
-                throw new IgniteClientException("Unsupported transaction implementation: '"
-                        + tx.getClass()
-                        + "'. Use IgniteClient.transactions() to start transactions.");
-            }
-
-            out.packLong(((ClientTransaction) tx).id());
+            ClientTransaction clientTx = getClientTx(tx);
+            out.packLong(clientTx.id());
         }
+    }
+
+    private static ClientTransaction getClientTx(@NotNull Transaction tx) {
+        if (!(tx instanceof ClientTransaction)) {
+            throw new IgniteClientException("Unsupported transaction implementation: '"
+                    + tx.getClass()
+                    + "'. Use IgniteClient.transactions() to start transactions.");
+        }
+
+        return (ClientTransaction) tx;
     }
 
     private static Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
@@ -502,14 +508,16 @@ public class ClientTable implements Table {
 
     <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
+            @Nullable Transaction tx,
             BiConsumer<ClientSchema, ClientMessagePacker> writer,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> reader
     ) {
-        return doSchemaOutInOpAsync(opCode, writer, reader, null);
+        return doSchemaOutInOpAsync(opCode, tx, writer, reader, null);
     }
 
     <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
+            @Nullable Transaction tx,
             BiConsumer<ClientSchema, ClientMessagePacker> writer,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
             T defaultValue
@@ -517,20 +525,33 @@ public class ClientTable implements Table {
         return getLatestSchema()
                 .thenCompose(schema ->
                         ch.serviceAsync(opCode,
-                                w -> writer.accept(schema, w.out()),
+                                w -> verifyTxAndWrite(writer, schema, w, tx),
                                 r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue)))
                 .thenCompose(t -> loadSchemaAndReadData(t, reader));
     }
 
     <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
+            @Nullable Transaction tx,
             BiConsumer<ClientSchema, ClientMessagePacker> writer,
             Function<ClientMessageUnpacker, T> reader) {
         return getLatestSchema()
                 .thenCompose(schema ->
                         ch.serviceAsync(opCode,
-                                w -> writer.accept(schema, w.out()),
+                                w -> verifyTxAndWrite(writer, schema, w, tx),
                                 r -> reader.apply(r.in())));
+    }
+
+    private void verifyTxAndWrite(
+            BiConsumer<ClientSchema, ClientMessagePacker> writer,
+            ClientSchema schema,
+            PayloadOutputChannel w,
+            @Nullable Transaction tx) {
+        if (tx != null && getClientTx(tx).channel() != w.clientChannel()) {
+            throw new IgniteClientException("Transaction context has been lost due to connection errors.");
+        }
+
+        writer.accept(schema, w.out());
     }
 
     private <T> Object readSchemaAndReadData(
