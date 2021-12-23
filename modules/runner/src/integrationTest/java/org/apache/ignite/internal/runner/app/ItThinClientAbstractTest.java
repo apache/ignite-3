@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ItUtils;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
@@ -61,6 +62,8 @@ public abstract class ItThinClientAbstractTest extends IgniteAbstractTest {
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
 
     private final List<Ignite> startedNodes = new ArrayList<>();
+
+    private IgniteClient client;
 
     /**
      * Before each.
@@ -112,6 +115,8 @@ public abstract class ItThinClientAbstractTest extends IgniteAbstractTest {
                         .changeReplicas(1)
                         .changePartitions(10)
         );
+
+        client = IgniteClient.builder().addresses(getNodeAddress()).build();
     }
 
     /**
@@ -119,6 +124,8 @@ public abstract class ItThinClientAbstractTest extends IgniteAbstractTest {
      */
     @AfterAll
     void afterAll() throws Exception {
+        client.close();
+
         IgniteUtils.closeAll(ItUtils.reverse(startedNodes));
     }
 
@@ -137,5 +144,9 @@ public abstract class ItThinClientAbstractTest extends IgniteAbstractTest {
         }
 
         return res;
+    }
+
+    protected IgniteClient client() {
+        return client;
     }
 }

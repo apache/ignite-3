@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.Mapper;
@@ -34,24 +33,22 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
      * Check that thin client can connect to any server node and work with table API.
      */
     @Test
-    void testTransactionCommitRollback() throws Exception {
-        try (var client = IgniteClient.builder().addresses(getNodeAddress()).build()) {
-            Table table = client.tables().tables().get(0);
-            KeyValueView<Integer, String> kvView = table.keyValueView(Mapper.of(Integer.class), Mapper.of(String.class));
-            kvView.put(null, 1, "1");
+    void testTransactionCommitRollback() {
+        Table table = client().tables().tables().get(0);
+        KeyValueView<Integer, String> kvView = table.keyValueView(Mapper.of(Integer.class), Mapper.of(String.class));
+        kvView.put(null, 1, "1");
 
-            Transaction tx = client.transactions().begin();
-            assertEquals("1", kvView.get(tx, 1));
+        Transaction tx = client().transactions().begin();
+        assertEquals("1", kvView.get(tx, 1));
 
-            kvView.put(tx, 1, "2");
-            assertEquals("2", kvView.get(tx, 1));
+        kvView.put(tx, 1, "2");
+        assertEquals("2", kvView.get(tx, 1));
 
-            tx.rollback();
-            assertEquals("1", kvView.get(null, 1));
+        tx.rollback();
+        assertEquals("1", kvView.get(null, 1));
 
-            // TODO: Test ALL operations in ALL modes (tuple, kv, binary).
-            // TODO: Test invalid use cases (closed tx usage, invalid interface usage).
-            // fail("TODO");
-        }
+        // TODO: Test ALL operations in ALL modes (tuple, kv, binary).
+        // TODO: Test invalid use cases (closed tx usage, invalid interface usage).
+        // fail("TODO");
     }
 }
