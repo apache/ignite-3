@@ -33,7 +33,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests thin client connecting to a real server node.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItThinClientConnectionTest extends ItThinClientAbstractTest {
+public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
     /**
      * Check that thin client can connect to any server node and work with table API.
      */

@@ -51,7 +51,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @SuppressWarnings("ZeroLengthArrayAllocation")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(WorkDirectoryExtension.class)
-public abstract class ItThinClientAbstractTest extends IgniteAbstractTest {
+public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
     protected static final String SCHEMA_NAME = "PUB";
 
     protected static final String TABLE_NAME = "tbl1";

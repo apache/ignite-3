@@ -42,7 +42,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Thin client transactions integration test.
  */
-public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
+public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     @Test
     void testKvViewOperations() {
         KeyValueView<Integer, String> kvView = kvView();
