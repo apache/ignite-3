@@ -28,14 +28,12 @@ import org.junit.jupiter.api.Test;
 /**
  * Thin client transactions integration test.
  */
+// TODO: Test ALL operations in ALL modes (tuple, kv, binary).
+// TODO: Test invalid use cases (closed tx usage, invalid interface usage).
 public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
-    /**
-     * Check that thin client can connect to any server node and work with table API.
-     */
     @Test
-    void testTransactionCommitRollback() {
-        Table table = client().tables().tables().get(0);
-        KeyValueView<Integer, String> kvView = table.keyValueView(Mapper.of(Integer.class), Mapper.of(String.class));
+    void testRollback() {
+        KeyValueView<Integer, String> kvView = kvView();
         kvView.put(null, 1, "1");
 
         Transaction tx = client().transactions().begin();
@@ -47,8 +45,11 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
         tx.rollback();
         assertEquals("1", kvView.get(null, 1));
 
-        // TODO: Test ALL operations in ALL modes (tuple, kv, binary).
-        // TODO: Test invalid use cases (closed tx usage, invalid interface usage).
-        // fail("TODO");
+    }
+
+    private KeyValueView<Integer, String> kvView() {
+        Table table = client().tables().tables().get(0);
+
+        return table.keyValueView(Mapper.of(Integer.class), Mapper.of(String.class));
     }
 }
