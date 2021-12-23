@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -179,6 +180,19 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
 
         tx.rollback();
         assertEquals("1", kvView.get(null, 1));
+    }
+
+    @Test
+    void testAccessLockedKeyTimesOut() {
+        KeyValueView<Integer, String> kvView = kvView();
+
+        Transaction tx = client().transactions().begin();
+        kvView.put(tx, 1, "1");
+
+        var ex = assertThrows(CompletionException.class, () -> kvView.get(null, 1));
+        assertThat(ex.getCause().getMessage(), containsString("TimeoutException"));
+
+        tx.rollback();
     }
 
     @Test
