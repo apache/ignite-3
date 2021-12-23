@@ -136,7 +136,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
 
     @Test
     void marshalsEnumUsingOnlyEnumDescriptor() throws Exception {
-        MarshalledObject marshalled = marshaller.marshal(Approval.YES);
+        MarshalledObject marshalled = marshaller.marshal(SimpleEnum.FIRST);
 
         assertThat(marshalled.usedDescriptors(), equalTo(List.of(descriptorRegistry.getRequiredDescriptor(Enum.class))));
     }
@@ -207,9 +207,17 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
                 builtInTypeValueArg(new BigDecimal(42), BigDecimal.class, BuiltinType.DECIMAL),
                 builtInTypeValueArg(new BigDecimal[]{new BigDecimal(42), new BigDecimal(43)}, BigDecimal[].class,
                         BuiltinType.DECIMAL_ARRAY),
-                builtInTypeValueArg(Approval.YES, Approval.class, BuiltinType.ENUM),
-                builtInTypeValueArg(new Enum[]{Approval.YES, Approval.NO}, Enum[].class, BuiltinType.ENUM_ARRAY),
-                builtInTypeValueArg(new Approval[]{Approval.YES, Approval.NO}, Approval[].class, BuiltinType.ENUM_ARRAY),
+                builtInTypeValueArg(SimpleEnum.FIRST, SimpleEnum.class, BuiltinType.ENUM),
+                builtInTypeValueArg(new Enum[]{SimpleEnum.FIRST, SimpleEnum.SECOND}, Enum[].class, BuiltinType.ENUM_ARRAY),
+                builtInTypeValueArg(new SimpleEnum[]{SimpleEnum.FIRST, SimpleEnum.SECOND}, SimpleEnum[].class, BuiltinType.ENUM_ARRAY),
+                builtInTypeValueArg(EnumWithAnonClassesForMembers.FIRST, EnumWithAnonClassesForMembers.class, BuiltinType.ENUM),
+                builtInTypeValueArg(new Enum[]{EnumWithAnonClassesForMembers.FIRST, EnumWithAnonClassesForMembers.SECOND}, Enum[].class,
+                        BuiltinType.ENUM_ARRAY),
+                builtInTypeValueArg(
+                        new EnumWithAnonClassesForMembers[]{EnumWithAnonClassesForMembers.FIRST, EnumWithAnonClassesForMembers.SECOND},
+                        EnumWithAnonClassesForMembers[].class,
+                        BuiltinType.ENUM_ARRAY
+                ),
                 builtInTypeValueArg(BitSet.valueOf(new long[]{42, 43}), BitSet.class, BuiltinType.BIT_SET),
                 builtInTypeValueArg(null, Void.class, BuiltinType.VOID)
         );
@@ -275,9 +283,16 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
         return Arguments.of(new BuiltInTypeValue(value, valueClass, type));
     }
 
-    private enum Approval {
-        YES,
-        NO
+    private enum SimpleEnum {
+        FIRST,
+        SECOND
+    }
+
+    private enum EnumWithAnonClassesForMembers {
+        FIRST {
+        },
+        SECOND {
+        }
     }
 
     private static class BuiltInTypeValue {

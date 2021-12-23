@@ -223,7 +223,15 @@ class BuiltInMarshalling {
     }
 
     static void writeEnum(Enum<?> object, DataOutput output) throws IOException {
-        output.writeUTF(object.getClass().getName());
+        Class<?> enumClass = object.getClass();
+        if (!enumClass.isEnum()) {
+            // this is needed for enums where members are represented with anonymous classes
+            enumClass = enumClass.getSuperclass();
+        }
+
+        assert enumClass.getSuperclass() == Enum.class;
+
+        output.writeUTF(enumClass.getName());
         output.writeUTF(object.name());
     }
 

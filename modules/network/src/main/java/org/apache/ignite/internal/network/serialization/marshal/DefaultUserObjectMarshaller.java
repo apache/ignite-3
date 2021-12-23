@@ -81,7 +81,10 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     private List<ClassDescriptor> marshalToOutput(@Nullable Object object, Class<?> declaredClass, DataOutput output)
             throws MarshalException, IOException {
         assert declaredClass != null;
-        assert object == null || declaredClass.isPrimitive() || object.getClass() == declaredClass
+        assert object == null
+                || declaredClass.isPrimitive()
+                || objectIsMemberOfEnumWithAnonymousClassesForMembers(object, declaredClass)
+                || object.getClass() == declaredClass
                 : "Object " + object + " is expected to have class " + declaredClass + ", but its " + object.getClass();
 
         DescribedObject writeReplaced = applyWriteReplaceIfNeeded(object, declaredClass);
@@ -89,6 +92,10 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         writeDescriptorId(writeReplaced.descriptor, output);
 
         return writeObject(writeReplaced.object, writeReplaced.descriptor, output);
+    }
+
+    private boolean objectIsMemberOfEnumWithAnonymousClassesForMembers(Object object, Class<?> declaredClass) {
+        return declaredClass.isEnum() && object.getClass().getSuperclass() == declaredClass;
     }
 
     private DescribedObject applyWriteReplaceIfNeeded(@Nullable Object originalObject, Class<?> declaredClass) throws MarshalException {
