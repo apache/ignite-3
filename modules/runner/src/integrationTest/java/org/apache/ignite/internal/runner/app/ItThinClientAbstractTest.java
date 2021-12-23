@@ -48,6 +48,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Thin client integration test base class.
  */
+@SuppressWarnings("ZeroLengthArrayAllocation")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class ItThinClientAbstractTest extends IgniteAbstractTest {
@@ -116,7 +117,7 @@ public abstract class ItThinClientAbstractTest extends IgniteAbstractTest {
                         .changePartitions(10)
         );
 
-        client = IgniteClient.builder().addresses(getNodeAddress()).build();
+        client = IgniteClient.builder().addresses(getNodeAddresses().toArray(new String[0])).build();
     }
 
     /**
