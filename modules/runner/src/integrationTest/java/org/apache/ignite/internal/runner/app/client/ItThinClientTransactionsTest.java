@@ -253,7 +253,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             RecordView<Tuple> recordView = client2.tables().tables().get(0).recordView();
 
             var ex = assertThrows(CompletionException.class, () -> recordView.upsert(tx, Tuple.create()));
-            var iex = (IgniteClientException)ex.getCause();
+            var iex = (IgniteClientException) ex.getCause();
 
             assertEquals("Transaction context has been lost due to connection errors.", iex.getMessage());
         }

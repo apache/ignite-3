@@ -55,6 +55,6 @@ public class ClientTransactions implements IgniteTransactions {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Transaction> beginAsync() {
-        return ch.serviceAsync(ClientOp.TX_BEGIN, w -> {},  r -> new ClientTransaction(r.clientChannel(), r.in().unpackLong()) );
+        return ch.serviceAsync(ClientOp.TX_BEGIN, w -> {},  r -> new ClientTransaction(r.clientChannel(), r.in().unpackLong()));
     }
 }
