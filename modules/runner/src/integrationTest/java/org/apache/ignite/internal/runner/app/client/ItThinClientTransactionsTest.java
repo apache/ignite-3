@@ -238,7 +238,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         var ex = assertThrows(CompletionException.class, () -> kvView().put(tx, 1, "1"));
 
         String expected = "Unsupported transaction implementation: "
-                + "'class org.apache.ignite.internal.runner.app.ItThinClientTransactionsTest";
+                + "'class org.apache.ignite.internal.runner.app.client.ItThinClientTransactionsTest";
 
         assertThat(ex.getCause().getMessage(), startsWith(expected));
     }
