@@ -361,13 +361,20 @@ public class ClientTable implements Table {
         }
     }
 
+    /**
+     * Writes transaction, if present.
+     *
+     * @param tx  Transaction.
+     * @param out Packer.
+     */
     public static void writeTx(@Nullable Transaction tx, ClientMessagePacker out) {
         if (tx == null) {
             out.packNil();
         } else {
             if (!(tx instanceof ClientTransaction)) {
-                throw new IgniteClientException("Unsupported transaction implementation: '" + tx.getClass() +
-                        "'. Use IgniteClient.transactions() to start transactions.");
+                throw new IgniteClientException("Unsupported transaction implementation: '"
+                        + tx.getClass()
+                        + "'. Use IgniteClient.transactions() to start transactions.");
             }
 
             out.packLong(((ClientTransaction) tx).id());
