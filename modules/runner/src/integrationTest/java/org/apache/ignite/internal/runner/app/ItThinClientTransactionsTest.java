@@ -187,9 +187,9 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
         KeyValueView<Integer, String> kvView = kvView();
 
         Transaction tx = client().transactions().begin();
-        kvView.put(tx, 1, "1");
+        kvView.put(tx, -100, "1");
 
-        var ex = assertThrows(CompletionException.class, () -> kvView.get(null, 1));
+        var ex = assertThrows(CompletionException.class, () -> kvView.get(null, -100));
         assertThat(ex.getCause().getMessage(), containsString("TimeoutException"));
 
         tx.rollback();
