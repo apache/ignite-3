@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -80,7 +82,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
-                (schema, out) -> writeRec(keyRec, schema, out, TuplePart.KEY),
+                (schema, out) -> writeRec(tx, keyRec, schema, out, TuplePart.KEY),
                 (inSchema, in) -> readValRec(keyRec, inSchema, in));
     }
 
@@ -97,7 +99,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
-                (schema, out) -> writeRecs(keyRecs, schema, out, TuplePart.KEY),
+                (schema, out) -> writeRecs(tx, keyRecs, schema, out, TuplePart.KEY),
                 this::readRecsNullable,
                 Collections.emptyList());
     }
@@ -115,7 +117,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
-                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                (s, w) -> writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
                 r -> null);
     }
 
@@ -132,7 +134,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
-                (s, w) -> writeRecs(recs, s, w, TuplePart.KEY_AND_VAL),
+                (s, w) -> writeRecs(tx, recs, s, w, TuplePart.KEY_AND_VAL),
                 r -> null);
     }
 
@@ -149,7 +151,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
-                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                (s, w) -> writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
                 (s, r) -> readValRec(rec, s, r));
     }
 
@@ -166,7 +168,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
-                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                (s, w) -> writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -183,7 +185,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_INSERT_ALL,
-                (s, w) -> writeRecs(recs, s, w, TuplePart.KEY_AND_VAL),
+                (s, w) -> writeRecs(tx, recs, s, w, TuplePart.KEY_AND_VAL),
                 this::readRecs,
                 Collections.emptyList());
     }
@@ -207,7 +209,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
-                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                (s, w) -> writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -219,7 +221,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
-                (s, w) -> writeRecs(oldRec, newRec, s, w, TuplePart.KEY_AND_VAL),
+                (s, w) -> writeRecs(tx, oldRec, newRec, s, w, TuplePart.KEY_AND_VAL),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -236,7 +238,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
-                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                (s, w) -> writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
                 (s, r) -> readValRec(rec, s, r));
     }
 
@@ -253,7 +255,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
-                (s, w) -> writeRec(keyRec, s, w, TuplePart.KEY),
+                (s, w) -> writeRec(tx, keyRec, s, w, TuplePart.KEY),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -270,7 +272,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
-                (s, w) -> writeRec(rec, s, w, TuplePart.KEY_AND_VAL),
+                (s, w) -> writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -287,7 +289,7 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
-                (s, w) -> writeRec(keyRec, s, w, TuplePart.KEY),
+                (s, w) -> writeRec(tx, keyRec, s, w, TuplePart.KEY),
                 (s, r) -> readValRec(keyRec, s, r));
     }
 
@@ -304,7 +306,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
-                (s, w) -> writeRecs(keyRecs, s, w, TuplePart.KEY),
+                (s, w) -> writeRecs(tx, keyRecs, s, w, TuplePart.KEY),
                 (schema, in) -> readRecs(schema, in, false, TuplePart.KEY),
                 Collections.emptyList());
     }
@@ -322,7 +324,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         // TODO: Transactions IGNITE-15240
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL_EXACT,
-                (s, w) -> writeRecs(recs, s, w, TuplePart.KEY_AND_VAL),
+                (s, w) -> writeRecs(tx, recs, s, w, TuplePart.KEY_AND_VAL),
                 this::readRecs,
                 Collections.emptyList());
     }
@@ -363,8 +365,9 @@ public class ClientRecordView<R> implements RecordView<R> {
         throw new UnsupportedOperationException();
     }
 
-    private void writeRec(@NotNull R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+    private void writeRec(@Nullable Transaction tx, @NotNull R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
         out.packIgniteUuid(tbl.tableId());
+        writeTx(tx, out);
         out.packInt(schema.version());
 
         Marshaller marshaller = schema.getMarshaller(recMapper, part);
@@ -377,8 +380,16 @@ public class ClientRecordView<R> implements RecordView<R> {
         }
     }
 
-    private void writeRecs(@NotNull R rec, @NotNull R rec2, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+    private void writeRecs(
+            @Nullable Transaction tx,
+            @NotNull R rec,
+            @NotNull R rec2,
+            ClientSchema schema,
+            ClientMessagePacker out,
+            TuplePart part
+    ) {
         out.packIgniteUuid(tbl.tableId());
+        writeTx(tx, out);
         out.packInt(schema.version());
 
         Marshaller marshaller = schema.getMarshaller(recMapper, part);
@@ -392,8 +403,15 @@ public class ClientRecordView<R> implements RecordView<R> {
         }
     }
 
-    private void writeRecs(@NotNull Collection<R> recs, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+    private void writeRecs(
+            @Nullable Transaction tx,
+            @NotNull Collection<R> recs,
+            ClientSchema schema,
+            ClientMessagePacker out,
+            TuplePart part
+    ) {
         out.packIgniteUuid(tbl.tableId());
+        writeTx(tx, out);
         out.packInt(schema.version());
         out.packInt(recs.size());
 

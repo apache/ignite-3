@@ -105,7 +105,13 @@ class ClientRecordSerializer<R> {
         }
     }
 
-    public void writeRecs(@Nullable Transaction tx, @NotNull Collection<R> recs, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+    public void writeRecs(
+            @Nullable Transaction tx,
+            @NotNull Collection<R> recs,
+            ClientSchema schema,
+            ClientMessagePacker out,
+            TuplePart part
+    ) {
         out.packIgniteUuid(tableId);
         writeTx(tx, out);
         out.packInt(schema.version());
