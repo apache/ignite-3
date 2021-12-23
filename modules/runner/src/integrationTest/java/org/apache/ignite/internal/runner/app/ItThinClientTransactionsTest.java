@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
@@ -43,31 +44,61 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
     @Test
     void testKvViewOperations() {
         KeyValueView<Integer, String> kvView = kvView();
-        kvView.put(null, 1, "1");
+
+        int key = 1;
+        kvView.put(null, key, "1");
 
         Transaction tx = client().transactions().begin();
-        kvView.put(tx, 1, "22");
+        kvView.put(tx, key, "22");
 
-        assertTrue(kvView.contains(tx, 1));
-        assertFalse(kvView.remove(tx, 1, "1"));
-        assertFalse(kvView.putIfAbsent(tx, 1, "111"));
-        assertEquals("22", kvView.get(tx, 1));
-        assertEquals("22", kvView.getAndPut(tx, 1, "33"));
-        assertEquals("33", kvView.getAndReplace(tx, 1, "44"));
-        assertTrue(kvView.replace(tx, 1, "55"));
-        assertEquals("55", kvView.getAndRemove(tx, 1));
-        assertFalse(kvView.contains(tx, 1));
-        assertFalse(kvView.remove(tx, 1));
+        assertTrue(kvView.contains(tx, key));
+        assertFalse(kvView.remove(tx, key, "1"));
+        assertFalse(kvView.putIfAbsent(tx, key, "111"));
+        assertEquals("22", kvView.get(tx, key));
+        assertEquals("22", kvView.getAndPut(tx, key, "33"));
+        assertEquals("33", kvView.getAndReplace(tx, key, "44"));
+        assertTrue(kvView.replace(tx, key, "55"));
+        assertEquals("55", kvView.getAndRemove(tx, key));
+        assertFalse(kvView.contains(tx, key));
+        assertFalse(kvView.remove(tx, key));
 
-        kvView.putAll(tx, Map.of(1, "6", 2, "7"));
-        assertEquals(2, kvView.getAll(tx, List.of(1, 2, 3)).size());
+        kvView.putAll(tx, Map.of(key, "6", 2, "7"));
+        assertEquals(2, kvView.getAll(tx, List.of(key, 2, 3)).size());
 
         tx.rollback();
-        assertEquals("1", kvView.get(null, 1));
+        assertEquals("1", kvView.get(null, key));
     }
 
     @Test
-    void testCommit() {
+    void testKvViewBinaryOperations() {
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+
+        Tuple key = key(1);
+        kvView.put(null, key, val("1"));
+
+        Transaction tx = client().transactions().begin();
+        kvView.put(tx, key, val("22"));
+
+        assertTrue(kvView.contains(tx, key));
+        assertFalse(kvView.remove(tx, key, val("1")));
+        assertFalse(kvView.putIfAbsent(tx, key, val("111")));
+        assertEquals(val("22"), kvView.get(tx, key));
+        assertEquals(val("22"), kvView.getAndPut(tx, key, val("33")));
+        assertEquals(val("33"), kvView.getAndReplace(tx, key, val("44")));
+        assertTrue(kvView.replace(tx, key, val("55")));
+        assertEquals(val("55"), kvView.getAndRemove(tx, key));
+        assertFalse(kvView.contains(tx, key));
+        assertFalse(kvView.remove(tx, key));
+
+        kvView.putAll(tx, Map.of(key, val("6"), key(2), val("7")));
+        assertEquals(2, kvView.getAll(tx, List.of(key, key(2), key(3))).size());
+
+        tx.rollback();
+        assertEquals(val("1"), kvView.get(null, key));
+    }
+
+    @Test
+    void testCommitUpdatesData() {
         KeyValueView<Integer, String> kvView = kvView();
         kvView.put(null, 1, "1");
 
@@ -83,7 +114,7 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
     }
 
     @Test
-    void testRollback() {
+    void testRollbackDoesNotUpdateData() {
         KeyValueView<Integer, String> kvView = kvView();
         kvView.put(null, 1, "1");
 
@@ -99,7 +130,7 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
     }
 
     @Test
-    void testCommitRollback() {
+    void testCommitRollbackSameTxThrows() {
         Transaction tx = client().transactions().begin();
         tx.commit();
 
@@ -108,7 +139,7 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
     }
 
     @Test
-    void testRollbackCommit() {
+    void testRollbackCommitSameTxThrows() {
         Transaction tx = client().transactions().begin();
         tx.rollback();
 
@@ -117,7 +148,7 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
     }
 
     @Test
-    void testCustomTransactionInterface() {
+    void testCustomTransactionInterfaceThrows() {
         var tx = new Transaction() {
             @Override
             public void commit() throws TransactionException {
@@ -147,8 +178,18 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
     }
 
     private KeyValueView<Integer, String> kvView() {
-        Table table = client().tables().tables().get(0);
+        return table().keyValueView(Mapper.of(Integer.class), Mapper.of(String.class));
+    }
 
-        return table.keyValueView(Mapper.of(Integer.class), Mapper.of(String.class));
+    private Table table() {
+        return client().tables().tables().get(0);
+    }
+
+    private Tuple val(String v) {
+        return Tuple.create().set(COLUMN_VAL, v);
+    }
+
+    private Tuple key(Integer k) {
+        return Tuple.create().set(COLUMN_KEY, k);
     }
 }
