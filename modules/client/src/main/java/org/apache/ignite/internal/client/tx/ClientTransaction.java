@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.tx;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.tx.Transaction;
@@ -27,11 +28,23 @@ import org.apache.ignite.tx.TransactionException;
  * Client transaction.
  */
 public class ClientTransaction implements Transaction {
+    /** Open state. */
+    private static final int STATE_OPEN = 0;
+
+    /** Committed state. */
+    private static final int STATE_COMMITTED = 1;
+
+    /** Rolled back state. */
+    private static final int STATE_ROLLED_BACK = 2;
+
     /** Channel. */
     private final ReliableChannel ch;
 
     /** Transaction id. */
     private final long id;
+
+    /** State. */
+    private final AtomicInteger state = new AtomicInteger(STATE_OPEN);
 
     /**
      * Constructor.
@@ -62,6 +75,8 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> commitAsync() {
+        setState(STATE_COMMITTED);
+
         return ch.serviceAsync(ClientOp.TX_COMMIT, w -> w.out().packLong(id), r -> null);
     }
 
@@ -74,6 +89,20 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync() {
+        setState(STATE_ROLLED_BACK);
+
         return ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> w.out().packLong(id), r -> null);
+    }
+
+    private void setState(int state) {
+        if (this.state.compareAndSet(STATE_OPEN, state)) {
+            return;
+        }
+
+        String message = this.state.get() == STATE_COMMITTED
+                ? "Transaction is already committed."
+                : "Transaction is already rolled back.";
+
+        throw new TransactionException(message);
     }
 }

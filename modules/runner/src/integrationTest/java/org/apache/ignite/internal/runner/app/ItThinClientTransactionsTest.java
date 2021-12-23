@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.runner.app;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -64,8 +66,21 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
     }
 
     @Test
-    void testCommitTwice() {
-        // TODO
+    void testCommitRollback() {
+        Transaction tx = client().transactions().begin();
+        tx.commit();
+
+        TransactionException ex = assertThrows(TransactionException.class, tx::rollback);
+        assertEquals("Transaction is already committed.", ex.getMessage());
+    }
+
+    @Test
+    void testRollbackCommit() {
+        Transaction tx = client().transactions().begin();
+        tx.rollback();
+
+        TransactionException ex = assertThrows(TransactionException.class, tx::commit);
+        assertEquals("Transaction is already rolled back.", ex.getMessage());
     }
 
     private KeyValueView<Integer, String> kvView() {
