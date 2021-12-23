@@ -19,7 +19,7 @@ package org.apache.ignite.internal.client.tx;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
@@ -37,8 +37,8 @@ public class ClientTransaction implements Transaction {
     /** Rolled back state. */
     private static final int STATE_ROLLED_BACK = 2;
 
-    /** Channel. */
-    private final ReliableChannel ch;
+    /** Channel that the transaction belongs to. */
+    private final ClientChannel ch;
 
     /** Transaction id. */
     private final long id;
@@ -49,10 +49,10 @@ public class ClientTransaction implements Transaction {
     /**
      * Constructor.
      *
-     * @param ch Channel.
+     * @param ch Channel that the transaction belongs to.
      * @param id Transaction id.
      */
-    public ClientTransaction(ReliableChannel ch, long id) {
+    public ClientTransaction(ClientChannel ch, long id) {
         this.ch = ch;
         this.id = id;
     }
@@ -64,6 +64,15 @@ public class ClientTransaction implements Transaction {
      */
     public long id() {
         return id;
+    }
+
+    /**
+     * Gets the associated channel.
+     *
+     * @return Channel.
+     */
+    public ClientChannel channel() {
+        return ch;
     }
 
     /** {@inheritDoc} */
