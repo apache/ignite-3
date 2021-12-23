@@ -38,4 +38,16 @@ public interface IgniteSql {
      * @throws SqlException If parsing failed.
      */
     Statement createStatement(@NotNull String sql);
+
+    /**
+     * Creates prepared statement.
+     *
+     * <p>Prepared statement forces query plan caching on the server side. In contrast to regular Statement, an identifier of the prepared
+     * query is send to the server instead of query string when possible. This might be useful for large and for "hot" queries.
+     *
+     * @param sql SQL query template.
+     * @return A new statement.
+     * @throws SqlException If parsing failed.
+     */
+    Statement createPrepared(@NotNull String sql);
 }

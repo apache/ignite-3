@@ -85,9 +85,30 @@ public interface Session extends AsyncSession, ReactiveSession {
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param statement SQL statement to execute.
+     * @param arguments Arguments for the statement.
      * @return SQL query results set.
      */
-    @NotNull ResultSet execute(@Nullable Transaction transaction, @NotNull Statement statement);
+    @NotNull ResultSet execute(@Nullable Transaction transaction, @NotNull Statement statement, @Nullable Object... arguments);
+
+    /**
+     * Executes batched SQL query.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param query SQL query template.
+     * @param batch Array of batch rows, where each row is an array of query template arguments.
+     * @return SQL query results set.
+     */
+    @NotNull int[] executeBatch(@Nullable Transaction transaction, @NotNull String query, @Nullable Object[][] batch);
+
+    /**
+     * Executes batched SQL query.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param statement SQL statement to execute.
+     * @param batch Array of batch rows, where each row is an array of statement arguments.
+     * @return SQL query results set.
+     */
+    @NotNull int[] executeBatch(@Nullable Transaction transaction, @NotNull Statement statement, @Nullable Object[][] batch);
 
     /**
      * Executes multi-statement SQL query.

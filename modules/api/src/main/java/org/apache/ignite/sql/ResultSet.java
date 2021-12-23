@@ -51,7 +51,7 @@ public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
      *
      * <p>Note: when returns {@code -1}, then either {@link #hasRowSet()} or {@link #applied()} returns {@code true}.
      *
-     * @return Number of rows or {@code -1} if inapplicable.
+     * @return Number of rows affected by the query or {@code -1} if inapplicable.
      */
     int updateCount();
 

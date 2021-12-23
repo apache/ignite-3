@@ -33,42 +33,11 @@ public interface Statement {
     @NotNull String query();
 
     /**
-     * Returns current statement parameters.
+     * Returns a flag indicating whether it is prepared statement or not.
      *
-     * @return Current statement parameters.
+     * @return {@code true} if this is prepared statement, {@code false} otherwise.
      */
-    @Nullable Object[] parameters();
-
-    /**
-     * Sets SQL statement parameters.
-     *
-     * @param parameters SQL statement parameters.
-     * @return {@code this} for chaining.
-     */
-    @NotNull Statement parameters(@Nullable Object... parameters);
-
-    /**
-     * Sets SQL statement parameter value by the parameter index.
-     *
-     * @param index Parameter index.
-     * @param value Parameter value.
-     * @return {@code this} for chaining.
-     */
-    Statement parameter(int index, @Nullable Object value);
-
-    /**
-     * Clears current query parameters. Also, reset batch state if it is a batched query.
-     *
-     * @return {@code this} for chaining.
-     */
-    Statement resetState();
-
-    /**
-     * Adds a copy of current set of parameters to this statement object's batch of commands, then clears current parameters.
-     *
-     * @return {@code this} for chaining.
-     */
-    Statement addToBatch() throws SqlException;
+    boolean isPrepared();
 
     /**
      * Sets query timeout.

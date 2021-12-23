@@ -54,6 +54,36 @@ public interface AsyncSession {
     CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, @NotNull Statement statement);
 
     /**
+     * Executes batched SQL query in async way.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param query SQL query template.
+     * @param batch Array of batch rows, where each row is an array of query template arguments.
+     * @return Operation future.
+     * @throws SqlException If failed.
+     */
+    @NotNull CompletableFuture<Integer> executeBatchAsync(
+            @Nullable Transaction transaction,
+            @NotNull String query,
+            @Nullable Object[][] batch
+    );
+
+    /**
+     * Executes batched SQL query in async way.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param statement SQL statement to execute.
+     * @param batch Array of batch rows, where each row is an array of statement arguments.
+     * @return Operation future.
+     * @throws SqlException If failed.
+     */
+    @NotNull CompletableFuture<Integer> executeBatchAsync(
+            @Nullable Transaction transaction,
+            @NotNull Statement statement,
+            @Nullable Object[][] batch
+    );
+
+    /**
      * Sets default page size for async queries.
      *
      * @param pageSize Maximal number of rows in a page.
@@ -62,7 +92,7 @@ public interface AsyncSession {
     AsyncSession pageSize(int pageSize);
 
     /**
-     * Gets default page size for async queries.
+     * Returns default page size for async queries.
      *
      * <p>Default value is {@link #DEFAULT_PAGE_SIZE}.
      *

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.sql.reactive;
 
+import java.util.concurrent.Flow;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
@@ -48,4 +49,34 @@ public interface ReactiveSession {
      * @throws SqlException If failed.
      */
     ReactiveResultSet executeReactive(@Nullable Transaction transaction, @NotNull Statement statement);
+
+    /**
+     * Executes batched SQL query in reactive way.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param query SQL query template.
+     * @param batch Array of batch rows, where each row is an array of query template arguments.
+     * @return Publisher for the number of rows affected by the query.
+     * @throws SqlException If failed.
+     */
+    Flow.Publisher<Integer> executeBatchReactive(
+            @Nullable Transaction transaction,
+            @NotNull String query,
+            @Nullable Object[][] batch
+    );
+
+    /**
+     * Executes batched SQL query in reactive way.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param statement SQL statement to execute.
+     * @param batch Array of batch rows, where each row is an array of statement arguments.
+     * @return Publisher for the number of rows affected by the query.
+     * @throws SqlException If failed.
+     */
+    Flow.Publisher<Integer> executeBatchReactive(
+            @Nullable Transaction transaction,
+            @NotNull Statement statement,
+            @Nullable Object[][] batch
+    );
 }
