@@ -15,19 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.lang;
+package org.apache.ignite.raft.jraft.util;
 
-/**
- * Strategy to calculate next timeout and check if total timeout reached.
- */
-public interface ElectionTimeoutStrategy {
-    /**
-     * Get next timeout.
-     *
-     * @return Get next timeout.
-     * @throws IgniteInternalException In case of total timeout already breached.
-     */
-    public long nextTimeout();
+import org.apache.ignite.lang.IgniteInternalException;
 
-    public long reset();
+public class NoopTimeoutStrategy implements TimeoutStrategy {
+    @Override
+    public int nextTimeout() {
+        throw new IgniteInternalException("You have to configure election timeout strategy.");
+    }
+
+    @Override
+    public int reset() {
+        throw new IgniteInternalException("You have to configure election timeout strategy.");
+    }
 }

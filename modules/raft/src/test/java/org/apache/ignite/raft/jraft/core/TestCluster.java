@@ -39,7 +39,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.ExponentialBackoffElectionTimeoutStrategy;
+import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -242,7 +242,7 @@ public class TestCluster {
 
             //
             nodeOptions.setElectionTimeoutStrategy(
-                    new ExponentialBackoffElectionTimeoutStrategy(
+                    new ExponentialBackoffTimeoutStrategy(
                             this.electionTimeoutMs,
                             ELECTION_TIMEOUT_MS_MAX,
                             MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING

@@ -18,8 +18,8 @@ package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import org.apache.ignite.lang.ElectionTimeoutStrategy;
-import org.apache.ignite.lang.NoopElectionStrategy;
+import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
+import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -51,7 +51,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     // Default: 1200 (1.2s)
     private int electionTimeoutMs = 1200; // follower to candidate timeout
 
-    private ElectionTimeoutStrategy electionTimeoutStrategy = new NoopElectionStrategy();
+    private TimeoutStrategy electionTimeoutStrategy = new NoopTimeoutStrategy();
 
     // One node's local priority value would be set to | electionPriority |
     // value when it starts up.If this value is set to 0,the node will never be a leader.
@@ -639,11 +639,11 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         return replicationStateListeners;
     }
 
-    public ElectionTimeoutStrategy getElectionTimeoutStrategy() {
+    public TimeoutStrategy getElectionTimeoutStrategy() {
         return electionTimeoutStrategy;
     }
 
-    public void setElectionTimeoutStrategy(ElectionTimeoutStrategy electionTimeoutStrategy) {
+    public void setElectionTimeoutStrategy(TimeoutStrategy electionTimeoutStrategy) {
         this.electionTimeoutStrategy = electionTimeoutStrategy;
     }
 }

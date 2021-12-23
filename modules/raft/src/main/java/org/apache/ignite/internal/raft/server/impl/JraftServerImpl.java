@@ -33,7 +33,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.lang.ExponentialBackoffElectionTimeoutStrategy;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.ClusterNode;
@@ -65,6 +64,7 @@ import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
+import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.jetbrains.annotations.Nullable;
 
@@ -73,9 +73,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public class JraftServerImpl implements RaftServer {
     /**
-     * The upper bound of the election timeout adjusting. Must be more than timeout of a membership protocol to remove failed node from
-     * the cluster. In our case, we may assume that 11s could be enough as far as 11s is greater than suspicion timeout
-     * for the 1000 nodes cluster with ping interval equals to 500ms.
+     * The upper bound of the election timeout adjusting. Adjusting happens according to
+     * {@link org.apache.ignite.raft.jraft.util.TimeoutStrategy} when a leader is not elected.
+     * Must be more than timeout of a membership protocol to remove failed node from the cluster. In our case,we may assume
+     * that 11s could be enough as far as 11s is greater than suspicion timeout for the 1000 nodes cluster with ping interval
+     * equals to 500ms.
      */
     public static final int ELECTION_TIMEOUT_MS_MAX = 11_000;
 
@@ -136,7 +138,7 @@ public class JraftServerImpl implements RaftServer {
         }
 
         this.opts.setElectionTimeoutStrategy(
-                new ExponentialBackoffElectionTimeoutStrategy(this.opts.getElectionTimeoutMs(), ELECTION_TIMEOUT_MS_MAX,
+                new ExponentialBackoffTimeoutStrategy(this.opts.getElectionTimeoutMs(), ELECTION_TIMEOUT_MS_MAX,
                         MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING));
     }
 

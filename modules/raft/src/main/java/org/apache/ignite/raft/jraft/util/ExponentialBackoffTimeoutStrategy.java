@@ -15,37 +15,41 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.lang;
+package org.apache.ignite.raft.jraft.util;
 
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Strategy...
- * It increases startTimeout based on exponential backoff algorithm.
+ * Timeout generation strategy.
+ * Increases startTimeout based on exponential backoff algorithm.
  */
-public class ExponentialBackoffElectionTimeoutStrategy implements ElectionTimeoutStrategy {
+public class ExponentialBackoffTimeoutStrategy implements TimeoutStrategy {
     /** Default backoff coefficient to calculate next timeout based on backoff strategy. */
     private static final double DEFAULT_BACKOFF_COEFFICIENT = 2.0;
 
     /** Max timeout of the next try, ms. */
-    private final long maxTimeout;
+    private final int maxTimeout;
 
     /** Current calculated timeout, ms. */
-    private long currentTimeout;
+    private int currentTimeout;
 
-    private final long startTimeout;
+    /** Initial timeout. */
+    private final int startTimeout;
 
+    /* Overall number of retries to get next timeout without adjusting timeout. */
     private final int retryCounter;
 
-    private int currentElectionRound;
+    /** Current Number of retries without adjusting timeout. */
+    private int currentRetry;
 
     /**
-     * @param startTimeout Initial connection timeout.
-     * @param maxTimeout   Max connection Timeout.
+     * @param startTimeout Initial timeout.
+     * @param maxTimeout Max timeout.
+     * @param retryCounter Number of retries without increasing timeout.
      */
-    public ExponentialBackoffElectionTimeoutStrategy(
-            long startTimeout,
-            long maxTimeout,
+    public ExponentialBackoffTimeoutStrategy(
+            int startTimeout,
+            int maxTimeout,
             int retryCounter
     ) {
         this.maxTimeout = maxTimeout;
@@ -56,38 +60,40 @@ public class ExponentialBackoffElectionTimeoutStrategy implements ElectionTimeou
 
         this.retryCounter = retryCounter;
 
-        currentElectionRound = 0;
+        currentRetry = 0;
     }
 
     /**
-     * @param timeout    Timeout.
-     * @param maxTimeout Maximum startTimeout for backoff function.
+     * @param timeout Timeout.
+     * @param maxTimeout Maximum timeout for backoff function.
      * @return Next exponential backoff timeout.
      */
-    public static long backoffTimeout(long timeout, long maxTimeout) {
-        return (long) Math.min(timeout * DEFAULT_BACKOFF_COEFFICIENT, maxTimeout);
+    public static int backoffTimeout(int timeout, int maxTimeout) {
+        return (int) Math.min(timeout * DEFAULT_BACKOFF_COEFFICIENT, maxTimeout);
     }
 
     /** {@inheritDoc} */
     @Override
-    public long nextTimeout() throws IgniteInternalException {
-        if (currentElectionRound < retryCounter) {
-            currentElectionRound++;
+    public int nextTimeout() {
+        if (currentRetry < retryCounter) {
+            currentRetry++;
 
             return currentTimeout;
         }
 
         currentTimeout = backoffTimeout(currentTimeout, maxTimeout);
 
-        currentElectionRound = 0;
+        currentRetry = 0;
 
         return currentTimeout;
     }
 
-    public long reset() {
+    /** {@inheritDoc} */
+    @Override
+    public int reset() {
         currentTimeout = startTimeout;
 
-        currentElectionRound = 0;
+        currentRetry = 0;
 
         return currentTimeout;
     }
@@ -95,6 +101,6 @@ public class ExponentialBackoffElectionTimeoutStrategy implements ElectionTimeou
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(ExponentialBackoffElectionTimeoutStrategy.class, this);
+        return S.toString(ExponentialBackoffTimeoutStrategy.class, this);
     }
 }

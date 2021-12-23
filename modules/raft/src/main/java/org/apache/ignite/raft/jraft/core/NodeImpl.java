@@ -36,7 +36,8 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.lang.NoopElectionStrategy;
+import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
+import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -614,7 +615,7 @@ public class NodeImpl implements Node, RaftServerService {
 
     /**
      * Method that adjusts election timeout after several consecutive unsuccessful leader elections according to {@link
-     * org.apache.ignite.lang.ElectionTimeoutStrategy}
+     * TimeoutStrategy}
      * <p>
      * Notes about general algorithm: the main idea is that in a stable cluster election timeout should be relatively small, but when
      * cluster has unstable network, we don't want to have a lot of elections, so election timeout is adjusted, while membership layer could
@@ -625,7 +626,7 @@ public class NodeImpl implements Node, RaftServerService {
      * After a successful leader election election timeout is set to an initial value.
      */
     private void adjustElectionTimeout() {
-        if (options.getElectionTimeoutStrategy() instanceof NoopElectionStrategy) {
+        if (options.getElectionTimeoutStrategy() instanceof NoopTimeoutStrategy) {
             return;
         }
 
@@ -644,10 +645,14 @@ public class NodeImpl implements Node, RaftServerService {
      * For more details see {@link NodeImpl#adjustElectionTimeout()}.
      */
     private void resetElectionTimeoutToInitial() {
-        if (electionAdjusted && !(options.getElectionTimeoutStrategy() instanceof NoopElectionStrategy)) {
-            LOG.info("Election timeout was reset to initial value due to successful leader election.");
-            resetElectionTimeoutMs((int) options.getElectionTimeoutStrategy().reset());
-            electionAdjusted = false;
+        if (!(options.getElectionTimeoutStrategy() instanceof NoopTimeoutStrategy)) {
+            long initialElectionTimeout = options.getElectionTimeoutStrategy().reset();
+
+            if (electionAdjusted) {
+                LOG.info("Election timeout was reset to initial value due to successful leader election.");
+                resetElectionTimeoutMs((int) initialElectionTimeout);
+                electionAdjusted = false;
+            }
         }
     }
 
