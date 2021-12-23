@@ -132,6 +132,15 @@ public class ClassDescriptorFactoryContext {
     }
 
     /**
+     * Returns a descriptor for a built-in type.
+     *
+     * @param builtinType   built-in type for lookup
+     */
+    public ClassDescriptor getBuiltInDescriptor(BuiltinType builtinType) {
+        return getRequiredDescriptor(builtinType.descriptorId());
+    }
+
+    /**
      * Returns a descriptor for {@code null} value.
      *
      * @return a descriptor for {@code null} value

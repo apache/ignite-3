@@ -163,7 +163,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
         assumingThat(typeValue.builtinType != BuiltinType.OBJECT_ARRAY, () -> {
             MarshalledObject marshalled = marshaller.marshal(typeValue.value, typeValue.valueClass);
 
-            ClassDescriptor expectedDescriptor = descriptorRegistry.getRequiredDescriptor(typeValue.builtinType.descriptorId());
+            ClassDescriptor expectedDescriptor = descriptorRegistry.getBuiltInDescriptor(typeValue.builtinType);
             assertThat(marshalled.usedDescriptors(), equalTo(List.of(expectedDescriptor)));
         });
     }
@@ -249,8 +249,8 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
         MarshalledObject marshalled = marshaller.marshal(typeValue.value, typeValue.valueClass);
 
         assertThat(marshalled.usedDescriptors(), containsInAnyOrder(
-                descriptorRegistry.getRequiredDescriptor(typeValue.builtinType.descriptorId()),
-                descriptorRegistry.getRequiredDescriptor(BuiltinType.INT_BOXED.descriptorId())
+                descriptorRegistry.getBuiltInDescriptor(typeValue.builtinType),
+                descriptorRegistry.getBuiltInDescriptor(BuiltinType.INT_BOXED)
         ));
     }
 

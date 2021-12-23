@@ -33,7 +33,7 @@ import org.apache.ignite.lang.IgniteUuid;
 /**
  * Encapsulates (un)marshalling logic for built-in types.
  */
-class BuiltInMarshallers {
+class BuiltInNonContainerMarshallers {
     private final Map<Class<?>, BuiltInMarshaller<?>> builtInMarshallers = createBuiltInMarshallers();
 
     private static Map<Class<?>, BuiltInMarshaller<?>> createBuiltInMarshallers() {

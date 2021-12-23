@@ -39,7 +39,7 @@ import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 /**
  * Utility to (un)marshal built-in collections and maps.
  */
-class BuiltInCollectionMarshallers {
+class BuiltInContainerMarshallers {
     /**
      * Map of all classes which are built-in collections AND may have different sizes AND are mutable. This makes
      * them eligible for a generic unmarshal algorithm: read length, create an empty collection, then read N elements
@@ -64,7 +64,7 @@ class BuiltInCollectionMarshallers {
 
     private final TrackingMarshaller trackingMarshaller;
 
-    BuiltInCollectionMarshallers(TrackingMarshaller trackingMarshaller) {
+    BuiltInContainerMarshallers(TrackingMarshaller trackingMarshaller) {
         this.trackingMarshaller = trackingMarshaller;
     }
 
