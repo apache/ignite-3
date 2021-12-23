@@ -87,6 +87,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
+                tx,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
                 (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
     }
@@ -108,6 +109,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
+                tx,
                 (s, w) -> keySer.writeRecs(tx, keys, s, w, TuplePart.KEY),
                 this::readGetAllResponse,
                 Collections.emptyMap());
@@ -126,6 +128,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_KEY,
+                tx,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -143,6 +146,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
+                tx,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 r -> null);
     }
@@ -164,6 +168,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
+                tx,
                 (s, w) -> {
                     w.packIgniteUuid(tbl.tableId());
                     writeTx(tx, w);
@@ -191,6 +196,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
+                tx,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
     }
@@ -208,6 +214,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
+                tx,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -231,6 +238,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
+                tx,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -242,6 +250,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
+                tx,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -263,6 +272,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
+                tx,
                 (s, w) -> keySer.writeRecs(tx, keys, s, w, TuplePart.KEY),
                 (s, r) -> keySer.readRecs(s, r, false, TuplePart.KEY),
                 Collections.emptyList());
@@ -281,6 +291,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
+                tx,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
                 (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
     }
@@ -306,6 +317,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
+                tx,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -317,6 +329,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
+                tx,
                 (s, w) -> {
                     keySer.writeRec(tx, key, s, w, TuplePart.KEY);
                     valSer.writeRecRaw(oldVal, s, w, TuplePart.VAL);
@@ -340,6 +353,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
+                tx,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
     }
