@@ -20,7 +20,9 @@ package org.apache.ignite.internal.runner.app;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -45,9 +47,15 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
         Transaction tx = client().transactions().begin();
         kvView.put(tx, 1, "22");
 
+        assertTrue(kvView.contains(tx, 1));
+        assertFalse(kvView.remove(tx, 1, "1"));
         assertEquals("22", kvView.get(tx, 1));
         assertEquals("22", kvView.getAndPut(tx, 1, "33"));
         assertEquals("33", kvView.getAndReplace(tx, 1, "44"));
+        assertTrue(kvView.replace(tx, 1, "55"));
+        assertEquals("55", kvView.getAndRemove(tx, 1));
+        assertFalse(kvView.contains(tx, 1));
+        assertFalse(kvView.remove(tx, 1));
 
         // TODO: All operations
 
