@@ -444,7 +444,7 @@ public final class ReliableChannel implements AutoCloseable {
         }
 
         if (dfltChannelIdx == -1) {
-            dfltChannelIdx = new Random().nextInt(reinitHolders.size());
+            dfltChannelIdx = 0;
         }
 
         curChannelsGuard.writeLock().lock();
