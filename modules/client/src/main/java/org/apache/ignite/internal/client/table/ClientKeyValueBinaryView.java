@@ -60,10 +60,10 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     @Override
     public @NotNull CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         Objects.requireNonNull(key);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
-                (schema, out) -> tbl.writeTuple(tx, key, schema, out, true),
+                (s, w) -> tbl.writeTuple(tx, key, s, w, true),
                 ClientTable::readValueTuple);
     }
 
@@ -77,7 +77,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     @Override
     public @NotNull CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
         Objects.requireNonNull(keys);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
                 (s, w) -> tbl.writeTuples(tx, keys, s, w, true),
@@ -95,10 +95,10 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     @Override
     public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         Objects.requireNonNull(key);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_KEY,
-                (schema, out) -> tbl.writeTuple(tx, key, schema, out, true),
+                (s, w) -> tbl.writeTuple(tx, key, s, w, true),
                 ClientMessageUnpacker::unpackBoolean);
     }
 
@@ -112,7 +112,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     @Override
     public @NotNull CompletableFuture<Void> putAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
         Objects.requireNonNull(key);
-        // TODO: Transactions IGNITE-15240
+
         // TODO IGNITE-15194: Convert Tuple to a schema-order Array as a first step.
         // If it does not match the latest schema, then request latest and convert again.
         return tbl.doSchemaOutOpAsync(
@@ -131,7 +131,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     @Override
     public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<Tuple, Tuple> pairs) {
         Objects.requireNonNull(pairs);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> tbl.writeKvTuples(tx, pairs, s, w),
@@ -147,7 +147,8 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Tuple> getAndPutAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
-        // TODO: Transactions IGNITE-15240
+        Objects.requireNonNull(key);
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> tbl.writeKvTuple(tx, key, val, s, w, false),
@@ -163,7 +164,8 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
-        // TODO: Transactions IGNITE-15240
+        Objects.requireNonNull(key);
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> tbl.writeKvTuple(tx, key, val, s, w, false),
@@ -186,7 +188,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     @Override
     public @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         Objects.requireNonNull(key);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> tbl.writeTuple(tx, key, s, w, true),
@@ -198,7 +200,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     public @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> tbl.writeKvTuple(tx, key, val, s, w, false),
@@ -215,11 +217,11 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     @Override
     public @NotNull CompletableFuture<Collection<Tuple>> removeAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
         Objects.requireNonNull(keys);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
                 (s, w) -> tbl.writeTuples(tx, keys, s, w, true),
-                (schema, in) -> tbl.readTuples(schema, in, true),
+                (s, r) -> tbl.readTuples(s, r, true),
                 Collections.emptyList());
     }
 
@@ -232,7 +234,8 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Tuple> getAndRemoveAsync(@Nullable Transaction tx, @NotNull Tuple key) {
-        // TODO: Transactions IGNITE-15240
+        Objects.requireNonNull(key);
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> tbl.writeTuple(tx, key, s, w, true),
@@ -255,7 +258,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
         Objects.requireNonNull(key);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> tbl.writeKvTuple(tx, key, val, s, w, false),
@@ -266,7 +269,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple oldVal, Tuple newVal) {
         Objects.requireNonNull(key);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
                 (s, w) -> {
@@ -286,7 +289,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     @Override
     public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
         Objects.requireNonNull(key);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> tbl.writeKvTuple(tx, key, val, s, w, false),
