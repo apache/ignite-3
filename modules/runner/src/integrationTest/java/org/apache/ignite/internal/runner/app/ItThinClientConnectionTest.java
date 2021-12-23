@@ -68,7 +68,7 @@ public class ItThinClientConnectionTest extends ItThinClientAbstractTest {
 
     private static class TestPojo {
         public TestPojo() {
-            // No-op.
+            //No-op.
         }
 
         public TestPojo(int key) {
