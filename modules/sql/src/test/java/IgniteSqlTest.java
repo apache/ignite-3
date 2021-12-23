@@ -142,15 +142,16 @@ public class IgniteSqlTest {
             // Do the same as query "INSERT INTO tbl VALUES (1, "string 1") (2, "string 2) ... (5, "string 5");"
             final Statement stmt = queryMgr.createStatement("INSERT INTO tbl VALUES (?, ?)");
 
-            stmt.parameters(1, "string 1").addToBatch();
-            stmt.parameters(2, "string 2").addToBatch();
-            stmt.parameters(3, "string 3").addToBatch();
-            stmt.parameters(4, "string 4").addToBatch();
-            stmt.parameters(5, "string 5");
+            final int[] rs = queryMgr.createSession().executeBatch(tx, stmt,
+                    new Object[][]{
+                            new Object[]{1, "string 1"},
+                            new Object[]{2, "string 2"},
+                            new Object[]{3, "string 3"},
+                            new Object[]{4, "string 4"},
+                            new Object[]{5, "string 5"}
+                    });
 
-            final ResultSet rs = queryMgr.createSession().execute(tx, stmt);
-
-            assertEquals(5, rs.updateCount());
+            assertEquals(5, rs.length);
 
             tx.commit();
         });
@@ -278,6 +279,9 @@ public class IgniteSqlTest {
                 Mockito.any()))
                 .thenAnswer(ans -> Mockito.when(Mockito.mock(ResultSet.class).updateCount())
                                            .thenReturn(1).getMock());
+
+        Mockito.when(session.executeBatch(Mockito.nullable(Transaction.class), Mockito.any(String.class), Mockito.any()))
+                .thenReturn(new int[]{1, 1, 1, 1, 1});
 
         Mockito.when(session.execute(Mockito.nullable(Transaction.class), Mockito.eq("SELECT id, val FROM tbl WHERE id < {};"),
                 Mockito.any()))
