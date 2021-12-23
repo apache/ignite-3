@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,19 +32,22 @@ import org.apache.ignite.internal.ItUtils;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Thin client integration test base class.
  */
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class ItThinClientAbstractTest extends IgniteAbstractTest {
     protected static final String SCHEMA_NAME = "PUB";
@@ -61,8 +65,10 @@ public abstract class ItThinClientAbstractTest extends IgniteAbstractTest {
     /**
      * Before each.
      */
-    @BeforeEach
-    void setup(TestInfo testInfo) {
+    @BeforeAll
+    void beforeAll(TestInfo testInfo, @WorkDirectory Path workDir) {
+        this.workDir = workDir;
+
         String node0Name = testNodeName(testInfo, 3344);
         String node1Name = testNodeName(testInfo, 3345);
 
@@ -111,9 +117,13 @@ public abstract class ItThinClientAbstractTest extends IgniteAbstractTest {
     /**
      * After each.
      */
-    @AfterEach
-    void tearDown() throws Exception {
+    @AfterAll
+    void afterAll() throws Exception {
         IgniteUtils.closeAll(ItUtils.reverse(startedNodes));
+    }
+
+    protected String getNodeAddress() {
+        return getNodeAddresses().get(0);
     }
 
     protected List<String> getNodeAddresses() {

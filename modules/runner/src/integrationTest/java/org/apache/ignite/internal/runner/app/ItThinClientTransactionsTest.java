@@ -35,7 +35,7 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
      */
     @Test
     void testTransactionCommitRollback() throws Exception {
-        try (var client = IgniteClient.builder().addresses(getNodeAddresses().get(0)).build()) {
+        try (var client = IgniteClient.builder().addresses(getNodeAddress()).build()) {
             Table table = client.tables().tables().get(0);
             KeyValueView<Integer, String> kvView = table.keyValueView(Mapper.of(Integer.class), Mapper.of(String.class));
             kvView.put(null, 1, "1");
