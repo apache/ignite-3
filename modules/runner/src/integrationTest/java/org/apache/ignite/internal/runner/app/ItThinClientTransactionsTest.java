@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.table.KeyValueView;
@@ -261,5 +262,22 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
     private static class Rec {
         public int key;
         public String val;
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Rec rec = (Rec) o;
+            return key == rec.key && Objects.equals(val, rec.val);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(key, val);
+        }
     }
 }
