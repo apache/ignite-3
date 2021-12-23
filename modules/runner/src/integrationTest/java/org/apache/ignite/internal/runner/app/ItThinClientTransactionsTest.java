@@ -63,6 +63,11 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
         assertEquals("1", kvView.get(null, 1));
     }
 
+    @Test
+    void testCommitTwice() {
+        // TODO
+    }
+
     private KeyValueView<Integer, String> kvView() {
         Table table = client().tables().tables().get(0);
 
