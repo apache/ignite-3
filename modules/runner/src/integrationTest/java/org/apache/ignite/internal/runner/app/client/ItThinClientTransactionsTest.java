@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -241,6 +243,20 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
                 + "'class org.apache.ignite.internal.runner.app.client.ItThinClientTransactionsTest";
 
         assertThat(ex.getCause().getMessage(), startsWith(expected));
+    }
+
+    @Test
+    void testTransactionFromAnotherChannelThrows() throws Exception {
+        Transaction tx = client().transactions().begin();
+
+        try (IgniteClient client2 = IgniteClient.builder().addresses(getNodeAddress()).build()) {
+            RecordView<Tuple> recordView = client2.tables().tables().get(0).recordView();
+
+            var ex = assertThrows(CompletionException.class, () -> recordView.upsert(tx, Tuple.create()));
+            var iex = (IgniteClientException)ex.getCause();
+
+            assertEquals("Transaction context has been lost due to connection errors.", iex.getMessage());
+        }
     }
 
     private KeyValueView<Integer, String> kvView() {
