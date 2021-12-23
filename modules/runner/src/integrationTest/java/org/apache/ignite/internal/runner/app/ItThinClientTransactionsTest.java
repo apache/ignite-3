@@ -99,7 +99,7 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
     }
 
     @Test
-    void testRecordViewOperations() {
+    void testRecordViewBinaryOperations() {
         RecordView<Tuple> recordView = table().recordView();
 
         Tuple key = key(1);

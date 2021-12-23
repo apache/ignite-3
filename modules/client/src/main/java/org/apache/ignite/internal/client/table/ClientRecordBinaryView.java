@@ -77,7 +77,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     @Override
     public @NotNull CompletableFuture<Collection<Tuple>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
                 (s, w) -> tbl.writeTuples(tx, keyRecs, s, w, true),
@@ -113,7 +113,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     @Override
     public @NotNull CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> tbl.writeTuples(tx, recs, s, w, false),
@@ -130,7 +130,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     @Override
     public @NotNull CompletableFuture<Tuple> getAndUpsertAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
         Objects.requireNonNull(rec);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> tbl.writeTuple(tx, rec, s, w, false),
@@ -147,7 +147,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     @Override
     public @NotNull CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
         Objects.requireNonNull(rec);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> tbl.writeTuple(tx, rec, s, w, false),
@@ -164,7 +164,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     @Override
     public @NotNull CompletableFuture<Collection<Tuple>> insertAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_INSERT_ALL,
                 (s, w) -> tbl.writeTuples(tx, recs, s, w, false),
@@ -188,7 +188,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
         Objects.requireNonNull(rec);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> tbl.writeTuple(tx, rec, s, w, false),
@@ -200,7 +200,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull Tuple oldRec, @NotNull Tuple newRec) {
         Objects.requireNonNull(oldRec);
         Objects.requireNonNull(newRec);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
                 (s, w) -> {
@@ -220,7 +220,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     @Override
     public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
         Objects.requireNonNull(rec);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> tbl.writeTuple(tx, rec, s, w, false),
@@ -237,7 +237,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     @Override
     public @NotNull CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, @NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> tbl.writeTuple(tx, keyRec, s, w, true),
@@ -254,7 +254,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     @Override
     public @NotNull CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
         Objects.requireNonNull(rec);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> tbl.writeTuple(tx, rec, s, w, false),
@@ -271,7 +271,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     @Override
     public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(@Nullable Transaction tx, @NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> tbl.writeTuple(tx, keyRec, s, w, true),
@@ -288,7 +288,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     @Override
     public @NotNull CompletableFuture<Collection<Tuple>> deleteAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
                 (s, w) -> tbl.writeTuples(tx, keyRecs, s, w, true),
@@ -306,7 +306,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     @Override
     public @NotNull CompletableFuture<Collection<Tuple>> deleteAllExactAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
-        // TODO: Transactions IGNITE-15240
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL_EXACT,
                 (s, w) -> tbl.writeTuples(tx, recs, s, w, false),
