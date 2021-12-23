@@ -24,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.table.KeyValueView;
@@ -37,7 +39,6 @@ import org.junit.jupiter.api.Test;
  * Thin client transactions integration test.
  */
 // TODO: Test ALL operations in ALL modes (tuple, kv, binary).
-// TODO: Test invalid use cases (closed tx usage, invalid interface usage).
 public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
     @Test
     void testKvViewOperations() {
@@ -49,6 +50,7 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
 
         assertTrue(kvView.contains(tx, 1));
         assertFalse(kvView.remove(tx, 1, "1"));
+        assertFalse(kvView.putIfAbsent(tx, 1, "111"));
         assertEquals("22", kvView.get(tx, 1));
         assertEquals("22", kvView.getAndPut(tx, 1, "33"));
         assertEquals("33", kvView.getAndReplace(tx, 1, "44"));
@@ -57,7 +59,8 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
         assertFalse(kvView.contains(tx, 1));
         assertFalse(kvView.remove(tx, 1));
 
-        // TODO: All operations
+        kvView.putAll(tx, Map.of(1, "6", 2, "7"));
+        assertEquals(2, kvView.getAll(tx, List.of(1, 2, 3)).size());
 
         tx.rollback();
         assertEquals("1", kvView.get(null, 1));

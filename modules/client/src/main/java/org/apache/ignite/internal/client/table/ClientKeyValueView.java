@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
@@ -164,6 +166,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> {
                     w.packIgniteUuid(tbl.tableId());
+                    writeTx(tx, w);
                     w.packInt(s.version());
                     w.packInt(pairs.size());
 
