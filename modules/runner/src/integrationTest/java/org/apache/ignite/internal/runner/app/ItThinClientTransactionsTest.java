@@ -17,9 +17,14 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.Mapper;
@@ -81,6 +86,36 @@ public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
 
         TransactionException ex = assertThrows(TransactionException.class, tx::commit);
         assertEquals("Transaction is already rolled back.", ex.getMessage());
+    }
+
+    @Test
+    void testCustomTransactionInterface() {
+        var tx = new Transaction() {
+            @Override
+            public void commit() throws TransactionException {
+            }
+
+            @Override
+            public CompletableFuture<Void> commitAsync() {
+                return null;
+            }
+
+            @Override
+            public void rollback() throws TransactionException {
+            }
+
+            @Override
+            public CompletableFuture<Void> rollbackAsync() {
+                return null;
+            }
+        };
+
+        var ex = assertThrows(CompletionException.class, () -> kvView().put(tx, 1, "1"));
+
+        String expected = "Unsupported transaction implementation: "
+                + "'class org.apache.ignite.internal.runner.app.ItThinClientTransactionsTest";
+
+        assertThat(ex.getCause().getMessage(), startsWith(expected));
     }
 
     private KeyValueView<Integer, String> kvView() {

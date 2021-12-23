@@ -365,6 +365,11 @@ public class ClientTable implements Table {
         if (tx == null) {
             out.packNil();
         } else {
+            if (!(tx instanceof ClientTransaction)) {
+                throw new IgniteClientException("Unsupported transaction implementation: '" + tx.getClass() +
+                        "'. Use IgniteClient.transactions() to start transactions.");
+            }
+
             out.packLong(((ClientTransaction) tx).id());
         }
     }
