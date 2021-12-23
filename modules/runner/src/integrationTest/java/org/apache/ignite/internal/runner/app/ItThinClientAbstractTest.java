@@ -54,9 +54,9 @@ public abstract class ItThinClientAbstractTest extends IgniteAbstractTest {
     protected static final String SCHEMA_NAME = "PUB";
 
     protected static final String TABLE_NAME = "tbl1";
-    
+
     protected static final String COLUMN_KEY = "key";
-    
+
     protected static final String COLUMN_VAL = "val";
 
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
