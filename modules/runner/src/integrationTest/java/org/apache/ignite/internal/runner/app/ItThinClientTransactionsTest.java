@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.Mapper;
@@ -38,6 +37,24 @@ import org.junit.jupiter.api.Test;
 // TODO: Test ALL operations in ALL modes (tuple, kv, binary).
 // TODO: Test invalid use cases (closed tx usage, invalid interface usage).
 public class ItThinClientTransactionsTest extends ItThinClientAbstractTest {
+    @Test
+    void testKvViewOperations() {
+        KeyValueView<Integer, String> kvView = kvView();
+        kvView.put(null, 1, "1");
+
+        Transaction tx = client().transactions().begin();
+        kvView.put(tx, 1, "22");
+
+        assertEquals("22", kvView.get(tx, 1));
+        assertEquals("22", kvView.getAndPut(tx, 1, "33"));
+        assertEquals("33", kvView.getAndReplace(tx, 1, "44"));
+
+        // TODO: All operations
+
+        tx.rollback();
+        assertEquals("1", kvView.get(null, 1));
+    }
+
     @Test
     void testCommit() {
         KeyValueView<Integer, String> kvView = kvView();
