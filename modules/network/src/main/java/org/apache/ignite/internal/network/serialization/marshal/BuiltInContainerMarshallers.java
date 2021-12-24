@@ -134,18 +134,16 @@ class BuiltInContainerMarshallers {
         return List.copyOf(usedDescriptors);
     }
 
+    @SuppressWarnings("unchecked")
     <T, C extends Collection<T>> C readBuiltInCollection(
             ClassDescriptor collectionDescriptor,
             ValueReader<T> elementReader,
             DataInput input
     ) throws UnmarshalException, IOException {
         if (collectionDescriptor.isSingletonList()) {
-            @SuppressWarnings("unchecked")
-            C castResult = (C) singletonList(elementReader.read(input));
-            return castResult;
+            return (C) singletonList(elementReader.read(input));
         }
 
-        @SuppressWarnings("unchecked")
         IntFunction<C> collectionFactory = (IntFunction<C>) mutableBuiltInCollectionFactories.get(collectionDescriptor.clazz());
 
         if (collectionFactory == null) {
