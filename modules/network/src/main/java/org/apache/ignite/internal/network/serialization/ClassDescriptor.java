@@ -156,6 +156,15 @@ public class ClassDescriptor {
     }
 
     /**
+     * Returns {@code true} if the described class is treated as a built-in.
+     *
+     * @return {@code true} if if the described class is treated as a built-in
+     */
+    public boolean isBuiltIn() {
+        return serializationType() == SerializationType.BUILTIN;
+    }
+
+    /**
      * Returns {@code true} if the described class has {@code writeReplace()} method.
      *
      * @return {@code true} if the described class has {@code writeReplace()} method
@@ -179,7 +188,7 @@ public class ClassDescriptor {
      * @return {@code true} if this is the descriptor of {@code null} values
      */
     public boolean isNull() {
-        return clazz == Null.class;
+        return descriptorId == BuiltinType.NULL.descriptorId();
     }
 
     /**
@@ -189,15 +198,6 @@ public class ClassDescriptor {
      */
     public boolean isSingletonList() {
         return descriptorId == BuiltinType.SINGLETON_LIST.descriptorId();
-    }
-
-    /**
-     * Returns {@code true} if the described class is treated as a built-in.
-     *
-     * @return {@code true} if if the described class is treated as a built-in
-     */
-    public boolean isBuiltIn() {
-        return serializationType() == SerializationType.BUILTIN;
     }
 
     /**
