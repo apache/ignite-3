@@ -84,7 +84,7 @@ class BuiltInContainerMarshallers {
         if (supportsAsMutableBuiltInCollection(descriptor)) {
             return writeCollection(object, descriptor, output);
         } else if (descriptor.isSingletonList()) {
-            return writeSingletonList(object, descriptor, output);
+            return writeSingletonList((List<?>) object, descriptor, output);
         } else {
             throw new IllegalStateException("Marshalling of " + descriptor.clazz() + " is not supported, but it's marked as a built-in");
         }
@@ -119,11 +119,11 @@ class BuiltInContainerMarshallers {
         };
     }
 
-    private List<ClassDescriptor> writeSingletonList(Collection<?> collection, ClassDescriptor listDescriptor, DataOutput output)
+    private List<ClassDescriptor> writeSingletonList(List<?> list, ClassDescriptor listDescriptor, DataOutput output)
             throws MarshalException, IOException {
-        assert collection.size() == 1;
+        assert list.size() == 1;
 
-        Object element = collection.iterator().next();
+        Object element = list.get(0);
 
         Set<ClassDescriptor> usedDescriptors = new HashSet<>();
         usedDescriptors.add(listDescriptor);
