@@ -22,7 +22,6 @@ import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.Transaction;
 
 /**
  * Client transaction begin request.
