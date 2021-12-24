@@ -17,42 +17,31 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.IdIndexedDescriptors;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Context of unmarshalling act. Created once per unmarshalling a root object.
+ * Implementation of {@link IdIndexedDescriptors} that queries two other {@link IdIndexedDescriptors} instances
+ * one of which has a priority.
  */
-class UnmarshallingContext implements IdIndexedDescriptors {
-    private final IdIndexedDescriptors descriptors;
+public class MergingIdIndexedDescriptors implements IdIndexedDescriptors {
+    private final IdIndexedDescriptors firstDelegate;
+    private final IdIndexedDescriptors secondDelegate;
 
-    private final Map<Integer, Object> refsToObjects = new HashMap<>();
-
-    public UnmarshallingContext(IdIndexedDescriptors descriptors) {
-        this.descriptors = descriptors;
+    public MergingIdIndexedDescriptors(IdIndexedDescriptors firstDelegate, IdIndexedDescriptors secondDelegate) {
+        this.firstDelegate = firstDelegate;
+        this.secondDelegate = secondDelegate;
     }
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable ClassDescriptor getDescriptor(int descriptorId) {
-        return descriptors.getDescriptor(descriptorId);
-    }
-
-    public void registerReference(int referenceId, Object object) {
-        refsToObjects.put(referenceId, object);
-    }
-
-    @SuppressWarnings("unchecked")
-    public <T> T dereference(int referenceId) {
-        Object result = refsToObjects.get(referenceId);
-
-        if (result == null) {
-            throw new IllegalStateException("Unknown reference: " + referenceId);
+    @Nullable
+    public ClassDescriptor getDescriptor(int descriptorId) {
+        if (firstDelegate.hasDescriptor(descriptorId)) {
+            return firstDelegate.getDescriptor(descriptorId);
         }
 
-        return (T) result;
+        return secondDelegate.getDescriptor(descriptorId);
     }
 }

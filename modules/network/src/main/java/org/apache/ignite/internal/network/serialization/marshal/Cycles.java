@@ -17,21 +17,25 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import java.io.DataOutput;
-import java.io.IOException;
+import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 
 /**
- * Knows how to write a value to a {@link DataOutput}.
+ * Logic related to cycles in object graphs.
  */
-interface ValueWriter<T> {
+class Cycles {
+    private final BuiltInNonContainerMarshallers builtInNonContainerMarshallers;
+
+    Cycles(BuiltInNonContainerMarshallers builtInNonContainerMarshallers) {
+        this.builtInNonContainerMarshallers = builtInNonContainerMarshallers;
+    }
+
     /**
-     * Writes the given value to a {@link DataOutput}.
+     * Returns {@code true} if an instance of the type represented by the descriptor may actively form a cycle.
      *
-     * @param value     value to write
-     * @param output    where to write to
-     * @param context   marshalling context
-     * @throws IOException      if an I/O problem occurs
-     * @throws MarshalException if another problem occurs
+     * @param descriptor    descriptor to check
+     * @return {@code true} if an instance of the type represented by the descriptor may actively form a cycle
      */
-    void write(T value, DataOutput output, MarshallingContext context) throws IOException, MarshalException;
+    boolean canParticipateInCycles(ClassDescriptor descriptor) {
+        return !builtInNonContainerMarshallers.supports(descriptor.clazz());
+    }
 }
