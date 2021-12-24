@@ -36,7 +36,7 @@ public class ClientTransactionRollbackRequest {
     public static CompletableFuture<Void> process(ClientMessageUnpacker in, ClientResourceRegistry resources) {
         long resourceId = in.unpackLong();
 
-        Transaction t = resources.remove(resourceId).get();
+        Transaction t = resources.remove(resourceId).get(Transaction.class);
 
         return t.rollbackAsync();
     }

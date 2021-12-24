@@ -395,7 +395,7 @@ class ClientTableCommon {
             return null;
         }
 
-        return resources.get(in.unpackLong()).get();
+        return resources.get(in.unpackLong()).get(Transaction.class);
     }
 
     private static void readAndSetColumnValue(ClientMessageUnpacker unpacker, Tuple tuple, Column col) {
