@@ -40,26 +40,6 @@ public class ClientTransactionBeginRequest {
             ClientMessagePacker out,
             IgniteTransactions transactions,
             ClientResourceRegistry resources) {
-        return transactions.beginAsync().thenAccept(t -> out.packLong(resources.put(new TransactionResource(t))));
-    }
-
-    private static class TransactionResource implements ClientResource {
-        private final Transaction tx;
-
-        private TransactionResource(Transaction tx) {
-            this.tx = tx;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Transaction get() {
-            return tx;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void release() {
-            tx.rollback();
-        }
+        return transactions.beginAsync().thenAccept(t -> out.packLong(resources.put(new ClientResource(t, t::rollback))));
     }
 }

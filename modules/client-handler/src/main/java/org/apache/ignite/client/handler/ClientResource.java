@@ -17,20 +17,45 @@
 
 package org.apache.ignite.client.handler;
 
+import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Client resource holder.
  */
-public interface ClientResource {
+public class ClientResource {
+    /** Object. */
+    private final Object obj;
+
+    /** Release delegate. */
+    private final @Nullable Runnable releaseRunnable;
+
+    public ClientResource(@NotNull Object obj, @Nullable Runnable releaseRunnable) {
+        this.obj = obj;
+        this.releaseRunnable = releaseRunnable;
+    }
+
     /**
      * Gets the underlying object.
      *
      * @param <T> Object type.
      * @return Object.
      */
-    <T> T get();
+    public <T> T get(Class<T> type) {
+        if (!type.isInstance(obj)) {
+            throw new IgniteException("Incorrect resource type. Expected " + type.getName() + ", but got " + obj.getClass().getName());
+        }
+
+        return (T) obj;
+    }
 
     /**
      * Releases resources.
      */
-    void release();
+    public void release() {
+        if (releaseRunnable != null) {
+            releaseRunnable.run();
+        }
+    }
 }
