@@ -80,7 +80,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     }
 
     @Test
-    void marshalsNullWithCorrectDescriptorId() throws Exception {
+    void marshalsNullWithCorrectDescriptorIdInMarshalledRepresentation() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(null);
 
         assertThat(readType(marshalled), is(BuiltinType.NULL.descriptorId()));
@@ -117,7 +117,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     }
 
     @Test
-    void marshalsBareObjectWithCorrectDescriptorId() throws Exception {
+    void marshalsBareObjectWithCorrectDescriptorIdInMarshalledRepresentation() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new Object());
 
         assertThat(readType(marshalled), is(BuiltinType.BARE_OBJECT.descriptorId()));
@@ -268,7 +268,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
 
     @ParameterizedTest
     @MethodSource("builtInTypes")
-    void marshalsBuiltInTypesWithCorrectDescriptorIds(BuiltInTypeValue typeValue) throws Exception {
+    void marshalsBuiltInTypesWithCorrectDescriptorIdsInMarshalledRepresentation(BuiltInTypeValue typeValue) throws Exception {
         MarshalledObject marshalled = marshaller.marshal(typeValue.value, typeValue.valueClass);
 
         assertThat(readType(marshalled), is(equalTo(typeValue.builtinType.descriptorId())));
