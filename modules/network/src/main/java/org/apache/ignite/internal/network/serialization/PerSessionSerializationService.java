@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.network.serialization;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
@@ -115,7 +116,7 @@ public class PerSessionSerializationService {
                                 .className(d.clazz().getName())
                                 .build();
                     })
-                    .collect(Collectors.toList());
+                    .collect(toList());
 
             Serialization serialization = descriptor.serialization();
 
@@ -129,51 +130,61 @@ public class PerSessionSerializationService {
                     .descriptorId(descriptor.descriptorId())
                     .className(descriptor.className())
                     .build();
-        }).collect(Collectors.toList());
+        }).collect(toList());
     }
 
     private void mergeDescriptors(List<ClassDescriptorMessage> remoteDescriptors) {
         for (ClassDescriptorMessage clsMsg : remoteDescriptors) {
             int clsDescriptorId = clsMsg.descriptorId();
 
-            boolean isClsBuiltin = serializationService.isBuiltin(clsDescriptorId);
+            boolean isClsBuiltin = serializationService.isBuiltIn(clsDescriptorId);
 
             if (isClsBuiltin) {
                 continue;
             }
 
-            ClassDescriptor mergedDescriptor = mergedDescriptorMap.get(clsDescriptorId);
-
-            if (mergedDescriptor != null) {
+            if (mergedDescriptorMap.containsKey(clsDescriptorId)) {
                 continue;
             }
 
-            ClassDescriptor localDescriptor = serializationService.getClassDescriptor(clsMsg.className());
-
-            List<FieldDescriptor> fields = clsMsg.fields().stream().map(fieldMsg -> {
-                int typeDescriptorId = fieldMsg.typeDescriptorId();
-
-                return new FieldDescriptor(fieldMsg.name(), getClass(typeDescriptorId, fieldMsg.className()), typeDescriptorId);
-            }).collect(Collectors.toList());
-
-            SerializationType serializationType = SerializationType.getByValue(clsMsg.serializationType());
-            boolean hasSerializationOverride = clsMsg.hasSerializationOverride();
-            boolean hasWriteReplace = clsMsg.hasWriteReplace();
-            boolean hasReadResolve = clsMsg.hasReadResolve();
-
-            var serialization = new Serialization(serializationType, hasSerializationOverride, hasWriteReplace, hasReadResolve);
-
-            ClassDescriptor remoteDescriptor = new ClassDescriptor(
-                    localDescriptor.clazz(),
-                    clsDescriptorId,
-                    fields,
-                    serialization
-            );
-
-            mergedDescriptor = mergeDescriptor(localDescriptor, remoteDescriptor);
-
-            mergedDescriptorMap.put(clsDescriptorId, mergedDescriptor);
+            mergedDescriptorMap.put(clsDescriptorId, messageToMergedClassDescriptor(clsMsg));
         }
+    }
+
+    /**
+     * Converts {@link ClassDescriptorMessage} to a {@link ClassDescriptor} and merges it with a local {@link ClassDescriptor} of the
+     * same class.
+     *
+     * @param clsMsg ClassDescriptorMessage.
+     * @return Merged class descriptor.
+     */
+    @NotNull
+    private ClassDescriptor messageToMergedClassDescriptor(ClassDescriptorMessage clsMsg) {
+        ClassDescriptor localDescriptor = serializationService.getClassDescriptor(clsMsg.className());
+
+        List<FieldDescriptor> remoteFields = clsMsg.fields().stream().map(fieldMsg -> {
+            int typeDescriptorId = fieldMsg.typeDescriptorId();
+
+            return new FieldDescriptor(fieldMsg.name(), getClass(typeDescriptorId, fieldMsg.className()), typeDescriptorId);
+        }).collect(toList());
+
+        SerializationType serializationType = SerializationType.getByValue(clsMsg.serializationType());
+
+        var serialization = new Serialization(
+                serializationType,
+                clsMsg.hasSerializationOverride(),
+                clsMsg.hasWriteReplace(),
+                clsMsg.hasReadResolve()
+        );
+
+        ClassDescriptor remoteDescriptor = new ClassDescriptor(
+                localDescriptor.clazz(),
+                clsMsg.descriptorId(),
+                remoteFields,
+                serialization
+        );
+
+        return mergeDescriptor(localDescriptor, remoteDescriptor);
     }
 
     private ClassDescriptor mergeDescriptor(ClassDescriptor localDescriptor, ClassDescriptor remoteDescriptor) {
@@ -182,7 +193,7 @@ public class PerSessionSerializationService {
     }
 
     private Class<?> getClass(int descriptorId, String typeName) {
-        if (serializationService.isBuiltin(descriptorId)) {
+        if (serializationService.isBuiltIn(descriptorId)) {
             return serializationService.getClassDescriptor(descriptorId).clazz();
         } else {
             return serializationService.getClassDescriptor(typeName).clazz();

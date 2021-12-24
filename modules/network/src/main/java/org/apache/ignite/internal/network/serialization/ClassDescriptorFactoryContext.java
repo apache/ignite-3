@@ -152,7 +152,7 @@ public class ClassDescriptorFactoryContext {
      * @param descriptorId Descriptor id.
      * @return Whether descriptor is built-in.
      */
-    public static boolean isBuiltin(int descriptorId) {
+    public static boolean isBuiltIn(int descriptorId) {
         return descriptorId < DEFAULT_DESCRIPTORS_OFFSET_COUNT;
     }
 }

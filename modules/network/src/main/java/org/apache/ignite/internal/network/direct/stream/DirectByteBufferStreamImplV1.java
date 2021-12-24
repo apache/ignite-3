@@ -146,7 +146,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     private byte[] marshallable;
 
-    private List<ClassDescriptorMessage> missingDescriptors;
+    private List<ClassDescriptorMessage> descriptors;
 
     protected boolean lastFinished;
 
@@ -158,9 +158,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      *
      * @param serializationService Serialization service.       .
      */
-    public DirectByteBufferStreamImplV1(
-            PerSessionSerializationService serializationService
-    ) {
+    public DirectByteBufferStreamImplV1(PerSessionSerializationService serializationService) {
         this.serializationService = serializationService;
     }
 
@@ -1373,10 +1371,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                     List<Integer> descriptorIds = res.ids();
                     marshallable = res.array();
                     // Get descriptors that were not previously sent to the remote node
-                    missingDescriptors = serializationService.createClassDescriptorsMessages(descriptorIds);
+                    descriptors = serializationService.createClassDescriptorsMessages(descriptorIds);
                 }
 
-                writeCollection(missingDescriptors, MessageCollectionItemType.MSG, writer);
+                writeCollection(descriptors, MessageCollectionItemType.MSG, writer);
 
                 if (!lastFinished) {
                     return;
@@ -1393,7 +1391,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 }
 
                 marshallable = null;
-                missingDescriptors = null;
+                descriptors = null;
                 marshallableState = 0;
                 break;
 
@@ -1407,7 +1405,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     public <T> T readMarshallable(MessageReader reader) {
         switch (marshallableState) {
             case 0:
-                missingDescriptors = readCollection(MessageCollectionItemType.MSG, reader);
+                descriptors = readCollection(MessageCollectionItemType.MSG, reader);
 
                 if (!lastFinished) {
                     return null;
@@ -1428,11 +1426,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 throw new IllegalArgumentException("Unknown marshallableState: " + marshallableState);
         }
 
-        T read = serializationService.readMarshallable(missingDescriptors, marshallable);
+        T read = serializationService.readMarshallable(descriptors, marshallable);
 
         marshallableState = 0;
         marshallable = null;
-        missingDescriptors = null;
+        descriptors = null;
 
         return read;
     }

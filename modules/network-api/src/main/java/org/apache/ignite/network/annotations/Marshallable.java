@@ -23,9 +23,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation that should be placed on fields of the {@link Transferable} classes which store non-{@link Transferable} objects.
- * This is useful for the user object serialization because we can't generate serializer and deserializer for user objects
- * at the compile time.
+ * Annotation that should be placed on methods of the {@link Transferable} classes which denote objects not supported by the
+ * direct marshaller. This is useful for the user object serialization because we can't generate serializer and deserializer for
+ * user objects at the compile time.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

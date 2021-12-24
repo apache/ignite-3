@@ -44,5 +44,5 @@ public interface UserObjectSerializer {
 
     ClassDescriptor getClassDescriptor(String typeName);
 
-    boolean isBuiltin(int typeDescriptorId);
+    boolean isBuiltIn(int typeDescriptorId);
 }

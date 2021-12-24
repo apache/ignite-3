@@ -80,8 +80,8 @@ public class SerializationService {
      * @param typeDescriptorId Type descriptor id.
      * @return {@code true} if descriptor is built-in, {@code false} otherwise.
      */
-    public boolean isBuiltin(int typeDescriptorId) {
-        return userObjectSerializer.isBuiltin(typeDescriptorId);
+    public boolean isBuiltIn(int typeDescriptorId) {
+        return userObjectSerializer.isBuiltIn(typeDescriptorId);
     }
 
     /**
