@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteUuid;
@@ -60,7 +60,7 @@ class ClientTupleSerializer {
             @Nullable Transaction tx,
             @NotNull Tuple tuple,
             ClientSchema schema,
-            ClientMessagePacker out
+            PayloadOutputChannel out
     ) {
         writeTuple(tx, tuple, schema, out, false, false);
     }
@@ -77,7 +77,7 @@ class ClientTupleSerializer {
             @Nullable Transaction tx,
             @NotNull Tuple tuple,
             ClientSchema schema,
-            ClientMessagePacker out,
+            PayloadOutputChannel out,
             boolean keyOnly
     ) {
         writeTuple(tx, tuple, schema, out, keyOnly, false);
@@ -96,14 +96,14 @@ class ClientTupleSerializer {
             @Nullable Transaction tx,
             @NotNull Tuple tuple,
             ClientSchema schema,
-            ClientMessagePacker out,
+            PayloadOutputChannel out,
             boolean keyOnly,
             boolean skipHeader
     ) {
         if (!skipHeader) {
-            out.packIgniteUuid(tableId);
+            out.out().packIgniteUuid(tableId);
             writeTx(tx, out);
-            out.packInt(schema.version());
+            out.out().packInt(schema.version());
         }
 
         var columns = schema.columns();
@@ -114,7 +114,7 @@ class ClientTupleSerializer {
 
             Object v = tuple.valueOrDefault(col.name(), NO_VALUE);
 
-            out.packObject(v);
+            out.out().packObject(v);
         }
     }
 
@@ -132,13 +132,13 @@ class ClientTupleSerializer {
             @NotNull Tuple key,
             @Nullable Tuple val,
             ClientSchema schema,
-            ClientMessagePacker out,
+            PayloadOutputChannel out,
             boolean skipHeader
     ) {
         if (!skipHeader) {
-            out.packIgniteUuid(tableId);
+            out.out().packIgniteUuid(tableId);
             writeTx(tx, out);
-            out.packInt(schema.version());
+            out.out().packInt(schema.version());
         }
 
         var columns = schema.columns();
@@ -152,7 +152,7 @@ class ClientTupleSerializer {
                             ? val.valueOrDefault(col.name(), NO_VALUE)
                             : NO_VALUE;
 
-            out.packObject(v);
+            out.out().packObject(v);
         }
     }
 
@@ -163,11 +163,11 @@ class ClientTupleSerializer {
      * @param schema Schema.
      * @param out Out.
      */
-    public void writeKvTuples(@Nullable Transaction tx, Map<Tuple, Tuple> pairs, ClientSchema schema, ClientMessagePacker out) {
-        out.packIgniteUuid(tableId);
+    public void writeKvTuples(@Nullable Transaction tx, Map<Tuple, Tuple> pairs, ClientSchema schema, PayloadOutputChannel out) {
+        out.out().packIgniteUuid(tableId);
         writeTx(tx, out);
-        out.packInt(schema.version());
-        out.packInt(pairs.size());
+        out.out().packInt(schema.version());
+        out.out().packInt(pairs.size());
 
         for (Map.Entry<Tuple, Tuple> pair : pairs.entrySet()) {
             writeKvTuple(tx, pair.getKey(), pair.getValue(), schema, out, true);
@@ -186,13 +186,13 @@ class ClientTupleSerializer {
             @Nullable Transaction tx,
             @NotNull Collection<Tuple> tuples,
             ClientSchema schema,
-            ClientMessagePacker out,
+            PayloadOutputChannel out,
             boolean keyOnly
     ) {
-        out.packIgniteUuid(tableId);
+        out.out().packIgniteUuid(tableId);
         writeTx(tx, out);
-        out.packInt(schema.version());
-        out.packInt(tuples.size());
+        out.out().packInt(schema.version());
+        out.out().packInt(tuples.size());
 
         for (var tuple : tuples) {
             writeTuple(tx, tuple, schema, out, keyOnly, true);

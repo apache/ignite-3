@@ -67,7 +67,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
-                tx,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
                 ClientTupleSerializer::readValueTuple);
     }
@@ -85,7 +84,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
-                tx,
                 (s, w) -> ser.writeTuples(tx, keys, s, w, true),
                 ClientTupleSerializer::readKvTuplesNullable,
                 Collections.emptyMap());
@@ -104,7 +102,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_KEY,
-                tx,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -124,7 +121,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         // If it does not match the latest schema, then request latest and convert again.
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
-                tx,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
                 r -> null);
     }
@@ -142,7 +138,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
-                tx,
                 (s, w) -> ser.writeKvTuples(tx, pairs, s, w),
                 r -> null);
     }
@@ -160,7 +155,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
-                tx,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
                 ClientTupleSerializer::readValueTuple);
     }
@@ -178,7 +172,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
-                tx,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -202,7 +195,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
-                tx,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -215,7 +207,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
-                tx,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -233,7 +224,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
-                tx,
                 (s, w) -> ser.writeTuples(tx, keys, s, w, true),
                 (s, r) -> ClientTupleSerializer.readTuples(s, r, true),
                 Collections.emptyList());
@@ -252,7 +242,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
-                tx,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
                 ClientTupleSerializer::readValueTuple);
     }
@@ -276,7 +265,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
-                tx,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -288,7 +276,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
-                tx,
                 (s, w) -> {
                     ser.writeKvTuple(tx, key, oldVal, s, w, false);
                     ser.writeKvTuple(tx, key, newVal, s, w, true);
@@ -309,7 +296,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
-                tx,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
                 ClientTupleSerializer::readValueTuple);
     }

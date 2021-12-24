@@ -67,7 +67,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
-                tx,
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
                 (s, r) -> ClientTupleSerializer.readValueTuple(s, r, keyRec));
     }
@@ -85,7 +84,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
-                tx,
                 (s, w) -> ser.writeTuples(tx, keyRecs, s, w, true),
                 ClientTupleSerializer::readTuplesNullable,
                 Collections.emptyList());
@@ -105,7 +103,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         // If it does not match the latest schema, then request latest and convert again.
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
-                tx,
                 (s, w) -> ser.writeTuple(tx, rec, s, w),
                 r -> null);
     }
@@ -123,7 +120,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
-                tx,
                 (s, w) -> ser.writeTuples(tx, recs, s, w, false),
                 r -> null);
     }
@@ -141,7 +137,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
-                tx,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
                 (s, r) -> ClientTupleSerializer.readValueTuple(s, r, rec));
     }
@@ -159,7 +154,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
-                tx,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -177,7 +171,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_INSERT_ALL,
-                tx,
                 (s, w) -> ser.writeTuples(tx, recs, s, w, false),
                 ClientTupleSerializer::readTuples,
                 Collections.emptyList());
@@ -202,7 +195,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
-                tx,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -215,7 +207,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
-                tx,
                 (s, w) -> {
                     ser.writeTuple(tx, oldRec, s, w, false, false);
                     ser.writeTuple(tx, newRec, s, w, false, true);
@@ -236,7 +227,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
-                tx,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
                 (s, r) -> ClientTupleSerializer.readValueTuple(s, r, rec));
     }
@@ -254,7 +244,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
-                tx,
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -272,7 +261,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
-                tx,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -290,7 +278,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
-                tx,
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
                 (s, r) -> ClientTupleSerializer.readValueTuple(s, r, keyRec));
     }
@@ -308,7 +295,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
-                tx,
                 (s, w) -> ser.writeTuples(tx, keyRecs, s, w, true),
                 (s, r) -> ClientTupleSerializer.readTuples(s, r, true),
                 Collections.emptyList());
@@ -327,7 +313,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL_EXACT,
-                tx,
                 (s, w) -> ser.writeTuples(tx, recs, s, w, false),
                 ClientTupleSerializer::readTuples,
                 Collections.emptyList());
