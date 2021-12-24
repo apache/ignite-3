@@ -58,6 +58,8 @@ public class ClassDescriptor {
      */
     private final boolean isFinal;
 
+    private final SpecialSerializationMethods serializationMethods;
+
     /**
      * Constructor.
      */
@@ -68,6 +70,8 @@ public class ClassDescriptor {
         this.fields = List.copyOf(fields);
         this.serialization = serialization;
         this.isFinal = Modifier.isFinal(clazz.getModifiers());
+
+        serializationMethods = new SpecialSerializationMethods(this);
     }
 
     /**
@@ -209,6 +213,37 @@ public class ClassDescriptor {
      */
     public boolean supportsWriteReplace() {
         return (isSerializable() || isExternalizable()) && hasWriteReplace();
+    }
+
+    /**
+     * Applies writeReplace() method.
+     *
+     * @param object     object to which to apply
+     * @return writeReplace() result
+     * @throws SpecialMethodInvocationException if writeReplace() invocation fails
+     */
+    public Object applyWriteReplace(Object object) throws SpecialMethodInvocationException {
+        return serializationMethods.writeReplace(object);
+    }
+
+    /**
+     * Applies readResolve() method if the described class has it and it makes sense to apply the method
+     * (that is, the serialization type is EXTERNALIZABLE or SERIALIZABLE).
+     *
+     * @param object object to which to apply
+     * @return the result
+     * @throws SpecialMethodInvocationException if readResolve() invocation fails
+     */
+    public Object readResolveIfNeeded(Object object) throws SpecialMethodInvocationException {
+        if (hasReadResolve()) {
+            return applyReadResolve(object);
+        } else {
+            return object;
+        }
+    }
+
+    private Object applyReadResolve(Object object) throws SpecialMethodInvocationException {
+        return serializationMethods.readResolve(object);
     }
 
     @Override

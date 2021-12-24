@@ -15,14 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.serialization.marshal;
+package org.apache.ignite.internal.network.serialization;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.util.Objects;
-import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -111,9 +110,9 @@ class SpecialSerializationMethods {
      *
      * @param object target object on which to invoke the method
      * @return invocation result
-     * @throws MarshalException if the invocation fails
+     * @throws SpecialMethodInvocationException if the invocation fails
      */
-    public Object writeReplace(Object object) throws MarshalException {
+    public Object writeReplace(Object object) throws SpecialMethodInvocationException {
         Objects.requireNonNull(writeReplaceHandle);
 
         try {
@@ -121,7 +120,7 @@ class SpecialSerializationMethods {
         } catch (Error e) {
             throw e;
         } catch (Throwable e) {
-            throw new MarshalException("writeReplace() invocation failed on " + object, e);
+            throw new SpecialMethodInvocationException("writeReplace() invocation failed on " + object, e);
         }
     }
 
@@ -135,9 +134,9 @@ class SpecialSerializationMethods {
      *
      * @param object target object on which to invoke the method
      * @return invocation result
-     * @throws UnmarshalException if the invocation fails
+     * @throws SpecialMethodInvocationException if the invocation fails
      */
-    public Object readResolve(Object object) throws UnmarshalException {
+    public Object readResolve(Object object) throws SpecialMethodInvocationException {
         Objects.requireNonNull(readResolveHandle);
 
         try {
@@ -145,7 +144,7 @@ class SpecialSerializationMethods {
         } catch (Error e) {
             throw e;
         } catch (Throwable e) {
-            throw new UnmarshalException("readResolve() invocation failed on " + object, e);
+            throw new SpecialMethodInvocationException("readResolve() invocation failed on " + object, e);
         }
     }
 }
