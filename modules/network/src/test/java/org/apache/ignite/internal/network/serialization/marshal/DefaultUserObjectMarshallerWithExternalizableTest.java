@@ -27,7 +27,7 @@ import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
-import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactoryContext;
@@ -51,7 +51,7 @@ class DefaultUserObjectMarshallerWithExternalizableTest {
 
         ClassDescriptor expectedDescriptor = descriptorRegistry.getDescriptor(SimpleExternalizable.class);
         assertThat(expectedDescriptor, is(notNullValue()));
-        assertThat(marshalled.usedDescriptors(), is(equalTo(List.of(expectedDescriptor))));
+        assertThat(marshalled.usedDescriptors(), is(equalTo(Set.of(expectedDescriptor))));
     }
 
     @Test
@@ -103,7 +103,7 @@ class DefaultUserObjectMarshallerWithExternalizableTest {
         MarshalledObject marshalled = marshaller.marshal(new ExternalizableWithReplaceWithSimple(42));
 
         ClassDescriptor replacementDescriptor = descriptorRegistry.getRequiredDescriptor(SimpleExternalizable.class);
-        assertThat(marshalled.usedDescriptors(), equalTo(List.of(replacementDescriptor)));
+        assertThat(marshalled.usedDescriptors(), equalTo(Set.of(replacementDescriptor)));
     }
 
     @Test
@@ -120,7 +120,7 @@ class DefaultUserObjectMarshallerWithExternalizableTest {
         MarshalledObject marshalled = marshaller.marshal(new ExternalizableWithReplaceWithNull(42));
 
         ClassDescriptor replacementDescriptor = descriptorRegistry.getNullDescriptor();
-        assertThat(marshalled.usedDescriptors(), equalTo(List.of(replacementDescriptor)));
+        assertThat(marshalled.usedDescriptors(), equalTo(Set.of(replacementDescriptor)));
     }
 
     @Test

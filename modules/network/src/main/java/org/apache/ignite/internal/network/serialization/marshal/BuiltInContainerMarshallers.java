@@ -68,7 +68,7 @@ class BuiltInContainerMarshallers {
         this.trackingMarshaller = trackingMarshaller;
     }
 
-    List<ClassDescriptor> writeGenericRefArray(Object[] array, ClassDescriptor arrayDescriptor, DataOutput output)
+    Set<ClassDescriptor> writeGenericRefArray(Object[] array, ClassDescriptor arrayDescriptor, DataOutput output)
             throws IOException, MarshalException {
         output.writeUTF(array.getClass().getComponentType().getName());
         return writeCollection(Arrays.asList(array), arrayDescriptor, output);
@@ -79,7 +79,7 @@ class BuiltInContainerMarshallers {
         return BuiltInMarshalling.readGenericRefArray(input, elementReader);
     }
 
-    List<ClassDescriptor> writeBuiltInCollection(Collection<?> object, ClassDescriptor descriptor, DataOutput output)
+    Set<ClassDescriptor> writeBuiltInCollection(Collection<?> object, ClassDescriptor descriptor, DataOutput output)
             throws IOException, MarshalException {
         if (supportsAsMutableBuiltInCollection(descriptor)) {
             return writeCollection(object, descriptor, output);
@@ -102,24 +102,24 @@ class BuiltInContainerMarshallers {
         return mutableBuiltInCollectionFactories.containsKey(descriptor.clazz());
     }
 
-    private List<ClassDescriptor> writeCollection(Collection<?> collection, ClassDescriptor collectionDescriptor, DataOutput output)
+    private Set<ClassDescriptor> writeCollection(Collection<?> collection, ClassDescriptor collectionDescriptor, DataOutput output)
             throws IOException, MarshalException {
         Set<ClassDescriptor> usedDescriptors = new HashSet<>();
         usedDescriptors.add(collectionDescriptor);
 
         BuiltInMarshalling.writeCollection(collection, output, writerAddingUsedDescriptor(usedDescriptors));
 
-        return List.copyOf(usedDescriptors);
+        return usedDescriptors;
     }
 
     private <T> ValueWriter<T> writerAddingUsedDescriptor(Set<ClassDescriptor> usedDescriptors) {
         return (elem, out) -> {
-            List<ClassDescriptor> elementDescriptors = trackingMarshaller.marshal(elem, out);
+            Set<ClassDescriptor> elementDescriptors = trackingMarshaller.marshal(elem, out);
             usedDescriptors.addAll(elementDescriptors);
         };
     }
 
-    private List<ClassDescriptor> writeSingletonList(List<?> list, ClassDescriptor listDescriptor, DataOutput output)
+    private Set<ClassDescriptor> writeSingletonList(List<?> list, ClassDescriptor listDescriptor, DataOutput output)
             throws MarshalException, IOException {
         assert list.size() == 1;
 
@@ -128,10 +128,10 @@ class BuiltInContainerMarshallers {
         Set<ClassDescriptor> usedDescriptors = new HashSet<>();
         usedDescriptors.add(listDescriptor);
 
-        List<ClassDescriptor> descriptorsFromElement = trackingMarshaller.marshal(element, output);
+        Set<ClassDescriptor> descriptorsFromElement = trackingMarshaller.marshal(element, output);
         usedDescriptors.addAll(descriptorsFromElement);
 
-        return List.copyOf(usedDescriptors);
+        return usedDescriptors;
     }
 
     @SuppressWarnings("unchecked")
@@ -154,7 +154,7 @@ class BuiltInContainerMarshallers {
         return BuiltInMarshalling.readCollection(input, collectionFactory, elementReader);
     }
 
-    List<ClassDescriptor> writeBuiltInMap(Map<?, ?> map, ClassDescriptor mapDescriptor, DataOutput output)
+    Set<ClassDescriptor> writeBuiltInMap(Map<?, ?> map, ClassDescriptor mapDescriptor, DataOutput output)
             throws MarshalException, IOException {
         if (!supportsAsBuiltInMap(mapDescriptor)) {
             throw new IllegalStateException("Marshalling of " + mapDescriptor.clazz() + " is not supported, but it's marked as a built-in");
@@ -170,7 +170,7 @@ class BuiltInContainerMarshallers {
                 writerAddingUsedDescriptor(usedDescriptors)
         );
 
-        return List.copyOf(usedDescriptors);
+        return usedDescriptors;
     }
 
     private boolean supportsAsBuiltInMap(ClassDescriptor mapDescriptor) {

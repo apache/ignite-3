@@ -30,8 +30,8 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.ignite.internal.network.serialization.BuiltinType;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
@@ -63,7 +63,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     /** {@inheritDoc} */
     @Override
     public MarshalledObject marshal(@Nullable Object object, Class<?> declaredClass) throws MarshalException {
-        List<ClassDescriptor> usedDescriptors;
+        Set<ClassDescriptor> usedDescriptors;
 
         var baos = new ByteArrayOutputStream();
         try (var dos = new DataOutputStream(baos)) {
@@ -75,11 +75,11 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         return new MarshalledObject(baos.toByteArray(), usedDescriptors);
     }
 
-    private List<ClassDescriptor> marshalToOutput(Object element, DataOutput output) throws MarshalException, IOException {
+    private Set<ClassDescriptor> marshalToOutput(Object element, DataOutput output) throws MarshalException, IOException {
         return marshalToOutput(element, objectClass(element), output);
     }
 
-    private List<ClassDescriptor> marshalToOutput(@Nullable Object object, Class<?> declaredClass, DataOutput output)
+    private Set<ClassDescriptor> marshalToOutput(@Nullable Object object, Class<?> declaredClass, DataOutput output)
             throws MarshalException, IOException {
         assert declaredClass != null;
         assert object == null
@@ -162,10 +162,10 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         output.writeInt(descriptor.descriptorId());
     }
 
-    private List<ClassDescriptor> writeObject(@Nullable Object object, ClassDescriptor descriptor, DataOutput output)
+    private Set<ClassDescriptor> writeObject(@Nullable Object object, ClassDescriptor descriptor, DataOutput output)
             throws IOException, MarshalException {
         if (descriptor.isNull()) {
-            return List.of(descriptor);
+            return Set.of(descriptor);
         } else if (isBuiltInNonContainer(descriptor)) {
             return builtInNonContainerMarshallers.writeBuiltIn(object, descriptor, output);
         } else if (isBuiltInCollection(descriptor)) {
@@ -197,14 +197,14 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         return descriptor.isBuiltIn() && Map.class.isAssignableFrom(descriptor.clazz());
     }
 
-    private List<ClassDescriptor> writeExternalizable(Externalizable externalizable, ClassDescriptor descriptor, DataOutput output)
+    private Set<ClassDescriptor> writeExternalizable(Externalizable externalizable, ClassDescriptor descriptor, DataOutput output)
             throws IOException {
         byte[] externalizableBytes = externalize(externalizable);
 
         output.writeInt(externalizableBytes.length);
         output.write(externalizableBytes);
 
-        return List.of(descriptor);
+        return Set.of(descriptor);
     }
 
     private byte[] externalize(Externalizable externalizable) throws IOException {

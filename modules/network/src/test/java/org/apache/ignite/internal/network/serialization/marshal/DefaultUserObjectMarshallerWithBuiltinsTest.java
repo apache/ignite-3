@@ -76,7 +76,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsNullUsingOnlyNullDescriptor() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(null);
 
-        assertThat(marshalled.usedDescriptors(), equalTo(List.of(descriptorRegistry.getNullDescriptor())));
+        assertThat(marshalled.usedDescriptors(), equalTo(Set.of(descriptorRegistry.getNullDescriptor())));
     }
 
     @Test
@@ -113,7 +113,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsBareObjectUsingOnlyBareObjectDescriptor() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new Object());
 
-        assertThat(marshalled.usedDescriptors(), equalTo(List.of(descriptorRegistry.getRequiredDescriptor(Object.class))));
+        assertThat(marshalled.usedDescriptors(), equalTo(Set.of(descriptorRegistry.getRequiredDescriptor(Object.class))));
     }
 
     @Test
@@ -138,7 +138,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsEnumUsingOnlyEnumDescriptor() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(SimpleEnum.FIRST);
 
-        assertThat(marshalled.usedDescriptors(), equalTo(List.of(descriptorRegistry.getRequiredDescriptor(Enum.class))));
+        assertThat(marshalled.usedDescriptors(), equalTo(Set.of(descriptorRegistry.getRequiredDescriptor(Enum.class))));
     }
 
     @ParameterizedTest
@@ -164,7 +164,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
             MarshalledObject marshalled = marshaller.marshal(typeValue.value, typeValue.valueClass);
 
             ClassDescriptor expectedDescriptor = descriptorRegistry.getBuiltInDescriptor(typeValue.builtinType);
-            assertThat(marshalled.usedDescriptors(), equalTo(List.of(expectedDescriptor)));
+            assertThat(marshalled.usedDescriptors(), equalTo(Set.of(expectedDescriptor)));
         });
     }
 

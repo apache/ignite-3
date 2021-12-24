@@ -24,8 +24,8 @@ import java.math.BigDecimal;
 import java.util.BitSet;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.lang.IgniteUuid;
@@ -109,12 +109,12 @@ class BuiltInNonContainerMarshallers {
         return builtInMarshallers.containsKey(classToCheck);
     }
 
-    List<ClassDescriptor> writeBuiltIn(Object object, ClassDescriptor descriptor, DataOutput output) throws IOException, MarshalException {
+    Set<ClassDescriptor> writeBuiltIn(Object object, ClassDescriptor descriptor, DataOutput output) throws IOException, MarshalException {
         BuiltInMarshaller<?> builtInMarshaller = findBuiltInMarshaller(descriptor);
 
         builtInMarshaller.marshal(object, output);
 
-        return List.of(descriptor);
+        return Set.of(descriptor);
     }
 
     Object readBuiltIn(ClassDescriptor descriptor, DataInput input) throws IOException, UnmarshalException {

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.network.serialization.marshal;
 
 import java.io.DataOutput;
 import java.io.IOException;
-import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 
 /**
@@ -35,5 +35,5 @@ interface TrackingMarshaller {
      * @throws IOException      if an I/O problem occurs
      * @throws MarshalException if another problem occurs
      */
-    List<ClassDescriptor> marshal(Object object, DataOutput output) throws IOException, MarshalException;
+    Set<ClassDescriptor> marshal(Object object, DataOutput output) throws IOException, MarshalException;
 }
