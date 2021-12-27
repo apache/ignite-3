@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static org.apache.ignite.internal.client.ClientUtils.sync;
+
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
@@ -57,7 +59,7 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public R get(@Nullable Transaction tx, @NotNull R keyRec) {
-        return getAsync(tx, keyRec).join();
+        return sync(getAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -74,7 +76,7 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public Collection<R> getAll(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
-        return getAllAsync(tx, keyRecs).join();
+        return sync(getAllAsync(tx, keyRecs));
     }
 
     /** {@inheritDoc} */
