@@ -26,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
 import org.apache.ignite.internal.client.table.ClientTuple;
 import org.apache.ignite.table.RecordView;

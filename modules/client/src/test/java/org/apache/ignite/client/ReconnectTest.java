@@ -20,7 +20,6 @@ package org.apache.ignite.client;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;

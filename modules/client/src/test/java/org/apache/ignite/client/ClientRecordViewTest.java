@@ -30,7 +30,6 @@ import java.math.BigInteger;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
