@@ -112,9 +112,10 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         return new DescribedObject(objectToWrite, descriptorToUse);
     }
 
-    private @Nullable Object applyWriteReplace(Object originalObject, ClassDescriptor originalDescriptor) throws MarshalException {
+    @Nullable
+    private Object applyWriteReplace(Object originalObject, ClassDescriptor originalDescriptor) throws MarshalException {
         try {
-            return originalDescriptor.applyWriteReplace(originalObject);
+            return originalDescriptor.serializationMethods().writeReplace(originalObject);
         } catch (SpecialMethodInvocationException e) {
             throw new MarshalException("Cannot apply writeReplace()", e);
         }
@@ -242,16 +243,24 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         return resolvedObject;
     }
 
-    private Object applyReadResolveIfNeeded(ClassDescriptor descriptor, Object readObject) throws UnmarshalException {
-        try {
-            return descriptor.readResolveIfNeeded(readObject);
-        } catch (SpecialMethodInvocationException e) {
-            throw new UnmarshalException("Cannot apply readResolve()", e);
+    private int readDescriptorId(DataInput input) throws IOException {
+        return input.readInt();
+    }
+
+    private Object applyReadResolveIfNeeded(ClassDescriptor descriptor, Object object) throws UnmarshalException {
+        if (descriptor.hasReadResolve()) {
+            return applyReadResolve(descriptor, object);
+        } else {
+            return object;
         }
     }
 
-    private int readDescriptorId(DataInput input) throws IOException {
-        return input.readInt();
+    private Object applyReadResolve(ClassDescriptor descriptor, Object readObject) throws UnmarshalException {
+        try {
+            return descriptor.serializationMethods().readResolve(readObject);
+        } catch (SpecialMethodInvocationException e) {
+            throw new UnmarshalException("Cannot apply readResolve()", e);
+        }
     }
 
     @Nullable

@@ -71,7 +71,7 @@ public class ClassDescriptor {
         this.serialization = serialization;
         this.isFinal = Modifier.isFinal(clazz.getModifiers());
 
-        serializationMethods = new SpecialSerializationMethods(this);
+        serializationMethods = new SpecialSerializationMethodsImpl(this);
     }
 
     /**
@@ -205,10 +205,10 @@ public class ClassDescriptor {
     }
 
     /**
-     * Returns {@code true} if the described class has writeReplace() method and it makes sense for the needs of
+     * Returns {@code true} if the described class has writeReplace() method, and it makes sense for the needs of
      * our serialization (i.e. it is SERIALIZABLE or EXTERNALIZABLE).
      *
-     * @return {@code true} if the described class has writeReplace() method and it makes sense for the needs of
+     * @return {@code true} if the described class has writeReplace() method, and it makes sense for the needs of
      *     our serialization
      */
     public boolean supportsWriteReplace() {
@@ -216,34 +216,12 @@ public class ClassDescriptor {
     }
 
     /**
-     * Applies writeReplace() method.
+     * Returns special serialization methods facility.
      *
-     * @param object     object to which to apply
-     * @return writeReplace() result
-     * @throws SpecialMethodInvocationException if writeReplace() invocation fails
+     * @return special serialization methods facility
      */
-    public Object applyWriteReplace(Object object) throws SpecialMethodInvocationException {
-        return serializationMethods.writeReplace(object);
-    }
-
-    /**
-     * Applies readResolve() method if the described class has it and it makes sense to apply the method
-     * (that is, the serialization type is EXTERNALIZABLE or SERIALIZABLE).
-     *
-     * @param object object to which to apply
-     * @return the result
-     * @throws SpecialMethodInvocationException if readResolve() invocation fails
-     */
-    public Object readResolveIfNeeded(Object object) throws SpecialMethodInvocationException {
-        if (hasReadResolve()) {
-            return applyReadResolve(object);
-        } else {
-            return object;
-        }
-    }
-
-    private Object applyReadResolve(Object object) throws SpecialMethodInvocationException {
-        return serializationMethods.readResolve(object);
+    public SpecialSerializationMethods serializationMethods() {
+        return serializationMethods;
     }
 
     @Override
