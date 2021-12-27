@@ -90,7 +90,7 @@ public class ReconnectTest {
 
         server.close();
 
-        var ex = assertThrows(CompletionException.class, () -> client.tables().tables());
-        assertEquals(ex.getCause().getMessage(), "Channel is closed");
+        var ex = assertThrows(IgniteClientConnectionException.class, () -> client.tables().tables());
+        assertEquals(ex.getMessage(), "Channel is closed");
     }
 }
