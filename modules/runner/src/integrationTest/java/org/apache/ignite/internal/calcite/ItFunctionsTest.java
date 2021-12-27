@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.LoggerMessageHelper;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
@@ -123,7 +123,7 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
 
         assertTrue(
                 ex.getCause() instanceof IllegalArgumentException,
-                LoggerMessageHelper.format(
+                IgniteStringFormatter.format(
                         "Expected cause is {}, but was {}",
                         IllegalArgumentException.class.getSimpleName(),
                         ex.getCause() == null ? null : ex.getCause().getClass().getSimpleName()
@@ -154,7 +154,7 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
         try {
 
             for (int i = 0; i < 100; i++) {
-                tbl.insert(Tuple.create().set("ID", i).set("VAL", i));
+                tbl.insert(null, Tuple.create().set("ID", i).set("VAL", i));
             }
 
             // Correlated INNER join.

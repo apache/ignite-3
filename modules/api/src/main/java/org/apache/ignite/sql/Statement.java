@@ -19,7 +19,6 @@ package org.apache.ignite.sql;
 
 import java.util.concurrent.TimeUnit;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * The object represents parameterized SQL query statement that supports batched query, and provides methods for managing it`s state.
