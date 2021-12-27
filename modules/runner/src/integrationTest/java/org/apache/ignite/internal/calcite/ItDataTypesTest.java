@@ -94,10 +94,4 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
         //todo: correct exception https://issues.apache.org/jira/browse/IGNITE-16095
         assertThrows(IgniteException.class, () -> sql("INSERT INTO tbl(c1, c2) VALUES (2, NULL)"));
     }
-
-    /** Tests NOT NULL and DEFAULT column constraints. */
-    @Test
-    public void test0() {
-        sql("non sql syntax");
-    }
 }
