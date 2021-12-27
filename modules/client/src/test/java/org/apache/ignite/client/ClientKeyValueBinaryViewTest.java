@@ -172,7 +172,7 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
     public void testContainsThrowsOnEmptyKey() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
 
-        var ex = assertThrows(CompletionException.class, () -> kvView.contains(null, Tuple.create()));
+        var ex = assertThrows(IgniteClientException.class, () -> kvView.contains(null, Tuple.create()));
         assertTrue(ex.getMessage().contains("Missed key column: id"), ex.getMessage());
     }
 
