@@ -17,6 +17,7 @@
 
 package org.apache.ignite.sql.async;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.Statement;
@@ -58,14 +59,14 @@ public interface AsyncSession {
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param query SQL query template.
-     * @param batch Array of batch rows, where each row is an array of query template arguments.
+     * @param batch List of batch rows, where each row is a list of statement arguments.
      * @return Operation future.
      * @throws SqlException If failed.
      */
     @NotNull CompletableFuture<Integer> executeBatchAsync(
             @Nullable Transaction transaction,
             @NotNull String query,
-            @Nullable Object[][] batch
+            @NotNull List<List<@Nullable Object>> batch
     );
 
     /**
@@ -73,14 +74,14 @@ public interface AsyncSession {
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param statement SQL statement to execute.
-     * @param batch Array of batch rows, where each row is an array of statement arguments.
+     * @param batch List of batch rows, where each row is a list of statement arguments.
      * @return Operation future.
      * @throws SqlException If failed.
      */
     @NotNull CompletableFuture<Integer> executeBatchAsync(
             @Nullable Transaction transaction,
             @NotNull Statement statement,
-            @Nullable Object[][] batch
+            @NotNull List<List<@Nullable Object>> batch
     );
 
     /**

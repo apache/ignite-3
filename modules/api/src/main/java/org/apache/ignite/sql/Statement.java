@@ -36,7 +36,7 @@ public interface Statement {
      *
      * @return {@code true} if this is prepared statement, {@code false} otherwise.
      */
-    boolean isPrepared();
+    boolean prepared();
 
     /**
      * Sets query timeout.
