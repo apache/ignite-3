@@ -223,9 +223,8 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     /** {@inheritDoc} */
     @Override
     @Nullable
-    public <T> T unmarshal(byte[] bytes, IdIndexedDescriptors remoteDescriptors) throws UnmarshalException {
-        IdIndexedDescriptors descriptorsForUnmarshalling = new MergingIdIndexedDescriptors(remoteDescriptors, descriptorRegistry);
-        UnmarshallingContext context = new UnmarshallingContext(descriptorsForUnmarshalling);
+    public <T> T unmarshal(byte[] bytes, IdIndexedDescriptors mergedDescriptors) throws UnmarshalException {
+        UnmarshallingContext context = new UnmarshallingContext(mergedDescriptors);
 
         try (var dis = new DataInputStream(new ByteArrayInputStream(bytes))) {
             return unmarshalFromInput(dis, context);

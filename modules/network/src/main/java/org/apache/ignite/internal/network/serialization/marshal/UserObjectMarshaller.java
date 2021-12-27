@@ -41,11 +41,12 @@ public interface UserObjectMarshaller {
      * Unmarshals an object.
      *
      * @param bytes             bytes representing the marshalled object
-     * @param remoteDescriptors the remote descriptors that need to be used for unmarshalling
+     * @param mergedDescriptors the remote descriptors that need to be used for unmarshalling plus our local descriptors
+     *                          (remote ones have the priority)
      * @param <T> expected type
      * @return unmarshalled object
      * @throws UnmarshalException if unmarshalling fails
      */
     @Nullable
-    <T> T unmarshal(byte[] bytes, IdIndexedDescriptors remoteDescriptors) throws UnmarshalException;
+    <T> T unmarshal(byte[] bytes, IdIndexedDescriptors mergedDescriptors) throws UnmarshalException;
 }
