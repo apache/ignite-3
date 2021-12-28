@@ -189,18 +189,23 @@ public class KeyValueViewOperationsTest {
         // Put KV pair.
         tbl.put(null, key, val);
 
+        assertEquals(val, tbl.get(null, key));
+        assertEquals(val, tbl.getOrDefault(null, key, null));
         assertEquals(val, tbl.getOrDefault(null, key, defaultTuple));
 
         // Remove KV pair.
         tbl.remove(null, key);
 
         assertNull(tbl.get(null, key));
+        assertNull(tbl.getOrDefault(null, key, null));
         assertEquals(defaultTuple, tbl.getOrDefault(null, key, defaultTuple));
 
         // Put KV pair.
         tbl.put(null, key, val2);
         assertEquals(val2, tbl.get(null, key));
         assertEquals(val2, tbl.getOrDefault(null, key, defaultTuple));
+
+        assertThrows(Throwable.class, () -> tbl.getOrDefault(null, null, defaultTuple));
     }
 
     @Test

@@ -201,6 +201,8 @@ public class KeyValueBinaryViewOperationsTest {
         tbl.put(null, key, val2);
         assertEquals(val2, tbl.get(null, key));
         assertEquals(val2, tbl.getOrDefault(null, key, defaultTuple));
+
+        assertThrows(Throwable.class, () -> tbl.getOrDefault(null, null, defaultTuple));
     }
 
     @Test

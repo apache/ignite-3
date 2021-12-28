@@ -179,21 +179,23 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         tbl.put(null, 1L, null);
 
         assertThrows(IgniteException.class, () -> tbl.get(null, 1L));
-        assertNull(tbl.getOrDefault(null, 1L, Long.MAX_VALUE));
+        assertNull(tbl.getOrDefault(null, 1L, null));
+        assertEquals(Long.MAX_VALUE, tbl.getOrDefault(null, 1L, Long.MAX_VALUE));
 
         // Remove KV pair.
         tbl.remove(null, 1L);
 
         assertNull(tbl.get(null, 1L));
+        assertNull(tbl.getOrDefault(null, 1L, null));
         assertEquals(Long.MAX_VALUE, tbl.getOrDefault(null, 1L, Long.MAX_VALUE));
 
         // Put KV pair.
         tbl.put(null, 1L, 22L);
         assertEquals(22L, tbl.get(null, 1L));
+        assertEquals(22L, tbl.getOrDefault(null, 1L, null));
         assertEquals(22L, tbl.getOrDefault(null, 1L, Long.MAX_VALUE));
 
         assertThrows(Throwable.class, () -> tbl.getOrDefault(null, null, Long.MAX_VALUE));
-        assertThrows(Throwable.class, () -> tbl.getOrDefault(null, 1L, null));
     }
 
     @Test
