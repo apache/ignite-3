@@ -24,7 +24,7 @@ public interface TimeoutStrategy {
     /**
      * Get next timeout.
      *
-     * @return Get next timeout.
+     * @return Next timeout.
      */
     int nextTimeout();
 

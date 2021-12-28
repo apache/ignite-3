@@ -21,6 +21,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
 
+/**
+ * Test for {@link ExponentialBackoffTimeoutStrategy}.
+ */
 public class ExponentialBackoffTimeoutStrategyTest {
 
     @Test

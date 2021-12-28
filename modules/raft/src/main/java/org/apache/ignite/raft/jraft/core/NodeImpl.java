@@ -618,12 +618,12 @@ public class NodeImpl implements Node, RaftServerService {
      * TimeoutStrategy}
      * <p>
      * Notes about general algorithm: the main idea is that in a stable cluster election timeout should be relatively small, but when
-     * cluster has unstable network, we don't want to have a lot of elections, so election timeout is adjusted, while membership layer could
-     * solve the instability problem, for example, by removing failed nodes from the cluster. Hence, the upper bound of the election timeout
-     * adjusting is the value, that is guaranteed to be greater than timeout of removing a
-     * failed node form the cluster by membership protocol.
+     * something is preventing elections from a completion, like unstable network or long GC pauses,
+     * we don't want to have a lot of elections, so election timeout is adjusted.
+     * Hence, the upper bound of the election timeout adjusting is the value, that is enough to elect leader or handle problems that prevent
+     * a successful leader election.
      * <p>
-     * After a successful leader election election timeout is set to an initial value.
+     * Leader election timeout is set to an initial value after a successful election of a leader.
      */
     private void adjustElectionTimeout() {
         if (options.getElectionTimeoutStrategy() instanceof NoopTimeoutStrategy) {

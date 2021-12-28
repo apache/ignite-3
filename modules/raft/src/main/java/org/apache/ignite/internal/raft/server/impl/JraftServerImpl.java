@@ -75,7 +75,7 @@ public class JraftServerImpl implements RaftServer {
     /**
      * The upper bound of the election timeout adjusting. Adjusting happens according to
      * {@link org.apache.ignite.raft.jraft.util.TimeoutStrategy} when a leader is not elected.
-     * Must be more than timeout of a membership protocol to remove failed node from the cluster. In our case,we may assume
+     * Must be more than timeout of a membership protocol to remove failed node from the cluster. In our case, we may assume
      * that 11s could be enough as far as 11s is greater than suspicion timeout for the 1000 nodes cluster with ping interval
      * equals to 500ms.
      */

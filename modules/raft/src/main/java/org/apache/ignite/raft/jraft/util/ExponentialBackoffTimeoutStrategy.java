@@ -39,7 +39,7 @@ public class ExponentialBackoffTimeoutStrategy implements TimeoutStrategy {
     /* Overall number of retries to get next timeout without adjusting timeout. */
     private final int retryCounter;
 
-    /** Current Number of retries without adjusting timeout. */
+    /** Current counter of retries without adjusting timeout. */
     private int currentRetry;
 
     /**
