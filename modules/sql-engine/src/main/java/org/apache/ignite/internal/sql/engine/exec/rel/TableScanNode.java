@@ -32,7 +32,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
-import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.StorageEngineBridge;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -42,11 +42,10 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
     /** Special value to highlights that all row were received and we are not waiting any more. */
     private static final int NOT_WAITING = -1;
 
-    /** Table that provides access to underlying data. */
-    private final InternalTable physTable;
+    private final StorageEngineBridge bridge;
 
     /** Table that is an object in SQL schema. */
-    private final InternalIgniteTable schemaTable;
+    private final InternalIgniteTable table;
 
     private final RowHandler.RowFactory<RowT> factory;
 
@@ -76,7 +75,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
      *
      * @param ctx             Execution context.
      * @param rowType         Output type of the current node.
-     * @param schemaTable     The table this node should scan.
+     * @param table           The table this node should scan.
      * @param parts           Partition numbers to scan.
      * @param filters         Optional filter to filter out rows.
      * @param rowTransformer  Optional projection function.
@@ -85,7 +84,8 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
     public TableScanNode(
             ExecutionContext<RowT> ctx,
             RelDataType rowType,
-            InternalIgniteTable schemaTable,
+            StorageEngineBridge bridge,
+            InternalIgniteTable table,
             int[] parts,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
@@ -95,8 +95,8 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
 
         assert !nullOrEmpty(parts);
 
-        this.physTable = schemaTable.table();
-        this.schemaTable = schemaTable;
+        this.bridge = bridge;
+        this.table = table;
         this.parts = parts;
         this.filters = filters;
         this.rowTransformer = rowTransformer;
@@ -211,7 +211,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
         if (subscription != null) {
             subscription.request(waiting);
         } else if (curPartIdx < parts.length) {
-            physTable.scan(parts[curPartIdx++], null).subscribe(new SubscriberImpl());
+            bridge.scan(table.id(), parts[curPartIdx++], null).subscribe(new SubscriberImpl());
         } else {
             waiting = NOT_WAITING;
         }
@@ -269,6 +269,6 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     private RowT convert(BinaryRow binRow) {
-        return schemaTable.toRow(context(), binRow, factory, requiredColumns);
+        return table.toRow(context(), binRow, factory, requiredColumns);
     }
 }

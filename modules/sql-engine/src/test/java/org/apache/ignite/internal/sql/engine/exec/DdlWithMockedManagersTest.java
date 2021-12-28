@@ -151,7 +151,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
     void before() throws NodeStoppingException {
         tblManager = mockManagers();
 
-        queryProc = new SqlQueryProcessor(cs, tblManager);
+        queryProc = new SqlQueryProcessor(cs, tblManager, null);
 
         queryProc.start();
     }
@@ -443,7 +443,8 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
                 bm,
                 ts,
                 workDir,
-                tm
+                tm,
+                null
         );
 
         tableManager.start();

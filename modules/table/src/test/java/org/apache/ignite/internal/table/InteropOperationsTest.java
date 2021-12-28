@@ -119,10 +119,10 @@ public class InteropOperationsTest {
         INT_TABLE = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(SCHEMA);
 
-        TABLE = new TableImpl(INT_TABLE, schemaRegistry);
-        KV_BIN_VIEW =  new KeyValueBinaryViewImpl(INT_TABLE, schemaRegistry);
+        TABLE = new TableImpl(INT_TABLE, schemaRegistry, null);
+        KV_BIN_VIEW =  new KeyValueBinaryViewImpl(INT_TABLE.tableId(), null, schemaRegistry);
 
-        KV_VIEW = new KeyValueViewImpl<Long, Value>(INT_TABLE, schemaRegistry,
+        KV_VIEW = new KeyValueViewImpl<>(INT_TABLE.tableId(), null, schemaRegistry,
                 Mapper.of(Long.class, "id"), Mapper.of(Value.class));
 
         R_BIN_VIEW = TABLE.recordView();

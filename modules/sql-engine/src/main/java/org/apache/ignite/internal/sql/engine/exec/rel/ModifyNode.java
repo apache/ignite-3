@@ -30,7 +30,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.StorageEngineBridge;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -44,7 +44,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     private final List<String> cols;
 
-    private final InternalTable tableView;
+    private final StorageEngineBridge bridge;
 
     private List<BinaryRow> rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
@@ -70,6 +70,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
      */
     public ModifyNode(
             ExecutionContext<RowT> ctx,
+            StorageEngineBridge bridge,
             RelDataType rowType,
             InternalIgniteTable table,
             TableModify.Operation op,
@@ -80,8 +81,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         this.table = table;
         this.op = op;
         this.cols = cols;
-
-        tableView = table.table();
+        this.bridge = bridge;
     }
 
     /** {@inheritDoc} */
@@ -196,7 +196,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         // TODO: IGNITE-15087 Implement support for transactional SQL
         switch (op) {
             case INSERT:
-                Collection<BinaryRow> duplicates = tableView.insertAll(rows, null).join();
+                Collection<BinaryRow> duplicates = bridge.insertAll(table.id(), rows, null).join();
 
                 if (!duplicates.isEmpty()) {
                     IgniteTypeFactory typeFactory = context().getTypeFactory();
@@ -208,7 +208,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
                     throw new IgniteInternalException(
                             "Failed to INSERT some keys because they are already in cache. "
                                     + "[rows=" + duplicates.stream()
-                                    .map(binRow -> table.toRow(context(), binRow, rowFactory, null))
+                                    .map(row -> table.toRow(context(), row, rowFactory, null))
                                     .map(context().rowHandler()::toString)
                                     .collect(Collectors.toList()) + ']'
                     );
@@ -216,11 +216,11 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
                 break;
             case UPDATE:
-                tableView.upsertAll(rows, null).join();
+                bridge.upsertAll(table.id(), rows, null).join();
 
                 break;
             case DELETE:
-                tableView.deleteAll(rows, null).join();
+                bridge.deleteAll(table.id(), rows, null);
 
                 break;
             default:

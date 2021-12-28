@@ -223,7 +223,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 NetworkAddress::toString,
                 txMgr,
                 Mockito.mock(TableStorage.class)
-        ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
+        ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), null);
 
         this.customers = new TableImpl(new InternalTableImpl(
                 customersName,
@@ -233,7 +233,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 NetworkAddress::toString,
                 txMgr,
                 Mockito.mock(TableStorage.class)
-        ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
+        ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), null);
 
         log.info("Tables have been started");
     }

@@ -163,7 +163,8 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
         return new TableImpl(
                 new FakeInternalTable(name, new IgniteUuid(UUID.randomUUID(), 0)),
-                new FakeSchemaRegistry(history)
+                new FakeSchemaRegistry(history),
+                null
         );
     }
 

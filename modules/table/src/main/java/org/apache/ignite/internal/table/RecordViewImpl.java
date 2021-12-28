@@ -35,6 +35,7 @@ import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerI
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -55,12 +56,12 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /**
      * Constructor.
      *
-     * @param tbl       Table.
+     * @param bridge       Table.
      * @param schemaReg Schema registry.
      * @param mapper    Record class mapper.
      */
-    public RecordViewImpl(InternalTable tbl, SchemaRegistry schemaReg, Mapper<R> mapper) {
-        super(tbl, schemaReg);
+    public RecordViewImpl(IgniteUuid tableId, StorageEngineBridge bridge, SchemaRegistry schemaReg, Mapper<R> mapper) {
+        super(tableId, bridge, schemaReg);
 
         marshallerFactory = (schema) -> new RecordMarshallerImpl<>(schema, mapper);
     }
@@ -76,7 +77,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<R> getAsync(@Nullable Transaction tx, @NotNull R keyRec) {
         BinaryRow keyRow = marshalKey(Objects.requireNonNull(keyRec));
 
-        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return bridge.get(tableId, keyRow, (InternalTransaction) tx).thenApply(this::unmarshal);
     }
 
     /** {@inheritDoc} */
@@ -90,7 +91,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<Collection<R>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return tbl.getAll(marshalKeys(keyRecs), (InternalTransaction) tx).thenApply(this::unmarshal);
+        return bridge.getAll(tableId, marshalKeys(keyRecs), (InternalTransaction) tx).thenApply(this::unmarshal);
     }
 
     /** {@inheritDoc} */
@@ -104,7 +105,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, @NotNull R rec) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(rec));
 
-        return tbl.upsert(keyRow, (InternalTransaction) tx);
+        return bridge.upsert(tableId, keyRow, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -118,7 +119,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, @NotNull Collection<R> recs) {
         Objects.requireNonNull(recs);
 
-        return tbl.upsertAll(marshal(recs), (InternalTransaction) tx);
+        return bridge.upsertAll(tableId, marshal(recs), (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -132,7 +133,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<R> getAndUpsertAsync(@Nullable Transaction tx, @NotNull R rec) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(rec));
 
-        return tbl.getAndUpsert(keyRow, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return bridge.getAndUpsert(tableId, keyRow, (InternalTransaction) tx).thenApply(this::unmarshal);
     }
 
     /** {@inheritDoc} */
@@ -146,7 +147,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, @NotNull R rec) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(rec));
 
-        return tbl.insert(keyRow, (InternalTransaction) tx);
+        return bridge.insert(tableId, keyRow, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -160,7 +161,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<Collection<R>> insertAllAsync(@Nullable Transaction tx, @NotNull Collection<R> recs) {
         Collection<BinaryRow> rows = marshal(Objects.requireNonNull(recs));
 
-        return tbl.insertAll(rows, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return bridge.insertAll(tableId, rows, (InternalTransaction) tx).thenApply(this::unmarshal);
     }
 
     /** {@inheritDoc} */
@@ -180,7 +181,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull R rec) {
         BinaryRow newRow = marshal(Objects.requireNonNull(rec));
 
-        return tbl.replace(newRow, (InternalTransaction) tx);
+        return bridge.replace(tableId, newRow, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -189,7 +190,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         BinaryRow oldRow = marshal(Objects.requireNonNull(oldRec));
         BinaryRow newRow = marshal(Objects.requireNonNull(newRec));
 
-        return tbl.replace(oldRow, newRow, (InternalTransaction) tx);
+        return bridge.replace(tableId, oldRow, newRow, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -203,7 +204,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<R> getAndReplaceAsync(@Nullable Transaction tx, @NotNull R rec) {
         BinaryRow row = marshal(Objects.requireNonNull(rec));
 
-        return tbl.getAndReplace(row, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return bridge.getAndReplace(tableId, row, (InternalTransaction) tx).thenApply(this::unmarshal);
     }
 
     /** {@inheritDoc} */
@@ -217,7 +218,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, @NotNull R keyRec) {
         BinaryRow row = marshalKey(Objects.requireNonNull(keyRec));
 
-        return tbl.delete(row, (InternalTransaction) tx);
+        return bridge.delete(tableId, row, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -231,7 +232,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, @NotNull R keyRec) {
         BinaryRow row = marshal(Objects.requireNonNull(keyRec));
 
-        return tbl.deleteExact(row, (InternalTransaction) tx);
+        return bridge.deleteExact(tableId, row, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -245,7 +246,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<R> getAndDeleteAsync(@Nullable Transaction tx, @NotNull R keyRec) {
         BinaryRow row = marshalKey(keyRec);
 
-        return tbl.getAndDelete(row, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return bridge.getAndDelete(tableId, row, (InternalTransaction) tx).thenApply(this::unmarshal);
     }
 
     /** {@inheritDoc} */
@@ -259,7 +260,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
         Collection<BinaryRow> rows = marshal(Objects.requireNonNull(keyRecs));
 
-        return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return bridge.deleteAll(tableId, rows, (InternalTransaction) tx).thenApply(this::unmarshal);
     }
 
     /** {@inheritDoc} */
@@ -273,7 +274,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
         Collection<BinaryRow> rows = marshal(Objects.requireNonNull(keyRecs));
 
-        return tbl.deleteAllExact(rows, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return bridge.deleteAllExact(tableId, rows, (InternalTransaction) tx).thenApply(this::unmarshal);
     }
 
     /** {@inheritDoc} */

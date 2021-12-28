@@ -103,6 +103,8 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.table.StorageEngineBridge;
+import org.apache.ignite.internal.table.StorageEngineManager;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -123,6 +125,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
     private final ExpressionFactory<RowT> expressionFactory;
 
+    private final StorageEngineManager storageEngineManager;
+
     /**
      * Constructor.
      *
@@ -135,12 +139,14 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
             ExecutionContext<RowT> ctx,
             AffinityService affSrvc,
             MailboxRegistry mailboxRegistry,
-            ExchangeService exchangeSvc
+            ExchangeService exchangeSvc,
+            StorageEngineManager storageEngineManager
     ) {
         this.affSrvc = affSrvc;
         this.mailboxRegistry = mailboxRegistry;
         this.exchangeSvc = exchangeSvc;
         this.ctx = ctx;
+        this.storageEngineManager = storageEngineManager;
 
         expressionFactory = ctx.expressionFactory();
     }
@@ -339,6 +345,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         return new TableScanNode<>(
                 ctx,
                 rowType,
+                // TODO: derive engine name from IgniteTableScan relation
+                storageEngineManager.get(StorageEngineManager.ROCKS_DB),
                 tbl,
                 group.partitions(ctx.localNodeId()),
                 filters,
@@ -519,7 +527,10 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
                 assert tbl != null;
 
-                ModifyNode<RowT> node = new ModifyNode<>(ctx, rel.getRowType(), tbl,
+                // TODO: derive engine name from IgniteTableModify relation
+                StorageEngineBridge bridge = storageEngineManager.get(StorageEngineManager.ROCKS_DB);
+
+                ModifyNode<RowT> node = new ModifyNode<>(ctx, bridge, rel.getRowType(), tbl,
                         rel.getOperation(), rel.getUpdateColumnList());
 
                 Node<RowT> input = visit(rel.getInput());

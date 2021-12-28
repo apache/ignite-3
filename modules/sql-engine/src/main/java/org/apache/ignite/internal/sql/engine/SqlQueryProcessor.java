@@ -37,6 +37,7 @@ import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlanCache;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlanCacheImpl;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
+import org.apache.ignite.internal.table.StorageEngineManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
@@ -69,6 +70,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Event listeners to close. */
     private final List<Pair<TableEvent, EventListener<TableEventParameters>>> evtLsnrs = new ArrayList<>();
 
+    private final StorageEngineManager storageEngineManager;
+
     private volatile ExecutionService executionSrvc;
 
     private volatile MessageService msgSrvc;
@@ -77,12 +80,15 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile Map<String, SqlExtension> extensions;
 
+    /** TBD. */
     public SqlQueryProcessor(
             ClusterService clusterSrvc,
-            TableManager tableManager
+            TableManager tableManager,
+            StorageEngineManager storageEngineManager
     ) {
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
+        this.storageEngineManager = storageEngineManager;
     }
 
     /** {@inheritDoc} */
@@ -116,7 +122,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 tableManager,
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
-                extensions
+                extensions,
+                storageEngineManager
         );
 
         registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaHolder));

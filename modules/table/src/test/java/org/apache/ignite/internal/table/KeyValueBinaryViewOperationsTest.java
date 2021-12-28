@@ -376,7 +376,7 @@ public class KeyValueBinaryViewOperationsTest {
                 new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager),
                 txManager);
 
-        return new TableImpl(table, new DummySchemaManagerImpl(schema));
+        return new TableImpl(table, new DummySchemaManagerImpl(schema), null);
     }
 
     /**

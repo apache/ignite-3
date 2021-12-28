@@ -181,7 +181,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 bm,
                 ts,
                 workDir,
-                tm
+                tm,
+                null
         );
 
         assertEquals(1, tableManager.tables().size());
@@ -506,7 +507,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 bm,
                 ts,
                 workDir,
-                tm
+                tm,
+                null
         );
 
         tableManager.start();

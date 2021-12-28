@@ -47,6 +47,9 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.table.RockDbStorageEngineBridge;
+import org.apache.ignite.internal.table.StorageEngineManager;
+import org.apache.ignite.internal.table.StorageEngineManager.StorageEngineManagerImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.tx.TxManager;
@@ -210,6 +213,8 @@ public class IgniteImpl implements Ignite {
                 clusterSvc
         );
 
+        StorageEngineManager storageEngineManager = new StorageEngineManagerImpl();
+
         distributedTblMgr = new TableManager(
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
@@ -217,12 +222,16 @@ public class IgniteImpl implements Ignite {
                 baselineMgr,
                 clusterSvc.topologyService(),
                 getPartitionsStorePath(workDir),
-                txManager
+                txManager,
+                storageEngineManager
         );
+
+        storageEngineManager.register(StorageEngineManager.ROCKS_DB, new RockDbStorageEngineBridge(distributedTblMgr));
 
         qryEngine = new SqlQueryProcessor(
                 clusterSvc,
-                distributedTblMgr
+                distributedTblMgr,
+                storageEngineManager
         );
 
         restModule = new RestModule(nodeCfgMgr, clusterCfgMgr, nettyBootstrapFactory);

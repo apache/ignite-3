@@ -22,13 +22,16 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteUuid;
 
 /**
  * Base class for Table views.
  */
 abstract class AbstractTableView {
+    protected final IgniteUuid tableId;
+
     /** Internal table. */
-    protected final InternalTable tbl;
+    protected final StorageEngineBridge bridge;
 
     /** Schema registry. */
     protected final SchemaRegistry schemaReg;
@@ -36,11 +39,12 @@ abstract class AbstractTableView {
     /**
      * Constructor.
      *
-     * @param tbl       Internal table.
+     * @param bridge    Internal table.
      * @param schemaReg Schema registry.
      */
-    protected AbstractTableView(InternalTable tbl, SchemaRegistry schemaReg) {
-        this.tbl = tbl;
+    protected AbstractTableView(IgniteUuid tableId, StorageEngineBridge bridge, SchemaRegistry schemaReg) {
+        this.tableId = tableId;
+        this.bridge = bridge;
         this.schemaReg = schemaReg;
     }
 

@@ -436,7 +436,7 @@ public class RecordBinaryViewOperationsTest {
                 new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager),
                 txManager);
 
-        return new TableImpl(table, new DummySchemaManagerImpl(schema));
+        return new TableImpl(table, new DummySchemaManagerImpl(schema), null);
     }
 
     private <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {

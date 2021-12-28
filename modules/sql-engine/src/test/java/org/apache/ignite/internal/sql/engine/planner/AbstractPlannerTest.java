@@ -529,6 +529,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     abstract static class TestTable implements InternalIgniteTable {
+        private final IgniteUuid id = new IgniteUuid(UUID.randomUUID(), 0L);
+
         private final String name;
 
         private final RelProtoDataType protoType;
@@ -538,8 +540,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         private final double rowCnt;
 
         private final TableDescriptor desc;
-
-        private final IgniteUuid id = new IgniteUuid(UUID.randomUUID(), 0L);
 
         TestTable(RelDataType type) {
             this(type, 100.0);

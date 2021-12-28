@@ -32,12 +32,17 @@ import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite internal table.
  */
 public interface InternalIgniteTable extends IgniteTable {
+    /** {@inheritDoc} */
+    @Override
+    IgniteUuid id();
+
     /** {@inheritDoc} */
     @Override
     default IgniteLogicalTableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl) {

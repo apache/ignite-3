@@ -67,7 +67,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
     private final SchemaRegistry schemaRegistry;
 
-    public final SchemaDescriptor schemaDescriptor;
+    private final SchemaDescriptor schemaDescriptor;
 
     private final Statistic statistic;
 

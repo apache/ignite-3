@@ -124,7 +124,7 @@ public class StopCalciteModuleTest {
         doAnswer(invocation -> {
             EventListener<TableEventParameters> clo = (EventListener<TableEventParameters>) invocation.getArguments()[1];
 
-            clo.notify(new TableEventParameters(new IgniteUuid(UUID.randomUUID(), 0), "TEST", new TableImpl(tbl, schemaReg)),
+            clo.notify(new TableEventParameters(new IgniteUuid(UUID.randomUUID(), 0), "TEST", new TableImpl(tbl, schemaReg, null)),
                     null);
 
             return null;
@@ -169,7 +169,7 @@ public class StopCalciteModuleTest {
 
     @Test
     public void testStopQueryOnNodeStop() throws Exception {
-        SqlQueryProcessor qryProc = new SqlQueryProcessor(clusterSrvc, tableManager);
+        SqlQueryProcessor qryProc = new SqlQueryProcessor(clusterSrvc, tableManager, null);
 
         when(tbl.tableId()).thenReturn(new IgniteUuid(UUID.randomUUID(), 0L));
 

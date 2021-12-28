@@ -33,6 +33,7 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -50,11 +51,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     /**
      * The constructor.
      *
-     * @param tbl       Table storage.
      * @param schemaReg Schema registry.
      */
-    public KeyValueBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg) {
-        super(tbl, schemaReg);
+    public KeyValueBinaryViewImpl(IgniteUuid tableId, StorageEngineBridge bridge, SchemaRegistry schemaReg) {
+        super(tableId, bridge, schemaReg);
 
         marsh = new TupleMarshallerImpl(schemaReg);
     }
@@ -72,7 +72,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         Row keyRow = marshal(key, null); // Convert to portable format to pass TX/storage layer.
 
-        return tbl.get(keyRow, (InternalTransaction) tx)  // Load async.
+        return bridge.get(tableId, keyRow, (InternalTransaction) tx)  // Load async.
                 .thenApply(this::wrap) // Binary -> schema-aware row
                 .thenApply(TableRow::valueTuple); // Narrow to value.
     }
@@ -96,7 +96,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
             keyRows.add(keyRow);
         }
 
-        return tbl.getAll(keyRows, (InternalTransaction) tx)
+        return bridge.getAll(tableId, keyRows, (InternalTransaction) tx)
                 .thenApply(ts -> ts.stream().filter(Objects::nonNull).filter(BinaryRow::hasValue).map(this::wrap)
                         .collect(Collectors.toMap(TableRow::keyTuple, TableRow::valueTuple)));
     }
@@ -126,7 +126,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         Row row = marshal(key, val); // Convert to portable format to pass TX/storage layer.
 
-        return tbl.upsert(row, (InternalTransaction) tx);
+        return bridge.upsert(tableId, row, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -148,7 +148,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
             rows.add(row);
         }
 
-        return tbl.upsertAll(rows, (InternalTransaction) tx);
+        return bridge.upsertAll(tableId, rows, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -164,7 +164,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         Row row = marshal(key, val); // Convert to portable format to pass TX/storage layer.
 
-        return tbl.getAndUpsert(row, (InternalTransaction) tx)
+        return bridge.getAndUpsert(tableId, row, (InternalTransaction) tx)
                 .thenApply(this::wrap) // Binary -> schema-aware row
                 .thenApply(TableRow::valueTuple); // Narrow to value.
     }
@@ -182,7 +182,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         Row row = marshal(key, val); // Convert to portable format to pass TX/storage layer.
 
-        return tbl.insert(row, (InternalTransaction) tx);
+        return bridge.insert(tableId, row, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -204,7 +204,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         Row row = marshal(key, null); // Convert to portable format to pass TX/storage layer.
 
-        return tbl.delete(row, (InternalTransaction) tx);
+        return bridge.delete(tableId, row, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -215,7 +215,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         Row row = marshal(key, val); // Convert to portable format to pass TX/storage layer.
 
-        return tbl.deleteExact(row, (InternalTransaction) tx);
+        return bridge.deleteExact(tableId, row, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -239,7 +239,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
             keyRows.add(keyRow);
         }
 
-        return tbl.deleteAll(keyRows, (InternalTransaction) tx)
+        return bridge.deleteAll(tableId, keyRows, (InternalTransaction) tx)
                 .thenApply(t -> t.stream().filter(Objects::nonNull).map(this::wrap).map(TableRow::valueTuple).collect(Collectors.toList()));
     }
 
@@ -256,7 +256,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public @NotNull CompletableFuture<Tuple> getAndRemoveAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         Objects.requireNonNull(key);
 
-        return tbl.getAndDelete(marshal(key, null), (InternalTransaction) tx)
+        return bridge.getAndDelete(tableId, marshal(key, null), (InternalTransaction) tx)
                 .thenApply(this::wrap)
                 .thenApply(TableRow::valueTuple);
     }
@@ -281,7 +281,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         Row row = marshal(key, val); // Convert to portable format to pass TX/storage layer.
 
-        return tbl.replace(row, (InternalTransaction) tx);
+        return bridge.replace(tableId, row, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -299,7 +299,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Row oldRow = marshal(key, oldVal); // Convert to portable format to pass TX/storage layer.
         Row newRow = marshal(key, newVal); // Convert to portable format to pass TX/storage layer.
 
-        return tbl.replace(oldRow, newRow, (InternalTransaction) tx);
+        return bridge.replace(tableId, oldRow, newRow, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -314,7 +314,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        return tbl.getAndReplace(marshal(key, val), (InternalTransaction) tx)
+        return bridge.getAndReplace(tableId, marshal(key, val), (InternalTransaction) tx)
                 .thenApply(this::wrap)
                 .thenApply(TableRow::valueTuple);
     }

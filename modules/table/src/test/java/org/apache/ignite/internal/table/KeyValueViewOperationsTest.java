@@ -405,7 +405,8 @@ public class KeyValueViewOperationsTest {
         assertEquals(Collections.emptySet(), missedTypes);
 
         return new KeyValueViewImpl<>(
-                table,
+                table.tableId(),
+                null,
                 new DummySchemaManagerImpl(schema),
                 keyMapper,
                 valMapper

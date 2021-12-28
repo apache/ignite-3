@@ -55,7 +55,7 @@ public class Example {
         TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager());
 
         return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(new VersionedRowStore(
-                new ConcurrentHashMapPartitionStorage(), txManager), txManager), null));
+                new ConcurrentHashMapPartitionStorage(), txManager), txManager), null, null));
     }
 
     /**

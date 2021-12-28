@@ -42,15 +42,18 @@ public class TableImpl implements Table {
     /** Schema registry. */
     private final SchemaRegistry schemaReg;
 
+    private final StorageEngineManager storageEngineManager;
+
     /**
      * Constructor.
      *
      * @param tbl       The table.
      * @param schemaReg Table schema registry.
      */
-    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg) {
+    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, StorageEngineManager storageEngineManager) {
         this.tbl = tbl;
         this.schemaReg = schemaReg;
+        this.storageEngineManager = storageEngineManager;
     }
 
     /**
@@ -84,25 +87,26 @@ public class TableImpl implements Table {
     /** {@inheritDoc} */
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
-        return new RecordViewImpl<>(tbl, schemaReg, recMapper);
+        return new RecordViewImpl<>(tbl.tableId(), storageEngineManager.get(StorageEngineManager.ROCKS_DB), schemaReg, recMapper);
     }
 
     /** {@inheritDoc} */
     @Override
     public RecordView<Tuple> recordView() {
-        return new RecordBinaryViewImpl(tbl, schemaReg);
+        return new RecordBinaryViewImpl(tbl.tableId(), storageEngineManager.get(StorageEngineManager.ROCKS_DB), schemaReg);
     }
 
     /** {@inheritDoc} */
     @Override
     public <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper) {
-        return new KeyValueViewImpl<>(tbl, schemaReg, keyMapper, valMapper);
+        return new KeyValueViewImpl<>(tbl.tableId(),
+                storageEngineManager.get(StorageEngineManager.ROCKS_DB), schemaReg, keyMapper, valMapper);
     }
 
     /** {@inheritDoc} */
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
-        return new KeyValueBinaryViewImpl(tbl, schemaReg);
+        return new KeyValueBinaryViewImpl(tbl.tableId(), storageEngineManager.get(StorageEngineManager.ROCKS_DB), schemaReg);
     }
 
     /**

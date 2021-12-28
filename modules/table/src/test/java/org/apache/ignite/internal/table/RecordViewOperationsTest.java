@@ -351,7 +351,8 @@ public class RecordViewOperationsTest {
         assertEquals(Collections.emptySet(), missedTypes);
 
         return new RecordViewImpl<>(
-                table,
+                table.tableId(),
+                null,
                 new DummySchemaManagerImpl(schema),
                 recMapper
         );

@@ -96,6 +96,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.NodeLeaveHandler;
 import org.apache.ignite.internal.sql.engine.util.TransformingIterator;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.table.StorageEngineManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.Cancellable;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -151,6 +152,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
 
     private final DdlCommandHandler ddlCmdHnd;
 
+    private final StorageEngineManager storageEngineManager;
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -163,7 +166,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
             TableManager tblManager,
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
-            Map<String, SqlExtension> extensions
+            Map<String, SqlExtension> extensions,
+            StorageEngineManager storageEngineManager
     ) {
         this.topSrvc = topSrvc;
         this.handler = handler;
@@ -171,6 +175,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         this.sqlSchemaManager = sqlSchemaManager;
         this.taskExecutor = taskExecutor;
         this.extensions = extensions;
+        this.storageEngineManager = storageEngineManager;
         tableManager = tblManager;
 
         ddlCmdHnd = new DdlCommandHandler(tableManager);
@@ -279,7 +284,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
                 Commons.parametersMap(params));
 
         Node<RowT> node = new LogicalRelImplementor<>(ectx, affSrvc, mailboxRegistry,
-                exchangeSrvc).go(fragment.root());
+                exchangeSrvc, storageEngineManager).go(fragment.root());
 
         QueryInfo info = new QueryInfo(ectx, plan, node);
 
@@ -550,7 +555,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
                 ectx,
                 affSrvc,
                 mailboxRegistry,
-                exchangeSrvc
+                exchangeSrvc,
+                storageEngineManager
         ).go(plan.root());
 
         try {

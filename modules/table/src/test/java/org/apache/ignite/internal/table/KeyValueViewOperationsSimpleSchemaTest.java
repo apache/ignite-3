@@ -375,7 +375,8 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         );
 
         return new KeyValueViewImpl<>(
-                table,
+                table.tableId(),
+                null,
                 new DummySchemaManagerImpl(schema),
                 keyMapper,
                 valMapper

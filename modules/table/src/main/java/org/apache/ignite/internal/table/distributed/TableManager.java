@@ -72,6 +72,7 @@ import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.StorageEngineManager;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -150,6 +151,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Prevents double stopping the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    private final StorageEngineManager storageEngineManager;
+
     /**
      * Creates a new table manager.
      *
@@ -167,7 +170,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             BaselineManager baselineMgr,
             TopologyService topologyService,
             Path partitionsStoreDir,
-            TxManager txManager
+            TxManager txManager,
+            StorageEngineManager storageEngineManager
     ) {
         this.tablesCfg = tablesCfg;
         this.dataStorageCfg = dataStorageCfg;
@@ -175,6 +179,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.baselineMgr = baselineMgr;
         this.partitionsStoreDir = partitionsStoreDir;
         this.txManager = txManager;
+        this.storageEngineManager = storageEngineManager;
 
         netAddrResolver = addr -> {
             ClusterNode node = topologyService.getByAddress(addr);
@@ -548,7 +553,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 var table = new TableImpl(
                         internalTable,
-                        schemaRegistry
+                        schemaRegistry,
+                        storageEngineManager
                 );
 
                 tables.put(name, table);
