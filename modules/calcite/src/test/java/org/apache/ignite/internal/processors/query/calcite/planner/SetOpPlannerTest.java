@@ -114,8 +114,8 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 .and(hasChildThat(isInstanceOf(setOp.map)
                         .and(input(0, isTableScan("random_tbl1")))
                         .and(input(1, isTableScan("random_tbl2")))
-                ))
-        );
+                )),
+        "SingleIntersectConverterRule");
     }
 
     /**
