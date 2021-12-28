@@ -35,6 +35,7 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
@@ -127,7 +128,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
         BinaryRow keyRow = marshal(Objects.requireNonNull(key));
 
-        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(r -> r == null ? defaultValue : unmarshalValue(r));
+        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(r -> IgniteUtils.nonNullOrElse(unmarshalValue(r), defaultValue));
     }
 
     /** {@inheritDoc} */

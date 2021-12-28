@@ -187,13 +187,15 @@ public class KeyValueBinaryViewOperationsTest {
         tbl.put(null, key, null);
 
         assertNull(tbl.get(null, key));
-        assertNull(tbl.getOrDefault(null, key, defaultTuple));
+        assertNull(tbl.getOrDefault(null, key, null));
+        assertEquals(defaultTuple, tbl.getOrDefault(null, key, defaultTuple));
 
         // Remove KV pair.
         tbl.remove(null, key);
 
         assertNull(tbl.get(null, key));
         assertEquals(defaultTuple, tbl.getOrDefault(null, key, defaultTuple));
+        assertEquals(null, tbl.getOrDefault(null, key, null));
 
         // Put KV pair.
         tbl.put(null, key, val2);

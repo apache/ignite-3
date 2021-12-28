@@ -31,6 +31,7 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.InvokeProcessor;
@@ -103,18 +104,16 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getOrDefault(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple defaultValue) {
+    public Tuple getOrDefault(@Nullable Transaction tx, @NotNull Tuple key, Tuple defaultValue) {
         return sync(getOrDefaultAsync(tx, key, defaultValue));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getOrDefaultAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple defaultValue) {
-        Objects.requireNonNull(defaultValue);
-
+    public @NotNull CompletableFuture<Tuple> getOrDefaultAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple defaultValue) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(key), null);
 
-        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(r -> r == null ? defaultValue : unmarshal(r));
+        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(r -> IgniteUtils.nonNullOrElse(unmarshal(r), defaultValue));
     }
 
     /** {@inheritDoc} */

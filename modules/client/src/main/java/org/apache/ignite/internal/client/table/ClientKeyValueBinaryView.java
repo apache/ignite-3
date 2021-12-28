@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
@@ -114,20 +115,19 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getOrDefault(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple defaultValue) {
+    public Tuple getOrDefault(@Nullable Transaction tx, @NotNull Tuple key, Tuple defaultValue) {
         return getOrDefaultAsync(tx, key, defaultValue).join();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getOrDefaultAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple defaultValue) {
+    public @NotNull CompletableFuture<Tuple> getOrDefaultAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple defaultValue) {
         Objects.requireNonNull(key);
-        Objects.requireNonNull(defaultValue);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (schema, out) -> tbl.writeTuple(key, schema, out, true),
-                (schema, in) -> Objects.requireNonNullElse(ClientTable.readValueTuple(schema, in), defaultValue));
+                (schema, in) -> IgniteUtils.nonNullOrElse(ClientTable.readValueTuple(schema, in), defaultValue));
     }
 
     /** {@inheritDoc} */

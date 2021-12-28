@@ -608,4 +608,16 @@ public class IgniteUtils {
     public static boolean nullOrEmpty(@Nullable String s) {
         return s == null || s.isEmpty();
     }
+
+    /**
+     * Return {@code obj} if not null, otherwise {@code defaultObj}.
+     *
+     * @param obj Object.
+     * @param defaultObj Default object.
+     * @param <O> Object type.
+     * @return Object or default object.
+     */
+    public static <O> O nonNullOrElse(O obj, O defaultObj) {
+        return (obj != null) ? obj : defaultObj;
+    }
 }

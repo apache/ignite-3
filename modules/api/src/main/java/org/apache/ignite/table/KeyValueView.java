@@ -83,30 +83,26 @@ public interface KeyValueView<K, V> {
     @NotNull CompletableFuture<NullableValue<V>> getNullableAsync(@Nullable Transaction tx, @NotNull K key);
 
     /**
-     * Gets a value associated with the given key if exists, returns {@code defaultValue} otherwise.
-     *
-     * <p>Note: result may be {@code null} if null-values are allowed, and the {@code null} is associated with the key.
+     * Gets a value associated with the given key if exists and not null, otherwise returns {@code defaultValue}.
      *
      * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
-     * @param defaultValue Default value that. The value cannot be {@code null}.
+     * @param defaultValue Default value.
      * @return Value or {@code defaultValue}, if does not exist.
      * @throws IllegalStateException If value for the key exists, and it is {@code null}.
      */
-    V getOrDefault(@Nullable Transaction tx, @NotNull K key, @NotNull V defaultValue);
+    V getOrDefault(@Nullable Transaction tx, @NotNull K key, V defaultValue);
 
     /**
-     * Gets a value associated with the given key if exists, returns {@code defaultValue} otherwise.
-     *
-     * <p>Note: result may be {@code null} if null-values are allowed, and the {@code null} is associated with the key.
+     * Gets a value associated with the given key if exists and not null, otherwise returns {@code defaultValue}.
      *
      * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
-     * @param defaultValue Default value that. The value cannot be {@code null}.
+     * @param defaultValue Default value.
      * @return Future representing pending completion of the operation.
      * @see #getOrDefault(Transaction, Object, Object)
      */
-    @NotNull CompletableFuture<V> getOrDefaultAsync(@Nullable Transaction tx, @NotNull K key, @NotNull V defaultValue);
+    @NotNull CompletableFuture<V> getOrDefaultAsync(@Nullable Transaction tx, @NotNull K key, V defaultValue);
 
     /**
      * Get values associated with given keys.
