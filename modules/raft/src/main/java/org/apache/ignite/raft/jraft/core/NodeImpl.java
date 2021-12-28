@@ -36,8 +36,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
-import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -111,6 +109,7 @@ import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.Describer;
 import org.apache.ignite.raft.jraft.util.DisruptorMetricSet;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
+import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.RepeatedTimer;
 import org.apache.ignite.raft.jraft.util.Requires;
@@ -118,6 +117,7 @@ import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.SystemPropertyUtil;
 import org.apache.ignite.raft.jraft.util.ThreadHelper;
 import org.apache.ignite.raft.jraft.util.ThreadId;
+import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.LongHeldDetectingReadWriteLock;
 
@@ -614,14 +614,12 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     /**
-     * Method that adjusts election timeout after several consecutive unsuccessful leader elections according to {@link
-     * TimeoutStrategy}
+     * Method that adjusts election timeout after several consecutive unsuccessful leader elections according to {@link TimeoutStrategy}
      * <p>
-     * Notes about general algorithm: the main idea is that in a stable cluster election timeout should be relatively small, but when
-     * something is preventing elections from a completion, like unstable network or long GC pauses,
-     * we don't want to have a lot of elections, so election timeout is adjusted.
-     * Hence, the upper bound of the election timeout adjusting is the value, that is enough to elect leader or handle problems that prevent
-     * a successful leader election.
+     * Notes about general algorithm: The main idea is that in a stable cluster election timeout should be relatively small, but when
+     * something is preventing elections from completion, like an unstable network or long GC pauses, we don't want to have a lot of
+     * elections, so election timeout is adjusted. Hence, the upper bound of the election timeout adjusting is the value, which is enough to
+     * elect a leader or handle problems that prevent a successful leader election.
      * <p>
      * Leader election timeout is set to an initial value after a successful election of a leader.
      */
