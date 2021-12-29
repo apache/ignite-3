@@ -17,19 +17,35 @@
 
 namespace Apache.Ignite.Internal.Transactions
 {
+    using System;
+    using System.Threading;
     using System.Threading.Tasks;
+    using System.Transactions;
     using Ignite.Transactions;
+    using Proto;
 
     /// <summary>
     /// Ignite transaction.
     /// </summary>
     internal class Transaction : ITransaction
     {
+        /** Open state. */
+        private const int StateOpen = 0;
+
+        /** Committed state. */
+        private const int StateCommitted = 1;
+
+        /** Rolled back state. */
+        private const int StateRolledBack = 2;
+
         /** Transaction id. */
         private readonly long _id;
 
         /** Underlying connection. */
         private readonly ClientSocket _socket;
+
+        /** State. */
+        private int _state = StateOpen;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Transaction"/> class.
@@ -43,9 +59,13 @@ namespace Apache.Ignite.Internal.Transactions
         }
 
         /// <inheritdoc/>
-        public ValueTask DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
-            throw new System.NotImplementedException();
+            // Roll back if the transaction is still open, otherwise do nothing.
+            if (TrySetState(StateRolledBack))
+            {
+                await RollbackAsyncInternal().ConfigureAwait(false);
+            }
         }
 
         /// <inheritdoc/>
@@ -55,9 +75,37 @@ namespace Apache.Ignite.Internal.Transactions
         }
 
         /// <inheritdoc/>
-        public Task RollbackAsync()
+        public async Task RollbackAsync()
         {
-            throw new System.NotImplementedException();
+            SetState(StateRolledBack);
+
+            await RollbackAsyncInternal().ConfigureAwait(false);
+        }
+
+        private async Task RollbackAsyncInternal()
+        {
+            await _socket.DoOutInOpAsync(ClientOp.TxRollback).ConfigureAwait(false);
+        }
+
+        private bool TrySetState(int state)
+        {
+            return Interlocked.CompareExchange(ref _state, state, StateOpen) == StateOpen;
+        }
+
+        private void SetState(int state)
+        {
+            var oldState = Interlocked.CompareExchange(ref _state, state, StateOpen);
+
+            if (oldState == StateOpen)
+            {
+                return;
+            }
+
+            var message = oldState == StateCommitted
+                ? "Transaction is already committed."
+                : "Transaction is already rolled back.";
+
+            throw new TransactionException(message);
         }
     }
 }
