@@ -21,12 +21,10 @@ namespace Apache.Ignite.Table
     using System.Threading.Tasks;
 
     /// <summary>
-    /// Table view interface provides methods to access table records.
-    /// <para />
-    /// TODO: All APIs (IGNITE-15430).
+    /// Record view interface provides methods to access table records.
     /// </summary>
     /// <typeparam name="T">Record type.</typeparam>
-    public interface ITableView<T>
+    public interface IRecordView<T>
         where T : class
     {
         /// <summary>
