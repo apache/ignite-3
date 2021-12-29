@@ -38,10 +38,7 @@ namespace Apache.Ignite.Tests.Transactions
         public async Task TestCommitUpdatesData()
         {
             await using var tx = await Client.Transactions.BeginAsync();
-
-            // TODO: Pass tx.
             await Table.UpsertAsync(tx, new IgniteTuple { [KeyCol] = 1, [ValCol] = "2" });
-
             await tx.CommitAsync();
 
             var res = await Table.GetAsync(new IgniteTuple { [KeyCol] = 1 });
@@ -51,8 +48,12 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestRollbackDoesNotUpdateData()
         {
-            // TODO
-            await Task.Delay(1);
+            await using var tx = await Client.Transactions.BeginAsync();
+            await Table.UpsertAsync(tx, new IgniteTuple { [KeyCol] = 1, [ValCol] = "2" });
+            await tx.RollbackAsync();
+
+            var res = await Table.GetAsync(new IgniteTuple { [KeyCol] = 1 });
+            Assert.IsNull(res);
         }
 
         [Test]
