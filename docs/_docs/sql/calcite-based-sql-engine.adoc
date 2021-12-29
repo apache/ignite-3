@@ -34,8 +34,10 @@ Create a new table and an underlying cache.
 [source,sql]
 ----
 CREATE TABLE [IF NOT EXISTS] tableName (tableColumn [, tableColumn]...
+[, PRIMARY KEY (columnName [,columnName]...)])
+[WITH "paramName=paramValue [,paramName=paramValue]..."]
 
-tableColumn := columnName columnType [DEFAULT defaultValue]
+tableColumn := columnName columnType [DEFAULT defaultValue] [PRIMARY KEY]
 ----
 
 
@@ -46,6 +48,14 @@ Parameters:
 * `columnName` - name of a previously defined column.
 * `DEFAULT` - specifies a default value for the column. Only constant values are accepted.
 * `IF NOT EXISTS` - create the table only if a table with the same name does not exist.
+* `PRIMARY KEY` - specifies a primary key for the table that can consist of a single column or multiple columns.
+* `WITH` - accepts additional parameters not defined by ANSI-99 SQL:
+
+** `Replicas` - sets the number of partition copies, including the master copy.
+** `Partitions` - sets the number of table partitions.
+
+image::images/svg/create_table.svg[Embedded,opts=inline]
+
 
 Examples:
 
