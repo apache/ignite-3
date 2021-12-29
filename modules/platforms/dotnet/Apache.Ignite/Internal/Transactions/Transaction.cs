@@ -39,12 +39,6 @@ namespace Apache.Ignite.Internal.Transactions
         /** Rolled back state. */
         private const int StateRolledBack = 2;
 
-        /** Transaction id. */
-        private readonly long _id;
-
-        /** Underlying connection. */
-        private readonly ClientSocket _socket;
-
         /** State. */
         private int _state = StateOpen;
 
@@ -55,9 +49,19 @@ namespace Apache.Ignite.Internal.Transactions
         /// <param name="socket">Associated connection.</param>
         public Transaction(long id, ClientSocket socket)
         {
-            _id = id;
-            _socket = socket;
+            Id = id;
+            Socket = socket;
         }
+
+        /// <summary>
+        /// Gets the owner socket.
+        /// </summary>
+        public ClientSocket Socket { get; }
+
+        /// <summary>
+        /// Gets the transaction id.
+        /// </summary>
+        public long Id { get; }
 
         /// <inheritdoc/>
         public async Task CommitAsync()
@@ -67,7 +71,7 @@ namespace Apache.Ignite.Internal.Transactions
             using var writer = new PooledArrayBufferWriter();
             Write(writer.GetMessageWriter());
 
-            await _socket.DoOutInOpAsync(ClientOp.TxCommit, writer).ConfigureAwait(false);
+            await Socket.DoOutInOpAsync(ClientOp.TxCommit, writer).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -96,7 +100,7 @@ namespace Apache.Ignite.Internal.Transactions
             using var writer = new PooledArrayBufferWriter();
             Write(writer.GetMessageWriter());
 
-            await _socket.DoOutInOpAsync(ClientOp.TxRollback, writer).ConfigureAwait(false);
+            await Socket.DoOutInOpAsync(ClientOp.TxRollback, writer).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -137,7 +141,7 @@ namespace Apache.Ignite.Internal.Transactions
         /// <param name="writer">Writer.</param>
         private void Write(MessagePackWriter writer)
         {
-            writer.Write(_id);
+            writer.Write(Id);
             writer.Flush();
         }
     }

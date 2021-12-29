@@ -48,7 +48,7 @@ namespace Apache.Ignite.Benchmarks.Table
                 ["val"] = "foo"
             };
 
-            await _table.UpsertAsync(tuple);
+            await _table.UpsertAsync(null, tuple);
 
             _keyTuple = new IgniteTuple
             {

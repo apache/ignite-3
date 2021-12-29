@@ -22,9 +22,11 @@ namespace Apache.Ignite.Internal.Table
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Threading.Tasks;
+    using System.Transactions;
     using Buffers;
     using Common;
     using Ignite.Table;
+    using Ignite.Transactions;
     using MessagePack;
     using Proto;
 
@@ -95,16 +97,17 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task UpsertAsync(IIgniteTuple record)
+        public async Task UpsertAsync(ITransaction? tx, IIgniteTuple record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
 
             using var writer = new PooledArrayBufferWriter();
-            WriteTuple(writer, schema, record);
+            WriteTuple(writer, schema, record); // TODO: Pass tx id.
 
-            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.TupleUpsert, writer).ConfigureAwait(false);
+            var socket = await GetSocket(tx).ConfigureAwait(false);
+            using var resBuf = await socket.DoOutInOpAsync(ClientOp.TupleUpsert, writer).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -650,6 +653,21 @@ namespace Apache.Ignite.Internal.Table
             w.Write(schema.Version);
 
             WriteTuple(ref w, schema, tuple, keyOnly);
+        }
+
+        private ValueTask<ClientSocket> GetSocket(ITransaction? tx)
+        {
+            if (tx == null)
+            {
+                return _table.Socket.GetSocketAsync();
+            }
+
+            if (tx is Transactions.Transaction t)
+            {
+                return new ValueTask<ClientSocket>(t.Socket);
+            }
+
+            throw new TransactionException("Unsupported transaction implementation: " + tx.GetType());
         }
     }
 }

@@ -40,7 +40,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestUpsertGet()
         {
-            await Table.UpsertAsync(GetTuple(1, "foo"));
+            await Table.UpsertAsync(null, GetTuple(1, "foo"));
 
             var keyTuple = GetTuple(1);
             var resTuple = (await Table.GetAsync(keyTuple))!;
@@ -56,17 +56,17 @@ namespace Apache.Ignite.Tests.Table
         {
             var key = GetTuple(1);
 
-            await Table.UpsertAsync(GetTuple(1, "foo"));
+            await Table.UpsertAsync(null, GetTuple(1, "foo"));
             Assert.AreEqual("foo", (await Table.GetAsync(key))![1]);
 
-            await Table.UpsertAsync(GetTuple(1, "bar"));
+            await Table.UpsertAsync(null, GetTuple(1, "bar"));
             Assert.AreEqual("bar", (await Table.GetAsync(key))![1]);
         }
 
         [Test]
         public async Task TestUpsertAllowsCustomTupleImplementation()
         {
-            await Table.UpsertAsync(new CustomTestIgniteTuple());
+            await Table.UpsertAsync(null, new CustomTestIgniteTuple());
 
             var res = await Table.GetAsync(GetTuple(CustomTestIgniteTuple.Key));
 
@@ -77,7 +77,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestUpsertEmptyTupleThrowsException()
         {
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await Table.UpsertAsync(new IgniteTuple()));
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await Table.UpsertAsync(null, new IgniteTuple()));
 
             Assert.AreEqual(
                 "Missed key column: key",
@@ -96,7 +96,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestGetAndUpsertExistingRecordOverwritesAndReturns()
         {
-            await Table.UpsertAsync(GetTuple(2, "2"));
+            await Table.UpsertAsync(null, GetTuple(2, "2"));
             IIgniteTuple? res = await Table.GetAndUpsertAsync(GetTuple(2, "22"));
 
             Assert.IsNotNull(res);
@@ -117,7 +117,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestGetAndDeleteExistingRecordRemovesAndReturns()
         {
-            await Table.UpsertAsync(GetTuple(2, "2"));
+            await Table.UpsertAsync(null, GetTuple(2, "2"));
             IIgniteTuple? res = await Table.GetAndDeleteAsync(GetTuple(2));
 
             Assert.IsNotNull(res);
@@ -138,7 +138,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestInsertExistingKeyDoesNotOverwriteReturnsFalse()
         {
-            await Table.UpsertAsync(GetTuple(1, "1"));
+            await Table.UpsertAsync(null, GetTuple(1, "1"));
             var res = await Table.InsertAsync(GetTuple(1, "2"));
 
             Assert.IsFalse(res);
@@ -154,7 +154,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestDeleteExistingRecordReturnsTrue()
         {
-            await Table.UpsertAsync(GetTuple(1, "1"));
+            await Table.UpsertAsync(null, GetTuple(1, "1"));
 
             Assert.IsTrue(await Table.DeleteAsync(GetTuple(1)));
             Assert.IsNull(await Table.GetAsync(GetTuple(1)));
@@ -169,7 +169,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestDeleteExactExistingKeyDifferentValueReturnsFalseDoesNotDelete()
         {
-            await Table.UpsertAsync(GetTuple(1, "1"));
+            await Table.UpsertAsync(null, GetTuple(1, "1"));
 
             Assert.IsFalse(await Table.DeleteExactAsync(GetTuple(1)));
             Assert.IsFalse(await Table.DeleteExactAsync(GetTuple(1, "2")));
@@ -179,7 +179,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestDeleteExactSameKeyAndValueReturnsTrueDeletesRecord()
         {
-            await Table.UpsertAsync(GetTuple(1, "1"));
+            await Table.UpsertAsync(null, GetTuple(1, "1"));
 
             Assert.IsTrue(await Table.DeleteExactAsync(GetTuple(1, "1")));
             Assert.IsNull(await Table.GetAsync(GetTuple(1)));
@@ -197,7 +197,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestReplaceExistingRecordReturnsTrueOverwrites()
         {
-            await Table.UpsertAsync(GetTuple(1, "1"));
+            await Table.UpsertAsync(null, GetTuple(1, "1"));
             bool res = await Table.ReplaceAsync(GetTuple(1, "2"));
 
             Assert.IsTrue(res);
@@ -216,7 +216,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestGetAndReplaceExistingRecordReturnsOldOverwrites()
         {
-            await Table.UpsertAsync(GetTuple(1, "1"));
+            await Table.UpsertAsync(null, GetTuple(1, "1"));
             IIgniteTuple? res = await Table.GetAndReplaceAsync(GetTuple(1, "2"));
 
             Assert.IsNotNull(res);
@@ -236,7 +236,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestReplaceExactExistingRecordWithDifferentValueReturnsFalseDoesNotReplace()
         {
-            await Table.UpsertAsync(GetTuple(1, "1"));
+            await Table.UpsertAsync(null, GetTuple(1, "1"));
             bool res = await Table.ReplaceAsync(GetTuple(1, "11"), GetTuple(1, "22"));
 
             Assert.IsFalse(res);
@@ -246,7 +246,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestReplaceExactExistingRecordWithSameValueReturnsTrueReplacesOld()
         {
-            await Table.UpsertAsync(GetTuple(1, "1"));
+            await Table.UpsertAsync(null, GetTuple(1, "1"));
             bool res = await Table.ReplaceAsync(GetTuple(1, "1"), GetTuple(1, "22"));
 
             Assert.IsTrue(res);
@@ -526,7 +526,7 @@ namespace Apache.Ignite.Tests.Table
         {
             var val = key.ToString(CultureInfo.InvariantCulture);
             var tuple = new IgniteTuple { [KeyCol] = key, [ValCol] = val };
-            await Table.UpsertAsync(tuple);
+            await Table.UpsertAsync(null, tuple);
 
             var keyTuple = new IgniteTuple { [KeyCol] = key };
             var resTuple = (await Table.GetAsync(keyTuple))!;

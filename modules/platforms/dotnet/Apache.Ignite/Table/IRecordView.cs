@@ -19,6 +19,7 @@ namespace Apache.Ignite.Table
 {
     using System.Collections.Generic;
     using System.Threading.Tasks;
+    using Transactions;
 
     /// <summary>
     /// Record view interface provides methods to access table records.
@@ -52,9 +53,10 @@ namespace Apache.Ignite.Table
         /// <summary>
         /// Inserts a record into the table if it does not exist or replaces the existing one.
         /// </summary>
+        /// <param name="tx">The transaction or <c>null</c> to auto commit.</param>
         /// <param name="record">Record to upsert.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task UpsertAsync(T record);
+        Task UpsertAsync(ITransaction? tx, T record);
 
         /// <summary>
         /// Inserts multiple records into the table, replacing existing ones.

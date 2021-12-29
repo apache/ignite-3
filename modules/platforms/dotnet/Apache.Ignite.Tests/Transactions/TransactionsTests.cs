@@ -40,7 +40,7 @@ namespace Apache.Ignite.Tests.Transactions
             await using var tx = await Client.Transactions.BeginAsync();
 
             // TODO: Pass tx.
-            await Table.UpsertAsync(new IgniteTuple { [KeyCol] = 1, [ValCol] = "2" });
+            await Table.UpsertAsync(tx, new IgniteTuple { [KeyCol] = 1, [ValCol] = "2" });
 
             await tx.CommitAsync();
 
