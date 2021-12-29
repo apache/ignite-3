@@ -1,7 +1,7 @@
-Apache Ignite Calcite Module
+Apache Ignite SQL Engine Module
 --------------------------
 
-Apache Ignite Calcite module provides experimental Apache Calcite based query engine.
+Apache Ignite SQL Engine module provides experimental Apache Calcite based query engine.
 
 To enable Calcite module when starting a standalone node, move 'optional/ignite-calcite' folder to
 'libs' folder before running 'ignite.{sh|bat}' script. The content of the module folder will
@@ -10,10 +10,10 @@ be added to classpath in this case.
 Note: At now some logic from ignite-indexing module is reused, this means ignite-indexing module also
 has to be present at classpath.
 
-Importing Calcite Module In Maven Project
+Importing SQL Engine Module In Maven Project
 ---------------------------------------
 
-If you are using Maven to manage dependencies of your project, you can add Calcite module
+If you are using Maven to manage dependencies of your project, you can add SQL Engine module
 dependency like this (replace '${ignite.version}' with actual Apache Ignite version you are
 interested in):
 
@@ -26,7 +26,7 @@ interested in):
         ...
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-calcite</artifactId>
+            <artifactId>ignite-sql-engine</artifactId>
             <version>${ignite.version}</version>
         </dependency>
         ...
