@@ -88,6 +88,9 @@ namespace Apache.Ignite.Internal.Transactions
             }
         }
 
+        /// <summary>
+        /// Rolls back the transaction without state check.
+        /// </summary>
         private async Task RollbackAsyncInternal()
         {
             using var writer = new PooledArrayBufferWriter();
@@ -96,11 +99,22 @@ namespace Apache.Ignite.Internal.Transactions
             await _socket.DoOutInOpAsync(ClientOp.TxRollback, writer).ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// Attempts to set the specified state.
+        /// </summary>
+        /// <param name="state">State to set.</param>
+        /// <returns>True when specified state was set successfully; false otherwise.</returns>
         private bool TrySetState(int state)
         {
             return Interlocked.CompareExchange(ref _state, state, StateOpen) == StateOpen;
         }
 
+        /// <summary>
+        /// Sets the specified state. Throws <see cref="TransactionException"/> when current state is different from
+        /// <see cref="StateOpen"/>.
+        /// </summary>
+        /// <param name="state">State to set.</param>
+        /// <exception cref="TransactionException">When current state is not <see cref="StateOpen"/>.</exception>
         private void SetState(int state)
         {
             var oldState = Interlocked.CompareExchange(ref _state, state, StateOpen);
@@ -117,10 +131,14 @@ namespace Apache.Ignite.Internal.Transactions
             throw new TransactionException(message);
         }
 
-        private void Write(MessagePackWriter w)
+        /// <summary>
+        /// Writes the transaction.
+        /// </summary>
+        /// <param name="writer">Writer.</param>
+        private void Write(MessagePackWriter writer)
         {
-            w.Write(_id);
-            w.Flush();
+            writer.Write(_id);
+            writer.Flush();
         }
     }
 }
