@@ -158,7 +158,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         TableDescriptorImpl desc = new TableDescriptorImpl(colDescriptors);
 
-        IgniteTableImpl table0 = new IgniteTableImpl(table.tableId(), desc, table);
+        IgniteTableImpl table0 = new IgniteTableImpl(desc, table);
 
         schema.addTable(removeSchema(schemaName, table.name()), table0);
         tablesById.put(table0.id(), table0);

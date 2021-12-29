@@ -56,8 +56,6 @@ import org.jetbrains.annotations.Nullable;
  * Ignite table implementation.
  */
 public class IgniteTableImpl extends AbstractTable implements InternalIgniteTable {
-    private final IgniteUuid id;
-
     private final TableDescriptor desc;
 
     private final TableImpl table;
@@ -69,10 +67,10 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
     /**
      * Constructor.
      *
-     * @param desc Table descriptor.
+     * @param desc  Table descriptor.
+     * @param table Physical table this schema object created for.
      */
-    public IgniteTableImpl(IgniteUuid id, TableDescriptor desc, TableImpl table) {
-        this.id = id;
+    public IgniteTableImpl(TableDescriptor desc, TableImpl table) {
         this.desc = desc;
         this.table = table;
 
@@ -82,7 +80,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
     /** {@inheritDoc} */
     @Override
     public IgniteUuid id() {
-        return id;
+        return table.tableId();
     }
 
     /** {@inheritDoc} */
