@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Transactions
 {
     using System.Threading.Tasks;
+    using Ignite.Table;
     using Ignite.Transactions;
     using NUnit.Framework;
 
@@ -36,8 +37,15 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestCommitUpdatesData()
         {
-            // TODO
-            await Task.Delay(1);
+            await using var tx = await Client.Transactions.BeginAsync();
+
+            // TODO: Pass tx.
+            await Table.UpsertAsync(new IgniteTuple { [KeyCol] = 1, [ValCol] = "2" });
+
+            await tx.CommitAsync();
+
+            var res = await Table.GetAsync(new IgniteTuple { [KeyCol] = 1 });
+            Assert.AreEqual("2", res![ValCol]);
         }
 
         [Test]
