@@ -36,9 +36,6 @@ namespace Apache.Ignite.Internal.Table
         /** Table. */
         private readonly Table _table;
 
-        /** Socket. */
-        private readonly ClientFailoverSocket _socket;
-
         /** Schemas. */
         private readonly ConcurrentDictionary<int, Schema> _schemas = new();
 
@@ -55,7 +52,6 @@ namespace Apache.Ignite.Internal.Table
         public RecordBinaryView(Table table)
         {
             _table = table;
-            _socket = table.Socket;
         }
 
         /// <inheritdoc/>
@@ -68,7 +64,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, schema, key, keyOnly: true);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGet, writer).ConfigureAwait(false);
+            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.TupleGet, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
 
             return ReadValueTuple(resBuf, resSchema, key);
@@ -91,7 +87,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, schema, iterator, keyOnly: true);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGetAll, writer).ConfigureAwait(false);
+            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.TupleGetAll, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
@@ -108,7 +104,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, schema, record);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleUpsert, writer).ConfigureAwait(false);
+            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.TupleUpsert, writer).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -128,7 +124,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, schema, iterator);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleUpsertAll, writer).ConfigureAwait(false);
+            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.TupleUpsertAll, writer).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -141,7 +137,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, schema, record);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGetAndUpsert, writer).ConfigureAwait(false);
+            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.TupleGetAndUpsert, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
 
             return ReadValueTuple(resBuf, resSchema, record);
@@ -157,7 +153,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, schema, record);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleInsert, writer).ConfigureAwait(false);
+            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.TupleInsert, writer).ConfigureAwait(false);
             return resBuf.GetReader().ReadBoolean();
         }
 
@@ -178,7 +174,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, schema, iterator);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleInsertAll, writer).ConfigureAwait(false);
+            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.TupleInsertAll, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
@@ -195,7 +191,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, schema, record);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleReplace, writer).ConfigureAwait(false);
+            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.TupleReplace, writer).ConfigureAwait(false);
             return resBuf.GetReader().ReadBoolean();
         }
 
@@ -209,7 +205,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, schema, record, newRecord);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleReplaceExact, writer).ConfigureAwait(false);
+            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.TupleReplaceExact, writer).ConfigureAwait(false);
             return resBuf.GetReader().ReadBoolean();
         }
 
@@ -223,7 +219,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, schema, record);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGetAndReplace, writer).ConfigureAwait(false);
+            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.TupleGetAndReplace, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
 
             return ReadValueTuple(resBuf, resSchema, record);
@@ -239,7 +235,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, schema, key, keyOnly: true);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDelete, writer).ConfigureAwait(false);
+            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.TupleDelete, writer).ConfigureAwait(false);
             return resBuf.GetReader().ReadBoolean();
         }
 
@@ -253,7 +249,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, schema, record);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDeleteExact, writer).ConfigureAwait(false);
+            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.TupleDeleteExact, writer).ConfigureAwait(false);
             return resBuf.GetReader().ReadBoolean();
         }
 
@@ -267,7 +263,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, schema, key, keyOnly: true);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGetAndDelete, writer).ConfigureAwait(false);
+            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.TupleGetAndDelete, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
 
             return ReadValueTuple(resBuf, resSchema, key);
@@ -290,7 +286,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, schema, iterator, keyOnly: true);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDeleteAll, writer).ConfigureAwait(false);
+            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.TupleDeleteAll, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
@@ -314,7 +310,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, schema, iterator);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDeleteAllExact, writer).ConfigureAwait(false);
+            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.TupleDeleteAllExact, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
 
             return ReadTuples(resBuf, resSchema);
@@ -493,7 +489,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             Write();
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.SchemasGet, writer).ConfigureAwait(false);
+            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.SchemasGet, writer).ConfigureAwait(false);
             return Read();
 
             void Write()

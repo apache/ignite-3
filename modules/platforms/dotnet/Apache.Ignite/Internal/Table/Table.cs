@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Internal.Table
 {
-    using System.Collections.Concurrent;
     using Ignite.Table;
     using Proto;
 

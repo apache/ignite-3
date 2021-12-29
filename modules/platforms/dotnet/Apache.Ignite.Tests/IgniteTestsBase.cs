@@ -38,14 +38,14 @@ namespace Apache.Ignite.Tests
 
         protected IIgniteClient Client { get; private set; } = null!;
 
-        protected ITable Table { get; private set; } = null!;
+        protected IRecordView<IIgniteTuple> Table { get; private set; } = null!;
 
         [OneTimeSetUp]
         public async Task OneTimeSetUp()
         {
             _serverNode = await JavaServer.StartAsync();
             Client = await IgniteClient.StartAsync(GetConfig());
-            Table = (await Client.Tables.GetTableAsync(TableName))!;
+            Table = (await Client.Tables.GetTableAsync(TableName))!.RecordView;
         }
 
         [OneTimeTearDown]
