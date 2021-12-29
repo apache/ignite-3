@@ -17,11 +17,12 @@
 
 namespace Apache.Ignite.Internal.Transactions
 {
-    using System;
     using System.Threading;
     using System.Threading.Tasks;
     using System.Transactions;
+    using Buffers;
     using Ignite.Transactions;
+    using MessagePack;
     using Proto;
 
     /// <summary>
@@ -59,19 +60,14 @@ namespace Apache.Ignite.Internal.Transactions
         }
 
         /// <inheritdoc/>
-        public async ValueTask DisposeAsync()
+        public async Task CommitAsync()
         {
-            // Roll back if the transaction is still open, otherwise do nothing.
-            if (TrySetState(StateRolledBack))
-            {
-                await RollbackAsyncInternal().ConfigureAwait(false);
-            }
-        }
+            SetState(StateCommitted);
 
-        /// <inheritdoc/>
-        public Task CommitAsync()
-        {
-            throw new System.NotImplementedException();
+            using var writer = new PooledArrayBufferWriter();
+            Write(writer.GetMessageWriter());
+
+            await _socket.DoOutInOpAsync(ClientOp.TxCommit, writer).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -82,9 +78,22 @@ namespace Apache.Ignite.Internal.Transactions
             await RollbackAsyncInternal().ConfigureAwait(false);
         }
 
+        /// <inheritdoc/>
+        public async ValueTask DisposeAsync()
+        {
+            // Roll back if the transaction is still open, otherwise do nothing.
+            if (TrySetState(StateRolledBack))
+            {
+                await RollbackAsyncInternal().ConfigureAwait(false);
+            }
+        }
+
         private async Task RollbackAsyncInternal()
         {
-            await _socket.DoOutInOpAsync(ClientOp.TxRollback).ConfigureAwait(false);
+            using var writer = new PooledArrayBufferWriter();
+            Write(writer.GetMessageWriter());
+
+            await _socket.DoOutInOpAsync(ClientOp.TxRollback, writer).ConfigureAwait(false);
         }
 
         private bool TrySetState(int state)
@@ -106,6 +115,12 @@ namespace Apache.Ignite.Internal.Transactions
                 : "Transaction is already rolled back.";
 
             throw new TransactionException(message);
+        }
+
+        private void Write(MessagePackWriter w)
+        {
+            w.Write(_id);
+            w.Flush();
         }
     }
 }
