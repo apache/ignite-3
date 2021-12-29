@@ -17,14 +17,21 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import org.apache.ignite.lang.IgniteInternalException;
-import org.jetbrains.annotations.Nullable;
+import java.io.DataInput;
+import java.io.IOException;
 
 /**
- * Thrown when a reflection operation fails.
+ * Knows how to read a value from a {@link DataInput}.
  */
-public class ReflectionException extends IgniteInternalException {
-    public ReflectionException(String msg, @Nullable Throwable cause) {
-        super(msg, cause);
-    }
+interface ValueReader<T> {
+    /**
+     * Reads the next value from a {@link DataInput}.
+     *
+     * @param input     from where to read
+     * @param context   unmarshalling context
+     * @return the value that was read
+     * @throws IOException          if an I/O problem occurs
+     * @throws UnmarshalException   if another problem (like {@link ClassNotFoundException}) occurs
+     */
+    T read(DataInput input, UnmarshallingContext context) throws IOException, UnmarshalException;
 }

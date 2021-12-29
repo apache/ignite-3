@@ -58,6 +58,8 @@ public class ClassDescriptor {
      */
     private final boolean isFinal;
 
+    private final SpecialSerializationMethods serializationMethods;
+
     /**
      * Constructor.
      */
@@ -68,6 +70,8 @@ public class ClassDescriptor {
         this.fields = List.copyOf(fields);
         this.serialization = serialization;
         this.isFinal = Modifier.isFinal(clazz.getModifiers());
+
+        serializationMethods = new SpecialSerializationMethodsImpl(this);
     }
 
     /**
@@ -156,6 +160,15 @@ public class ClassDescriptor {
     }
 
     /**
+     * Returns {@code true} if the described class is treated as a built-in.
+     *
+     * @return {@code true} if if the described class is treated as a built-in
+     */
+    public boolean isBuiltIn() {
+        return serializationType() == SerializationType.BUILTIN;
+    }
+
+    /**
      * Returns {@code true} if the described class has {@code writeReplace()} method.
      *
      * @return {@code true} if the described class has {@code writeReplace()} method
@@ -171,5 +184,51 @@ public class ClassDescriptor {
      */
     public boolean hasReadResolve() {
         return serialization.hasReadResolve();
+    }
+
+    /**
+     * Returns {@code true} if this is the descriptor of {@code null} values.
+     *
+     * @return {@code true} if this is the descriptor of {@code null} values
+     */
+    public boolean isNull() {
+        return descriptorId == BuiltinType.NULL.descriptorId();
+    }
+
+    /**
+     * Returns {@code true} if this is the descriptor of {@link java.util.Collections#singletonList(Object)} type.
+     *
+     * @return {@code true} if this is the descriptor of {@link java.util.Collections#singletonList(Object)} type
+     */
+    public boolean isSingletonList() {
+        return descriptorId == BuiltinType.SINGLETON_LIST.descriptorId();
+    }
+
+    /**
+     * Returns {@code true} if the described class has writeReplace() method, and it makes sense for the needs of
+     * our serialization (i.e. it is SERIALIZABLE or EXTERNALIZABLE).
+     *
+     * @return {@code true} if the described class has writeReplace() method, and it makes sense for the needs of
+     *     our serialization
+     */
+    public boolean supportsWriteReplace() {
+        return (isSerializable() || isExternalizable()) && hasWriteReplace();
+    }
+
+    /**
+     * Returns special serialization methods facility.
+     *
+     * @return special serialization methods facility
+     */
+    public SpecialSerializationMethods serializationMethods() {
+        return serializationMethods;
+    }
+
+    @Override
+    public String toString() {
+        return "ClassDescriptor{"
+                + "className='" + className + '\''
+                + ", descriptorId=" + descriptorId
+                + '}';
     }
 }

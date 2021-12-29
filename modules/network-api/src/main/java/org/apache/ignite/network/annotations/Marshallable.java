@@ -15,19 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.serialization.marshal;
+package org.apache.ignite.network.annotations;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import org.apache.ignite.internal.network.serialization.ClassDescriptor;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * Caches {@link SpecialSerializationMethods} per class descriptor.
+ * Annotation that should be placed on methods of the {@link Transferable} classes which denote objects not supported by the
+ * direct marshaller. This is useful for the user object serialization because we can't generate serializer and deserializer for
+ * user objects at the compile time.
  */
-class SpecialSerializationMethodsCache {
-    private final ConcurrentMap<Integer, SpecialSerializationMethods> methodsMap = new ConcurrentHashMap<>();
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Marshallable {
 
-    public SpecialSerializationMethods methodsFor(ClassDescriptor descriptor) {
-        return methodsMap.computeIfAbsent(descriptor.descriptorId(), id -> new SpecialSerializationMethods(descriptor));
-    }
 }
