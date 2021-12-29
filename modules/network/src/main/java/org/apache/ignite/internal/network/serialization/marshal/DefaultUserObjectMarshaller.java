@@ -131,12 +131,16 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         }
 
         Class<?> objectClass = object.getClass();
-        if (objectClass.getDeclaringClass() != null && !Modifier.isStatic(objectClass.getModifiers())) {
+        if (isInnerClass(objectClass)) {
             throw new IllegalArgumentException("Non-static inner class instances are not supported for marshalling: " + objectClass);
         }
         if (isCapturingClosure(objectClass)) {
             throw new IllegalArgumentException("Capturing nested class instances are not supported for marshalling: " + object);
         }
+    }
+
+    private boolean isInnerClass(Class<?> objectClass) {
+        return objectClass.getDeclaringClass() != null && !Modifier.isStatic(objectClass.getModifiers());
     }
 
     private boolean isCapturingClosure(Class<?> objectClass) {

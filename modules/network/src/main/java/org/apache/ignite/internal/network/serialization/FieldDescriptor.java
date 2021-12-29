@@ -45,6 +45,11 @@ public class FieldDescriptor {
     private final Class<?> declaringClass;
 
     /**
+     * Accessor for accessing this field.
+     */
+    private final FieldAccessor accessor;
+
+    /**
      * Constructor.
      */
     public FieldDescriptor(Field field, int typeDescriptorId) {
@@ -64,6 +69,8 @@ public class FieldDescriptor {
         this.clazz = fieldClazz;
         this.typeDescriptorId = typeDescriptorId;
         this.declaringClass = declaringClass;
+
+        accessor = new FieldAccessorImpl(this);
     }
 
     /**
@@ -102,5 +109,14 @@ public class FieldDescriptor {
      */
     public Class<?> declaringClass() {
         return declaringClass;
+    }
+
+    /**
+     * Returns {@link FieldAccessor} for this field.
+     *
+     * @return {@link FieldAccessor} for this field
+     */
+    public FieldAccessor accessor() {
+        return accessor;
     }
 }
