@@ -29,15 +29,14 @@ Replacing H2 SQL engine with Apache Calcite incorporates the following general i
 
 == CREATE TABLE
 
-Create a new table and an underlying cache.
+Creates a new table.
 
 [source,sql]
 ----
-CREATE TABLE [IF NOT EXISTS] tableName (tableColumn [, tableColumn]...
-[, PRIMARY KEY (columnName [,columnName]...)])
+CREATE TABLE [IF NOT EXISTS] [simpleName | schemaName.simpleName] (tableColumn [, tableColumn]...)
 [WITH "paramName=paramValue [,paramName=paramValue]..."]
 
-tableColumn := columnName columnType [DEFAULT defaultValue] [PRIMARY KEY]
+tableColumn = columnName columnType [[NOT] NULL] [DEFAULT defaultValue] [PRIMARY KEY]
 ----
 
 
@@ -45,10 +44,8 @@ Parameters:
 
 * `tableName` - name of the table.
 * `tableColumn` - name and type of a column to be created in the new table.
-* `columnName` - name of a previously defined column.
 * `DEFAULT` - specifies a default value for the column. Only constant values are accepted.
 * `IF NOT EXISTS` - create the table only if a table with the same name does not exist.
-* `PRIMARY KEY` - specifies a primary key for the table that can consist of a single column or multiple columns.
 * `WITH` - accepts additional parameters not defined by ANSI-99 SQL:
 
 ** `Replicas` - sets the number of partition copies, including the master copy.
@@ -64,12 +61,75 @@ Create Person table:
 [source,sql]
 ----
 CREATE TABLE IF NOT EXISTS Person (
-  id int,
+  id int primary key,
   city_id int,
   name varchar,
   age int,
   company varchar,
 )
+----
+
+== ALTER TABLE
+
+Modify the structure of an existing table.
+
+[source,sql]
+----
+ALTER TABLE [IF EXISTS] tableName {alter_specification}
+
+alter_specification:
+    ADD [COLUMN] {[IF NOT EXISTS] tableColumn | (tableColumn [,...])}
+  | DROP [COLUMN] {[IF EXISTS] columnName | (columnName [,...])}
+
+tableColumn := columnName columnType
+----
+
+Parameters:
+
+- `tableName` - the name of the table.
+- `tableColumn` - the name and type of the column to be added to the table.
+- `IF EXISTS` - if applied to TABLE, do not throw an error if a table with the specified table name does not exist. If applied to COLUMN, do not throw an error if a column with the specified name does not exist.
+- `IF NOT EXISTS` - do not throw an error if a column with the same name already exists.
+
+
+`ALTER TABLE ADD` adds a new column or several columns to a previously created table. Once a column is added, it can be accessed by using DML commands and indexed with the CREATE INDEX statement.
+
+`ALTER TABLE DROP` removes an existing column or multiple columns from a table. Once a column is removed, it cannot be accessed within queries. Consider the following notes and limitations:
+
+Examples:
+
+Add a column to the table:
+
+[source,sql]
+----
+ALTER TABLE Person ADD COLUMN city varchar;
+----
+
+== DROP TABLE
+
+The `DROP TABLE` command drops an existing table.
+
+[source,sql]
+----
+DROP TABLE [IF EXISTS] tableName
+----
+
+Parameters:
+
+- `tableName` - the name of the table.
+- `IF NOT EXISTS` - do not throw an error if a table with the same name does not exist.
+
+
+Both DDL and DML commands targeting the same table are blocked while the `DROP TABLE` is in progress.
+Once the table is dropped, all pending commands will fail with appropriate errors.
+
+Examples:
+
+Drop Person table if the one exists:
+
+[source,sql]
+----
+DROP TABLE IF EXISTS "Person";
 ----
 
 
@@ -79,7 +139,7 @@ Create an index on the specified table.
 
 [source,sql]
 ----
-CREATE INDEX [[IF NOT EXISTS] indexName] ON tableName (columnName [ASC|DESC] [,...])
+CREATE INDEX indexName [[IF NOT EXISTS] indexName] ON tableName (columnName [ASC|DESC] [,...])
 ----
 
 Parameters:
