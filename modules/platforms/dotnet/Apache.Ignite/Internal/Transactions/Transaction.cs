@@ -15,19 +15,32 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Transactions
+namespace Apache.Ignite.Internal.Transactions
 {
     using System.Threading.Tasks;
+    using Ignite.Transactions;
 
     /// <summary>
-    /// Ignite transactions API.
+    /// Ignite transaction.
     /// </summary>
-    public interface IIgniteTransactions
+    internal class Transaction : ITransaction
     {
-        /// <summary>
-        /// Starts a new transaction.
-        /// </summary>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<IIgniteTransaction> BeginAsync();
+        /// <inheritdoc/>
+        public ValueTask DisposeAsync()
+        {
+            throw new System.NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task CommitAsync()
+        {
+            throw new System.NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task RollbackAsync()
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

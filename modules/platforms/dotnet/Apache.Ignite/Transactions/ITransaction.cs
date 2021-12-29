@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,28 +15,28 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite
+namespace Apache.Ignite.Transactions
 {
     using System;
-    using Table;
-    using Transactions;
+    using System.Threading.Tasks;
 
     /// <summary>
-    /// Ignite API entry point.
+    /// Ignite transaction.
     /// <para />
-    /// Implementation can be a thin client (see <see cref="IIgniteClient"/> and <see cref="IgniteClient.StartAsync"/>),
-    /// or a direct IPC connection for server-side functionality like compute.
+    /// Use <see cref="ITransactions.BeginAsync"/> to start a new transaction.
     /// </summary>
-    public interface IIgnite : IDisposable
+    public interface ITransaction : IAsyncDisposable
     {
         /// <summary>
-        /// Gets the tables API.
+        /// Commits the transaction.
         /// </summary>
-        ITables Tables { get; }
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+        Task CommitAsync();
 
         /// <summary>
-        /// Gets the transactions API.
+        /// Rolls back the transaction.
         /// </summary>
-        ITransactions Transactions { get; }
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+        Task RollbackAsync();
     }
 }

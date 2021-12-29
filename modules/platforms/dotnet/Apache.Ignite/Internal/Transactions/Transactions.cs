@@ -15,28 +15,32 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Transactions
+namespace Apache.Ignite.Internal.Transactions
 {
-    using System;
     using System.Threading.Tasks;
+    using Ignite.Transactions;
 
     /// <summary>
-    /// Ignite transaction.
-    /// <para />
-    /// Use <see cref="IIgniteTransactions.BeginAsync"/> to start a new transaction.
+    /// Transactions API.
     /// </summary>
-    public interface IIgniteTransaction : IAsyncDisposable
+    internal class Transactions : ITransactions
     {
-        /// <summary>
-        /// Commits the transaction.
-        /// </summary>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task CommitAsync();
+        /** Underlying connection. */
+        private readonly ClientFailoverSocket _socket;
 
         /// <summary>
-        /// Rolls back the transaction.
+        /// Initializes a new instance of the <see cref="Transactions"/> class.
         /// </summary>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task RollbackAsync();
+        /// <param name="socket">Socket.</param>
+        public Transactions(ClientFailoverSocket socket)
+        {
+            _socket = socket;
+        }
+
+        /// <inheritdoc/>
+        public Task<ITransaction> BeginAsync()
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }
