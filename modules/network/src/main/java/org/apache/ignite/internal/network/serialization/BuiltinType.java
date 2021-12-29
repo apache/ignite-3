@@ -82,7 +82,7 @@ public enum BuiltinType {
     BIT_SET(42, BitSet.class),
     NULL(43, Null.class),
     VOID(44, Void.class)
-    // 45 is REFERENCE command
+    // 45 is REFERENCE command, see SerializedStreamCommands#REFERENCE
     ;
 
     /**
