@@ -25,6 +25,106 @@ Replacing H2 SQL engine with Apache Calcite incorporates the following general i
 * *Better optimization algorithms*: Apache Calcite optimizes queries by repeatedly applying planner rules to a relational expression;
 * *Higher overall performance*: Calcite offers much higher levels of execution flexibility, as well as higher efficiency in terms of both memory and CPU consumption.
 
+== Data Definition Language (DDL)
+
+== CREATE TABLE
+
+Create a new table and an underlying cache.
+
+[source,sql]
+----
+CREATE TABLE [IF NOT EXISTS] tableName (tableColumn [, tableColumn]...
+
+tableColumn := columnName columnType [DEFAULT defaultValue]
+----
+
+
+Parameters:
+
+* `tableName` - name of the table.
+* `tableColumn` - name and type of a column to be created in the new table.
+* `columnName` - name of a previously defined column.
+* `DEFAULT` - specifies a default value for the column. Only constant values are accepted.
+* `IF NOT EXISTS` - create the table only if a table with the same name does not exist.
+
+Examples:
+
+Create Person table:
+
+[source,sql]
+----
+CREATE TABLE IF NOT EXISTS Person (
+  id int,
+  city_id int,
+  name varchar,
+  age int,
+  company varchar,
+)
+----
+
+
+== CREATE INDEX
+
+Create an index on the specified table.
+
+[source,sql]
+----
+CREATE INDEX [[IF NOT EXISTS] indexName] ON tableName (columnName [ASC|DESC] [,...])
+----
+
+Parameters:
+
+* `indexName` - the name of the index to be created.
+* `ASC` - specifies ascending sort order (default).
+* `DESC` - specifies descending sort order.
+* `IF NOT EXISTS` - do not throw an error if an index with the same name already exists. The database checks indexes' names only, and does not consider columns types or count.
+
+
+Examples:
+
+Create a regular index:
+
+[source,sql]
+----
+CREATE INDEX title_idx ON books (title);
+----
+
+Create a descending index only if it does not exist:
+
+[source,sql]
+----
+CREATE INDEX IF NOT EXISTS name_idx ON persons (firstName DESC);
+----
+
+
+== DROP INDEX
+
+`DROP INDEX` deletes an existing index.
+
+
+[source,sql]
+----
+DROP INDEX [IF EXISTS] indexName
+----
+
+Parameters:
+
+* `indexName` - the name of the index to drop.
+* `IF EXISTS` - do not throw an error if an index with the specified name does not exist. The database checks indexes' names only not considering column types or count.
+
+
+DDL commands targeting the same table are blocked until `DROP INDEX` is in progress. DML command execution is not affected and can be performed in parallel.
+
+=== Examples
+
+Drop an index:
+
+[source,sql]
+----
+DROP INDEX idx_person_name;
+----
+
+
 == Data Manipulation Language (DML)
 
 This section walks you through all data manipulation language (DML) commands supported by Apache Ignite Alpha 3.
