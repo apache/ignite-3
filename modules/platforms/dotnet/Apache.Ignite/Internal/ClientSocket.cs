@@ -139,7 +139,7 @@ namespace Apache.Ignite.Internal
         /// <param name="clientOp">Client op code.</param>
         /// <param name="request">Request data.</param>
         /// <returns>Response data.</returns>
-        public Task<PooledBuffer> DoOutInOpAsync(ClientOp clientOp, PooledArrayBufferWriter? request)
+        public Task<PooledBuffer> DoOutInOpAsync(ClientOp clientOp, PooledArrayBufferWriter? request = null)
         {
             if (_disposeTokenSource.IsCancellationRequested)
             {

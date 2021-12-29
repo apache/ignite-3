@@ -25,6 +25,23 @@ namespace Apache.Ignite.Internal.Transactions
     /// </summary>
     internal class Transaction : ITransaction
     {
+        /** Transaction id. */
+        private readonly long _id;
+
+        /** Underlying connection. */
+        private readonly ClientSocket _socket;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Transaction"/> class.
+        /// </summary>
+        /// <param name="id">Transaction id.</param>
+        /// <param name="socket">Associated connection.</param>
+        public Transaction(long id, ClientSocket socket)
+        {
+            _id = id;
+            _socket = socket;
+        }
+
         /// <inheritdoc/>
         public ValueTask DisposeAsync()
         {

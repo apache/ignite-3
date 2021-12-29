@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Transactions
 {
     using System.Threading.Tasks;
     using Ignite.Transactions;
+    using Proto;
 
     /// <summary>
     /// Transactions API.
@@ -38,9 +39,17 @@ namespace Apache.Ignite.Internal.Transactions
         }
 
         /// <inheritdoc/>
-        public Task<ITransaction> BeginAsync()
+        public async Task<ITransaction> BeginAsync()
         {
-            throw new System.NotImplementedException();
+            // Get a specific connection.
+            // Transaction and all corresponding operations must be performed using the same connection.
+            var socket = await _socket.GetSocketAsync().ConfigureAwait(false);
+
+            using var resBuf = await socket.DoOutInOpAsync(ClientOp.TxBegin).ConfigureAwait(false);
+
+            var txId = resBuf.GetReader().ReadInt64();
+
+            return new Transaction(txId, socket);
         }
     }
 }
