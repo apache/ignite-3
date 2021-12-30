@@ -83,22 +83,50 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestRollbackCommitSameTxThrows()
         {
-            // TODO
-            await Task.Delay(1);
+            await using var tx = await Client.Transactions.BeginAsync();
+            await tx.RollbackAsync();
+
+            var ex = Assert.ThrowsAsync<TransactionException>(async () => await tx.CommitAsync());
+            Assert.AreEqual("Transaction is already rolled back.", ex?.Message);
         }
 
         [Test]
         public async Task TestMultipleDisposeIsAllowed()
         {
-            // TODO
-            await Task.Delay(1);
+            var tx = await Client.Transactions.BeginAsync();
+
+            await tx.DisposeAsync();
+            await tx.DisposeAsync();
+
+            var ex = Assert.ThrowsAsync<TransactionException>(async () => await tx.CommitAsync());
+            Assert.AreEqual("Transaction is already rolled back.", ex?.Message);
         }
 
         [Test]
-        public async Task TestCustomTransactionInterfaceThrows()
+        public void TestCustomTransactionInterfaceThrows()
         {
-            // TODO
-            await Task.Delay(1);
+            var ex = Assert.ThrowsAsync<TransactionException>(
+                async () => await Table.UpsertAsync(new CustomTx(), GetTuple(1, "2")));
+
+            StringAssert.StartsWith("Unsupported transaction implementation", ex?.Message);
+        }
+
+        private class CustomTx : ITransaction
+        {
+            public ValueTask DisposeAsync()
+            {
+                return new ValueTask(Task.CompletedTask);
+            }
+
+            public Task CommitAsync()
+            {
+                return Task.CompletedTask;
+            }
+
+            public Task RollbackAsync()
+            {
+                return Task.CompletedTask;
+            }
         }
     }
 }
