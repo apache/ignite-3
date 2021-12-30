@@ -19,7 +19,6 @@ namespace Apache.Ignite.Tests.Transactions
 {
     using System.Threading.Tasks;
     using System.Transactions;
-    using Ignite.Table;
     using Ignite.Transactions;
     using NUnit.Framework;
 
@@ -31,8 +30,25 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestRecordViewBinaryOperations()
         {
+            await Table.UpsertAsync(null, GetTuple(1, "1"));
+
+            await using var tx = await Client.Transactions.BeginAsync();
+
             // TODO
-            await Task.Delay(1);
+            // Assert.IsFalse(await Table.DeleteExactAsync(tx, GetTuple(1, "1")));
+            // assertFalse(recordView.insert(tx, kv(1, "111")));
+            // assertEquals(kv(1, "22"), recordView.get(tx, key));
+            // assertEquals(kv(1, "22"), recordView.getAndUpsert(tx, kv(1, "33")));
+            // assertEquals(kv(1, "33"), recordView.getAndReplace(tx, kv(1, "44")));
+            // assertTrue(recordView.replace(tx, kv(1, "55")));
+            // assertEquals(kv(1, "55"), recordView.getAndDelete(tx, key));
+            // assertFalse(recordView.delete(tx, key));
+            //
+            // recordView.upsertAll(tx, List.of(kv(1, "6"), kv(2, "7")));
+            // assertEquals(2, recordView.getAll(tx, List.of(key, key(2), key(3))).size());
+            //
+            // tx.rollback();
+            // assertEquals(kv(1, "1"), recordView.get(null, key));
         }
 
         [Test]
