@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests
 {
+    using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
     using NUnit.Framework;
@@ -54,6 +55,12 @@ namespace Apache.Ignite.Tests
             // ReSharper disable once ConstantConditionalAccessQualifier
             Client?.Dispose();
             _serverNode?.Dispose();
+        }
+
+        [TearDown]
+        public async Task TearDown()
+        {
+            await Table.DeleteAllAsync(Enumerable.Range(1, 10).Select(x => GetTuple(x)));
         }
 
         protected static IIgniteTuple GetTuple(int id, string? val = null) =>
