@@ -56,6 +56,9 @@ namespace Apache.Ignite.Tests
             _serverNode?.Dispose();
         }
 
+        protected static IIgniteTuple GetTuple(int id, string? val = null) =>
+            new IgniteTuple { [KeyCol] = id, [ValCol] = val };
+
         protected IgniteClientConfiguration GetConfig() => new()
         {
             Endpoints = { "127.0.0.1:" + _serverNode?.Port }

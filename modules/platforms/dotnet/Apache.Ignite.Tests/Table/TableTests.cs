@@ -536,8 +536,5 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(key, resTuple["key"]);
             Assert.AreEqual(val, resTuple["val"]);
         }
-
-        private static IIgniteTuple GetTuple(int id, string? val = null) =>
-            new IgniteTuple { [KeyCol] = id, [ValCol] = val };
     }
 }
