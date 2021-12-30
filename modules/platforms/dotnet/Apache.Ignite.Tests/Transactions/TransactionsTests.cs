@@ -59,8 +59,14 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestDisposeDoesNotUpdateData()
         {
-            // TODO
-            await Task.Delay(1);
+            await using (var tx = await Client.Transactions.BeginAsync())
+            {
+                await Table.UpsertAsync(tx, GetTuple(1, "2"));
+                await tx.RollbackAsync();
+            }
+
+            var res = await Table.GetAsync(GetTuple(1));
+            Assert.IsNull(res);
         }
 
         [Test]
