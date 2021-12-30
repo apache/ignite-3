@@ -30,25 +30,26 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestRecordViewBinaryOperations()
         {
+            var key = GetTuple(1);
             await Table.UpsertAsync(null, GetTuple(1, "1"));
 
             await using var tx = await Client.Transactions.BeginAsync();
 
-            // TODO
-            // Assert.IsFalse(await Table.DeleteExactAsync(tx, GetTuple(1, "1")));
-            // assertFalse(recordView.insert(tx, kv(1, "111")));
-            // assertEquals(kv(1, "22"), recordView.get(tx, key));
-            // assertEquals(kv(1, "22"), recordView.getAndUpsert(tx, kv(1, "33")));
-            // assertEquals(kv(1, "33"), recordView.getAndReplace(tx, kv(1, "44")));
-            // assertTrue(recordView.replace(tx, kv(1, "55")));
-            // assertEquals(kv(1, "55"), recordView.getAndDelete(tx, key));
-            // assertFalse(recordView.delete(tx, key));
-            //
-            // recordView.upsertAll(tx, List.of(kv(1, "6"), kv(2, "7")));
-            // assertEquals(2, recordView.getAll(tx, List.of(key, key(2), key(3))).size());
-            //
-            // tx.rollback();
-            // assertEquals(kv(1, "1"), recordView.get(null, key));
+            Assert.IsFalse(await Table.DeleteExactAsync(tx, GetTuple(1, "1")));
+
+            Assert.IsFalse(await Table.InsertAsync(tx, GetTuple(1, "111")));
+            Assert.AreEqual(GetTuple(1, "22"), await Table.GetAsync(tx, key));
+            Assert.AreEqual(GetTuple(1, "22"), await Table.GetAndUpsertAsync(tx, GetTuple(1, "33")));
+            Assert.AreEqual(GetTuple(1, "33"), await Table.GetAndReplaceAsync(tx, GetTuple(1, "44")));
+            Assert.IsTrue(await Table.ReplaceAsync(tx, GetTuple(1, "55")));
+            Assert.AreEqual(GetTuple(1, "55"), await Table.GetAndDeleteAsync(tx, key));
+            Assert.IsFalse(await Table.DeleteAsync(tx, key));
+
+            await Table.UpsertAllAsync(tx, new[] { GetTuple(1, "6"), GetTuple(2, "7") });
+            Assert.AreEqual(2, (await Table.GetAllAsync(tx, new[] { key, GetTuple(2), GetTuple(3) })).Count);
+
+            await tx.RollbackAsync();
+            Assert.AreEqual(GetTuple(1, "1"), await Table.GetAsync(null, key));
         }
 
         [Test]
