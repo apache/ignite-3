@@ -57,7 +57,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IIgniteTuple?> GetAsync(IIgniteTuple key)
+        public async Task<IIgniteTuple?> GetAsync(ITransaction? transaction, IIgniteTuple key)
         {
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
@@ -73,7 +73,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IList<IIgniteTuple?>> GetAllAsync(IEnumerable<IIgniteTuple> keys)
+        public async Task<IList<IIgniteTuple?>> GetAllAsync(ITransaction? transaction, IEnumerable<IIgniteTuple> keys)
         {
             IgniteArgumentCheck.NotNull(keys, nameof(keys));
 
@@ -112,7 +112,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task UpsertAllAsync(IEnumerable<IIgniteTuple> records)
+        public async Task UpsertAllAsync(ITransaction? transaction, IEnumerable<IIgniteTuple> records)
         {
             IgniteArgumentCheck.NotNull(records, nameof(records));
 
@@ -132,7 +132,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IIgniteTuple?> GetAndUpsertAsync(IIgniteTuple record)
+        public async Task<IIgniteTuple?> GetAndUpsertAsync(ITransaction? transaction, IIgniteTuple record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -148,7 +148,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<bool> InsertAsync(IIgniteTuple record)
+        public async Task<bool> InsertAsync(ITransaction? transaction, IIgniteTuple record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -162,7 +162,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IList<IIgniteTuple>> InsertAllAsync(IEnumerable<IIgniteTuple> records)
+        public async Task<IList<IIgniteTuple>> InsertAllAsync(ITransaction? transaction, IEnumerable<IIgniteTuple> records)
         {
             IgniteArgumentCheck.NotNull(records, nameof(records));
 
@@ -186,7 +186,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<bool> ReplaceAsync(IIgniteTuple record)
+        public async Task<bool> ReplaceAsync(ITransaction? transaction, IIgniteTuple record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -200,7 +200,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<bool> ReplaceAsync(IIgniteTuple record, IIgniteTuple newRecord)
+        public async Task<bool> ReplaceAsync(ITransaction? transaction, IIgniteTuple record, IIgniteTuple newRecord)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -214,7 +214,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IIgniteTuple?> GetAndReplaceAsync(IIgniteTuple record)
+        public async Task<IIgniteTuple?> GetAndReplaceAsync(ITransaction? transaction, IIgniteTuple record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -230,7 +230,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<bool> DeleteAsync(IIgniteTuple key)
+        public async Task<bool> DeleteAsync(ITransaction? transaction, IIgniteTuple key)
         {
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
@@ -244,7 +244,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<bool> DeleteExactAsync(IIgniteTuple record)
+        public async Task<bool> DeleteExactAsync(ITransaction? transaction, IIgniteTuple record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -258,7 +258,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IIgniteTuple?> GetAndDeleteAsync(IIgniteTuple key)
+        public async Task<IIgniteTuple?> GetAndDeleteAsync(ITransaction? transaction, IIgniteTuple key)
         {
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
@@ -274,7 +274,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IList<IIgniteTuple>> DeleteAllAsync(IEnumerable<IIgniteTuple> keys)
+        public async Task<IList<IIgniteTuple>> DeleteAllAsync(ITransaction? transaction, IEnumerable<IIgniteTuple> keys)
         {
             IgniteArgumentCheck.NotNull(keys, nameof(keys));
 
@@ -298,7 +298,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IList<IIgniteTuple>> DeleteAllExactAsync(IEnumerable<IIgniteTuple> records)
+        public async Task<IList<IIgniteTuple>> DeleteAllExactAsync(ITransaction? transaction, IEnumerable<IIgniteTuple> records)
         {
             IgniteArgumentCheck.NotNull(records, nameof(records));
 
