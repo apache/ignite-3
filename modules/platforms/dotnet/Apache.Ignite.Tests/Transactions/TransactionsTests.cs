@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Transactions
 {
     using System.Threading.Tasks;
+    using System.Transactions;
     using Ignite.Table;
     using Ignite.Transactions;
     using NUnit.Framework;
@@ -70,17 +71,13 @@ namespace Apache.Ignite.Tests.Transactions
         }
 
         [Test]
-        public async Task TestAccessLockedKeyTimesOut()
-        {
-            // TODO
-            await Task.Delay(1);
-        }
-
-        [Test]
         public async Task TestCommitRollbackSameTxThrows()
         {
-            // TODO
-            await Task.Delay(1);
+            await using var tx = await Client.Transactions.BeginAsync();
+            await tx.CommitAsync();
+
+            var ex = Assert.ThrowsAsync<TransactionException>(async () => await tx.RollbackAsync());
+            Assert.AreEqual("Transaction is already committed.", ex?.Message);
         }
 
         [Test]
