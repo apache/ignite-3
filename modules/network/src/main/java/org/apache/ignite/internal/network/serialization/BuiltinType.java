@@ -30,9 +30,9 @@ import java.util.LinkedList;
 import org.apache.ignite.lang.IgniteUuid;
 
 /**
- * Default types.
+ * Built-in types.
  */
-public enum DefaultType {
+public enum BuiltinType {
     BYTE(0, byte.class),
     BYTE_BOXED(1, Byte.class),
     SHORT(2, short.class),
@@ -49,7 +49,8 @@ public enum DefaultType {
     BOOLEAN_BOXED(13, Boolean.class),
     CHAR(14, char.class),
     CHAR_BOXED(15, Character.class),
-    OBJECT(16, Object.class),
+    /** An object whose class is exactly Object (not a subclass). It is created using new Object(). */
+    BARE_OBJECT(16, Object.class),
     STRING(17, String.class),
     UUID(18, java.util.UUID.class),
     IGNITE_UUID(19, IgniteUuid.class),
@@ -62,6 +63,7 @@ public enum DefaultType {
     DOUBLE_ARRAY(26, double[].class),
     BOOLEAN_ARRAY(27, boolean[].class),
     CHAR_ARRAY(28, char[].class),
+    /** An arbitrary array of objects (references) except for the cases supported specifically (like String[], Enum{} and so on). */
     OBJECT_ARRAY(29, Object[].class),
     STRING_ARRAY(30, String[].class),
     DECIMAL(31, BigDecimal.class),
@@ -95,7 +97,7 @@ public enum DefaultType {
      * @param descriptorId Descriptor id.
      * @param clazz        Type.
      */
-    DefaultType(int descriptorId, Class<?> clazz) {
+    BuiltinType(int descriptorId, Class<?> clazz) {
         this.descriptorId = descriptorId;
         this.clazz = clazz;
     }
@@ -125,10 +127,10 @@ public enum DefaultType {
      */
     public ClassDescriptor asClassDescriptor() {
         return new ClassDescriptor(
-            clazz,
-            descriptorId,
-            Collections.emptyList(),
-            SerializationType.DEFAULT
+                clazz,
+                descriptorId,
+                Collections.emptyList(),
+                new Serialization(SerializationType.BUILTIN)
         );
     }
 }

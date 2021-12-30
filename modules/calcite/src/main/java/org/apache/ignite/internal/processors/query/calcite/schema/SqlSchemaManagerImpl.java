@@ -35,8 +35,8 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -95,7 +95,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         if (table == null) {
             throw new IgniteInternalException(
-                    LoggerMessageHelper.format("Table not found [tableId={}]", id));
+                    IgniteStringFormatter.format("Table not found [tableId={}]", id));
         }
 
         return table;

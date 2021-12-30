@@ -25,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Class descriptor factory context.
  */
-public class ClassDescriptorFactoryContext {
+public class ClassDescriptorFactoryContext implements IdIndexedDescriptors {
     /** Quantity of descriptor ids reserved for the default descriptors. */
     private static final int DEFAULT_DESCRIPTORS_OFFSET_COUNT = 1000;
 
@@ -42,7 +42,7 @@ public class ClassDescriptorFactoryContext {
      * Constructor.
      */
     public ClassDescriptorFactoryContext() {
-        for (DefaultType value : DefaultType.values()) {
+        for (BuiltinType value : BuiltinType.values()) {
             addPredefinedDescriptor(value.clazz(), value.asClassDescriptor());
         }
     }
@@ -81,6 +81,7 @@ public class ClassDescriptorFactoryContext {
      * @param descriptorId Descriptor id.
      * @return Descriptor.
      */
+    @Override
     @Nullable
     public ClassDescriptor getDescriptor(int descriptorId) {
         return descriptorMap.get(descriptorId);
@@ -104,13 +105,44 @@ public class ClassDescriptorFactoryContext {
     }
 
     /**
-     * Returns {@code true} if there is a descriptor for the id.
+     * Gets a descriptor by the class or throws an exception if no such class is known.
      *
-     * @param descriptorId Descriptor id.
-     * @return {@code true} if there is a descriptor for the id.
+     * @param clazz Class.
+     * @return Descriptor.
      */
-    public boolean hasDescriptor(int descriptorId) {
-        return descriptorMap.containsKey(descriptorId);
+    public ClassDescriptor getRequiredDescriptor(Class<?> clazz) {
+        ClassDescriptor descriptor = getDescriptor(clazz);
+        if (descriptor == null) {
+            throw new IllegalStateException("No descriptor exists for " + clazz);
+        }
+        return descriptor;
+    }
+
+    /**
+     * Returns a descriptor for a built-in type.
+     *
+     * @param builtinType   built-in type for lookup
+     */
+    public ClassDescriptor getBuiltInDescriptor(BuiltinType builtinType) {
+        return getRequiredDescriptor(builtinType.descriptorId());
+    }
+
+    /**
+     * Returns a descriptor for {@code null} value.
+     *
+     * @return a descriptor for {@code null} value
+     */
+    public ClassDescriptor getNullDescriptor() {
+        return getRequiredDescriptor(Null.class);
+    }
+
+    /**
+     * Returns a descriptor for {@link Enum} built-in type.
+     *
+     * @return a descriptor for {@link Enum} built-in type
+     */
+    public ClassDescriptor getEnumDescriptor() {
+        return getRequiredDescriptor(Enum.class);
     }
 
     /**
@@ -129,5 +161,17 @@ public class ClassDescriptorFactoryContext {
             + realDescriptorId;
 
         descriptorMap.put(realDescriptorId, descriptor);
+    }
+
+    /**
+     * Returns {@code true} if descriptor with the specified descriptor id belongs to the range reserved for built-in
+     * types, {@code false} otherwise.
+     *
+     *
+     * @param descriptorId Descriptor id.
+     * @return Whether descriptor should be a built-in.
+     */
+    public static boolean shouldBeBuiltIn(int descriptorId) {
+        return descriptorId < DEFAULT_DESCRIPTORS_OFFSET_COUNT;
     }
 }

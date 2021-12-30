@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor.internal;
+package org.apache.ignite.network.annotations;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.DirectAccess;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-@ConfigurationRoot(rootName = "invalidDirect")
-public class InvalidDirectAccessConfigurationSchema {
-    @ConfigValue
-    @DirectAccess
-    public DirectAccessConfigurationSchema nested;
-}
+/**
+ * Annotation that should be placed on methods of the {@link Transferable} classes which denote objects not supported by the
+ * direct marshaller. This is useful for the user object serialization because we can't generate serializer and deserializer for
+ * user objects at the compile time.
+ */
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Marshallable {
 
-@Config
-class DirectAccessConfigurationSchema {
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -40,7 +41,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.configuration.ConfigurationChangeException;
-import org.apache.ignite.configuration.DirectConfigurationProperty;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -57,7 +57,6 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.configuration.schema.SchemaConfiguration;
 import org.apache.ignite.internal.configuration.schema.SchemaView;
-import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
@@ -85,11 +84,12 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
-import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
@@ -228,7 +228,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         // Empty assignments might be a valid case if tables are created from within cluster init HOCON
                         // configuration, which is not supported now.
                         assert ((ExtendedTableView) ctx.newValue()).assignments() != null :
-                                LoggerMessageHelper.format("Table [id={}, name={}] has empty assignments.", tblId, tblName);
+                                IgniteStringFormatter.format("Table [id={}, name={}] has empty assignments.", tblId, tblName);
 
                         // TODO: IGNITE-15409 Listener with any placeholder should be used instead.
                         ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName)).schemas()
@@ -687,108 +687,91 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return createTableAsync(name, tableInitChange, true);
+            return createTableAsyncInternal(name, tableInitChange);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
     /**
-     * Creates a new table with the specified name or returns an existing table with the same name.
+     * Internal method that creates a new table with the given {@code name} asynchronously. If a table with the same name already exists,
+     * a future will be completed with {@link TableAlreadyExistsException}.
      *
-     * @param name Table name.
-     * @param tableInitChange Table configuration.
-     * @param exceptionWhenExist If the value is {@code true}, an exception will be thrown when the table already exists, {@code
-     *         false} means the existing table will be returned.
-     * @return A table instance.
+     * @param name            Table name.
+     * @param tableInitChange Table changer.
+     * @return Future representing pending completion of the operation.
+     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     *                         <ul>
+     *                             <li>the node is stopping.</li>
+     *                         </ul>
+     * @see TableAlreadyExistsException
      */
-    private CompletableFuture<Table> createTableAsync(
-            String name,
-            Consumer<TableChange> tableInitChange,
-            boolean exceptionWhenExist
-    ) {
+    private CompletableFuture<Table> createTableAsyncInternal(String name, Consumer<TableChange> tableInitChange) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
-        IgniteUuid tblId = TABLE_ID_GENERATOR.randomUuid();
+        tableAsync(name).thenAccept(tbl -> {
+            if (tbl != null) {
+                tblFut.completeExceptionally(new TableAlreadyExistsException(name));
+            } else {
+                IgniteUuid tblId = TABLE_ID_GENERATOR.randomUuid();
 
-        tablesCfg.tables().change(change -> {
-            if (change.get(name) != null) {
-                throw new TableAlreadyExistsException(name);
-            }
-
-            change.create(name, (ch) -> {
-                        tableInitChange.accept(ch);
-
-                        ((ExtendedTableChange) ch)
-                                // Table id specification.
-                                .changeId(tblId.toString())
-                                // Affinity assignments calculation.
-                                .changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
-                                        baselineMgr.nodes(),
-                                        ch.partitions(),
-                                        ch.replicas())))
-                                // Table schema preparation.
-                                .changeSchemas(schemasCh -> schemasCh.create(
-                                        String.valueOf(INITIAL_SCHEMA_VERSION),
-                                        schemaCh -> {
-                                            SchemaDescriptor schemaDesc;
-
-                                            //TODO IGNITE-15747 Remove try-catch and force configuration
-                                            // validation here to ensure a valid configuration passed to
-                                            // prepareSchemaDescriptor() method.
-                                            try {
-                                                schemaDesc = SchemaUtils.prepareSchemaDescriptor(
-                                                        ((ExtendedTableView) ch).schemas().size(),
-                                                        ch);
-                                            } catch (IllegalArgumentException ex) {
-                                                throw new ConfigurationValidationException(ex.getMessage());
-                                            }
-
-                                            schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(schemaDesc));
-                                        }
-                                ));
+                tablesCfg.tables().change(change -> {
+                    if (change.get(name) != null) {
+                        throw new TableAlreadyExistsException(name);
                     }
-            );
-        }).whenComplete((res, t) -> {
-            if (t != null) {
-                Throwable ex = getRootCause(t);
 
-                if (ex instanceof TableAlreadyExistsException) {
-                    if (exceptionWhenExist) {
-                        tblFut.completeExceptionally(ex);
+                    change.create(name, (ch) -> {
+                                tableInitChange.accept(ch);
+
+                                ((ExtendedTableChange) ch)
+                                        // Table id specification.
+                                        .changeId(tblId.toString())
+                                        // Affinity assignments calculation.
+                                        .changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
+                                                baselineMgr.nodes(),
+                                                ch.partitions(),
+                                                ch.replicas())))
+                                        // Table schema preparation.
+                                        .changeSchemas(schemasCh -> schemasCh.create(
+                                                String.valueOf(INITIAL_SCHEMA_VERSION),
+                                                schemaCh -> {
+                                                    SchemaDescriptor schemaDesc;
+
+                                                    //TODO IGNITE-15747 Remove try-catch and force configuration
+                                                    // validation here to ensure a valid configuration passed to
+                                                    // prepareSchemaDescriptor() method.
+                                                    try {
+                                                        schemaDesc = SchemaUtils.prepareSchemaDescriptor(
+                                                                ((ExtendedTableView) ch).schemas().size(),
+                                                                ch);
+                                                    } catch (IllegalArgumentException ex) {
+                                                        throw new ConfigurationValidationException(ex.getMessage());
+                                                    }
+
+                                                    schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(schemaDesc));
+                                                }
+                                        ));
+                            }
+                    );
+                }).whenComplete((res, t) -> {
+                    if (t != null) {
+                        Throwable ex = getRootCause(t);
+
+                        if (ex instanceof TableAlreadyExistsException) {
+                            tblFut.completeExceptionally(ex);
+                        } else {
+                            LOG.error(IgniteStringFormatter.format("Table wasn't created [name={}]", name), ex);
+
+                            tblFut.completeExceptionally(ex);
+                        }
                     } else {
                         tblFut.complete(tables.get(name));
                     }
-                } else {
-                    LOG.error(LoggerMessageHelper.format("Table wasn't created [name={}]", name), ex);
-
-                    tblFut.completeExceptionally(ex);
-                }
-            } else {
-                tblFut.complete(tables.get(name));
+                });
             }
         });
 
         return tblFut;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Table createTableIfNotExists(String name, Consumer<TableChange> tableInitChange) {
-        return join(createTableIfNotExistsAsync(name, tableInitChange));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Table> createTableIfNotExistsAsync(String name, Consumer<TableChange> tableInitChange) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            return createTableAsync(name, tableInitChange, false);
-        } finally {
-            busyLock.leaveBusy();
-        }
     }
 
     /** {@inheritDoc} */
@@ -811,66 +794,81 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Internal method for creating table asynchronously.
+     * Internal method that alters a cluster table. If an appropriate table does not exist, a future will be
+     * completed with {@link TableNotFoundException}.
      *
-     * @param name Table name.
-     * @param tableChange Table cahnger.
+     * @param name        Table name.
+     * @param tableChange Table changer.
      * @return Future representing pending completion of the operation.
+     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     *                         <ul>
+     *                             <li>the node is stopping.</li>
+     *                         </ul>
+     * @see TableNotFoundException
      */
     @NotNull
     private CompletableFuture<Void> alterTableAsyncInternal(String name, Consumer<TableChange> tableChange) {
         CompletableFuture<Void> tblFut = new CompletableFuture<>();
 
-        tableAsync(name, true).thenAccept(tbl -> {
+        tableAsync(name).thenAccept(tbl -> {
             if (tbl == null) {
-                tblFut.completeExceptionally(new IgniteException(
-                        LoggerMessageHelper.format("Table [name={}] does not exist and cannot be altered", name)));
+                tblFut.completeExceptionally(new TableNotFoundException(name));
             } else {
                 IgniteUuid tblId = ((TableImpl) tbl).tableId();
 
-                tablesCfg.tables().change(ch -> ch.createOrUpdate(name, tblCh -> {
-                            tableChange.accept(tblCh);
+                tablesCfg.tables().change(ch -> {
+                    if (ch.get(name) == null) {
+                        throw new TableNotFoundException(name);
+                    }
 
-                            ((ExtendedTableChange) tblCh).changeSchemas(schemasCh ->
-                                    schemasCh.createOrUpdate(String.valueOf(schemasCh.size() + 1), schemaCh -> {
-                                        ExtendedTableView currTableView = (ExtendedTableView) tablesCfg.tables().get(name).value();
+                    ch.update(name, tblCh -> {
+                                tableChange.accept(tblCh);
 
-                                        SchemaDescriptor descriptor;
+                                ((ExtendedTableChange) tblCh).changeSchemas(schemasCh ->
+                                        schemasCh.createOrUpdate(String.valueOf(schemasCh.size() + 1), schemaCh -> {
+                                            ExtendedTableView currTableView = (ExtendedTableView) tablesCfg.tables().get(name).value();
 
-                                        //TODO IGNITE-15747 Remove try-catch and force configuration validation
-                                        // here to ensure a valid configuration passed to prepareSchemaDescriptor() method.
-                                        try {
-                                            descriptor = SchemaUtils.prepareSchemaDescriptor(
-                                                    ((ExtendedTableView) tblCh).schemas().size(),
-                                                    tblCh);
+                                            SchemaDescriptor descriptor;
 
-                                            descriptor.columnMapping(SchemaUtils.columnMapper(
-                                                    tablesById.get(tblId).schemaView().schema(currTableView.schemas().size()),
-                                                    currTableView,
-                                                    descriptor,
-                                                    tblCh));
-                                        } catch (IllegalArgumentException ex) {
-                                            // Convert unexpected exceptions here,
-                                            // because validation actually happens later,
-                                            // when bulk configuration update is applied.
-                                            ConfigurationValidationException e =
-                                                    new ConfigurationValidationException(ex.getMessage());
+                                            //TODO IGNITE-15747 Remove try-catch and force configuration validation
+                                            // here to ensure a valid configuration passed to prepareSchemaDescriptor() method.
+                                            try {
+                                                descriptor = SchemaUtils.prepareSchemaDescriptor(
+                                                        ((ExtendedTableView) tblCh).schemas().size(),
+                                                        tblCh);
 
-                                            e.addSuppressed(ex);
+                                                descriptor.columnMapping(SchemaUtils.columnMapper(
+                                                        tablesById.get(tblId).schemaView().schema(currTableView.schemas().size()),
+                                                        currTableView,
+                                                        descriptor,
+                                                        tblCh));
+                                            } catch (IllegalArgumentException ex) {
+                                                // Convert unexpected exceptions here,
+                                                // because validation actually happens later,
+                                                // when bulk configuration update is applied.
+                                                ConfigurationValidationException e =
+                                                        new ConfigurationValidationException(ex.getMessage());
 
-                                            throw e;
-                                        }
+                                                e.addSuppressed(ex);
 
-                                        schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(descriptor));
-                                    }));
-                        }
-                )).whenComplete((res, t) -> {
+                                                throw e;
+                                            }
+
+                                            schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(descriptor));
+                                        }));
+                            }
+                    );
+                }).whenComplete((res, t) -> {
                     if (t != null) {
                         Throwable ex = getRootCause(t);
 
-                        LOG.error(LoggerMessageHelper.format("Table wasn't altered [name={}]", name), ex);
+                        if (ex instanceof TableNotFoundException) {
+                            tblFut.completeExceptionally(ex);
+                        } else {
+                            LOG.error(IgniteStringFormatter.format("Table wasn't altered [name={}]", name), ex);
 
-                        tblFut.completeExceptionally(ex);
+                            tblFut.completeExceptionally(ex);
+                        }
                     } else {
                         tblFut.complete(res);
                     }
@@ -925,30 +923,46 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Internal method for drop the table asynchronously.
+     * Internal method that drops a table with the name specified. If appropriate table does not be found, a future will be
+     * completed with {@link TableNotFoundException}.
      *
      * @param name Table name.
      * @return Future representing pending completion of the operation.
+     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     *                         <ul>
+     *                             <li>the node is stopping.</li>
+     *                         </ul>
+     * @see TableNotFoundException
      */
     @NotNull
     private CompletableFuture<Void> dropTableAsyncInternal(String name) {
         CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
 
-        tableAsync(name, true).thenAccept(tbl -> {
+        tableAsync(name).thenAccept(tbl -> {
             // In case of drop it's an optimization that allows not to fire drop-change-closure if there's no such
             // distributed table and the local config has lagged behind.
             if (tbl == null) {
-                dropTblFut.complete(null);
+                dropTblFut.completeExceptionally(new TableNotFoundException(name));
             } else {
                 tablesCfg.tables()
-                        .change(change -> change.delete(name))
+                        .change(change -> {
+                            if (change.get(name) == null) {
+                                throw new TableNotFoundException(name);
+                            }
+
+                            change.delete(name);
+                        })
                         .whenComplete((res, t) -> {
                             if (t != null) {
                                 Throwable ex = getRootCause(t);
 
-                                LOG.error(LoggerMessageHelper.format("Table wasn't dropped [name={}]", name), ex);
+                                if (ex instanceof TableNotFoundException) {
+                                    dropTblFut.completeExceptionally(ex);
+                                } else {
+                                    LOG.error(IgniteStringFormatter.format("Table wasn't dropped [name={}]", name), ex);
 
-                                dropTblFut.completeExceptionally(ex);
+                                    dropTblFut.completeExceptionally(ex);
+                                }
                             } else {
                                 dropTblFut.complete(res);
                             }
@@ -984,16 +998,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<List<Table>> tablesAsyncInternal() {
-        List<String> tableNames = tableNamesConfigured();
-        var tableFuts = new CompletableFuture[tableNames.size()];
+        List<IgniteUuid> tableIds = directTableIds();
+
+        var tableFuts = new CompletableFuture[tableIds.size()];
+
         var i = 0;
 
-        for (String tblName : tableNames) {
-            tableFuts[i++] = tableAsync(tblName, false);
+        for (IgniteUuid tblId : tableIds) {
+            tableFuts[i++] = tableAsyncInternal(tblId, false);
         }
 
         return CompletableFuture.allOf(tableFuts).thenApply(unused -> {
-            var tables = new ArrayList<Table>(tableNames.size());
+            var tables = new ArrayList<Table>(tableIds.size());
 
             try {
                 for (var fut : tableFuts) {
@@ -1012,12 +1028,36 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Collects a list of table names from the distributed configuration storage.
+     * Collects a list of direct table ids.
      *
-     * @return A list of table names.
+     * @return A list of direct table ids.
+     * @see DirectConfigurationProperty
      */
-    private List<String> tableNamesConfigured() {
-        return ConfigurationUtil.directValue(tablesCfg.tables()).namedListKeys();
+    private List<IgniteUuid> directTableIds() {
+        NamedListView<TableView> views = directProxy(tablesCfg.tables()).value();
+
+        List<IgniteUuid> tableUuids = new ArrayList<>();
+
+        for (int i = 0; i < views.size(); i++) {
+            ExtendedTableView extView = (ExtendedTableView) views.get(i);
+
+            tableUuids.add(IgniteUuid.fromString(extView.id()));
+        }
+
+        return tableUuids;
+    }
+
+    /**
+     * Gets direct id of table with {@code tblName}.
+     *
+     * @param tblName Name of the table.
+     * @return Direct id of the table, or {@code null} if the table with the {@code tblName} has not been found.
+     * @see DirectConfigurationProperty
+     */
+    private IgniteUuid directTableId(String tblName) {
+        ExtendedTableView view = (ExtendedTableView) directProxy(tablesCfg.tables()).value().get(tblName);
+
+        return view == null ? null : IgniteUuid.fromString(view.id());
     }
 
     /**
@@ -1039,8 +1079,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return The latest schema version.
      */
     private int latestSchemaVersion(IgniteUuid tblId) {
-        NamedListView<TableView> directTablesCfg = ((DirectConfigurationProperty<NamedListView<TableView>>) tablesCfg
-                .tables()).directValue();
+        NamedListView<TableView> directTablesCfg = directProxy(tablesCfg.tables()).value();
 
         ExtendedTableView viewForId = null;
 
@@ -1088,7 +1127,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return tableAsync(name, true);
+            IgniteUuid tableId = directTableId(name);
+
+            if (tableId == null) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            return (CompletableFuture) tableAsyncInternal(tableId, false);
         } finally {
             busyLock.leaveBusy();
         }
@@ -1101,75 +1146,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new NodeStoppingException();
         }
         try {
-            return tableAsyncInternal(id);
+            return tableAsyncInternal(id, true);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
     /**
-     * Gets a table if it exists or {@code null} if it was not created or was removed before.
-     *
-     * @param checkConfiguration True when the method checks a configuration before tries to get a table, false otherwise.
-     * @return A table or {@code null} if table does not exist.
-     */
-    private CompletableFuture<Table> tableAsync(String name, boolean checkConfiguration) {
-        if (checkConfiguration && !isTableConfigured(name)) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        Table tbl = tables.get(name);
-
-        if (tbl != null) {
-            return CompletableFuture.completedFuture(tbl);
-        }
-
-        CompletableFuture<Table> getTblFut = new CompletableFuture<>();
-
-        EventListener<TableEventParameters> clo = new EventListener<>() {
-            @Override
-            public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                String tableName = parameters.tableName();
-
-                if (!name.equals(tableName)) {
-                    return false;
-                }
-
-                if (e == null) {
-                    getTblFut.complete(parameters.table());
-                } else {
-                    getTblFut.completeExceptionally(e);
-                }
-
-                return true;
-            }
-
-            @Override
-            public void remove(@NotNull Throwable e) {
-                getTblFut.completeExceptionally(e);
-            }
-        };
-
-        listen(TableEvent.CREATE, clo);
-
-        tbl = tables.get(name);
-
-        if (tbl != null && getTblFut.complete(tbl) || !isTableConfigured(name) && getTblFut.complete(null)) {
-            removeListener(TableEvent.CREATE, clo, null);
-        }
-
-        return getTblFut;
-    }
-
-    /**
      * Internal method for getting table by id.
      *
      * @param id Table id.
+     * @param checkConfiguration {@code True} when the method checks a configuration before trying to get a table, {@code false} otherwise.
      * @return Future representing pending completion of the operation.
      */
     @NotNull
-    private CompletableFuture<TableImpl> tableAsyncInternal(IgniteUuid id) {
-        if (!isTableConfigured(id)) {
+    private CompletableFuture<TableImpl> tableAsyncInternal(IgniteUuid id, boolean checkConfiguration) {
+        if (checkConfiguration && !isTableConfigured(id)) {
             return CompletableFuture.completedFuture(null);
         }
 
@@ -1221,8 +1213,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return True when the table is configured into cluster, false otherwise.
      */
     private boolean isTableConfigured(IgniteUuid id) {
-        NamedListView<TableView> directTablesCfg = ((DirectConfigurationProperty<NamedListView<TableView>>) tablesCfg.tables())
-                .directValue();
+        NamedListView<TableView> directTablesCfg = directProxy(tablesCfg.tables()).value();
 
         // TODO: IGNITE-15721 Need to review this approach after the ticket would be fixed.
         // Probably, it won't be required getting configuration of all tables from Metastor.
@@ -1235,16 +1226,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         return false;
-    }
-
-    /**
-     * Checks that the table is configured.
-     *
-     * @param name Table name.
-     * @return True if table configured, false otherwise.
-     */
-    private boolean isTableConfigured(String name) {
-        return tableNamesConfigured().contains(name);
     }
 
     /**

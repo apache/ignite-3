@@ -18,13 +18,9 @@
 package org.apache.ignite.internal.tx.impl;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionException;
 
 /**
  * Transactions facade implementation.
@@ -44,7 +40,8 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions withTimeout(long timeout) {
-        return null;
+        // TODO: IGNITE-15936.
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -57,36 +54,5 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     @Override
     public CompletableFuture<Transaction> beginAsync() {
         return CompletableFuture.completedFuture(txManager.begin());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void runInTransaction(Consumer<Transaction> clo) throws TransactionException {
-        runInTransaction(tx -> {
-            clo.accept(tx);
-            return null;
-        });
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <T> T runInTransaction(Function<Transaction, T> clo) throws TransactionException {
-        InternalTransaction tx = txManager.begin();
-
-        try {
-            T ret = clo.apply(tx);
-
-            tx.commit();
-
-            return ret;
-        } catch (Throwable t) {
-            try {
-                tx.rollback(); // Try rolling back on user exception.
-            } catch (Exception e) {
-                t.addSuppressed(e);
-            }
-
-            throw t;
-        }
     }
 }
