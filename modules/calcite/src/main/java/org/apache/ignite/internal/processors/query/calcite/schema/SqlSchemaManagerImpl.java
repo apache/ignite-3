@@ -80,7 +80,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     @Override
     @NotNull
     public InternalIgniteTable tableById(IgniteUuid id) {
-        ensureTableUpToDate(id);
+        ensureTableStructuresCreated(id);
 
         InternalIgniteTable table = tablesById.get(id);
 
@@ -92,7 +92,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return table;
     }
 
-    private void ensureTableUpToDate(IgniteUuid id) {
+    private void ensureTableStructuresCreated(IgniteUuid id) {
         try {
             tableManager.table(id);
         } catch (NodeStoppingException e) {
