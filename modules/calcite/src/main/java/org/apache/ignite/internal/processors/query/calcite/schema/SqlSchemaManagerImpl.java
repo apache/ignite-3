@@ -80,9 +80,18 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     @Override
     @NotNull
     public InternalIgniteTable tableById(IgniteUuid id) {
-        ensureTableStructuresCreated(id);
-
         InternalIgniteTable table = tablesById.get(id);
+
+        // there is a chance that someone tries to resolve table before
+        // the distributed event of that table creation has been processed
+        // by TableManager, so we need to get in sync with the TableManager
+        if (table == null) {
+            ensureTableStructuresCreated(id);
+
+            // at this point the table is either null means no such table
+            // really exists or the table itself
+            table = tablesById.get(id);
+        }
 
         if (table == null) {
             throw new IgniteInternalException(
