@@ -62,6 +62,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, null, schema, key, keyOnly: true);
@@ -85,6 +86,7 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, schema, iterator, keyOnly: true);
@@ -124,6 +126,7 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, schema, iterator);
@@ -137,6 +140,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, null, schema, record);
@@ -153,6 +157,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, null, schema, record);
@@ -174,6 +179,7 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, schema, iterator);
@@ -191,6 +197,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, null, schema, record);
@@ -205,6 +212,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, schema, record, newRecord);
@@ -219,6 +227,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, null, schema, record);
@@ -235,6 +244,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, null, schema, key, keyOnly: true);
@@ -249,6 +259,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, null, schema, record);
@@ -263,6 +274,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, null, schema, key, keyOnly: true);
@@ -286,6 +298,7 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, schema, iterator, keyOnly: true);
@@ -310,6 +323,7 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, schema, iterator);
