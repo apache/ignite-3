@@ -30,13 +30,6 @@ namespace Apache.Ignite.Tests.Table
     /// </summary>
     public class TableTests : IgniteTestsBase
     {
-        [SetUp]
-        public async Task SetUp()
-        {
-            // Clean up test data.
-            await Table.DeleteAllAsync(Enumerable.Range(0, 100).Select(x => GetTuple(x)));
-        }
-
         [Test]
         public async Task TestUpsertGet()
         {
