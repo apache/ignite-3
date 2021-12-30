@@ -24,6 +24,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.client.proto.query.ClientMessage;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
@@ -106,6 +107,12 @@ public class TcpIgniteClient implements IgniteClient {
     @Override
     public IgniteTransactions transactions() {
         return transactions;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteCompute compute() {
+        throw new UnsupportedOperationException();
     }
 
     /**

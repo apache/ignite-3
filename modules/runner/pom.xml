@@ -193,6 +193,10 @@
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-compute</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

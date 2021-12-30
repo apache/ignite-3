@@ -20,6 +20,7 @@ package org.apache.ignite.client.fakes;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -67,6 +68,12 @@ public class FakeIgnite implements Ignite {
                 throw new UnsupportedOperationException();
             }
         };
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteCompute compute() {
+        throw new UnsupportedOperationException();
     }
 
     /**

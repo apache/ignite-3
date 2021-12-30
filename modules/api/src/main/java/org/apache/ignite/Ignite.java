@@ -18,6 +18,7 @@
 package org.apache.ignite;
 
 import java.util.Set;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -47,6 +48,13 @@ public interface Ignite extends AutoCloseable {
      * @return Ignite transactions.
      */
     IgniteTransactions transactions();
+
+    /**
+     * Returns a compute facade.
+     *
+     * @return Ignite compute.
+     */
+    IgniteCompute compute();
 
     /**
      * Set new baseline nodes for table assignments.

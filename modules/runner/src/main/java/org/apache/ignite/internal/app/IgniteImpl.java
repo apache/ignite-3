@@ -30,10 +30,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -103,6 +105,9 @@ public class IgniteImpl implements Ignite {
 
     /** Sql query engine. */
     private final SqlQueryProcessor qryEngine;
+
+    /** Compute engine. */
+    private final IgniteComputeImpl computeEngine;
 
     /** Configuration manager that handles node (local) configuration. */
     private final ConfigurationManager nodeCfgMgr;
@@ -235,6 +240,8 @@ public class IgniteImpl implements Ignite {
                 nodeCfgMgr.configurationRegistry(),
                 nettyBootstrapFactory
         );
+
+        computeEngine = new IgniteComputeImpl(clusterSvc);
     }
 
     private ConfigurationModules loadConfigurationModules(ClassLoader classLoader) {
@@ -320,7 +327,8 @@ public class IgniteImpl implements Ignite {
                     distributedTblMgr,
                     qryEngine,
                     restModule,
-                    clientHandlerModule
+                    clientHandlerModule,
+                    computeEngine
             );
 
             for (IgniteComponent component : otherComponents) {
@@ -370,6 +378,12 @@ public class IgniteImpl implements Ignite {
     @Override
     public IgniteTransactions transactions() {
         return new IgniteTransactionsImpl(txManager);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteCompute compute() {
+        return computeEngine;
     }
 
     /** {@inheritDoc} */
