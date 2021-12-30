@@ -35,9 +35,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
-import org.apache.ignite.internal.processors.query.calcite.ResultFieldMetadata;
-import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
+import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
+import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.hamcrest.CoreMatchers;
@@ -371,7 +371,7 @@ public abstract class QueryChecker {
         if (expectedColumnTypes != null) {
             List<Type> colNames = cur.metadata().fields().stream()
                     .map(ResultFieldMetadata::type)
-                    .map(org.apache.ignite.internal.processors.query.calcite.util.Commons::nativeTypeToClass)
+                    .map(org.apache.ignite.internal.sql.engine.util.Commons::nativeTypeToClass)
                     .collect(Collectors.toList());
 
             assertThat("Column types don't match", colNames, equalTo(expectedColumnTypes));

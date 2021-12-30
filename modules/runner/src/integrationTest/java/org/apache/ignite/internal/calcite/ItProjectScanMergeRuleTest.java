@@ -35,7 +35,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests projection rule {@code org.apache.ignite.internal.processors.query.calcite.rule.logical.ProjectScanMergeRule} This rule have a deal
+ * Tests projection rule {@code org.apache.ignite.internal.sql.engine.rule.logical.ProjectScanMergeRule} This rule have a deal
  * with only useful columns and. For example for tables: T1(f12, f12, f13) and T2(f21, f22, f23) sql execution: SELECT t1.f11, t2.f21 FROM
  * T1 t1 INNER JOIN T2 t2 on t1.f11 = t2.f22" need to eleminate all unused coluns and take into account only: f11, f21 and f22 cols.
  */
