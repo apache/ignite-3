@@ -144,7 +144,11 @@ public class RelJsonReader {
         /** {@inheritDoc} */
         @Override
         public RelOptTable getTable(String table) {
-            throw new AssertionError();
+            // For deserialization #getTableById() should be used instead because
+            // it's the only way to find out that someone just recreate the table
+            // (probably with different schema) with the same name while the plan
+            // was serialized
+            throw new AssertionError("Unexpected method was called");
         }
 
         /** {@inheritDoc} */
