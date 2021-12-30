@@ -192,6 +192,39 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** {@inheritDoc} */
     @Override
     public void start() {
+        ((ExtendedTableConfiguration) tablesCfg.tables().any()).schemas().listenElements(new ConfigurationNamedListListener<SchemaView>() {
+            @Override
+            public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<SchemaView> schemasCtx) {
+                ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) schemasCtx.config(TableConfiguration.class);
+
+                IgniteUuid tblId = IgniteUuid.fromString(tblCfg.id().value());
+
+                String tblName = tblCfg.name().value();
+
+                if (!busyLock.enterBusy()) {
+                    fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName),
+                            new NodeStoppingException());
+
+                    return CompletableFuture.completedFuture(new NodeStoppingException());
+                }
+
+                try {
+                    ((SchemaRegistryImpl) tables.get(tblName).schemaView())
+                            .onSchemaRegistered(
+                                    SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()))
+                            );
+
+                    fireEvent(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
+                } catch (Exception e) {
+                    fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName), e);
+                } finally {
+                    busyLock.leaveBusy();
+                }
+
+                return CompletableFuture.completedFuture(null);
+            }
+        });
+
         tablesCfg.tables()
                 .listenElements(new ConfigurationNamedListListener<TableView>() {
                     @Override
@@ -230,55 +263,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         assert ((ExtendedTableView) ctx.newValue()).assignments() != null :
                                 IgniteStringFormatter.format("Table [id={}, name={}] has empty assignments.", tblId, tblName);
 
-                        // TODO: IGNITE-15409 Listener with any placeholder should be used instead.
-                        ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName)).schemas()
-                                .listenElements(new ConfigurationNamedListListener<>() {
-                                    @Override
-                                    public @NotNull CompletableFuture<?> onCreate(
-                                            @NotNull ConfigurationNotificationEvent<SchemaView> schemasCtx) {
-                                        if (!busyLock.enterBusy()) {
-                                            fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName),
-                                                    new NodeStoppingException());
-
-                                            return CompletableFuture.completedFuture(new NodeStoppingException());
-                                        }
-
-                                        try {
-                                            ((SchemaRegistryImpl) tables.get(tblName).schemaView())
-                                                    .onSchemaRegistered(
-                                                            SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()))
-                                                    );
-
-                                            fireEvent(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
-                                        } catch (Exception e) {
-                                            fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName), e);
-                                        } finally {
-                                            busyLock.leaveBusy();
-                                        }
-
-                                        return CompletableFuture.completedFuture(null);
-                                    }
-
-                                    @Override
-                                    public @NotNull CompletableFuture<?> onRename(@NotNull String oldName,
-                                            @NotNull String newName,
-                                            @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
-                                        return CompletableFuture.completedFuture(null);
-                                    }
-
-                                    @Override
-                                    public @NotNull CompletableFuture<?> onDelete(
-                                            @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
-                                        return CompletableFuture.completedFuture(null);
-                                    }
-
-                                    @Override
-                                    public @NotNull CompletableFuture<?> onUpdate(
-                                            @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
-                                        return CompletableFuture.completedFuture(null);
-                                    }
-                                });
-
                         ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName)).assignments()
                                 .listen(assignmentsCtx -> {
                                     if (!busyLock.enterBusy()) {
@@ -295,9 +279,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         createTableLocally(
                                 tblName,
                                 tblId,
-                                (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableView) ctx.newValue()).assignments()),
-                                SchemaSerializerImpl.INSTANCE.deserialize(((ExtendedTableView) ctx.newValue()).schemas()
-                                        .get(String.valueOf(INITIAL_SCHEMA_VERSION)).schema())
+                                (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableView) ctx.newValue()).assignments())
                         );
                     }
 
@@ -446,8 +428,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private void createTableLocally(
             String name,
             IgniteUuid tblId,
-            List<List<ClusterNode>> assignment,
-            SchemaDescriptor schemaDesc
+            List<List<ClusterNode>> assignment
     ) {
         int partitions = assignment.size();
 
@@ -543,8 +524,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         busyLock.leaveBusy();
                     }
                 });
-
-                schemaRegistry.onSchemaRegistered(schemaDesc);
 
                 var table = new TableImpl(
                         internalTable,
