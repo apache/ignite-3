@@ -34,6 +34,7 @@ namespace Apache.Ignite.Tests.Transactions
             await Table.UpsertAsync(null, GetTuple(1, "1"));
 
             await using var tx = await Client.Transactions.BeginAsync();
+            await Table.UpsertAsync(null, GetTuple(1, "22"));
 
             Assert.IsFalse(await Table.DeleteExactAsync(tx, GetTuple(1, "1")));
 
