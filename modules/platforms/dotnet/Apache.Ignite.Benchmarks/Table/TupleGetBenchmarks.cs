@@ -66,7 +66,7 @@ namespace Apache.Ignite.Benchmarks.Table
         [Benchmark]
         public async Task Get()
         {
-            await _table.GetAsync(_keyTuple);
+            await _table.GetAsync(null, _keyTuple);
         }
     }
 }

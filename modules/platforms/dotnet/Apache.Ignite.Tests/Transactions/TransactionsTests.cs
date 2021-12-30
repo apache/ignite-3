@@ -58,7 +58,7 @@ namespace Apache.Ignite.Tests.Transactions
             await Table.UpsertAsync(tx, GetTuple(1, "2"));
             await tx.CommitAsync();
 
-            var res = await Table.GetAsync(GetTuple(1));
+            var res = await Table.GetAsync(null, GetTuple(1));
             Assert.AreEqual("2", res![ValCol]);
         }
 
@@ -69,7 +69,7 @@ namespace Apache.Ignite.Tests.Transactions
             await Table.UpsertAsync(tx, GetTuple(1, "2"));
             await tx.RollbackAsync();
 
-            var res = await Table.GetAsync(GetTuple(1));
+            var res = await Table.GetAsync(null, GetTuple(1));
             Assert.IsNull(res);
         }
 
@@ -82,7 +82,7 @@ namespace Apache.Ignite.Tests.Transactions
                 await tx.RollbackAsync();
             }
 
-            var res = await Table.GetAsync(GetTuple(1));
+            var res = await Table.GetAsync(null, GetTuple(1));
             Assert.IsNull(res);
         }
 
