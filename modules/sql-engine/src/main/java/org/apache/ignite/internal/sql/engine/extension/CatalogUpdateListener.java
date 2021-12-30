@@ -18,16 +18,16 @@
 package org.apache.ignite.internal.sql.engine.extension;
 
 import org.apache.ignite.internal.sql.engine.extension.SqlExtension.ExternalCatalog;
-import org.apache.ignite.internal.sql.engine.schema.SchemaHolder;
+import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 
 /**
- * Listener used to notify {@link SchemaHolder} about any changes in the external catalogs.
+ * Listener used to notify {@link SqlSchemaManager} about any changes in the external catalogs.
  */
 public interface CatalogUpdateListener {
     /**
-     * Notify the {@link SchemaHolder} that provided catalog has been updated.
+     * Notify the {@link SqlSchemaManager} that provided catalog has been updated.
      *
-     * @param catalog Catalog to notify the {@link SchemaHolder} about.
+     * @param catalog Catalog to notify the {@link SqlSchemaManager} about.
      */
     void onCatalogUpdated(ExternalCatalog catalog);
 }
