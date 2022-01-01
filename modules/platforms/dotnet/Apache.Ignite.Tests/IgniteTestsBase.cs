@@ -55,6 +55,8 @@ namespace Apache.Ignite.Tests
             // ReSharper disable once ConstantConditionalAccessQualifier
             Client?.Dispose();
             _serverNode?.Dispose();
+
+            Assert.Fail("TODO: Check buffer pool leaks");
         }
 
         [TearDown]
