@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests
 {
+    using System.Diagnostics.Tracing;
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
@@ -35,6 +36,8 @@ namespace Apache.Ignite.Tests
 
         private JavaServer? _serverNode;
 
+        private TestEventListener _eventListener = null!;
+
         protected int ServerPort => _serverNode?.Port ?? 0;
 
         protected IIgniteClient Client { get; private set; } = null!;
@@ -44,6 +47,8 @@ namespace Apache.Ignite.Tests
         [OneTimeSetUp]
         public async Task OneTimeSetUp()
         {
+            _eventListener = new TestEventListener();
+
             _serverNode = await JavaServer.StartAsync();
             Client = await IgniteClient.StartAsync(GetConfig());
             Table = (await Client.Tables.GetTableAsync(TableName))!.RecordView;
@@ -56,7 +61,8 @@ namespace Apache.Ignite.Tests
             Client?.Dispose();
             _serverNode?.Dispose();
 
-            Assert.Fail("TODO: Check buffer pool leaks");
+            Assert.AreEqual(0, _eventListener.BuffersRented);
+            _eventListener.Dispose();
         }
 
         [TearDown]
