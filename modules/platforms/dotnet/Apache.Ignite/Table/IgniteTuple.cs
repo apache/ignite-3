@@ -24,7 +24,7 @@ namespace Apache.Ignite.Table
     /// <summary>
     /// Ignite tuple.
     /// </summary>
-    public sealed class IgniteTuple : IIgniteTuple
+    public sealed class IgniteTuple : IIgniteTuple, IEquatable<IgniteTuple>
     {
         /** Key-value pairs. */
         private readonly List<(string Key, object? Value)> _pairs;
@@ -99,6 +99,24 @@ namespace Apache.Ignite.Table
             sb.Append(']');
 
             return sb.ToString();
+        }
+
+        /// <inheritdoc />
+        public bool Equals(IgniteTuple other)
+        {
+            return IIgniteTuple.Equals(this, other);
+        }
+
+        /// <inheritdoc />
+        public override bool Equals(object? obj)
+        {
+            return obj is IgniteTuple other && Equals(this, other);
+        }
+
+        /// <inheritdoc />
+        public override int GetHashCode()
+        {
+            return IIgniteTuple.GetHashCode(this);
         }
     }
 }
