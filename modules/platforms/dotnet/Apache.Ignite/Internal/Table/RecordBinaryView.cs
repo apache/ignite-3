@@ -83,7 +83,7 @@ namespace Apache.Ignite.Internal.Table
             var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
-            WriteTuples(writer, schema, iterator, keyOnly: true);
+            WriteTuples(writer, tx, schema, iterator, keyOnly: true);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleGetAll, tx, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf).ConfigureAwait(false);
@@ -116,7 +116,7 @@ namespace Apache.Ignite.Internal.Table
             var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
-            WriteTuples(writer, schema, iterator);
+            WriteTuples(writer, tx, schema, iterator);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, tx, writer).ConfigureAwait(false);
         }
@@ -157,7 +157,7 @@ namespace Apache.Ignite.Internal.Table
             var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
-            WriteTuples(writer, schema, iterator);
+            WriteTuples(writer, tx, schema, iterator);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleInsertAll, tx, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf).ConfigureAwait(false);
@@ -184,7 +184,7 @@ namespace Apache.Ignite.Internal.Table
             var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
-            WriteTuples(writer, schema, record, newRecord);
+            WriteTuples(writer, tx, schema, record, newRecord);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleReplaceExact, tx, writer).ConfigureAwait(false);
             return resBuf.GetReader().ReadBoolean();
@@ -246,7 +246,7 @@ namespace Apache.Ignite.Internal.Table
             var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
-            WriteTuples(writer, schema, iterator, keyOnly: true);
+            WriteTuples(writer, tx, schema, iterator, keyOnly: true);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleDeleteAll, tx, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf).ConfigureAwait(false);
@@ -271,7 +271,7 @@ namespace Apache.Ignite.Internal.Table
             var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
-            WriteTuples(writer, schema, iterator);
+            WriteTuples(writer, tx, schema, iterator);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleDeleteAllExact, tx, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf).ConfigureAwait(false);
@@ -581,6 +581,7 @@ namespace Apache.Ignite.Internal.Table
 
         private void WriteTuples(
             PooledArrayBufferWriter buf,
+            Transactions.Transaction? tx,
             Schema schema,
             IIgniteTuple t,
             IIgniteTuple t2,
@@ -588,7 +589,7 @@ namespace Apache.Ignite.Internal.Table
         {
             var w = buf.GetMessageWriter();
 
-            WriteTupleWithHeader(ref w, null, schema, t, keyOnly);
+            WriteTupleWithHeader(ref w, tx, schema, t, keyOnly);
             WriteTuple(ref w, schema, t2, keyOnly);
 
             w.Flush();
@@ -596,6 +597,7 @@ namespace Apache.Ignite.Internal.Table
 
         private void WriteTuples(
             PooledArrayBufferWriter buf,
+            Transactions.Transaction? tx,
             Schema schema,
             IEnumerator<IIgniteTuple> tuples,
             bool keyOnly = false)
@@ -603,7 +605,7 @@ namespace Apache.Ignite.Internal.Table
             var w = buf.GetMessageWriter();
 
             w.Write(_table.Id);
-            w.WriteNil(); // Transaction ID (TODO: IGNITE-16208).
+            WriteTx(ref w, tx);
             w.Write(schema.Version);
             w.Flush();
 
