@@ -84,5 +84,11 @@ namespace Apache.Ignite.Tests.Table
 
             Assert.AreEqual("IgniteTuple [foo=1, b=abcd]", tuple.ToString());
         }
+
+        [Test]
+        public void TestEquality()
+        {
+            Assert.Fail("TODO");
+        }
     }
 }
