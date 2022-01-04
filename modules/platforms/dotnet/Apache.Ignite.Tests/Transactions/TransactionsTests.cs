@@ -49,6 +49,7 @@ namespace Apache.Ignite.Tests.Transactions
             await Table.UpsertAllAsync(tx, new[] { GetTuple(1, "6"), GetTuple(2, "7") });
             Assert.AreEqual(2, (await Table.GetAllAsync(tx, new[] { key, GetTuple(2), GetTuple(3) })).Count);
 
+            // TODO: InsertAll, Replace, DeleteAllExact
             await tx.RollbackAsync();
             Assert.AreEqual(GetTuple(1, "1"), await Table.GetAsync(null, key));
         }
