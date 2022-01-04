@@ -69,6 +69,8 @@ namespace Apache.Ignite.Tests
         public async Task TearDown()
         {
             await Table.DeleteAllAsync(null, Enumerable.Range(1, 10).Select(x => GetTuple(x)));
+
+            Assert.AreEqual(0, _eventListener.BuffersRented);
         }
 
         protected static IIgniteTuple GetTuple(int id, string? val = null) =>

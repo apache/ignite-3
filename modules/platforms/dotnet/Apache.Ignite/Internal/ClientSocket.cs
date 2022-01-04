@@ -399,6 +399,7 @@ namespace Apache.Ignite.Internal
 
             if (exception != null)
             {
+                response.Dispose();
                 taskCompletionSource.SetException(exception);
             }
             else
