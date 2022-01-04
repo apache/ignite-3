@@ -38,6 +38,7 @@ namespace Apache.Ignite.Tests.Transactions
 
             Assert.IsFalse(await Table.DeleteExactAsync(tx, GetTuple(1, "1")));
 
+            // TODO: Implement Tuple equality members, comparers.
             Assert.IsFalse(await Table.InsertAsync(tx, GetTuple(1, "111")));
             Assert.AreEqual(GetTuple(1, "22"), await Table.GetAsync(tx, key));
             Assert.AreEqual(GetTuple(1, "22"), await Table.GetAndUpsertAsync(tx, GetTuple(1, "33")));
