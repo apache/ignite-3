@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Tests
 {
-    using System.Diagnostics.Tracing;
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
