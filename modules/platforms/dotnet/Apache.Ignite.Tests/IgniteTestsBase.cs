@@ -61,7 +61,8 @@ namespace Apache.Ignite.Tests
             Client?.Dispose();
             _serverNode?.Dispose();
 
-            Assert.AreEqual(0, _eventListener.BuffersRented);
+            Assert.Greater(_eventListener.BuffersRented, 0);
+            Assert.AreEqual(_eventListener.BuffersReturned, _eventListener.BuffersRented);
             _eventListener.Dispose();
         }
 
@@ -70,7 +71,7 @@ namespace Apache.Ignite.Tests
         {
             await Table.DeleteAllAsync(null, Enumerable.Range(1, 10).Select(x => GetTuple(x)));
 
-            Assert.AreEqual(0, _eventListener.BuffersRented);
+            Assert.AreEqual(_eventListener.BuffersReturned, _eventListener.BuffersRented);
         }
 
         protected static IIgniteTuple GetTuple(int id, string? val = null) =>

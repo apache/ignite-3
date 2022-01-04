@@ -27,7 +27,11 @@ namespace Apache.Ignite.Tests
     {
         private int _buffersRented;
 
+        private int _buffersReturned;
+
         public int BuffersRented => Interlocked.CompareExchange(ref _buffersRented, -1, -1);
+
+        public int BuffersReturned => Interlocked.CompareExchange(ref _buffersRented, -1, -1);
 
         protected override void OnEventSourceCreated(EventSource eventSource)
         {
@@ -48,7 +52,7 @@ namespace Apache.Ignite.Tests
                     break;
 
                 case "BufferReturned":
-                    Interlocked.Decrement(ref _buffersRented);
+                    Interlocked.Increment(ref _buffersReturned);
                     break;
             }
 
