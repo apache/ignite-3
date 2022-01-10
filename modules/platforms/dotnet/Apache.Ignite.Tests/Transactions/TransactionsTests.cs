@@ -17,13 +17,11 @@
 
 namespace Apache.Ignite.Tests.Transactions
 {
-    using System;
     using System.Linq;
     using System.Threading.Tasks;
     using System.Transactions;
     using Ignite.Transactions;
     using NUnit.Framework;
-    using Transaction = Internal.Transactions.Transaction;
 
     /// <summary>
     /// Tests for <see cref="ITransactions"/> and <see cref="ITransaction"/>.
@@ -56,7 +54,15 @@ namespace Apache.Ignite.Tests.Transactions
             Assert.AreEqual(GetTuple(1, "6"), await Table.GetAsync(tx, key));
             Assert.AreEqual(GetTuple(1, "8"), insertAllRes.Single());
 
-            // TODO: InsertAll, Replace, DeleteAllExact
+            Assert.IsFalse(await Table.ReplaceAsync(tx, GetTuple(-1)));
+            Assert.IsTrue(await Table.ReplaceAsync(tx, GetTuple(1, "10")));
+            Assert.AreEqual(GetTuple(1, "10"), await Table.GetAsync(tx, key));
+
+            Assert.IsFalse(await Table.ReplaceAsync(tx, GetTuple(1, "1"), GetTuple(1, "11")));
+            Assert.IsTrue(await Table.ReplaceAsync(tx, GetTuple(1, "10"), GetTuple(1, "12")));
+            Assert.AreEqual(GetTuple(1, "12"), await Table.GetAsync(tx, key));
+
+            // TODO: DeleteAll, DeleteAllExact
             await tx.RollbackAsync();
             Assert.AreEqual(GetTuple(1, "1"), await Table.GetAsync(null, key));
         }
