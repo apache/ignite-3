@@ -110,7 +110,7 @@ namespace Apache.Ignite.Table
         /// <inheritdoc />
         public override bool Equals(object? obj)
         {
-            return obj is IgniteTuple other && Equals(this, other);
+            return obj is IgniteTuple other && Equals(other);
         }
 
         /// <inheritdoc />
