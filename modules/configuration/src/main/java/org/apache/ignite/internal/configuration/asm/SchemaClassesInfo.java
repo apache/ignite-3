@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration.asm;
 
-import org.apache.ignite.configuration.annotation.DirectAccess;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 
@@ -34,11 +33,14 @@ class SchemaClassesInfo {
     /** Change class name postfix. */
     private static final String CHANGE_CLASS_POSTFIX = "Change";
 
+    /** Direct proxy class name postfix. */
+    private static final String DIRECT_PROXY_CLASS_POSTFIX = "DirectProxy";
+
+    /** Node class name postfix. */
+    private static final String NODE_CLASS_POSTFIX = "Node";
+
     /** Configuration Schema class. */
     final Class<?> schemaClass;
-
-    /** Flag indicating that this schema is annotated with {@link DirectAccess}. */
-    final boolean direct;
 
     /** Class name for the VIEW class. */
     final String viewClassName;
@@ -55,6 +57,9 @@ class SchemaClassesInfo {
     /** Class name for the Configuration Impl class. */
     final String cfgImplClassName;
 
+    /** Class name for the Direct Proxy class. */
+    final String directProxyClassName;
+
     /** Node class instance. */
     Class<? extends InnerNode> nodeClass;
 
@@ -68,15 +73,15 @@ class SchemaClassesInfo {
      */
     SchemaClassesInfo(Class<?> schemaClass) {
         this.schemaClass = schemaClass;
-        this.direct = schemaClass.isAnnotationPresent(DirectAccess.class);
 
         String prefix = prefix(schemaClass);
 
         viewClassName = prefix + VIEW_CLASS_POSTFIX;
         changeClassName = prefix + CHANGE_CLASS_POSTFIX;
         cfgClassName = prefix + CONFIGURATION_CLASS_POSTFIX;
+        directProxyClassName = prefix + DIRECT_PROXY_CLASS_POSTFIX;
 
-        nodeClassName = prefix + "Node";
+        nodeClassName = prefix + NODE_CLASS_POSTFIX;
         cfgImplClassName = prefix + "ConfigurationImpl";
     }
 
@@ -122,5 +127,15 @@ class SchemaClassesInfo {
      */
     static String configurationClassName(Class<?> schemaClass) {
         return prefix(schemaClass) + CONFIGURATION_CLASS_POSTFIX;
+    }
+
+    /**
+     * Get class name for the Node class.
+     *
+     * @param schemaClass Configuration schema class.
+     * @return Class name for the Node class.
+     */
+    static String nodeClassName(Class<?> schemaClass) {
+        return prefix(schemaClass) + NODE_CLASS_POSTFIX;
     }
 }

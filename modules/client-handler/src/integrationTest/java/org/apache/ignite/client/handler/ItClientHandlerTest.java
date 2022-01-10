@@ -34,9 +34,10 @@ import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorCo
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -203,7 +204,8 @@ public class ItClientHandlerTest {
 
         bootstrapFactory.start();
 
-        var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTables.class), registry, bootstrapFactory);
+        var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTables.class), mock(IgniteTransactions.class), registry,
+                bootstrapFactory);
 
         module.start();
 

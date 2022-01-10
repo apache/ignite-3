@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -87,6 +86,19 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         Tuple resVal = kvView.get(null, key);
 
         assertTupleEquals(val, resVal);
+    }
+
+    @Test
+    public void testPutNull() {
+        Table table = defaultTable();
+        KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+
+        Tuple key = defaultTupleKey();
+
+        kvView.put(null, key, null);
+        Tuple resVal = kvView.get(null, key);
+
+        assertNull(resVal.stringValue("name"));
     }
 
     @Test
@@ -159,7 +171,7 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
     public void testContainsThrowsOnEmptyKey() {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
 
-        var ex = assertThrows(CompletionException.class, () -> kvView.contains(null, Tuple.create()));
+        var ex = assertThrows(IgniteClientException.class, () -> kvView.contains(null, Tuple.create()));
         assertTrue(ex.getMessage().contains("Missed key column: id"), ex.getMessage());
     }
 

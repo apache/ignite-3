@@ -89,13 +89,15 @@ public class AbstractClientTableTest extends AbstractClientTest {
     }
 
     protected Table defaultTable() {
-        server.tables().createTableIfNotExists(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
+        server.tables().createTable(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
 
         return client.tables().table(DEFAULT_TABLE);
     }
 
     protected Table tableWithDefaultValues() {
-        server.tables().createTableIfNotExists(TABLE_WITH_DEFAULT_VALUES, tbl -> tbl.changeReplicas(1));
+        if (server.tables().table(TABLE_WITH_DEFAULT_VALUES) == null) {
+            server.tables().createTable(TABLE_WITH_DEFAULT_VALUES, tbl -> tbl.changeReplicas(1));
+        }
 
         return client.tables().table(TABLE_WITH_DEFAULT_VALUES);
     }
@@ -126,7 +128,9 @@ public class AbstractClientTableTest extends AbstractClientTest {
     }
 
     protected Table fullTable() {
-        server.tables().createTableIfNotExists(TABLE_ALL_COLUMNS, tbl -> tbl.changeReplicas(1));
+        if (server.tables().table(TABLE_ALL_COLUMNS) == null) {
+            server.tables().createTable(TABLE_ALL_COLUMNS, tbl -> tbl.changeReplicas(1));
+        }
 
         return client.tables().table(TABLE_ALL_COLUMNS);
     }
@@ -136,8 +140,77 @@ public class AbstractClientTableTest extends AbstractClientTest {
     }
 
     protected Table oneColumnTable() {
-        server.tables().createTableIfNotExists(TABLE_ONE_COLUMN, tbl -> tbl.changeReplicas(1));
+        if (server.tables().table(TABLE_ONE_COLUMN) == null) {
+            server.tables().createTable(TABLE_ONE_COLUMN, tbl -> tbl.changeReplicas(1));
+        }
 
         return client.tables().table(TABLE_ONE_COLUMN);
+    }
+
+    /** Person. */
+    protected static class PersonPojo {
+        public long id;
+
+        public String name;
+
+        public PersonPojo() {
+            // No-op.
+        }
+
+        public PersonPojo(long id) {
+            this.id = id;
+        }
+
+        public PersonPojo(long id, String name) {
+            this.id = id;
+            this.name = name;
+        }
+    }
+
+    /** Name column. */
+    protected static class NamePojo {
+        public String name;
+    }
+
+    /** Partial column set. */
+    protected static class IncompletePojo {
+        public byte zbyte;
+        public String id;
+        public int gid;
+        public String zstring;
+        public byte[] zbytes;
+    }
+
+    /** Partial column set. */
+    protected static class IncompletePojoNullable {
+        public int gid;
+        public String id;
+        public Byte zbyte;
+        public Short zshort;
+        public Integer zint;
+        public Long zlong;
+        public Float zfloat;
+        public Double zdouble;
+    }
+
+    /** Columns of all types. */
+    protected static class AllColumnsPojo {
+        public int gid;
+        public String id;
+        public byte zbyte;
+        public short zshort;
+        public int zint;
+        public long zlong;
+        public float zfloat;
+        public double zdouble;
+        public LocalDate zdate;
+        public LocalTime ztime;
+        public Instant ztimestamp;
+        public String zstring;
+        public byte[] zbytes;
+        public UUID zuuid;
+        public BitSet zbitmask;
+        public BigDecimal zdecimal;
+        public BigInteger znumber;
     }
 }
