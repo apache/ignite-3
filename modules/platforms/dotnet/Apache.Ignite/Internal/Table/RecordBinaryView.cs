@@ -645,10 +645,20 @@ namespace Apache.Ignite.Internal.Table
             WriteTuple(ref w, schema, tuple, keyOnly);
         }
 
-        private ValueTask<ClientSocket> GetSocket(Transactions.Transaction? tx) =>
-            tx == null
-                ? _table.Socket.GetSocketAsync()
-                : new ValueTask<ClientSocket>(tx.Socket);
+        private ValueTask<ClientSocket> GetSocket(Transactions.Transaction? tx)
+        {
+            if (tx == null)
+            {
+                return _table.Socket.GetSocketAsync();
+            }
+
+            if (tx.FailoverSocket != _table.Socket)
+            {
+                throw new IgniteClientException("Specified transaction belongs to a different IgniteClient instance.");
+            }
+
+            return new ValueTask<ClientSocket>(tx.Socket);
+        }
 
         private async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,

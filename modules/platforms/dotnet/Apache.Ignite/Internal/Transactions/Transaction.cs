@@ -47,16 +47,23 @@ namespace Apache.Ignite.Internal.Transactions
         /// </summary>
         /// <param name="id">Transaction id.</param>
         /// <param name="socket">Associated connection.</param>
-        public Transaction(long id, ClientSocket socket)
+        /// <param name="failoverSocket">Associated connection multiplexer.</param>
+        public Transaction(long id, ClientSocket socket, ClientFailoverSocket failoverSocket)
         {
             Id = id;
             Socket = socket;
+            FailoverSocket = failoverSocket;
         }
 
         /// <summary>
         /// Gets the owner socket.
         /// </summary>
         public ClientSocket Socket { get; }
+
+        /// <summary>
+        /// Gets the owner multiplexer socket.
+        /// </summary>
+        public ClientFailoverSocket FailoverSocket { get; }
 
         /// <summary>
         /// Gets the transaction id.

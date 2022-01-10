@@ -49,7 +49,7 @@ namespace Apache.Ignite.Internal.Transactions
 
             var txId = resBuf.GetReader().ReadInt64();
 
-            return new Transaction(txId, socket);
+            return new Transaction(txId, socket, _socket);
         }
     }
 }
