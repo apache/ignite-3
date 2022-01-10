@@ -165,7 +165,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      *
      * @param row Binary row.
      * @param curSchema The latest available local schema.
-     * @return Schema-aware row or {@code null} of the given row is null.
+     * @return Schema-aware row or {@code null} if the given row is null.
      * @throws SchemaRegistryException if no schema exists for the given row.
      */
     @Contract("null, _ -> null")
