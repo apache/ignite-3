@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.sql.engine.util.Commons.getAllFromCursor;
+import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 
 import java.nio.file.Path;
 import java.util.ArrayList;

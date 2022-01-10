@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -340,7 +341,7 @@ public abstract class QueryChecker {
                 qryProc.query("PUBLIC", "EXPLAIN PLAN FOR " + qry);
 
         Cursor<List<?>> explainCursor = explainCursors.get(0);
-        List<List<?>> explainRes = Commons.getAllFromCursor(explainCursor);
+        List<List<?>> explainRes = getAllFromCursor(explainCursor);
         String actualPlan = (String) explainRes.get(0).get(0);
 
         if (!CollectionUtils.nullOrEmpty(planMatchers)) {
@@ -370,13 +371,13 @@ public abstract class QueryChecker {
         if (expectedColumnTypes != null) {
             List<Type> colNames = cur.metadata().fields().stream()
                     .map(ResultFieldMetadata::type)
-                    .map(org.apache.ignite.internal.sql.engine.util.Commons::nativeTypeToClass)
+                    .map(Commons::nativeTypeToClass)
                     .collect(Collectors.toList());
 
             assertThat("Column types don't match", colNames, equalTo(expectedColumnTypes));
         }
 
-        List<List<?>> res = Commons.getAllFromCursor(cur);
+        List<List<?>> res = CursorUtils.getAllFromCursor(cur);
 
         if (expectedResult != null) {
             if (!ordered) {
