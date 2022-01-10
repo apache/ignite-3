@@ -17,10 +17,13 @@
 
 namespace Apache.Ignite.Tests.Transactions
 {
+    using System;
     using System.Threading.Tasks;
     using System.Transactions;
     using Ignite.Transactions;
+    using Internal.Transactions;
     using NUnit.Framework;
+    using Transaction = Internal.Transactions.Transaction;
 
     /// <summary>
     /// Tests for <see cref="ITransactions"/> and <see cref="ITransaction"/>.
@@ -137,9 +140,9 @@ namespace Apache.Ignite.Tests.Transactions
         }
 
         [Test]
-        public void TestTransactionFromAnotherChannelThrows()
+        public void TestTransactionalOperationsUseOwningSocket()
         {
-            Assert.Fail("TODO");
+            Assert.ThrowsAsync<NullReferenceException>(async () => await Table.InsertAsync(new Transaction(1, null!), GetTuple(1)));
         }
 
         private class CustomTx : ITransaction
