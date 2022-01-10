@@ -32,7 +32,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
+import java.util.function.IntFunction;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 
 /**
@@ -44,9 +44,9 @@ class BuiltInContainerMarshallers {
      * them eligible for a generic unmarshal algorithm: read length, create an empty collection, then read N elements
      * and add each of them into the collection.
      */
-    private final Map<Class<?>, Supplier<? extends Collection<?>>> mutableBuiltInCollectionFactories = Map.of(
+    private final Map<Class<?>, IntFunction<? extends Collection<?>>> mutableBuiltInCollectionFactories = Map.of(
             ArrayList.class, ArrayList::new,
-            LinkedList.class, LinkedList::new,
+            LinkedList.class, size -> new LinkedList<>(),
             HashSet.class, HashSet::new,
             LinkedHashSet.class, LinkedHashSet::new
     );
@@ -56,7 +56,7 @@ class BuiltInContainerMarshallers {
      * them eligible for a generic unmarshal algorithm: read length, create an empty map, then read N entries
      * and put each of them into the map.
      */
-    private final Map<Class<?>, Supplier<? extends Map<?, ?>>> mutableBuiltInMapFactories = Map.of(
+    private final Map<Class<?>, IntFunction<? extends Map<?, ?>>> mutableBuiltInMapFactories = Map.of(
             HashMap.class, HashMap::new,
             LinkedHashMap.class, LinkedHashMap::new
     );
@@ -136,8 +136,8 @@ class BuiltInContainerMarshallers {
     }
 
     @SuppressWarnings("unchecked")
-    private <T, C extends Collection<T>> Supplier<C> requiredCollectionFactory(ClassDescriptor collectionDescriptor) {
-        Supplier<C> collectionFactory = (Supplier<C>) mutableBuiltInCollectionFactories.get(collectionDescriptor.clazz());
+    private <T, C extends Collection<T>> IntFunction<C> requiredCollectionFactory(ClassDescriptor collectionDescriptor) {
+        IntFunction<C> collectionFactory = (IntFunction<C>) mutableBuiltInCollectionFactories.get(collectionDescriptor.clazz());
 
         if (collectionFactory == null) {
             throw new IllegalStateException("Did not find a collection factory for " + collectionDescriptor.clazz()
@@ -147,19 +147,30 @@ class BuiltInContainerMarshallers {
         return collectionFactory;
     }
 
-    Object preInstantiateBuiltInMutableCollection(ClassDescriptor collectionDescriptor) {
+    Object preInstantiateBuiltInMutableCollection(ClassDescriptor collectionDescriptor, DataInput input, UnmarshallingContext context)
+            throws IOException {
         // TODO: IGNITE-16229 - proper immutable collections unmarshalling?
         if (collectionDescriptor.isSingletonList()) {
             return singletonList(null);
         }
 
-        return preInstantiateNonSingletonCollection(collectionDescriptor);
+        return preInstantiateNonSingletonCollection(collectionDescriptor, input, context);
     }
 
-    private <T, C extends Collection<T>> C preInstantiateNonSingletonCollection(ClassDescriptor collectionDescriptor) {
-        Supplier<C> collectionFactory = requiredCollectionFactory(collectionDescriptor);
+    private <T, C extends Collection<T>> C preInstantiateNonSingletonCollection(
+            ClassDescriptor collectionDescriptor,
+            DataInput input,
+            UnmarshallingContext context
+    ) throws IOException {
+        IntFunction<C> collectionFactory = requiredCollectionFactory(collectionDescriptor);
 
-        return BuiltInMarshalling.preInstantiateCollection(collectionFactory);
+        context.markSource();
+
+        C collection = BuiltInMarshalling.preInstantiateCollection(input, collectionFactory);
+
+        context.resetSourceToMark();
+
+        return collection;
     }
 
     <T, C extends Collection<T>> void fillBuiltInCollectionFrom(
@@ -199,14 +210,25 @@ class BuiltInContainerMarshallers {
         return mutableBuiltInMapFactories.containsKey(mapDescriptor.clazz());
     }
 
-    <K, V, M extends Map<K, V>> M preInstantiateBuiltInMutableMap(ClassDescriptor mapDescriptor) {
-        Supplier<M> mapFactory = requiredMapFactory(mapDescriptor);
-        return BuiltInMarshalling.preInstantiateMap(mapFactory);
+    <K, V, M extends Map<K, V>> M preInstantiateBuiltInMutableMap(
+            ClassDescriptor mapDescriptor,
+            DataInput input,
+            UnmarshallingContext context
+    ) throws IOException {
+        IntFunction<M> mapFactory = requiredMapFactory(mapDescriptor);
+
+        context.markSource();
+
+        M map = BuiltInMarshalling.preInstantiateMap(input, mapFactory);
+
+        context.resetSourceToMark();
+
+        return map;
     }
 
-    private <K, V, M extends Map<K, V>> Supplier<M> requiredMapFactory(ClassDescriptor mapDescriptor) {
+    private <K, V, M extends Map<K, V>> IntFunction<M> requiredMapFactory(ClassDescriptor mapDescriptor) {
         @SuppressWarnings("unchecked")
-        Supplier<M> mapFactory = (Supplier<M>) mutableBuiltInMapFactories.get(mapDescriptor.clazz());
+        IntFunction<M> mapFactory = (IntFunction<M>) mutableBuiltInMapFactories.get(mapDescriptor.clazz());
 
         if (mapFactory == null) {
             throw new IllegalStateException("Did not find a map factory for " + mapDescriptor.clazz()

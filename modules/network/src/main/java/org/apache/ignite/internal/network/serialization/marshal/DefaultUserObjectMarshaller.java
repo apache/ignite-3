@@ -305,9 +305,8 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     @Override
     @Nullable
     public <T> T unmarshal(byte[] bytes, IdIndexedDescriptors mergedDescriptors) throws UnmarshalException {
-        UnmarshallingContext context = new UnmarshallingContext(mergedDescriptors);
-
-        try (var dis = new DataInputStream(new ByteArrayInputStream(bytes))) {
+        try (var bais = new ByteArrayInputStream(bytes); var dis = new DataInputStream(bais)) {
+            UnmarshallingContext context = new UnmarshallingContext(bais, mergedDescriptors);
             return unmarshalFromInput(dis, context);
         } catch (IOException e) {
             throw new UnmarshalException("Cannot unmarshal", e);
@@ -346,7 +345,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
             throws IOException, UnmarshalException {
         int referenceId = readReferenceId(input);
 
-        Object preInstantiatedObject = preInstantiate(descriptor, input);
+        Object preInstantiatedObject = preInstantiate(descriptor, input, context);
         context.registerReference(referenceId, preInstantiatedObject);
 
         fillObjectFrom(input, preInstantiatedObject, descriptor, context);
@@ -358,13 +357,14 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         return input.readInt();
     }
 
-    private Object preInstantiate(ClassDescriptor descriptor, DataInput input) throws IOException, UnmarshalException {
+    private Object preInstantiate(ClassDescriptor descriptor, DataInput input, UnmarshallingContext context)
+            throws IOException, UnmarshalException {
         if (isBuiltInNonContainer(descriptor)) {
             throw new IllegalStateException("Should not be here");
         } else if (isBuiltInCollection(descriptor)) {
-            return builtInContainerMarshallers.preInstantiateBuiltInMutableCollection(descriptor);
+            return builtInContainerMarshallers.preInstantiateBuiltInMutableCollection(descriptor, input, context);
         } else if (isBuiltInMap(descriptor)) {
-            return builtInContainerMarshallers.preInstantiateBuiltInMutableMap(descriptor);
+            return builtInContainerMarshallers.preInstantiateBuiltInMutableMap(descriptor, input, context);
         } else if (isArray(descriptor)) {
             return preInstantiateGenericRefArray(input);
         } else if (descriptor.isExternalizable()) {

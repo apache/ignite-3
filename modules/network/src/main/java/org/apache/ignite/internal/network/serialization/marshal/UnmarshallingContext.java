@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
+import java.io.ByteArrayInputStream;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
@@ -27,11 +28,13 @@ import org.jetbrains.annotations.Nullable;
  * Context of unmarshalling act. Created once per unmarshalling a root object.
  */
 class UnmarshallingContext implements IdIndexedDescriptors {
+    private final ByteArrayInputStream source;
     private final IdIndexedDescriptors descriptors;
 
     private final Map<Integer, Object> refsToObjects = new HashMap<>();
 
-    public UnmarshallingContext(IdIndexedDescriptors descriptors) {
+    public UnmarshallingContext(ByteArrayInputStream source, IdIndexedDescriptors descriptors) {
+        this.source = source;
         this.descriptors = descriptors;
     }
 
@@ -54,5 +57,13 @@ class UnmarshallingContext implements IdIndexedDescriptors {
         }
 
         return (T) result;
+    }
+
+    public void markSource() {
+        source.mark(4);
+    }
+
+    public void resetSourceToMark() {
+        source.reset();
     }
 }

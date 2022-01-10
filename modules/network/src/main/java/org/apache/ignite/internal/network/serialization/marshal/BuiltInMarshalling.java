@@ -31,7 +31,6 @@ import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.IntFunction;
-import java.util.function.Supplier;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
 
@@ -364,8 +363,9 @@ class BuiltInMarshalling {
         }
     }
 
-    static <T, C extends Collection<T>> C preInstantiateCollection(Supplier<C> collectionFactory) {
-        return collectionFactory.get();
+    static <T, C extends Collection<T>> C preInstantiateCollection(DataInput input, IntFunction<C> collectionFactory) throws IOException {
+        int length = input.readInt();
+        return collectionFactory.apply(length);
     }
 
     static <T, C extends Collection<T>> void fillSingletonCollectionFrom(
@@ -411,8 +411,9 @@ class BuiltInMarshalling {
         }
     }
 
-    static <K, V, M extends Map<K, V>> M preInstantiateMap(Supplier<M> mapFactory) {
-        return mapFactory.get();
+    static <K, V, M extends Map<K, V>> M preInstantiateMap(DataInput input, IntFunction<M> mapFactory) throws IOException {
+        int length = input.readInt();
+        return mapFactory.apply(length);
     }
 
     static void writeBitSet(BitSet object, DataOutput output) throws IOException {
