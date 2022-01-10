@@ -27,10 +27,11 @@ interface ValueWriter<T> {
     /**
      * Writes the given value to a {@link DataOutput}.
      *
-     * @param value  value to write
-     * @param output where to write to
+     * @param value     value to write
+     * @param output    where to write to
+     * @param context   marshalling context
      * @throws IOException      if an I/O problem occurs
      * @throws MarshalException if another problem occurs
      */
-    void write(T value, DataOutput output) throws IOException, MarshalException;
+    void write(T value, DataOutput output, MarshallingContext context) throws IOException, MarshalException;
 }

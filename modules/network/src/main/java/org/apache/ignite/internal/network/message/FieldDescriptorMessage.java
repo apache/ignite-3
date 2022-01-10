@@ -39,4 +39,9 @@ public interface FieldDescriptorMessage extends NetworkMessage {
      * Field's class name.
      */
     String className();
+
+    /**
+     * The name of The class in which this field is declared.
+     */
+    String declaringClassName();
 }
