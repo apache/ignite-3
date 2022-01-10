@@ -37,6 +37,7 @@ import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -90,6 +91,30 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 ClientOp.TUPLE_GET,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
                 (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NullableValue<V> getNullable(@Nullable Transaction tx, @NotNull K key) {
+        return sync(getNullableAsync(tx, key));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @NotNull CompletableFuture<NullableValue<V>> getNullableAsync(@Nullable Transaction tx, @NotNull K key) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public V getOrDefault(@Nullable Transaction tx, @NotNull K key, V defaultValue) {
+        return sync(getOrDefaultAsync(tx, key, defaultValue));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @NotNull CompletableFuture<V> getOrDefaultAsync(@Nullable Transaction tx, @NotNull K key, V defaultValue) {
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
