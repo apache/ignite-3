@@ -155,6 +155,15 @@ namespace Apache.Ignite.Tests.Transactions
             Assert.ThrowsAsync<NullReferenceException>(async () => await Table.InsertAsync(new Transaction(1, null!), GetTuple(1)));
         }
 
+        [Test]
+        public async Task TestTransactionFromAnotherClientThrows()
+        {
+            using var client2 = await IgniteClient.StartAsync(GetConfig());
+            await using var tx = await client2.Transactions.BeginAsync();
+
+            Assert.ThrowsAsync<IgniteClientException>(async () => await Table.UpsertAsync(tx, GetTuple(1, "2")));
+        }
+
         private class CustomTx : ITransaction
         {
             public ValueTask DisposeAsync()
