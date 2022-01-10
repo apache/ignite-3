@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.calcite.util;
+package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.internal.calcite.util.Commons.getAllFromCursor;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -341,7 +340,7 @@ public abstract class QueryChecker {
                 qryProc.query("PUBLIC", "EXPLAIN PLAN FOR " + qry);
 
         Cursor<List<?>> explainCursor = explainCursors.get(0);
-        List<List<?>> explainRes = getAllFromCursor(explainCursor);
+        List<List<?>> explainRes = Commons.getAllFromCursor(explainCursor);
         String actualPlan = (String) explainRes.get(0).get(0);
 
         if (!CollectionUtils.nullOrEmpty(planMatchers)) {
@@ -377,7 +376,7 @@ public abstract class QueryChecker {
             assertThat("Column types don't match", colNames, equalTo(expectedColumnTypes));
         }
 
-        List<List<?>> res = getAllFromCursor(cur);
+        List<List<?>> res = Commons.getAllFromCursor(cur);
 
         if (expectedResult != null) {
             if (!ordered) {

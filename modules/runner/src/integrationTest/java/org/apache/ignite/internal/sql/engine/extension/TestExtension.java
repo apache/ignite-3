@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.calcite.extension;
+package org.apache.ignite.internal.sql.engine.extension;
 
 import java.util.List;
 import java.util.Map;
@@ -30,9 +30,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.FilterNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
 import org.apache.ignite.internal.sql.engine.exec.rel.ScanNode;
-import org.apache.ignite.internal.sql.engine.extension.CatalogUpdateListener;
-import org.apache.ignite.internal.sql.engine.extension.ExternalConvention;
-import org.apache.ignite.internal.sql.engine.extension.SqlExtension;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerPhase;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;

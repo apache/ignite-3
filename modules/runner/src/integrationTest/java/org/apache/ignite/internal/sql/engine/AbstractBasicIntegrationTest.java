@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.calcite;
+package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.calcite.util.Commons.getAllFromCursor;
+import static org.apache.ignite.internal.sql.engine.util.Commons.getAllFromCursor;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -27,9 +27,8 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.ItUtils;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.calcite.util.QueryChecker;
+import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;

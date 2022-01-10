@@ -2,11 +2,11 @@
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to you under the Apache License, Version 2.0
+ * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.calcite;
+package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.calcite.util.QueryChecker.containsAnyProject;
-import static org.apache.ignite.internal.calcite.util.QueryChecker.containsIndexScan;
-import static org.apache.ignite.internal.calcite.util.QueryChecker.containsOneProject;
-import static org.apache.ignite.internal.calcite.util.QueryChecker.containsProject;
-import static org.apache.ignite.internal.calcite.util.QueryChecker.containsTableScan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsAnyProject;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsOneProject;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsProject;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.calcite.extension;
+package org.apache.ignite.internal.sql.engine.extension;
 
 import java.util.List;
 import java.util.UUID;

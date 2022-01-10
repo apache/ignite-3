@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.calcite.extension;
+package org.apache.ignite.internal.sql.engine.extension;
 
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.changeTraits;
 

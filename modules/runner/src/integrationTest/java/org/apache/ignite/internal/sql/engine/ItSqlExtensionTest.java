@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.calcite;
+package org.apache.ignite.internal.sql.engine;
 
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.calcite.extension.TestExtension;
+import org.apache.ignite.internal.sql.engine.extension.TestExtension;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;

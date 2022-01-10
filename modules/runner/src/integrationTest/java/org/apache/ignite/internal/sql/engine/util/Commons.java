@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.calcite.util;
+package org.apache.ignite.internal.sql.engine.util;
 
 import java.util.List;
 import java.util.stream.Collectors;
