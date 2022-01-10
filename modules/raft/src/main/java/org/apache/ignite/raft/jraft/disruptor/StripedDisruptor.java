@@ -99,8 +99,16 @@ public class StripedDisruptor<T extends GroupAware> {
      * Shutdowns all nested disruptors.
      */
     public void shutdown() {
-        for (int i = 0; i < stripes; i++)
+        for (int i = 0; i < stripes; i++) {
             disruptors[i].shutdown();
+
+            // Help GC to collect unused resources.
+            queues[i] = null;
+            disruptors[i] = null;
+        }
+
+        eventHandlers.clear();
+        exceptionHandlers.clear();
     }
 
     /**
