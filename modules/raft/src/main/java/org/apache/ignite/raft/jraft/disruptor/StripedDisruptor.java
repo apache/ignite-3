@@ -100,7 +100,8 @@ public class StripedDisruptor<T extends GroupAware> {
      */
     public void shutdown() {
         for (int i = 0; i < stripes; i++) {
-            disruptors[i].shutdown();
+            if (disruptors[i] != null)
+                disruptors[i].shutdown();
 
             // Help GC to collect unused resources.
             queues[i] = null;
