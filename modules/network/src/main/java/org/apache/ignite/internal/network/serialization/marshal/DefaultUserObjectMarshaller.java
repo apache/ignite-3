@@ -55,8 +55,6 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     private final ExternalizableMarshaller externalizableMarshaller = new ExternalizableMarshaller();
     private final ArbitraryObjectMarshaller arbitraryObjectMarshaller;
 
-    private final Cycles cycles = new Cycles(builtInNonContainerMarshallers);
-
     /**
      * Constructor.
      *
@@ -106,7 +104,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
 
         DescribedObject writeReplaced = applyWriteReplaceIfNeeded(object, declaredClass);
 
-        if (cycles.canParticipateInCycles(writeReplaced.descriptor)) {
+        if (canParticipateInCycles(writeReplaced.descriptor)) {
             Integer maybeRefId = context.rememberAsSeen(writeReplaced.object);
             if (maybeRefId != null) {
                 writeReference(maybeRefId, output);
@@ -116,6 +114,16 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         } else {
             marshalNonCycleable(writeReplaced, output, context);
         }
+    }
+
+    /**
+     * Returns {@code true} if an instance of the type represented by the descriptor may actively form a cycle.
+     *
+     * @param descriptor    descriptor to check
+     * @return {@code true} if an instance of the type represented by the descriptor may actively form a cycle
+     */
+    boolean canParticipateInCycles(ClassDescriptor descriptor) {
+        return !builtInNonContainerMarshallers.supports(descriptor.clazz());
     }
 
     private boolean objectIsMemberOfEnumWithAnonymousClassesForMembers(Object object, Class<?> declaredClass) {
@@ -315,7 +323,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
 
         ClassDescriptor descriptor = context.getRequiredDescriptor(commandOrDescriptorId);
         Object readObject;
-        if (cycles.canParticipateInCycles(descriptor)) {
+        if (canParticipateInCycles(descriptor)) {
             readObject = readCycleable(input, context, descriptor);
         } else {
             readObject = readObject(input, descriptor, context);
