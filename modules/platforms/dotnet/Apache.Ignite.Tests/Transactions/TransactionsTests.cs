@@ -134,9 +134,13 @@ namespace Apache.Ignite.Tests.Transactions
         }
 
         [Test]
-        public void TestClientDisconnectClosesActiveTransactions()
+        public async Task TestClientDisconnectClosesActiveTransactions()
         {
-            Assert.Fail("TODO");
+            using (var client2 = await IgniteClient.StartAsync(GetConfig()))
+            using (var tx = client2.Transactions.BeginAsync())
+            {
+                Assert.Fail("TODO");
+            }
         }
 
         [Test]
