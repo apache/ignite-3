@@ -106,7 +106,11 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestCustomTupleEquality()
         {
+            var tuple = new IgniteTuple { ["key"] = 42, ["val"] = "Val1" };
+            var customTuple = new CustomTestIgniteTuple();
 
+            Assert.IsTrue(IIgniteTuple.Equals(tuple, customTuple));
+            Assert.AreEqual(IIgniteTuple.GetHashCode(tuple), IIgniteTuple.GetHashCode(customTuple));
         }
     }
 }
