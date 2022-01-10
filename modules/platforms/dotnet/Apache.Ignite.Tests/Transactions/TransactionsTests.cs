@@ -62,7 +62,14 @@ namespace Apache.Ignite.Tests.Transactions
             Assert.IsTrue(await Table.ReplaceAsync(tx, GetTuple(1, "10"), GetTuple(1, "12")));
             Assert.AreEqual(GetTuple(1, "12"), await Table.GetAsync(tx, key));
 
-            // TODO: DeleteAll, DeleteAllExact
+            var deleteAllRes = await Table.DeleteAllAsync(tx, new[] { GetTuple(3), GetTuple(4) });
+            Assert.AreEqual(4, deleteAllRes.Single()[0]);
+            Assert.IsNull(await Table.GetAsync(tx, GetTuple(3)));
+
+            var deleteAllExactRes = await Table.DeleteAllAsync(tx, new[] { GetTuple(1, "12"), GetTuple(5) });
+            Assert.AreEqual(5, deleteAllExactRes.Single()[0]);
+            Assert.IsNull(await Table.GetAsync(tx, key));
+
             await tx.RollbackAsync();
             Assert.AreEqual(GetTuple(1, "1"), await Table.GetAsync(null, key));
         }
