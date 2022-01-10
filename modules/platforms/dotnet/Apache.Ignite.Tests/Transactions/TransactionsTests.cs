@@ -154,12 +154,6 @@ namespace Apache.Ignite.Tests.Transactions
         }
 
         [Test]
-        public void TestTransactionalOperationsUseOwningSocket()
-        {
-            Assert.ThrowsAsync<NullReferenceException>(async () => await Table.InsertAsync(new Transaction(1, null!, null!), GetTuple(1)));
-        }
-
-        [Test]
         public async Task TestTransactionFromAnotherClientThrows()
         {
             using var client2 = await IgniteClient.StartAsync(GetConfig());
