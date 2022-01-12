@@ -72,18 +72,6 @@ import org.jetbrains.annotations.Nullable;
  * Raft server implementation on top of forked JRaft library.
  */
 public class JraftServerImpl implements RaftServer {
-    /**
-     * The upper bound of the election timeout adjusting. Adjusting happens according to
-     * {@link org.apache.ignite.raft.jraft.util.TimeoutStrategy} when a leader is not elected.
-     * Must be more than timeout of a membership protocol to remove failed node from the cluster. In our case, we may assume
-     * that 11s could be enough as far as 11s is greater than suspicion timeout for the 1000 nodes cluster with ping interval
-     * equals 500ms.
-     */
-    public static final int ELECTION_TIMEOUT_MS_MAX = 11_000;
-
-    /** Max number of consecutive unsuccessful elections after which election timeout is adjusted. */
-    public static final int MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING = 3;
-
     /** Cluster service. */
     private final ClusterService service;
 

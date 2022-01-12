@@ -235,7 +235,6 @@ public class TestCluster {
             nodeOptions.setTimerPoolSize(Utils.cpus() * 2);
             nodeOptions.setRpcProcessorThreadPoolSize(Utils.cpus() * 3);
 
-            //
             nodeOptions.setElectionTimeoutStrategy(new ExponentialBackoffTimeoutStrategy());
 
             MockStateMachine fsm = new MockStateMachine(listenAddr);
