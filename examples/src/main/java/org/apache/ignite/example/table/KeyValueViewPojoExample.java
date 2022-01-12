@@ -19,7 +19,6 @@ package org.apache.ignite.example.table;
 
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.Tuple;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -38,7 +37,7 @@ import java.sql.Statement;
  *     <li>Run the example in the IDE.</li>
  * </ol>
  */
-public class KeyValueViewExample {
+public class KeyValueViewPojoExample {
     /**
      * Main method of the example.
      *
@@ -78,13 +77,35 @@ public class KeyValueViewExample {
             .addresses("127.0.0.1:10800")
             .build()
         ) {
+            class AccountKey {
+                final int accountNumber;
+
+                public AccountKey(int accountNumber) {
+                    this.accountNumber = accountNumber;
+                }
+            }
+
+            class Account {
+                final String firstName;
+                final String lastName;
+                final double balance;
+
+                public Account(String firstName, String lastName, double balance) {
+                    this.firstName = firstName;
+                    this.lastName = lastName;
+                    this.balance = balance;
+                }
+            }
+
             //--------------------------------------------------------------------------------------
             //
             // Creating a key-value view for the 'accounts' table.
             //
             //--------------------------------------------------------------------------------------
 
-            KeyValueView<Tuple, Tuple> kvView = client.tables().table("PUBLIC.accounts").keyValueView();
+            KeyValueView<AccountKey, Account> kvView = client.tables()
+                .table("PUBLIC.accounts")
+                .keyValueView(AccountKey.class, Account.class);
 
             //--------------------------------------------------------------------------------------
             //
@@ -94,13 +115,13 @@ public class KeyValueViewExample {
 
             System.out.println("\nInserting a key-value pair into the 'accounts' table...");
 
-            Tuple key = Tuple.create()
-                .set("accountNumber", 123456);
+            AccountKey key = new AccountKey(123456);
 
-            Tuple value = Tuple.create()
-                .set("firstName", "Val")
-                .set("lastName", "Kulichenko")
-                .set("balance", 100.00d);
+            Account value = new Account(
+                "Val",
+                "Kulichenko",
+                100.00d
+            );
 
             kvView.put(null, key, value);
 
@@ -116,9 +137,9 @@ public class KeyValueViewExample {
 
             System.out.println(
                 "\nRetrieved value:\n" +
-                "    Account Number: " + key.intValue("accountNumber") + '\n' +
-                "    Owner: " + value.stringValue("firstName") + " " + value.stringValue("lastName") + '\n' +
-                "    Balance: $" + value.doubleValue("balance"));
+                "    Account Number: " + key.accountNumber + '\n' +
+                "    Owner: " + value.firstName + " " + value.lastName + '\n' +
+                "    Balance: $" + value.balance);
         }
 
         System.out.println("\nDropping the table...");

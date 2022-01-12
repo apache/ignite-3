@@ -18,15 +18,14 @@
 package org.apache.ignite.example.table;
 
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.RecordView;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
 
 /**
- * This example demonstrates the usage of the {@link KeyValueView} API.
+ * This example demonstrates the usage of the {@link RecordView} API.
  *
  * <p>To run the example, do the following:
  * <ol>
@@ -38,7 +37,7 @@ import java.sql.Statement;
  *     <li>Run the example in the IDE.</li>
  * </ol>
  */
-public class KeyValueViewExample {
+public class RecordViewPojoExample {
     /**
      * Main method of the example.
      *
@@ -78,31 +77,54 @@ public class KeyValueViewExample {
             .addresses("127.0.0.1:10800")
             .build()
         ) {
+            class Account {
+                final int accountNumber;
+                final String firstName;
+                final String lastName;
+                final double balance;
+
+                public Account(int accountNumber) {
+                    this.accountNumber = accountNumber;
+
+                    firstName = null;
+                    lastName = null;
+                    balance = 0.0d;
+                }
+
+                public Account(int accountNumber, String firstName, String lastName, double balance) {
+                    this.accountNumber = accountNumber;
+                    this.firstName = firstName;
+                    this.lastName = lastName;
+                    this.balance = balance;
+                }
+            }
+
             //--------------------------------------------------------------------------------------
             //
-            // Creating a key-value view for the 'accounts' table.
+            // Creating a record view for the 'accounts' table.
             //
             //--------------------------------------------------------------------------------------
 
-            KeyValueView<Tuple, Tuple> kvView = client.tables().table("PUBLIC.accounts").keyValueView();
+            RecordView<Account> accounts = client.tables()
+                .table("PUBLIC.accounts")
+                .recordView(Account.class);
 
             //--------------------------------------------------------------------------------------
             //
-            // Performing the 'put' operation.
+            // Performing the 'insert' operation.
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nInserting a key-value pair into the 'accounts' table...");
+            System.out.println("\nInserting a record into the 'accounts' table...");
 
-            Tuple key = Tuple.create()
-                .set("accountNumber", 123456);
+            Account newAccount = new Account(
+                123456,
+                "Val",
+                "Kulichenko",
+                100.00d
+            );
 
-            Tuple value = Tuple.create()
-                .set("firstName", "Val")
-                .set("lastName", "Kulichenko")
-                .set("balance", 100.00d);
-
-            kvView.put(null, key, value);
+            accounts.insert(null, newAccount);
 
             //--------------------------------------------------------------------------------------
             //
@@ -110,24 +132,24 @@ public class KeyValueViewExample {
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nRetrieving a value using KeyValueView API...");
+            System.out.println("\nRetrieving a record using RecordView API...");
 
-            value = kvView.get(null, key);
+            Account account = accounts.get(null, new Account(123456));
 
             System.out.println(
-                "\nRetrieved value:\n" +
-                "    Account Number: " + key.intValue("accountNumber") + '\n' +
-                "    Owner: " + value.stringValue("firstName") + " " + value.stringValue("lastName") + '\n' +
-                "    Balance: $" + value.doubleValue("balance"));
-        }
+                "\nRetrieved record:\n" +
+                "    Account Number: " + account.accountNumber + '\n' +
+                "    Owner: " + account.firstName + " " + account.lastName + '\n' +
+                "    Balance: $" + account.balance);
 
-        System.out.println("\nDropping the table...");
+            System.out.println("\nDropping the table...");
 
-        try (
-            Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-            Statement stmt = conn.createStatement()
-        ) {
-            stmt.executeUpdate("DROP TABLE accounts");
+            try (
+                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                Statement stmt = conn.createStatement()
+            ) {
+                stmt.executeUpdate("DROP TABLE accounts");
+            }
         }
     }
 }
