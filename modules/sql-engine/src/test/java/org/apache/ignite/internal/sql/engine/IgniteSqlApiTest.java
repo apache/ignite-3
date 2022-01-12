@@ -242,8 +242,8 @@ public class IgniteSqlApiTest {
         assertEquals("id", meta.column(0).name());
         assertEquals("val", meta.column(1).name());
 
-        assertEquals(ColumnType.INT64, meta.column(0).type());
-        assertEquals(ColumnType.string(), meta.column(1).type());
+        assertEquals(Long.class, meta.column(0).valueClass());
+        assertEquals(String.class, meta.column(1).valueClass());
 
         assertFalse(meta.column(0).nullable());
         assertTrue(meta.column(1).nullable());
