@@ -129,7 +129,7 @@ public class JraftServerImpl implements RaftServer {
         // {@link org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy} when a leader is not elected, after several
         // consecutive unsuccessful leader elections, which could be controlled through
         // {@link org.apache.ignite.raft.jraft.option.NodeOptions.MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING}
-        // Max timeout value of timeout that {@link org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy} could produce is
+        // Max timeout value that {@link org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy} could produce is
         // 11s. This value must be more than timeout of a membership protocol to remove failed node from the cluster.
         // In our case, we may assume that 11s could be enough as far as 11s is greater
         // than suspicion timeout for the 1000 nodes cluster with ping interval equals 500ms.
