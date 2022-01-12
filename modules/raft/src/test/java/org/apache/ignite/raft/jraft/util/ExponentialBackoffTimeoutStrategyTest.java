@@ -28,37 +28,17 @@ public class ExponentialBackoffTimeoutStrategyTest {
 
     @Test
     public void testNextReset() {
-        int initialTimeout = 200;
+        int initialTimeout = 2000;
 
-        int maxTimeout = 1000;
-
-        TimeoutStrategy timeoutStrategy = new ExponentialBackoffTimeoutStrategy(initialTimeout, maxTimeout, 2);
-
-        assertEquals(initialTimeout, timeoutStrategy.nextTimeout());
-        assertEquals(initialTimeout, timeoutStrategy.nextTimeout());
+        TimeoutStrategy timeoutStrategy = new ExponentialBackoffTimeoutStrategy();
 
         // default backoff coefficient equals to 2
-        assertEquals(2 * initialTimeout, timeoutStrategy.nextTimeout());
+        assertEquals(2 * initialTimeout, timeoutStrategy.nextTimeout(initialTimeout));
 
-        assertEquals(2 * initialTimeout, timeoutStrategy.nextTimeout());
-        assertEquals(2 * initialTimeout, timeoutStrategy.nextTimeout());
+        assertEquals(2 * 2 * initialTimeout, timeoutStrategy.nextTimeout(2 * initialTimeout));
 
-        assertEquals(2 * 2 * initialTimeout, timeoutStrategy.nextTimeout());
+        assertEquals(11_000, timeoutStrategy.nextTimeout(2 * 2 * initialTimeout));
 
-        assertEquals(2 * 2 * initialTimeout, timeoutStrategy.nextTimeout());
-        assertEquals(2 * 2 * initialTimeout, timeoutStrategy.nextTimeout());
-
-        assertEquals(maxTimeout, timeoutStrategy.nextTimeout());
-
-        assertEquals(maxTimeout, timeoutStrategy.nextTimeout());
-        assertEquals(maxTimeout, timeoutStrategy.nextTimeout());
-        assertEquals(maxTimeout, timeoutStrategy.nextTimeout());
-
-        assertEquals(initialTimeout, timeoutStrategy.reset());
-
-        assertEquals(initialTimeout, timeoutStrategy.nextTimeout());
-        assertEquals(initialTimeout, timeoutStrategy.nextTimeout());
-
-        assertEquals(2 * initialTimeout, timeoutStrategy.nextTimeout());
+        assertEquals(11_000, timeoutStrategy.nextTimeout(100_500));
     }
 }

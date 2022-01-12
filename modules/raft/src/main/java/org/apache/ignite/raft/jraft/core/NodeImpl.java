@@ -109,7 +109,6 @@ import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.Describer;
 import org.apache.ignite.raft.jraft.util.DisruptorMetricSet;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
-import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.RepeatedTimer;
 import org.apache.ignite.raft.jraft.util.Requires;
@@ -150,6 +149,8 @@ public class NodeImpl implements Node, RaftServerService {
     private ConfigurationEntry conf;
     private StopTransferArg stopTransferArg;
     private boolean electionAdjusted;
+    private int electionRoundsWithoutAdjusting;
+    private int initialElectionTimeout;
 
     /**
      * Raft group and node options and identifier
@@ -624,14 +625,19 @@ public class NodeImpl implements Node, RaftServerService {
      * Leader election timeout is set to an initial value after a successful election of a leader.
      */
     private void adjustElectionTimeout() {
-        if (options.getElectionTimeoutStrategy() instanceof NoopTimeoutStrategy) {
+        if (electionRoundsWithoutAdjusting < NodeOptions.MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING) {
+            electionRoundsWithoutAdjusting++;
             return;
         }
 
-        long timeout = options.getElectionTimeoutStrategy().nextTimeout();
+        if (!electionAdjusted) {
+            initialElectionTimeout = options.getElectionTimeoutMs();
+        }
+
+        long timeout = options.getElectionTimeoutStrategy().nextTimeout(options.getElectionTimeoutMs());
 
         if (timeout != options.getElectionTimeoutMs()) {
-            LOG.info("Election timeout was adjusted according to " + options.getElectionTimeoutStrategy().toString());
+            LOG.info("Election timeout was adjusted according to {} ", options.getElectionTimeoutStrategy().toString());
             resetElectionTimeoutMs((int) timeout);
             electionAdjusted = true;
         }
@@ -643,14 +649,12 @@ public class NodeImpl implements Node, RaftServerService {
      * For more details see {@link NodeImpl#adjustElectionTimeout()}.
      */
     private void resetElectionTimeoutToInitial() {
-        if (!(options.getElectionTimeoutStrategy() instanceof NoopTimeoutStrategy)) {
-            long initialElectionTimeout = options.getElectionTimeoutStrategy().reset();
+        electionRoundsWithoutAdjusting = 0;
 
-            if (electionAdjusted) {
-                LOG.info("Election timeout was reset to initial value due to successful leader election.");
-                resetElectionTimeoutMs((int) initialElectionTimeout);
-                electionAdjusted = false;
-            }
+        if (electionAdjusted) {
+            LOG.info("Election timeout was reset to initial value due to successful leader election.");
+            resetElectionTimeoutMs(initialElectionTimeout);
+            electionAdjusted = false;
         }
     }
 

@@ -53,6 +53,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     private TimeoutStrategy electionTimeoutStrategy = new NoopTimeoutStrategy();
 
+    // Max number of consecutive unsuccessful elections after which election timeout is adjusted according to {@link TimeoutStrategy}.
+    public static final int MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING = 3;
+
     // One node's local priority value would be set to | electionPriority |
     // value when it starts up.If this value is set to 0,the node will never be a leader.
     // If this node doesn't support priority election,then set this value to -1.

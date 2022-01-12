@@ -21,46 +21,19 @@ import org.apache.ignite.internal.tostring.S;
 
 /**
  * Timeout generation strategy.
- * Increases startTimeout based on exponential backoff algorithm.
+ * Increases provided timeout based on exponential backoff algorithm. Max timeout equals to {@link TIMEOUT_MS_MAX}
  */
 public class ExponentialBackoffTimeoutStrategy implements TimeoutStrategy {
     /** Default backoff coefficient to calculate next timeout based on backoff strategy. */
     private static final double DEFAULT_BACKOFF_COEFFICIENT = 2.0;
 
-    /** Max timeout of the next try, ms. */
-    private final int maxTimeout;
+    /** Max timeout that strategy could generate, ms. */
+    private static final int TIMEOUT_MS_MAX = 11_000;
 
-    /** Current calculated timeout, ms. */
-    private int currentTimeout;
-
-    /** Initial timeout. */
-    private final int startTimeout;
-
-    /* Overall number of retries to get next timeout without adjusting timeout. */
-    private final int retryCounter;
-
-    /** Current counter of retries without adjusting timeout. */
-    private int currentRetry;
-
-    /**
-     * @param startTimeout Initial timeout.
-     * @param maxTimeout Max timeout.
-     * @param retryCounter Number of retries without increasing timeout.
-     */
-    public ExponentialBackoffTimeoutStrategy(
-            int startTimeout,
-            int maxTimeout,
-            int retryCounter
-    ) {
-        this.maxTimeout = maxTimeout;
-
-        this.startTimeout = startTimeout;
-
-        this.currentTimeout = startTimeout;
-
-        this.retryCounter = retryCounter;
-
-        currentRetry = 0;
+    /** {@inheritDoc} */
+    @Override
+    public int nextTimeout(int currentTimeout) {
+        return backoffTimeout(currentTimeout, TIMEOUT_MS_MAX);
     }
 
     /**
@@ -70,32 +43,6 @@ public class ExponentialBackoffTimeoutStrategy implements TimeoutStrategy {
      */
     public static int backoffTimeout(int timeout, int maxTimeout) {
         return (int) Math.min(timeout * DEFAULT_BACKOFF_COEFFICIENT, maxTimeout);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int nextTimeout() {
-        if (currentRetry < retryCounter) {
-            currentRetry++;
-
-            return currentTimeout;
-        }
-
-        currentTimeout = backoffTimeout(currentTimeout, maxTimeout);
-
-        currentRetry = 0;
-
-        return currentTimeout;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int reset() {
-        currentTimeout = startTimeout;
-
-        currentRetry = 0;
-
-        return currentTimeout;
     }
 
     /** {@inheritDoc} */

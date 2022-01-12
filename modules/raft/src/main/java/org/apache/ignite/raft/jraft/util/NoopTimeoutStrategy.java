@@ -17,16 +17,9 @@
 
 package org.apache.ignite.raft.jraft.util;
 
-import org.apache.ignite.lang.IgniteInternalException;
-
 public class NoopTimeoutStrategy implements TimeoutStrategy {
     @Override
-    public int nextTimeout() {
-        throw new IgniteInternalException("You have to configure election timeout strategy.");
-    }
-
-    @Override
-    public int reset() {
-        throw new IgniteInternalException("You have to configure election timeout strategy.");
+    public int nextTimeout(int currentTimeout) {
+       return currentTimeout;
     }
 }

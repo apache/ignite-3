@@ -26,12 +26,5 @@ public interface TimeoutStrategy {
      *
      * @return Next timeout.
      */
-    int nextTimeout();
-
-    /**
-     * Reset timeout to initial.
-     *
-     * @return Initial timeout.
-     */
-    int reset();
+    int nextTimeout(int currentTimeout);
 }

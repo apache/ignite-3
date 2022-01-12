@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.core;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
+import static org.apache.ignite.raft.jraft.test.TestUtils.sender;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -2738,7 +2739,7 @@ public class ItNodeTest {
 
         // Block only one vote message.
         for (NodeImpl node : nodes) {
-            RpcClientEx rpcClientEx = TestUtils.sender(node);
+            RpcClientEx rpcClientEx = sender(node);
             rpcClientEx.recordMessages((msg, nodeId) -> true);
             rpcClientEx.blockMessages((msg, nodeId) -> {
                 if (msg instanceof RpcRequests.RequestVoteRequest) {
@@ -2767,7 +2768,7 @@ public class ItNodeTest {
         Node leader = cluster.getLeader();
         cluster.ensureLeader(leader);
 
-        RpcClientEx client = TestUtils.sender(leader);
+        RpcClientEx client = sender(leader);
 
         client.stopBlock(1); // Unblock vote message.
 
@@ -3436,7 +3437,7 @@ public class ItNodeTest {
         assertNull(cluster.getLeader());
 
         assertTrue(waitForCondition(() -> followers.stream().allMatch(f -> f.getOptions().getElectionTimeoutMs() > initElectionTimeout),
-                (long) TestCluster.MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING
+                (long) NodeOptions.MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING
                         // need to multiply to 2 because stepDown happens after voteTimer timeout
                         * (initElectionTimeout + followers.get(0).getOptions().getRaftOptions().getMaxElectionDelayMs()) * 2));
 
@@ -3736,21 +3737,15 @@ public class ItNodeTest {
 
     private void blockMessagesOnFollowers(List<Node> followers, BiPredicate<Object, String> blockingPredicate) {
         for (Node follower : followers) {
-            RpcClientEx rpcClientEx = getRpcClientEx(follower);
+            RpcClientEx rpcClientEx = sender(follower);
             rpcClientEx.blockMessages(blockingPredicate);
         }
     }
 
     private void stopBlockingMessagesOnFollowers(List<Node> followers) {
         for (Node follower : followers) {
-            RpcClientEx rpcClientEx = getRpcClientEx(follower);
+            RpcClientEx rpcClientEx = sender(follower);
             rpcClientEx.stopBlock();
         }
-    }
-
-    private RpcClientEx getRpcClientEx(Node follower) {
-        NodeImpl follower0 = (NodeImpl) follower;
-        DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcClientService();
-        return (RpcClientEx) rpcService.getRpcClient();
     }
 }

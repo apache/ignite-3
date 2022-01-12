@@ -76,11 +76,6 @@ public class TestCluster {
      */
     public static final int ELECTION_TIMEOUT_MILLIS = 1000;
 
-    private static final int ELECTION_TIMEOUT_MS_MAX = 11_000;
-
-    // Max number of consecutive unsuccessful elections after which election timeout is adjusted.
-    protected static final int MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING = 3;
-
     private static final IgniteLogger LOG = IgniteLogger.forClass(TestCluster.class);
 
     private final String dataPath;
@@ -241,13 +236,7 @@ public class TestCluster {
             nodeOptions.setRpcProcessorThreadPoolSize(Utils.cpus() * 3);
 
             //
-            nodeOptions.setElectionTimeoutStrategy(
-                    new ExponentialBackoffTimeoutStrategy(
-                            this.electionTimeoutMs,
-                            ELECTION_TIMEOUT_MS_MAX,
-                            MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING
-                    )
-            );
+            nodeOptions.setElectionTimeoutStrategy(new ExponentialBackoffTimeoutStrategy());
 
             MockStateMachine fsm = new MockStateMachine(listenAddr);
             nodeOptions.setFsm(fsm);
