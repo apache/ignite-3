@@ -77,6 +77,12 @@ public class RecordViewPojoExample {
             .addresses("127.0.0.1:10800")
             .build()
         ) {
+            //--------------------------------------------------------------------------------------
+            //
+            // Defining POJO class.
+            //
+            //--------------------------------------------------------------------------------------
+
             class Account {
                 final int accountNumber;
                 final String firstName;

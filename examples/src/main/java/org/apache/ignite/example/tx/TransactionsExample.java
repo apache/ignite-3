@@ -1,31 +1,16 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-package org.apache.ignite.example.table;
+package org.apache.ignite.example.tx;
 
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.tx.IgniteTransactions;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * This example demonstrates the usage of the {@link KeyValueView} API.
+ * This example demonstrates the usage of the {@link IgniteTransactions} API.
  *
  * <p>To run the example, do the following:
  * <ol>
@@ -37,7 +22,7 @@ import java.sql.Statement;
  *     <li>Run the example in the IDE.</li>
  * </ol>
  */
-public class KeyValueViewPojoExample {
+public class TransactionsExample {
     /**
      * Main method of the example.
      *
@@ -79,7 +64,7 @@ public class KeyValueViewPojoExample {
         ) {
             //--------------------------------------------------------------------------------------
             //
-            // Defining POJO classes.
+            // Creating an account.
             //
             //--------------------------------------------------------------------------------------
 
@@ -94,7 +79,7 @@ public class KeyValueViewPojoExample {
             class Account {
                 final String firstName;
                 final String lastName;
-                final double balance;
+                double balance;
 
                 public Account(String firstName, String lastName, double balance) {
                     this.firstName = firstName;
@@ -103,58 +88,59 @@ public class KeyValueViewPojoExample {
                 }
             }
 
-            //--------------------------------------------------------------------------------------
-            //
-            // Creating a key-value view for the 'accounts' table.
-            //
-            //--------------------------------------------------------------------------------------
-
-            KeyValueView<AccountKey, Account> kvView = client.tables()
+            KeyValueView<AccountKey, Account> accounts = client.tables()
                 .table("PUBLIC.accounts")
                 .keyValueView(AccountKey.class, Account.class);
 
+            final AccountKey key = new AccountKey(123);
+
+            accounts.put(null, key, new Account("John", "Doe", 1000.0d));
+
+            System.out.println("\nInitial balance: " + accounts.get(null, key).balance);
+
             //--------------------------------------------------------------------------------------
             //
-            // Performing the 'put' operation.
+            // Using synchronous transactional API to update the balance.
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nInserting a key-value pair into the 'accounts' table...");
+            client.transactions().runInTransaction(tx -> {
+                Account account = accounts.get(tx, key);
 
-            AccountKey key = new AccountKey(123456);
+                account.balance += 200.0d;
 
-            Account value = new Account(
-                "Val",
-                "Kulichenko",
-                100.00d
+                accounts.put(tx, key, account);
+            });
+
+            System.out.println("\nBalance after the sync transaction: " + accounts.get(null, key).balance);
+
+            //--------------------------------------------------------------------------------------
+            //
+            // Using asynchronous transactional API to update the balance.
+            //
+            //--------------------------------------------------------------------------------------
+
+            CompletableFuture<Void> fut = client.transactions().beginAsync().thenCompose(tx ->
+                accounts.getAsync(tx, key).thenCompose(account -> {
+                    account.balance += 300.0d;
+
+                    return accounts.putAsync(tx, key, account);
+                })
             );
 
-            kvView.put(null, key, value);
+            // Wait for completion.
+            fut.join();
 
-            //--------------------------------------------------------------------------------------
-            //
-            // Performing the 'get' operation.
-            //
-            //--------------------------------------------------------------------------------------
+            System.out.println("\nBalance after the async transaction: " + accounts.get(null, key).balance);
 
-            System.out.println("\nRetrieving a value using KeyValueView API...");
+            System.out.println("\nDropping the table...");
 
-            value = kvView.get(null, key);
-
-            System.out.println(
-                "\nRetrieved value:\n" +
-                "    Account Number: " + key.accountNumber + '\n' +
-                "    Owner: " + value.firstName + " " + value.lastName + '\n' +
-                "    Balance: $" + value.balance);
-        }
-
-        System.out.println("\nDropping the table...");
-
-        try (
-            Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-            Statement stmt = conn.createStatement()
-        ) {
-            stmt.executeUpdate("DROP TABLE accounts");
+            try (
+                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                Statement stmt = conn.createStatement()
+            ) {
+                stmt.executeUpdate("DROP TABLE accounts");
+            }
         }
     }
 }
