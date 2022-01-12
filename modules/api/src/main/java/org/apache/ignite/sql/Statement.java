@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The object represents parameterized SQL query statement that supports batched query, and provides methods for managing it`s state.
+ * The object represents SQL statement.
  */
 public interface Statement {
     /**

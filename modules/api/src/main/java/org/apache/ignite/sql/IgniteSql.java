@@ -31,7 +31,7 @@ public interface IgniteSql {
     Session createSession();
 
     /**
-     * Creates statement.
+     * Creates SQL statement.
      *
      * @param sql SQL query template.
      * @return A new statement.
@@ -40,14 +40,14 @@ public interface IgniteSql {
     Statement createStatement(@NotNull String sql);
 
     /**
-     * Creates prepared statement.
+     * Creates prepared SQL statement.
      *
      * <p>Prepared statement forces query plan caching on the server side. In contrast to regular Statement, an identifier of the prepared
      * query is send to the server instead of query string when possible. This might be useful for large and for "hot" queries.
      *
      * @param sql SQL query template.
-     * @return A new statement.
+     * @return A new prepared statement.
      * @throws SqlException If parsing failed.
      */
-    Statement createPrepared(@NotNull String sql);
+    PreparedStatement createPrepared(@NotNull String sql);
 }

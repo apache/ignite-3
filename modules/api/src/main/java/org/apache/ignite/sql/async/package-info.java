@@ -15,33 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.sql;
-
 /**
- * Interface that provides methods for accessing column metadata.
+ * Contain part of SQL API for SQL query execution in asynchronous way.
  */
-public interface ColumnMetadata {
-    /**
-     * Return column name in the result set.
-     *
-     * <p>Note: If row column does not represent any table column, then generated name will be
-     * used.
-     *
-     * @return Column name.
-     */
-    String name();
 
-    /**
-     * Returns a class of column values.
-     *
-     * @return Value class.
-     */
-    Class<?> valueClass();
-
-    /**
-     * Returns row column nullability flag.
-     *
-     * @return {@code true} if column is nullable, {@code false} otherwise.
-     */
-    boolean nullable();
-}
+package org.apache.ignite.sql.async;

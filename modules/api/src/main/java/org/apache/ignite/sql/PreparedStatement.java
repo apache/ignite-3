@@ -18,30 +18,8 @@
 package org.apache.ignite.sql;
 
 /**
- * Interface that provides methods for accessing column metadata.
+ * The object represents prepared SQL statement.
  */
-public interface ColumnMetadata {
-    /**
-     * Return column name in the result set.
-     *
-     * <p>Note: If row column does not represent any table column, then generated name will be
-     * used.
-     *
-     * @return Column name.
-     */
-    String name();
+public interface PreparedStatement  extends Statement, AutoCloseable {
 
-    /**
-     * Returns a class of column values.
-     *
-     * @return Value class.
-     */
-    Class<?> valueClass();
-
-    /**
-     * Returns row column nullability flag.
-     *
-     * @return {@code true} if column is nullable, {@code false} otherwise.
-     */
-    boolean nullable();
 }
