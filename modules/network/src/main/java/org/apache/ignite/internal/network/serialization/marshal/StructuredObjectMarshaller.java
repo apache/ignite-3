@@ -86,7 +86,6 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         context.addUsedDescriptor(layer);
     }
 
-
     private void writeWithWriteObject(Object object, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
             throws IOException, MarshalException {
         context.startWritingWithWriteObject(object, descriptor);
