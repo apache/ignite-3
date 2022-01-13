@@ -51,7 +51,7 @@ public class ConnectionTest extends AbstractClientTest {
         var ex = assertThrows(IgniteClientConnectionException.class,
                 () -> testConnection("127.0.0.1:47500"));
 
-        String errMsg =ex.getCause().getMessage();
+        String errMsg = ex.getCause().getMessage();
 
         assertTrue(
                 errMsg.startsWith("Connection refused"),
