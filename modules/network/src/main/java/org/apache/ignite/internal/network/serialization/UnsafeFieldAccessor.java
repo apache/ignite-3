@@ -28,15 +28,19 @@ class UnsafeFieldAccessor implements FieldAccessor {
     private final Class<?> fieldType;
     private final long fieldOffset;
 
-    UnsafeFieldAccessor(FieldDescriptor descriptor) {
-        field = findField(descriptor);
+    UnsafeFieldAccessor(String fieldName, Class<?> declaringClass) {
+        this(findField(fieldName, declaringClass));
+    }
+
+    UnsafeFieldAccessor(Field field) {
+        this.field = field;
         fieldType = field.getType();
         fieldOffset = GridUnsafe.objectFieldOffset(field);
     }
 
-    private static Field findField(FieldDescriptor fieldDescriptor) {
+    private static Field findField(String fieldName, Class<?> declaringClass) {
         try {
-            return fieldDescriptor.declaringClass().getDeclaredField(fieldDescriptor.name());
+            return declaringClass.getDeclaredField(fieldName);
         } catch (NoSuchFieldException e) {
             throw new ReflectionException("Cannot find field", e);
         }
