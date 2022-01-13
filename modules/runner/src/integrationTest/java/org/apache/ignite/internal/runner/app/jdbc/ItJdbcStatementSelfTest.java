@@ -31,6 +31,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -433,6 +434,23 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertThrows(SQLException.class, () -> stmt.executeUpdate(sqlText),
                 "Given statement type does not match that declared by JDBC driver"
         );
+    }
+
+    @Test
+    public void testExecuteUpdateOnDdl() throws SQLException {
+        String tableName = "\"test_" + UUID.randomUUID().toString() + "\"";
+
+        stmt.executeUpdate("CREATE TABLE " + tableName + "(id INT PRIMARY KEY, val VARCHAR)");
+
+        ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM " + tableName);
+
+        assertNotNull(rs, "ResultSet expected");
+        assertTrue(rs.next(), "One row expected");
+        assertEquals(0L, rs.getLong(1));
+
+        stmt.executeUpdate("DROP TABLE " + tableName);
+
+        assertThrows(SQLException.class, () -> stmt.executeQuery("SELECT COUNT(*) FROM " + tableName));
     }
 
     @Test
