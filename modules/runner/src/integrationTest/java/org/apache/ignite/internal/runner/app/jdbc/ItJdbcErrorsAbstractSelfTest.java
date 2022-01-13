@@ -23,6 +23,8 @@ import static org.apache.ignite.client.proto.query.SqlStateCode.INVALID_CURSOR_S
 import static org.apache.ignite.client.proto.query.SqlStateCode.NULL_VALUE;
 import static org.apache.ignite.client.proto.query.SqlStateCode.PARSING_EXCEPTION;
 import static org.apache.ignite.client.proto.query.SqlStateCode.UNSUPPORTED_OPERATION;
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -568,8 +570,9 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     /**
      * Test that running given SQL statement yields expected SQLSTATE code.
      *
-     * @param sql      statement.
-     * @param expState expected SQLSTATE code.
+     * @param sql      Statement.
+     * @param expState Expected SQLSTATE code.
+     * @param expMsg   Expected message.
      */
     private void checkErrorState(final String sql, String expState, String expMsg) {
         checkErrorState(() -> {
@@ -582,11 +585,13 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     /**
      * Test that running given closure yields expected SQLSTATE code.
      *
-     * @param clo      closure.
-     * @param expState expected SQLSTATE code.
+     * @param clo      Closure.
+     * @param expState Expected SQLSTATE code.
+     * @param expMsg   Expected message.
      */
     protected void checkErrorState(final RunnableX clo, String expState, String expMsg) {
         SQLException ex = assertThrows(SQLException.class, clo::run, expMsg);
+        assertThat(ex.getMessage(), containsString(expMsg));
 
         assertEquals(expState, ex.getSQLState(), ex.getMessage());
     }
