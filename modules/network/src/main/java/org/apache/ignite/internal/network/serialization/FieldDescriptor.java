@@ -70,7 +70,7 @@ public class FieldDescriptor {
         this.typeDescriptorId = typeDescriptorId;
         this.declaringClass = declaringClass;
 
-        accessor = new FieldAccessorImpl(this);
+        accessor = new UnsafeFieldAccessor(this);
     }
 
     /**

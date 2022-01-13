@@ -31,7 +31,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Collection;
 import java.util.Map;
-import org.apache.ignite.internal.network.serialization.BuiltinType;
+import org.apache.ignite.internal.network.serialization.BuiltInType;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactoryContext;
@@ -64,7 +64,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         this.localDescriptors = localDescriptors;
         this.descriptorFactory = descriptorFactory;
 
-        structuredObjectMarshaller = new StructuredObjectMarshaller(this::marshalToOutput, this::unmarshalFromInput);
+        structuredObjectMarshaller = new StructuredObjectMarshaller(localDescriptors, this::marshalToOutput, this::unmarshalFromInput);
 
         externalizableMarshaller = new ExternalizableMarshaller(
                 this::unmarshalFromInput,
@@ -227,7 +227,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         } else {
             // This is some custom class (not a built-in). If it's a non-built-in array, we need to handle it as a generic container.
             if (objectClass.isArray()) {
-                return localDescriptors.getBuiltInDescriptor(BuiltinType.OBJECT_ARRAY);
+                return localDescriptors.getBuiltInDescriptor(BuiltInType.OBJECT_ARRAY);
             }
 
             return descriptorFactory.create(objectClass);
