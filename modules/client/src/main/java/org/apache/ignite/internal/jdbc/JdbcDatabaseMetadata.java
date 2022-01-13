@@ -971,7 +971,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
             return new JdbcResultSet(Collections.emptyList(), meta);
         }
 
-        JdbcMetaColumnsResult res = conn.handler().columnsMetaAsync(new JdbcMetaColumnsRequest(schemaPtrn, tblNamePtrn, colNamePtrn)).join();
+        JdbcMetaColumnsResult res = conn.handler().columnsMetaAsync(new JdbcMetaColumnsRequest(schemaPtrn, tblNamePtrn, colNamePtrn))
+                .join();
 
         if (!res.hasResults()) {
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
