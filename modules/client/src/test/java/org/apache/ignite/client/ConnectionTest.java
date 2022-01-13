@@ -55,7 +55,7 @@ public class ConnectionTest extends AbstractClientTest {
 
         assertTrue(
                 errMsg.startsWith("Connection refused"),
-                "Error message should start from 'Connection refused' [actual=" + errMsg + ']');
+                "Error message should start with 'Connection refused' [actual=" + errMsg + ']');
     }
 
     @Test
