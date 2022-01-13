@@ -36,7 +36,6 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationProperty;
-import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
@@ -115,8 +114,8 @@ public class ConfigurationNotificationsUtil {
         for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
             notifyPublicListeners(
                     anyConfig.listeners(),
-                    oldInnerNode,
-                    newInnerNode,
+                    oldInnerNode.specificNode(),
+                    newInnerNode.specificNode(),
                     storageRevision,
                     futures,
                     ConfigurationListener::onUpdate,
@@ -126,8 +125,8 @@ public class ConfigurationNotificationsUtil {
 
         notifyPublicListeners(
                 cfgNode.listeners(),
-                oldInnerNode,
-                newInnerNode,
+                oldInnerNode.specificNode(),
+                newInnerNode.specificNode(),
                 storageRevision,
                 futures,
                 ConfigurationListener::onUpdate,
@@ -202,7 +201,7 @@ public class ConfigurationNotificationsUtil {
                     for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
                         notifyPublicListeners(
                                 listeners(namedDynamicConfig(anyConfig, key)),
-                                (NamedListView<InnerNode>) oldNamedList,
+                                oldNamedList,
                                 newNamedList,
                                 storageRevision,
                                 futures,
@@ -213,7 +212,7 @@ public class ConfigurationNotificationsUtil {
 
                     notifyPublicListeners(
                             namedDynamicConfig(cfgNode, key).listeners(),
-                            (NamedListView<InnerNode>) oldNamedList,
+                            oldNamedList,
                             newNamedList,
                             storageRevision,
                             futures,
@@ -276,7 +275,7 @@ public class ConfigurationNotificationsUtil {
                             notifyPublicListeners(
                                     extendedListeners(namedDynamicConfig(anyConfig, key)),
                                     null,
-                                    newVal,
+                                    newVal.specificNode(),
                                     storageRevision,
                                     futures,
                                     ConfigurationNamedListListener::onCreate,
@@ -287,7 +286,7 @@ public class ConfigurationNotificationsUtil {
                         notifyPublicListeners(
                                 namedDynamicConfig(cfgNode, key).extendedListeners(),
                                 null,
-                                newVal,
+                                newVal.specificNode(),
                                 storageRevision,
                                 futures,
                                 ConfigurationNamedListListener::onCreate,
@@ -326,7 +325,7 @@ public class ConfigurationNotificationsUtil {
                         for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
                             notifyPublicListeners(
                                     extendedListeners(namedDynamicConfig(anyConfig, key)),
-                                    oldVal,
+                                    oldVal.specificNode(),
                                     null,
                                     storageRevision,
                                     futures,
@@ -337,7 +336,7 @@ public class ConfigurationNotificationsUtil {
 
                         notifyPublicListeners(
                                 namedDynamicConfig(cfgNode, key).extendedListeners(),
-                                oldVal,
+                                oldVal.specificNode(),
                                 null,
                                 storageRevision,
                                 futures,
@@ -350,7 +349,7 @@ public class ConfigurationNotificationsUtil {
                         for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
                             notifyPublicListeners(
                                     listeners(any(namedDynamicConfig(anyConfig, key))),
-                                    oldVal,
+                                    oldVal.specificNode(),
                                     null,
                                     storageRevision,
                                     futures,
@@ -361,7 +360,7 @@ public class ConfigurationNotificationsUtil {
 
                         notifyPublicListeners(
                                 delNodeCfg.listeners(),
-                                oldVal,
+                                oldVal.specificNode(),
                                 null,
                                 storageRevision,
                                 futures,
@@ -384,8 +383,8 @@ public class ConfigurationNotificationsUtil {
                         for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
                             notifyPublicListeners(
                                     extendedListeners(namedDynamicConfig(anyConfig, key)),
-                                    oldVal,
-                                    newVal,
+                                    oldVal.specificNode(),
+                                    newVal.specificNode(),
                                     storageRevision,
                                     futures,
                                     (listener, evt) -> listener.onRename(entry.getKey(), entry.getValue(), evt),
@@ -395,8 +394,8 @@ public class ConfigurationNotificationsUtil {
 
                         notifyPublicListeners(
                                 namedDynamicConfig(cfgNode, key).extendedListeners(),
-                                oldVal,
-                                newVal,
+                                oldVal.specificNode(),
+                                newVal.specificNode(),
                                 storageRevision,
                                 futures,
                                 (listener, evt) -> listener.onRename(entry.getKey(), entry.getValue(), evt),
@@ -425,8 +424,8 @@ public class ConfigurationNotificationsUtil {
                         for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
                             notifyPublicListeners(
                                     extendedListeners(namedDynamicConfig(anyConfig, key)),
-                                    oldVal,
-                                    newVal,
+                                    oldVal.specificNode(),
+                                    newVal.specificNode(),
                                     storageRevision,
                                     futures,
                                     ConfigurationListener::onUpdate,
@@ -436,8 +435,8 @@ public class ConfigurationNotificationsUtil {
 
                         notifyPublicListeners(
                                 namedDynamicConfig(cfgNode, key).extendedListeners(),
-                                oldVal,
-                                newVal,
+                                oldVal.specificNode(),
+                                newVal.specificNode(),
                                 storageRevision,
                                 futures,
                                 ConfigurationListener::onUpdate,
@@ -481,23 +480,21 @@ public class ConfigurationNotificationsUtil {
      * @param storageRevision Storage revision.
      * @param futures         Write-only list of futures.
      * @param updater         Update closure to be invoked on the listener instance.
-     * @param <V>             Type of the node.
-     * @param <L>             Type of the configuration listener.
      */
-    private static <V, L extends ConfigurationListener<V>> void notifyPublicListeners(
+    private static <L extends ConfigurationListener<?>> void notifyPublicListeners(
             Collection<? extends L> listeners,
-            @Nullable V oldVal,
-            V newVal,
+            @Nullable Object oldVal,
+            Object newVal,
             long storageRevision,
             List<CompletableFuture<?>> futures,
-            BiFunction<L, ConfigurationNotificationEvent<V>, CompletableFuture<?>> updater,
+            BiFunction<L, ConfigurationNotificationEvent, CompletableFuture> updater,
             Map<Class<?>, ConfigurationContainer> configs
     ) {
         if (listeners.isEmpty()) {
             return;
         }
 
-        ConfigurationNotificationEvent<V> evt = new ConfigurationNotificationEventImpl<>(
+        ConfigurationNotificationEvent<?> evt = new ConfigurationNotificationEventImpl<>(
                 oldVal,
                 newVal,
                 storageRevision,
@@ -558,7 +555,7 @@ public class ConfigurationNotificationsUtil {
             notifyPublicListeners(
                     anyConfig.listeners(),
                     null,
-                    innerNode,
+                    innerNode.specificNode(),
                     storageRevision,
                     futures,
                     ConfigurationListener::onUpdate,
@@ -613,7 +610,7 @@ public class ConfigurationNotificationsUtil {
                     notifyPublicListeners(
                             listeners(namedDynamicConfig(anyConfig, key)),
                             null,
-                            (NamedListView<InnerNode>) newNamedList,
+                            newNamedList,
                             storageRevision,
                             futures,
                             ConfigurationListener::onUpdate,
@@ -638,7 +635,7 @@ public class ConfigurationNotificationsUtil {
                         notifyPublicListeners(
                                 extendedListeners(namedDynamicConfig(anyConfig, key)),
                                 null,
-                                newVal,
+                                newVal.specificNode(),
                                 storageRevision,
                                 futures,
                                 ConfigurationNamedListListener::onCreate,
