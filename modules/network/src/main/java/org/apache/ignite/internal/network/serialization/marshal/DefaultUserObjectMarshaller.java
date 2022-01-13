@@ -36,7 +36,6 @@ import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactoryContext;
 import org.apache.ignite.internal.network.serialization.IdIndexedDescriptors;
-import org.apache.ignite.internal.network.serialization.SerializedStreamCommands;
 import org.apache.ignite.internal.network.serialization.SpecialMethodInvocationException;
 import org.jetbrains.annotations.Nullable;
 
@@ -239,7 +238,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     }
 
     private void writeReference(int objectId, DataOutput output) throws IOException {
-        ProtocolMarshalling.writeDescriptorOrCommandId(SerializedStreamCommands.REFERENCE, output);
+        ProtocolMarshalling.writeDescriptorOrCommandId(BuiltInType.REFERENCE.descriptorId(), output);
         ProtocolMarshalling.writeObjectId(objectId, output);
     }
 
@@ -314,7 +313,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
 
     private <T> T unmarshalFromInput(DataInputStream input, UnmarshallingContext context) throws IOException, UnmarshalException {
         int commandOrDescriptorId = ProtocolMarshalling.readDescriptorOrCommandId(input);
-        if (commandOrDescriptorId == SerializedStreamCommands.REFERENCE) {
+        if (commandOrDescriptorId == BuiltInType.REFERENCE.descriptorId()) {
             return unmarshalReference(input, context);
         }
 

@@ -426,9 +426,11 @@ public class ClassDescriptorFactoryTest {
      */
     private void checkArbitraryType(Serialization serialization) {
         assertEquals(ARBITRARY, serialization.type());
+
         assertFalse(serialization.hasWriteObject());
         assertFalse(serialization.hasReadObject());
         assertFalse(serialization.hasReadObjectNoData());
+
         assertFalse(serialization.hasWriteReplace());
         assertFalse(serialization.hasReadResolve());
     }
@@ -449,9 +451,11 @@ public class ClassDescriptorFactoryTest {
      */
     private void checkSimpleExternalizable(Serialization serialization) {
         assertEquals(EXTERNALIZABLE, serialization.type());
+
         assertFalse(serialization.hasWriteObject());
         assertFalse(serialization.hasReadObject());
         assertFalse(serialization.hasReadObjectNoData());
+
         assertFalse(serialization.hasWriteReplace());
         assertFalse(serialization.hasReadResolve());
     }
@@ -469,6 +473,7 @@ public class ClassDescriptorFactoryTest {
 
         assertEquals(override, serialization.hasWriteObject());
         assertEquals(override, serialization.hasReadObject());
+
         assertEquals(writeReplace, serialization.hasWriteReplace());
         assertEquals(readResolve, serialization.hasReadResolve());
     }

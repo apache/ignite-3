@@ -54,6 +54,7 @@ import static org.apache.ignite.internal.network.serialization.BuiltInType.LONG_
 import static org.apache.ignite.internal.network.serialization.BuiltInType.LONG_BOXED;
 import static org.apache.ignite.internal.network.serialization.BuiltInType.NULL;
 import static org.apache.ignite.internal.network.serialization.BuiltInType.OBJECT_ARRAY;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.REFERENCE;
 import static org.apache.ignite.internal.network.serialization.BuiltInType.SHORT;
 import static org.apache.ignite.internal.network.serialization.BuiltInType.SHORT_ARRAY;
 import static org.apache.ignite.internal.network.serialization.BuiltInType.SHORT_BOXED;
@@ -118,5 +119,6 @@ public class DefaultDescriptorsTest {
         assertEquals(41, LINKED_HASH_MAP.descriptorId());
         assertEquals(42, BIT_SET.descriptorId());
         assertEquals(43, NULL.descriptorId());
+        assertEquals(44, REFERENCE.descriptorId());
     }
 }
