@@ -46,7 +46,7 @@ public interface JdbcQueryEventHandler {
      * @param req Execute query request.
      * @return Result future.
      */
-    CompletableFuture<QueryExecuteResult> query(QueryExecuteRequest req);
+    CompletableFuture<QueryExecuteResult> queryAsync(QueryExecuteRequest req);
 
     /**
      * {@link QueryFetchRequest} command handler.
@@ -54,7 +54,7 @@ public interface JdbcQueryEventHandler {
      * @param req Fetch query request.
      * @return Result future.
      */
-    CompletableFuture<QueryFetchResult> fetch(QueryFetchRequest req);
+    CompletableFuture<QueryFetchResult> fetchAsync(QueryFetchRequest req);
 
     /**
      * {@link BatchExecuteRequest} command handler.
@@ -62,7 +62,7 @@ public interface JdbcQueryEventHandler {
      * @param req Batch query request.
      * @return Result future.
      */
-    CompletableFuture<BatchExecuteResult> batch(BatchExecuteRequest req);
+    CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req);
 
     /**
      * {@link QueryCloseRequest} command handler.
@@ -70,7 +70,7 @@ public interface JdbcQueryEventHandler {
      * @param req Close query request.
      * @return Result future.
      */
-    CompletableFuture<QueryCloseResult> close(QueryCloseRequest req);
+    CompletableFuture<QueryCloseResult> closeAsync(QueryCloseRequest req);
 
     /**
      * {@link JdbcMetaTablesRequest} command handler.
@@ -78,7 +78,7 @@ public interface JdbcQueryEventHandler {
      * @param req Jdbc tables metadata request.
      * @return Result future.
      */
-    CompletableFuture<JdbcMetaTablesResult> tablesMeta(JdbcMetaTablesRequest req);
+    CompletableFuture<JdbcMetaTablesResult> tablesMetaAsync(JdbcMetaTablesRequest req);
 
     /**
      * {@link JdbcMetaColumnsRequest} command handler.
@@ -86,7 +86,7 @@ public interface JdbcQueryEventHandler {
      * @param req Jdbc columns metadata request.
      * @return Result future.
      */
-    CompletableFuture<JdbcMetaColumnsResult> columnsMeta(JdbcMetaColumnsRequest req);
+    CompletableFuture<JdbcMetaColumnsResult> columnsMetaAsync(JdbcMetaColumnsRequest req);
 
     /**
      * {@link JdbcMetaSchemasRequest} command handler.
@@ -94,7 +94,7 @@ public interface JdbcQueryEventHandler {
      * @param req Jdbc schemas metadata request.
      * @return Result future.
      */
-    CompletableFuture<JdbcMetaSchemasResult> schemasMeta(JdbcMetaSchemasRequest req);
+    CompletableFuture<JdbcMetaSchemasResult> schemasMetaAsync(JdbcMetaSchemasRequest req);
 
     /**
      * {@link JdbcMetaPrimaryKeysRequest} command handler.
@@ -102,7 +102,7 @@ public interface JdbcQueryEventHandler {
      * @param req Jdbc primary keys metadata request.
      * @return Result future.
      */
-    CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMeta(JdbcMetaPrimaryKeysRequest req);
+    CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(JdbcMetaPrimaryKeysRequest req);
 
     /**
      * {@link JdbcQueryMetadataRequest} command handler.
@@ -110,5 +110,5 @@ public interface JdbcQueryEventHandler {
      * @param req Jdbc query metadata request.
      * @return Result future.
      */
-    CompletableFuture<JdbcMetaColumnsResult> queryMetadata(JdbcQueryMetadataRequest req);
+    CompletableFuture<JdbcMetaColumnsResult> queryMetadataAsync(JdbcQueryMetadataRequest req);
 }

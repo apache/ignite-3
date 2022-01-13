@@ -100,10 +100,11 @@ public class JdbcMetadataCatalog {
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
 
         return tables.tablesAsync().thenApply(tableList -> tableList.stream()
-            .filter(t -> matches(getTblSchema(t.name()), schemaNameRegex))
-            .filter(t -> matches(getTblName(t.name()), tlbNameRegex))
-            .map(this::createPrimaryKeyMeta)
-            .collect(Collectors.toSet()));
+                .filter(t -> matches(getTblSchema(t.name()), schemaNameRegex))
+                .filter(t -> matches(getTblName(t.name()), tlbNameRegex))
+                .map(this::createPrimaryKeyMeta)
+                .collect(Collectors.toSet())
+        );
     }
 
     /**
@@ -125,11 +126,11 @@ public class JdbcMetadataCatalog {
 
         return tables.tablesAsync().thenApply(tablesList -> {
             return tablesList.stream()
-                .filter(t -> matches(getTblSchema(t.name()), schemaNameRegex))
-                .filter(t -> matches(getTblName(t.name()), tlbNameRegex))
-                .sorted(byTblTypeThenSchemaThenTblName)
-                .map(t -> new JdbcTableMeta(getTblSchema(t.name()), getTblName(t.name()), TBL_TYPE))
-                .collect(Collectors.toList());
+                    .filter(t -> matches(getTblSchema(t.name()), schemaNameRegex))
+                    .filter(t -> matches(getTblName(t.name()), tlbNameRegex))
+                    .sorted(byTblTypeThenSchemaThenTblName)
+                    .map(t -> new JdbcTableMeta(getTblSchema(t.name()), getTblName(t.name()), TBL_TYPE))
+                    .collect(Collectors.toList());
         });
     }
 
@@ -150,28 +151,28 @@ public class JdbcMetadataCatalog {
 
         return tables.tablesAsync().thenApply(tablesList -> {
             return tablesList.stream()
-                .filter(t -> matches(getTblSchema(t.name()), schemaNameRegex))
-                .filter(t -> matches(getTblName(t.name()), tlbNameRegex))
-                .flatMap(
-                    tbl -> {
-                        SchemaDescriptor schema = ((TableImpl) tbl).schemaView().schema();
+                    .filter(t -> matches(getTblSchema(t.name()), schemaNameRegex))
+                    .filter(t -> matches(getTblName(t.name()), tlbNameRegex))
+                    .flatMap(
+                        tbl -> {
+                            SchemaDescriptor schema = ((TableImpl) tbl).schemaView().schema();
 
-                        List<Pair<String, Column>> tblColPairs = new ArrayList<>();
+                            List<Pair<String, Column>> tblColPairs = new ArrayList<>();
 
-                        for (Column column : schema.keyColumns().columns()) {
-                            tblColPairs.add(new Pair<>(tbl.name(), column));
-                        }
+                            for (Column column : schema.keyColumns().columns()) {
+                                tblColPairs.add(new Pair<>(tbl.name(), column));
+                            }
 
-                        for (Column column : schema.valueColumns().columns()) {
-                            tblColPairs.add(new Pair<>(tbl.name(), column));
-                        }
+                            for (Column column : schema.valueColumns().columns()) {
+                                tblColPairs.add(new Pair<>(tbl.name(), column));
+                            }
 
-                        return tblColPairs.stream();
-                    })
-                .filter(e -> matches(e.getSecond().name(), colNameRegex))
-                .sorted(bySchemaThenTabNameThenColOrder)
-                .map(pair -> createColumnMeta(pair.getFirst(), pair.getSecond()))
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+                            return tblColPairs.stream();
+                        })
+                    .filter(e -> matches(e.getSecond().name(), colNameRegex))
+                    .sorted(bySchemaThenTabNameThenColOrder)
+                    .map(pair -> createColumnMeta(pair.getFirst(), pair.getSecond()))
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
         });
     }
 

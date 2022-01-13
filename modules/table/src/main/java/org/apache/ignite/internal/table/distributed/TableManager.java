@@ -998,6 +998,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<List<Table>> tablesAsyncInternal() {
+        // TODO: IGNITE-16288 directTableIds should use async configuration API
         return CompletableFuture.supplyAsync(this::directTableIds)
                 .thenCompose(tableIds -> {
                     var tableFuts = new CompletableFuture[tableIds.size()];

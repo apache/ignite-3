@@ -57,73 +57,73 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<QueryExecuteResult> query(QueryExecuteRequest req) {
+    public CompletableFuture<QueryExecuteResult> queryAsync(QueryExecuteRequest req) {
         QueryExecuteResult res = new QueryExecuteResult();
 
-        return client.sendRequest(ClientOp.SQL_EXEC, req, res);
+        return client.sendRequestAsync(ClientOp.SQL_EXEC, req, res);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<QueryFetchResult> fetch(QueryFetchRequest req) {
+    public CompletableFuture<QueryFetchResult> fetchAsync(QueryFetchRequest req) {
         QueryFetchResult res = new QueryFetchResult();
 
-        return client.sendRequest(ClientOp.SQL_NEXT, req, res);
+        return client.sendRequestAsync(ClientOp.SQL_NEXT, req, res);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<BatchExecuteResult> batch(BatchExecuteRequest req) {
+    public CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req) {
         BatchExecuteResult res = new BatchExecuteResult();
 
-        return client.sendRequest(ClientOp.SQL_EXEC_BATCH, req, res);
+        return client.sendRequestAsync(ClientOp.SQL_EXEC_BATCH, req, res);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<QueryCloseResult> close(QueryCloseRequest req) {
+    public CompletableFuture<QueryCloseResult> closeAsync(QueryCloseRequest req) {
         QueryCloseResult res = new QueryCloseResult();
 
-        return client.sendRequest(ClientOp.SQL_CURSOR_CLOSE, req, res);
+        return client.sendRequestAsync(ClientOp.SQL_CURSOR_CLOSE, req, res);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcMetaTablesResult> tablesMeta(JdbcMetaTablesRequest req) {
+    public CompletableFuture<JdbcMetaTablesResult> tablesMetaAsync(JdbcMetaTablesRequest req) {
         JdbcMetaTablesResult res = new JdbcMetaTablesResult();
 
-        return client.sendRequest(ClientOp.SQL_TABLE_META, req, res);
+        return client.sendRequestAsync(ClientOp.SQL_TABLE_META, req, res);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcMetaColumnsResult> columnsMeta(JdbcMetaColumnsRequest req) {
+    public CompletableFuture<JdbcMetaColumnsResult> columnsMetaAsync(JdbcMetaColumnsRequest req) {
         JdbcMetaColumnsResult res = new JdbcMetaColumnsResult();
 
-        return client.sendRequest(ClientOp.SQL_COLUMN_META, req, res);
+        return client.sendRequestAsync(ClientOp.SQL_COLUMN_META, req, res);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcMetaSchemasResult> schemasMeta(JdbcMetaSchemasRequest req) {
+    public CompletableFuture<JdbcMetaSchemasResult> schemasMetaAsync(JdbcMetaSchemasRequest req) {
         JdbcMetaSchemasResult res = new JdbcMetaSchemasResult();
 
-        return client.sendRequest(ClientOp.SQL_SCHEMAS_META, req, res);
+        return client.sendRequestAsync(ClientOp.SQL_SCHEMAS_META, req, res);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMeta(JdbcMetaPrimaryKeysRequest req) {
+    public CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(JdbcMetaPrimaryKeysRequest req) {
         JdbcMetaPrimaryKeysResult res = new JdbcMetaPrimaryKeysResult();
 
-        return client.sendRequest(ClientOp.SQL_PK_META, req, res);
+        return client.sendRequestAsync(ClientOp.SQL_PK_META, req, res);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcMetaColumnsResult> queryMetadata(JdbcQueryMetadataRequest req) {
+    public CompletableFuture<JdbcMetaColumnsResult> queryMetadataAsync(JdbcQueryMetadataRequest req) {
         JdbcMetaColumnsResult res = new JdbcMetaColumnsResult();
 
-        return client.sendRequest(ClientOp.SQL_QUERY_META, req, res);
+        return client.sendRequestAsync(ClientOp.SQL_QUERY_META, req, res);
     }
 }

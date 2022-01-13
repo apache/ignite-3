@@ -85,7 +85,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<QueryExecuteResult> query(QueryExecuteRequest req) {
+    public CompletableFuture<QueryExecuteResult> queryAsync(QueryExecuteRequest req) {
         if (req.pageSize() <= 0) {
             return CompletableFuture.completedFuture(new QueryExecuteResult(Response.STATUS_FAILED,
                     "Invalid fetch size : [fetchSize=" + req.pageSize() + ']'));
@@ -125,7 +125,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<QueryFetchResult> fetch(QueryFetchRequest req) {
+    public CompletableFuture<QueryFetchResult> fetchAsync(QueryFetchRequest req) {
         Cursor<List<?>> cur = openCursors.get(req.cursorId());
 
         if (cur == null) {
@@ -156,14 +156,14 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<BatchExecuteResult> batch(BatchExecuteRequest req) {
+    public CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req) {
         return CompletableFuture.completedFuture(new BatchExecuteResult(UNSUPPORTED_OPERATION,
                 "ExecuteBatch operation is not implemented yet."));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<QueryCloseResult> close(QueryCloseRequest req) {
+    public CompletableFuture<QueryCloseResult> closeAsync(QueryCloseRequest req) {
         Cursor<List<?>> cur = openCursors.remove(req.cursorId());
 
         if (cur == null) {
@@ -185,7 +185,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcMetaColumnsResult> queryMetadata(JdbcQueryMetadataRequest req) {
+    public CompletableFuture<JdbcMetaColumnsResult> queryMetadataAsync(JdbcQueryMetadataRequest req) {
         SqlCursor<List<?>> cur = openCursors.get(req.cursorId());
 
         if (cur == null) {
@@ -234,25 +234,25 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcMetaTablesResult> tablesMeta(JdbcMetaTablesRequest req) {
+    public CompletableFuture<JdbcMetaTablesResult> tablesMetaAsync(JdbcMetaTablesRequest req) {
         return meta.getTablesMeta(req.schemaName(), req.tableName(), req.tableTypes()).thenApply(JdbcMetaTablesResult::new);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcMetaColumnsResult> columnsMeta(JdbcMetaColumnsRequest req) {
+    public CompletableFuture<JdbcMetaColumnsResult> columnsMetaAsync(JdbcMetaColumnsRequest req) {
         return meta.getColumnsMeta(req.schemaName(), req.tableName(), req.columnName()).thenApply(JdbcMetaColumnsResult::new);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcMetaSchemasResult> schemasMeta(JdbcMetaSchemasRequest req) {
+    public CompletableFuture<JdbcMetaSchemasResult> schemasMetaAsync(JdbcMetaSchemasRequest req) {
         return meta.getSchemasMeta(req.schemaName()).thenApply(JdbcMetaSchemasResult::new);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMeta(JdbcMetaPrimaryKeysRequest req) {
+    public CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(JdbcMetaPrimaryKeysRequest req) {
         return meta.getPrimaryKeys(req.schemaName(), req.tableName()).thenApply(JdbcMetaPrimaryKeysResult::new);
     }
 

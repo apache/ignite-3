@@ -44,6 +44,6 @@ public class ClientSqlColumnMetadataRequest {
 
         req.readBinary(in);
 
-        return handler.columnsMeta(req).thenAccept(res -> res.writeBinary(out));
+        return handler.columnsMetaAsync(req).thenAccept(res -> res.writeBinary(out));
     }
 }

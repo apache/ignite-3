@@ -44,6 +44,6 @@ public class ClientSqlExecuteRequest {
 
         req.readBinary(in);
 
-        return handler.query(req).thenAccept(res -> res.writeBinary(out));
+        return handler.queryAsync(req).thenAccept(res -> res.writeBinary(out));
     }
 }

@@ -44,6 +44,6 @@ public class ClientSqlPrimaryKeyMetadataRequest {
 
         req.readBinary(in);
 
-        return handler.primaryKeysMeta(req).thenAccept(res -> res.writeBinary(out));
+        return handler.primaryKeysMetaAsync(req).thenAccept(res -> res.writeBinary(out));
     }
 }

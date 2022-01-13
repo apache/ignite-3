@@ -44,6 +44,6 @@ public class ClientSqlTableMetadataRequest {
 
         req.readBinary(in);
 
-        return handler.tablesMeta(req).thenAccept(res -> res.writeBinary(out));
+        return handler.tablesMetaAsync(req).thenAccept(res -> res.writeBinary(out));
     }
 }

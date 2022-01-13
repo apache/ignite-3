@@ -44,6 +44,6 @@ public class ClientSqlExecuteBatchRequest {
 
         req.readBinary(in);
 
-        return handler.batch(req).thenAccept(res -> res.writeBinary(out));
+        return handler.batchAsync(req).thenAccept(res -> res.writeBinary(out));
     }
 }

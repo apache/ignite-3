@@ -44,6 +44,6 @@ public class ClientSqlQueryMetadataRequest {
 
         req.readBinary(in);
 
-        return handler.queryMetadata(req).thenAccept(res -> res.writeBinary(out));
+        return handler.queryMetadataAsync(req).thenAccept(res -> res.writeBinary(out));
     }
 }

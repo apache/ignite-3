@@ -44,6 +44,6 @@ public class ClientSqlCloseRequest {
 
         req.readBinary(in);
 
-        return handler.close(req).thenAccept(res -> res.writeBinary(out));
+        return handler.closeAsync(req).thenAccept(res -> res.writeBinary(out));
     }
 }
