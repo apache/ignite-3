@@ -42,6 +42,9 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
@@ -67,6 +70,9 @@ public class ConfigurationAnyListenerTest {
         /** Nested named child configuration. */
         @NamedConfigValue
         public FirstSubConfigurationSchema elements;
+
+        @NamedConfigValue
+        public PolyAnyConfigurationSchema polyNamed;
     }
 
     /**
@@ -97,6 +103,36 @@ public class ConfigurationAnyListenerTest {
         public int intVal = 10;
     }
 
+    /**
+     * Polymorphic configuration schema.
+     */
+    @PolymorphicConfig
+    public static class PolyAnyConfigurationSchema {
+        @PolymorphicId
+        public String type;
+
+        @Value
+        public int intVal;
+    }
+
+    /**
+     * First extension of {@link PolyAnyConfigurationSchema}.
+     */
+    @PolymorphicConfigInstance("first")
+    public static class FirstPolyAnyConfigurationSchema extends PolyAnyConfigurationSchema {
+        @Value
+        public String strVal;
+    }
+
+    /**
+     * Second extension of {@link PolyAnyConfigurationSchema}.
+     */
+    @PolymorphicConfigInstance("second")
+    public static class SecondPolyAnyConfigurationSchema extends PolyAnyConfigurationSchema {
+        @Value
+        public String strVal;
+    }
+
     /** Configuration registry. */
     private ConfigurationRegistry registry;
 
@@ -116,7 +152,7 @@ public class ConfigurationAnyListenerTest {
                 Map.of(),
                 new TestConfigurationStorage(LOCAL),
                 List.of(),
-                List.of()
+                List.of(FirstPolyAnyConfigurationSchema.class, SecondPolyAnyConfigurationSchema.class)
         );
 
         registry.start();
@@ -655,5 +691,10 @@ public class ConfigurationAnyListenerTest {
         }));
 
         rootConfig.elements().get(key0).elements2().get(key1).intVal().update(newVal).get(1, SECONDS);
+    }
+
+    @Test
+    void test() throws Exception {
+        // TODO: 13.01.2022 Write there.
     }
 }
