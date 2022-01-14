@@ -28,11 +28,13 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Sort aggregate integration test.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
     public static final int ROWS = 103;
 
