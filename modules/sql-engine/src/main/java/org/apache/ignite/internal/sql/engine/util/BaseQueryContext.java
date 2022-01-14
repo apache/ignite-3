@@ -59,7 +59,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     public static final RelOptCluster CLUSTER;
 
-    public static final IgniteTypeFactory TYPE_FACTORY;
+    private static final IgniteTypeFactory TYPE_FACTORY;
 
     private static final IgniteCostFactory COST_FACTORY = new IgniteCostFactory();
 
@@ -90,10 +90,21 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         DFLT_REX_BUILDER = new RexBuilder(TYPE_FACTORY);
 
-        CLUSTER = RelOptCluster.create(EMPTY_PLANNER, DFLT_REX_BUILDER);
+        CLUSTER = createCluster();
+    }
 
-        CLUSTER.setMetadataProvider(new CachingRelMetadataProvider(IgniteMetadata.METADATA_PROVIDER, EMPTY_PLANNER));
-        CLUSTER.setMetadataQuerySupplier(RelMetadataQueryEx::create);
+    /**
+     * Creates a new cluster.
+     *
+     * @return New cluster.
+     */
+    public static RelOptCluster createCluster() {
+        RelOptCluster cluster = RelOptCluster.create(EMPTY_PLANNER, DFLT_REX_BUILDER);
+
+        cluster.setMetadataProvider(new CachingRelMetadataProvider(IgniteMetadata.METADATA_PROVIDER, EMPTY_PLANNER));
+        cluster.setMetadataQuerySupplier(RelMetadataQueryEx::create);
+
+        return cluster;
     }
 
     private final FrameworkConfig cfg;
