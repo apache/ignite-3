@@ -49,7 +49,7 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
      */
     @Test
     public void testConnectionError() {
-        checkErrorState(() -> DriverManager.getConnection("jdbc:ignite:thin://unknown.host"),
+        checkErrorState(() -> DriverManager.getConnection("jdbc:ignite:thin://unknown.host?connectionTimeout=1000"),
                 CLIENT_CONNECTION_FAILED, "Failed to connect to server");
     }
 

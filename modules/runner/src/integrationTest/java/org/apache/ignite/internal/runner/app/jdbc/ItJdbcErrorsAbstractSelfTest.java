@@ -271,7 +271,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
 
                 rs.getBigDecimal(1);
             }
-        }, CONVERSION_FAILED, "Cannot convert to");
+        }, CONVERSION_FAILED, "Cannot convert to BigDecimal");
     }
 
     /**
@@ -305,7 +305,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
 
                 rs.getObject(1, List.class);
             }
-        }, CONVERSION_FAILED, "Cannot convert to");
+        }, CONVERSION_FAILED, "Cannot convert to java.util.List");
     }
 
     /**
@@ -373,7 +373,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
 
                 rs.getURL(1);
             }
-        }, CONVERSION_FAILED, "Cannot convert to");
+        }, CONVERSION_FAILED, "Cannot convert to URL");
     }
 
     /**
