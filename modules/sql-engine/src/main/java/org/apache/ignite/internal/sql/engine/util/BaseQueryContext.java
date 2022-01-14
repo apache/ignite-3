@@ -90,7 +90,11 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         DFLT_REX_BUILDER = new RexBuilder(TYPE_FACTORY);
 
-        CLUSTER = createCluster();
+        RelOptCluster cluster = RelOptCluster.create(EMPTY_PLANNER, DFLT_REX_BUILDER);
+
+        cluster.setMetadataProvider(IgniteMetadata.METADATA_PROVIDER);
+
+        CLUSTER = cluster;
     }
 
     /**
