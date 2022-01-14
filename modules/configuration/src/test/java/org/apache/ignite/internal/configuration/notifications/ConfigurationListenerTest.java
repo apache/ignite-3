@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
@@ -43,6 +44,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -1157,5 +1159,168 @@ public class ConfigurationListenerTest {
         configuration.polyChildren().change(c -> c.rename("0", "1")).get(1, SECONDS);
         configuration.polyChildren().change(c -> c.update("1", c1 -> c1.changeCommonIntVal(22))).get(1, SECONDS);
         configuration.polyChildren().change(c -> c.delete("1")).get(1, SECONDS);
+    }
+
+    @Test
+    void testNotificationListenerForNestedPolymorphicConfig() throws Exception {
+        AtomicBoolean invokeListener = new AtomicBoolean();
+
+        configuration.polyChild().listen(configListener(ctx -> {
+            invokeListener.set(true);
+
+            assertInstanceOf(PolyView.class, ctx.newValue());
+            assertInstanceOf(LongPolyView.class, ctx.newValue());
+
+            assertInstanceOf(PolyView.class, ctx.oldValue());
+            assertInstanceOf(StringPolyView.class, ctx.oldValue());
+
+            assertInstanceOf(PolyConfiguration.class, ctx.config(PolyConfiguration.class));
+            assertInstanceOf(LongPolyConfiguration.class, ctx.config(LongPolyConfiguration.class));
+
+            assertNull(ctx.config(StringPolyConfiguration.class));
+
+            assertNull(ctx.name(PolyConfiguration.class));
+            assertNull(ctx.name(LongPolyConfiguration.class));
+            assertNull(ctx.name(StringPolyConfiguration.class));
+        }));
+
+        configuration.polyChild()
+                .change(c -> c.convert(LongPolyChange.class).changeSpecificVal(0).changeCommonIntVal(0))
+                .get(1, SECONDS);
+
+        assertTrue(invokeListener.get());
+    }
+
+    @Test
+    void testNotificationListenerOnCreateNamedPolymorphicConfig() throws Exception {
+        AtomicBoolean invokeListener = new AtomicBoolean();
+
+        configuration.polyChildren().listenElements(configNamedListenerOnCreate(ctx -> {
+            invokeListener.set(true);
+
+            assertInstanceOf(PolyView.class, ctx.newValue());
+            assertInstanceOf(StringPolyView.class, ctx.newValue());
+
+            assertNull(ctx.oldValue());
+
+            assertInstanceOf(PolyConfiguration.class, ctx.config(PolyConfiguration.class));
+            assertInstanceOf(StringPolyConfiguration.class, ctx.config(StringPolyConfiguration.class));
+
+            assertNull(ctx.config(LongPolyConfiguration.class));
+
+            assertEquals("0", ctx.name(PolyConfiguration.class));
+            assertEquals("0", ctx.name(StringPolyConfiguration.class));
+
+            assertNull(ctx.name(LongPolyConfiguration.class));
+        }));
+
+        configuration.polyChildren()
+                .change(c -> c.create("0", c1 -> c1.convert(StringPolyChange.class).changeSpecificVal("").changeCommonIntVal(0)))
+                .get(1, SECONDS);
+
+        assertTrue(invokeListener.get());
+    }
+
+    @Test
+    void testNotificationListenerOnUpdateNamedPolymorphicConfig() throws Exception {
+        configuration.polyChildren()
+                .change(c -> c.create("0", c1 -> c1.convert(StringPolyChange.class).changeSpecificVal("").changeCommonIntVal(0)))
+                .get(1, SECONDS);
+
+        AtomicBoolean invokeListener = new AtomicBoolean();
+
+        configuration.polyChildren().listenElements(configNamedListenerOnUpdate(ctx -> {
+            invokeListener.set(true);
+
+            assertInstanceOf(PolyView.class, ctx.newValue());
+            assertInstanceOf(LongPolyView.class, ctx.newValue());
+
+            assertInstanceOf(PolyView.class, ctx.oldValue());
+            assertInstanceOf(StringPolyView.class, ctx.oldValue());
+
+            assertInstanceOf(PolyConfiguration.class, ctx.config(PolyConfiguration.class));
+            assertInstanceOf(LongPolyConfiguration.class, ctx.config(LongPolyConfiguration.class));
+
+            assertNull(ctx.config(StringPolyConfiguration.class));
+
+            assertEquals("0", ctx.name(PolyConfiguration.class));
+            assertEquals("0", ctx.name(LongPolyConfiguration.class));
+
+            assertNull(ctx.name(StringPolyConfiguration.class));
+        }));
+
+        configuration.polyChildren()
+                .change(c -> c.update("0", c1 -> c1.convert(LongPolyChange.class).changeSpecificVal(0).changeCommonIntVal(0)))
+                .get(1, SECONDS);
+
+        assertTrue(invokeListener.get());
+    }
+
+    @Test
+    void testNotificationListenerOnRenameNamedPolymorphicConfig() throws Exception {
+        configuration.polyChildren()
+                .change(c -> c.create("0", c1 -> c1.convert(StringPolyChange.class).changeSpecificVal("").changeCommonIntVal(0)))
+                .get(1, SECONDS);
+
+        AtomicBoolean invokeListener = new AtomicBoolean();
+
+        configuration.polyChildren().listenElements(configNamedListenerOnRename(ctx -> {
+            invokeListener.set(true);
+
+            assertInstanceOf(PolyView.class, ctx.newValue());
+            assertInstanceOf(StringPolyView.class, ctx.newValue());
+
+            assertInstanceOf(PolyView.class, ctx.oldValue());
+            assertInstanceOf(StringPolyView.class, ctx.oldValue());
+
+            assertInstanceOf(PolyConfiguration.class, ctx.config(PolyConfiguration.class));
+            assertInstanceOf(StringPolyConfiguration.class, ctx.config(StringPolyConfiguration.class));
+
+            assertNull(ctx.config(LongPolyConfiguration.class));
+
+            assertEquals("1", ctx.name(PolyConfiguration.class));
+            assertEquals("1", ctx.name(StringPolyConfiguration.class));
+
+            assertNull(ctx.name(LongPolyConfiguration.class));
+        }));
+
+        configuration.polyChildren()
+                .change(c -> c.rename("0", "1"))
+                .get(1, SECONDS);
+
+        assertTrue(invokeListener.get());
+    }
+
+    @Test
+    void testNotificationListenerOnDeleteNamedPolymorphicConfig() throws Exception {
+        configuration.polyChildren()
+                .change(c -> c.create("0", c1 -> c1.convert(StringPolyChange.class).changeSpecificVal("").changeCommonIntVal(0)))
+                .get(1, SECONDS);
+
+        AtomicBoolean invokeListener = new AtomicBoolean();
+
+        configuration.polyChildren().listenElements(configNamedListenerOnDelete(ctx -> {
+            invokeListener.set(true);
+
+            assertNull(ctx.newValue());
+
+            assertInstanceOf(PolyView.class, ctx.oldValue());
+            assertInstanceOf(StringPolyView.class, ctx.oldValue());
+
+            assertNull(ctx.config(PolyConfiguration.class));
+            assertNull(ctx.config(StringPolyConfiguration.class));
+            assertNull(ctx.config(LongPolyConfiguration.class));
+
+            assertEquals("0", ctx.name(PolyConfiguration.class));
+            assertEquals("0", ctx.name(StringPolyConfiguration.class));
+
+            assertNull(ctx.name(LongPolyConfiguration.class));
+        }));
+
+        configuration.polyChildren()
+                .change(c -> c.delete("0"))
+                .get(1, SECONDS);
+
+        assertTrue(invokeListener.get());
     }
 }

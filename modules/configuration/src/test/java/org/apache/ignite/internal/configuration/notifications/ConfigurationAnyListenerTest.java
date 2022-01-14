@@ -32,12 +32,13 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Consumer;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.configuration.ConfigurationListenOnlyException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.annotation.Config;
@@ -50,7 +51,6 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.AfterEach;
@@ -697,8 +697,12 @@ public class ConfigurationAnyListenerTest {
     }
 
     @Test
-    void testCreateNamedPolymorphicConfig() throws Exception {
-        Consumer<ConfigurationNotificationEvent<PolyAnyView>> createConsumer = ctx -> {
+    void testAnyCreateNamedPolymorphicConfig() throws Exception {
+        AtomicBoolean invokeListener = new AtomicBoolean();
+
+        rootConfig.polyNamed().any().listen(configListener(ctx -> {
+            invokeListener.set(true);
+
             assertInstanceOf(FirstPolyAnyView.class, ctx.newValue());
             assertInstanceOf(PolyAnyView.class, ctx.newValue());
 
@@ -707,28 +711,32 @@ public class ConfigurationAnyListenerTest {
             assertEquals("0", ctx.name(PolyAnyConfiguration.class));
             assertEquals("0", ctx.name(FirstPolyAnyConfiguration.class));
 
+            assertNull(ctx.name(SecondPolyAnyConfiguration.class));
+
             assertInstanceOf(PolyAnyConfiguration.class, ctx.config(PolyAnyConfiguration.class));
             assertInstanceOf(FirstPolyAnyConfiguration.class, ctx.config(FirstPolyAnyConfiguration.class));
 
-            assertNull(ctx.name(SecondPolyAnyConfiguration.class));
-        };
-
-        rootConfig.polyNamed().any().listen(configListener(createConsumer));
-
-        rootConfig.polyNamed().listenElements(configNamedListenerOnCreate(createConsumer));
+            assertNull(ctx.config(SecondPolyAnyConfiguration.class));
+        }));
 
         rootConfig.polyNamed()
                 .change(c -> c.create("0", c1 -> c1.convert(FirstPolyAnyChange.class).changeStrVal("0").changeIntVal(0)))
                 .get(1, SECONDS);
+
+        assertTrue(invokeListener.get());
     }
 
     @Test
-    void testUpdateNamedPolymorphicConfig() throws Exception {
+    void testAnyUpdateNamedPolymorphicConfig() throws Exception {
         rootConfig.polyNamed()
                 .change(c -> c.create("0", c1 -> c1.convert(FirstPolyAnyChange.class).changeStrVal("0").changeIntVal(0)))
                 .get(1, SECONDS);
 
-        Consumer<ConfigurationNotificationEvent<PolyAnyView>> updateConsumer = ctx -> {
+        AtomicBoolean invokeListener = new AtomicBoolean();
+
+        rootConfig.polyNamed().any().listen(configListener(ctx -> {
+            invokeListener.set(true);
+
             assertInstanceOf(SecondPolyAnyView.class, ctx.newValue());
             assertInstanceOf(PolyAnyView.class, ctx.newValue());
 
@@ -738,18 +746,18 @@ public class ConfigurationAnyListenerTest {
             assertEquals("0", ctx.name(PolyAnyConfiguration.class));
             assertEquals("0", ctx.name(SecondPolyAnyConfiguration.class));
 
+            assertNull(ctx.name(FirstPolyAnyConfiguration.class));
+
             assertInstanceOf(PolyAnyConfiguration.class, ctx.config(PolyAnyConfiguration.class));
             assertInstanceOf(SecondPolyAnyConfiguration.class, ctx.config(SecondPolyAnyConfiguration.class));
 
-            assertNull(ctx.name(FirstPolyAnyConfiguration.class));
-        };
-
-        rootConfig.polyNamed().any().listen(configListener(updateConsumer));
-
-        rootConfig.polyNamed().listenElements(configNamedListenerOnUpdate(updateConsumer));
+            assertNull(ctx.config(FirstPolyAnyConfiguration.class));
+        }));
 
         rootConfig.polyNamed()
                 .change(c -> c.update("0", c1 -> c1.convert(SecondPolyAnyChange.class).changeStrVal("0").changeIntVal(0)))
                 .get(1, SECONDS);
+
+        assertTrue(invokeListener.get());
     }
 }
