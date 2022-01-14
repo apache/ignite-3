@@ -21,13 +21,11 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.extension.TestExtension;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test cases for SQL Extension API.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItSqlExtensionTest extends AbstractBasicIntegrationTest {
     /**
      * Before all.
