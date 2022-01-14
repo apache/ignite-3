@@ -22,11 +22,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.sql.SQLException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Update statement self test.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItJdbcUpdateStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     /**
      * Execute test.
