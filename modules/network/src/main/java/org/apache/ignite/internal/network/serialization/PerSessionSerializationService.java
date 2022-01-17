@@ -266,7 +266,7 @@ public class PerSessionSerializationService {
     }
 
     private Class<?> getClass(int descriptorId, String typeName) {
-        return getClassDescriptor(descriptorId, typeName).getClass();
+        return getClassDescriptor(descriptorId, typeName).clazz();
     }
 
     @TestOnly
