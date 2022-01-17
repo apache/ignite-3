@@ -453,7 +453,7 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
     }
 
     @Test
-    void unmarshalsReferencesToSameObjectOfPrimitiveWrapperTypesToSameObject() throws Exception {
+    void unmarshalsSamePrimitiveWrapperReferencesToSameInstances() throws Exception {
         Integer obj = INT_OUT_OF_INT_CACHE_RANGE;
         List<?> list = new ArrayList<>(Arrays.asList(obj, obj));
 
