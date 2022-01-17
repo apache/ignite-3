@@ -23,6 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 
@@ -135,7 +138,32 @@ public class ConfigurationTest extends AbstractClientTest {
     }
 
     @Test
-    public void testCustomAsyncContinuationExecutor() {
-        // TODO
+    public void testDirectAsyncContinuationExecutorUsesNettyThread() throws Exception {
+        IgniteClient.Builder builder = IgniteClient.builder()
+                .addresses("127.0.0.1:" + serverPort)
+                .asyncContinuationExecutor(Runnable::run);
+
+        try (Ignite ignite = builder.build()) {
+            String threadName = ignite.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
+
+            assertThat(threadName, startsWith("nioEventLoopGroup-"));
+        }
+    }
+
+    @Test
+    public void testCustomAsyncContinuationExecutor() throws Exception {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+
+        IgniteClient.Builder builder = IgniteClient.builder()
+                .addresses("127.0.0.1:" + serverPort)
+                .asyncContinuationExecutor(executor);
+
+        try (Ignite ignite = builder.build()) {
+            String threadName = ignite.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
+
+            assertThat(threadName, startsWith("pool-"));
+        }
+
+        executor.shutdown();
     }
 }
