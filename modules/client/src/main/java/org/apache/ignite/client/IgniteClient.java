@@ -180,7 +180,8 @@ public interface IgniteClient extends Ignite {
          * <p>Server responses are handled by a dedicated network thread. To ensure optimal performance,
          * this thread should not perform any extra work, so user-defined continuations are offloaded to the specified executor.
          *
-         * @return Executor for async continuations.
+         * @param asyncContinuationExecutor Async continuation executor.
+         * @return This instance.
          */
         public Builder asyncContinuationExecutor(Executor asyncContinuationExecutor) {
             this.asyncContinuationExecutor = asyncContinuationExecutor;
