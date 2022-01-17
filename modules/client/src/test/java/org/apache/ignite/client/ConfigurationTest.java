@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -123,5 +125,17 @@ public class ConfigurationTest extends AbstractClientTest {
                 });
 
         assertThrows(IllegalArgumentException.class, builder::build);
+    }
+
+    @Test
+    public void testDefaultAsyncContinuationExecutorIsForkJoinPool() {
+        String threadName = client.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
+
+        assertThat(threadName, startsWith("ForkJoinPool.commonPool-worker-"));
+    }
+
+    @Test
+    public void testCustomAsyncContinuationExecutor() {
+        // TODO
     }
 }
