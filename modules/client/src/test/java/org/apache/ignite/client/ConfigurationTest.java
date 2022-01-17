@@ -21,6 +21,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.ExecutorService;
@@ -134,6 +135,7 @@ public class ConfigurationTest extends AbstractClientTest {
     public void testDefaultAsyncContinuationExecutorIsForkJoinPool() {
         String threadName = client.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
 
+        assertNull(client.configuration().asyncContinuationExecutor());
         assertThat(threadName, startsWith("ForkJoinPool.commonPool-worker-"));
     }
 
@@ -158,9 +160,10 @@ public class ConfigurationTest extends AbstractClientTest {
                 .addresses("127.0.0.1:" + serverPort)
                 .asyncContinuationExecutor(executor);
 
-        try (Ignite ignite = builder.build()) {
+        try (IgniteClient ignite = builder.build()) {
             String threadName = ignite.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
 
+            assertEquals(executor, ignite.configuration().asyncContinuationExecutor());
             assertThat(threadName, startsWith("pool-"));
         }
 
