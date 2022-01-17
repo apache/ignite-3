@@ -90,6 +90,7 @@ public interface IgniteClientConfiguration {
 
     /**
      * Gets the async continuation executor.
+     *
      * <p>When <code>null</code> (default), {@link ForkJoinPool#commonPool()} is used.
      *
      * <p>When async client operation completes, corresponding {@link java.util.concurrent.CompletableFuture} continuations
