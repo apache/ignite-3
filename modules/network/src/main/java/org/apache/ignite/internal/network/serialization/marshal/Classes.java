@@ -17,10 +17,21 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-class WithoutNoArgConstructor {
-    int value;
+import java.io.Serializable;
 
-    public WithoutNoArgConstructor(int value) {
-        this.value = value;
+/**
+ * Utilities to work with classes.
+ */
+class Classes {
+    static boolean isSerializable(Class<?> objectClass) {
+        return Serializable.class.isAssignableFrom(objectClass);
+    }
+
+    static boolean isLambda(Class<?> objectClass) {
+        return objectClass.getSimpleName().contains("$$Lambda$") && objectClass.isSynthetic()
+                && !objectClass.isAnonymousClass() && !objectClass.isLocalClass();
+    }
+
+    private Classes() {
     }
 }
