@@ -19,8 +19,6 @@ package org.apache.ignite.internal.configuration.notifications;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
@@ -34,8 +32,9 @@ class ConfigurationNotificationContext {
     /** Storage revision. */
     private final long storageRevision;
 
-    /** Configuration containers for {@link ConfigurationNotificationEvent}. */
-    private final Map<Class<?>, ConfigurationContainer> containers = new HashMap<>();
+    /** The tail of containers, implements a stack for safe traversal in {@link ConfigurationNotificationEventImpl events}. */
+    @Nullable
+    private ConfigurationContainer tailContainers;
 
     /** For collect configuration listener futures. */
     final Collection<CompletableFuture<?>> futures = new ArrayList<>();
@@ -56,26 +55,7 @@ class ConfigurationNotificationContext {
      * @param name Key in named list.
      */
     void addContainer(DynamicConfiguration<InnerNode, ?> config, @Nullable String name) {
-        ConfigurationContainer container = new ConfigurationContainer(name, config.isRemovedFromNamedList() ? null : config);
-
-        containers.put(config.configType(), container);
-
-        Class<?>[] internalConfigTypes = config.internalConfigTypes();
-
-        if (internalConfigTypes != null) {
-            for (int i = 0; i < internalConfigTypes.length; i++) {
-                containers.put(internalConfigTypes[i], container);
-            }
-        }
-
-        Class<?> polymorphicInstanceConfigType = config.polymorphicInstanceConfigType();
-
-        if (polymorphicInstanceConfigType != null) {
-            containers.put(
-                    polymorphicInstanceConfigType,
-                    new ConfigurationContainer(name, config.isRemovedFromNamedList() ? null : config.specificConfigTree())
-            );
-        }
+        tailContainers = new ConfigurationContainer(config, name, tailContainers);
     }
 
     /**
@@ -84,21 +64,10 @@ class ConfigurationNotificationContext {
      * @param config Configuration.
      */
     void removeContainer(DynamicConfiguration<InnerNode, ?> config) {
-        containers.remove(config.configType());
+        assert tailContainers != null;
+        assert tailContainers.config == config;
 
-        Class<?>[] internalConfigTypes = config.internalConfigTypes();
-
-        if (internalConfigTypes != null) {
-            for (int i = 0; i < internalConfigTypes.length; i++) {
-                containers.remove(internalConfigTypes[i]);
-            }
-        }
-
-        Class<?> polymorphicInstanceConfigType = config.polymorphicInstanceConfigType();
-
-        if (polymorphicInstanceConfigType != null) {
-            containers.remove(polymorphicInstanceConfigType);
-        }
+        tailContainers = tailContainers.prev;
     }
 
     /**
@@ -109,6 +78,8 @@ class ConfigurationNotificationContext {
      * @param newValue New value.
      */
     <VIEWT> ConfigurationNotificationEvent<VIEWT> createEvent(@Nullable VIEWT oldValue, @Nullable VIEWT newValue) {
-        return new ConfigurationNotificationEventImpl<>(oldValue, newValue, storageRevision, containers);
+        assert tailContainers != null;
+
+        return new ConfigurationNotificationEventImpl<>(oldValue, newValue, storageRevision, tailContainers);
     }
 }

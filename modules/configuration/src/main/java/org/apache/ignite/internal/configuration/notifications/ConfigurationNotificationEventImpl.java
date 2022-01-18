@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration.notifications;
 
-import java.util.Map;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.jetbrains.annotations.Nullable;
@@ -39,8 +38,8 @@ class ConfigurationNotificationEventImpl<VIEWT> implements ConfigurationNotifica
     /** Storage revision. */
     private final long storageRevision;
 
-    /** Configuration container. */
-    private final Map<Class<?>, ConfigurationContainer> configs;
+    /** The tail of containers, implements a stack for safe traversal. */
+    private final ConfigurationContainer tail;
 
     /**
      * Constructor.
@@ -48,18 +47,18 @@ class ConfigurationNotificationEventImpl<VIEWT> implements ConfigurationNotifica
      * @param oldValue Old value.
      * @param newValue New value.
      * @param storageRevision Storage revision.
-     * @param configs Configuration containers.
+     * @param tail The tail of containers.
      */
     ConfigurationNotificationEventImpl(
             @Nullable VIEWT oldValue,
             @Nullable VIEWT newValue,
             long storageRevision,
-            Map<Class<?>, ConfigurationContainer> configs
+            ConfigurationContainer tail
     ) {
         this.oldValue = oldValue;
         this.newValue = newValue;
         this.storageRevision = storageRevision;
-        this.configs = configs;
+        this.tail = tail;
     }
 
     /** {@inheritDoc} */
@@ -83,16 +82,30 @@ class ConfigurationNotificationEventImpl<VIEWT> implements ConfigurationNotifica
     /** {@inheritDoc} */
     @Override
     public <T extends ConfigurationProperty> @Nullable T config(Class<?> configClass) {
-        ConfigurationContainer container = configs.get(configClass);
+        ConfigurationContainer container = findContainer(configClass);
 
-        return container == null ? null : (T) container.config;
+        return container == null ? null : (T) container.specificConfig();
     }
 
     /** {@inheritDoc} */
     @Override
     public @Nullable String name(Class<?> configClass) {
-        ConfigurationContainer container = configs.get(configClass);
+        ConfigurationContainer container = findContainer(configClass);
 
         return container == null ? null : container.name;
+    }
+
+    private @Nullable ConfigurationContainer findContainer(Class<?> configClass) {
+        ConfigurationContainer curr = tail;
+
+        while (curr != null) {
+            if (configClass.isAssignableFrom(curr.configClass())) {
+                return curr;
+            } else {
+                curr = curr.prev;
+            }
+        }
+
+        return null;
     }
 }

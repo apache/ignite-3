@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.notifications;
 
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,25 +27,50 @@ import org.jetbrains.annotations.Nullable;
  * Configuration container for {@link ConfigurationNotificationEvent}.
  */
 class ConfigurationContainer {
-    /** Key in named list, for method {@link ConfigurationNotificationEvent#name}. */
+    /**
+     * Configuration.
+     *
+     * <p>For {@link ConfigurationNotificationEvent#config} use {@link this#specificConfig()}.
+     */
+    final DynamicConfiguration<InnerNode, ?> config;
+
+    /** Key in named list, for {@link ConfigurationNotificationEvent#name}. */
     @Nullable
     final String name;
 
-    /** Configuration for {@link ConfigurationNotificationEvent#config}. */
+    /** Previous container. */
     @Nullable
-    final ConfigurationProperty<InnerNode> config;
+    final ConfigurationContainer prev;
 
     /**
      * Constructor.
      *
-     * @param name Key in named list, for method {@link ConfigurationNotificationEvent#name}.
-     * @param config Configuration for {@link ConfigurationNotificationEvent#config}.
+     * @param config Configuration.
+     * @param name Key in named list.
      */
     ConfigurationContainer(
+            DynamicConfiguration<InnerNode, ?> config,
             @Nullable String name,
-            @Nullable ConfigurationProperty<InnerNode> config
+            @Nullable ConfigurationContainer prev
     ) {
-        this.name = name;
         this.config = config;
+        this.name = name;
+        this.prev = prev;
+    }
+
+    /**
+     * Returns the configuration for {@link ConfigurationNotificationEvent#config}.
+     */
+    @Nullable ConfigurationProperty<InnerNode> specificConfig() {
+        return config.isRemovedFromNamedList() ? null : config.specificConfigTree();
+    }
+
+    /**
+     * Returns the configuration class.
+     */
+    Class<?> configClass() {
+        Class<?> polymorphicInstanceConfigType = config.polymorphicInstanceConfigType();
+
+        return polymorphicInstanceConfigType != null ? polymorphicInstanceConfigType : config.getClass();
     }
 }
