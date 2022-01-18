@@ -19,7 +19,7 @@ package org.apache.ignite.internal.configuration;
 
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil.notifyListeners;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
@@ -280,7 +280,7 @@ public class ConfigurationRegistry implements IgniteComponent {
                 assert oldRoot != null && cfg != null : key;
 
                 if (oldRoot != newRoot) {
-                    notifyListeners(oldRoot, newRoot, cfg, storageRevision, futures);
+                    futures.addAll(notifyListeners(oldRoot, newRoot, cfg, storageRevision));
                 }
 
                 return null;

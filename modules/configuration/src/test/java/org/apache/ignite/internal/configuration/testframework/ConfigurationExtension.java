@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.testframework;
 
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.findEx;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
@@ -29,7 +30,7 @@ import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
 import java.lang.reflect.Field;
 import java.lang.reflect.Parameter;
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -213,14 +214,11 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
                     ConfigurationUtil.dropNulls(copy);
 
                     if (superRootRef.compareAndSet(sr, copy)) {
-                        List<CompletableFuture<?>> futures = new ArrayList<>();
-
-                        ConfigurationNotificationsUtil.notifyListeners(
+                        Collection<CompletableFuture<?>> futures = notifyListeners(
                                 sr.getRoot(rootKey),
                                 copy.getRoot(rootKey),
                                 (DynamicConfiguration<InnerNode, ?>) cfgRef.get(),
-                                storageRev.incrementAndGet(),
-                                futures
+                                storageRev.incrementAndGet()
                         );
 
                         return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
