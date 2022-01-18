@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.configuration.notifications;
 
-import static org.apache.ignite.internal.util.CollectionUtils.union;
-
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.internal.configuration.ConfigurationNode;
@@ -124,8 +125,10 @@ class ConfigurationNotificationUtils {
      */
     static Collection<DynamicConfiguration<InnerNode, ?>> mergeAnyConfigs(
             Collection<DynamicConfiguration<InnerNode, ?>> anyConfigs,
-            DynamicConfiguration<InnerNode, ?> anyConfig
+            @Nullable DynamicConfiguration<InnerNode, ?> anyConfig
     ) {
-        return union(anyConfigs, List.of(anyConfig));
+        return Stream.concat(anyConfigs.stream(), Stream.of(anyConfig))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 }
