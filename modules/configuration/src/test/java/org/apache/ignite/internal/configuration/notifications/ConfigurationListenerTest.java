@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.configuration.notifications.Configurati
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnRename;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnUpdate;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.doNothingConsumer;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -43,6 +45,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -1376,5 +1379,31 @@ public class ConfigurationListenerTest {
 
         assertEquals("0", event.name(ChildConfiguration.class));
         assertEquals("0", event.name(InternalChildConfiguration.class));
+    }
+
+    @Test
+    void testGetErrorFromListener() {
+        configuration.child().listen(configListener(ctx -> {
+            throw new RuntimeException("from test");
+        }));
+
+        ExecutionException ex = assertThrows(
+                ExecutionException.class,
+                () -> configuration.child().str().update(UUID.randomUUID().toString()).get(1, SECONDS)
+        );
+
+        assertTrue(hasCause(ex, RuntimeException.class, "from test"));
+    }
+
+    @Test
+    void testGetErrorFromListenerFuture() {
+        configuration.child().listen(ctx -> CompletableFuture.failedFuture(new RuntimeException("from test")));
+
+        ExecutionException ex = assertThrows(
+                ExecutionException.class,
+                () -> configuration.child().str().update(UUID.randomUUID().toString()).get(1, SECONDS)
+        );
+
+        assertTrue(hasCause(ex, RuntimeException.class, "from test"));
     }
 }

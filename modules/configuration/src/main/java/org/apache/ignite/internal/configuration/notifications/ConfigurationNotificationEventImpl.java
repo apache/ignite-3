@@ -27,11 +27,11 @@ import org.jetbrains.annotations.Nullable;
  * @param <VIEWT> Type of the subtree or the value that has been changed.
  */
 class ConfigurationNotificationEventImpl<VIEWT> implements ConfigurationNotificationEvent<VIEWT> {
-    /** Old value. */
+    /** Previous value of the updated configuration. */
     @Nullable
     private final VIEWT oldValue;
 
-    /** New value. */
+    /** Updated value of the configuration. */
     @Nullable
     private final VIEWT newValue;
 
