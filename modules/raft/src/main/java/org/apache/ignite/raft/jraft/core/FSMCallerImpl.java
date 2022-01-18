@@ -516,7 +516,7 @@ public class FSMCallerImpl implements FSMCaller {
             final LogId lastAppliedId = new LogId(lastIndex, lastTerm);
 
             try {
-                Thread.sleep(1_000);
+                Thread.sleep(100);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
