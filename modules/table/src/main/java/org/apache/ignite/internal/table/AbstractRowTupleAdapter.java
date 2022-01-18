@@ -31,6 +31,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 
@@ -381,7 +382,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     protected Column rowColumnByName(@NotNull String columnName) {
         Objects.requireNonNull(columnName);
 
-        final Column col = row.schema().column(columnName);
+        final Column col = row.schema().column(IgniteObjectName.parse(columnName));
 
         if (col == null) {
             throw new IllegalArgumentException("Invalid column name: columnName=" + columnName);

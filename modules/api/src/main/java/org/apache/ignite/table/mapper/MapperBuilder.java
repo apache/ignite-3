@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.ignite.internal.util.IgniteObjectName;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -261,7 +262,8 @@ public final class MapperBuilder<T> {
             Arrays.stream(targetType.getDeclaredFields())
                     .map(Field::getName)
                     .filter(fldName -> !fields.contains(fldName))
-                    .forEach(fldName -> mapping.putIfAbsent(fldName, fldName)); // Ignore manually mapped fields/columns.
+                    // Ignore manually mapped fields/columns.
+                    .forEach(fldName -> mapping.putIfAbsent(IgniteObjectName.parse(fldName), fldName));
         }
 
         return new PojoMapperImpl<>(targetType, mapping, columnConverters);
