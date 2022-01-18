@@ -67,16 +67,17 @@ public class ClassDescriptor {
 
     /** Total number of bytes needed to store all primitive fields. */
     private final int primitiveFieldsDataSize;
-    /** Total number of object (i.e. non-primitive) fields. */
+    /** Total number of non-primitive fields. */
     private final int objectFieldsCount;
 
     private Map<String, FieldDescriptor> fieldsByName;
     /**
-     * Offsets into primitive fields data (which has size {@link #primitiveFieldsDataSize}).
-     * These are different from the offsets used in the context of {@link sun.misc.Unsafe}.
+     * Offsets into primitive fields data array (which has size {@link #primitiveFieldsDataSize}).
+     * This array is a byte array containing data of all the primitive fields of an object.
+     * (Not to be confused with the offsets used in the context of {@link sun.misc.Unsafe}).
      */
     private Object2IntMap<String> primitiveFieldDataOffsets;
-    /** Indices of non-primitive (i.e. object) fields in the object fields array. */
+    /** Indices of non-primitive fields in the object fields array. */
     private Object2IntMap<String> objectFieldIndices;
 
     private final SpecialSerializationMethods serializationMethods;
