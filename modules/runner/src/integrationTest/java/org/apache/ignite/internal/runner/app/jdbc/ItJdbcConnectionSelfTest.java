@@ -754,8 +754,6 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     }
 
     /**
-     * TODO  IGNITE-15188.
-     *
      * @throws Exception If failed.
      */
     @Test
