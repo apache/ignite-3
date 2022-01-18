@@ -754,6 +754,8 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     }
 
     /**
+     * Get-set holdability test.
+     *
      * @throws Exception If failed.
      */
     @Test
