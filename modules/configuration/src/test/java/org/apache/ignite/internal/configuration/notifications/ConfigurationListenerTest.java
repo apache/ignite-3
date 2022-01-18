@@ -46,6 +46,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -1322,5 +1323,58 @@ public class ConfigurationListenerTest {
                 .get(1, SECONDS);
 
         assertTrue(invokeListener.get());
+    }
+
+    @Test
+    void testNotificationEventForNestedConfigAfterNotifyListeners() throws Exception {
+        AtomicReference<ConfigurationNotificationEvent<?>> eventRef = new AtomicReference<>();
+
+        configuration.child().listen(configListener(eventRef::set));
+
+        configuration.child().str().update(UUID.randomUUID().toString()).get(1, SECONDS);
+
+        ConfigurationNotificationEvent<?> event = eventRef.get();
+
+        assertNotNull(event);
+
+        assertInstanceOf(ChildView.class, event.newValue());
+        assertInstanceOf(InternalChildView.class, event.newValue());
+
+        assertInstanceOf(ChildView.class, event.oldValue());
+        assertInstanceOf(InternalChildView.class, event.oldValue());
+
+        assertInstanceOf(ChildConfiguration.class, event.config(ChildConfiguration.class));
+        assertInstanceOf(InternalChildConfiguration.class, event.config(InternalChildConfiguration.class));
+
+        assertInstanceOf(ParentConfiguration.class, event.config(ParentConfiguration.class));
+
+        assertNull(event.name(ChildConfiguration.class));
+        assertNull(event.name(InternalChildConfiguration.class));
+    }
+
+    @Test
+    void testNotificationEventForNamedConfigAfterNotifyListeners() throws Exception {
+        AtomicReference<ConfigurationNotificationEvent<?>> eventRef = new AtomicReference<>();
+
+        configuration.children().listenElements(configNamedListenerOnCreate(eventRef::set));
+
+        configuration.children().change(c -> c.create("0", doNothingConsumer())).get(1, SECONDS);
+
+        ConfigurationNotificationEvent<?> event = eventRef.get();
+
+        assertNotNull(event);
+
+        assertInstanceOf(ChildView.class, event.newValue());
+        assertInstanceOf(InternalChildView.class, event.newValue());
+
+        assertNull(event.oldValue());
+
+        assertInstanceOf(ChildConfiguration.class, event.config(ChildConfiguration.class));
+        assertInstanceOf(InternalChildConfiguration.class, event.config(InternalChildConfiguration.class));
+
+        assertInstanceOf(ParentConfiguration.class, event.config(ParentConfiguration.class));
+
+        assertEquals("0", event.name(ChildConfiguration.class));
+        assertEquals("0", event.name(InternalChildConfiguration.class));
     }
 }
