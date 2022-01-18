@@ -514,6 +514,13 @@ public class FSMCallerImpl implements FSMCaller {
             final long lastIndex = iterImpl.getIndex() - 1;
             final long lastTerm = this.logManager.getTerm(lastIndex);
             final LogId lastAppliedId = new LogId(lastIndex, lastTerm);
+
+            try {
+                Thread.sleep(1_000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
             this.lastAppliedIndex.set(lastIndex);
             this.lastAppliedTerm = lastTerm;
             this.logManager.setAppliedId(lastAppliedId);
