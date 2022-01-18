@@ -24,10 +24,10 @@ import static org.apache.ignite.internal.configuration.notifications.Configurati
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotificationUtils.listeners;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotificationUtils.mergeAnyConfigs;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotificationUtils.namedDynamicConfig;
-import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotificationUtils.touch;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.leafNodeVisitor;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.namedListNodeVisitor;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.touch;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 

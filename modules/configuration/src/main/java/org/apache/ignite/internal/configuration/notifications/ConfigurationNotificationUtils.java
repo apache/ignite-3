@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.internal.configuration.ConfigurationNode;
@@ -115,21 +114,6 @@ class ConfigurationNotificationUtils {
      */
     static @Nullable DynamicConfiguration<InnerNode, ?> any(@Nullable NamedListConfiguration<?, InnerNode, ?> namedConfig) {
         return namedConfig == null ? null : (DynamicConfiguration<InnerNode, ?>) namedConfig.any();
-    }
-
-    /**
-     * Ensures that dynamic configuration tree is up to date and further notifications on it will be invoked correctly.
-     *
-     * @param cfg Dynamic configuration node instance.
-     */
-    static void touch(DynamicConfiguration<?, ?> cfg) {
-        cfg.touchMembers();
-
-        for (ConfigurationProperty<?> value : cfg.members().values()) {
-            if (value instanceof DynamicConfiguration) {
-                touch((DynamicConfiguration<?, ?>) value);
-            }
-        }
     }
 
     /**
