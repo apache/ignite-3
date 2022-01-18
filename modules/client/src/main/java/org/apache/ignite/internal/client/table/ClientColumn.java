@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.table;
 
 import org.apache.ignite.internal.client.proto.ClientDataType;
+import org.apache.ignite.internal.util.IgniteObjectName;
 
 /**
  * Schema column.
@@ -51,7 +52,7 @@ public class ClientColumn {
         assert name != null;
         assert schemaIndex >= 0;
 
-        this.name = name;
+        this.name = IgniteObjectName.parse(name);
         this.type = type;
         this.nullable = nullable;
         this.isKey = isKey;

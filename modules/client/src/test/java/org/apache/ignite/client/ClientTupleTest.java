@@ -94,13 +94,13 @@ public class ClientTupleTest {
     @Test
     public void testSetThrowsWhenColumnIsNotPresent() {
         var ex = assertThrows(IgniteException.class, () -> getBuilder().set("x", "y"));
-        assertEquals("Column is not present in schema: x", ex.getMessage());
+        assertEquals("Column is not present in schema: X", ex.getMessage());
     }
 
     @Test
     public void testValueThrowsWhenColumnIsNotPresent() {
         var ex = assertThrows(IgniteException.class, () -> getBuilder().value("x"));
-        assertEquals("Column is not present in schema: x", ex.getMessage());
+        assertEquals("Column is not present in schema: X", ex.getMessage());
 
         var ex2 = assertThrows(IndexOutOfBoundsException.class, () -> getBuilder().value(100));
         assertEquals("Index 100 out of bounds for length 2", ex2.getMessage());
@@ -113,8 +113,8 @@ public class ClientTupleTest {
 
     @Test
     public void testColumnNameReturnsNameByIndex() {
-        assertEquals("id", getTuple().columnName(0));
-        assertEquals("name", getTuple().columnName(1));
+        assertEquals("ID", getTuple().columnName(0));
+        assertEquals("NAME", getTuple().columnName(1));
     }
 
     @Test

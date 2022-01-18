@@ -68,8 +68,8 @@ public class ClientTableTest extends AbstractClientTableTest {
         assertEquals(DEFAULT_ID, resTuple.value(0));
 
         assertEquals(2, resTuple.columnCount());
-        assertEquals("id", resTuple.columnName(0));
-        assertEquals("name", resTuple.columnName(1));
+        assertEquals("ID", resTuple.columnName(0));
+        assertEquals("NAME", resTuple.columnName(1));
 
         var iter = tuple.iterator();
 
