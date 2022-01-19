@@ -34,12 +34,6 @@ class ClassesTest {
         assertTrue(Classes.isSerializable(EmptySerializable.class));
     }
 
-    private static class NonSerializable {
-    }
-
-    private static class EmptySerializable implements Serializable {
-    }
-
     @Test
     void isLambdaReturnsFalseForOrdinaryClassInstance() {
         assertFalse(Classes.isLambda(NonSerializable.class));
@@ -74,5 +68,34 @@ class ClassesTest {
 
     private Runnable serializableLambda() {
         return (Runnable & Serializable) () -> {};
+    }
+
+    @Test
+    void isLambdaReturnsFalseForPrimitiveClasses() {
+        assertFalse(Classes.isLambda(int.class));
+    }
+
+    @Test
+    void isLambdaReturnsFalseForPrimitiveArrayClasses() {
+        assertFalse(Classes.isLambda(int[].class));
+    }
+
+    @Test
+    void isLambdaReturnsFalseForObjectArrayClasses() {
+        assertFalse(Classes.isLambda(Object[].class));
+    }
+
+    @Test
+    void isLambdaReturnsFalseForEnumClasses() {
+        assertFalse(Classes.isLambda(EmptyEnum.class));
+    }
+
+    private static class NonSerializable {
+    }
+
+    private static class EmptySerializable implements Serializable {
+    }
+
+    private enum EmptyEnum {
     }
 }

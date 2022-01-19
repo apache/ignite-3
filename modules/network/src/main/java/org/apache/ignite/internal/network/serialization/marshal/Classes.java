@@ -28,8 +28,19 @@ class Classes {
     }
 
     static boolean isLambda(Class<?> objectClass) {
-        return objectClass.getSimpleName().contains("$$Lambda$") && objectClass.isSynthetic()
-                && !objectClass.isAnonymousClass() && !objectClass.isLocalClass();
+        return !objectClass.isPrimitive() && !objectClass.isArray()
+                && !objectClass.isAnonymousClass() && !objectClass.isLocalClass()
+                && objectClass.isSynthetic()
+                && classCannotBeLoadedByName(objectClass);
+    }
+
+    private static boolean classCannotBeLoadedByName(Class<?> objectClass) {
+        try {
+            Class.forName(objectClass.getName());
+            return false;
+        } catch (ClassNotFoundException e) {
+            return true;
+        }
     }
 
     private Classes() {
