@@ -133,6 +133,16 @@ public class ClientMessageUnpackerTest {
     }
 
     @ParameterizedTest
+    @ValueSource(ints = {30, 31, 32, 126, 127, 128, 255, 256, 65535, 65536})
+    public void testUnpackLongString(int length) {
+        String s = "x".repeat(length / 3);
+        testUnpacker(p -> p.packString(s), ClientMessageUnpacker::unpackString, s);
+
+        String s2 = "x".repeat(length);
+        testUnpacker(p -> p.packString(s2), ClientMessageUnpacker::unpackString, s2);
+    }
+
+    @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
     public void testUnpackArrayHeader(int i) {
         testUnpacker(p -> p.packArrayHeader(i), ClientMessageUnpacker::unpackArrayHeader, i);
