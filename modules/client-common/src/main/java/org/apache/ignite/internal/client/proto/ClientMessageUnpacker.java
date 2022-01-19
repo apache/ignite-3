@@ -754,7 +754,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
 
         var hdr = unpackExtensionTypeHeader();
         var type = hdr.getType();
-        var len = hdr.getLength();
 
         if (type != ClientMsgPackType.IGNITE_UUID) {
             throw new MessageTypeException("Expected Ignite UUID extension (1), but got " + type);
