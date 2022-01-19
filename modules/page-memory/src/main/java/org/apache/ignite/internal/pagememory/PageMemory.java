@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.pagememory.io.PageIO;
 import org.apache.ignite.internal.pagememory.io.PageIORegistry;
 import org.apache.ignite.lang.IgniteInternalException;
 
@@ -68,5 +69,8 @@ public interface PageMemory extends PageIdAllocator, PageSupport {
      */
     public int checkpointBufferPagesCount();
 
+    /**
+     * Registry to retrieve {@link PageIO} instances for pages.
+     */
     public PageIORegistry ioRegistry();
 }
