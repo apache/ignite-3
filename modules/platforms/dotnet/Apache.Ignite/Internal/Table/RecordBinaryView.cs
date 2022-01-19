@@ -451,6 +451,8 @@ namespace Apache.Ignite.Internal.Table
 
             _table.WriteIdAndTx(ref w, tx);
             w.Write(schema.Version);
+
+            // TODO: Remove?
             w.Flush();
 
             var count = 0;
