@@ -157,7 +157,7 @@ public class ClientMessagePacker implements AutoCloseable {
         assert !closed : "Packer is closed";
 
         if (i < -(1 << 5)) {
-            if (i < -(1 << 15)) { // TODO: Is this correct? How do we pack -1, -2?
+            if (i < -(1 << 15)) {
                 buf.writeByte(Code.INT32);
                 buf.writeInt(i);
             } else if (i < -(1 << 7)) {
@@ -168,6 +168,7 @@ public class ClientMessagePacker implements AutoCloseable {
                 buf.writeByte(i);
             }
         } else if (i < (1 << 7)) {
+            // Includes negative fixint.
             buf.writeByte(i);
         } else {
             if (i < (1 << 8)) {
