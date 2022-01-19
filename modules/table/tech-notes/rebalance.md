@@ -160,7 +160,7 @@ metastoreInvoke: // atomic metastore call through multi-invoke api
         skip
 ```
 - Update `changePeers` request-response behaviour with:
-    - response with `received` if no current `changePeers` or current `changePeers` in the STAGE_CATCHING_UP. Updates the catching up peers with the new peers, stop redundant replicators, if needed.
+    - response with `received` if no current `changePeers` or current `changePeers` in the `STAGE_CATCHING_UP`. Updates the catching up peers with the new peers, stop redundant replicators, if needed.
     - response with `busy` if current leader is not in the `STAGE_NONE` or `STAGE_CATCHING_UP` phase.
 - Update `changePeers` behaviour with new listener from the caller `tryCatchUpFinish(peers)`. This listener must execute the following metastore call:
 **Pseudocode**
@@ -182,8 +182,8 @@ Instead of updating current `changePeers` with new peers' list - we can cancel i
 
 For this dish we will need:
 - New raft service's method `cancelChangePeers()`. This method should cancel current `changePeers` if and only if it is in the STAGE_CATCHING_UP phase. Method must return:
-  - true: if no changePeers to cancel or successful cancel occuried.
+  - true: if no changePeers to cancel or successful cancel occurred.
   - false: if `changePeers` in progress and can't be cancelled (like in approach 1 - if the leader is not in STAGE_CATCHING_UP/STAGE_NONE)
 - Listen the `partition.assignments.planned` key and on update:
   - Execute `cancelChangePeers()` on the node with the partition leader. If it returns `false` - do nothing.
-  - If it returns `true` - push move planned peers to pending in metastore
+  - If it returns `true` - move planned peers to pending in metastore
