@@ -31,7 +31,7 @@ public class IgniteObjectName {
      * Parse database's object name: unquote name or cast to upper case not-quoted name.
      *
      * @param str String to parse object name.
-     * @return Unquoted name or name is cast to upper case. "tbl0" - "TBL0", "\"tbl0\"" - "tbl0".
+     * @return Unquoted name or name is cast to upper case. "tbl0" -&gt; "TBL0", "\"Tbl0\"" -&gt; "Tbl0".
      */
     public static String parse(String str) {
         if (str == null || str.isEmpty()) {
@@ -50,7 +50,9 @@ public class IgniteObjectName {
     }
 
     /**
-     * Parse canonical table [schemaName].[tableName], unquote identifiers and normalize case.
+     * Parse canonical table [schemaName].[tableName], unquote identifiers and normalize case,
+     * e.g. "public.tbl0" -&gt; "PUBLIC.TBL0", "PUBLIC.\"Tbl0\"" -&gt; "PUBLIC.Tbl0",
+     * "\"MySchema\".\"Tbl0\"" -&gt; "MySchema.Tbl0", etc.
      *
      * @param str String to parse canonical name.
      * @return Unquote identifiers and normalize case.

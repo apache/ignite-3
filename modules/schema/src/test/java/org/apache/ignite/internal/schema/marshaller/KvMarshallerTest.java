@@ -475,20 +475,20 @@ public class KvMarshallerTest {
         final byte[] serializedPojo = serializeObject(pojo);
 
         final KvMarshaller<Long, TestPojo> marshaller1 = factory.create(schema,
-                Mapper.of(Long.class, "key"),
-                Mapper.of(TestPojo.class, "val", new SerializingConverter<>()));
+                Mapper.of(Long.class, "\"key\""),
+                Mapper.of(TestPojo.class, "\"val\"", new SerializingConverter<>()));
 
         final KvMarshaller<Long, byte[]> marshaller2 = factory.create(schema,
-                Mapper.of(Long.class, "key"),
-                Mapper.of(byte[].class, "val"));
+                Mapper.of(Long.class, "\"key\""),
+                Mapper.of(byte[].class, "\"val\""));
 
         final KvMarshaller<Long, TestPojoWrapper> marshaller3 = factory.create(schema,
-                Mapper.of(Long.class, "key"),
-                Mapper.builder(TestPojoWrapper.class).map("pojoField", "val", new SerializingConverter<>()).build());
+                Mapper.of(Long.class, "\"key\""),
+                Mapper.builder(TestPojoWrapper.class).map("pojoField", "\"val\"", new SerializingConverter<>()).build());
 
         final KvMarshaller<Long, TestPojoWrapper> marshaller4 = factory.create(schema,
-                Mapper.of(Long.class, "key"),
-                Mapper.builder(TestPojoWrapper.class).map("rawField", "val").build());
+                Mapper.of(Long.class, "\"key\""),
+                Mapper.builder(TestPojoWrapper.class).map("rawField", "\"val\"").build());
 
         BinaryRow row = marshaller1.marshal(1L, pojo);
         BinaryRow row2 = marshaller2.marshal(1L, serializedPojo);
@@ -542,8 +542,8 @@ public class KvMarshallerTest {
         SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
 
         KvMarshaller<Object, Object> marshaller = factory.create(schema,
-                Mapper.of((Class<Object>) key.getClass(), "key"),
-                Mapper.of((Class<Object>) val.getClass(), "val"));
+                Mapper.of((Class<Object>) key.getClass(), "\"key\""),
+                Mapper.of((Class<Object>) val.getClass(), "\"val\""));
         BinaryRow row = marshaller.marshal(key, val);
 
         Object key1 = marshaller.unmarshalKey(new Row(schema, row));

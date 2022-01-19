@@ -107,12 +107,12 @@ public class MapperTest {
         }) {
             assertNull(((OneColumnMapper<?>) Mapper.of(c)).mappedColumn());
 
-            assertEquals("col1", ((OneColumnMapper<?>) Mapper.of(c, "col1")).mappedColumn());
+            assertEquals("COL1", ((OneColumnMapper<?>) Mapper.of(c, "col1")).mappedColumn());
             assertNull(((OneColumnMapper<?>) Mapper.of(c, "col1")).converter());
         }
 
         // One-column mapping with converter.
-        assertEquals("col1", ((OneColumnMapper<String>) Mapper.of(String.class, "col1", conv)).mappedColumn());
+        assertEquals("COL1", ((OneColumnMapper<String>) Mapper.of(String.class, "col1", conv)).mappedColumn());
 
         assertNotNull(((OneColumnMapper<String>) Mapper.of(String.class, "col1", conv)).converter());
 
@@ -174,7 +174,7 @@ public class MapperTest {
         }
 
         {
-            assertEquals("col1", ((OneColumnMapper<TestObject>) Mapper.of(TestObject.class, "col1", conv)).mappedColumn());
+            assertEquals("COL1", ((OneColumnMapper<TestObject>) Mapper.of(TestObject.class, "col1", conv)).mappedColumn());
         }
     }
 
