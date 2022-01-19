@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -326,7 +327,11 @@ public class IgniteImpl implements Ignite {
                 doStartComponent(name, startedComponents, component);
             }
 
-            // TODO: IGNITE-16263 add notifictan listeners to curent configurations (node + cluster).
+            // Notify all listeners of current configuration.
+            CompletableFuture.allOf(
+                    nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
+                    clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
+            ).get();
 
             // Deploy all registered watches because all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
