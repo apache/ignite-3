@@ -57,6 +57,7 @@ import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
 import org.apache.ignite.configuration.validation.OneOf;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.configuration.ConfigurationChanger.StorageRoots;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
@@ -72,6 +73,7 @@ import org.apache.ignite.internal.configuration.validation.MinValidator;
 import org.apache.ignite.internal.configuration.validation.OneOfValidator;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.IgniteLogger;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Configuration registry.
@@ -230,11 +232,11 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @throws IllegalArgumentException If {@code path} is not found in current configuration.
      */
     public <T> T represent(List<String> path, ConfigurationVisitor<T> visitor) throws IllegalArgumentException {
-        SuperRoot superRoot = changer.superRoot();
+        StorageRoots storageRoots = changer.storageRoots();
 
         Object node;
         try {
-            node = ConfigurationUtil.find(path, superRoot, false);
+            node = ConfigurationUtil.find(path, storageRoots.roots, false);
         } catch (KeyNotFoundException e) {
             throw new IllegalArgumentException(e.getMessage());
         }
@@ -267,7 +269,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @return Future that must signify when processing is completed.
      */
     private CompletableFuture<Void> notificator(SuperRoot oldSuperRoot, SuperRoot newSuperRoot, long storageRevision) {
-        List<CompletableFuture<?>> futures = new ArrayList<>();
+        Collection<CompletableFuture<?>> futures = new ArrayList<>();
 
         newSuperRoot.traverseChildren(new ConfigurationVisitor<Void>() {
             /** {@inheritDoc} */
@@ -287,16 +289,31 @@ public class ConfigurationRegistry implements IgniteComponent {
             }
         }, true);
 
-        // Map futures is only for logging errors.
-        Function<CompletableFuture<?>, CompletableFuture<?>> mapping = fut -> fut.whenComplete((res, throwable) -> {
-            if (throwable != null) {
-                LOG.error("Failed to notify configuration listener.", throwable);
+        return toResultNotifyListenerFuture(futures);
+    }
+
+    /**
+     * Notifies all listeners of the current configuration.
+     *
+     * @return Future that must signify when processing is completed.
+     */
+    public CompletableFuture<Void> notifyCurrentConfigurationListeners() {
+        StorageRoots storageRoots = changer.storageRoots();
+
+        Collection<CompletableFuture<?>> futures = new ArrayList<>();
+
+        storageRoots.roots.traverseChildren(new ConfigurationVisitor<Void>() {
+            /** {@inheritDoc} */
+            @Override
+            public @Nullable Void visitInnerNode(String key, InnerNode node) {
+
+                futures.addAll(notifyListeners(node, (DynamicConfiguration<InnerNode, ?>) configs.get(key), storageRoots.version));
+
+                return null;
             }
-        });
+        }, true);
 
-        CompletableFuture<?>[] resultFutures = futures.stream().map(mapping).toArray(CompletableFuture[]::new);
-
-        return CompletableFuture.allOf(resultFutures);
+        return toResultNotifyListenerFuture(futures);
     }
 
     /**
@@ -404,6 +421,23 @@ public class ConfigurationRegistry implements IgniteComponent {
             }
 
             ids.clear();
+        }
+    }
+
+    private CompletableFuture<Void> toResultNotifyListenerFuture(Collection<CompletableFuture<?>> futures) {
+        if (futures.isEmpty()) {
+            return CompletableFuture.completedFuture(null);
+        } else {
+            // Map futures is only for logging errors.
+            Function<CompletableFuture<?>, CompletableFuture<?>> mapping = fut -> fut.whenComplete((res, throwable) -> {
+                if (throwable != null) {
+                    LOG.error("Failed to notify configuration listener.", throwable);
+                }
+            });
+
+            CompletableFuture<?>[] resultFutures = futures.stream().map(mapping).toArray(CompletableFuture[]::new);
+
+            return CompletableFuture.allOf(resultFutures);
         }
     }
 }

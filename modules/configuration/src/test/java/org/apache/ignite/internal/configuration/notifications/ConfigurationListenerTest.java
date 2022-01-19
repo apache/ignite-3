@@ -1481,4 +1481,15 @@ public class ConfigurationListenerTest {
                 events
         );
     }
+
+    @Test
+    void testNotifyCurrentConfigurationListeners() throws Exception {
+        AtomicBoolean invokeListener = new AtomicBoolean();
+
+        config.listen(configListener(ctx -> invokeListener.set(true)));
+
+        registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
+
+        assertTrue(invokeListener.get());
+    }
 }

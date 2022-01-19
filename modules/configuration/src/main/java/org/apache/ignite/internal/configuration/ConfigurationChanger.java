@@ -117,12 +117,12 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /**
      * Immutable data container to store version and all roots associated with the specific storage.
      */
-    private static class StorageRoots {
+    static class StorageRoots {
         /** Immutable forest, so to say. */
-        private final SuperRoot roots;
+        final SuperRoot roots;
 
         /** Version associated with the currently known storage state. */
-        private final long version;
+        final long version;
 
         /** Future that signifies update of current configuration. */
         private final CompletableFuture<Void> changeFuture = new CompletableFuture<>();
@@ -438,12 +438,10 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     }
 
     /**
-     * Get storage super root.
-     *
-     * @return Super root storage.
+     * Returns storage trees.
      */
-    public SuperRoot superRoot() {
-        return storageRoots.roots;
+    public StorageRoots storageRoots() {
+        return storageRoots;
     }
 
     /**
