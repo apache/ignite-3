@@ -50,7 +50,7 @@ namespace Apache.Ignite.Tests
 
             _serverNode = await JavaServer.StartAsync();
             Client = await IgniteClient.StartAsync(GetConfig());
-            Table = (await Client.Tables.GetTableAsync(TableName))!.RecordView;
+            Table = (await Client.Tables.GetTableAsync(TableName))!.RecordBinaryView;
         }
 
         [OneTimeTearDown]

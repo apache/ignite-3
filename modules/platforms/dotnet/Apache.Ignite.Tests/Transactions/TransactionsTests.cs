@@ -160,7 +160,7 @@ namespace Apache.Ignite.Tests.Transactions
                 var table = await client2.Tables.GetTableAsync(TableName);
                 var tx = await client2.Transactions.BeginAsync();
 
-                await table!.RecordView.UpsertAsync(tx, GetTuple(1, "2"));
+                await table!.RecordBinaryView.UpsertAsync(tx, GetTuple(1, "2"));
             }
 
             Assert.AreEqual("1", (await Table.GetAsync(null, GetTuple(1)))![ValCol]);

@@ -37,14 +37,14 @@ namespace Apache.Ignite.Internal.Table
             Name = name;
             Id = id;
 
-            RecordView = new RecordBinaryView(this);
+            RecordBinaryView = new RecordBinaryView(this);
         }
 
         /// <inheritdoc/>
         public string Name { get; }
 
         /// <inheritdoc/>
-        public IRecordView<IIgniteTuple> RecordView { get; }
+        public IRecordView<IIgniteTuple> RecordBinaryView { get; }
 
         /// <summary>
         /// Gets the id.
@@ -55,5 +55,12 @@ namespace Apache.Ignite.Internal.Table
         /// Gets the socket.
         /// </summary>
         internal ClientFailoverSocket Socket { get; }
+
+        /// <inheritdoc/>
+        public IRecordView<T> GetRecordView<T>()
+            where T : class
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

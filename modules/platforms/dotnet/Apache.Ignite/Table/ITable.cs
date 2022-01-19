@@ -28,8 +28,16 @@ namespace Apache.Ignite.Table
         public string Name { get; }
 
         /// <summary>
-        /// Gets the record view.
+        /// Gets the record binary view.
         /// </summary>
-        public IRecordView<IIgniteTuple> RecordView { get; }
+        public IRecordView<IIgniteTuple> RecordBinaryView { get; }
+
+        /// <summary>
+        /// Gets the record view mapped to specified type <typeparamref name="T"/>.
+        /// </summary>
+        /// <typeparam name="T">Record type.</typeparam>
+        /// <returns>Record view.</returns>
+        public IRecordView<T> GetRecordView<T>()
+            where T : class;
     }
 }
