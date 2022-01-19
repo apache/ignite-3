@@ -688,7 +688,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return createTableAsyncInternal(name, tableInitChange);
+            return createTableAsyncInternal(IgniteObjectName.parseCanonicalName(name), tableInitChange);
         } finally {
             busyLock.leaveBusy();
         }
@@ -707,7 +707,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *                         </ul>
      * @see TableAlreadyExistsException
      */
-    private CompletableFuture<Table> createTableAsyncInternal(String name, Consumer<TableChange> tableInitChange) {
+    public CompletableFuture<Table> createTableAsyncInternal(String name, Consumer<TableChange> tableInitChange) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
         tableAsync(name).thenAccept(tbl -> {
@@ -917,7 +917,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return dropTableAsyncInternal(name);
+            return dropTableAsyncInternal(IgniteObjectName.parseCanonicalName(name));
         } finally {
             busyLock.leaveBusy();
         }
@@ -936,7 +936,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @see TableNotFoundException
      */
     @NotNull
-    private CompletableFuture<Void> dropTableAsyncInternal(String name) {
+    public CompletableFuture<Void> dropTableAsyncInternal(String name) {
         CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
 
         tableAsync(name).thenAccept(tbl -> {

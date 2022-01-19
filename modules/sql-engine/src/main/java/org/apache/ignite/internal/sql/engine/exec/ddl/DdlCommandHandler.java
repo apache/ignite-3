@@ -143,7 +143,7 @@ public class DdlCommandHandler {
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
         try {
-            tableManager.createTable(fullName, tblChanger);
+            tableManager.createTableAsyncInternal(fullName, tblChanger).join();
         } catch (TableAlreadyExistsException ex) {
             if (!cmd.ifTableExists()) {
                 throw ex;
@@ -156,7 +156,7 @@ public class DdlCommandHandler {
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
         try {
-            tableManager.dropTable(fullName);
+            tableManager.dropTableAsyncInternal(fullName).join();
         } catch (TableNotFoundException ex) {
             if (!cmd.ifTableExists()) {
                 throw ex;
