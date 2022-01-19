@@ -22,9 +22,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Flow;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -44,14 +53,19 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.table.RockDbStorageEngineBridge;
+import org.apache.ignite.internal.table.StorageEngineBridge;
+import org.apache.ignite.internal.table.StorageEngineBridge.ScanContext;
 import org.apache.ignite.internal.table.StorageEngineManager;
 import org.apache.ignite.internal.table.StorageEngineManager.StorageEngineManagerImpl;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
@@ -62,6 +76,7 @@ import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
@@ -79,6 +94,7 @@ import org.jetbrains.annotations.Nullable;
  * Ignite internal implementation.
  */
 public class IgniteImpl implements Ignite {
+    public static final String TEST_STORAGE_ENGINE = "TEST_SE";
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteImpl.class);
 
@@ -227,6 +243,7 @@ public class IgniteImpl implements Ignite {
         );
 
         storageEngineManager.register(StorageEngineManager.ROCKS_DB, new RockDbStorageEngineBridge(distributedTblMgr));
+        storageEngineManager.register(TEST_STORAGE_ENGINE, new TestStorageEngineBridge());
 
         qryEngine = new SqlQueryProcessor(
                 clusterSvc,
@@ -531,4 +548,146 @@ public class IgniteImpl implements Ignite {
 
         STOPPING
     }
+}
+
+class TestStorageEngineBridge implements StorageEngineBridge {
+    private final Map<byte[], BinaryRow> table = new ConcurrentHashMap<>();
+
+    @Override
+    public CompletableFuture<BinaryRow> get(IgniteUuid tableId, BinaryRow keyRow, @Nullable InternalTransaction tx) {
+        try {
+            return CompletableFuture.completedFuture(table.get(keyRow.keySlice().array()));
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+
+    @Override
+    public CompletableFuture<Collection<BinaryRow>> getAll(IgniteUuid tableId, Collection<BinaryRow> keyRows,
+            @Nullable InternalTransaction tx) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> upsert(IgniteUuid tableId, BinaryRow row, @Nullable InternalTransaction tx) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> upsertAll(IgniteUuid tableId, Collection<BinaryRow> rows, @Nullable InternalTransaction tx) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<BinaryRow> getAndUpsert(IgniteUuid tableId, BinaryRow row, @Nullable InternalTransaction tx) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Boolean> insert(IgniteUuid tableId, BinaryRow row, @Nullable InternalTransaction tx) {
+        try {
+            return CompletableFuture.completedFuture(table.putIfAbsent(row.keySlice().array(), row) == null);
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+
+    @Override
+    public CompletableFuture<Collection<BinaryRow>> insertAll(IgniteUuid tableId, Collection<BinaryRow> rows,
+            @Nullable InternalTransaction tx) {
+        try {
+            List<BinaryRow> dups = new ArrayList<>();
+
+            for (BinaryRow row : rows) {
+                if (table.putIfAbsent(row.keySlice().array(), row) != null) {
+                    dups.add(row);
+                }
+            }
+
+            return CompletableFuture.completedFuture(dups);
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+
+    @Override
+    public CompletableFuture<Boolean> replace(IgniteUuid tableId, BinaryRow row, @Nullable InternalTransaction tx) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Boolean> replace(IgniteUuid tableId, BinaryRow oldRow, BinaryRow newRow, @Nullable InternalTransaction tx) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<BinaryRow> getAndReplace(IgniteUuid tableId, BinaryRow row, @Nullable InternalTransaction tx) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Boolean> delete(IgniteUuid tableId, BinaryRow keyRow, @Nullable InternalTransaction tx) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Boolean> deleteExact(IgniteUuid tableId, BinaryRow oldRow, @Nullable InternalTransaction tx) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<BinaryRow> getAndDelete(IgniteUuid tableId, BinaryRow row, @Nullable InternalTransaction tx) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Collection<BinaryRow>> deleteAll(IgniteUuid tableId, Collection<BinaryRow> rows,
+            @Nullable InternalTransaction tx) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Collection<BinaryRow>> deleteAllExact(IgniteUuid tableId, Collection<BinaryRow> rows,
+            @Nullable InternalTransaction tx) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public @NotNull Flow.Publisher<BinaryRow> scan(IgniteUuid tableId, int p,
+            @Nullable InternalTransaction tx, @Nullable ScanContext scanContext) {
+        try {
+            return subscriber -> subscriber.onSubscribe(new Subscription() {
+                private final Iterator<BinaryRow> it = table.values().iterator();
+
+                @Override
+                public void request(long n) {
+                    while (n > 0 && it.hasNext()) {
+                        BinaryRow row = it.next();
+
+                        if (scanContext instanceof TestStorageEngineBridge) {
+                            TestEngineScanContext testScanContext = (TestEngineScanContext) scanContext;
+
+
+                        }
+                        subscriber.onNext(it.next());
+                    }
+
+                    if (n > 0) {
+                        subscriber.onComplete();
+                    }
+                }
+
+                @Override
+                public void cancel() {
+                    // NO-OP
+                }
+            });
+        } catch (Exception e) {
+            return subscriber -> subscriber.onError(e);
+        }
+    }
+}
+
+class TestEngineScanContext implements ScanContext {
+
 }

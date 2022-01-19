@@ -209,7 +209,10 @@ public class RockDbStorageEngineBridge implements StorageEngineBridge {
     }
 
     @Override
-    public @NotNull Publisher<BinaryRow> scan(IgniteUuid tableId, int p, @Nullable InternalTransaction tx) {
+    public @NotNull Publisher<BinaryRow> scan(IgniteUuid tableId, int p,
+            @Nullable InternalTransaction tx, @Nullable ScanContext scanContext) {
+        assert scanContext == null;
+
         try {
             return tableManager.table(tableId).internalTable().scan(p, tx);
         } catch (NodeStoppingException e) {

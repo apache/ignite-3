@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
@@ -178,5 +179,16 @@ public interface StorageEngineBridge {
      * @param tx The transaction.
      * @return {@link Publisher} that reactively notifies about partition rows.
      */
-    @NotNull Publisher<BinaryRow> scan(IgniteUuid tableId, int p, @Nullable InternalTransaction tx);
+    @NotNull Publisher<BinaryRow> scan(IgniteUuid tableId, int p, @Nullable InternalTransaction tx, @Nullable ScanContext scanContext);
+
+    // TODO: we certainly need to change a return type to SqlExtension,
+    // but first we need to derive all required interfaces to some independent module (sql-engine-api ?)
+    default @Nullable Object sqlExtension() {
+        return null;
+    }
+
+    interface ScanContext extends Serializable {
+
+    }
+
 }
