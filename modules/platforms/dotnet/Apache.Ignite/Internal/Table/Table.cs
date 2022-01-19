@@ -17,7 +17,13 @@
 
 namespace Apache.Ignite.Internal.Table
 {
+    using System.Collections.Concurrent;
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.Threading.Tasks;
+    using Buffers;
     using Ignite.Table;
+    using MessagePack;
     using Proto;
 
     /// <summary>
@@ -25,6 +31,18 @@ namespace Apache.Ignite.Internal.Table
     /// </summary>
     internal class Table : ITable
     {
+        /** Table id. */
+        private readonly IgniteUuid _id;
+
+        /** Schemas. */
+        private readonly ConcurrentDictionary<int, Schema> _schemas = new();
+
+        /** */
+        private readonly object _latestSchemaLock = new();
+
+        /** */
+        private volatile int _latestSchemaVersion = -1;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Table"/> class.
         /// </summary>
@@ -35,7 +53,7 @@ namespace Apache.Ignite.Internal.Table
         {
             Socket = socket;
             Name = name;
-            Id = id;
+            _id = id;
 
             RecordBinaryView = new RecordBinaryView(this);
         }
@@ -47,11 +65,6 @@ namespace Apache.Ignite.Internal.Table
         public IRecordView<IIgniteTuple> RecordBinaryView { get; }
 
         /// <summary>
-        /// Gets the id.
-        /// </summary>
-        internal IgniteUuid Id { get; }
-
-        /// <summary>
         /// Gets the socket.
         /// </summary>
         internal ClientFailoverSocket Socket { get; }
@@ -61,6 +74,176 @@ namespace Apache.Ignite.Internal.Table
             where T : class
         {
             return new RecordView<T>(this);
+        }
+
+        /// <summary>
+        /// Writes the transaction id, if present.
+        /// </summary>
+        /// <param name="w">Writer.</param>
+        /// <param name="tx">Transaction.</param>
+        internal void WriteIdAndTx(ref MessagePackWriter w, Transactions.Transaction? tx)
+        {
+            w.Write(_id);
+
+            if (tx == null)
+            {
+                w.WriteNil();
+            }
+            else
+            {
+                w.WriteInt64(tx.Id);
+            }
+        }
+
+        /// <summary>
+        /// Reads the schema.
+        /// </summary>
+        /// <param name="buf">Buffer.</param>
+        /// <returns>Schema or null.</returns>
+        internal async ValueTask<Schema?> ReadSchemaAsync(PooledBuffer buf)
+        {
+            var ver = ReadSchemaVersion(buf);
+
+            if (ver == null)
+            {
+                return null;
+            }
+
+            if (_schemas.TryGetValue(ver.Value, out var res))
+            {
+                return res;
+            }
+
+            return await LoadSchemaAsync(ver).ConfigureAwait(false);
+
+            static int? ReadSchemaVersion(PooledBuffer buf)
+            {
+                var reader = buf.GetReader();
+
+                return reader.ReadInt32Nullable();
+            }
+        }
+
+        /// <summary>
+        /// Gets the latest schema.
+        /// </summary>
+        /// <returns>Schema.</returns>
+        internal async ValueTask<Schema> GetLatestSchemaAsync()
+        {
+            var latestSchemaVersion = _latestSchemaVersion;
+
+            if (latestSchemaVersion >= 0)
+            {
+                return _schemas[latestSchemaVersion];
+            }
+
+            return await LoadSchemaAsync(null).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Loads the schema.
+        /// </summary>
+        /// <param name="version">Version.</param>
+        /// <returns>Schema.</returns>
+        private async Task<Schema> LoadSchemaAsync(int? version)
+        {
+            using var writer = new PooledArrayBufferWriter();
+            Write();
+
+            using var resBuf = await Socket.DoOutInOpAsync(ClientOp.SchemasGet, writer).ConfigureAwait(false);
+            return Read();
+
+            void Write()
+            {
+                var w = writer.GetMessageWriter();
+                w.Write(_id);
+
+                if (version == null)
+                {
+                    w.WriteNil();
+                }
+                else
+                {
+                    w.WriteArrayHeader(1);
+                    w.Write(version.Value);
+                }
+
+                w.Flush();
+            }
+
+            Schema Read()
+            {
+                var r = resBuf.GetReader();
+                var schemaCount = r.ReadMapHeader();
+
+                if (schemaCount == 0)
+                {
+                    throw new IgniteClientException("Schema not found: " + version);
+                }
+
+                Schema last = null!;
+
+                for (var i = 0; i < schemaCount; i++)
+                {
+                    last = ReadSchema(ref r);
+                }
+
+                // Store all schemas in the map, and return last.
+                return last;
+            }
+        }
+
+        /// <summary>
+        /// Reads the schema.
+        /// </summary>
+        /// <param name="r">Reader.</param>
+        /// <returns>Schema.</returns>
+        private Schema ReadSchema(ref MessagePackReader r)
+        {
+            var schemaVersion = r.ReadInt32();
+            var columnCount = r.ReadArrayHeader();
+            var keyColumnCount = 0;
+
+            var columns = new Column[columnCount];
+            var columnsMap = new Dictionary<string, Column>(columnCount);
+
+            for (var i = 0; i < columnCount; i++)
+            {
+                var propertyCount = r.ReadArrayHeader();
+
+                Debug.Assert(propertyCount >= 4, "propertyCount >= 4");
+
+                var name = r.ReadString();
+                var type = r.ReadInt32();
+                var isKey = r.ReadBoolean();
+                var isNullable = r.ReadBoolean();
+
+                r.Skip(propertyCount - 4);
+
+                var column = new Column(name, (ClientDataType)type, isNullable, isKey, i);
+
+                columns[i] = column;
+                columnsMap[column.Name] = column;
+
+                if (isKey)
+                {
+                    keyColumnCount++;
+                }
+            }
+
+            var schema = new Schema(schemaVersion, keyColumnCount, columns, columnsMap);
+
+            _schemas[schemaVersion] = schema;
+
+            lock (_latestSchemaLock)
+            {
+                if (schemaVersion > _latestSchemaVersion)
+                {
+                    _latestSchemaVersion = schemaVersion;
+                }
+            }
+
+            return schema;
         }
     }
 }

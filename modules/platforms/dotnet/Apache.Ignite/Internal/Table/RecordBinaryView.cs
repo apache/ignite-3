@@ -18,9 +18,7 @@
 namespace Apache.Ignite.Internal.Table
 {
     using System;
-    using System.Collections.Concurrent;
     using System.Collections.Generic;
-    using System.Diagnostics;
     using System.Threading.Tasks;
     using System.Transactions;
     using Buffers;
@@ -38,15 +36,6 @@ namespace Apache.Ignite.Internal.Table
         /** Table. */
         private readonly Table _table;
 
-        /** Schemas. */
-        private readonly ConcurrentDictionary<int, Schema> _schemas = new();
-
-        /** */
-        private readonly object _latestSchemaLock = new();
-
-        /** */
-        private volatile int _latestSchemaVersion = -1;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="RecordBinaryView"/> class.
         /// </summary>
@@ -62,7 +51,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
             using var resBuf = await DoTupleOutOpAsync(ClientOp.TupleGet, transaction, key, keyOnly: true).ConfigureAwait(false);
-            var resSchema = await ReadSchemaAsync(resBuf).ConfigureAwait(false);
+            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             return ReadValueTuple(resBuf, resSchema, key);
         }
@@ -79,14 +68,14 @@ namespace Apache.Ignite.Internal.Table
                 return Array.Empty<IIgniteTuple>();
             }
 
-            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, tx, schema, iterator, keyOnly: true);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleGetAll, tx, writer).ConfigureAwait(false);
-            var resSchema = await ReadSchemaAsync(resBuf).ConfigureAwait(false);
+            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
             return ReadTuplesNullable(resBuf, resSchema);
@@ -112,7 +101,7 @@ namespace Apache.Ignite.Internal.Table
                 return;
             }
 
-            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
@@ -127,7 +116,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
             using var resBuf = await DoTupleOutOpAsync(ClientOp.TupleGetAndUpsert, transaction, record).ConfigureAwait(false);
-            var resSchema = await ReadSchemaAsync(resBuf).ConfigureAwait(false);
+            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             return ReadValueTuple(resBuf, resSchema, record);
         }
@@ -153,14 +142,14 @@ namespace Apache.Ignite.Internal.Table
                 return Array.Empty<IIgniteTuple>();
             }
 
-            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, tx, schema, iterator);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleInsertAll, tx, writer).ConfigureAwait(false);
-            var resSchema = await ReadSchemaAsync(resBuf).ConfigureAwait(false);
+            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
             return ReadTuples(resBuf, resSchema);
@@ -180,7 +169,7 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
-            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
@@ -196,7 +185,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
             using var resBuf = await DoTupleOutOpAsync(ClientOp.TupleGetAndReplace, transaction, record).ConfigureAwait(false);
-            var resSchema = await ReadSchemaAsync(resBuf).ConfigureAwait(false);
+            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             return ReadValueTuple(resBuf, resSchema, record);
         }
@@ -225,7 +214,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
             using var resBuf = await DoTupleOutOpAsync(ClientOp.TupleGetAndDelete, transaction, key, keyOnly: true).ConfigureAwait(false);
-            var resSchema = await ReadSchemaAsync(resBuf).ConfigureAwait(false);
+            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             return ReadValueTuple(resBuf, resSchema, key);
         }
@@ -242,14 +231,14 @@ namespace Apache.Ignite.Internal.Table
                 return Array.Empty<IIgniteTuple>();
             }
 
-            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, tx, schema, iterator, keyOnly: true);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleDeleteAll, tx, writer).ConfigureAwait(false);
-            var resSchema = await ReadSchemaAsync(resBuf).ConfigureAwait(false);
+            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
             return ReadTuples(resBuf, resSchema, keyOnly: true);
@@ -267,14 +256,14 @@ namespace Apache.Ignite.Internal.Table
                 return Array.Empty<IIgniteTuple>();
             }
 
-            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, tx, schema, iterator);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleDeleteAllExact, tx, writer).ConfigureAwait(false);
-            var resSchema = await ReadSchemaAsync(resBuf).ConfigureAwait(false);
+            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             return ReadTuples(resBuf, resSchema);
         }
@@ -381,13 +370,6 @@ namespace Apache.Ignite.Internal.Table
             return res;
         }
 
-        private static int? ReadSchemaVersion(PooledBuffer buf)
-        {
-            var reader = buf.GetReader();
-
-            return reader.ReadInt32Nullable();
-        }
-
         private static void WriteTuple(
             ref MessagePackWriter w,
             Schema schema,
@@ -426,143 +408,6 @@ namespace Apache.Ignite.Internal.Table
             }
 
             throw new TransactionException("Unsupported transaction implementation: " + tx.GetType());
-        }
-
-        private static void WriteTx(ref MessagePackWriter w, Transactions.Transaction? tx)
-        {
-            if (tx == null)
-            {
-                w.WriteNil();
-            }
-            else
-            {
-                w.WriteInt64(tx.Id);
-            }
-        }
-
-        private async ValueTask<Schema?> ReadSchemaAsync(PooledBuffer buf)
-        {
-            var ver = ReadSchemaVersion(buf);
-
-            if (ver == null)
-            {
-                return null;
-            }
-
-            if (_schemas.TryGetValue(ver.Value, out var res))
-            {
-                return res;
-            }
-
-            return await LoadSchemaAsync(ver).ConfigureAwait(false);
-        }
-
-        private async ValueTask<Schema> GetLatestSchemaAsync()
-        {
-            var latestSchemaVersion = _latestSchemaVersion;
-
-            if (latestSchemaVersion >= 0)
-            {
-                return _schemas[latestSchemaVersion];
-            }
-
-            return await LoadSchemaAsync(null).ConfigureAwait(false);
-        }
-
-        private async Task<Schema> LoadSchemaAsync(int? version)
-        {
-            using var writer = new PooledArrayBufferWriter();
-            Write();
-
-            using var resBuf = await _table.Socket.DoOutInOpAsync(ClientOp.SchemasGet, writer).ConfigureAwait(false);
-            return Read();
-
-            void Write()
-            {
-                var w = writer.GetMessageWriter();
-                w.Write(_table.Id);
-
-                if (version == null)
-                {
-                    w.WriteNil();
-                }
-                else
-                {
-                    w.WriteArrayHeader(1);
-                    w.Write(version.Value);
-                }
-
-                w.Flush();
-            }
-
-            Schema Read()
-            {
-                var r = resBuf.GetReader();
-                var schemaCount = r.ReadMapHeader();
-
-                if (schemaCount == 0)
-                {
-                    throw new IgniteClientException("Schema not found: " + version);
-                }
-
-                Schema last = null!;
-
-                for (var i = 0; i < schemaCount; i++)
-                {
-                    last = ReadSchema(ref r);
-                }
-
-                // Store all schemas in the map, and return last.
-                return last;
-            }
-        }
-
-        private Schema ReadSchema(ref MessagePackReader r)
-        {
-            var schemaVersion = r.ReadInt32();
-            var columnCount = r.ReadArrayHeader();
-            var keyColumnCount = 0;
-
-            var columns = new Column[columnCount];
-            var columnsMap = new Dictionary<string, Column>(columnCount);
-
-            for (var i = 0; i < columnCount; i++)
-            {
-                var propertyCount = r.ReadArrayHeader();
-
-                Debug.Assert(propertyCount >= 4, "propertyCount >= 4");
-
-                var name = r.ReadString();
-                var type = r.ReadInt32();
-                var isKey = r.ReadBoolean();
-                var isNullable = r.ReadBoolean();
-
-                r.Skip(propertyCount - 4);
-
-                var column = new Column(name, (ClientDataType)type, isNullable, isKey, i);
-
-                columns[i] = column;
-                columnsMap[column.Name] = column;
-
-                if (isKey)
-                {
-                    keyColumnCount++;
-                }
-            }
-
-            var schema = new Schema(schemaVersion, keyColumnCount, columns, columnsMap);
-
-            _schemas[schemaVersion] = schema;
-
-            lock (_latestSchemaLock)
-            {
-                if (schemaVersion > _latestSchemaVersion)
-                {
-                    _latestSchemaVersion = schemaVersion;
-                }
-            }
-
-            return schema;
         }
 
         private void WriteTuple(
@@ -604,8 +449,7 @@ namespace Apache.Ignite.Internal.Table
         {
             var w = buf.GetMessageWriter();
 
-            w.Write(_table.Id);
-            WriteTx(ref w, tx);
+            _table.WriteIdAndTx(ref w, tx);
             w.Write(schema.Version);
             w.Flush();
 
@@ -638,8 +482,7 @@ namespace Apache.Ignite.Internal.Table
             IIgniteTuple tuple,
             bool keyOnly = false)
         {
-            w.Write(_table.Id);
-            WriteTx(ref w, tx);
+            _table.WriteIdAndTx(ref w, tx);
             w.Write(schema.Version);
 
             WriteTuple(ref w, schema, tuple, keyOnly);
@@ -676,7 +519,7 @@ namespace Apache.Ignite.Internal.Table
             IIgniteTuple tuple,
             bool keyOnly = false)
         {
-            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = GetTx(transaction);
 
             using var writer = new PooledArrayBufferWriter();
