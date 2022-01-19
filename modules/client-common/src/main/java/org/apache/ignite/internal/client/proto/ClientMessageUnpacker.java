@@ -762,7 +762,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
             throw new MessageSizeException("Expected 24 bytes for UUID extension, but got " + len, len);
         }
 
-        return new IgniteUuid(new UUID(buf.readLong(), buf.readLong()), buf.readLong());
+        return new IgniteUuid(new UUID(buf.readLong(), buf.readLong()), unpackLong());
     }
 
     /**
