@@ -48,75 +48,47 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * needed IO instance.
  */
 public abstract class PageIO {
-    /**
-     *
-     */
+    /** */
     public static final int TYPE_OFF = 0;
 
-    /**
-     *
-     */
+    /** */
     public static final int VER_OFF = TYPE_OFF + 2;
 
-    /**
-     *
-     */
+    /** */
     public static final int CRC_OFF = VER_OFF + 2;
 
-    /**
-     *
-     */
+    /** */
     public static final int PAGE_ID_OFF = CRC_OFF + 4;
 
-    /**
-     *
-     */
+    /** */
     public static final int ROTATED_ID_PART_OFF = PAGE_ID_OFF + 8;
 
-    /**
-     *
-     */
+    /** */
     private static final int COMPRESSION_TYPE_OFF = ROTATED_ID_PART_OFF + 1;
 
-    /**
-     *
-     */
+    /** */
     private static final int COMPRESSED_SIZE_OFF = COMPRESSION_TYPE_OFF + 1;
 
-    /**
-     *
-     */
+    /** */
     private static final int COMPACTED_SIZE_OFF = COMPRESSED_SIZE_OFF + 2;
 
-    /**
-     *
-     */
+    /** */
     private static final int RESERVED_SHORT_OFF = COMPACTED_SIZE_OFF + 2;
 
-    /**
-     *
-     */
+    /** */
     private static final int RESERVED_2_OFF = RESERVED_SHORT_OFF + 2;
 
-    /**
-     *
-     */
+    /** */
     private static final int RESERVED_3_OFF = RESERVED_2_OFF + 8;
 
-    /**
-     *
-     */
+    /** */
     // 40=type(2)+ver(2)+crc(4)+pageId(8)+rotatedIdPart(1)+reserved(1+2+4+2*8)
     public static final int COMMON_HEADER_END = RESERVED_3_OFF + 8;
 
-    /**
-     *
-     */
+    /** */
     private final int ver;
 
-    /**
-     *
-     */
+    /** */
     private final int type;
 
     /**

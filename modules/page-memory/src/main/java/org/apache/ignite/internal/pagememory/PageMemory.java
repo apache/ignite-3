@@ -21,9 +21,7 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.io.PageIORegistry;
 import org.apache.ignite.lang.IgniteInternalException;
 
-/**
- *
- */
+/** */
 public interface PageMemory extends PageIdAllocator, PageSupport {
     /**
      * Start page memory.

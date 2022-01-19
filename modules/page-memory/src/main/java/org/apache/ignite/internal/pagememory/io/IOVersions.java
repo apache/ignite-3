@@ -23,19 +23,13 @@ import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
  * Registry for IO versions of the same type.
  */
 public final class IOVersions<V extends PageIO> {
-    /**
-     *
-     */
+    /** */
     private final V[] vers;
 
-    /**
-     *
-     */
+    /** */
     private final int type;
 
-    /**
-     *
-     */
+    /** */
     private final V latest;
 
     /**
