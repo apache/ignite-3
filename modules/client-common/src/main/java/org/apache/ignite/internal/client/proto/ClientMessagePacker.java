@@ -536,17 +536,40 @@ public class ClientMessagePacker implements AutoCloseable {
         byte[] unscaledValue = val.unscaledValue().toByteArray();
 
         // Pack scale as varint.
-        // TODO: Proper varint with all variants?
-        boolean oneByteScale = val.scale() < (1 << 7);
-        int payloadLen = (oneByteScale ? 1 : 5) + unscaledValue.length;
+        int scale = val.scale();
+
+        int scaleBytes = 5;
+
+        if (scale < (1 << 7)) {
+            scaleBytes = 1;
+        } else if (scale < (1 << 8)) {
+            scaleBytes = 2;
+        } else if (scale < (1 << 16)) {
+            scaleBytes = 3;
+        }
+
+        int payloadLen = scaleBytes + unscaledValue.length;
 
         packExtensionTypeHeader(ClientMsgPackType.DECIMAL, payloadLen);
 
-        if (oneByteScale) {
-            buf.writeByte(val.scale());
-        } else {
-            buf.writeByte(Code.INT32);
-            buf.writeInt(val.scale());
+        switch (scaleBytes) {
+            case 1:
+                buf.writeByte(scale);
+                break;
+
+            case 2:
+                buf.writeByte(Code.UINT8);
+                buf.writeByte(scale);
+                break;
+
+            case 3:
+                buf.writeByte(Code.UINT16);
+                buf.writeShort(scale);
+                break;
+
+            default:
+                buf.writeByte(Code.UINT32);
+                buf.writeInt(scale);
         }
 
         buf.writeBytes(unscaledValue);
