@@ -215,7 +215,7 @@ public class DdlCommandHandler {
 
         String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
-        tableManager.alterTable(fullName, chng -> chng.changeIndices(idxes -> {
+        tableManager.alterTableAsyncInternal(fullName, chng -> chng.changeIndices(idxes -> {
             if (idxes.get(cmd.indexName()) != null) {
                 if (!cmd.ifIndexNotExists()) {
                     throw new IndexAlreadyExistsException(cmd.indexName());
@@ -225,7 +225,7 @@ public class DdlCommandHandler {
             }
 
             idxes.create(cmd.indexName(), tableIndexChange -> convert(idx.build(), tableIndexChange));
-        }));
+        })).join();
     }
 
     /** Handles drop index command. */
@@ -241,7 +241,7 @@ public class DdlCommandHandler {
      * @param colNotExist Flag indicates exceptionally behavior in case of already existing column.
      */
     private void addColumnInternal(String fullName, List<ColumnDefinition> colsDef, boolean colNotExist) {
-        tableManager.alterTable(
+        tableManager.alterTableAsyncInternal(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
                     Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
@@ -268,18 +268,18 @@ public class DdlCommandHandler {
 
                         cols.create(col.name(), colChg -> convert(col0.build(), colChg));
                     }
-                }));
+                })).join();
     }
 
     /**
      * Drops a column(s) exceptional behavior depends on {@code colExist} flag.
      *
      * @param fullName Table with schema name.
-     * @param colNames Columns defenitions.
+     * @param colNames Columns definitions.
      * @param colExist Flag indicates exceptionally behavior in case of already existing column.
      */
     private void dropColumnInternal(String fullName, Set<String> colNames, boolean colExist) {
-        tableManager.alterTable(
+        tableManager.alterTableAsyncInternal(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
                     PrimaryKeyView priKey = chng.primaryKey();
@@ -306,10 +306,10 @@ public class DdlCommandHandler {
                     }
 
                     colNames0.forEach(k -> cols.delete(colNamesToOrders.get(k)));
-                }));
+                })).join();
     }
 
-    /** Map column names to orders. */
+    /** Map column name to order. */
     private static Map<String, String> columnOrdersToNames(NamedListView<? extends ColumnView> cols) {
         Map<String, String> colNames = new HashMap<>(cols.size());
 

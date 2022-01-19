@@ -788,7 +788,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return alterTableAsyncInternal(name, tableChange);
+            return alterTableAsyncInternal(IgniteObjectName.parseCanonicalName(name), tableChange);
         } finally {
             busyLock.leaveBusy();
         }
@@ -808,7 +808,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @see TableNotFoundException
      */
     @NotNull
-    private CompletableFuture<Void> alterTableAsyncInternal(String name, Consumer<TableChange> tableChange) {
+    public CompletableFuture<Void> alterTableAsyncInternal(String name, Consumer<TableChange> tableChange) {
         CompletableFuture<Void> tblFut = new CompletableFuture<>();
 
         tableAsync(name).thenAccept(tbl -> {
