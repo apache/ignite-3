@@ -76,7 +76,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public int columnIndex(@NotNull String columnName) {
         Objects.requireNonNull(columnName);
 
-        var col = row.schema().column(columnName);
+        var col = row.schema().column(IgniteObjectName.parse(columnName));
 
         return col == null ? -1 : col.schemaIndex();
     }
@@ -86,7 +86,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public <T> T valueOrDefault(@NotNull String columnName, T defaultValue) {
         Objects.requireNonNull(columnName);
 
-        final Column col = row.schema().column(columnName);
+        final Column col = row.schema().column(IgniteObjectName.parse(columnName));
 
         return col == null ? defaultValue : (T) col.type().spec().objectValue(row, col.schemaIndex());
     }
