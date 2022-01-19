@@ -192,6 +192,7 @@ public class ClientMessageUnpackerTest {
             p.packNil();
             p.packUuid(UUID.randomUUID());
             p.packIgniteUuid(new IgniteUuid(UUID.randomUUID(), 123));
+            p.packIgniteUuid(new IgniteUuid(UUID.randomUUID(), UUID.randomUUID().getLeastSignificantBits()));
 
             p.packDouble(1.1);
             p.packDouble(2.2);

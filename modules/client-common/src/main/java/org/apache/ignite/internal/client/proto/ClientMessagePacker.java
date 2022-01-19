@@ -507,7 +507,6 @@ public class ClientMessagePacker implements AutoCloseable {
     public void packIgniteUuid(IgniteUuid val) {
         assert !closed : "Packer is closed";
 
-        packExtensionTypeHeader(ClientMsgPackType.IGNITE_UUID, 24);
         buf.writeByte(Code.EXT8);
 
         // Reserve space for varint payload length.
