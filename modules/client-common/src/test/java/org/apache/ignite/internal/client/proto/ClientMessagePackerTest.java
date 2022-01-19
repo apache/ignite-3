@@ -142,6 +142,14 @@ public class ClientMessagePackerTest {
     }
 
     @ParameterizedTest
+    @ValueSource(ints = {126, 127, 128, 255, 256, 65535, 65536})
+    public void testPackLongString(int length) {
+        String s = "x".repeat(length);
+
+        testPacker(p -> p.packString(s), p -> p.packString(s));
+    }
+
+    @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
     public void testPackArrayHeader(int i) {
         testPacker(p -> p.packArrayHeader(i), p -> p.packArrayHeader(i));
