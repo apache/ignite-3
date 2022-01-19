@@ -60,7 +60,7 @@ namespace Apache.Ignite.Internal.Table
         public IRecordView<T> GetRecordView<T>()
             where T : class
         {
-            throw new System.NotImplementedException();
+            return new RecordView<T>(this);
         }
     }
 }
