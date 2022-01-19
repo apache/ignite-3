@@ -528,7 +528,7 @@ public class ClientMessagePacker implements AutoCloseable {
         // Pack scale as varint.
         // TODO: Proper varint with all variants?
         boolean oneByteScale = val.scale() < (1 << 7);
-        int payloadLen = (oneByteScale ? 1 : 4) + unscaledValue.length;
+        int payloadLen = (oneByteScale ? 1 : 5) + unscaledValue.length;
 
         packExtensionTypeHeader(ClientMsgPackType.DECIMAL, payloadLen);
 
