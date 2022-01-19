@@ -142,11 +142,13 @@ public class ClientMessagePackerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {126, 127, 128, 255, 256, 65535, 65536})
+    @ValueSource(ints = {30, 31, 32, 126, 127, 128, 255, 256, 65535, 65536})
     public void testPackLongString(int length) {
-        String s = "x".repeat(length);
-
+        String s = "x".repeat(length / 3);
         testPacker(p -> p.packString(s), p -> p.packString(s));
+
+        String s2 = "x".repeat(length);
+        testPacker(p -> p.packString(s2), p -> p.packString(s2));
     }
 
     @ParameterizedTest
