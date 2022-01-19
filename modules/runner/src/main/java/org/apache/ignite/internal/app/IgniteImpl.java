@@ -326,6 +326,8 @@ public class IgniteImpl implements Ignite {
                 doStartComponent(name, startedComponents, component);
             }
 
+            // TODO: IGNITE-16263 add notifictan listeners to curent configurations (node + cluster).
+
             // Deploy all registered watches because all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
 
