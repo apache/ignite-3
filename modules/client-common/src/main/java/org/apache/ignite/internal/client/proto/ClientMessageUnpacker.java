@@ -126,10 +126,14 @@ public class ClientMessageUnpacker implements AutoCloseable {
 
         switch (code) {
             case Code.UINT8:
+                return buf.readUnsignedByte();
+
             case Code.INT8:
                 return buf.readByte();
 
             case Code.UINT16:
+                return buf.readUnsignedShort();
+
             case Code.INT16:
                 return buf.readShort();
 
@@ -245,8 +249,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
                 return buf.readByte();
 
             case Code.UINT16:
-                return (short) buf.readUnsignedShort();
-
             case Code.INT16:
                 return buf.readShort();
 
