@@ -195,11 +195,12 @@ public class ClientMessageUnpackerTest {
             p.packInt(123456);
             p.packBoolean(false);
 
-            p.packMapHeader(2);
+            p.packMapHeader(3);
             p.packString("x");
             p.packNil();
             p.packUuid(UUID.randomUUID());
             p.packIgniteUuid(new IgniteUuid(UUID.randomUUID(), 123));
+            p.packUuid(UUID.randomUUID());
             p.packIgniteUuid(new IgniteUuid(UUID.randomUUID(), UUID.randomUUID().getLeastSignificantBits()));
 
             p.packDouble(1.1);
