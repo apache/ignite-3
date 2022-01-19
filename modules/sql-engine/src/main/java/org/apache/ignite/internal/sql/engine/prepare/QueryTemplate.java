@@ -49,10 +49,12 @@ public class QueryTemplate {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public QueryTemplate(List<Fragment> fragments) {
-
         List<Fragment> frgs = new ArrayList<>(fragments.size());
+
+        RelOptCluster cluster = Commons.createCluster();
+
         for (Fragment fragment : fragments) {
-            frgs.add(fragment.copy(Commons.cluster()));
+            frgs.add(fragment.copy(cluster));
         }
 
         this.fragments = List.copyOf(frgs);
@@ -68,7 +70,7 @@ public class QueryTemplate {
             return executionPlan;
         }
 
-        final RelOptCluster cluster = Commons.createCluster();
+        RelOptCluster cluster = Commons.createCluster();
 
         List<Fragment> fragments = Commons.transform(this.fragments, fragment -> fragment.copy(cluster));
 

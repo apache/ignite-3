@@ -66,7 +66,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private static final BaseQueryContext EMPTY_CONTEXT;
 
-    private static final VolcanoPlanner EMPTY_PLANNER;
+    private static final VolcanoPlanner DUMMY_PLANNER;
 
     private static final RexBuilder DFLT_REX_BUILDER;
 
@@ -84,7 +84,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         EMPTY_CONTEXT = builder().build();
 
-        EMPTY_PLANNER = new VolcanoPlanner(COST_FACTORY, EMPTY_CONTEXT) {
+        DUMMY_PLANNER = new VolcanoPlanner(COST_FACTORY, EMPTY_CONTEXT) {
             @Override
             public void registerSchema(RelOptSchema schema) {
                 throw new UnsupportedOperationException("Dummy planer. Please use a specific instance.");
@@ -96,7 +96,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         DFLT_REX_BUILDER = new RexBuilder(TYPE_FACTORY);
 
-        RelOptCluster cluster = RelOptCluster.create(EMPTY_PLANNER, DFLT_REX_BUILDER);
+        RelOptCluster cluster = RelOptCluster.create(DUMMY_PLANNER, DFLT_REX_BUILDER);
 
         cluster.setMetadataProvider(IgniteMetadata.METADATA_PROVIDER);
 
@@ -109,9 +109,10 @@ public final class BaseQueryContext extends AbstractQueryContext {
      * @return New cluster.
      */
     public static RelOptCluster createCluster() {
-        RelOptCluster cluster = RelOptCluster.create(EMPTY_PLANNER, DFLT_REX_BUILDER);
+        RelOptCluster cluster = RelOptCluster.create(new VolcanoPlanner(COST_FACTORY, EMPTY_CONTEXT), DFLT_REX_BUILDER);
 
-        cluster.setMetadataProvider(new CachingRelMetadataProvider(IgniteMetadata.METADATA_PROVIDER, EMPTY_PLANNER));
+        cluster.setMetadataProvider(new CachingRelMetadataProvider(IgniteMetadata.METADATA_PROVIDER,
+                cluster.getPlanner()));
         cluster.setMetadataQuerySupplier(RelMetadataQueryEx::create);
 
         return cluster;
