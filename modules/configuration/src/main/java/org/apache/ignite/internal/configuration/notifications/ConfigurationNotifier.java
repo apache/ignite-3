@@ -110,7 +110,8 @@ public class ConfigurationNotifier {
                 innerNode,
                 config,
                 List.of(),
-                notificationCtx
+                notificationCtx,
+                false
         );
 
         notificationCtx.removeContainer(config);
@@ -245,7 +246,8 @@ public class ConfigurationNotifier {
                                 newVal,
                                 newNodeCfg,
                                 newAnyConfigs,
-                                notificationCtx
+                                notificationCtx,
+                                true
                         );
 
                         notificationCtx.removeContainer(newNodeCfg);
@@ -360,12 +362,13 @@ public class ConfigurationNotifier {
             InnerNode innerNode,
             DynamicConfiguration<InnerNode, ?> config,
             Collection<DynamicConfiguration<InnerNode, ?>> anyConfigs,
-            ConfigurationNotificationContext notificationCtx
+            ConfigurationNotificationContext notificationCtx,
+            boolean anyOnly
     ) {
         assert !(config instanceof NamedListConfiguration);
 
         notifyPublicListeners(
-                config.listeners(),
+                anyOnly ? List.of() : config.listeners(),
                 viewReadOnly(anyConfigs, ConfigurationNode::listeners),
                 null,
                 innerNode.specificNode(),
@@ -378,7 +381,7 @@ public class ConfigurationNotifier {
             @Override
             public Void visitLeafNode(String key, Serializable leaf) {
                 notifyPublicListeners(
-                        listeners(dynamicProperty(config, key)),
+                        anyOnly ? List.of() : listeners(dynamicProperty(config, key)),
                         viewReadOnly(anyConfigs, anyConfig -> listeners(dynamicProperty(anyConfig, key))),
                         null,
                         leaf,
@@ -400,7 +403,8 @@ public class ConfigurationNotifier {
                         nestedInnerNode,
                         nestedNodeConfig,
                         viewReadOnly(anyConfigs, anyConfig -> dynamicConfig(anyConfig, key)),
-                        notificationCtx
+                        notificationCtx,
+                        anyOnly
                 );
 
                 notificationCtx.removeContainer(nestedNodeConfig);
@@ -412,7 +416,7 @@ public class ConfigurationNotifier {
             @Override
             public Void visitNamedListNode(String key, NamedListNode<?> newNamedList) {
                 notifyPublicListeners(
-                        listeners(namedDynamicConfig(config, key)),
+                        anyOnly ? List.of() : listeners(namedDynamicConfig(config, key)),
                         viewReadOnly(anyConfigs, anyConfig -> listeners(namedDynamicConfig(anyConfig, key))),
                         null,
                         newNamedList,
@@ -434,7 +438,7 @@ public class ConfigurationNotifier {
                     InnerNode namedInnerNode = newNamedList.getInnerNode(name);
 
                     notifyPublicListeners(
-                            extendedListeners(namedDynamicConfig(config, key)),
+                            anyOnly ? List.of() : extendedListeners(namedDynamicConfig(config, key)),
                             viewReadOnly(anyConfigs, anyConfig -> extendedListeners(namedDynamicConfig(anyConfig, key))),
                             null,
                             namedInnerNode.specificNode(),
@@ -453,7 +457,8 @@ public class ConfigurationNotifier {
                             namedInnerNode,
                             namedNodeConfig,
                             newAnyConfigs,
-                            notificationCtx
+                            notificationCtx,
+                            anyOnly
                     );
 
                     notificationCtx.removeContainer(namedNodeConfig);
