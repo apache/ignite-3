@@ -157,7 +157,7 @@ public class ClientMessagePacker implements AutoCloseable {
         assert !closed : "Packer is closed";
 
         if (i < -(1 << 5)) {
-            if (i < -(1 << 15)) {
+            if (i < -(1 << 15)) { // TODO: Is this correct? How do we pack -1, -2?
                 buf.writeByte(Code.INT32);
                 buf.writeInt(i);
             } else if (i < -(1 << 7)) {
@@ -525,10 +525,20 @@ public class ClientMessagePacker implements AutoCloseable {
 
         byte[] unscaledValue = val.unscaledValue().toByteArray();
 
-        packExtensionTypeHeader(ClientMsgPackType.DECIMAL,
-                4 + unscaledValue.length); // Scale length + data length
+        // Pack scale as varint.
+        // TODO: Proper varint with all variants?
+        boolean oneByteScale = val.scale() < (1 << 7);
+        int payloadLen = (oneByteScale ? 1 : 4) + unscaledValue.length;
 
-        buf.writeInt(val.scale());
+        packExtensionTypeHeader(ClientMsgPackType.DECIMAL, payloadLen);
+
+        if (oneByteScale) {
+            buf.writeByte(val.scale());
+        } else {
+            buf.writeByte(Code.INT32);
+            buf.writeInt(val.scale());
+        }
+
         buf.writeBytes(unscaledValue);
     }
 

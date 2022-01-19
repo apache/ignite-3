@@ -782,8 +782,11 @@ public class ClientMessageUnpacker implements AutoCloseable {
             throw new MessageTypeException("Expected DECIMAL extension (2), but got " + type);
         }
 
-        int scale = buf.readInt();
-        var bytes = readPayload(len - 4);
+        int pos = buf.readerIndex();
+        int scale = unpackInt();
+        int scaleSize = buf.readerIndex() - pos;
+
+        var bytes = readPayload(len - scaleSize);
 
         return new BigDecimal(new BigInteger(bytes), scale);
     }
