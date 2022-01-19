@@ -21,7 +21,7 @@ import java.util.Collection;
 
 /**
  * Extension point for modules to provide their own {@link PageIO} implementations by implementing current interface and exporting
- * the implementation via corresponding {@code META-INF.services} resource.
+ * the implementation via corresponding {@code META-INF/services} resource.
  */
 public interface PageIOModule {
     /**
