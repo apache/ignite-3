@@ -171,8 +171,14 @@ public class ScaleCubeClusterServiceFactory {
 
                 try {
                     shutdownFuture.get(10, TimeUnit.SECONDS);
-                } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                    throw new IgniteInternalException("Unable to stop the ClusterService", e);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+
+                    throw new IgniteInternalException("Interrupted while waiting for the ClusterService to stop", e);
+                } catch (TimeoutException e) {
+                    throw new IgniteInternalException("Timeout while waiting for the ClusterService to stop", e);
+                } catch (ExecutionException e) {
+                    throw new IgniteInternalException("Unable to stop the ClusterService", e.getCause());
                 }
 
                 connectionMgr.stop();
