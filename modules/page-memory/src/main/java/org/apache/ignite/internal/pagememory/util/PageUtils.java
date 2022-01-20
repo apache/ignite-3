@@ -20,10 +20,12 @@ package org.apache.ignite.internal.pagememory.util;
 import org.apache.ignite.internal.util.GridUnsafe;
 
 /**
- *
+ * Page utils.
  */
 public class PageUtils {
     /**
+     * Reads a byte from the memory.
+     *
      * @param addr Start address.
      * @param off  Offset.
      * @return Byte value from given address.
@@ -36,6 +38,8 @@ public class PageUtils {
     }
 
     /**
+     * Reads an unsigned byte from the memory.
+     *
      * @param addr Start address.
      * @param off  Offset.
      * @return Byte value from given address.
@@ -48,6 +52,8 @@ public class PageUtils {
     }
 
     /**
+     * Reads a byte array from the memory.
+     *
      * @param addr Start address.
      * @param off  Offset.
      * @param len  Bytes length.
@@ -66,6 +72,8 @@ public class PageUtils {
     }
 
     /**
+     * Reads a byte array from the memory.
+     *
      * @param srcAddr Source address.
      * @param srcOff  Source offset.
      * @param dst     Destination array.
@@ -83,6 +91,8 @@ public class PageUtils {
     }
 
     /**
+     * Reads a short value from the memory.
+     *
      * @param addr Address.
      * @param off  Offset.
      * @return Value.
@@ -95,6 +105,8 @@ public class PageUtils {
     }
 
     /**
+     * Reads an int value from the memory.
+     *
      * @param addr Address.
      * @param off  Offset.
      * @return Value.
@@ -107,6 +119,8 @@ public class PageUtils {
     }
 
     /**
+     * Reads a long value from the memory.
+     *
      * @param addr Address.
      * @param off  Offset.
      * @return Value.
@@ -119,6 +133,8 @@ public class PageUtils {
     }
 
     /**
+     * Writes a byte array into the memory.
+     *
      * @param addr  Address.
      * @param off   Offset.
      * @param bytes Bytes.
@@ -132,6 +148,8 @@ public class PageUtils {
     }
 
     /**
+     * Writes a byte array into the memory.
+     *
      * @param addr     Address.
      * @param off      Offset.
      * @param bytes    Bytes array.
@@ -147,6 +165,8 @@ public class PageUtils {
     }
 
     /**
+     * Writes a byte array into the memory.
+     *
      * @param addr     Address.
      * @param off      Offset.
      * @param bytes    Bytes array.
@@ -163,6 +183,8 @@ public class PageUtils {
     }
 
     /**
+     * Writes a byte into the memory.
+     *
      * @param addr Address.
      * @param off  Offset.
      * @param v    Value.
@@ -175,6 +197,8 @@ public class PageUtils {
     }
 
     /**
+     * Writes an unsigned byte array into the memory.
+     *
      * @param addr Address.
      * @param off  Offset.
      * @param v    Value.
@@ -188,6 +212,8 @@ public class PageUtils {
     }
 
     /**
+     * Writes a short value into the memory.
+     *
      * @param addr Address.
      * @param off  Offset.
      * @param v    Value.
@@ -200,6 +226,8 @@ public class PageUtils {
     }
 
     /**
+     * Writes an int value into the memory.
+     *
      * @param addr Address.
      * @param off  Offset.
      * @param v    Value.
@@ -212,6 +240,8 @@ public class PageUtils {
     }
 
     /**
+     * Writes a long value into the memory.
+     *
      * @param addr Address.
      * @param off  Offset.
      * @param v    Value.

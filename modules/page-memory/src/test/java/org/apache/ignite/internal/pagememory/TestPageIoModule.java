@@ -22,7 +22,6 @@ import java.util.List;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoModule;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Test implementation of {@link PageIoModule}.
@@ -45,6 +44,8 @@ public class TestPageIoModule implements PageIoModule {
      */
     public static class TestPageIo extends PageIo {
         /**
+         * Constructor.
+         *
          * @param type Page type.
          * @param ver  Page format version.
          */
@@ -54,7 +55,7 @@ public class TestPageIoModule implements PageIoModule {
 
         /** {@inheritDoc} */
         @Override
-        protected void printPage(long addr, int pageSize, StringBuilder sb) throws IgniteInternalCheckedException {
+        protected void printPage(long addr, int pageSize, StringBuilder sb) {
         }
     }
 }

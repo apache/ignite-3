@@ -22,6 +22,8 @@ package org.apache.ignite.internal.pagememory.util;
  */
 public interface PageLockListener extends AutoCloseable {
     /**
+     * Callback that's called before write lock acquiring.
+     *
      * @param groupId Group ID.
      * @param pageId  Page ID.
      * @param page    Page pointer.
@@ -29,6 +31,8 @@ public interface PageLockListener extends AutoCloseable {
     public void onBeforeWriteLock(int groupId, long pageId, long page);
 
     /**
+     * Callback that's called before after lock acquiring.
+     *
      * @param groupId  Group ID.
      * @param pageId   Page ID.
      * @param page     Page pointer.
@@ -37,6 +41,8 @@ public interface PageLockListener extends AutoCloseable {
     public void onWriteLock(int groupId, long pageId, long page, long pageAddr);
 
     /**
+     * Callback that's called before write lock releasing.
+     *
      * @param groupId  Group ID.
      * @param pageId   Page ID.
      * @param page     Page pointer.
@@ -45,6 +51,8 @@ public interface PageLockListener extends AutoCloseable {
     public void onWriteUnlock(int groupId, long pageId, long page, long pageAddr);
 
     /**
+     * Callback that's called before read lock acquiring.
+     *
      * @param groupId Group ID.
      * @param pageId  Page ID.
      * @param page    Page pointer.
@@ -52,6 +60,8 @@ public interface PageLockListener extends AutoCloseable {
     public void onBeforeReadLock(int groupId, long pageId, long page);
 
     /**
+     * Callback that's called after read lock acquiring.
+     *
      * @param groupId  Group ID.
      * @param pageId   Page ID.
      * @param page     Page pointer.
@@ -60,6 +70,8 @@ public interface PageLockListener extends AutoCloseable {
     public void onReadLock(int groupId, long pageId, long page, long pageAddr);
 
     /**
+     * Callback that's called before read lock releasing.
+     *
      * @param groupId  Group ID.
      * @param pageId   Page ID.
      * @param page     Page pointer.

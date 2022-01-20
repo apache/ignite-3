@@ -20,57 +20,43 @@ package org.apache.ignite.internal.pagememory;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.lang.IgniteInternalException;
 
-/** */
+/**
+ * Page memory.
+ */
 public interface PageMemory extends PageIdAllocator, PageSupport {
     /**
-     * Start page memory.
+     * Returns a page size in bytes.
      */
-    public void start() throws IgniteInternalException;
+    int pageSize();
 
     /**
-     * Stop page memory.
+     * Returns a page size without encryption overhead.
      *
-     * @param deallocate {@code True} to deallocate memory, {@code false} to allow memory reuse on subsequent {@link #start()}
-     * @throws IgniteException
-     */
-    public void stop(boolean deallocate) throws IgniteInternalException;
-
-    /**
-     * @return Page size in bytes.
-     */
-    public int pageSize();
-
-    /**
      * @param groupId Group id.
-     * @return Page size without encryption overhead.
      */
-    public int realPageSize(int groupId);
+    int realPageSize(int groupId);
 
     /**
-     * @return Page size with system overhead, in bytes.
+     * Returns a page size with system overhead, in bytes.
      */
-    public int systemPageSize();
+    int systemPageSize();
 
     /**
+     * Wraps a page address into a direct byte buffer.
+     *
      * @param pageAddr Page address.
      * @return Page byte buffer.
      */
-    public ByteBuffer pageBuffer(long pageAddr);
+    ByteBuffer pageBuffer(long pageAddr);
 
     /**
-     * @return Total number of loaded pages in memory.
+     * Returns a total number of loaded pages in memory.
      */
-    public long loadedPages();
+    long loadedPages();
 
     /**
-     * Number of pages used in checkpoint buffer.
-     */
-    public int checkpointBufferPagesCount();
-
-    /**
-     * Registry to retrieve {@link PageIo} instances for pages.
+     * Returns a registry to retrieve {@link PageIo} instances for pages.
      */
     public PageIoRegistry ioRegistry();
 }

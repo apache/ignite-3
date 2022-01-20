@@ -26,37 +26,37 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * @see FullPageId
  */
 public final class PageIdUtils {
-    /** */
-    public static final int PAGE_IDX_SIZE = 32;
+    /** Size of the page index portion. */
+    public static final int PAGE_IDX_SIZE = Integer.SIZE;
 
-    /** */
-    public static final int PART_ID_SIZE = 16;
+    /** Size of the partition ID portion. */
+    public static final int PART_ID_SIZE = Short.SIZE;
 
-    /** */
-    public static final int FLAG_SIZE = 8;
+    /** Size of the flags portion. */
+    public static final int FLAG_SIZE = Byte.SIZE;
 
-    /** */
-    public static final int OFFSET_SIZE = 8;
+    /** Size of the offset portion. */
+    public static final int OFFSET_SIZE = Byte.SIZE;
 
-    /** */
-    public static final int TAG_SIZE = 16;
+    /** Size of a tag portion. */
+    public static final int TAG_SIZE = 2 * Byte.SIZE;
 
-    /** */
+    /** Page index mask. */
     public static final long PAGE_IDX_MASK = ~(-1L << PAGE_IDX_SIZE);
 
-    /** */
+    /** Offset mask. */
     public static final long OFFSET_MASK = ~(-1L << OFFSET_SIZE);
 
-    /** */
+    /** Tag mask. */
     public static final long TAG_MASK = ~(-1L << TAG_SIZE);
 
-    /** Page Index is a monotonically growing number within each partition */
+    /** Page Index is a monotonically growing number within each partition. */
     public static final long PART_ID_MASK = ~(-1L << PART_ID_SIZE);
 
-    /** Flags mask. Flags consists from a number of reserved bits, and page type (data/index page) */
+    /** Flags mask. Flags consists from a number of reserved bits, and page type (data/index page). */
     public static final long FLAG_MASK = ~(-1L << FLAG_SIZE);
 
-    /** */
+    /** Effective page ID mask. */
     private static final long EFFECTIVE_PAGE_ID_MASK = ~(-1L << (PAGE_IDX_SIZE + PART_ID_SIZE));
 
     /**
@@ -64,7 +64,7 @@ public final class PageIdUtils {
      */
     private static final long ROTATION_ID_OFFSET = PAGE_IDX_SIZE + PART_ID_SIZE + FLAG_SIZE;
 
-    /** */
+    /** Page ID mask that excludes link. */
     private static final long PAGE_ID_MASK = ~(-1L << ROTATION_ID_OFFSET);
 
     /** Max itemid number. */
@@ -76,7 +76,7 @@ public final class PageIdUtils {
     /** Maximum page number. */
     public static final int MAX_PART_ID = (1 << PART_ID_SIZE) - 1;
 
-    /** */
+    /** Private constructor. */
     private PageIdUtils() {
         // No-op.
     }
@@ -116,6 +116,25 @@ public final class PageIdUtils {
     }
 
     /**
+     * Creates page ID from its components.
+     *
+     * @param partId  Partition ID.
+     * @param flag    Flags (a number of reserved bits, and page type (data/index page))
+     * @param pageIdx Page index, monotonically growing number within each partition
+     * @return Page ID constructed from the given pageIdx and partition ID, see {@link FullPageId}
+     */
+    public static long pageId(int partId, byte flag, int pageIdx) {
+        long pageId = flag & FLAG_MASK;
+
+        pageId = (pageId << PART_ID_SIZE) | (partId & PART_ID_MASK);
+        pageId = (pageId << (PAGE_IDX_SIZE)) | (pageIdx & PAGE_IDX_MASK);
+
+        return pageId;
+    }
+
+    /**
+     * Converts link into an effective page ID.
+     *
      * @param link Page link.
      * @return Effective page id.
      */
@@ -124,6 +143,8 @@ public final class PageIdUtils {
     }
 
     /**
+     * Checks whether page ID matches effective page ID.
+     *
      * @param pageId Page id.
      * @return {@code True} if page id is equal to effective page id.
      */
@@ -142,7 +163,7 @@ public final class PageIdUtils {
     }
 
     /**
-     * Tag of pageId
+     * Tag of pageId.
      *
      * @param link Page link.
      * @return tag - item id + flags
@@ -152,21 +173,8 @@ public final class PageIdUtils {
     }
 
     /**
-     * @param partId  Partition ID.
-     * @param flag    Flags (a number of reserved bits, and page type (data/index page))
-     * @param pageIdx Page index, monotonically growing number within each partition
-     * @return Page ID constructed from the given pageIdx and partition ID, see {@link FullPageId}
-     */
-    public static long pageId(int partId, byte flag, int pageIdx) {
-        long pageId = flag & FLAG_MASK;
-
-        pageId = (pageId << PART_ID_SIZE) | (partId & PART_ID_MASK);
-        pageId = (pageId << (PAGE_IDX_SIZE)) | (pageIdx & PAGE_IDX_MASK);
-
-        return pageId;
-    }
-
-    /**
+     * Extracts flags byte from the page ID.
+     *
      * @param pageId Page ID.
      * @return Flag.
      */
@@ -175,6 +183,8 @@ public final class PageIdUtils {
     }
 
     /**
+     * Extracts partition ID from the page ID.
+     *
      * @param pageId Page ID.
      * @return Partition.
      */
@@ -190,6 +200,8 @@ public final class PageIdUtils {
     }
 
     /**
+     * Rotates rotated ID part of the page ID.
+     *
      * @param pageId Page ID.
      * @return New page ID.
      */
@@ -224,18 +236,22 @@ public final class PageIdUtils {
     }
 
     /**
+     * Returns convenient human-readable page ID representation.
+     *
      * @param pageId Page id.
      */
     public static String toDetailString(long pageId) {
-        return "pageId=" + pageId +
-                "(offset=" + itemId(pageId) +
-                ", flags=" + Integer.toBinaryString(flag(pageId)) +
-                ", partId=" + partId(pageId) +
-                ", index=" + pageIndex(pageId) +
-                ")";
+        return "pageId=" + pageId
+                + "(offset=" + itemId(pageId)
+                + ", flags=" + Integer.toBinaryString(flag(pageId))
+                + ", partId=" + partId(pageId)
+                + ", index=" + pageIndex(pageId)
+                + ")";
     }
 
     /**
+     * Replaces partition ID in the page ID.
+     *
      * @param pageId Page ID.
      * @param partId Partition ID.
      */

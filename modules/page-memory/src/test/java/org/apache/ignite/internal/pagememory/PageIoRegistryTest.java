@@ -21,10 +21,11 @@ import static org.apache.ignite.internal.pagememory.TestPageIoModule.TEST_PAGE_T
 import static org.apache.ignite.internal.pagememory.TestPageIoModule.TEST_PAGE_VER;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.pagememory.TestPageIoModule.TestPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.util.GridUnsafe;
@@ -46,11 +47,11 @@ public class PageIoRegistryTest {
         ioRegistry.loadFromServiceLoader();
 
         // Test base resolve method.
-        PageIo pageIO = ioRegistry.resolve(TEST_PAGE_TYPE, TEST_PAGE_VER);
+        PageIo pageIo = ioRegistry.resolve(TEST_PAGE_TYPE, TEST_PAGE_VER);
 
-        assertNotNull(pageIO);
-        assertEquals(TEST_PAGE_TYPE, pageIO.getType());
-        assertEquals(TEST_PAGE_VER, pageIO.getVersion());
+        assertTrue(pageIo instanceof TestPageIo);
+        assertEquals(TEST_PAGE_TYPE, pageIo.getType());
+        assertEquals(TEST_PAGE_VER, pageIo.getVersion());
 
         ByteBuffer pageBuffer = ByteBuffer.allocateDirect(4);
         pageBuffer.order(GridUnsafe.NATIVE_BYTE_ORDER);
@@ -59,9 +60,9 @@ public class PageIoRegistryTest {
         pageBuffer.putShort(PageIo.VER_OFF, (short) TEST_PAGE_VER);
 
         // Test resolve from a pointer.
-        assertEquals(pageIO, ioRegistry.resolve(bufferAddress(pageBuffer)));
+        assertEquals(pageIo, ioRegistry.resolve(bufferAddress(pageBuffer)));
 
         // Test resolve from ByteBuffer.
-        assertEquals(pageIO, ioRegistry.resolve(pageBuffer));
+        assertEquals(pageIo, ioRegistry.resolve(pageBuffer));
     }
 }
