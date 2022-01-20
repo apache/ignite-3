@@ -96,6 +96,26 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <summary>
+        /// Gets the socket.
+        /// </summary>
+        /// <param name="tx">Transaction.</param>
+        /// <returns>Socket.</returns>
+        internal ValueTask<ClientSocket> GetSocket(Transactions.Transaction? tx)
+        {
+            if (tx == null)
+            {
+                return Socket.GetSocketAsync();
+            }
+
+            if (tx.FailoverSocket != Socket)
+            {
+                throw new IgniteClientException("Specified transaction belongs to a different IgniteClient instance.");
+            }
+
+            return new ValueTask<ClientSocket>(tx.Socket);
+        }
+
+        /// <summary>
         /// Reads the schema.
         /// </summary>
         /// <param name="buf">Buffer.</param>

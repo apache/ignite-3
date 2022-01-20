@@ -26,6 +26,8 @@ namespace Apache.Ignite.Internal.Table
     using Ignite.Table;
     using Ignite.Transactions;
     using Proto;
+    using Transactions;
+    using Transaction = Transactions.Transaction;
 
     /// <summary>
     /// Table API.
@@ -72,7 +74,7 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = GetTx(transaction);
+            var tx = transaction.ToInternal();
 
             using var writer = new PooledArrayBufferWriter();
             _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: true);
@@ -105,7 +107,7 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = GetTx(transaction);
+            var tx = transaction.ToInternal();
 
             using var writer = new PooledArrayBufferWriter();
             _ser.WriteMultiple(writer, tx, schema, iterator);
@@ -146,7 +148,7 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = GetTx(transaction);
+            var tx = transaction.ToInternal();
 
             using var writer = new PooledArrayBufferWriter();
             _ser.WriteMultiple(writer, tx, schema, iterator);
@@ -173,7 +175,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = GetTx(transaction);
+            var tx = transaction.ToInternal();
 
             using var writer = new PooledArrayBufferWriter();
             _ser.WriteTwo(writer, tx, schema, record, newRecord);
@@ -235,7 +237,7 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = GetTx(transaction);
+            var tx = transaction.ToInternal();
 
             using var writer = new PooledArrayBufferWriter();
             _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: true);
@@ -260,7 +262,7 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = GetTx(transaction);
+            var tx = transaction.ToInternal();
 
             using var writer = new PooledArrayBufferWriter();
             _ser.WriteMultiple(writer, tx, schema, iterator);
@@ -271,42 +273,12 @@ namespace Apache.Ignite.Internal.Table
             return _ser.ReadMultiple(resBuf, resSchema);
         }
 
-        private static Transactions.Transaction? GetTx(ITransaction? tx)
-        {
-            if (tx == null)
-            {
-                return null;
-            }
-
-            if (tx is Transactions.Transaction t)
-            {
-                return t;
-            }
-
-            throw new TransactionException("Unsupported transaction implementation: " + tx.GetType());
-        }
-
-        private ValueTask<ClientSocket> GetSocket(Transactions.Transaction? tx)
-        {
-            if (tx == null)
-            {
-                return _table.Socket.GetSocketAsync();
-            }
-
-            if (tx.FailoverSocket != _table.Socket)
-            {
-                throw new IgniteClientException("Specified transaction belongs to a different IgniteClient instance.");
-            }
-
-            return new ValueTask<ClientSocket>(tx.Socket);
-        }
-
         private async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
-            Transactions.Transaction? tx,
+            Transaction? tx,
             PooledArrayBufferWriter? request = null)
         {
-            var socket = await GetSocket(tx).ConfigureAwait(false);
+            var socket = await _table.GetSocket(tx).ConfigureAwait(false);
 
             return await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
         }
@@ -318,7 +290,7 @@ namespace Apache.Ignite.Internal.Table
             bool keyOnly = false)
         {
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = GetTx(transaction);
+            var tx = transaction.ToInternal();
 
             using var writer = new PooledArrayBufferWriter();
             _ser.Write(writer, tx, schema, tuple, keyOnly);

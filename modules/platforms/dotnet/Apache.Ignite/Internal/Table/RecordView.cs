@@ -19,10 +19,12 @@ namespace Apache.Ignite.Internal.Table
 {
     using System.Collections.Generic;
     using System.Threading.Tasks;
+    using Buffers;
     using Common;
     using Ignite.Table;
     using Ignite.Transactions;
     using Proto;
+    using Transactions;
 
     /// <summary>
     /// Record view.
@@ -48,7 +50,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public Task<T?> GetAsync(ITransaction? transaction, T key)
+        public async Task<T?> GetAsync(ITransaction? transaction, T key)
         {
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
@@ -140,6 +142,32 @@ namespace Apache.Ignite.Internal.Table
         public Task<IList<T>> DeleteAllExactAsync(ITransaction? transaction, IEnumerable<T> records)
         {
             throw new System.NotImplementedException();
+        }
+
+        private async Task<PooledBuffer> DoOutInOpAsync(
+            ClientOp clientOp,
+            Transaction? tx,
+            PooledArrayBufferWriter? request = null)
+        {
+            // TODO: Deduplicate this and below?
+            var socket = await _table.GetSocket(tx).ConfigureAwait(false);
+
+            return await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
+        }
+
+        private async Task<PooledBuffer> DoTupleOutOpAsync(
+            ClientOp op,
+            ITransaction? transaction,
+            T tuple,
+            bool keyOnly = false)
+        {
+            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
+            var tx = transaction.ToInternal();
+
+            using var writer = new PooledArrayBufferWriter();
+            _ser.Write(writer, tx, schema, tuple, keyOnly);
+
+            return await DoOutInOpAsync(op, tx, writer).ConfigureAwait(false);
         }
     }
 }
