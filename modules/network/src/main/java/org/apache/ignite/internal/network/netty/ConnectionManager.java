@@ -73,7 +73,7 @@ public class ConnectionManager {
     private final SerializationService serializationService;
 
     /** Message listeners. */
-    private final List<BiConsumer<SocketAddress, NetworkMessage>> listeners = new CopyOnWriteArrayList<>();
+    private final List<BiConsumer<String, NetworkMessage>> listeners = new CopyOnWriteArrayList<>();
 
     /** Node consistent id. */
     private final String consistentId;
@@ -201,10 +201,10 @@ public class ConnectionManager {
     /**
      * Callback that is called upon receiving a new message.
      *
-     * @param from    Source of the message.
+     * @param from    Consistent id of the message's sender.
      * @param message New message.
      */
-    private void onMessage(SocketAddress from, NetworkMessage message) {
+    private void onMessage(String from, NetworkMessage message) {
         listeners.forEach(consumer -> consumer.accept(from, message));
     }
 
@@ -247,7 +247,7 @@ public class ConnectionManager {
      *
      * @param listener Message listener.
      */
-    public void addListener(BiConsumer<SocketAddress, NetworkMessage> listener) {
+    public void addListener(BiConsumer<String, NetworkMessage> listener) {
         listeners.add(listener);
     }
 
@@ -273,6 +273,15 @@ public class ConnectionManager {
         } catch (Exception e) {
             LOG.warn("Failed to stop the ConnectionManager: {}", e.getMessage());
         }
+    }
+
+    /**
+     * Returns {@code true} if the connection manager is stopped or is being stopped, {@code false} otherwise.
+     *
+     * @return {@code true} if the connection manager is stopped or is being stopped, {@code false} otherwise.
+     */
+    public boolean isStopped() {
+        return stopped.get();
     }
 
     /**

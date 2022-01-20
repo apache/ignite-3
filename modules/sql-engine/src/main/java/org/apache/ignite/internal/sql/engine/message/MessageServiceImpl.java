@@ -131,7 +131,7 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
-    private void onMessage(NetworkMessage msg, NetworkAddress addr, String correlationId) {
+    private void onMessage(NetworkMessage msg, NetworkAddress addr, Long correlationId) {
         assert msg.groupType() == GROUP_TYPE : "unexpected message group grpType=" + msg.groupType();
 
         ClusterNode node = topSrvc.getByAddress(addr);

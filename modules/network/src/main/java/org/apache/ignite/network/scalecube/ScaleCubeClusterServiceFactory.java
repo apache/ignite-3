@@ -21,7 +21,6 @@ import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
-import io.scalecube.cluster.transport.api.Message;
 import io.scalecube.net.Address;
 import java.util.List;
 import java.util.UUID;
@@ -47,6 +46,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.DefaultMessagingService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
@@ -72,7 +72,7 @@ public class ScaleCubeClusterServiceFactory {
     ) {
         var topologyService = new ScaleCubeTopologyService();
 
-        var messagingService = new ScaleCubeMessagingService();
+        var messagingService = new DefaultMessagingService(topologyService);
 
         return new AbstractClusterService(context, topologyService, messagingService) {
             private volatile ClusterImpl cluster;
@@ -113,27 +113,21 @@ public class ScaleCubeClusterServiceFactory {
                         .handler(cl -> new ClusterMessageHandler() {
                             /** {@inheritDoc} */
                             @Override
-                            public void onMessage(Message message) {
-                                messagingService.fireEvent(message);
-                            }
-
-                            /** {@inheritDoc} */
-                            @Override
                             public void onMembershipEvent(MembershipEvent event) {
                                 topologyService.onMembershipEvent(event);
                             }
                         })
                         .config(opts -> opts.memberAlias(consistentId))
-                        .transport(opts -> opts.transportFactory(new DelegatingTransportFactory(messagingService, config -> transport)))
+                        .transport(opts -> opts.transportFactory(transportConfig -> transport))
                         .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
 
                 shutdownFuture = cluster.onShutdown().toFuture();
 
-                // resolve cyclic dependencies
-                messagingService.setCluster(cluster);
-                topologyService.setCluster(cluster);
-
                 connectionMgr.start();
+
+                // resolve cyclic dependencies
+                topologyService.setCluster(cluster);
+                messagingService.setConnectionManager(connectionMgr);
 
                 cluster.startAwait();
 
@@ -141,22 +135,6 @@ public class ScaleCubeClusterServiceFactory {
                 var localMembershipEvent = MembershipEvent.createAdded(cluster.member(), null, System.currentTimeMillis());
 
                 topologyService.onMembershipEvent(localMembershipEvent);
-            }
-
-            /**
-             * Creates everything that is needed for the user object serialization.
-             *
-             * @return User object serialization context.
-             */
-            @NotNull
-            private UserObjectSerializationContext createUserObjectSerializationContext() {
-                var userObjectDescriptorRegistry = new ClassDescriptorRegistry();
-                var userObjectDescriptorFactory = new ClassDescriptorFactory(userObjectDescriptorRegistry);
-
-                var userObjectMarshaller = new DefaultUserObjectMarshaller(userObjectDescriptorRegistry, userObjectDescriptorFactory);
-
-                return new UserObjectSerializationContext(userObjectDescriptorRegistry, userObjectDescriptorFactory,
-                        userObjectMarshaller);
             }
 
             /** {@inheritDoc} */
@@ -182,6 +160,10 @@ public class ScaleCubeClusterServiceFactory {
                 }
 
                 connectionMgr.stop();
+
+                // Messaging service checks connection manager's status before sending a message, so connection manager should be
+                // stopped before messaging service
+                messagingService.stop();
             }
 
             /** {@inheritDoc} */
@@ -230,5 +212,21 @@ public class ScaleCubeClusterServiceFactory {
         return addresses.stream()
                 .map(addr -> Address.create(addr.host(), addr.port()))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Creates everything that is needed for the user object serialization.
+     *
+     * @return User object serialization context.
+     */
+    @NotNull
+    private static UserObjectSerializationContext createUserObjectSerializationContext() {
+        var userObjectDescriptorRegistry = new ClassDescriptorRegistry();
+        var userObjectDescriptorFactory = new ClassDescriptorFactory(userObjectDescriptorRegistry);
+
+        var userObjectMarshaller = new DefaultUserObjectMarshaller(userObjectDescriptorRegistry, userObjectDescriptorFactory);
+
+        return new UserObjectSerializationContext(userObjectDescriptorRegistry, userObjectDescriptorFactory,
+            userObjectMarshaller);
     }
 }

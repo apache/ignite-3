@@ -25,6 +25,7 @@ import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.handshake.HandshakeAction;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
+import org.apache.ignite.internal.network.handshake.HandshakeResult;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.netty.NettyUtils;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
@@ -64,9 +65,12 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
     /** {@inheritDoc} */
     @Override
-    public HandshakeAction onMessage(Channel channel, NetworkMessage message) {
+    public HandshakeResult onMessage(Channel channel, NetworkMessage message) {
         if (message instanceof HandshakeStartMessage) {
             HandshakeStartMessage msg = (HandshakeStartMessage) message;
+
+            UUID remoteLaunchId = msg.launchId();
+            String remoteConsistentId = msg.consistentId();
 
             HandshakeStartResponseMessage response = messageFactory.handshakeStartResponseMessage()
                     .launchId(launchId)
@@ -80,21 +84,21 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, throwable) -> {
                 if (throwable != null) {
                     handshakeCompleteFuture.completeExceptionally(
-                            new HandshakeException("Failed to send handshake response: " + throwable.getMessage(), throwable)
+                        new HandshakeException("Failed to send handshake response: " + throwable.getMessage(), throwable)
                     );
                 } else {
-                    handshakeCompleteFuture.complete(new NettySender(channel, msg.launchId().toString(), msg.consistentId()));
+                    handshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId));
                 }
             });
 
-            return HandshakeAction.REMOVE_HANDLER;
+            return new HandshakeResult(remoteLaunchId, remoteConsistentId, HandshakeAction.REMOVE_HANDLER);
         }
 
         handshakeCompleteFuture.completeExceptionally(
                 new HandshakeException("Unexpected message during handshake: " + message.toString())
         );
 
-        return HandshakeAction.FAIL;
+        return new HandshakeResult(HandshakeAction.FAIL);
     }
 
     /** {@inheritDoc} */
@@ -105,13 +109,13 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
     /** {@inheritDoc} */
     @Override
-    public HandshakeAction init(Channel channel) {
-        return HandshakeAction.NOOP;
+    public HandshakeResult init(Channel channel) {
+        return new HandshakeResult(HandshakeAction.NOOP);
     }
 
     /** {@inheritDoc} */
     @Override
-    public HandshakeAction onConnectionOpen(Channel channel) {
-        return HandshakeAction.NOOP;
+    public HandshakeResult onConnectionOpen(Channel channel) {
+        return new HandshakeResult(HandshakeAction.NOOP);
     }
 }

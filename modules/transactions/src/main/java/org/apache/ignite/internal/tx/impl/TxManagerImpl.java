@@ -349,7 +349,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** {@inheritDoc} */
     @Override
     public void onReceived(NetworkMessage message, NetworkAddress senderAddr,
-            String correlationId) {
+            Long correlationId) {
         // Support raft and transactions interop.
         if (message instanceof TxFinishRequest) {
             TxFinishRequest req = (TxFinishRequest) message;
@@ -378,7 +378,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                             }
 
                             clusterService.messagingService()
-                                    .send(senderAddr, resp.build(), correlationId);
+                                    .respond(senderAddr, resp.build(), correlationId);
 
                             return null;
                         }

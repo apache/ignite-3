@@ -54,4 +54,12 @@ public interface TopologyService {
      * @return The node or {@code null} if the node is not yet discovered or dead.
      */
     @Nullable ClusterNode getByAddress(NetworkAddress addr);
+
+    /**
+     * Returns a cluster node by it's consistent id..
+     *
+     * @param consistentId Consistent id..
+     * @return The node or {@code null} if the node is not yet discovered or dead.
+     */
+    @Nullable ClusterNode getByConsistentId(String consistentId);
 }

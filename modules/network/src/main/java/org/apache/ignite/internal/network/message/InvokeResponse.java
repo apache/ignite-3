@@ -15,18 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.network.message;
+
+import static org.apache.ignite.internal.network.NetworkMessageTypes.INVOKE_RESPONSE;
+
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Handler of incoming messages.
+ * Invocation response.
+ * Used internally in the {@link org.apache.ignite.network.DefaultMessagingService}.
  */
-public interface NetworkMessageHandler {
-    /**
-     * Method that gets invoked when a network message is received.
-     *
-     * @param message       Message, which was received from the cluster.
-     * @param senderAddr    Sender address. Use {@link TopologyService#getByAddress} to resolve the corresponding {@link ClusterNode}.
-     * @param correlationId Correlation id. Used to track correspondence between requests and responses.
-     */
-    void onReceived(NetworkMessage message, NetworkAddress senderAddr, Long correlationId);
+@Transferable(value = INVOKE_RESPONSE)
+public interface InvokeResponse extends NetworkMessage {
+    /** Request's correlation id. */
+    long correlationId();
+
+    /** Response's message. */
+    NetworkMessage message();
 }
