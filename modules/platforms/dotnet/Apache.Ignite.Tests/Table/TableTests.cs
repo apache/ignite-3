@@ -477,7 +477,7 @@ namespace Apache.Ignite.Tests.Table
             var ex = Assert.ThrowsAsync<ArgumentException>(
                 async () => await Table.GetAllAsync(null, new[] { GetTuple(1, "1"), null! }));
 
-            Assert.AreEqual("Tuple collection can't contain null elements.", ex!.Message);
+            Assert.AreEqual("Record collection can't contain null elements.", ex!.Message);
         }
 
         [Test]
@@ -486,7 +486,7 @@ namespace Apache.Ignite.Tests.Table
             var ex = Assert.ThrowsAsync<ArgumentException>(
                 async () => await Table.DeleteAllAsync(null, new[] { GetTuple(1, "1"), null! }));
 
-            Assert.AreEqual("Tuple collection can't contain null elements.", ex!.Message);
+            Assert.AreEqual("Record collection can't contain null elements.", ex!.Message);
         }
 
         [Test]
