@@ -83,12 +83,12 @@ public class SchemaDescriptor {
 
         Stream.concat(Arrays.stream(this.keyCols.columns()), Arrays.stream(this.valCols.columns()))
                 .sorted(Comparator.comparingInt(Column::columnOrder))
-                .forEach(c -> colMap.put(c.name(), c));
+                .forEach(c -> colMap.put(c.name().toUpperCase(), c));
 
         // Preserving key chunk column order is not actually required.
         // It is sufficient to has same column order for all nodes.
         this.affCols = (ArrayUtils.nullOrEmpty(affCols)) ? keyCols :
-                Arrays.stream(affCols).map(colMap::get).toArray(Column[]::new);
+                Arrays.stream(affCols).map(affColName -> colMap.get(affColName.toUpperCase())).toArray(Column[]::new);
     }
 
     /**
@@ -131,7 +131,7 @@ public class SchemaDescriptor {
      * @return Column.
      */
     public @Nullable Column column(@NotNull String name) {
-        return colMap.get(name);
+        return colMap.get(name.toUpperCase());
     }
 
     /**

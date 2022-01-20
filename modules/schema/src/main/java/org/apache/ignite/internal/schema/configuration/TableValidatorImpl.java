@@ -142,7 +142,7 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
         for (String key : columns.namedListKeys()) {
             ColumnView column = columns.get(key);
 
-            if (!column.name().equals(key)) {
+            if (!column.name().toUpperCase().equals(key)) {
                 var issue = new ValidationIssue(String.format(
                         "Column name \"%s\" does not match its Named List key: \"%s\"", column.name(), key
                 ));
@@ -156,7 +156,7 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
         for (String key : indices.namedListKeys()) {
             TableIndexView index = indices.get(key);
 
-            if (!index.name().equals(key)) {
+            if (!index.name().toUpperCase().equals(key)) {
                 var issue = new ValidationIssue(String.format(
                         "Index name \"%s\" does not match its Named List key: \"%s\"", index.name(), key
                 ));

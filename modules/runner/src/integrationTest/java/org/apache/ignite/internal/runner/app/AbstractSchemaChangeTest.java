@@ -213,7 +213,7 @@ abstract class AbstractSchemaChangeTest {
      */
     protected static void addColumn(List<Ignite> nodes, ColumnDefinition columnToAdd) {
         nodes.get(0).tables().alterTable(TABLE,
-                chng -> chng.changeColumns(cols -> cols.create(columnToAdd.name(), colChg -> convert(columnToAdd, colChg)))
+                chng -> chng.changeColumns(cols -> cols.create(columnToAdd.name().toUpperCase(), colChg -> convert(columnToAdd, colChg)))
         );
     }
 
@@ -225,7 +225,7 @@ abstract class AbstractSchemaChangeTest {
      */
     protected static void dropColumn(List<Ignite> nodes, String colName) {
         nodes.get(0).tables()
-                .alterTable(TABLE, chng -> chng.changeColumns(cols -> cols.delete(colName)));
+                .alterTable(TABLE, chng -> chng.changeColumns(cols -> cols.delete(colName.toUpperCase())));
     }
 
     /**
@@ -239,8 +239,8 @@ abstract class AbstractSchemaChangeTest {
         nodes.get(0).tables().alterTable(TABLE,
                 tblChanger -> tblChanger.changeColumns(
                         colListChanger -> colListChanger
-                                .rename(oldName, newName)
-                                .update(newName, colChanger -> colChanger.changeName(newName))
+                                .rename(oldName.toUpperCase(), newName.toUpperCase())
+                                .update(newName.toUpperCase(), colChanger -> colChanger.changeName(newName))
                 )
         );
     }
@@ -256,7 +256,7 @@ abstract class AbstractSchemaChangeTest {
         nodes.get(0).tables().alterTable(TABLE,
                 tblChanger -> tblChanger.changeColumns(
                         colListChanger -> colListChanger
-                                .update(colName, colChanger -> colChanger.changeDefaultValue(defSup.get().toString()))
+                                .update(colName.toUpperCase(), colChanger -> colChanger.changeDefaultValue(defSup.get().toString()))
                 )
         );
     }
@@ -271,7 +271,7 @@ abstract class AbstractSchemaChangeTest {
     private static void assertColumnChangeFailed(List<Ignite> grid, String colName, Consumer<ColumnChange> colChanger) {
         assertThrows(IgniteException.class, () ->
                 grid.get(0).tables().alterTable(TABLE,
-                        tblChanger -> tblChanger.changeColumns(listChanger -> listChanger.update(colName, colChanger))
+                        tblChanger -> tblChanger.changeColumns(listChanger -> listChanger.update(colName.toUpperCase(), colChanger))
                 )
         );
     }

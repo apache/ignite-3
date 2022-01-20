@@ -1331,7 +1331,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     changePeersQueue.clear();
 
                     for (int i = 0; i < tbls.size(); i++) {
-                        tbls.createOrUpdate(tbls.get(i).name(), changeX -> {
+                        tbls.createOrUpdate(tbls.get(i).name().toUpperCase(), changeX -> {
                             ExtendedTableChange change = (ExtendedTableChange) changeX;
                             byte[] currAssignments = change.assignments();
 

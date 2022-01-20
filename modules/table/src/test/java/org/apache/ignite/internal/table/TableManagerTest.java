@@ -461,10 +461,10 @@ public class TableManagerTest extends IgniteAbstractTest {
         final int tablesBeforeCreation = tableManager.tables().size();
 
         tblsCfg.tables().listen(ctx -> {
-            boolean createTbl = ctx.newValue().get(tableDefinition.canonicalName()) != null
+            boolean createTbl = ctx.newValue().get(tableDefinition.canonicalName().toUpperCase()) != null
                     && ctx.oldValue().get(tableDefinition.canonicalName()) == null;
 
-            boolean dropTbl = ctx.oldValue().get(tableDefinition.canonicalName()) != null
+            boolean dropTbl = ctx.oldValue().get(tableDefinition.canonicalName().toUpperCase()) != null
                     && ctx.newValue().get(tableDefinition.canonicalName()) == null;
 
             if (!createTbl && !dropTbl) {
