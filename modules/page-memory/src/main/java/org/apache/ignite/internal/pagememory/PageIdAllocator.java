@@ -40,7 +40,7 @@ public interface PageIdAllocator {
 
     /**
      * Special partition reserved for index space.
-     * */
+     */
     public static final int INDEX_PARTITION = 0xFFFF;
 
     /**
