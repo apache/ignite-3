@@ -32,7 +32,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
         {
-            // TODO: Emit code for efficient serialization (TICKET HERE).
+            // TODO: Emit code for efficient serialization (IGNITE-16341).
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
             var res = Activator.CreateInstance<T>();
@@ -65,7 +65,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public T ReadValuePart(PooledBuffer buf, Schema schema, T key)
         {
-            // TODO: Emit code for efficient serialization (TICKET HERE).
+            // TODO: Emit code for efficient serialization (IGNITE-16341).
             // Skip schema version.
             var r = buf.GetReader();
             r.Skip();
@@ -110,7 +110,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public void Write(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false)
         {
-            // TODO: Emit code for efficient serialization (TICKET HERE).
+            // TODO: Emit code for efficient serialization (IGNITE-16341).
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
             var type = record.GetType();
