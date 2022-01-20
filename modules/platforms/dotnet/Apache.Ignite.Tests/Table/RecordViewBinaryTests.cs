@@ -26,7 +26,7 @@ namespace Apache.Ignite.Tests.Table
     using NUnit.Framework;
 
     /// <summary>
-    /// Tests for <see cref="ITable"/>.
+    /// Tests for tuple view.
     /// </summary>
     public class RecordViewBinaryTests : IgniteTestsBase
     {

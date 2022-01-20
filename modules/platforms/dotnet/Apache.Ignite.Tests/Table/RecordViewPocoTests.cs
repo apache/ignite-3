@@ -19,8 +19,12 @@ namespace Apache.Ignite.Tests.Table
 {
     using System;
     using System.Threading.Tasks;
+    using Ignite.Table;
     using NUnit.Framework;
 
+    /// <summary>
+    /// Tests for POCO view.
+    /// </summary>
     public class RecordViewPocoTests : IgniteTestsBase
     {
         [Test]
