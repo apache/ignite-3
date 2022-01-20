@@ -58,7 +58,7 @@ namespace Apache.Ignite.Internal.Table
             Name = name;
             _id = id;
 
-            RecordBinaryView = new RecordView2<IIgniteTuple>(
+            RecordBinaryView = new RecordView<IIgniteTuple>(
                 this,
                 new RecordSerializer<IIgniteTuple>(this, TupleSerializerHandler.Instance));
         }
@@ -73,7 +73,7 @@ namespace Apache.Ignite.Internal.Table
         public IRecordView<T> GetRecordView<T>()
             where T : class
         {
-            return new RecordView2<T>(this, new RecordSerializer<T>(this, new ObjectSerializerHandler<T>()));
+            return new RecordView<T>(this, new RecordSerializer<T>(this, new ObjectSerializerHandler<T>()));
         }
 
         /// <summary>

@@ -31,7 +31,7 @@ namespace Apache.Ignite.Internal.Table
     /// Table API.
     /// </summary>
     /// <typeparam name="T">Record type.</typeparam>
-    internal class RecordView2<T> : IRecordView<T>
+    internal class RecordView<T> : IRecordView<T>
         where T : class
     {
         /** Table. */
@@ -41,11 +41,11 @@ namespace Apache.Ignite.Internal.Table
         private readonly RecordSerializer<T> _ser;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="RecordView2{T}"/> class.
+        /// Initializes a new instance of the <see cref="RecordView{T}"/> class.
         /// </summary>
         /// <param name="table">Table.</param>
         /// <param name="ser">Serializer.</param>
-        public RecordView2(Table table, RecordSerializer<T> ser)
+        public RecordView(Table table, RecordSerializer<T> ser)
         {
             _table = table;
             _ser = ser;
