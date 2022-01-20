@@ -26,31 +26,33 @@ namespace Apache.Ignite.Internal.Table
     using Ignite.Transactions;
     using Proto;
     using Transactions;
-    using Transaction = Transactions.Transaction;
 
     /// <summary>
     /// Table API.
     /// </summary>
-    internal class RecordBinaryView : IRecordView<IIgniteTuple>
+    /// <typeparam name="T">Record type.</typeparam>
+    internal class RecordView2<T> : IRecordView<T>
+        where T : class
     {
         /** Table. */
         private readonly Table _table;
 
         /** Serializer. */
-        private readonly RecordSerializer<IIgniteTuple> _ser;
+        private readonly RecordSerializer<T> _ser;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="RecordBinaryView"/> class.
+        /// Initializes a new instance of the <see cref="RecordView2{T}"/> class.
         /// </summary>
         /// <param name="table">Table.</param>
-        public RecordBinaryView(Table table)
+        /// <param name="ser">Serializer.</param>
+        public RecordView2(Table table, RecordSerializer<T> ser)
         {
             _table = table;
-            _ser = new RecordSerializer<IIgniteTuple>(table, TupleSerializerHandler.Instance);
+            _ser = ser;
         }
 
         /// <inheritdoc/>
-        public async Task<IIgniteTuple?> GetAsync(ITransaction? transaction, IIgniteTuple key)
+        public async Task<T?> GetAsync(ITransaction? transaction, T key)
         {
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
@@ -61,7 +63,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IList<IIgniteTuple?>> GetAllAsync(ITransaction? transaction, IEnumerable<IIgniteTuple> keys)
+        public async Task<IList<T?>> GetAllAsync(ITransaction? transaction, IEnumerable<T> keys)
         {
             IgniteArgumentCheck.NotNull(keys, nameof(keys));
 
@@ -69,7 +71,7 @@ namespace Apache.Ignite.Internal.Table
 
             if (!iterator.MoveNext())
             {
-                return Array.Empty<IIgniteTuple>();
+                return Array.Empty<T>();
             }
 
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
@@ -86,7 +88,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task UpsertAsync(ITransaction? transaction, IIgniteTuple record)
+        public async Task UpsertAsync(ITransaction? transaction, T record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -94,7 +96,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task UpsertAllAsync(ITransaction? transaction, IEnumerable<IIgniteTuple> records)
+        public async Task UpsertAllAsync(ITransaction? transaction, IEnumerable<T> records)
         {
             IgniteArgumentCheck.NotNull(records, nameof(records));
 
@@ -115,7 +117,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IIgniteTuple?> GetAndUpsertAsync(ITransaction? transaction, IIgniteTuple record)
+        public async Task<T?> GetAndUpsertAsync(ITransaction? transaction, T record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -126,7 +128,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<bool> InsertAsync(ITransaction? transaction, IIgniteTuple record)
+        public async Task<bool> InsertAsync(ITransaction? transaction, T record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -135,7 +137,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IList<IIgniteTuple>> InsertAllAsync(ITransaction? transaction, IEnumerable<IIgniteTuple> records)
+        public async Task<IList<T>> InsertAllAsync(ITransaction? transaction, IEnumerable<T> records)
         {
             IgniteArgumentCheck.NotNull(records, nameof(records));
 
@@ -143,7 +145,7 @@ namespace Apache.Ignite.Internal.Table
 
             if (!iterator.MoveNext())
             {
-                return Array.Empty<IIgniteTuple>();
+                return Array.Empty<T>();
             }
 
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
@@ -160,7 +162,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<bool> ReplaceAsync(ITransaction? transaction, IIgniteTuple record)
+        public async Task<bool> ReplaceAsync(ITransaction? transaction, T record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -169,7 +171,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<bool> ReplaceAsync(ITransaction? transaction, IIgniteTuple record, IIgniteTuple newRecord)
+        public async Task<bool> ReplaceAsync(ITransaction? transaction, T record, T newRecord)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -184,7 +186,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IIgniteTuple?> GetAndReplaceAsync(ITransaction? transaction, IIgniteTuple record)
+        public async Task<T?> GetAndReplaceAsync(ITransaction? transaction, T record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -195,7 +197,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<bool> DeleteAsync(ITransaction? transaction, IIgniteTuple key)
+        public async Task<bool> DeleteAsync(ITransaction? transaction, T key)
         {
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
@@ -204,7 +206,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<bool> DeleteExactAsync(ITransaction? transaction, IIgniteTuple record)
+        public async Task<bool> DeleteExactAsync(ITransaction? transaction, T record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -213,7 +215,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IIgniteTuple?> GetAndDeleteAsync(ITransaction? transaction, IIgniteTuple key)
+        public async Task<T?> GetAndDeleteAsync(ITransaction? transaction, T key)
         {
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
@@ -224,7 +226,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IList<IIgniteTuple>> DeleteAllAsync(ITransaction? transaction, IEnumerable<IIgniteTuple> keys)
+        public async Task<IList<T>> DeleteAllAsync(ITransaction? transaction, IEnumerable<T> keys)
         {
             IgniteArgumentCheck.NotNull(keys, nameof(keys));
 
@@ -232,7 +234,7 @@ namespace Apache.Ignite.Internal.Table
 
             if (!iterator.MoveNext())
             {
-                return Array.Empty<IIgniteTuple>();
+                return Array.Empty<T>();
             }
 
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
@@ -249,7 +251,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IList<IIgniteTuple>> DeleteAllExactAsync(ITransaction? transaction, IEnumerable<IIgniteTuple> records)
+        public async Task<IList<T>> DeleteAllExactAsync(ITransaction? transaction, IEnumerable<T> records)
         {
             IgniteArgumentCheck.NotNull(records, nameof(records));
 
@@ -257,7 +259,7 @@ namespace Apache.Ignite.Internal.Table
 
             if (!iterator.MoveNext())
             {
-                return Array.Empty<IIgniteTuple>();
+                return Array.Empty<T>();
             }
 
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
@@ -285,7 +287,7 @@ namespace Apache.Ignite.Internal.Table
         private async Task<PooledBuffer> DoTupleOutOpAsync(
             ClientOp op,
             ITransaction? transaction,
-            IIgniteTuple tuple,
+            T tuple,
             bool keyOnly = false)
         {
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);

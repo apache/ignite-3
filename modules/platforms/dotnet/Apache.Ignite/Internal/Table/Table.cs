@@ -31,6 +31,9 @@ namespace Apache.Ignite.Internal.Table
     /// </summary>
     internal class Table : ITable
     {
+        /** Socket. */
+        private readonly ClientFailoverSocket _socket;
+
         /** Table id. */
         private readonly IgniteUuid _id;
 
@@ -51,11 +54,13 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="socket">Socket.</param>
         public Table(string name, IgniteUuid id, ClientFailoverSocket socket)
         {
-            Socket = socket;
+            _socket = socket;
             Name = name;
             _id = id;
 
-            RecordBinaryView = new RecordBinaryView(this);
+            RecordBinaryView = new RecordView2<IIgniteTuple>(
+                this,
+                new RecordSerializer<IIgniteTuple>(this, TupleSerializerHandler.Instance));
         }
 
         /// <inheritdoc/>
@@ -64,16 +69,11 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public IRecordView<IIgniteTuple> RecordBinaryView { get; }
 
-        /// <summary>
-        /// Gets the socket.
-        /// </summary>
-        internal ClientFailoverSocket Socket { get; }
-
         /// <inheritdoc/>
         public IRecordView<T> GetRecordView<T>()
             where T : class
         {
-            return new RecordView<T>(this);
+            return new RecordView2<T>(this, new RecordSerializer<T>(this, new ObjectSerializerHandler<T>()));
         }
 
         /// <summary>
@@ -104,10 +104,10 @@ namespace Apache.Ignite.Internal.Table
         {
             if (tx == null)
             {
-                return Socket.GetSocketAsync();
+                return _socket.GetSocketAsync();
             }
 
-            if (tx.FailoverSocket != Socket)
+            if (tx.FailoverSocket != _socket)
             {
                 throw new IgniteClientException("Specified transaction belongs to a different IgniteClient instance.");
             }
@@ -170,7 +170,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             Write();
 
-            using var resBuf = await Socket.DoOutInOpAsync(ClientOp.SchemasGet, writer).ConfigureAwait(false);
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.SchemasGet, writer).ConfigureAwait(false);
             return Read();
 
             void Write()
