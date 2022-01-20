@@ -84,7 +84,25 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public void Write(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false)
         {
-            throw new System.NotImplementedException();
+            // TODO: Emit code for efficient serialization (TICKET HERE).
+            var columns = schema.Columns;
+            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+            var type = record.GetType();
+
+            for (var index = 0; index < count; index++)
+            {
+                var col = columns[index];
+                var prop = type.GetProperty(col.Name);
+
+                if (prop == null)
+                {
+                    writer.WriteNoValue();
+                }
+                else
+                {
+                    writer.WriteObject(prop.GetValue(record));
+                }
+            }
         }
     }
 }
