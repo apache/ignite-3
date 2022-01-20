@@ -41,7 +41,7 @@ namespace Apache.Ignite.Tests
 
         protected IIgniteClient Client { get; private set; } = null!;
 
-        protected IRecordView<IIgniteTuple> Table { get; private set; } = null!;
+        protected IRecordView<IIgniteTuple> TupleView { get; private set; } = null!;
 
         [OneTimeSetUp]
         public async Task OneTimeSetUp()
@@ -50,7 +50,7 @@ namespace Apache.Ignite.Tests
 
             _serverNode = await JavaServer.StartAsync();
             Client = await IgniteClient.StartAsync(GetConfig());
-            Table = (await Client.Tables.GetTableAsync(TableName))!.RecordBinaryView;
+            TupleView = (await Client.Tables.GetTableAsync(TableName))!.RecordBinaryView;
         }
 
         [OneTimeTearDown]
@@ -68,7 +68,7 @@ namespace Apache.Ignite.Tests
         [TearDown]
         public async Task TearDown()
         {
-            await Table.DeleteAllAsync(null, Enumerable.Range(1, 10).Select(x => GetTuple(x)));
+            await TupleView.DeleteAllAsync(null, Enumerable.Range(1, 10).Select(x => GetTuple(x)));
 
             Assert.AreEqual(_eventListener.BuffersReturned, _eventListener.BuffersRented);
         }
