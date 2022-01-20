@@ -84,7 +84,7 @@ public class ClientSchema {
                 keyCnt++;
             }
 
-            map.put(col.name(), col);
+            map.put(col.name().toUpperCase(), col);
         }
 
         keyColumnCount = keyCnt;
@@ -116,7 +116,7 @@ public class ClientSchema {
      * @throws IgniteException When a column with the specified name does not exist.
      */
     public @NotNull ClientColumn column(String name) {
-        var column = map.get(name);
+        var column = map.get(name.toUpperCase());
 
         if (column == null) {
             throw new IgniteException("Column is not present in schema: " + name);
@@ -132,7 +132,7 @@ public class ClientSchema {
      * @return Column by name.
      */
     public @Nullable ClientColumn columnSafe(String name) {
-        return map.get(name);
+        return map.get(name.toUpperCase());
     }
 
     /**

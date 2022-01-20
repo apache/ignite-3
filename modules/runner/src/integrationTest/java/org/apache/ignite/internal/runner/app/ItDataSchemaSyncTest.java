@@ -170,7 +170,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         ignite0.tables().alterTable(TABLE_NAME,
                 tblChanger -> tblChanger.changeColumns(cols ->
-                        cols.create(columnDefinition.name(), colChg -> convert(columnDefinition, colChg))
+                        cols.create(columnDefinition.name().toUpperCase(), colChg -> convert(columnDefinition, colChg))
                 )
         );
 
