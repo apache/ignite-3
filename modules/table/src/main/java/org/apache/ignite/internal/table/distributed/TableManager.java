@@ -82,6 +82,7 @@ import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -377,7 +378,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         assert tablesById.containsKey(tblId) : format("Table was not created [id={}, name={}]",
                                 tblId, ctx.oldValue().name());
 
-                        registerTableIntention(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
+                        //TODO: IGNITE-16342 Alter table intention has sense for a create schema events until the ticket not fixed.
+                        if (((ExtendedTableView) ctx.oldValue()).schemas().size() < ((ExtendedTableView) ctx.newValue()).schemas().size()) {
+                            registerTableIntention(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
+                        }
 
                         return CompletableFuture.completedFuture(null);
                     }
@@ -556,6 +560,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param e Exception.
      */
     private void registerTableIntention(TableEvent eventType, TableEventParameters params, Throwable e) {
+        IgniteUtils.dumpStack(LOG, format("Table was intened to create or update [name={}, id={}, ect={}]", params.tableName(), params.tableId(), eventType));
+
+        if (tableIntention.containsKey(params.tableId()))
+            System.out.println();
+
         assert !tableIntention.containsKey(params.tableId()) :
                 format("Table already intened to create or update [name={}, id={}]", params.tableName(), params.tableId());
 
