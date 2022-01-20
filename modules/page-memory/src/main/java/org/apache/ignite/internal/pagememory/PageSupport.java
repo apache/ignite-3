@@ -36,7 +36,7 @@ public interface PageSupport {
     public long acquirePage(int groupId, long pageId) throws IgniteInternalCheckedException;
 
     /**
-     * RReturns the page absolute pointer associated with the given page ID. Each page obtained with this method must be released by calling
+     * Returns the page absolute pointer associated with the given page ID. Each page obtained with this method must be released by calling
      * {@link #releasePage(int, long, long)}. This method will allocate page with given ID if it doesn't exist.
      *
      * @param groupId    Group ID.
@@ -57,10 +57,12 @@ public interface PageSupport {
     public void releasePage(int groupId, long pageId, long page);
 
     /**
+     * Acquires a read lock on the page.
+     *
      * @param groupId Group ID.
      * @param pageId  Page ID.
      * @param page    Page pointer.
-     * @return Pointer for reading the page.
+     * @return Pointer for reading the page or {@code 0} if page has been reused.
      */
     public long readLock(int groupId, long pageId, long page);
 
@@ -84,6 +86,8 @@ public interface PageSupport {
     public void readUnlock(int groupId, long pageId, long page);
 
     /**
+     * Acquired a write lock on the page.
+     *
      * @param groupId Group ID.
      * @param pageId  Page ID.
      * @param page    Page pointer.
@@ -92,6 +96,8 @@ public interface PageSupport {
     public long writeLock(int groupId, long pageId, long page);
 
     /**
+     * Tries to acquire a write lock on the page.
+     *
      * @param groupId Group ID.
      * @param pageId  Page ID.
      * @param page    Page pointer.
@@ -110,6 +116,8 @@ public interface PageSupport {
     public void writeUnlock(int groupId, long pageId, long page, boolean dirtyFlag);
 
     /**
+     * Checks whether the page is dirty or not.
+     *
      * @param groupId Group ID.
      * @param pageId  Page ID.
      * @param page    Page pointer.

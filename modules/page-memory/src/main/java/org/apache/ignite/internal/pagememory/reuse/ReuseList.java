@@ -19,7 +19,7 @@ package org.apache.ignite.internal.pagememory.reuse;
 
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
-import org.apache.ignite.internal.pagememory.io.PageIO;
+import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,19 +28,23 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface ReuseList {
     /**
+     * Polls all pages from reuse bag and puts them into reuse list.
+     *
      * @param bag Reuse bag.
      * @throws IgniteInternalCheckedException If failed.
      */
     void addForRecycle(ReuseBag bag) throws IgniteInternalCheckedException;
 
     /**
-     * @return Page ID or {@code 0} if none available.
+     * Returns a page ID for reuse or {@code 0} if none available.
+     *
      * @throws IgniteInternalCheckedException If failed.
      */
     long takeRecycledPage() throws IgniteInternalCheckedException;
 
     /**
-     * @return Number of recycled pages it contains.
+     * Returns a number of recycled pages it contains.
+     *
      * @throws IgniteInternalCheckedException If failed.
      */
     long recycledPagesCount() throws IgniteInternalCheckedException;
@@ -50,11 +54,11 @@ public interface ReuseList {
      *
      * @param pageId Id of the recycled page.
      * @param flag   Flag value for the page. One of {@link PageIdAllocator#FLAG_DATA} or {@link PageIdAllocator#FLAG_AUX}.
-     * @param initIO Page IO to reinit reused page.
+     * @param initIo Page IO to reinit reused page.
      * @return Updated page id.
      * @throws IgniteInternalCheckedException If failed.
      *
      * @see FullPageId
      */
-    long initRecycledPage(long pageId, byte flag, @Nullable PageIO initIO) throws IgniteInternalCheckedException;
+    long initRecycledPage(long pageId, byte flag, @Nullable PageIo initIo) throws IgniteInternalCheckedException;
 }

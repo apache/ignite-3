@@ -17,35 +17,36 @@
 
 package org.apache.ignite.internal.pagememory;
 
-import static org.apache.ignite.internal.pagememory.TestPageIOModule.TEST_PAGE_TYPE;
-import static org.apache.ignite.internal.pagememory.TestPageIOModule.TEST_PAGE_VER;
+import static org.apache.ignite.internal.pagememory.TestPageIoModule.TEST_PAGE_TYPE;
+import static org.apache.ignite.internal.pagememory.TestPageIoModule.TEST_PAGE_VER;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.internal.pagememory.io.PageIO;
-import org.apache.ignite.internal.pagememory.io.PageIORegistry;
+import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link PageIORegistry} methods.
+ * Tests for {@link PageIoRegistry} methods.
  */
-public class PageIORegistryTest {
-    private PageIORegistry ioRegistry = new PageIORegistry();
+public class PageIoRegistryTest {
+    private PageIoRegistry ioRegistry = new PageIoRegistry();
 
     @Test
     void testResolve() throws Exception {
+        // Module is not yet loaded.
         assertThrows(IgniteInternalCheckedException.class, () -> ioRegistry.resolve(TEST_PAGE_TYPE, TEST_PAGE_VER));
 
         // Load all PageIOModule-s from the classpath.
         ioRegistry.loadFromServiceLoader();
 
         // Test base resolve method.
-        PageIO pageIO = ioRegistry.resolve(TEST_PAGE_TYPE, TEST_PAGE_VER);
+        PageIo pageIO = ioRegistry.resolve(TEST_PAGE_TYPE, TEST_PAGE_VER);
 
         assertNotNull(pageIO);
         assertEquals(TEST_PAGE_TYPE, pageIO.getType());
@@ -54,8 +55,8 @@ public class PageIORegistryTest {
         ByteBuffer pageBuffer = ByteBuffer.allocateDirect(4);
         pageBuffer.order(GridUnsafe.NATIVE_BYTE_ORDER);
 
-        pageBuffer.putShort(PageIO.TYPE_OFF, (short) TEST_PAGE_TYPE);
-        pageBuffer.putShort(PageIO.VER_OFF, (short) TEST_PAGE_VER);
+        pageBuffer.putShort(PageIo.TYPE_OFF, (short) TEST_PAGE_TYPE);
+        pageBuffer.putShort(PageIo.VER_OFF, (short) TEST_PAGE_VER);
 
         // Test resolve from a pointer.
         assertEquals(pageIO, ioRegistry.resolve(bufferAddress(pageBuffer)));

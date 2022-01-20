@@ -28,74 +28,103 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Base format for all the page types.
- * <p>
- * Checklist for page IO implementations and usage (The Rules):
- * <p>
- * 1. IO should not have any `public static` methods. We have versioned IOs and any static method will mean that it have to always work in
- * backward compatible way between all the IO versions. The base class {@link PageIO} has static methods (like {@link #getPageId(long)})
+ *
+ * <p>Checklist for page IO implementations and usage (The Rules):
+ *
+ * <p>1. IO should not have any `public static` methods. We have versioned IOs and any static method will mean that it have to always work
+ * in backward compatible way between all the IO versions. The base class {@link PageIo} has static methods (like {@link #getPageId(long)})
  * intentionally: this base format can not be changed between versions.
- * <p>
- * 2. IO must correctly override {@link #initNewPage(long, long, int)} method and call super. We have logic that relies on this behavior.
- * <p>
- * 3. Always keep in mind that IOs are versioned and their format can change from version to version. In this respect it is a good practice
- * to avoid exposing details of IO internal format on it's API. The API should be minimalistic and abstract, so that internal format in
- * future IO version can be completely changed without any changes to the API of this page IO.
- * <p>
- * 4. Page IO API should not have any version dependent semantics and should not change API semantics in newer versions.
- * <p>
- * 5. It is almost always preferable to read or write (especially write) page contents using static methods on {@link PageHandler}. To just
- * initialize new page use {@link PageHandler#initPage(PageMemory, int, long, PageIO, PageLockListener, IoStatisticsHolder)} method with
- * needed IO instance.
+ *
+ * <p>2. IO must correctly override {@link #initNewPage(long, long, int)} method and call super. We have logic that relies on this behavior.
+ *
+ * <p>3. Always keep in mind that IOs are versioned and their format can change from version to version. In this respect it is a good
+ * practice to avoid exposing details of IO internal format on it's API. The API should be minimalistic and abstract, so that internal
+ * format in future IO version can be completely changed without any changes to the API of this page IO.
+ *
+ * <p>4. Page IO API should not have any version dependent semantics and should not change API semantics in newer versions.
+ *
+ * <p>5. It is almost always preferable to read or write (especially write) page contents using static methods on {@link PageHandler}. To
+ * just initialize new page use {@link PageHandler#initPage(PageMemory, int, long, PageIo, PageLockListener, IoStatisticsHolder)} method
+ * with needed IO instance.
  */
-public abstract class PageIO {
-    /** */
+public abstract class PageIo {
+    /**
+     * Offset for "short" page type.
+     */
     public static final int TYPE_OFF = 0;
 
-    /** */
-    public static final int VER_OFF = TYPE_OFF + 2;
+    /**
+     * Offset for "short" page version.
+     */
+    public static final int VER_OFF = TYPE_OFF + Short.BYTES;
 
-    /** */
-    public static final int CRC_OFF = VER_OFF + 2;
+    /**
+     * Offset for "int" CRC.
+     */
+    public static final int CRC_OFF = VER_OFF + Short.BYTES;
 
-    /** */
-    public static final int PAGE_ID_OFF = CRC_OFF + 4;
+    /**
+     * Offset for "long" page ID.
+     */
+    public static final int PAGE_ID_OFF = CRC_OFF + Integer.BYTES;
 
-    /** */
-    public static final int ROTATED_ID_PART_OFF = PAGE_ID_OFF + 8;
+    /**
+     * Offset for "byte" rotated ID.
+     */
+    public static final int ROTATED_ID_PART_OFF = PAGE_ID_OFF + Long.BYTES;
 
-    /** */
-    private static final int COMPRESSION_TYPE_OFF = ROTATED_ID_PART_OFF + 1;
+    /**
+     * Offset for "byte" compression type.
+     */
+    private static final int COMPRESSION_TYPE_OFF = ROTATED_ID_PART_OFF + Byte.BYTES;
 
-    /** */
-    private static final int COMPRESSED_SIZE_OFF = COMPRESSION_TYPE_OFF + 1;
+    /**
+     * Offset for "short" compressed size.
+     */
+    private static final int COMPRESSED_SIZE_OFF = COMPRESSION_TYPE_OFF + Byte.BYTES;
 
-    /** */
-    private static final int COMPACTED_SIZE_OFF = COMPRESSED_SIZE_OFF + 2;
+    /**
+     * Offset for "short" compracted size.
+     */
+    private static final int COMPACTED_SIZE_OFF = COMPRESSED_SIZE_OFF + Short.BYTES;
 
-    /** */
-    private static final int RESERVED_SHORT_OFF = COMPACTED_SIZE_OFF + 2;
+    /**
+     * Offset for reserved "short" value.
+     */
+    private static final int RESERVED_SHORT_OFF = COMPACTED_SIZE_OFF + Short.BYTES;
 
-    /** */
-    private static final int RESERVED_2_OFF = RESERVED_SHORT_OFF + 2;
+    /**
+     * Offset for reserved "long" value.
+     */
+    private static final int RESERVED_2_OFF = RESERVED_SHORT_OFF + Short.BYTES;
 
-    /** */
-    private static final int RESERVED_3_OFF = RESERVED_2_OFF + 8;
+    /**
+     * Offset for reserved "long" value.
+     */
+    private static final int RESERVED_3_OFF = RESERVED_2_OFF + Long.BYTES;
 
-    /** */
-    // 40=type(2)+ver(2)+crc(4)+pageId(8)+rotatedIdPart(1)+reserved(1+2+4+2*8)
-    public static final int COMMON_HEADER_END = RESERVED_3_OFF + 8;
+    /**
+     * Total size of common header, including reserved bytes.
+     */
+    public static final int COMMON_HEADER_END = RESERVED_3_OFF + Long.BYTES;
 
-    /** */
+    /**
+     * IO version.
+     */
     private final int ver;
 
-    /** */
+    /**
+     * IO type.
+     */
     private final int type;
 
     /**
+     * Constructor.
+     *
      * @param type Page type.
      * @param ver  Page format version.
      */
-    protected PageIO(int type, int ver) {
+    protected PageIo(int type, int ver) {
         assert ver > 0 && ver < 65535 : ver;
         assert type > 0 && type < 65535 : type;
 
@@ -104,6 +133,15 @@ public abstract class PageIO {
     }
 
     /**
+     * Returns a type.
+     */
+    public final int getType() {
+        return type;
+    }
+
+    /**
+     * Returns a page type.
+     *
      * @param buf Buffer.
      * @return Page type.
      */
@@ -112,6 +150,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Returns a page type.
+     *
      * @param pageAddr Page address.
      * @return Page type.
      */
@@ -120,6 +160,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Sets the type to the page.
+     *
      * @param pageAddr Page address.
      * @param type     Type.
      */
@@ -130,6 +172,15 @@ public abstract class PageIO {
     }
 
     /**
+     * Returns a version.
+     */
+    public final int getVersion() {
+        return ver;
+    }
+
+    /**
+     * Returns a page version.
+     *
      * @param buf Buffer.
      * @return Version.
      */
@@ -138,6 +189,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Returns a page version.
+     *
      * @param pageAddr Page address.
      * @return Version.
      */
@@ -146,6 +199,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Sets the version to the page.
+     *
      * @param pageAddr Page address.
      * @param ver      Version.
      */
@@ -156,6 +211,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Returns a page ID.
+     *
      * @param buf Buffer.
      * @return Page ID.
      */
@@ -164,6 +221,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Returns a page ID.
+     *
      * @param pageAddr Page address.
      * @return Page ID.
      */
@@ -172,6 +231,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Sets the page ID to the page.
+     *
      * @param pageAddr Page address.
      * @param pageId   Page ID.
      */
@@ -182,6 +243,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Returns a rotated ID.
+     *
      * @param pageAddr Page address.
      * @return Rotated page ID part.
      */
@@ -190,6 +253,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Sets the rotated ID to the page.
+     *
      * @param pageAddr      Page address.
      * @param rotatedIdPart Rotated page ID part.
      */
@@ -200,6 +265,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Sets the compression type to the page.
+     *
      * @param page         Page buffer.
      * @param compressType Compression type.
      */
@@ -208,6 +275,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Returns a compression type.
+     *
      * @param page Page buffer.
      * @return Compression type.
      */
@@ -216,6 +285,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Returns a compression type.
+     *
      * @param pageAddr Page address.
      * @return Compression type.
      */
@@ -224,6 +295,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Sets the compressed size to the page.
+     *
      * @param page           Page buffer.
      * @param compressedSize Compressed size.
      */
@@ -232,6 +305,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Returns a compressed size.
+     *
      * @param page Page buffer.
      * @return Compressed size.
      */
@@ -240,6 +315,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Returns a compressed size.
+     *
      * @param pageAddr Page address.
      * @return Compressed size.
      */
@@ -248,6 +325,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Sets the comacted size to the page.
+     *
      * @param page          Page buffer.
      * @param compactedSize Compacted size.
      */
@@ -256,6 +335,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Returns a compacted size.
+     *
      * @param page Page buffer.
      * @return Compacted size.
      */
@@ -264,6 +345,8 @@ public abstract class PageIO {
     }
 
     /**
+     * Returns a compacted size.
+     *
      * @param pageAddr Page address.
      * @return Compacted size.
      */
@@ -272,30 +355,8 @@ public abstract class PageIO {
     }
 
     /**
-     * @param pageAddr Page address.
-     * @return Checksum.
-     */
-    public static int getCrc(long pageAddr) {
-        return PageUtils.getInt(pageAddr, CRC_OFF);
-    }
-
-    /**
-     * @param pageAddr Page address.
-     * @param crc      Checksum.
-     */
-    public static void setCrc(long pageAddr, int crc) {
-        PageUtils.putInt(pageAddr, CRC_OFF, crc);
-    }
-
-    /**
-     * @param buf Buffer.
-     * @return Checksum.
-     */
-    public static int getCrc(ByteBuffer buf) {
-        return buf.getInt(CRC_OFF);
-    }
-
-    /**
+     * Sets the CRC value to the page.
+     *
      * @param buf Buffer.
      * @param crc Checksum.
      */
@@ -304,25 +365,41 @@ public abstract class PageIO {
     }
 
     /**
-     * @return Type.
+     * Sets the CRC value to the page.
+     *
+     * @param pageAddr Page address.
+     * @param crc      Checksum.
      */
-    public final int getType() {
-        return type;
+    public static void setCrc(long pageAddr, int crc) {
+        PageUtils.putInt(pageAddr, CRC_OFF, crc);
     }
 
     /**
-     * @return Version.
+     * Returns a CRC value.
+     *
+     * @param buf Buffer.
+     * @return Checksum.
      */
-    public final int getVersion() {
-        return ver;
+    public static int getCrc(ByteBuffer buf) {
+        return buf.getInt(CRC_OFF);
     }
 
     /**
+     * Returns a CRC value.
+     *
+     * @param pageAddr Page address.
+     * @return Checksum.
+     */
+    public static int getCrc(long pageAddr) {
+        return PageUtils.getInt(pageAddr, CRC_OFF);
+    }
+
+    /**
+     * Initializes a new page.
+     *
      * @param pageAddr Page address.
      * @param pageId   Page ID.
      * @param pageSize Page size.
-     * @param metrics  Page metrics for tracking page allocation. Can be {@code null} if no tracking is required.
-     * @see EncryptionSpi#encryptedSize(int)
      */
     public void initNewPage(long pageAddr, long pageId, int pageSize) {
         setType(pageAddr, getType());
@@ -343,13 +420,8 @@ public abstract class PageIO {
     }
 
     /**
-     * @param addr     Address.
-     * @param pageSize Page size.
-     * @param sb       Sb.
-     */
-    protected abstract void printPage(long addr, int pageSize, StringBuilder sb) throws IgniteInternalCheckedException;
-
-    /**
+     * Copies a page into the output {@link ByteBuffer}.
+     *
      * @param page     Page.
      * @param out      Output buffer.
      * @param pageSize Page size.
@@ -364,13 +436,24 @@ public abstract class PageIO {
     }
 
     /**
+     * Prints a page into the output {@link StringBuilder}.
+     *
+     * @param addr     Address.
+     * @param pageSize Page size.
+     * @param sb       Sb.
+     */
+    protected abstract void printPage(long addr, int pageSize, StringBuilder sb) throws IgniteInternalCheckedException;
+
+    /**
+     * Returns a String representation of pages content.
+     *
      * @param pageAddr Address.
      */
-    public static String printPage(PageIORegistry pageIORegistry, long pageAddr, int pageSize) {
+    public static String printPage(PageIoRegistry pageIoRegistry, long pageAddr, int pageSize) {
         StringBuilder sb = new StringBuilder("Header [\n\ttype=");
 
         try {
-            PageIO io = pageIORegistry.resolve(pageAddr);
+            PageIo io = pageIoRegistry.resolve(pageAddr);
 
             sb.append(getType(pageAddr))
                     .append(" (").append(io.getClass().getSimpleName())

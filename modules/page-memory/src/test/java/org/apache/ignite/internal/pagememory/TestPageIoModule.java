@@ -19,15 +19,15 @@ package org.apache.ignite.internal.pagememory;
 
 import java.util.Collection;
 import java.util.List;
-import org.apache.ignite.internal.pagememory.io.IOVersions;
-import org.apache.ignite.internal.pagememory.io.PageIO;
-import org.apache.ignite.internal.pagememory.io.PageIOModule;
+import org.apache.ignite.internal.pagememory.io.IoVersions;
+import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.pagememory.io.PageIoModule;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Test implementation of {@link PageIOModule}.
+ * Test implementation of {@link PageIoModule}.
  */
-public class TestPageIOModule implements PageIOModule {
+public class TestPageIoModule implements PageIoModule {
     /** Last possible value for IO type. */
     public static final int TEST_PAGE_TYPE = 65535 - 1;
 
@@ -36,19 +36,19 @@ public class TestPageIOModule implements PageIOModule {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<IOVersions<?>> ioVersions() {
-        return List.of(new IOVersions<>(new TestPageIO()));
+    public Collection<IoVersions<?>> ioVersions() {
+        return List.of(new IoVersions<>(new TestPageIo()));
     }
 
     /**
-     * Test implementation of {@link PageIO}.
+     * Test implementation of {@link PageIo}.
      */
-    public static class TestPageIO extends PageIO {
+    public static class TestPageIo extends PageIo {
         /**
          * @param type Page type.
          * @param ver  Page format version.
          */
-        protected TestPageIO() {
+        protected TestPageIo() {
             super(TEST_PAGE_TYPE, TEST_PAGE_VER);
         }
 

@@ -22,21 +22,30 @@ import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 /**
  * Registry for IO versions of the same type.
  */
-public final class IOVersions<V extends PageIO> {
-    /** */
+public final class IoVersions<V extends PageIo> {
+    /**
+     * Sorted array of IO objects.
+     */
     private final V[] vers;
 
-    /** */
+    /**
+     * Page type.
+     */
     private final int type;
 
-    /** */
+    /**
+     * Last element of {@link #vers} for faster access.
+     */
     private final V latest;
 
     /**
-     * @param vers Versions.
+     * Constructor.
+     *
+     * @param vers Array of IOs. All {@link PageIo#getType()} must match and all {@link PageIo#getVersion()} must continuously increase,
+     *            starting with {@code 1}.
      */
     @SafeVarargs
-    public IOVersions(V... vers) {
+    public IoVersions(V... vers) {
         assert vers != null;
         assert vers.length > 0;
 
@@ -49,13 +58,15 @@ public final class IOVersions<V extends PageIO> {
     }
 
     /**
-     * @return Type.
+     * Returns type of {@link PageIo}s.
      */
     public int getType() {
         return type;
     }
 
     /**
+     * Checks versions array invariants.
+     *
      * @return {@code true} If versions are correct.
      */
     private boolean checkVersions() {
@@ -71,15 +82,18 @@ public final class IOVersions<V extends PageIO> {
     }
 
     /**
-     * @return Latest IO version.
+     * Returns latest IO version.
      */
     public V latest() {
         return latest;
     }
 
     /**
+     * Returns IO for the given version.
+     *
      * @param ver Version.
      * @return IO.
+     * @throws IllegalStateException If requested version is not found.
      */
     public V forVersion(int ver) {
         if (ver == 0) {
@@ -90,16 +104,18 @@ public final class IOVersions<V extends PageIO> {
     }
 
     /**
+     * Returns IO for the given version.
+     *
      * @param pageAddr Page address.
      * @return IO.
+     * @throws IllegalStateException If requested version is not found.
      */
     public V forPage(long pageAddr) {
-        int ver = PageIO.getVersion(pageAddr);
+        int ver = PageIo.getVersion(pageAddr);
 
         V res = forVersion(ver);
 
-        assert res.getType() == PageIO.getType(pageAddr) : "resType=" + res.getType() +
-                ", pageType=" + PageIO.getType(pageAddr);
+        assert res.getType() == PageIo.getType(pageAddr) : "resType=" + res.getType() + ", pageType=" + PageIo.getType(pageAddr);
 
         return res;
     }
@@ -107,6 +123,6 @@ public final class IOVersions<V extends PageIO> {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return IgniteToStringBuilder.toString(IOVersions.class, this);
+        return IgniteToStringBuilder.toString(IoVersions.class, this);
     }
 }

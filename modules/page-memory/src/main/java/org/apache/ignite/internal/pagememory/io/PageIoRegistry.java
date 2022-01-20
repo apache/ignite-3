@@ -22,17 +22,22 @@ import java.util.ServiceLoader;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Page IO Registry. This component registers and provides all available {@link PageIO} types.
+ * Page IO Registry. This component registers and provides all available {@link PageIo} types.
  */
-public class PageIORegistry {
-    /** Arrays of {@link IOVersions} for fast access. Element 0 is reserved. */
-    private IOVersions<?>[] ioVersions = new IOVersions[65535];
+public class PageIoRegistry {
+    /**
+     * Arrays of {@link IoVersions} for fast access. Element 0 is reserved.
+     */
+    private IoVersions<?>[] ioVersions = new IoVersions[65535];
 
+    /**
+     * Loads all {@link IoVersions} from corresponding {@link PageIoModule} using a {@link ServiceLoader} mechanism.
+     */
     public void loadFromServiceLoader() {
-        ServiceLoader<PageIOModule> serviceLoader = ServiceLoader.load(PageIOModule.class);
+        ServiceLoader<PageIoModule> serviceLoader = ServiceLoader.load(PageIoModule.class);
 
-        for (PageIOModule pageIOModule : serviceLoader) {
-            for (IOVersions<?> ios : pageIOModule.ioVersions()) {
+        for (PageIoModule pageIoModule : serviceLoader) {
+            for (IoVersions<?> ios : pageIoModule.ioVersions()) {
                 assert ios.getType() != 0 : "Type 0 is reserved and can't be used: " + ios;
                 assert ioVersions[ios.getType()] == null || ioVersions[ios.getType()].equals(ios) : "Duplication IOVersions found: " + ios;
 
@@ -42,42 +47,42 @@ public class PageIORegistry {
     }
 
     /**
-     * Returns resolved {@link PageIO} by the {@link ByteBuffer} that contains the page.
+     * Returns resolved {@link PageIo} by the {@link ByteBuffer} that contains the page.
      *
      * @param pageBuf Byte buffer with page content.
      * @return Resolved page IO instance.
      * @throws IgniteInternalCheckedException If page type or version are invalid or not registered.
      */
-    public PageIO resolve(ByteBuffer pageBuf) throws IgniteInternalCheckedException {
-        return resolve(PageIO.getType(pageBuf), PageIO.getVersion(pageBuf));
+    public PageIo resolve(ByteBuffer pageBuf) throws IgniteInternalCheckedException {
+        return resolve(PageIo.getType(pageBuf), PageIo.getVersion(pageBuf));
     }
 
 
     /**
-     * Returns resolved {@link PageIO} by the page address.
+     * Returns resolved {@link PageIo} by the page address.
      *
      * @param pageAddr Memory address pointing to the page content.
      * @return Resolved page IO instance.
      * @throws IgniteInternalCheckedException If page type or version are invalid or not registered.
      */
-    public final PageIO resolve(long pageAddr) throws IgniteInternalCheckedException {
-        return resolve(PageIO.getType(pageAddr), PageIO.getVersion(pageAddr));
+    public final PageIo resolve(long pageAddr) throws IgniteInternalCheckedException {
+        return resolve(PageIo.getType(pageAddr), PageIo.getVersion(pageAddr));
     }
 
     /**
-     * Returns resolved {@link PageIO} by the type and the version.
+     * Returns resolved {@link PageIo} by the type and the version.
      *
      * @param type Page IO type.
      * @param ver  Page IO version.
      * @return Resolved page IO instance.
      * @throws IgniteInternalCheckedException If page type or version are invalid or not registered.
      */
-    public PageIO resolve(int type, int ver) throws IgniteInternalCheckedException {
+    public PageIo resolve(int type, int ver) throws IgniteInternalCheckedException {
         if (type <= 0 || type >= 65535) {
             throw new IgniteInternalCheckedException("Unknown page IO type: " + type);
         }
 
-        IOVersions<?> ios = ioVersions[type];
+        IoVersions<?> ios = ioVersions[type];
 
         if (ios == null) {
             throw new IgniteInternalCheckedException("Unknown page IO type: " + type);

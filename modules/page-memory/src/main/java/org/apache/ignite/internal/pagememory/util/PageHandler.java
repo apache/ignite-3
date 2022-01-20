@@ -21,7 +21,7 @@ import static java.lang.Boolean.FALSE;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.io.PageIO;
+import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -55,7 +55,7 @@ public interface PageHandler<X, R> {
             long pageId,
             long page,
             long pageAddr,
-            PageIO io,
+            PageIo io,
             X arg,
             int intArg,
             IoStatisticsHolder statHolder
@@ -153,7 +153,7 @@ public interface PageHandler<X, R> {
                 return lockFailed;
             }
 
-            PageIO io = pageMem.ioRegistry().resolve(pageAddr);
+            PageIo io = pageMem.ioRegistry().resolve(pageAddr);
 
             return h.run(groupId, pageId, page, pageAddr, io, arg, intArg, statHolder);
         } finally {
@@ -222,13 +222,13 @@ public interface PageHandler<X, R> {
      * @param lsnr       Lock listener.
      * @param statHolder Statistics holder to track IO operations.
      * @throws IgniteInternalCheckedException If failed.
-     * @see PageIO#initNewPage(long, long, int)
+     * @see PageIo#initNewPage(long, long, int)
      */
     public static void initPage(
             PageMemory pageMem,
             int groupId,
             long pageId,
-            PageIO init,
+            PageIo init,
             PageLockListener lsnr,
             IoStatisticsHolder statHolder
     ) throws IgniteInternalCheckedException {
@@ -270,7 +270,7 @@ public interface PageHandler<X, R> {
             final long pageId,
             PageLockListener lsnr,
             PageHandler<X, R> h,
-            PageIO init,
+            PageIo init,
             X arg,
             int intArg,
             R lockFailed,
@@ -301,7 +301,7 @@ public interface PageHandler<X, R> {
 
                 return res;
             } finally {
-                assert PageIO.getCrc(pageAddr) == 0; //TODO GG-11480
+                assert PageIo.getCrc(pageAddr) == 0; //TODO GG-11480
 
                 if (releaseAfterWrite = h.releaseAfterWrite(groupId, pageId, page, pageAddr, arg, intArg)) {
                     writeUnlock(pageMem, groupId, pageId, page, pageAddr, lsnr, ok);
@@ -338,7 +338,7 @@ public interface PageHandler<X, R> {
             long page,
             PageLockListener lsnr,
             PageHandler<X, R> h,
-            PageIO init,
+            PageIo init,
             X arg,
             int intArg,
             R lockFailed,
@@ -366,7 +366,7 @@ public interface PageHandler<X, R> {
 
             return res;
         } finally {
-            assert PageIO.getCrc(pageAddr) == 0; //TODO GG-11480
+            assert PageIo.getCrc(pageAddr) == 0; //TODO GG-11480
 
             if (h.releaseAfterWrite(groupId, pageId, page, pageAddr, arg, intArg)) {
                 writeUnlock(pageMem, groupId, pageId, page, pageAddr, lsnr, ok);
@@ -428,16 +428,16 @@ public interface PageHandler<X, R> {
     }
 
     /**
-     * Invokes {@link PageIO#initNewPage(long, long, int)} and does additional checks.
+     * Invokes {@link PageIo#initNewPage(long, long, int)} and does additional checks.
      */
     private static void doInitPage(
             PageMemory pageMem,
             int groupId,
             long pageId,
             long pageAddr,
-            PageIO init
+            PageIo init
     ) throws IgniteInternalCheckedException {
-        assert PageIO.getCrc(pageAddr) == 0;
+        assert PageIo.getCrc(pageAddr) == 0;
 
         init.initNewPage(pageAddr, pageId, pageMem.realPageSize(groupId));
     }

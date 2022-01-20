@@ -37,17 +37,12 @@ public interface IoStatisticsHolder {
     public void trackPhysicalAndLogicalRead(long pageAddr);
 
     /**
-     * @return Number of logical reads.
+     * Returns a number of logical reads.
      */
     public long logicalReads();
 
     /**
-     * @return Number of physical reads.
+     * Returns a number of physical reads.
      */
     public long physicalReads();
-
-    /**
-     * @return Metric registry name.
-     */
-    public String metricRegistryName();
 }

@@ -22,17 +22,17 @@ package org.apache.ignite.internal.pagememory.reuse;
  */
 public interface ReuseBag {
     /**
-     * @param pageId Free page ID for reuse.
+     * Adds a free page ID for reuse.
      */
     void addFreePage(long pageId);
 
     /**
-     * @return Free page ID for reuse or {@code 0} if empty.
+     * Returns a free page ID for reuse or {@code 0} if empty.
      */
     long pollFreePage();
 
     /**
-     * @return {@code true} if bag has no free page IDs for reuse.
+     * Returns {@code true} if bag has no free page IDs for reuse.
      */
     boolean isEmpty();
 }
