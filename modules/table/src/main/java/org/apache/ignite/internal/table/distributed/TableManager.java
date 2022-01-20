@@ -192,8 +192,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** {@inheritDoc} */
     @Override
     public void start() {
+        // TODO: IGNITE-15485 Support table rename operation.
         tablesCfg.tables()
-                .listenElements(new ConfigurationNamedListListener<TableView>() {
+                .listenElements(new ConfigurationNamedListListener<>() {
                     @Override
                     public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<TableView> ctx) {
                         if (!busyLock.enterBusy()) {
@@ -235,7 +236,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 .listenElements(new ConfigurationNamedListListener<>() {
                                     @Override
                                     public @NotNull CompletableFuture<?> onCreate(
-                                            @NotNull ConfigurationNotificationEvent<SchemaView> schemasCtx) {
+                                            @NotNull ConfigurationNotificationEvent<SchemaView> schemasCtx
+                                    ) {
                                         if (!busyLock.enterBusy()) {
                                             fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName),
                                                     new NodeStoppingException());
@@ -256,25 +258,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             busyLock.leaveBusy();
                                         }
 
-                                        return CompletableFuture.completedFuture(null);
-                                    }
-
-                                    @Override
-                                    public @NotNull CompletableFuture<?> onRename(@NotNull String oldName,
-                                            @NotNull String newName,
-                                            @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
-                                        return CompletableFuture.completedFuture(null);
-                                    }
-
-                                    @Override
-                                    public @NotNull CompletableFuture<?> onDelete(
-                                            @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
-                                        return CompletableFuture.completedFuture(null);
-                                    }
-
-                                    @Override
-                                    public @NotNull CompletableFuture<?> onUpdate(
-                                            @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
                                         return CompletableFuture.completedFuture(null);
                                     }
                                 });
@@ -302,10 +285,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
 
                     @NotNull
-                    private CompletableFuture<?> updateAssignmentInternal(IgniteUuid tblId,
-                            @NotNull ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
+                    private CompletableFuture<?> updateAssignmentInternal(
+                            IgniteUuid tblId,
+                            @NotNull ConfigurationNotificationEvent<byte[]> assignmentsCtx
+                    ) {
+                        byte[] oldValue = assignmentsCtx.oldValue();
+
+                        if (oldValue == null) {
+                            return CompletableFuture.completedFuture(null);
+                        }
+
                         List<List<ClusterNode>> oldAssignments =
-                                (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.oldValue());
+                                (List<List<ClusterNode>>) ByteUtils.fromBytes(oldValue);
 
                         List<List<ClusterNode>> newAssignments =
                                 (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.newValue());
@@ -353,14 +344,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
 
                     @Override
-                    public @NotNull CompletableFuture<?> onRename(@NotNull String oldName, @NotNull String newName,
-                            @NotNull ConfigurationNotificationEvent<TableView> ctx) {
-                        // TODO: IGNITE-15485 Support table rename operation.
-
-                        return CompletableFuture.completedFuture(null);
-                    }
-
-                    @Override
                     public @NotNull CompletableFuture<?> onDelete(
                             @NotNull ConfigurationNotificationEvent<TableView> ctx
                     ) {
@@ -384,11 +367,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             busyLock.leaveBusy();
                         }
 
-                        return CompletableFuture.completedFuture(null);
-                    }
-
-                    @Override
-                    public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<TableView> ctx) {
                         return CompletableFuture.completedFuture(null);
                     }
                 });

@@ -327,11 +327,7 @@ public class IgniteImpl implements Ignite {
                 doStartComponent(name, startedComponents, component);
             }
 
-            // Notify all listeners of current configuration.
-            CompletableFuture.allOf(
-                    nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                    clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
-            ).get();
+            notifyConfigurationListeners();
 
             // Deploy all registered watches because all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
@@ -483,6 +479,18 @@ public class IgniteImpl implements Ignite {
                 LOG.error("Unable to stop component=[" + componentToStop + "] within node=[" + name + ']', e);
             }
         }
+    }
+
+    /**
+     * Notify all listeners of current configurations.
+     *
+     * @throws Exception If failed.
+     */
+    private void notifyConfigurationListeners() throws Exception {
+        CompletableFuture.allOf(
+                nodeConfiguration().notifyCurrentConfigurationListeners(),
+                clusterConfiguration().notifyCurrentConfigurationListeners()
+        ).get();
     }
 
     /**

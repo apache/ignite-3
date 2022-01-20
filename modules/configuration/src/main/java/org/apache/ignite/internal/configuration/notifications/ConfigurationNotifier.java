@@ -88,7 +88,9 @@ public class ConfigurationNotifier {
     /**
      * Recursive notification of all configuration listeners.
      *
-     * <P>NOTE: Only {@link ConfigurationListener#onUpdate} and {@link ConfigurationNamedListListener#onCreate} will be called.
+     * <p>NOTE: Only {@link ConfigurationListener#onUpdate} and {@link ConfigurationNamedListListener#onCreate} will be called.
+     *
+     * <p>NOTE: Value will only be in {@link ConfigurationNotificationEvent#newValue}.
      *
      * @param innerNode Configuration values root.
      * @param config Public configuration tree node corresponding to the current inner nodes.
@@ -110,8 +112,7 @@ public class ConfigurationNotifier {
                 innerNode,
                 config,
                 List.of(),
-                notificationCtx,
-                false
+                notificationCtx
         );
 
         notificationCtx.removeContainer(config);
@@ -246,8 +247,7 @@ public class ConfigurationNotifier {
                                 newVal,
                                 newNodeCfg,
                                 newAnyConfigs,
-                                notificationCtx,
-                                true
+                                notificationCtx
                         );
 
                         notificationCtx.removeContainer(newNodeCfg);
@@ -356,19 +356,20 @@ public class ConfigurationNotifier {
     /**
      * Recursive notification of all configuration listeners.
      *
-     * <P>NOTE: Only {@link ConfigurationListener#onUpdate} and {@link ConfigurationNamedListListener#onCreate} will be called.
+     * <p>NOTE: Only {@link ConfigurationListener#onUpdate} and {@link ConfigurationNamedListListener#onCreate} will be called.
+     *
+     * <p>NOTE: Value will only be in {@link ConfigurationNotificationEvent#newValue}.
      */
     private static void notifyListeners(
             InnerNode innerNode,
             DynamicConfiguration<InnerNode, ?> config,
             Collection<DynamicConfiguration<InnerNode, ?>> anyConfigs,
-            ConfigurationNotificationContext notificationCtx,
-            boolean anyOnly
+            ConfigurationNotificationContext notificationCtx
     ) {
         assert !(config instanceof NamedListConfiguration);
 
         notifyPublicListeners(
-                anyOnly ? List.of() : config.listeners(),
+                config.listeners(),
                 viewReadOnly(anyConfigs, ConfigurationNode::listeners),
                 null,
                 innerNode.specificNode(),
@@ -381,7 +382,7 @@ public class ConfigurationNotifier {
             @Override
             public Void visitLeafNode(String key, Serializable leaf) {
                 notifyPublicListeners(
-                        anyOnly ? List.of() : listeners(dynamicProperty(config, key)),
+                        listeners(dynamicProperty(config, key)),
                         viewReadOnly(anyConfigs, anyConfig -> listeners(dynamicProperty(anyConfig, key))),
                         null,
                         leaf,
@@ -403,8 +404,7 @@ public class ConfigurationNotifier {
                         nestedInnerNode,
                         nestedNodeConfig,
                         viewReadOnly(anyConfigs, anyConfig -> dynamicConfig(anyConfig, key)),
-                        notificationCtx,
-                        anyOnly
+                        notificationCtx
                 );
 
                 notificationCtx.removeContainer(nestedNodeConfig);
@@ -416,7 +416,7 @@ public class ConfigurationNotifier {
             @Override
             public Void visitNamedListNode(String key, NamedListNode<?> newNamedList) {
                 notifyPublicListeners(
-                        anyOnly ? List.of() : listeners(namedDynamicConfig(config, key)),
+                        listeners(namedDynamicConfig(config, key)),
                         viewReadOnly(anyConfigs, anyConfig -> listeners(namedDynamicConfig(anyConfig, key))),
                         null,
                         newNamedList,
@@ -438,7 +438,7 @@ public class ConfigurationNotifier {
                     InnerNode namedInnerNode = newNamedList.getInnerNode(name);
 
                     notifyPublicListeners(
-                            anyOnly ? List.of() : extendedListeners(namedDynamicConfig(config, key)),
+                            extendedListeners(namedDynamicConfig(config, key)),
                             viewReadOnly(anyConfigs, anyConfig -> extendedListeners(namedDynamicConfig(anyConfig, key))),
                             null,
                             namedInnerNode.specificNode(),
@@ -457,8 +457,7 @@ public class ConfigurationNotifier {
                             namedInnerNode,
                             namedNodeConfig,
                             newAnyConfigs,
-                            notificationCtx,
-                            anyOnly
+                            notificationCtx
                     );
 
                     notificationCtx.removeContainer(namedNodeConfig);
