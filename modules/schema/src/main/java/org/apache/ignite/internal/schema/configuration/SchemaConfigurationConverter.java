@@ -389,7 +389,7 @@ public class SchemaConfigurationConverter {
 
         tblChg.changeIndices(idxsChg -> {
             for (IndexDefinition idx : tbl.indices()) {
-                idxsChg.create(idx.name(), idxInit -> convert(idx, idxInit));
+                idxsChg.create(idx.name().toUpperCase(), idxInit -> convert(idx, idxInit));
             }
         });
 
@@ -466,7 +466,7 @@ public class SchemaConfigurationConverter {
      * @return TablesChange to get result from.
      */
     public static TablesChange createTable(TableDefinition tbl, TablesChange tblsChange) {
-        return tblsChange.changeTables(tblsChg -> tblsChg.create(tbl.canonicalName(), tblChg -> convert(tbl, tblChg)));
+        return tblsChange.changeTables(tblsChg -> tblsChg.create(tbl.canonicalName().toUpperCase(), tblChg -> convert(tbl, tblChg)));
     }
 
     /**
@@ -477,7 +477,7 @@ public class SchemaConfigurationConverter {
      * @return TablesChange to get result from.
      */
     public static TablesChange dropTable(TableDefinition tbl, TablesChange tblsChange) {
-        return tblsChange.changeTables(schmTblChange -> schmTblChange.delete(tbl.canonicalName()));
+        return tblsChange.changeTables(schmTblChange -> schmTblChange.delete(tbl.canonicalName().toUpperCase()));
     }
 
     /**
@@ -488,7 +488,7 @@ public class SchemaConfigurationConverter {
      * @return TableChange to get result from.
      */
     public static TableChange addIndex(IndexDefinition idx, TableChange tblChange) {
-        return tblChange.changeIndices(idxsChg -> idxsChg.create(idx.name(), idxChg -> convert(idx, idxChg)));
+        return tblChange.changeIndices(idxsChg -> idxsChg.create(idx.name().toUpperCase(), idxChg -> convert(idx, idxChg)));
     }
 
     /**
@@ -499,7 +499,7 @@ public class SchemaConfigurationConverter {
      * @return TableChange to get result from.
      */
     public static TableChange dropIndex(String indexName, TableChange tblChange) {
-        return tblChange.changeIndices(idxChg -> idxChg.delete(indexName));
+        return tblChange.changeIndices(idxChg -> idxChg.delete(indexName.toUpperCase()));
     }
 
     /**
@@ -510,7 +510,7 @@ public class SchemaConfigurationConverter {
      * @return TableChange to get result from.
      */
     public static TableChange addColumn(ColumnDefinition column, TableChange tblChange) {
-        return tblChange.changeColumns(colsChg -> colsChg.create(column.name(), colChg -> convert(column, colChg)));
+        return tblChange.changeColumns(colsChg -> colsChg.create(column.name().toUpperCase(), colChg -> convert(column, colChg)));
     }
 
     /**
@@ -521,7 +521,7 @@ public class SchemaConfigurationConverter {
      * @return TableChange to get result from.
      */
     public static TableChange dropColumn(String columnName, TableChange tblChange) {
-        return tblChange.changeColumns(colChg -> colChg.delete(columnName));
+        return tblChange.changeColumns(colChg -> colChg.delete(columnName.toUpperCase()));
     }
 
     /**

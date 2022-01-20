@@ -60,9 +60,9 @@ public class TableValidatorImplTest {
     @InjectConfiguration(
             value = "mock.tables.table {\n"
             + "    name = schema.table,\n"
-            + "    columns.id {name = id, type.type = STRING, nullable = true},\n"
+            + "    columns.ID {name = id, type.type = STRING, nullable = true},\n"
             + "    primaryKey {columns = [id], affinityColumns = [id]},\n"
-            + "    indices.foo {type = HASH, name = foo, colNames = [id]}"
+            + "    indices.FOO {type = HASH, name = foo, colNames = [id]}"
             + "}",
             polymorphicExtensions = {
                     HashIndexConfigurationSchema.class, SortedIndexConfigurationSchema.class, PartialIndexConfigurationSchema.class
