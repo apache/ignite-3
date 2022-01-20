@@ -65,31 +65,45 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public T ReadValuePart(PooledBuffer buf, Schema schema, T key)
         {
-            // // Skip schema version.
-            // var r = buf.GetReader();
-            // r.Skip();
-            //
-            // var columns = schema.Columns;
-            // var tuple = new IgniteTuple(columns.Count);
-            //
-            // for (var i = 0; i < columns.Count; i++)
-            // {
-            //     var column = columns[i];
-            //
-            //     if (i < schema.KeyColumnCount)
-            //     {
-            //         tuple[column.Name] = key[column.Name];
-            //     }
-            //     else
-            //     {
-            //         if (r.TryReadNoValue())
-            //         {
-            //             continue;
-            //         }
-            //
-            //         tuple[column.Name] = r.ReadObject(column.Type);
-            //     }
-            // }
+            // TODO: Emit code for efficient serialization (TICKET HERE).
+            // Skip schema version.
+            var r = buf.GetReader();
+            r.Skip();
+
+            var columns = schema.Columns;
+            var res = Activator.CreateInstance<T>();
+            var type = typeof(T);
+
+            for (var i = 0; i < columns.Count; i++)
+            {
+                var column = columns[i];
+                var prop = type.GetProperty(column.Name);
+
+                if (i < schema.KeyColumnCount)
+                {
+                    if (prop != null)
+                    {
+                        prop.SetValue(res, prop.GetValue(key));
+                    }
+                }
+                else
+                {
+                    if (r.TryReadNoValue())
+                    {
+                        continue;
+                    }
+
+                    if (prop != null)
+                    {
+                        prop.SetValue(res, r.ReadObject(column.Type));
+                    }
+                    else
+                    {
+                        r.Skip();
+                    }
+                }
+            }
+
             return key;
         }
 
