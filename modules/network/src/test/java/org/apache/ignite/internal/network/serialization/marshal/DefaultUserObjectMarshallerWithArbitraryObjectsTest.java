@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import static java.util.Collections.singletonList;
-import static java.util.Comparator.comparing;
-import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -38,16 +36,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.Serializable;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -55,7 +48,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.network.serialization.BuiltInType;
-import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.IdIndexedDescriptors;
@@ -491,39 +483,6 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
         assertThat(unmarshalled.get(0), not(sameInstance(unmarshalled.get(1))));
     }
 
-    public static void main(String[] args) throws Exception {
-        new DefaultUserObjectMarshallerWithArbitraryObjectsTest().generateTestData();
-    }
-
-    private void generateTestData() throws Exception {
-        MarshalledObject marshalled = marshaller.marshal(testProxyInstance());
-
-        List<ClassDescriptor> remoteDescriptors = marshalled.usedDescriptors()
-                .stream()
-                .filter(descriptor -> descriptor.descriptorId() >= 1000)
-                .sorted(comparing(ClassDescriptor::descriptorId))
-                .collect(toList());
-        try (
-                OutputStream fos = Files.newOutputStream(Paths.get("modules/network/src/test/resources/marshalled-proxy-classes.bin"));
-                DataOutputStream dos = new DataOutputStream(fos)
-            ) {
-            dos.writeInt(remoteDescriptors.size());
-            for (ClassDescriptor descriptor : remoteDescriptors) {
-                dos.writeUTF(descriptor.className());
-            }
-        }
-        Files.write(Paths.get("modules/network/src/test/resources/marshalled-proxy.bin"), marshalled.bytes());
-    }
-
-    private Object testProxyInstance() {
-        InvocationHandler handler = new TestInvocationHandler();
-        return Proxy.newProxyInstance(
-                contextClassLoader(),
-                new Class[]{Runnable.class, Callable.class},
-                handler
-        );
-    }
-
     @SuppressWarnings("unchecked")
     @Test
     void marshalsAndUnmarshalsJavaProxies() throws Exception {
@@ -543,38 +502,13 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
         assertThat(callable.call(), is("Hi!"));
     }
 
-    @SuppressWarnings("unchecked")
-    @Test
-    void marshalsAndUnmarshalsJavaProxiesAcrossDifferentJvms() throws Exception {
-        proxyRunCalled = false;
-
-        registerMarshalledProxyClasses();
-
-        byte[] marshalledBytes = Files.readAllBytes(Paths.get("src/test/resources/marshalled-proxy.bin"));
-        Object unmarshalled = marshaller.unmarshal(marshalledBytes, descriptors);
-
-        assertThat(unmarshalled, is(notNullValue()));
-        assertThat(unmarshalled, is(instanceOf(Runnable.class)));
-        Runnable runnable = (Runnable) unmarshalled;
-        runnable.run();
-        assertTrue(proxyRunCalled);
-
-        assertThat(unmarshalled, is(instanceOf(Callable.class)));
-        Callable<String> callable = (Callable<String>) unmarshalled;
-        assertThat(callable.call(), is("Hi!"));
-    }
-
-    private void registerMarshalledProxyClasses() throws IOException, ClassNotFoundException {
-        try (
-                InputStream fis = Files.newInputStream(Paths.get("src/test/resources/marshalled-proxy-classes.bin"));
-                DataInputStream dis = new DataInputStream(fis)
-            ) {
-            int numberOfClasses = dis.readInt();
-            for (int i = 0; i < numberOfClasses; i++) {
-                Class<?> clazz = Class.forName(dis.readUTF());
-                descriptorFactory.create(clazz);
-            }
-        }
+    private Object testProxyInstance() {
+        InvocationHandler handler = new TestInvocationHandler();
+        return Proxy.newProxyInstance(
+                contextClassLoader(),
+                new Class[]{Runnable.class, Callable.class},
+                handler
+        );
     }
 
     @Test
