@@ -104,7 +104,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
             }
 
-            return key;
+            return res;
         }
 
         /// <inheritdoc/>
