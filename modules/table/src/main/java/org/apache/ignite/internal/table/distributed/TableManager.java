@@ -238,6 +238,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     public @NotNull CompletableFuture<?> onCreate(
                                             @NotNull ConfigurationNotificationEvent<SchemaView> schemasCtx
                                     ) {
+                                        if (schemasCtx.oldValue() == null) {
+                                            return CompletableFuture.completedFuture(null);
+                                        }
+
                                         if (!busyLock.enterBusy()) {
                                             fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName),
                                                     new NodeStoppingException());
