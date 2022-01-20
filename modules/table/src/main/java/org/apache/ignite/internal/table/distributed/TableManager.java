@@ -231,7 +231,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 IgniteStringFormatter.format("Table [id={}, name={}] has empty assignments.", tblId, tblName);
 
                         // TODO: IGNITE-15409 Listener with any placeholder should be used instead.
-                        ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName)).schemas()
+                        ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName.toUpperCase())).schemas()
                                 .listenElements(new ConfigurationNamedListListener<>() {
                                     @Override
                                     public @NotNull CompletableFuture<?> onCreate(
@@ -244,7 +244,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         }
 
                                         try {
-                                            ((SchemaRegistryImpl) tables.get(tblName).schemaView())
+                                            ((SchemaRegistryImpl) tables.get(tblName.toUpperCase()).schemaView())
                                                     .onSchemaRegistered(
                                                             SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()))
                                                     );
@@ -279,7 +279,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     }
                                 });
 
-                        ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName)).assignments()
+                        ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName.toUpperCase())).assignments()
                                 .listen(assignmentsCtx -> {
                                     if (!busyLock.enterBusy()) {
                                         return CompletableFuture.completedFuture(new NodeStoppingException());
@@ -464,7 +464,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             );
         }
 
-        TableConfiguration tableCfg = tablesCfg.tables().get(name);
+        TableConfiguration tableCfg = tablesCfg.tables().get(name.toUpperCase());
 
         DataRegion dataRegion = dataRegions.computeIfAbsent(tableCfg.dataRegion().value(), dataRegionName -> {
             DataRegion newDataRegion = engine.createDataRegion(dataStorageCfg.regions().get(dataRegionName));
@@ -551,7 +551,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         schemaRegistry
                 );
 
-                tables.put(name, table);
+                tables.put(name.toUpperCase(), table);
                 tablesById.put(tblId, table);
 
                 fireEvent(TableEvent.CREATE, new TableEventParameters(table), null);
@@ -574,7 +574,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             assert table != null : "Table is undefined [tblId=" + tblId + ']';
 
-            ExtendedTableConfiguration tblCfg = ((ExtendedTableConfiguration) tablesCfg.tables().get(table.name()));
+            ExtendedTableConfiguration tblCfg = ((ExtendedTableConfiguration) tablesCfg.tables().get(table.name().toUpperCase()));
 
             if (schemaVer <= table.schemaView().lastSchemaVersion()) {
                 return getSchemaDescriptorLocally(schemaVer, tblCfg);
@@ -647,11 +647,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 raftMgr.stopRaftGroup(raftGroupName(tblId, p));
             }
 
-            TableImpl table = tables.get(name);
+            TableImpl table = tables.get(name.toUpperCase());
 
             assert table != null : "There is no table with the name specified [name=" + name + ']';
 
-            tables.remove(name);
+            tables.remove(name.toUpperCase());
             tablesById.remove(tblId);
 
             table.internalTable().storage().destroy();
@@ -716,11 +716,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 IgniteUuid tblId = TABLE_ID_GENERATOR.randomUuid();
 
                 tablesCfg.tables().change(change -> {
-                    if (change.get(name) != null) {
+                    if (change.get(name.toUpperCase()) != null) {
                         throw new TableAlreadyExistsException(name);
                     }
 
-                    change.create(name, (ch) -> {
+                    change.create(name.toUpperCase(), (ch) -> {
                                 tableInitChange.accept(ch);
 
                                 ((ExtendedTableChange) ch)
@@ -765,7 +765,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             tblFut.completeExceptionally(ex);
                         }
                     } else {
-                        tblFut.complete(tables.get(name));
+                        tblFut.complete(tables.get(name.toUpperCase()));
                     }
                 });
             }
@@ -817,16 +817,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 IgniteUuid tblId = ((TableImpl) tbl).tableId();
 
                 tablesCfg.tables().change(ch -> {
-                    if (ch.get(name) == null) {
+                    if (ch.get(name.toUpperCase()) == null) {
                         throw new TableNotFoundException(name);
                     }
 
-                    ch.update(name, tblCh -> {
+                    ch.update(name.toUpperCase(), tblCh -> {
                                 tableChange.accept(tblCh);
 
                                 ((ExtendedTableChange) tblCh).changeSchemas(schemasCh ->
                                         schemasCh.createOrUpdate(String.valueOf(schemasCh.size() + 1), schemaCh -> {
-                                            ExtendedTableView currTableView = (ExtendedTableView) tablesCfg.tables().get(name).value();
+                                            ExtendedTableView currTableView = (ExtendedTableView) tablesCfg.tables()
+                                                    .get(name.toUpperCase())
+                                                    .value();
 
                                             SchemaDescriptor descriptor;
 
@@ -946,11 +948,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             } else {
                 tablesCfg.tables()
                         .change(change -> {
-                            if (change.get(name) == null) {
+                            if (change.get(name.toUpperCase()) == null) {
                                 throw new TableNotFoundException(name);
                             }
 
-                            change.delete(name);
+                            change.delete(name.toUpperCase());
                         })
                         .whenComplete((res, t) -> {
                             if (t != null) {
@@ -1057,7 +1059,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @see DirectConfigurationProperty
      */
     private IgniteUuid directTableId(String tblName) {
-        ExtendedTableView view = (ExtendedTableView) directProxy(tablesCfg.tables()).value().get(tblName);
+        ExtendedTableView view = (ExtendedTableView) directProxy(tablesCfg.tables()).value().get(tblName.toUpperCase());
 
         return view == null ? null : IgniteUuid.fromString(view.id());
     }

@@ -99,7 +99,7 @@ class TupleImpl implements Tuple, Serializable {
     /** {@inheritDoc} */
     @Override
     public Tuple set(@NotNull String columnName, Object val) {
-        int idx = colMapping.computeIfAbsent(Objects.requireNonNull(columnName), name -> colMapping.size());
+        int idx = colMapping.computeIfAbsent(Objects.requireNonNull(columnName).toUpperCase(), name -> colMapping.size());
 
         if (idx == colNames.size()) {
             colNames.add(idx, columnName);
@@ -125,7 +125,7 @@ class TupleImpl implements Tuple, Serializable {
     public int columnIndex(@NotNull String columnName) {
         Objects.requireNonNull(columnName);
 
-        Integer idx = colMapping.get(columnName);
+        Integer idx = colMapping.get(columnName.toUpperCase());
 
         return idx == null ? -1 : idx;
     }
@@ -388,7 +388,7 @@ class TupleImpl implements Tuple, Serializable {
         colMapping = new HashMap<>(colNames.size());
 
         for (int i = 0; i < colNames.size(); i++) {
-            colMapping.put(colNames.get(i), i);
+            colMapping.put(colNames.get(i).toUpperCase(), i);
         }
     }
 }

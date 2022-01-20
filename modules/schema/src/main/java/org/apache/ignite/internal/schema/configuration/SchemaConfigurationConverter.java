@@ -395,7 +395,7 @@ public class SchemaConfigurationConverter {
 
         tblChg.changeColumns(colsChg -> {
             for (ColumnDefinition col : tbl.columns()) {
-                colsChg.create(col.name(), colChg -> convert(col, colChg));
+                colsChg.create(col.name().toUpperCase(), colChg -> convert(col, colChg));
             }
         });
 
