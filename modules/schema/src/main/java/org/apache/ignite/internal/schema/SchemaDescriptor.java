@@ -23,6 +23,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
@@ -149,7 +150,7 @@ public class SchemaDescriptor {
      * @return Columns names.
      */
     public Collection<String> columnNames() {
-        return colMap.keySet();
+        return colMap.values().stream().map(Column::name).collect(Collectors.toList());
     }
 
     /**
