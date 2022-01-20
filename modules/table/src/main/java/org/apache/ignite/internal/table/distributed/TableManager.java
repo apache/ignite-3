@@ -560,11 +560,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param e Exception.
      */
     private void registerTableIntention(TableEvent eventType, TableEventParameters params, Throwable e) {
-        IgniteUtils.dumpStack(LOG, format("Table was intened to create or update [name={}, id={}, ect={}]", params.tableName(), params.tableId(), eventType));
-
-        if (tableIntention.containsKey(params.tableId()))
-            System.out.println();
-
         assert !tableIntention.containsKey(params.tableId()) :
                 format("Table already intened to create or update [name={}, id={}]", params.tableName(), params.tableId());
 
