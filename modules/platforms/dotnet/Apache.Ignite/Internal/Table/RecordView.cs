@@ -19,8 +19,10 @@ namespace Apache.Ignite.Internal.Table
 {
     using System.Collections.Generic;
     using System.Threading.Tasks;
+    using Common;
     using Ignite.Table;
     using Ignite.Transactions;
+    using Proto;
 
     /// <summary>
     /// Record view.
@@ -32,6 +34,9 @@ namespace Apache.Ignite.Internal.Table
         /** Table. */
         private readonly Table _table;
 
+        /** Serializer. */
+        private readonly RecordSerializer<T> _ser;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="RecordView{T}"/> class.
         /// </summary>
@@ -39,12 +44,18 @@ namespace Apache.Ignite.Internal.Table
         public RecordView(Table table)
         {
             _table = table;
+            _ser = new RecordSerializer<T>(table, new ObjectSerializerHandler<T>());
         }
 
         /// <inheritdoc/>
         public Task<T?> GetAsync(ITransaction? transaction, T key)
         {
-            throw new System.NotImplementedException();
+            IgniteArgumentCheck.NotNull(key, nameof(key));
+
+            using var resBuf = await DoTupleOutOpAsync(ClientOp.TupleGet, transaction, key, keyOnly: true).ConfigureAwait(false);
+            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
+
+            return _ser.ReadValue(resBuf, resSchema, key);
         }
 
         /// <inheritdoc/>
