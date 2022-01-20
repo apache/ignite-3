@@ -122,18 +122,18 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="buf">Buffer.</param>
         /// <param name="tx">Transaction.</param>
         /// <param name="schema">Schema.</param>
-        /// <param name="tuple">Tuple.</param>
+        /// <param name="rec">Record.</param>
         /// <param name="keyOnly">Key only columns.</param>
         public void Write(
             PooledArrayBufferWriter buf,
             Transactions.Transaction? tx,
             Schema schema,
-            T tuple,
+            T rec,
             bool keyOnly = false)
         {
             var w = buf.GetMessageWriter();
 
-            WriteWithHeader(ref w, tx, schema, tuple, keyOnly);
+            WriteWithHeader(ref w, tx, schema, rec, keyOnly);
 
             w.Flush();
         }
@@ -169,13 +169,13 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="buf">Buffer.</param>
         /// <param name="tx">Transaction.</param>
         /// <param name="schema">Schema.</param>
-        /// <param name="tuples">Records.</param>
+        /// <param name="recs">Records.</param>
         /// <param name="keyOnly">Key only columns.</param>
         public void WriteMultiple(
             PooledArrayBufferWriter buf,
             Transactions.Transaction? tx,
             Schema schema,
-            IEnumerator<T> tuples,
+            IEnumerator<T> recs,
             bool keyOnly = false)
         {
             var w = buf.GetMessageWriter();
@@ -189,17 +189,17 @@ namespace Apache.Ignite.Internal.Table
 
             do
             {
-                var tuple = tuples.Current;
+                var rec = recs.Current;
 
-                if (tuple == null)
+                if (rec == null)
                 {
-                    throw new ArgumentException("Tuple collection can't contain null elements.");
+                    throw new ArgumentException("Record collection can't contain null elements.");
                 }
 
-                _handler.Write(ref w, schema, tuple, keyOnly);
+                _handler.Write(ref w, schema, rec, keyOnly);
                 count++;
             }
-            while (tuples.MoveNext()); // First MoveNext is called outside to check for empty IEnumerable.
+            while (recs.MoveNext()); // First MoveNext is called outside to check for empty IEnumerable.
 
             buf.WriteInt32(countPos, count);
 
@@ -212,19 +212,19 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="w">Writer.</param>
         /// <param name="tx">Transaction.</param>
         /// <param name="schema">Schema.</param>
-        /// <param name="tuple">Record.</param>
+        /// <param name="rec">Record.</param>
         /// <param name="keyOnly">Key only columns.</param>
         private void WriteWithHeader(
             ref MessagePackWriter w,
             Transactions.Transaction? tx,
             Schema schema,
-            T tuple,
+            T rec,
             bool keyOnly = false)
         {
             _table.WriteIdAndTx(ref w, tx);
             w.Write(schema.Version);
 
-            _handler.Write(ref w, schema, tuple, keyOnly);
+            _handler.Write(ref w, schema, rec, keyOnly);
         }
     }
 }
