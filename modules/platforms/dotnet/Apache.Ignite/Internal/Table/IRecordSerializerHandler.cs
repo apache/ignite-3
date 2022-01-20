@@ -34,7 +34,7 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="schema">Schema.</param>
         /// <param name="key">Key part.</param>
         /// <returns>Resulting record with key and value parts.</returns>
-        T? ReadValue(PooledBuffer buf, Schema? schema, T key);
+        T? ReadValuePart(PooledBuffer buf, Schema? schema, T key);
 
         /// <summary>
         /// Reads a record.

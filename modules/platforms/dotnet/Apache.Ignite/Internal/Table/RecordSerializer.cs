@@ -51,9 +51,9 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="schema">Schema.</param>
         /// <param name="key">Key part.</param>
         /// <returns>Resulting record with key and value parts.</returns>
-        public T? ReadValueTuple(PooledBuffer buf, Schema? schema, T key)
+        public T? ReadValue(PooledBuffer buf, Schema? schema, T key)
         {
-            return _handler.ReadValue(buf, schema, key);
+            return _handler.ReadValuePart(buf, schema, key);
         }
 
         /// <summary>
@@ -63,7 +63,7 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="schema">Schema.</param>
         /// <param name="keyOnly">Key only mode.</param>
         /// <returns>List of records.</returns>
-        public IList<T> ReadTuples(PooledBuffer buf, Schema? schema, bool keyOnly = false)
+        public IList<T> ReadMultiple(PooledBuffer buf, Schema? schema, bool keyOnly = false)
         {
             if (schema == null)
             {
@@ -92,7 +92,7 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="schema">Schema.</param>
         /// <param name="keyOnly">Key only mode.</param>
         /// <returns>List of records.</returns>
-        public IList<T?> ReadTuplesNullable(PooledBuffer buf, Schema? schema, bool keyOnly = false)
+        public IList<T?> ReadMultipleNullable(PooledBuffer buf, Schema? schema, bool keyOnly = false)
         {
             if (schema == null)
             {
@@ -124,7 +124,7 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="schema">Schema.</param>
         /// <param name="tuple">Tuple.</param>
         /// <param name="keyOnly">Key only columns.</param>
-        public void WriteTuple(
+        public void Write(
             PooledArrayBufferWriter buf,
             Transactions.Transaction? tx,
             Schema schema,
@@ -133,7 +133,7 @@ namespace Apache.Ignite.Internal.Table
         {
             var w = buf.GetMessageWriter();
 
-            WriteTupleWithHeader(ref w, tx, schema, tuple, keyOnly);
+            WriteWithHeader(ref w, tx, schema, tuple, keyOnly);
 
             w.Flush();
         }
@@ -147,7 +147,7 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="t">Record 1.</param>
         /// <param name="t2">Record 2.</param>
         /// <param name="keyOnly">Key only columns.</param>
-        public void WriteTuples(
+        public void WriteTwo(
             PooledArrayBufferWriter buf,
             Transactions.Transaction? tx,
             Schema schema,
@@ -157,7 +157,7 @@ namespace Apache.Ignite.Internal.Table
         {
             var w = buf.GetMessageWriter();
 
-            WriteTupleWithHeader(ref w, tx, schema, t, keyOnly);
+            WriteWithHeader(ref w, tx, schema, t, keyOnly);
             _handler.Write(ref w, schema, t2, keyOnly);
 
             w.Flush();
@@ -171,7 +171,7 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="schema">Schema.</param>
         /// <param name="tuples">Records.</param>
         /// <param name="keyOnly">Key only columns.</param>
-        public void WriteTuples(
+        public void WriteMultiple(
             PooledArrayBufferWriter buf,
             Transactions.Transaction? tx,
             Schema schema,
@@ -214,7 +214,7 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="schema">Schema.</param>
         /// <param name="tuple">Record.</param>
         /// <param name="keyOnly">Key only columns.</param>
-        public void WriteTupleWithHeader(
+        private void WriteWithHeader(
             ref MessagePackWriter w,
             Transactions.Transaction? tx,
             Schema schema,
