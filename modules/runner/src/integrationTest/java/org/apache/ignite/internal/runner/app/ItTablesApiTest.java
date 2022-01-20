@@ -562,7 +562,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
                 schemaName + "." + shortTableName,
                 chng -> chng.changeColumns(cols -> {
                     try {
-                        cols.create(colDefinition.name(), colChg -> convert(colDefinition, colChg));
+                        cols.create(colDefinition.name().toUpperCase(), colChg -> convert(colDefinition, colChg));
                     } catch (IllegalArgumentException e) {
                         throw new ColumnAlreadyExistsException(colDefinition.name());
                     }
@@ -600,13 +600,13 @@ public class ItTablesApiTest extends IgniteAbstractTest {
                 .build();
 
         node.tables().alterTable(schemaName + "." + shortTableName, chng -> chng.changeIndices(idxes -> {
-            if (idxes.get(idx.name()) != null) {
-                log.info("Index already exists [naem={}]", idx.name());
+            if (idxes.get(idx.name().toUpperCase()) != null) {
+                log.info("Index already exists [name={}]", idx.name());
 
                 throw new IndexAlreadyExistsException(idx.name());
             }
 
-            idxes.create(idx.name(), tableIndexChange -> convert(idx, tableIndexChange));
+            idxes.create(idx.name().toUpperCase(), tableIndexChange -> convert(idx, tableIndexChange));
         }));
     }
 
@@ -623,10 +623,10 @@ public class ItTablesApiTest extends IgniteAbstractTest {
                 .build();
 
         node.tables().alterTable(schemaName + "." + shortTableName, chng -> chng.changeIndices(idxes -> {
-            if (idxes.get(idx.name()) == null) {
-                idxes.create(idx.name(), tableIndexChange -> convert(idx, tableIndexChange));
+            if (idxes.get(idx.name().toUpperCase()) == null) {
+                idxes.create(idx.name().toUpperCase(), tableIndexChange -> convert(idx, tableIndexChange));
             } else {
-                log.info("Index already exists [naem={}]", idx.name());
+                log.info("Index already exists [name={}]", idx.name());
             }
         }));
     }
