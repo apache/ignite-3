@@ -21,6 +21,7 @@ namespace Apache.Ignite.Tests
     using System.Threading.Tasks;
     using Ignite.Table;
     using NUnit.Framework;
+    using Table;
 
     /// <summary>
     /// Base class for client tests.
@@ -43,6 +44,8 @@ namespace Apache.Ignite.Tests
 
         protected IRecordView<IIgniteTuple> TupleView { get; private set; } = null!;
 
+        protected IRecordView<Poco> PocoView { get; private set; } = null!;
+
         [OneTimeSetUp]
         public async Task OneTimeSetUp()
         {
@@ -50,7 +53,10 @@ namespace Apache.Ignite.Tests
 
             _serverNode = await JavaServer.StartAsync();
             Client = await IgniteClient.StartAsync(GetConfig());
-            TupleView = (await Client.Tables.GetTableAsync(TableName))!.RecordBinaryView;
+
+            var table = (await Client.Tables.GetTableAsync(TableName))!;
+            TupleView = table.RecordBinaryView;
+            PocoView = table.GetRecordView<Poco>();
         }
 
         [OneTimeTearDown]
@@ -75,6 +81,8 @@ namespace Apache.Ignite.Tests
 
         protected static IIgniteTuple GetTuple(long id, string? val = null) =>
             new IgniteTuple { [KeyCol] = id, [ValCol] = val };
+
+        protected static Poco GetPoco(long id, string? val = null) => new() {Key = id, Val = val};
 
         protected IgniteClientConfiguration GetConfig() => new()
         {
