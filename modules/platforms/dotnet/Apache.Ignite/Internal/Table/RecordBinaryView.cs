@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Table
     using System;
     using System.Collections.Generic;
     using System.Threading.Tasks;
-    using System.Transactions;
     using Buffers;
     using Common;
     using Ignite.Table;
