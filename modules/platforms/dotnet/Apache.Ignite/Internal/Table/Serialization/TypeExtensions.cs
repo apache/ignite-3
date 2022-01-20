@@ -15,32 +15,33 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table
+namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
-    using System.Threading.Tasks;
-    using NUnit.Framework;
+    using System.Reflection;
 
     /// <summary>
-    /// Tests for POCO view.
+    /// Extension methods for <see cref="Type"/>.
     /// </summary>
-    public class RecordViewPocoTests : IgniteTestsBase
+    internal static class TypeExtensions
     {
-        [Test]
-        public async Task TestUpsertGet()
+        /// <summary>
+        /// Gets property by name ignoring case.
+        /// </summary>
+        /// <param name="type">Type.</param>
+        /// <param name="name">Property name.</param>
+        /// <returns>Matching property or null.</returns>
+        public static PropertyInfo? GetPropertyIgnoreCase(this Type type, string name)
         {
-            await PocoView.UpsertAsync(null, GetPoco(1, "foo"));
+            foreach (var p in type.GetProperties())
+            {
+                if (p.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return p;
+                }
+            }
 
-            var keyTuple = GetPoco(1);
-            var resTuple = (await PocoView.GetAsync(null, keyTuple))!;
-
-            Assert.IsNotNull(resTuple);
-
-            Assert.AreEqual(1L, resTuple.Key);
-            Assert.AreEqual("foo", resTuple.Val);
-
-            Assert.IsNull(resTuple.UnmappedStr);
-            Assert.AreEqual(default(Guid), resTuple.UnmappedId);
+            return null;
         }
     }
 }

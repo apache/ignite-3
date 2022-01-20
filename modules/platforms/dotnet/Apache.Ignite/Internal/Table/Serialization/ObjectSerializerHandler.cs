@@ -46,7 +46,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
 
                 var column = columns[index];
-                var prop = type.GetProperty(column.Name);
+                var prop = type.GetPropertyIgnoreCase(column.Name);
 
                 if (prop != null)
                 {
@@ -77,7 +77,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var i = 0; i < columns.Count; i++)
             {
                 var column = columns[i];
-                var prop = type.GetProperty(column.Name);
+                var prop = type.GetPropertyIgnoreCase(column.Name);
 
                 if (i < schema.KeyColumnCount)
                 {
@@ -118,7 +118,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var index = 0; index < count; index++)
             {
                 var col = columns[index];
-                var prop = type.GetProperty(col.Name);
+                var prop = type.GetPropertyIgnoreCase(col.Name);
 
                 if (prop == null)
                 {
