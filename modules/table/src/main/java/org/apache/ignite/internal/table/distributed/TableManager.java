@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -84,7 +85,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -150,6 +150,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Prevents double stopping the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /** Tables modifiction intentions. */
+    private final ConcurrentHashMap<IgniteUuid, CompletableFuture<TableEventParameters>> tableIntention = new ConcurrentHashMap<>();
+
     /**
      * Creates a new table manager.
      *
@@ -202,10 +205,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 String tblName = tblCfg.name().value();
 
                 if (!busyLock.enterBusy()) {
-                    fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName),
-                            new NodeStoppingException());
+                    completeTableIntention(new TableEventParameters(tblId, tblName), new NodeStoppingException());
 
-                    return CompletableFuture.completedFuture(new NodeStoppingException());
+                    return CompletableFuture.failedFuture(new NodeStoppingException());
                 }
 
                 try {
@@ -214,9 +216,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()))
                             );
 
-                    fireEvent(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
+                    completeTableIntention(new TableEventParameters(tablesById.get(tblId)), null);
                 } catch (Exception e) {
-                    fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName), e);
+                    completeTableIntention(new TableEventParameters(tblId, tblName), e);
+
+                    return CompletableFuture.failedFuture(e);
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -233,11 +237,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             String tblName = ctx.newValue().name();
                             IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableView) ctx.newValue()).id());
 
-                            fireEvent(TableEvent.CREATE,
-                                    new TableEventParameters(tblId, tblName),
+                            registerTableIntention(TableEvent.CREATE, new TableEventParameters(tblId, tblName),
                                     new NodeStoppingException());
 
-                            return CompletableFuture.completedFuture(new NodeStoppingException());
+                            return CompletableFuture.failedFuture(new NodeStoppingException());
                         }
 
                         try {
@@ -261,12 +264,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         // Empty assignments might be a valid case if tables are created from within cluster init HOCON
                         // configuration, which is not supported now.
                         assert ((ExtendedTableView) ctx.newValue()).assignments() != null :
-                                IgniteStringFormatter.format("Table [id={}, name={}] has empty assignments.", tblId, tblName);
+                                format("Table [id={}, name={}] has empty assignments.", tblId, tblName);
 
                         ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName)).assignments()
                                 .listen(assignmentsCtx -> {
                                     if (!busyLock.enterBusy()) {
-                                        return CompletableFuture.completedFuture(new NodeStoppingException());
+                                        return CompletableFuture.failedFuture(new NodeStoppingException());
                                     }
 
                                     try {
@@ -343,9 +346,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
 
                     @Override
-                    public @NotNull CompletableFuture<?> onDelete(
-                            @NotNull ConfigurationNotificationEvent<TableView> ctx
-                    ) {
+                    public @NotNull CompletableFuture<?> onDelete(@NotNull ConfigurationNotificationEvent<TableView> ctx) {
                         if (!busyLock.enterBusy()) {
                             String tblName = ctx.oldValue().name();
                             IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableView) ctx.oldValue()).id());
@@ -353,7 +354,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             fireEvent(TableEvent.DROP, new TableEventParameters(tblId, tblName),
                                     new NodeStoppingException());
 
-                            return CompletableFuture.completedFuture(new NodeStoppingException());
+                            return CompletableFuture.failedFuture(new NodeStoppingException());
                         }
 
                         try {
@@ -371,6 +372,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     @Override
                     public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<TableView> ctx) {
+                        IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableView) ctx.oldValue()).id());
+
+                        assert tablesById.containsKey(tblId) : format("Table was not created [id={}, name={}]",
+                                tblId, ctx.oldValue().name());
+
+                        registerTableIntention(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
+
                         return CompletableFuture.completedFuture(null);
                     }
                 });
@@ -533,11 +541,61 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 tables.put(name, table);
                 tablesById.put(tblId, table);
 
-                fireEvent(TableEvent.CREATE, new TableEventParameters(table), null);
+                registerTableIntention(TableEvent.CREATE, new TableEventParameters(table), null);
             } catch (Exception e) {
-                fireEvent(TableEvent.CREATE, new TableEventParameters(tblId, name), e);
+                registerTableIntention(TableEvent.CREATE, new TableEventParameters(tblId, name), e);
             }
         }).join();
+    }
+
+    /**
+     * Registers an intention for table modification.
+     *
+     * @param eventType Event type.
+     * @param params Ebent parameters.
+     * @param e Exception.
+     */
+    private void registerTableIntention(TableEvent eventType, TableEventParameters params, Throwable e) {
+        assert !tableIntention.containsKey(params.tableId()) :
+                format("Table already intened to create or update [name={}, id={}]", params.tableName(), params.tableId());
+
+        CompletableFuture<TableEventParameters> tblFut = new CompletableFuture<>();
+
+        tblFut.whenComplete((completeParams, throwable) -> {
+            if (e != null && throwable != null) {
+                IgniteException err = new IgniteException(e);
+
+                err.addSuppressed(throwable);
+
+                fireEvent(eventType, completeParams, err);
+            } else if (e != null) {
+                fireEvent(eventType, completeParams, e);
+            } else if (throwable != null) {
+                fireEvent(eventType, completeParams, throwable);
+            } else {
+                fireEvent(eventType, completeParams, null);
+            }
+        });
+
+        tableIntention.put(params.tableId(), tblFut);
+    }
+
+    /**
+     * Tries to complete table intention.
+     *
+     * @param params Ebent parameters.
+     * @param e Exception.
+     */
+    private void completeTableIntention(TableEventParameters params, Throwable e) {
+        CompletableFuture intention = tableIntention.remove(params.tableId());
+
+        if (intention == null) {
+            LOG.warn("Unexpected intention completion.");
+        } else if (e != null) {
+            intention.completeExceptionally(e);
+        } else {
+            intention.complete(params);
+        }
     }
 
     /**
@@ -739,7 +797,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (ex instanceof TableAlreadyExistsException) {
                             tblFut.completeExceptionally(ex);
                         } else {
-                            LOG.error(IgniteStringFormatter.format("Table wasn't created [name={}]", name), ex);
+                            LOG.error(format("Table wasn't created [name={}]", name), ex);
 
                             tblFut.completeExceptionally(ex);
                         }
@@ -844,7 +902,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (ex instanceof TableNotFoundException) {
                             tblFut.completeExceptionally(ex);
                         } else {
-                            LOG.error(IgniteStringFormatter.format("Table wasn't altered [name={}]", name), ex);
+                            LOG.error(format("Table wasn't altered [name={}]", name), ex);
 
                             tblFut.completeExceptionally(ex);
                         }
@@ -938,7 +996,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 if (ex instanceof TableNotFoundException) {
                                     dropTblFut.completeExceptionally(ex);
                                 } else {
-                                    LOG.error(IgniteStringFormatter.format("Table wasn't dropped [name={}]", name), ex);
+                                    LOG.error(format("Table wasn't dropped [name={}]", name), ex);
 
                                     dropTblFut.completeExceptionally(ex);
                                 }

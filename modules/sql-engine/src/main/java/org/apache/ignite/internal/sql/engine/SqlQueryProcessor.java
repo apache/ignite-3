@@ -119,6 +119,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 extensions
         );
 
+        registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaHolder));
         registerTableListener(TableEvent.ALTER, new TableUpdatedListener(schemaHolder));
         registerTableListener(TableEvent.DROP, new TableDroppedListener(schemaHolder));
 
@@ -196,6 +197,25 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public void remove(@NotNull Throwable exception) {
             // No-op.
+        }
+    }
+
+    private static class TableCreatedListener extends AbstractTableEventListener {
+        private TableCreatedListener(
+                SqlSchemaManagerImpl schemaHolder
+        ) {
+            super(schemaHolder);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+            schemaHolder.onTableCreated(
+                    "PUBLIC",
+                    parameters.table()
+            );
+
+            return false;
         }
     }
 
