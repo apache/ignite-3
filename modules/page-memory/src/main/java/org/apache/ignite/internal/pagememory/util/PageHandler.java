@@ -301,7 +301,7 @@ public interface PageHandler<X, R> {
 
                 return res;
             } finally {
-                assert PageIo.getCrc(pageAddr) == 0; //TODO GG-11480
+                assert PageIo.getCrc(pageAddr) == 0;
 
                 if (releaseAfterWrite = h.releaseAfterWrite(groupId, pageId, page, pageAddr, arg, intArg)) {
                     writeUnlock(pageMem, groupId, pageId, page, pageAddr, lsnr, ok);
@@ -366,7 +366,7 @@ public interface PageHandler<X, R> {
 
             return res;
         } finally {
-            assert PageIo.getCrc(pageAddr) == 0; //TODO GG-11480
+            assert PageIo.getCrc(pageAddr) == 0;
 
             if (h.releaseAfterWrite(groupId, pageId, page, pageAddr, arg, intArg)) {
                 writeUnlock(pageMem, groupId, pageId, page, pageAddr, lsnr, ok);
