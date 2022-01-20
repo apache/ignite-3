@@ -25,6 +25,7 @@ namespace Apache.Ignite.Internal.Table
     using Ignite.Table;
     using Ignite.Transactions;
     using Proto;
+    using Serialization;
     using Transactions;
 
     /// <summary>

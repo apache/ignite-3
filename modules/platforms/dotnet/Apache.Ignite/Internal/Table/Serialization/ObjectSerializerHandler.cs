@@ -15,37 +15,28 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table
+namespace Apache.Ignite.Internal.Table.Serialization
 {
+    using System;
     using Buffers;
-    using Ignite.Table;
     using MessagePack;
     using Proto;
 
     /// <summary>
-    /// Tuple serializer handler.
+    /// Object serializer handler.
     /// </summary>
-    internal class TupleSerializerHandler : IRecordSerializerHandler<IIgniteTuple>
+    /// <typeparam name="T">Object type.</typeparam>
+    internal class ObjectSerializerHandler<T> : IRecordSerializerHandler<T>
+        where T : class
     {
-        /// <summary>
-        /// Singleton instance.
-        /// </summary>
-        public static readonly TupleSerializerHandler Instance = new();
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="TupleSerializerHandler"/> class.
-        /// </summary>
-        private TupleSerializerHandler()
-        {
-            // No-op.
-        }
-
         /// <inheritdoc/>
-        public IIgniteTuple Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
+        public T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
         {
+            // TODO: Emit code for efficient serialization (IGNITE-16341).
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
-            var tuple = new IgniteTuple(count);
+            var res = Activator.CreateInstance<T>();
+            var type = typeof(T);
 
             for (var index = 0; index < count; index++)
             {
@@ -55,29 +46,45 @@ namespace Apache.Ignite.Internal.Table
                 }
 
                 var column = columns[index];
-                tuple[column.Name] = reader.ReadObject(column.Type);
+                var prop = type.GetProperty(column.Name);
+
+                if (prop != null)
+                {
+                    var value = reader.ReadObject(column.Type);
+                    prop.SetValue(value, res);
+                }
+                else
+                {
+                    reader.Skip();
+                }
             }
 
-            return tuple;
+            return (T)(object)res;
         }
 
         /// <inheritdoc/>
-        public IIgniteTuple ReadValuePart(PooledBuffer buf, Schema schema, IIgniteTuple key)
+        public T ReadValuePart(PooledBuffer buf, Schema schema, T key)
         {
+            // TODO: Emit code for efficient serialization (IGNITE-16341).
             // Skip schema version.
             var r = buf.GetReader();
             r.Skip();
 
             var columns = schema.Columns;
-            var tuple = new IgniteTuple(columns.Count);
+            var res = Activator.CreateInstance<T>();
+            var type = typeof(T);
 
             for (var i = 0; i < columns.Count; i++)
             {
                 var column = columns[i];
+                var prop = type.GetProperty(column.Name);
 
                 if (i < schema.KeyColumnCount)
                 {
-                    tuple[column.Name] = key[column.Name];
+                    if (prop != null)
+                    {
+                        prop.SetValue(res, prop.GetValue(key));
+                    }
                 }
                 else
                 {
@@ -86,31 +93,40 @@ namespace Apache.Ignite.Internal.Table
                         continue;
                     }
 
-                    tuple[column.Name] = r.ReadObject(column.Type);
+                    if (prop != null)
+                    {
+                        prop.SetValue(res, r.ReadObject(column.Type));
+                    }
+                    else
+                    {
+                        r.Skip();
+                    }
                 }
             }
 
-            return tuple;
+            return key;
         }
 
         /// <inheritdoc/>
-        public void Write(ref MessagePackWriter writer, Schema schema, IIgniteTuple record, bool keyOnly = false)
+        public void Write(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false)
         {
+            // TODO: Emit code for efficient serialization (IGNITE-16341).
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+            var type = record.GetType();
 
             for (var index = 0; index < count; index++)
             {
                 var col = columns[index];
-                var colIdx = record.GetOrdinal(col.Name);
+                var prop = type.GetProperty(col.Name);
 
-                if (colIdx < 0)
+                if (prop == null)
                 {
                     writer.WriteNoValue();
                 }
                 else
                 {
-                    writer.WriteObject(record[colIdx]);
+                    writer.WriteObject(prop.GetValue(record));
                 }
             }
         }

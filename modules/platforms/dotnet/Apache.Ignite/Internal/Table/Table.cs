@@ -25,6 +25,7 @@ namespace Apache.Ignite.Internal.Table
     using Ignite.Table;
     using MessagePack;
     using Proto;
+    using Serialization;
 
     /// <summary>
     /// Table API.
