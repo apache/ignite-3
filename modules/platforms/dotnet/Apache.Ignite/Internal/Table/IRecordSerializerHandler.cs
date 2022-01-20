@@ -28,15 +28,6 @@ namespace Apache.Ignite.Internal.Table
         where T : class
     {
         /// <summary>
-        /// Reads the value part.
-        /// </summary>
-        /// <param name="buf">Buffer.</param>
-        /// <param name="schema">Schema.</param>
-        /// <param name="key">Key part.</param>
-        /// <returns>Resulting record with key and value parts.</returns>
-        T? ReadValuePart(PooledBuffer buf, Schema? schema, T key);
-
-        /// <summary>
         /// Reads a record.
         /// </summary>
         /// <param name="reader">Reader.</param>
@@ -44,6 +35,15 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="keyOnly">Key only mode.</param>
         /// <returns>Record.</returns>
         T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false);
+
+        /// <summary>
+        /// Reads the value part.
+        /// </summary>
+        /// <param name="buf">Buffer.</param>
+        /// <param name="schema">Schema.</param>
+        /// <param name="key">Key part.</param>
+        /// <returns>Resulting record with key and value parts.</returns>
+        T? ReadValuePart(PooledBuffer buf, Schema? schema, T key);
 
         /// <summary>
         /// Writes a record.

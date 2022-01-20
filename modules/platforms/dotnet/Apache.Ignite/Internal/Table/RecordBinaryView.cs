@@ -35,6 +35,7 @@ namespace Apache.Ignite.Internal.Table
         /** Table. */
         private readonly Table _table;
 
+        /** Serializer. */
         private readonly RecordSerializer<IIgniteTuple> _ser;
 
         /// <summary>
@@ -44,7 +45,7 @@ namespace Apache.Ignite.Internal.Table
         public RecordBinaryView(Table table)
         {
             _table = table;
-            _ser = new RecordSerializer<IIgniteTuple>(table, null!);
+            _ser = new RecordSerializer<IIgniteTuple>(table, TupleSerializerHandler.Instance);
         }
 
         /// <inheritdoc/>
