@@ -17,8 +17,8 @@
 
 namespace Apache.Ignite.Internal.Table
 {
+    using System;
     using Buffers;
-    using Ignite.Table;
     using MessagePack;
     using Proto;
 
@@ -32,9 +32,11 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
         {
+            // TODO: Emit code for efficient serialization (TICKET HERE).
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
-            var tuple = new IgniteTuple(count);
+            var res = Activator.CreateInstance<T>();
+            var type = typeof(T);
 
             for (var index = 0; index < count; index++)
             {
@@ -44,10 +46,20 @@ namespace Apache.Ignite.Internal.Table
                 }
 
                 var column = columns[index];
-                tuple[column.Name] = reader.ReadObject(column.Type);
+                var prop = type.GetProperty(column.Name);
+
+                if (prop != null)
+                {
+                    var value = reader.ReadObject(column.Type);
+                    prop.SetValue(value, res);
+                }
+                else
+                {
+                    reader.Skip();
+                }
             }
 
-            return (T)(object)tuple;
+            return (T)(object)res;
         }
 
         /// <inheritdoc/>
