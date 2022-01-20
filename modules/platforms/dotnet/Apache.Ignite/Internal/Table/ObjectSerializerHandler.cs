@@ -18,7 +18,9 @@
 namespace Apache.Ignite.Internal.Table
 {
     using Buffers;
+    using Ignite.Table;
     using MessagePack;
+    using Proto;
 
     /// <summary>
     /// Object serializer handler.
@@ -30,13 +32,53 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
         {
-            throw new System.NotImplementedException();
+            var columns = schema.Columns;
+            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+            var tuple = new IgniteTuple(count);
+
+            for (var index = 0; index < count; index++)
+            {
+                if (reader.TryReadNoValue())
+                {
+                    continue;
+                }
+
+                var column = columns[index];
+                tuple[column.Name] = reader.ReadObject(column.Type);
+            }
+
+            return (T)(object)tuple;
         }
 
         /// <inheritdoc/>
-        public T? ReadValuePart(PooledBuffer buf, Schema? schema, T key)
+        public T ReadValuePart(PooledBuffer buf, Schema schema, T key)
         {
-            throw new System.NotImplementedException();
+            // // Skip schema version.
+            // var r = buf.GetReader();
+            // r.Skip();
+            //
+            // var columns = schema.Columns;
+            // var tuple = new IgniteTuple(columns.Count);
+            //
+            // for (var i = 0; i < columns.Count; i++)
+            // {
+            //     var column = columns[i];
+            //
+            //     if (i < schema.KeyColumnCount)
+            //     {
+            //         tuple[column.Name] = key[column.Name];
+            //     }
+            //     else
+            //     {
+            //         if (r.TryReadNoValue())
+            //         {
+            //             continue;
+            //         }
+            //
+            //         tuple[column.Name] = r.ReadObject(column.Type);
+            //     }
+            // }
+            return key;
         }
 
         /// <inheritdoc/>

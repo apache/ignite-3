@@ -53,6 +53,11 @@ namespace Apache.Ignite.Internal.Table
         /// <returns>Resulting record with key and value parts.</returns>
         public T? ReadValue(PooledBuffer buf, Schema? schema, T key)
         {
+            if (schema == null)
+            {
+                return null;
+            }
+
             return _handler.ReadValuePart(buf, schema, key);
         }
 

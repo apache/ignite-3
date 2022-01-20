@@ -62,13 +62,8 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public IIgniteTuple? ReadValuePart(PooledBuffer buf, Schema? schema, IIgniteTuple key)
+        public IIgniteTuple ReadValuePart(PooledBuffer buf, Schema schema, IIgniteTuple key)
         {
-            if (schema == null)
-            {
-                return null;
-            }
-
             // Skip schema version.
             var r = buf.GetReader();
             r.Skip();
