@@ -37,7 +37,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false);
 
         /// <summary>
-        /// Reads the value part.
+        /// Reads the value part and combines with the specified key part into a new object.
         /// </summary>
         /// <param name="buf">Buffer.</param>
         /// <param name="schema">Schema.</param>

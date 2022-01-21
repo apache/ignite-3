@@ -23,7 +23,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using Proto;
 
     /// <summary>
-    /// Tuple serializer handler.
+    /// Serializer handler for <see cref="IIgniteTuple"/>.
     /// </summary>
     internal class TupleSerializerHandler : IRecordSerializerHandler<IIgniteTuple>
     {

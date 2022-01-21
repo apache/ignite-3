@@ -23,14 +23,17 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using MessagePack;
 
     /// <summary>
-    /// Record serializer.
+    /// Generic record serializer.
+    /// Works for tuples and user objects, any differences are handled by the underlying <see cref="IRecordSerializerHandler{T}"/>.
     /// </summary>
     /// <typeparam name="T">Record type.</typeparam>
     internal class RecordSerializer<T>
         where T : class
     {
+        /** Table. */
         private readonly Table _table;
 
+        /** Serialization handler. */
         private readonly IRecordSerializerHandler<T> _handler;
 
         /// <summary>

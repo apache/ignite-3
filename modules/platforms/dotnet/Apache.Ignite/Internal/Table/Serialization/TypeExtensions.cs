@@ -33,7 +33,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <returns>Matching property or null.</returns>
         public static PropertyInfo? GetPropertyIgnoreCase(this Type type, string name)
         {
-            // TODO: Use fields, not properties.
+            // TODO: Use fields, not properties (IGNITE-16341).
             foreach (var p in type.GetProperties())
             {
                 if (p.Name.Equals(name, StringComparison.OrdinalIgnoreCase))

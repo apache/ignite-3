@@ -29,10 +29,10 @@ namespace Apache.Ignite.Internal.Table
     using Transactions;
 
     /// <summary>
-    /// Table API.
+    /// Generic record view.
     /// </summary>
     /// <typeparam name="T">Record type.</typeparam>
-    internal class RecordView<T> : IRecordView<T>
+    internal sealed class RecordView<T> : IRecordView<T>
         where T : class
     {
         /** Table. */
