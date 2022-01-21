@@ -51,7 +51,11 @@ class BuiltInMarshalling {
     private static final ValueReader<BigDecimal> bigDecimalReader = (in, ctx) -> readBigDecimal(in);
 
     private static final ValueWriter<Enum<?>> enumWriter = (obj, out, ctx) -> writeEnum(obj, out);
-    private static final ValueReader<Enum<?>> enumReader = (in, ctx) -> readEnum(in);
+    private static final ValueReader<Enum<?>> enumReader = BuiltInMarshalling::readEnum;
+
+    private static final ValueWriter<Class<?>> classWriter = (obj, out, ctx) -> writeClass(obj, out);
+    private static final IntFunction<Class<?>[]> classArrayFactory = Class[]::new;
+    private static final ValueReader<Class<?>> classReader = BuiltInMarshalling::readClass;
 
     private static final Field singletonListElementField;
 
@@ -229,11 +233,11 @@ class BuiltInMarshalling {
     }
 
     static void writeBigDecimal(BigDecimal object, DataOutput output) throws IOException {
-        output.writeUTF(object.toString());
+        writeString(object.toString(), output);
     }
 
     static BigDecimal readBigDecimal(DataInput input) throws IOException {
-        return new BigDecimal(input.readUTF());
+        return new BigDecimal(readString(input));
     }
 
     static void writeEnum(Enum<?> object, DataOutput output) throws IOException {
@@ -245,32 +249,46 @@ class BuiltInMarshalling {
 
         assert enumClass.getSuperclass() == Enum.class;
 
-        output.writeUTF(enumClass.getName());
-        output.writeUTF(object.name());
+        writeClass(enumClass, output);
+        writeString(object.name(), output);
     }
 
-    static <T extends Enum<T>> Enum<?> readEnum(DataInput input) throws IOException, UnmarshalException {
-        String enumClassName = input.readUTF();
-        Class<T> enumClass = enumClass(enumClassName);
+    @SuppressWarnings("unchecked")
+    static <T extends Enum<T>> Enum<?> readEnum(DataInput input, UnmarshallingContext context) throws IOException, UnmarshalException {
+        Class<T> enumClass = (Class<T>) readClass(input, context);
         return Enum.valueOf(enumClass, input.readUTF());
     }
 
-    private static <T extends Enum<T>> Class<T> enumClass(String className) throws UnmarshalException {
-        return classByName(className, "enum");
-    }
-
     @NotNull
-    private static <T> Class<T> classByName(String className, String classKind) throws UnmarshalException {
+    private static <T> Class<T> classByName(String className, ClassLoader classLoader) throws UnmarshalException {
         try {
             // TODO: what classloader to use?
-            @SuppressWarnings("unchecked") Class<T> castedClass = (Class<T>) Class.forName(className);
+            @SuppressWarnings("unchecked") Class<T> castedClass = (Class<T>) Class.forName(className, true, classLoader);
             return castedClass;
         } catch (ClassNotFoundException e) {
-            throw new UnmarshalException("Can not load " + classKind + " class: " + className, e);
+            throw new UnmarshalException("Can not load a class: " + className, e);
         }
     }
 
-    static <T> void writeRefArray(T[] array, DataOutputStream output, ValueWriter<T> valueWriter, MarshallingContext context)
+    static void writeClass(Class<?> classToWrite, DataOutput output) throws IOException {
+        writeString(classToWrite.getName(), output);
+    }
+
+    static Class<?> readClass(DataInput input, UnmarshallingContext context) throws IOException, UnmarshalException {
+        String className = readString(input);
+        return classByName(className, context.classLoader());
+    }
+
+    static void writeClassArray(Class<?>[] classes, DataOutputStream output, MarshallingContext context)
+            throws IOException, MarshalException {
+        writeRefArray(classes, output, classWriter, context);
+    }
+
+    static Class<?>[] readClassArray(DataInputStream input, UnmarshallingContext context) throws IOException, UnmarshalException {
+        return readRefArray(input, classArrayFactory, classReader, context);
+    }
+
+    private static <T> void writeRefArray(T[] array, DataOutputStream output, ValueWriter<T> valueWriter, MarshallingContext context)
             throws IOException, MarshalException {
         writeLength(array.length, output);
         for (T object : array) {
@@ -278,7 +296,7 @@ class BuiltInMarshalling {
         }
     }
 
-    static <T> T[] readRefArray(
+    private static <T> T[] readRefArray(
             DataInputStream input,
             IntFunction<T[]> arrayFactory,
             ValueReader<T> valueReader,
@@ -300,19 +318,19 @@ class BuiltInMarshalling {
     }
 
     @SuppressWarnings("unchecked")
-    private static <T> IntFunction<T[]> readTypeAndCreateArrayFactory(DataInput input) throws IOException, UnmarshalException {
-        String componentClassName = input.readUTF();
-        Class<T> componentType = classByName(componentClassName, "component");
+    private static <T> IntFunction<T[]> readTypeAndCreateArrayFactory(DataInput input, UnmarshallingContext context)
+            throws IOException, UnmarshalException {
+        Class<T> componentType = (Class<T>) readClass(input, context);
         return len -> (T[]) Array.newInstance(componentType, len);
     }
 
-    static <T> T[] preInstantiateGenericRefArray(DataInput input) throws IOException, UnmarshalException {
-        IntFunction<T[]> arrayFactory = readTypeAndCreateArrayFactory(input);
+    static <T> T[] preInstantiateGenericRefArray(DataInput input, UnmarshallingContext context) throws IOException, UnmarshalException {
+        IntFunction<T[]> arrayFactory = readTypeAndCreateArrayFactory(input, context);
         int length = readLength(input);
         return arrayFactory.apply(length);
     }
 
-    static <T> void fillGenericRefArray(DataInputStream input, T[] array, ValueReader<T> elementReader, UnmarshallingContext context)
+    static <T> void fillGenericRefArrayFrom(DataInputStream input, T[] array, ValueReader<T> elementReader, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         fillRefArrayFrom(input, array, elementReader, context);
     }
@@ -335,13 +353,13 @@ class BuiltInMarshalling {
     }
 
     static void writeEnumArray(Enum<?>[] array, DataOutputStream output, MarshallingContext context) throws IOException, MarshalException {
-        output.writeUTF(array.getClass().getComponentType().getName());
+        writeClass(array.getClass().getComponentType(), output);
         writeRefArray(array, output, enumWriter, context);
     }
 
+    @SuppressWarnings("unchecked")
     static Enum<?>[] readEnumArray(DataInputStream input, UnmarshallingContext context) throws IOException, UnmarshalException {
-        String enumClassName = input.readUTF();
-        Class<? extends Enum<?>> enumClass = enumClass(enumClassName);
+        Class<? extends Enum<?>> enumClass = (Class<? extends Enum<?>>) readClass(input, context);
         return readRefArray(input, len -> (Enum<?>[]) Array.newInstance(enumClass, len), enumReader, context);
     }
 

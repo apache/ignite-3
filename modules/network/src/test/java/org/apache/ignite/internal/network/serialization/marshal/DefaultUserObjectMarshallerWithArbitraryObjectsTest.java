@@ -30,14 +30,17 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.sameInstance;
-import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.Serializable;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -49,7 +52,6 @@ import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.IdIndexedDescriptors;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -64,6 +66,7 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
     private final DefaultUserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(descriptorRegistry, descriptorFactory);
 
     private static boolean constructorCalled;
+    private static boolean proxyRunCalled;
 
     private static final int INT_OUT_OF_INT_CACHE_RANGE = 1_000_000;
 
@@ -192,15 +195,27 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
     }
 
     @Test
+    void doesNotSupportInnerClassInstances() {
+        assertThrows(MarshallingNotSupportedException.class, () -> marshaller.marshal(new Inner()));
+    }
+
+    @Test
+    void doesNotSupportInnerClassInstancesInsideContainers() {
+        List<Inner> list = singletonList(new Inner());
+
+        assertThrows(MarshallingNotSupportedException.class, () -> marshaller.marshal(list));
+    }
+
+    @Test
     void supportsNonCapturingAnonymousClassInstances() throws Exception {
         Callable<String> unmarshalled = marshalAndUnmarshalNonNull(nonCapturingAnonymousInstance());
 
         assertThat(unmarshalled.call(), is("Hi!"));
     }
 
-    @SuppressWarnings("Convert2Lambda")
     private static Callable<String> nonCapturingAnonymousInstance() {
         return new Callable<>() {
+            /** {@inheritDoc} */
             @Override
             public String call() {
                 return "Hi!";
@@ -209,54 +224,15 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
     }
 
     @Test
-    void supportsNonCapturingLambdas() throws Exception {
-        Callable<String> unmarshalled = marshalAndUnmarshalNonNull(nonCapturingLambda());
-
-        assertThat(unmarshalled.call(), is("Hi!"));
-    }
-
-    private static Callable<String> nonCapturingLambda() {
-        return () -> "Hi!";
-    }
-
-    @Test
-    @Disabled("IGNITE-16258")
-    // TODO: IGNITE-16258 - enable this test when we are able to work with serializable lambdas
-    void supportsNonCapturingSerializableLambdas() throws Exception {
-        Callable<String> unmarshalled = marshalAndUnmarshalNonNull(nonCapturingSerializableLambda());
-
-        assertThat(unmarshalled.call(), is("Hi!"));
-    }
-
-    private static Callable<String> nonCapturingSerializableLambda() {
-        return (Callable<String> & Serializable) () -> "Hi!";
-    }
-
-    @Test
-    void doesNotSupportInnerClassInstances() {
-        Throwable ex = assertThrows(IllegalArgumentException.class, () -> marshaller.marshal(new Inner()));
-        assertThat(ex.getMessage(), is("Non-static inner class instances are not supported for marshalling: " + Inner.class));
-    }
-
-    @Test
-    void doesNotSupportInnerClassInstancesInsideContainers() {
-        List<Inner> list = singletonList(new Inner());
-
-        Throwable ex = assertThrows(IllegalArgumentException.class, () -> marshaller.marshal(list));
-        assertThat(ex.getMessage(), is("Non-static inner class instances are not supported for marshalling: " + Inner.class));
-    }
-
-    @Test
     void doesNotSupportCapturingAnonymousClassInstances() {
         Runnable capturingClosure = capturingAnonymousInstance();
 
-        Throwable ex = assertThrows(IllegalArgumentException.class, () -> marshaller.marshal(capturingClosure));
-        assertThat(ex.getMessage(), startsWith("Capturing nested class instances are not supported for marshalling: "));
+        assertThrows(MarshallingNotSupportedException.class, () -> marshaller.marshal(capturingClosure));
     }
 
     private Runnable capturingAnonymousInstance() {
-        //noinspection Convert2Lambda
         return new Runnable() {
+            /** {@inheritDoc} */
             @Override
             public void run() {
                 System.out.println(DefaultUserObjectMarshallerWithArbitraryObjectsTest.this);
@@ -269,29 +245,63 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
         Runnable capturingAnonymousInstance = capturingAnonymousInstance();
         List<Runnable> list = singletonList(capturingAnonymousInstance);
 
-        Throwable ex = assertThrows(IllegalArgumentException.class, () -> marshaller.marshal(list));
-        assertThat(ex.getMessage(), startsWith("Capturing nested class instances are not supported for marshalling: "));
+        assertThrows(MarshallingNotSupportedException.class, () -> marshaller.marshal(list));
+    }
+
+    /**
+     * We should not support non-capturing non-serializable Lambdas. Even though it's possible to marshal and unmarshal
+     * such lambda inside the same JVM, it's impossible to load its class by name (even when it exists in the JVM with
+     * that same name!), so such lambdas will be impossible to unmarshal at another JVM.
+     *
+     */
+    @Test
+    void doesNotSupportNonCapturingNonSerializableLambdas() {
+        assertThrows(MarshallingNotSupportedException.class, () -> marshalAndUnmarshalNonNull(nonCapturingLambda()));
+    }
+
+    private static Callable<String> nonCapturingLambda() {
+        return () -> "Hi!";
     }
 
     @Test
-    void doesNotSupportCapturingLambdas() {
-        Runnable capturingClosure = capturingLambda();
+    void supportsNonCapturingSerializableLambdas() throws Exception {
+        Callable<String> unmarshalled = marshalAndUnmarshalNonNull(nonCapturingSerializableLambda());
 
-        Throwable ex = assertThrows(IllegalArgumentException.class, () -> marshaller.marshal(capturingClosure));
-        assertThat(ex.getMessage(), startsWith("Capturing nested class instances are not supported for marshalling: "));
+        assertThat(unmarshalled.call(), is("Hi!"));
     }
 
-    private Runnable capturingLambda() {
+    private static Callable<String> nonCapturingSerializableLambda() {
+        return (Callable<String> & Serializable) () -> "Hi!";
+    }
+
+    @Test
+    void doesNotSupportCapturingNonSerializableLambdas() {
+        Runnable capturingClosure = capturingNonSerializableLambda();
+
+        assertThrows(MarshallingNotSupportedException.class, () -> marshaller.marshal(capturingClosure));
+    }
+
+    private Runnable capturingNonSerializableLambda() {
         return () -> System.out.println(DefaultUserObjectMarshallerWithArbitraryObjectsTest.this);
     }
 
     @Test
-    void doesNotSupportCapturingAnonymousLambdasInsideContainers() {
-        Runnable capturingLambda = capturingLambda();
+    void doesNotSupportCapturingSerializableLambdas() {
+        Runnable capturingClosure = capturingSerializableLambda();
+
+        assertThrows(MarshallingNotSupportedException.class, () -> marshaller.marshal(capturingClosure));
+    }
+
+    private Runnable capturingSerializableLambda() {
+        return (Runnable & Serializable) () -> System.out.println(DefaultUserObjectMarshallerWithArbitraryObjectsTest.this);
+    }
+
+    @Test
+    void doesNotSupportCapturingLambdasInsideContainers() {
+        Runnable capturingLambda = capturingNonSerializableLambda();
         List<Runnable> list = singletonList(capturingLambda);
 
-        Throwable ex = assertThrows(IllegalArgumentException.class, () -> marshaller.marshal(list));
-        assertThat(ex.getMessage(), startsWith("Capturing nested class instances are not supported for marshalling: "));
+        assertThrows(MarshallingNotSupportedException.class, () -> marshaller.marshal(list));
     }
 
     @Test
@@ -317,8 +327,7 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
     void doesNotSupportCapturingLocalClassInstances() {
         Object instance = capturingLocalClassInstance();
 
-        Throwable ex = assertThrows(IllegalArgumentException.class, () -> marshaller.marshal(instance));
-        assertThat(ex.getMessage(), startsWith("Capturing nested class instances are not supported for marshalling: "));
+        assertThrows(MarshallingNotSupportedException.class, () -> marshaller.marshal(instance));
     }
 
     private Object capturingLocalClassInstance() {
@@ -329,8 +338,8 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
     }
 
     @Test
-    void supportsClassesWithoutNoArgConstructor() throws Exception {
-        WithoutNoArgConstructor unmarshalled = marshalAndUnmarshalNonNull(new WithoutNoArgConstructor(42));
+    void supportsNonSerializableClassesWithoutNoArgConstructor() throws Exception {
+        NonSerializableWithoutNoArgConstructor unmarshalled = marshalAndUnmarshalNonNull(new NonSerializableWithoutNoArgConstructor(42));
 
         assertThat(unmarshalled.value, is(42));
     }
@@ -472,6 +481,54 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
         List<?> unmarshalled = marshalAndUnmarshalNonNull(list);
 
         assertThat(unmarshalled.get(0), not(sameInstance(unmarshalled.get(1))));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void marshalsAndUnmarshalsJavaProxies() throws Exception {
+        proxyRunCalled = false;
+
+        Object proxy = testProxyInstance();
+
+        Object unmarshalled = marshalAndUnmarshalNonNull(proxy);
+
+        assertThat(unmarshalled, is(instanceOf(Runnable.class)));
+        Runnable runnable = (Runnable) unmarshalled;
+        runnable.run();
+        assertTrue(proxyRunCalled);
+
+        assertThat(unmarshalled, is(instanceOf(Callable.class)));
+        Callable<String> callable = (Callable<String>) unmarshalled;
+        assertThat(callable.call(), is("Hi!"));
+    }
+
+    private Object testProxyInstance() {
+        InvocationHandler handler = new TestInvocationHandler();
+        return Proxy.newProxyInstance(
+                contextClassLoader(),
+                new Class[]{Runnable.class, Callable.class},
+                handler
+        );
+    }
+
+    @Test
+    void cycleViaProxyIsSupported() throws Exception {
+        InvocationHandlerWithRefToProxy originalHandler = new InvocationHandlerWithRefToProxy();
+        Object originalProxy = Proxy.newProxyInstance(contextClassLoader(), new Class[]{Runnable.class}, originalHandler);
+        originalHandler.ref = originalProxy;
+
+        Object unmarshalledProxy = marshalAndUnmarshalNonNull(originalProxy);
+        var unmarshalledHandler = (InvocationHandlerWithRefToProxy) Proxy.getInvocationHandler(unmarshalledProxy);
+
+        assertThat(unmarshalledHandler.ref, is(sameInstance(unmarshalledProxy)));
+    }
+
+    private ClassLoader contextClassLoader() {
+        return Thread.currentThread().getContextClassLoader();
+    }
+
+    private static boolean noArgs(Method method) {
+        return method.getParameterTypes().length == 0;
     }
 
     private static class Simple {
@@ -651,5 +708,44 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
         private final Double doubleVal = 6.0;
         private final Character characterVal = 'a';
         private final Boolean booleanVal = true;
+    }
+
+    private static class TestInvocationHandler implements InvocationHandler {
+        /** {@inheritDoc} */
+        @Override
+        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+            if ("run".equals(method.getName()) && noArgs(method)) {
+                proxyRunCalled = true;
+                return null;
+            }
+            if ("call".equals(method.getName()) && noArgs(method)) {
+                return "Hi!";
+            }
+            if ("hashCode".equals(method.getName()) && noArgs(method)) {
+                return hashCode();
+            }
+
+            throw new RuntimeException("Don't know how to handle " + method + " with args" + Arrays.toString(args));
+        }
+    }
+
+    private static class InvocationHandlerWithRefToProxy implements InvocationHandler, Serializable {
+        private Object ref;
+
+        @Override
+        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+            if ("equals".equals(method.getName()) && method.getParameterTypes().length == 1
+                    && method.getParameterTypes()[0] == Object.class) {
+                return proxy == args[0];
+            }
+            if ("hashCode".equals(method.getName()) && noArgs(method)) {
+                return hashCode();
+            }
+            if ("toString".equals(method.getName()) && noArgs(method)) {
+                return "Proxy with placeholder";
+            }
+
+            throw new RuntimeException("Don't know how to handle " + method + " with args" + Arrays.toString(args));
+        }
     }
 }
