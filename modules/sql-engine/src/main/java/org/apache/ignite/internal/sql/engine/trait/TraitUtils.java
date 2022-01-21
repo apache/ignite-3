@@ -443,7 +443,10 @@ public class TraitUtils {
         boolean processed = false;
         boolean last = idx == inTraits.size() - 1;
         for (RelTraitSet t : inTraits.get(idx)) {
-            assert t.getConvention() == IgniteConvention.INSTANCE;
+            // change into: assert t.getConvention() == IgniteConvention.INSTANCE; after the ExternalConvention(EXTENSION_NAME is removed.
+            if (t.getConvention() != IgniteConvention.INSTANCE) {
+                continue;
+            }
 
             processed = true;
             combination[idx] = t;
