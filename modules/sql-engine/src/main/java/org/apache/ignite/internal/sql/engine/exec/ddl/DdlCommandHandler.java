@@ -112,8 +112,13 @@ public class DdlCommandHandler {
     /** Handles create table command. */
     private void handleCreateTable(CreateTableCommand cmd) {
         final PrimaryKeyDefinitionBuilder pkeyDef = SchemaBuilders.primaryKey();
-        pkeyDef.withColumns(cmd.primaryKeyColumns());
-        pkeyDef.withAffinityColumns(cmd.affColumns());
+        pkeyDef.withColumns(cmd.primaryKeyColumns() == null
+                ? null
+                : cmd.primaryKeyColumns().stream().map(IgniteObjectName::unparseName).collect(Collectors.toList()));
+
+        pkeyDef.withAffinityColumns(cmd.affColumns() == null
+                ? null
+                : cmd.affColumns().stream().map(IgniteObjectName::unparseName).collect(Collectors.toList()));
 
         final IgniteTypeFactory typeFactory = pctx.typeFactory();
 

@@ -64,7 +64,9 @@ public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, Pri
     /** {@inheritDoc} */
     @Override
     public PrimaryKeyDefinitionBuilderImpl withAffinityColumns(String... affinityColumns) {
-        this.affinityColumns = Arrays.stream(affinityColumns).map(IgniteObjectName::parse).collect(Collectors.toList());;
+        this.affinityColumns = affinityColumns == null
+                ? null
+                : Arrays.stream(affinityColumns).map(IgniteObjectName::parse).collect(Collectors.toList());
 
         return this;
     }
@@ -72,7 +74,9 @@ public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, Pri
     /** {@inheritDoc} */
     @Override
     public PrimaryKeyDefinitionBuilderImpl withAffinityColumns(List<String> affinityColumns) {
-        this.affinityColumns = affinityColumns.stream().map(IgniteObjectName::parse).collect(Collectors.toList());;
+        this.affinityColumns = affinityColumns == null
+                ? null
+                : affinityColumns.stream().map(IgniteObjectName::parse).collect(Collectors.toList());
 
         return this;
     }
