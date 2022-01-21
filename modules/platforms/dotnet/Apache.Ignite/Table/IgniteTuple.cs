@@ -128,7 +128,7 @@ namespace Apache.Ignite.Table
                 throw new IgniteClientException("Column name can not be null or empty.");
             }
 
-            if (str.Length > 2 && str.StartsWith('\"') && str.EndsWith('\"'))
+            if (str.Length > 2 && str.StartsWith('"') && str.EndsWith('"'))
             {
                 return str.Substring(1, str.Length - 2);
             }
