@@ -130,7 +130,7 @@ namespace Apache.Ignite.Table
 
             if (str.Length > 2 && str.StartsWith('\"') && str.EndsWith('\"'))
             {
-                return str.Substring(1, str.Length - 1);
+                return str.Substring(1, str.Length - 2);
             }
 
             return str.ToUpperInvariant();
