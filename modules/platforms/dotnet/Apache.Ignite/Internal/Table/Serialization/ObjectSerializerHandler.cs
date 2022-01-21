@@ -51,7 +51,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 if (prop != null)
                 {
                     var value = reader.ReadObject(column.Type);
-                    prop.SetValue(value, res);
+                    prop.SetValue(res, value);
                 }
                 else
                 {
