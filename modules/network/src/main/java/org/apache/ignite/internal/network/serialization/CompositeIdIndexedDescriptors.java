@@ -17,16 +17,29 @@
 
 package org.apache.ignite.internal.network.serialization;
 
-/**
- * Lists commands used in the serialized stream.
- * Command IDs share space with IDs of {@link ClassDescriptor}s (most importantly, those that are defined in {@link BuiltinType}.
- */
-public class SerializedStreamCommands {
-    /**
-     * Reference: an object that was already seen in the graph, so we relate to it by its ID instead of serializing it again.
-     */
-    public static final int REFERENCE = 44;
+import org.jetbrains.annotations.Nullable;
 
-    private SerializedStreamCommands() {
+/**
+ * Descriptor provider that uses {@link ClassDescriptorRegistry} for built-in descriptor ids and
+ * delegates to another {@link IdIndexedDescriptors} for other ids.
+ */
+public class CompositeIdIndexedDescriptors implements IdIndexedDescriptors {
+    private final IdIndexedDescriptors descriptors;
+    private final ClassDescriptorRegistry ctx;
+
+    public CompositeIdIndexedDescriptors(IdIndexedDescriptors descriptors,
+            ClassDescriptorRegistry ctx) {
+        this.descriptors = descriptors;
+        this.ctx = ctx;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable ClassDescriptor getDescriptor(int descriptorId) {
+        if (ClassDescriptorRegistry.shouldBeBuiltIn(descriptorId)) {
+            return ctx.getDescriptor(descriptorId);
+        }
+
+        return descriptors.getDescriptor(descriptorId);
     }
 }

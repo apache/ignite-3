@@ -40,23 +40,25 @@ import org.jetbrains.annotations.Nullable;
  * Class descriptor factory for the user object serialization.
  */
 public class ClassDescriptorFactory {
-    /** Means that no serialization override is present; used for readability instead of {@code false}. */
-    private static final boolean NO_SERIALIZATION_OVERRIDE = false;
+    /** Means that no writeObject() method is present; used for readability instead of {@code false}. */
+    private static final boolean NO_WRITE_OBJECT = false;
+    /** Means that no readObject() method is present; used for readability instead of {@code false}. */
+    private static final boolean NO_READ_OBJECT = false;
     /** Means that no readObjectNoData() method is present; used for readability instead of {@code false}. */
     private static final boolean NO_READ_OBJECT_NO_DATA = false;
 
     /**
-     * Factory context.
+     * Class descriptor registry.
      */
-    private final ClassDescriptorFactoryContext context;
+    private final ClassDescriptorRegistry registry;
 
     /**
      * Constructor.
      *
-     * @param ctx Context.
+     * @param registry Descriptor registry.
      */
-    public ClassDescriptorFactory(ClassDescriptorFactoryContext ctx) {
-        this.context = ctx;
+    public ClassDescriptorFactory(ClassDescriptorRegistry registry) {
+        this.registry = registry;
     }
 
     /**
@@ -68,7 +70,7 @@ public class ClassDescriptorFactory {
     public ClassDescriptor create(Class<?> clazz) {
         ClassDescriptor classDesc = create0(clazz);
 
-        context.addDescriptor(classDesc);
+        registry.addDescriptor(classDesc);
 
         Queue<FieldDescriptor> fieldDescriptors = new ArrayDeque<>(classDesc.fields());
 
@@ -77,7 +79,7 @@ public class ClassDescriptorFactory {
 
             int typeDescriptorId = fieldDescriptor.typeDescriptorId();
 
-            if (context.hasDescriptor(typeDescriptorId)) {
+            if (registry.hasDescriptor(typeDescriptorId)) {
                 continue;
             }
 
@@ -85,7 +87,7 @@ public class ClassDescriptorFactory {
 
             ClassDescriptor fieldClassDesc = create0(fieldClass);
 
-            context.addDescriptor(fieldClassDesc);
+            registry.addDescriptor(fieldClassDesc);
 
             fieldDescriptors.addAll(fieldClassDesc.fields());
         }
@@ -103,7 +105,7 @@ public class ClassDescriptorFactory {
         assert !clazz.isPrimitive() :
             clazz + " is a primitive, there should be a default descriptor";
 
-        int descriptorId = context.getId(clazz);
+        int descriptorId = registry.getId(clazz);
 
         if (Externalizable.class.isAssignableFrom(clazz)) {
             //noinspection unchecked
@@ -133,7 +135,8 @@ public class ClassDescriptorFactory {
                 Collections.emptyList(),
                 new Serialization(
                         SerializationType.EXTERNALIZABLE,
-                        NO_SERIALIZATION_OVERRIDE,
+                        NO_WRITE_OBJECT,
+                        NO_READ_OBJECT,
                         NO_READ_OBJECT_NO_DATA,
                         hasWriteReplace(clazz),
                         hasReadResolve(clazz)
@@ -201,7 +204,8 @@ public class ClassDescriptorFactory {
                 fields(clazz),
                 new Serialization(
                         SerializationType.SERIALIZABLE,
-                        hasOverrideSerialization(clazz),
+                        hasWriteObject(clazz),
+                        hasReadObject(clazz),
                         hasReadObjectNoData(clazz),
                         hasWriteReplace(clazz),
                         hasReadResolve(clazz)
@@ -215,10 +219,6 @@ public class ClassDescriptorFactory {
 
     private boolean hasWriteReplace(Class<? extends Serializable> clazz) {
         return getWriteReplace(clazz) != null;
-    }
-
-    private boolean hasOverrideSerialization(Class<? extends Serializable> clazz) {
-        return hasWriteObject(clazz) && hasReadObject(clazz);
     }
 
     private boolean hasReadObject(Class<? extends Serializable> clazz) {
@@ -266,7 +266,7 @@ public class ClassDescriptorFactory {
                     // Ignore static and transient fields.
                     return !Modifier.isStatic(modifiers) && !Modifier.isTransient(modifiers);
                 })
-                .map(field -> new FieldDescriptor(field, context.getId(field.getType())))
+                .map(field -> new FieldDescriptor(field, registry.getId(field.getType())))
                 .collect(toList());
     }
 
@@ -312,13 +312,16 @@ public class ClassDescriptorFactory {
     @Nullable
     private static Method getWriteObject(Class<? extends Serializable> clazz) {
         try {
-            Method writeObject = clazz.getDeclaredMethod("writeObject", ObjectOutputStream.class);
+            Method method = clazz.getDeclaredMethod("writeObject", ObjectOutputStream.class);
 
-            if (!Modifier.isPrivate(writeObject.getModifiers())) {
+            if (!Modifier.isPrivate(method.getModifiers())) {
+                return null;
+            }
+            if (method.getReturnType() != void.class) {
                 return null;
             }
 
-            return writeObject;
+            return method;
         } catch (NoSuchMethodException e) {
             return null;
         }
@@ -335,13 +338,16 @@ public class ClassDescriptorFactory {
     @Nullable
     private static Method getReadObject(Class<? extends Serializable> clazz) {
         try {
-            Method writeObject = clazz.getDeclaredMethod("readObject", ObjectInputStream.class);
+            Method method = clazz.getDeclaredMethod("readObject", ObjectInputStream.class);
 
-            if (!Modifier.isPrivate(writeObject.getModifiers())) {
+            if (!Modifier.isPrivate(method.getModifiers())) {
+                return null;
+            }
+            if (method.getReturnType() != void.class) {
                 return null;
             }
 
-            return writeObject;
+            return method;
         } catch (NoSuchMethodException e) {
             return null;
         }
@@ -357,13 +363,16 @@ public class ClassDescriptorFactory {
     @Nullable
     private static Method getReadObjectNoData(Class<? extends Serializable> clazz) {
         try {
-            Method writeObject = clazz.getDeclaredMethod("readObjectNoData");
+            Method method = clazz.getDeclaredMethod("readObjectNoData");
 
-            if (!Modifier.isPrivate(writeObject.getModifiers())) {
+            if (!Modifier.isPrivate(method.getModifiers())) {
+                return null;
+            }
+            if (method.getReturnType() != void.class) {
                 return null;
             }
 
-            return writeObject;
+            return method;
         } catch (NoSuchMethodException e) {
             return null;
         }

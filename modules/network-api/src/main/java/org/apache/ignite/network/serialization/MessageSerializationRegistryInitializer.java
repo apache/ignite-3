@@ -15,12 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.serialization.marshal;
+package org.apache.ignite.network.serialization;
 
-class WithoutNoArgConstructor {
-    int value;
+/** Marker interface for message serialization registry initializers. */
+// TODO: IGNITE-16302 register services to use with ServiceLoader
+public interface MessageSerializationRegistryInitializer {
 
-    public WithoutNoArgConstructor(int value) {
-        this.value = value;
-    }
 }

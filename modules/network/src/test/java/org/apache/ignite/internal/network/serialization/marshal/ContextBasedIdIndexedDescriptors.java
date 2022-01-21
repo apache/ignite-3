@@ -18,23 +18,23 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
-import org.apache.ignite.internal.network.serialization.ClassDescriptorFactoryContext;
+import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.IdIndexedDescriptors;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link IdIndexedDescriptors} implementation that is backed by a {@link ClassDescriptorFactoryContext}.
+ * {@link IdIndexedDescriptors} implementation that is backed by a {@link ClassDescriptorRegistry}.
  */
 class ContextBasedIdIndexedDescriptors implements IdIndexedDescriptors {
-    private final ClassDescriptorFactoryContext context;
+    private final ClassDescriptorRegistry registry;
 
-    ContextBasedIdIndexedDescriptors(ClassDescriptorFactoryContext context) {
-        this.context = context;
+    ContextBasedIdIndexedDescriptors(ClassDescriptorRegistry registry) {
+        this.registry = registry;
     }
 
     @Override
     @Nullable
     public ClassDescriptor getDescriptor(int descriptorId) {
-        return context.getDescriptor(descriptorId);
+        return registry.getDescriptor(descriptorId);
     }
 }

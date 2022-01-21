@@ -23,9 +23,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Class descriptor factory context.
+ * Class descriptor registry.
  */
-public class ClassDescriptorFactoryContext implements ClassIndexedDescriptors {
+public class ClassDescriptorRegistry implements IdIndexedDescriptors, ClassIndexedDescriptors {
     /** Quantity of descriptor ids reserved for the default descriptors. */
     private static final int DEFAULT_DESCRIPTORS_OFFSET_COUNT = 1000;
 
@@ -41,8 +41,8 @@ public class ClassDescriptorFactoryContext implements ClassIndexedDescriptors {
     /**
      * Constructor.
      */
-    public ClassDescriptorFactoryContext() {
-        for (BuiltinType value : BuiltinType.values()) {
+    public ClassDescriptorRegistry() {
+        for (BuiltInType value : BuiltInType.values()) {
             addPredefinedDescriptor(value.clazz(), value.asClassDescriptor());
         }
     }
@@ -58,7 +58,7 @@ public class ClassDescriptorFactoryContext implements ClassIndexedDescriptors {
 
         Integer existingId = idMap.put(clazz, descriptorId);
 
-        assert existingId == null;
+        assert existingId == null : clazz;
 
         ClassDescriptor existingDescriptor = descriptorMap.put(descriptorId, descriptor);
 
@@ -81,6 +81,7 @@ public class ClassDescriptorFactoryContext implements ClassIndexedDescriptors {
      * @param descriptorId Descriptor id.
      * @return Descriptor.
      */
+    @Override
     @Nullable
     public ClassDescriptor getDescriptor(int descriptorId) {
         return descriptorMap.get(descriptorId);
@@ -109,34 +110,8 @@ public class ClassDescriptorFactoryContext implements ClassIndexedDescriptors {
      *
      * @param builtinType   built-in type for lookup
      */
-    public ClassDescriptor getBuiltInDescriptor(BuiltinType builtinType) {
+    public ClassDescriptor getBuiltInDescriptor(BuiltInType builtinType) {
         return getRequiredDescriptor(builtinType.descriptorId());
-    }
-
-    /**
-     * Returns a descriptor by ID or throws an exception if no such descriptor is known.
-     *
-     * @param descriptorId ID of the descriptor
-     * @return descriptor by ID
-     */
-    public ClassDescriptor getRequiredDescriptor(int descriptorId) {
-        ClassDescriptor descriptor = getDescriptor(descriptorId);
-
-        if (descriptor == null) {
-            throw new IllegalStateException("Did not find a descriptor with ID=" + descriptorId);
-        }
-
-        return descriptor;
-    }
-
-    /**
-     * Returns {@code true} if there is a descriptor for the id.
-     *
-     * @param descriptorId Descriptor id.
-     * @return {@code true} if there is a descriptor for the id.
-     */
-    public boolean hasDescriptor(int descriptorId) {
-        return getDescriptor(descriptorId) != null;
     }
 
     /**

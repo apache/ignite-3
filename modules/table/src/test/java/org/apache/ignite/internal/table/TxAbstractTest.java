@@ -83,8 +83,8 @@ import org.mockito.quality.Strictness;
 public abstract class TxAbstractTest extends IgniteAbstractTest {
     protected static SchemaDescriptor ACCOUNTS_SCHEMA = new SchemaDescriptor(
             1,
-            new Column[]{new Column("accountNumber", NativeTypes.INT64, false)},
-            new Column[]{new Column("balance", NativeTypes.DOUBLE, false)}
+            new Column[]{new Column("accountNumber".toUpperCase(), NativeTypes.INT64, false)},
+            new Column[]{new Column("balance".toUpperCase(), NativeTypes.DOUBLE, false)}
     );
 
     /** Table ID test value. */
@@ -92,8 +92,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     protected static SchemaDescriptor CUSTOMERS_SCHEMA = new SchemaDescriptor(
             1,
-            new Column[]{new Column("accountNumber", NativeTypes.INT64, false)},
-            new Column[]{new Column("name", NativeTypes.STRING, false)}
+            new Column[]{new Column("accountNumber".toUpperCase(), NativeTypes.INT64, false)},
+            new Column[]{new Column("name".toUpperCase(), NativeTypes.STRING, false)}
     );
 
     /** Accounts table id -> balance. */
@@ -422,7 +422,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * Tests if a lost update is not happening on concurrent increment.
      */
     @Test
-    public void testIncrement2() throws TransactionException {
+    public void testIncrement2() throws TransactionException, InterruptedException {
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
 
@@ -442,6 +442,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         // Write in tx2 (should wait for read unlock in tx1)
         CompletableFuture<Void> fut = table2.upsertAsync(tx2, makeValue(1, valTx2 + 1));
+        Thread.sleep(300); // Give some time to update lock queue TODO asch IGNITE-15928
         assertFalse(fut.isDone());
 
         CompletableFuture<Void> fut2 = fut.thenCompose(ret -> tx2.commitAsync());

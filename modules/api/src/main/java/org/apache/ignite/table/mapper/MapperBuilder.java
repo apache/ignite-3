@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.ignite.internal.util.IgniteObjectName;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -164,17 +165,22 @@ public final class MapperBuilder<T> {
     public MapperBuilder<T> map(@NotNull String fieldName, @NotNull String columnName, String... fieldColumnPairs) {
         ensureNotStale();
 
+        String colName0 = IgniteObjectName.parse(columnName);
+
         if (columnToFields == null) {
             throw new IllegalArgumentException("Natively supported types doesn't support field mapping.");
         } else if (fieldColumnPairs.length % 2 != 0) {
             throw new IllegalArgumentException("fieldColumnPairs length should be even.");
-        } else if (columnToFields.put(Objects.requireNonNull(columnName), requireValidField(fieldName)) != null) {
-            throw new IllegalArgumentException("Mapping for a column already exists: " + columnName);
+        } else if (columnToFields.put(Objects.requireNonNull(colName0), requireValidField(fieldName)) != null) {
+            throw new IllegalArgumentException("Mapping for a column already exists: " + colName0);
         }
 
         for (int i = 0; i < fieldColumnPairs.length; i += 2) {
-            if (columnToFields.put(Objects.requireNonNull(fieldColumnPairs[i + 1]), requireValidField(fieldColumnPairs[i])) != null) {
-                throw new IllegalArgumentException("Mapping for a column already exists: " + columnName);
+            if (columnToFields.put(
+                    IgniteObjectName.parse(Objects.requireNonNull(fieldColumnPairs[i + 1])),
+                    requireValidField(fieldColumnPairs[i])) != null
+            ) {
+                throw new IllegalArgumentException("Mapping for a column already exists: " + colName0);
             }
         }
 
@@ -213,7 +219,7 @@ public final class MapperBuilder<T> {
     public <ObjectT, ColumnT> MapperBuilder<T> convert(@NotNull String columnName, @NotNull TypeConverter<ObjectT, ColumnT> converter) {
         ensureNotStale();
 
-        if (columnConverters.put(columnName, converter) != null) {
+        if (columnConverters.put(IgniteObjectName.parse(columnName), converter) != null) {
             throw new IllegalArgumentException("Column converter already exists: " + columnName);
         }
 
@@ -261,7 +267,8 @@ public final class MapperBuilder<T> {
             Arrays.stream(targetType.getDeclaredFields())
                     .map(Field::getName)
                     .filter(fldName -> !fields.contains(fldName))
-                    .forEach(fldName -> mapping.putIfAbsent(fldName, fldName)); // Ignore manually mapped fields/columns.
+                    // Ignore manually mapped fields/columns.
+                    .forEach(fldName -> mapping.putIfAbsent(fldName.toUpperCase(), fldName));
         }
 
         return new PojoMapperImpl<>(targetType, mapping, columnConverters);

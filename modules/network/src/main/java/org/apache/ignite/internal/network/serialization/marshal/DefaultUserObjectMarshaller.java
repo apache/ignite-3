@@ -29,14 +29,14 @@ import java.io.Externalizable;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Proxy;
 import java.util.Collection;
 import java.util.Map;
-import org.apache.ignite.internal.network.serialization.BuiltinType;
+import org.apache.ignite.internal.network.serialization.BuiltInType;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
-import org.apache.ignite.internal.network.serialization.ClassDescriptorFactoryContext;
+import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.IdIndexedDescriptors;
-import org.apache.ignite.internal.network.serialization.SerializedStreamCommands;
 import org.apache.ignite.internal.network.serialization.SpecialMethodInvocationException;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,7 +44,7 @@ import org.jetbrains.annotations.Nullable;
  * Default implementation of {@link UserObjectMarshaller}.
  */
 public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
-    private final ClassDescriptorFactoryContext localDescriptors;
+    private final ClassDescriptorRegistry localDescriptors;
     private final ClassDescriptorFactory descriptorFactory;
 
     private final BuiltInNonContainerMarshallers builtInNonContainerMarshallers = new BuiltInNonContainerMarshallers();
@@ -53,6 +53,9 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     );
     private final StructuredObjectMarshaller structuredObjectMarshaller;
     private final ExternalizableMarshaller externalizableMarshaller;
+    private final ProxyMarshaller proxyMarshaller;
+
+    private final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 
     /**
      * Constructor.
@@ -60,26 +63,23 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
      * @param localDescriptors registry of local descriptors to consult with (and to write to if an unseen class is encountered)
      * @param descriptorFactory  descriptor factory to create new descriptors from classes
      */
-    public DefaultUserObjectMarshaller(ClassDescriptorFactoryContext localDescriptors, ClassDescriptorFactory descriptorFactory) {
+    public DefaultUserObjectMarshaller(ClassDescriptorRegistry localDescriptors, ClassDescriptorFactory descriptorFactory) {
         this.localDescriptors = localDescriptors;
         this.descriptorFactory = descriptorFactory;
 
-        structuredObjectMarshaller = new StructuredObjectMarshaller(this::marshalToOutput, this::unmarshalFromInput);
+        structuredObjectMarshaller = new StructuredObjectMarshaller(localDescriptors, this::marshalToOutput, this::unmarshalFromInput);
 
         externalizableMarshaller = new ExternalizableMarshaller(
-                this::unmarshalFromInput,
                 this::marshalToOutput,
+                this::unmarshalFromInput,
                 structuredObjectMarshaller
         );
+
+        proxyMarshaller = new ProxyMarshaller(this::marshalToOutput, this::unmarshalFromInput);
     }
 
-    /**
-     * Marshals an object detecting its type from the value.
-     *
-     * @param object object to marshal
-     * @return marshalled representation
-     * @throws MarshalException if marshalling fails
-     */
+    /** {@inheritDoc} */
+    @Override
     public MarshalledObject marshal(@Nullable Object object) throws MarshalException {
         return marshal(object, objectClass(object));
     }
@@ -99,6 +99,11 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         return new MarshalledObject(baos.toByteArray(), context.usedDescriptors());
     }
 
+    private void marshalToOutput(@Nullable Object object, DataOutputStream output, MarshallingContext context)
+            throws MarshalException, IOException {
+        marshalToOutput(object, objectClass(object), output, context);
+    }
+
     private void marshalToOutput(@Nullable Object object, Class<?> declaredClass, DataOutputStream output, MarshallingContext context)
             throws MarshalException, IOException {
         assert declaredClass != null;
@@ -114,26 +119,16 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
 
         DescribedObject afterReplacement = applyWriteReplaceIfNeeded(object, originalDescriptor);
 
-        if (canParticipateInCycles(afterReplacement.descriptor)) {
+        if (hasObjectIdentity(afterReplacement.object, afterReplacement.descriptor)) {
             Integer alreadySeenObjectId = context.rememberAsSeen(afterReplacement.object);
             if (alreadySeenObjectId != null) {
                 writeReference(alreadySeenObjectId, output);
             } else {
-                marshalCycleable(afterReplacement, output, context);
+                marshalIdentifiable(afterReplacement, output, context);
             }
         } else {
-            marshalNonCycleable(afterReplacement, output, context);
+            marshalValue(afterReplacement, output, context);
         }
-    }
-
-    /**
-     * Returns {@code true} if an instance of the type represented by the descriptor may participate in a cycle.
-     *
-     * @param descriptor    descriptor to check
-     * @return {@code true} if an instance of the type represented by the descriptor may actively form a cycle
-     */
-    boolean canParticipateInCycles(ClassDescriptor descriptor) {
-        return !builtInNonContainerMarshallers.supports(descriptor.clazz());
     }
 
     private boolean objectIsMemberOfEnumWithAnonymousClassesForMembers(Object object, Class<?> declaredClass) {
@@ -150,10 +145,14 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
 
         Class<?> objectClass = object.getClass();
         if (isInnerClass(objectClass)) {
-            throw new IllegalArgumentException("Non-static inner class instances are not supported for marshalling: " + objectClass);
+            throw new MarshallingNotSupportedException("Non-static inner class instances are not supported for marshalling: "
+                    + objectClass);
         }
         if (isCapturingClosure(objectClass)) {
-            throw new IllegalArgumentException("Capturing nested class instances are not supported for marshalling: " + object);
+            throw new MarshallingNotSupportedException("Capturing nested class instances are not supported for marshalling: " + object);
+        }
+        if (Classes.isLambda(objectClass) && !Classes.isSerializable(objectClass)) {
+            throw new MarshallingNotSupportedException("Non-serializable lambda instances are not supported for marshalling: " + object);
         }
     }
 
@@ -170,6 +169,49 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         }
 
         return false;
+    }
+
+    private ClassDescriptor getOrCreateDescriptor(@Nullable Object object, Class<?> declaredClass) {
+        if (object == null) {
+            return localDescriptors.getNullDescriptor();
+        }
+
+        // For primitives, we need to keep the declaredClass (it differs from object.getClass()).
+        // For enums, we don't need the specific classes at all.
+        Class<?> classToQueryForOriginalDescriptor = declaredClass.isPrimitive() || object instanceof Enum
+                ? declaredClass : object.getClass();
+
+        return getOrCreateDescriptor(classToQueryForOriginalDescriptor);
+    }
+
+    private ClassDescriptor getOrCreateDescriptor(Class<?> objectClass) {
+        // ENUM and ENUM_ARRAY need to be handled separately because an enum value has a class different from
+        // Enum and an ENUM_ARRAY might be used for both Enum[] and EnumSubclass[].
+        if (objectClass.isEnum()) {
+            return localDescriptors.getEnumDescriptor();
+        }
+        if (isEnumArray(objectClass)) {
+            return localDescriptors.getRequiredDescriptor(Enum[].class);
+        }
+        if (proxyMarshaller.isProxyClass(objectClass)) {
+            return localDescriptors.getDescriptor(Proxy.class);
+        }
+
+        ClassDescriptor descriptor = localDescriptors.getDescriptor(objectClass);
+        if (descriptor != null) {
+            return descriptor;
+        } else {
+            // This is some custom class (not a built-in). If it's a non-built-in array, we need to handle it as a generic container.
+            if (objectClass.isArray()) {
+                return localDescriptors.getBuiltInDescriptor(BuiltInType.OBJECT_ARRAY);
+            }
+
+            return descriptorFactory.create(objectClass);
+        }
+    }
+
+    private boolean isEnumArray(Class<?> objectClass) {
+        return objectClass.isArray() && objectClass.getComponentType().isEnum();
     }
 
     private DescribedObject applyWriteReplaceIfNeeded(@Nullable Object objectBefore, ClassDescriptor descriptorBefore)
@@ -198,52 +240,20 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         }
     }
 
-    private ClassDescriptor getOrCreateDescriptor(@Nullable Object object, Class<?> declaredClass) {
-        if (object == null) {
-            return localDescriptors.getNullDescriptor();
-        }
-
-        // For primitives, we need to keep the declaredClass (it differs from object.getClass()).
-        // For enums, we don't need the specific classes at all.
-        Class<?> classToQueryForOriginalDescriptor = declaredClass.isPrimitive() || object instanceof Enum
-                ? declaredClass : object.getClass();
-
-        return getOrCreateDescriptor(classToQueryForOriginalDescriptor);
+    private boolean hasObjectIdentity(@Nullable Object object, ClassDescriptor descriptor) {
+        return object != null && mayHaveObjectIdentity(descriptor);
     }
 
-    private ClassDescriptor getOrCreateDescriptor(Class<?> objectClass) {
-        // ENUM and ENUM_ARRAY need to be handled separately because an enum value has a class different from
-        // Enum and an ENUM_ARRAY might be used for both Enum[] and EnumSubclass[].
-        if (objectClass.isEnum()) {
-            return localDescriptors.getEnumDescriptor();
-        }
-        if (isEnumArray(objectClass)) {
-            return localDescriptors.getRequiredDescriptor(Enum[].class);
-        }
-
-        ClassDescriptor descriptor = localDescriptors.getDescriptor(objectClass);
-        if (descriptor != null) {
-            return descriptor;
-        } else {
-            // This is some custom class (not a built-in). If it's a non-built-in array, we need to handle it as a generic container.
-            if (objectClass.isArray()) {
-                return localDescriptors.getBuiltInDescriptor(BuiltinType.OBJECT_ARRAY);
-            }
-
-            return descriptorFactory.create(objectClass);
-        }
-    }
-
-    private boolean isEnumArray(Class<?> objectClass) {
-        return objectClass.isArray() && objectClass.getComponentType().isEnum();
+    private boolean mayHaveObjectIdentity(ClassDescriptor descriptor) {
+        return !descriptor.clazz().isPrimitive() && !descriptor.isNull();
     }
 
     private void writeReference(int objectId, DataOutput output) throws IOException {
-        ProtocolMarshalling.writeDescriptorOrCommandId(SerializedStreamCommands.REFERENCE, output);
+        ProtocolMarshalling.writeDescriptorOrCommandId(BuiltInType.REFERENCE.descriptorId(), output);
         ProtocolMarshalling.writeObjectId(objectId, output);
     }
 
-    private void marshalCycleable(DescribedObject describedObject, DataOutputStream output, MarshallingContext context)
+    private void marshalIdentifiable(DescribedObject describedObject, DataOutputStream output, MarshallingContext context)
             throws IOException, MarshalException {
         writeDescriptorId(describedObject.descriptor, output);
         ProtocolMarshalling.writeObjectId(context.objectId(describedObject.object), output);
@@ -251,7 +261,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         writeObject(describedObject.object, describedObject.descriptor, output, context);
     }
 
-    private void marshalNonCycleable(DescribedObject describedObject, DataOutputStream output, MarshallingContext context)
+    private void marshalValue(DescribedObject describedObject, DataOutputStream output, MarshallingContext context)
             throws IOException, MarshalException {
         writeDescriptorId(describedObject.descriptor, output);
 
@@ -275,6 +285,9 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
             builtInContainerMarshallers.writeGenericRefArray((Object[]) object, descriptor, output, context);
         } else if (descriptor.isExternalizable()) {
             externalizableMarshaller.writeExternalizable((Externalizable) object, descriptor, output, context);
+        } else if (descriptor.isProxy()) {
+            //noinspection ConstantConditions
+            proxyMarshaller.writeProxy(object, output, context);
         } else {
             structuredObjectMarshaller.writeStructuredObject(object, descriptor, output, context);
         }
@@ -301,7 +314,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     @Nullable
     public <T> T unmarshal(byte[] bytes, IdIndexedDescriptors mergedDescriptors) throws UnmarshalException {
         try (var bais = new ByteArrayInputStream(bytes); var dis = new DataInputStream(bais)) {
-            UnmarshallingContext context = new UnmarshallingContext(bais, mergedDescriptors);
+            UnmarshallingContext context = new UnmarshallingContext(bais, mergedDescriptors, classLoader);
             T result = unmarshalFromInput(dis, context);
 
             throwIfExcessiveBytesRemain(dis);
@@ -314,17 +327,12 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
 
     private <T> T unmarshalFromInput(DataInputStream input, UnmarshallingContext context) throws IOException, UnmarshalException {
         int commandOrDescriptorId = ProtocolMarshalling.readDescriptorOrCommandId(input);
-        if (commandOrDescriptorId == SerializedStreamCommands.REFERENCE) {
+        if (commandOrDescriptorId == BuiltInType.REFERENCE.descriptorId()) {
             return unmarshalReference(input, context);
         }
 
         ClassDescriptor descriptor = context.getRequiredDescriptor(commandOrDescriptorId);
-        Object readObject;
-        if (canParticipateInCycles(descriptor)) {
-            readObject = readCycleable(input, context, descriptor);
-        } else {
-            readObject = readNonCycleable(input, descriptor, context);
-        }
+        Object readObject = readObject(input, context, descriptor);
 
         @SuppressWarnings("unchecked") T resolvedObject = (T) applyReadResolveIfNeeded(descriptor, readObject);
         return resolvedObject;
@@ -335,9 +343,40 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         return context.dereference(objectId);
     }
 
-    private Object readCycleable(DataInputStream input, UnmarshallingContext context, ClassDescriptor descriptor)
+    @Nullable
+    private Object readObject(DataInputStream input, UnmarshallingContext context, ClassDescriptor descriptor)
             throws IOException, UnmarshalException {
-        int objectId = ProtocolMarshalling.readObjectId(input);
+        if (!mayHaveObjectIdentity(descriptor)) {
+            return readValue(input, descriptor, context);
+        } else if (mustBeReadInOneStage(descriptor)) {
+            return readIdentifiableInOneStage(input, context, descriptor);
+        } else {
+            return readIdentifiableInTwoStages(input, context, descriptor);
+        }
+    }
+
+    private boolean mustBeReadInOneStage(ClassDescriptor descriptor) {
+        return builtInNonContainerMarshallers.supports(descriptor.clazz());
+    }
+
+    @Nullable
+    private Object readIdentifiableInOneStage(DataInputStream input, UnmarshallingContext context, ClassDescriptor descriptor)
+            throws IOException, UnmarshalException {
+        int objectId = readObjectId(input);
+
+        Object object = readValue(input, descriptor, context);
+        context.registerReference(objectId, object);
+
+        return object;
+    }
+
+    private int readObjectId(DataInputStream input) throws IOException {
+        return ProtocolMarshalling.readObjectId(input);
+    }
+
+    private Object readIdentifiableInTwoStages(DataInputStream input, UnmarshallingContext context, ClassDescriptor descriptor)
+            throws IOException, UnmarshalException {
+        int objectId = readObjectId(input);
 
         Object preInstantiatedObject = preInstantiate(descriptor, input, context);
         context.registerReference(objectId, preInstantiatedObject);
@@ -347,7 +386,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         return preInstantiatedObject;
     }
 
-    private Object preInstantiate(ClassDescriptor descriptor, DataInput input, UnmarshallingContext context)
+    private Object preInstantiate(ClassDescriptor descriptor, DataInputStream input, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         if (isBuiltInNonContainer(descriptor)) {
             throw new IllegalStateException("Should not be here, descriptor is " + descriptor);
@@ -356,9 +395,11 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         } else if (isBuiltInMap(descriptor)) {
             return builtInContainerMarshallers.preInstantiateBuiltInMutableMap(descriptor, input, context);
         } else if (isArray(descriptor)) {
-            return builtInContainerMarshallers.preInstantiateGenericRefArray(input);
+            return builtInContainerMarshallers.preInstantiateGenericRefArray(input, context);
         } else if (descriptor.isExternalizable()) {
             return externalizableMarshaller.preInstantiateExternalizable(descriptor);
+        } else if (descriptor.isProxy()) {
+            return proxyMarshaller.preInstantiateProxy(input, context);
         } else {
             return structuredObjectMarshaller.preInstantiateStructuredObject(descriptor);
         }
@@ -376,6 +417,8 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
             fillGenericRefArrayFrom(input, (Object[]) objectToFill, context);
         } else if (descriptor.isExternalizable()) {
             externalizableMarshaller.fillExternalizableFrom(input, (Externalizable) objectToFill, context);
+        } else if (descriptor.isProxy()) {
+            proxyMarshaller.fillProxyFrom(input, objectToFill, context);
         } else {
             structuredObjectMarshaller.fillStructuredObjectFrom(input, objectToFill, descriptor, context);
         }
@@ -407,7 +450,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     }
 
     @Nullable
-    private Object readNonCycleable(DataInputStream input, ClassDescriptor descriptor, UnmarshallingContext context)
+    private Object readValue(DataInputStream input, ClassDescriptor descriptor, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         if (isBuiltInNonContainer(descriptor)) {
             return builtInNonContainerMarshallers.readBuiltIn(descriptor, input, context);

@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
-import org.apache.ignite.internal.network.serialization.ClassDescriptorFactoryContext;
+import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.IdIndexedDescriptors;
 import org.junit.jupiter.api.Test;
 
@@ -31,14 +31,14 @@ import org.junit.jupiter.api.Test;
  * Common tests for {@link DefaultUserObjectMarshaller}.
  */
 class DefaultUserObjectMarshallerCommonTest {
-    private final ClassDescriptorFactoryContext descriptorRegistry = new ClassDescriptorFactoryContext();
+    private final ClassDescriptorRegistry descriptorRegistry = new ClassDescriptorRegistry();
     private final ClassDescriptorFactory descriptorFactory = new ClassDescriptorFactory(descriptorRegistry);
     private final IdIndexedDescriptors descriptors = new ContextBasedIdIndexedDescriptors(descriptorRegistry);
 
     private final DefaultUserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(descriptorRegistry, descriptorFactory);
 
     @Test
-    void marshalsAndUnmarshalsBareObject() throws Exception {
+    void throwsOnExcessiveInputWhenUnmarshalling() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(null);
 
         byte[] tooManyBytes = Arrays.copyOf(marshalled.bytes(), marshalled.bytes().length + 1);

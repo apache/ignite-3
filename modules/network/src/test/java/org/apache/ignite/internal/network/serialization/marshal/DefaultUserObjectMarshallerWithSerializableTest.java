@@ -38,7 +38,7 @@ import java.io.Serializable;
 import java.util.Set;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
-import org.apache.ignite.internal.network.serialization.ClassDescriptorFactoryContext;
+import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.IdIndexedDescriptors;
 import org.junit.jupiter.api.Test;
 
@@ -46,7 +46,7 @@ import org.junit.jupiter.api.Test;
  * Tests for how {@link DefaultUserObjectMarshaller} handles {@link java.io.Serializable}s (but not {@link Externalizable}s).
  */
 class DefaultUserObjectMarshallerWithSerializableTest {
-    private final ClassDescriptorFactoryContext descriptorRegistry = new ClassDescriptorFactoryContext();
+    private final ClassDescriptorRegistry descriptorRegistry = new ClassDescriptorRegistry();
     private final ClassDescriptorFactory descriptorFactory = new ClassDescriptorFactory(descriptorRegistry);
     private final IdIndexedDescriptors descriptors = new ContextBasedIdIndexedDescriptors(descriptorRegistry);
 
@@ -63,6 +63,8 @@ class DefaultUserObjectMarshallerWithSerializableTest {
 
     private static boolean nonSerializableParentConstructorCalled;
     private static boolean constructorCalled;
+    private static boolean writeObjectCalled;
+    private static boolean readObjectCalled;
 
     @Test
     void marshalsAndUnmarshalsSerializable() throws Exception {
@@ -237,6 +239,20 @@ class DefaultUserObjectMarshallerWithSerializableTest {
         assertThat(deserialized.value, is(42 + READ_RESOLVE_INCREMENT));
         assertThat(deserialized.ref.value, is(43 + READ_RESOLVE_INCREMENT));
         assertThat(deserialized.ref.ref, is(not(sameInstance(deserialized))));
+    }
+
+    @Test
+    void invokesWriteObjectEvenWhenThereIsNoReadObject() throws Exception {
+        marshalAndUnmarshalNonNull(new WithWriteObjectButNoReadObject());
+
+        assertTrue(writeObjectCalled);
+    }
+
+    @Test
+    void invokesReadObjectEvenWhenThereIsNoWriteObject() throws Exception {
+        marshalAndUnmarshalNonNull(new WithReadObjectButNoWriteObject());
+
+        assertTrue(readObjectCalled);
     }
 
     /**
@@ -480,6 +496,18 @@ class DefaultUserObjectMarshallerWithSerializableTest {
 
         private Object readResolve() {
             return new IndirectSelfRefWithResolveToSelf(value + READ_RESOLVE_INCREMENT, ref);
+        }
+    }
+
+    private static class WithWriteObjectButNoReadObject implements Serializable {
+        private void writeObject(ObjectOutputStream stream) {
+            writeObjectCalled = true;
+        }
+    }
+
+    private static class WithReadObjectButNoWriteObject implements Serializable {
+        private void readObject(ObjectInputStream stream) {
+            readObjectCalled = true;
         }
     }
 }

@@ -21,7 +21,6 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.Externalizable;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 
 /**
@@ -35,8 +34,7 @@ class ExternalizableMarshaller {
     private final NoArgConstructorInstantiation instantiation = new NoArgConstructorInstantiation();
 
     ExternalizableMarshaller(
-            ValueReader<Object> valueReader,
-            TypedValueWriter typedValueWriter,
+            TypedValueWriter typedValueWriter, ValueReader<Object> valueReader,
             DefaultFieldsReaderWriter defaultFieldsReaderWriter
     ) {
         this.valueReader = valueReader;
@@ -53,12 +51,18 @@ class ExternalizableMarshaller {
 
     private void externalizeTo(Externalizable externalizable, DataOutputStream output, MarshallingContext context)
             throws IOException {
-        context.endWritingWithWriteObject();
-
         // Do not close the stream yet!
         UosObjectOutputStream oos = context.objectOutputStream(output, typedValueWriter, defaultFieldsReaderWriter);
-        externalizable.writeExternal(oos);
-        oos.flush();
+
+        UosObjectOutputStream.UosPutField oldPut = oos.replaceCurrentPutFieldWithNull();
+        context.endWritingWithWriteObject();
+
+        try {
+            externalizable.writeExternal(oos);
+            oos.flush();
+        } finally {
+            oos.restoreCurrentPutFieldTo(oldPut);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -72,14 +76,18 @@ class ExternalizableMarshaller {
 
     <T extends Externalizable> void fillExternalizableFrom(DataInputStream input, T object, UnmarshallingContext context)
             throws IOException, UnmarshalException {
+        // Do not close the stream yet!
+        UosObjectInputStream ois = context.objectInputStream(input, valueReader, defaultFieldsReaderWriter);
+
+        UosObjectInputStream.UosGetField oldGet = ois.replaceCurrentGetFieldWithNull();
         context.endReadingWithReadObject();
 
-        // Do not close the stream yet!
-        ObjectInputStream ois = context.objectInputStream(input, valueReader, defaultFieldsReaderWriter);
         try {
             object.readExternal(ois);
         } catch (ClassNotFoundException e) {
             throw new UnmarshalException("Cannot unmarshal due to a missing class", e);
+        } finally {
+            ois.restoreCurrentGetFieldTo(oldGet);
         }
     }
 }
