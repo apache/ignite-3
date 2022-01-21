@@ -49,6 +49,11 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  */
 public abstract class PageIo {
     /**
+     * Maximum value for page type.
+     */
+    public static final int MAX_IO_TYPE = 65535 - 1;
+
+    /**
      * Offset for "short" page type.
      */
     public static final int TYPE_OFF = 0;
@@ -125,8 +130,8 @@ public abstract class PageIo {
      * @param ver  Page format version.
      */
     protected PageIo(int type, int ver) {
-        assert ver > 0 && ver < 65535 : ver;
-        assert type > 0 && type < 65535 : type;
+        assert ver > 0 && ver <= MAX_IO_TYPE : ver;
+        assert type > 0 && type <= MAX_IO_TYPE : type;
 
         this.type = type;
         this.ver = ver;

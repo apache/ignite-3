@@ -28,7 +28,7 @@ public class PageIoRegistry {
     /**
      * Arrays of {@link IoVersions} for fast access. Element 0 is reserved.
      */
-    private final IoVersions<?>[] ioVersions = new IoVersions[65535];
+    private final IoVersions<?>[] ioVersions = new IoVersions[PageIo.MAX_IO_TYPE + 1];
 
     /**
      * Loads all {@link IoVersions} from corresponding {@link PageIoModule} using a {@link ServiceLoader} mechanism.
@@ -78,7 +78,7 @@ public class PageIoRegistry {
      * @throws IgniteInternalCheckedException If page type or version are invalid or not registered.
      */
     public PageIo resolve(int type, int ver) throws IgniteInternalCheckedException {
-        if (type <= 0 || type >= 65535) {
+        if (type <= 0 || type > PageIo.MAX_IO_TYPE) {
             throw new IgniteInternalCheckedException("Unknown page IO type: " + type);
         }
 
