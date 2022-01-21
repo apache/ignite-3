@@ -57,7 +57,7 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
-            using var resBuf = await DoTupleOutOpAsync(ClientOp.TupleGet, transaction, key, keyOnly: true).ConfigureAwait(false);
+            using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleGet, transaction, key, keyOnly: true).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             return _ser.ReadValue(resBuf, resSchema, key);
@@ -93,7 +93,7 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
-            using var resBuf = await DoTupleOutOpAsync(ClientOp.TupleUpsert, transaction, record).ConfigureAwait(false);
+            using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleUpsert, transaction, record).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -122,7 +122,7 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
-            using var resBuf = await DoTupleOutOpAsync(ClientOp.TupleGetAndUpsert, transaction, record).ConfigureAwait(false);
+            using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleGetAndUpsert, transaction, record).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             return _ser.ReadValue(resBuf, resSchema, record);
@@ -133,7 +133,7 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
-            using var resBuf = await DoTupleOutOpAsync(ClientOp.TupleInsert, transaction, record).ConfigureAwait(false);
+            using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleInsert, transaction, record).ConfigureAwait(false);
             return resBuf.GetReader().ReadBoolean();
         }
 
@@ -167,7 +167,7 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
-            using var resBuf = await DoTupleOutOpAsync(ClientOp.TupleReplace, transaction, record).ConfigureAwait(false);
+            using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleReplace, transaction, record).ConfigureAwait(false);
             return resBuf.GetReader().ReadBoolean();
         }
 
@@ -191,7 +191,7 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
-            using var resBuf = await DoTupleOutOpAsync(ClientOp.TupleGetAndReplace, transaction, record).ConfigureAwait(false);
+            using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleGetAndReplace, transaction, record).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             return _ser.ReadValue(resBuf, resSchema, record);
@@ -202,7 +202,7 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
-            using var resBuf = await DoTupleOutOpAsync(ClientOp.TupleDelete, transaction, key, keyOnly: true).ConfigureAwait(false);
+            using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleDelete, transaction, key, keyOnly: true).ConfigureAwait(false);
             return resBuf.GetReader().ReadBoolean();
         }
 
@@ -211,7 +211,7 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
-            using var resBuf = await DoTupleOutOpAsync(ClientOp.TupleDeleteExact, transaction, record).ConfigureAwait(false);
+            using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleDeleteExact, transaction, record).ConfigureAwait(false);
             return resBuf.GetReader().ReadBoolean();
         }
 
@@ -220,7 +220,7 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
-            using var resBuf = await DoTupleOutOpAsync(ClientOp.TupleGetAndDelete, transaction, key, keyOnly: true).ConfigureAwait(false);
+            using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleGetAndDelete, transaction, key, keyOnly: true).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             return _ser.ReadValue(resBuf, resSchema, key);
@@ -285,17 +285,17 @@ namespace Apache.Ignite.Internal.Table
             return await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
         }
 
-        private async Task<PooledBuffer> DoTupleOutOpAsync(
+        private async Task<PooledBuffer> DoRecordOutOpAsync(
             ClientOp op,
             ITransaction? transaction,
-            T tuple,
+            T record,
             bool keyOnly = false)
         {
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = transaction.ToInternal();
 
             using var writer = new PooledArrayBufferWriter();
-            _ser.Write(writer, tx, schema, tuple, keyOnly);
+            _ser.Write(writer, tx, schema, record, keyOnly);
 
             return await DoOutInOpAsync(op, tx, writer).ConfigureAwait(false);
         }
