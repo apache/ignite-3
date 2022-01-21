@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
@@ -46,6 +48,7 @@ import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.validate.SelectScope;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
 import org.apache.calcite.sql.validate.SqlValidatorNamespace;
@@ -246,6 +249,29 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         validateAggregateFunction(aggCall, (SqlAggFunction) aggCall.getOperator());
 
         super.validateAggregateParams(aggCall, filter, null, orderList, scope);
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void addToSelectList(List<SqlNode> list, Set<String> aliases,
+            List<Map.Entry<String, RelDataType>> fieldList, SqlNode exp, SelectScope scope, boolean includeSystemVars) {
+        if (includeSystemVars || exp.getKind() != SqlKind.IDENTIFIER || !isSystemFieldName(deriveAlias(exp, 0))) {
+            super.addToSelectList(list, aliases, fieldList, exp, scope, includeSystemVars);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean isSystemField(RelDataTypeField field) {
+        return isSystemFieldName(field.getName());
+    }
+
+    /**
+     * Checks if an alias is system column name or not.
+     *
+     * @param alias Alias.
+     * @return True if alias is system column name, false otherwise.
+     * */
+    private boolean isSystemFieldName(String alias) {
+        return SqlSystemColumns.SYSTEM_COLUMNS_NAMES.contains(alias);
     }
 
     private void validateAggregateFunction(SqlCall call, SqlAggFunction aggFunction) {

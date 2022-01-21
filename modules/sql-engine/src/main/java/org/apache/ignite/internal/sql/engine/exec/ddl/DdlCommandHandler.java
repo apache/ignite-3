@@ -34,6 +34,7 @@ import org.apache.ignite.configuration.schemas.table.PrimaryKeyView;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
+import org.apache.ignite.internal.sql.engine.prepare.SqlSystemColumns;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AbstractTableDdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
@@ -63,6 +64,11 @@ import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder.
 
 /** DDL commands handler. */
 public class DdlCommandHandler {
+    /**
+     * For testing select logic only. Should be removed after real system columns is added.
+     * */
+    public static boolean ENABLE_SYSTEM_COLUMNS_DIRECT_CREATION = false;
+
     private final TableManager tableManager;
 
     public DdlCommandHandler(TableManager tblManager) {
@@ -106,6 +112,79 @@ public class DdlCommandHandler {
                 throw new IllegalArgumentException("Table name is undefined.");
             }
         }
+        if (cmd instanceof CreateTableCommand && !ENABLE_SYSTEM_COLUMNS_DIRECT_CREATION) {
+            validateCreateTableCommand((CreateTableCommand) cmd);
+        }
+        if (cmd instanceof AlterTableAddCommand && !ENABLE_SYSTEM_COLUMNS_DIRECT_CREATION) {
+            validateAlterTableAddCommand((AlterTableAddCommand) cmd);
+        }
+        if (cmd instanceof AlterTableDropCommand && !ENABLE_SYSTEM_COLUMNS_DIRECT_CREATION) {
+            validateAlterTableDropCommand((AlterTableDropCommand) cmd);
+        }
+    }
+
+    /**
+     * Validate create table command.
+     *
+     * @param cmd command to validate.
+     * */
+    private void validateCreateTableCommand(CreateTableCommand cmd) {
+        List<ColumnDefinition> columns = cmd.columns();
+
+        assert columns != null : "Columns in command " + cmd + " can't be null.";
+
+        for (ColumnDefinition column : columns) {
+            if (isSystemColumn(column.name())) {
+                throw new IllegalArgumentException("Direct specification of system column "
+                        + column.name() + " is forbidden.");
+            }
+        }
+    }
+
+    /**
+     * Validate alter table add column command.
+     *
+     * @param cmd command to validate.
+     * */
+    private void validateAlterTableAddCommand(AlterTableAddCommand cmd) {
+        List<ColumnDefinition> columns = cmd.columns();
+
+        assert columns != null : "Columns in command " + cmd + " can't be null.";
+
+        for (ColumnDefinition column : columns) {
+            if (isSystemColumn(column.name())) {
+                throw new IllegalArgumentException("Direct specification of system column "
+                        + column.name() + " is forbidden.");
+            }
+        }
+    }
+
+    /**
+     * Validate alter table drop column command.
+     *
+     * @param cmd command to validate.
+     * */
+    private void validateAlterTableDropCommand(AlterTableDropCommand cmd) {
+        Set<String> columns = cmd.columns();
+
+        assert columns != null : "Columns in command " + cmd + " can't be null.";
+
+        for (String column : columns) {
+            if (isSystemColumn(column)) {
+                throw new IllegalArgumentException("Removing of system column "
+                        + column + " is forbidden.");
+            }
+        }
+    }
+
+    /**
+     * Check if columnName is system column name.
+     *
+     * @param columnName Non-nullable column name.
+     * @return True if columnName is system column name, false otherwise.
+     * */
+    private boolean isSystemColumn(String columnName) {
+        return SqlSystemColumns.SYSTEM_COLUMNS_NAMES.contains(columnName);
     }
 
     /** Handles create table command. */
