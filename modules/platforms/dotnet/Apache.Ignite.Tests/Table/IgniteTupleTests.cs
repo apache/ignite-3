@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table
 {
     using System;
+    using System.Collections.Generic;
     using Ignite.Table;
     using NUnit.Framework;
 
@@ -62,6 +63,42 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(2, tuple["foo"]);
             Assert.AreEqual("x", tuple[1]);
             Assert.IsNull(tuple[2]);
+        }
+
+        [Test]
+        public void TestGetNullOrEmptyNameThrowsException()
+        {
+            var tuple = new IgniteTuple { ["Foo"] = 1 };
+
+            var ex = Assert.Throws<IgniteClientException>(() => tuple.GetOrdinal(string.Empty));
+            Assert.AreEqual("Column name can not be null or empty.", ex!.Message);
+
+            ex = Assert.Throws<IgniteClientException>(() => tuple.GetOrdinal(null!));
+            Assert.AreEqual("Column name can not be null or empty.", ex!.Message);
+
+            ex = Assert.Throws<IgniteClientException>(() =>
+            {
+                var unused = tuple[string.Empty];
+            });
+            Assert.AreEqual("Column name can not be null or empty.", ex!.Message);
+
+            ex = Assert.Throws<IgniteClientException>(() =>
+            {
+                var unused = tuple[null!];
+            });
+            Assert.AreEqual("Column name can not be null or empty.", ex!.Message);
+        }
+
+        [Test]
+        public void TestGetNonExistingNameThrowsException()
+        {
+            var tuple = new IgniteTuple { ["Foo"] = 1 };
+
+            var ex = Assert.Throws<KeyNotFoundException>(() =>
+            {
+                var unused = tuple["bar"];
+            });
+            Assert.AreEqual("The given key 'BAR' was not present in the dictionary.", ex!.Message);
         }
 
         [Test]
