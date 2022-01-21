@@ -268,6 +268,7 @@ public class IgniteUtils {
      * @param val Value to convert to string.
      * @return Hex string.
      */
+    //TODO IGNITE-16350 Consider renaming or moving into other class.
     public static String hexLong(long val) {
         return new IgniteStringBuilder(16).appendHex(val).toString();
     }
@@ -278,6 +279,7 @@ public class IgniteUtils {
      * @param val Value to convert to string.
      * @return Hex string.
      */
+    //TODO IGNITE-16350 Consider renaming or moving into other class.
     public static String hexInt(int val) {
         return new IgniteStringBuilder(8).appendHex(val).toString();
     }
