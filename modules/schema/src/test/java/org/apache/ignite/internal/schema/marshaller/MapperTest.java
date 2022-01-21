@@ -115,6 +115,8 @@ public class MapperTest {
 
         assertNotNull(((OneColumnMapper<String>) Mapper.of(String.class, "col1", conv)).converter());
 
+        assertEquals("col1", ((OneColumnMapper<String>) Mapper.of(String.class, "\"col1\"", conv)).mappedColumn());
+
         // Multi-column mapping
         assertThrows(IllegalArgumentException.class, () -> Mapper.of(String.class, "value", "col1"));
         assertThrows(IllegalArgumentException.class, () -> Mapper.of(String.class, "value", "col1", "coder", "col2"));
@@ -174,6 +176,18 @@ public class MapperTest {
 
         {
             assertEquals("COL1", ((OneColumnMapper<TestObject>) Mapper.of(TestObject.class, "col1", conv)).mappedColumn());
+        }
+
+        {
+            PojoMapper<TestObject> mapper = (PojoMapper<TestObject>) Mapper.of(TestObject.class,
+                    "id", "\"col1\"",
+                    "longCol", "\"longCol\"");
+
+            assertEquals("id", mapper.fieldForColumn("col1"));
+            assertEquals("longCol", mapper.fieldForColumn("longCol"));
+            assertNull(mapper.fieldForColumn("ID"));
+            assertNull(mapper.fieldForColumn("STRINGCOL"));
+            assertNull(mapper.fieldForColumn("VAL"));
         }
     }
 
@@ -337,6 +351,18 @@ public class MapperTest {
 
         {
             PojoMapper<TestObject> mapper = (PojoMapper<TestObject>) Mapper.builder(TestObject.class)
+                    .convert("\"col1\"", new TestConverter())
+                    .map("id", "\"col1\"").build();
+
+            assertEquals("id", mapper.fieldForColumn("col1"));
+            assertNotNull(mapper.converterForColumn("col1"));
+
+            assertNull(mapper.fieldForColumn("id"));
+            assertNull(mapper.converterForColumn("id"));
+        }
+
+        {
+            PojoMapper<TestObject> mapper = (PojoMapper<TestObject>) Mapper.builder(TestObject.class)
                                                                              .convert("col2", new TestConverter())
                                                                              .map("id", "col1", new TestConverter()).build();
 
@@ -358,6 +384,20 @@ public class MapperTest {
             assertEquals("stringCol", mapper.fieldForColumn("STRINGCOL"));
             assertNotNull(mapper.converterForColumn("COL1"));
             assertNotNull(mapper.converterForColumn("STRINGCOL"));
+
+            assertNull(mapper.fieldForColumn("id"));
+            assertNull(mapper.converterForColumn("id"));
+        }
+
+        {
+            PojoMapper<TestObject> mapper = (PojoMapper<TestObject>) Mapper.builder(TestObject.class)
+                    .map("id", "\"col1\"", new TestConverter())
+                    .map("stringCol", "\"stringCol\"", new TestConverter()).build();
+
+            assertEquals("id", mapper.fieldForColumn("col1"));
+            assertEquals("stringCol", mapper.fieldForColumn("stringCol"));
+            assertNotNull(mapper.converterForColumn("col1"));
+            assertNotNull(mapper.converterForColumn("stringCol"));
 
             assertNull(mapper.fieldForColumn("id"));
             assertNull(mapper.converterForColumn("id"));
