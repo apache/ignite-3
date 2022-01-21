@@ -163,7 +163,8 @@ metastoreInvoke: // atomic metastore call through multi-invoke api
     - response with `received` if no current `changePeers` or current `changePeers` in the `STAGE_CATCHING_UP`. Updates the catching up peers with the new peers, stop redundant replicators, if needed.
     - response with `busy` if current leader is not in the `STAGE_NONE` or `STAGE_CATCHING_UP` phase.
 - Update `changePeers` behaviour with new listener from the caller `tryCatchUpFinish(peers)`. This listener must execute the following metastore call:
-**Pseudocode**
+
+**Pseudocode:**
 ```
 metastoreInvoke: // atomic metastore call through multi-invoke api
     if empty(partition.assignments.pending.lock):
