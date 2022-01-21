@@ -43,10 +43,14 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(1, tuple[0]);
             Assert.AreEqual(Guid.Empty, tuple[1]);
 
-            Assert.AreEqual("foo", tuple.GetName(0));
-            Assert.AreEqual("bar", tuple.GetName(1));
+            Assert.AreEqual("FOO", tuple.GetName(0));
+            Assert.AreEqual("BAR", tuple.GetName(1));
 
             Assert.AreEqual(0, tuple.GetOrdinal("foo"));
+            Assert.AreEqual(0, tuple.GetOrdinal("Foo"));
+            Assert.AreEqual(0, tuple.GetOrdinal("FOO"));
+            Assert.AreEqual(0, tuple.GetOrdinal("\"FOO\""));
+            Assert.AreEqual(-1, tuple.GetOrdinal("\"Foo\""));
             Assert.AreEqual(1, tuple.GetOrdinal("bar"));
 
             tuple[0] = 2;
@@ -70,7 +74,7 @@ namespace Apache.Ignite.Tests.Table
         public void TestToStringOneField()
         {
             var tuple = new IgniteTuple { ["foo"] = 1 };
-            Assert.AreEqual("IgniteTuple [foo=1]", tuple.ToString());
+            Assert.AreEqual("IgniteTuple [FOO=1]", tuple.ToString());
         }
 
         [Test]
@@ -82,7 +86,7 @@ namespace Apache.Ignite.Tests.Table
                 ["b"] = "abcd"
             };
 
-            Assert.AreEqual("IgniteTuple [foo=1, b=abcd]", tuple.ToString());
+            Assert.AreEqual("IgniteTuple [FOO=1, B=abcd]", tuple.ToString());
         }
 
         [Test]
