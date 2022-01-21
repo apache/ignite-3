@@ -25,8 +25,8 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  */
 public interface PageSupport {
     /**
-     * Returns an absolute pointer to a page, associated with the given page ID. Each pointer obtained with this method must be released by calling
-     * {@link #releasePage(int, long, long)}. This method will allocate a page with the given ID if it doesn't exist.
+     * Returns an absolute pointer to a page, associated with the given page ID. Each pointer obtained with this method must be released by
+     * calling {@link #releasePage(int, long, long)}. This method will allocate a page with the given ID if it doesn't exist.
      *
      * @param groupId Group ID.
      * @param pageId  Page ID.
@@ -36,8 +36,8 @@ public interface PageSupport {
     long acquirePage(int groupId, long pageId) throws IgniteInternalCheckedException;
 
     /**
-     * Returns an absolute pointer to a page, associated with the given page ID. Each page obtained with this method must be released by calling
-     * {@link #releasePage(int, long, long)}. This method will allocate a page with the given ID if it doesn't exist.
+     * Returns an absolute pointer to a page, associated with the given page ID. Each page obtained with this method must be released by
+     * calling {@link #releasePage(int, long, long)}. This method will allocate a page with the given ID if it doesn't exist.
      *
      * @param groupId    Group ID.
      * @param pageId     Page ID.
