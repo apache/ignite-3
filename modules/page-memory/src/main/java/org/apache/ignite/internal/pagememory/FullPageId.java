@@ -25,8 +25,11 @@ import org.apache.ignite.lang.IgniteStringBuilder;
  * Compound object used to address a page in the global page space.
  * <h3>Page ID structure</h3>
  *
- * <p>Generally, a full page ID consists of a group ID and a page ID. A page ID consists of a page index (32 bits), a partition ID (16 bits) and
- * flags. Higher 8 bits of a page ID are unused and reserved for addressing entries inside data pages or for page ID rotation.
+ * <p>Generally, a full page ID consists of a group ID and a page ID. A page ID consists of a page index (32 bits), a partition ID (16 bits)
+ * and flags. Group ID is an integer inentifier of a logical pages group, like a specific SQL table or metadata storage, for example.
+ * Page index is the unique page identifier inside of a specific partition of a specific group. Set of indexes in the partition represents
+ * a continuous range that starts with 0. Higher 8 bits of a page ID are unused and reserved for addressing entries inside data pages or for
+ * page ID rotation.
  *
  * <p>Partition ID {@code 0xFFFF} is reserved for index pages.
  *
@@ -49,15 +52,12 @@ import org.apache.ignite.lang.IgniteStringBuilder;
  *
  * <p>Effective page ID is a page ID with zeroed bits used for page ID rotation.
  */
-public class FullPageId {
+public final class FullPageId {
     /** Null page ID. */
     public static final FullPageId NULL_PAGE = new FullPageId(-1, -1);
 
     /** Page ID. */
     private final long pageId;
-
-    /** Effective page ID: pageId with only pageIdx and partitionId. */
-    private final long effectivePageId;
 
     /** Group ID. */
     private final int groupId;
@@ -71,8 +71,6 @@ public class FullPageId {
     public FullPageId(long pageId, int groupId) {
         this.pageId = pageId;
         this.groupId = groupId;
-
-        effectivePageId = PageIdUtils.effectivePageId(pageId);
     }
 
     /**
@@ -86,7 +84,7 @@ public class FullPageId {
      * Returns an effective page ID: pageId with only pageIdx and partitionId.
      */
     public long effectivePageId() {
-        return effectivePageId;
+        return PageIdUtils.effectivePageId(pageId);
     }
 
     /**
@@ -109,13 +107,13 @@ public class FullPageId {
 
         FullPageId that = (FullPageId) o;
 
-        return effectivePageId == that.effectivePageId && groupId == that.groupId;
+        return effectivePageId() == that.effectivePageId() && groupId == that.groupId;
     }
 
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return hashCode0(groupId, effectivePageId);
+        return hashCode0(groupId, PageIdUtils.effectivePageId(pageId));
     }
 
     /**
@@ -170,7 +168,7 @@ public class FullPageId {
     @Override
     public String toString() {
         return new IgniteStringBuilder("FullPageId [pageId=").appendHex(pageId)
-                .app(", effectivePageId=").appendHex(effectivePageId)
+                .app(", effectivePageId=").appendHex(effectivePageId())
                 .app(", groupId=").app(groupId).app(']').toString();
     }
 }
