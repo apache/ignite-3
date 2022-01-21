@@ -53,7 +53,7 @@ public interface PageIdAllocator {
     public long allocatePage(int groupId, int partId, byte flags) throws IgniteInternalCheckedException;
 
     /**
-     * Frees (deallocates?) the given page.
+     * Frees the given page.
      *
      * @param groupId Group ID.
      * @param pageId  Page ID.

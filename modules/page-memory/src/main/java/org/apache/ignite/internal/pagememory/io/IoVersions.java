@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.io;
 
-import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Registry for IO versions of the same type.
@@ -123,6 +123,6 @@ public final class IoVersions<V extends PageIo> {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return IgniteToStringBuilder.toString(IoVersions.class, this);
+        return S.toString(IoVersions.class, this);
     }
 }

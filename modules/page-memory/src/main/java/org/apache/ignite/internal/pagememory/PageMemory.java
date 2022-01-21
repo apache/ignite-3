@@ -31,7 +31,7 @@ public interface PageMemory extends PageIdAllocator, PageSupport {
     int pageSize();
 
     /**
-     * Returns a page size without the encryption overhead.
+     * Returns a page size without the encryption overhead, in bytes.
      *
      * @param groupId Group id.
      */

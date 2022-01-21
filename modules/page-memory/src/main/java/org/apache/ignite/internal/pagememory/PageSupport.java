@@ -33,7 +33,7 @@ public interface PageSupport {
      * @return Page pointer.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public long acquirePage(int groupId, long pageId) throws IgniteInternalCheckedException;
+    long acquirePage(int groupId, long pageId) throws IgniteInternalCheckedException;
 
     /**
      * Returns an absolute pointer to a page, associated with the given page ID. Each page obtained with this method must be released by calling
@@ -45,7 +45,7 @@ public interface PageSupport {
      * @return Page pointer.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public long acquirePage(int groupId, long pageId, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException;
+    long acquirePage(int groupId, long pageId, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException;
 
     /**
      * Releases pages acquired by any of the {@code acquirePage} methods.
@@ -54,7 +54,7 @@ public interface PageSupport {
      * @param pageId  Page ID to release.
      * @param page    Page pointer returned by the corresponding {@code acquirePage} call.
      */
-    public void releasePage(int groupId, long pageId, long page);
+    void releasePage(int groupId, long pageId, long page);
 
     /**
      * Acquires a read lock associated with the given page.
@@ -64,7 +64,7 @@ public interface PageSupport {
      * @param page    Page pointer.
      * @return Pointer for reading the page or {@code 0} if page has been reused.
      */
-    public long readLock(int groupId, long pageId, long page);
+    long readLock(int groupId, long pageId, long page);
 
     /**
      * Acquires a read lock, associated with a given page, without checking the page tag.
@@ -74,7 +74,7 @@ public interface PageSupport {
      * @param page    Page pointer.
      * @return Pointer for reading the page.
      */
-    public long readLockForce(int groupId, long pageId, long page);
+    long readLockForce(int groupId, long pageId, long page);
 
     /**
      * Releases a read lock, associated with a given page.
@@ -83,7 +83,7 @@ public interface PageSupport {
      * @param pageId  Page ID.
      * @param page    Page pointer.
      */
-    public void readUnlock(int groupId, long pageId, long page);
+    void readUnlock(int groupId, long pageId, long page);
 
     /**
      * Acquired a write lock on the page.
@@ -93,7 +93,7 @@ public interface PageSupport {
      * @param page    Page pointer.
      * @return Address of a buffer with contents of the given page or {@code 0L} if attempt to take the write lock failed.
      */
-    public long writeLock(int groupId, long pageId, long page);
+    long writeLock(int groupId, long pageId, long page);
 
     /**
      * Tries to acquire a write lock on the page.
@@ -103,7 +103,7 @@ public interface PageSupport {
      * @param page    Page pointer.
      * @return Address of a buffer with contents of the given page or {@code 0L} if attempt to take the write lock failed.
      */
-    public long tryWriteLock(int groupId, long pageId, long page);
+    long tryWriteLock(int groupId, long pageId, long page);
 
     /**
      * Releases locked page.
@@ -113,7 +113,7 @@ public interface PageSupport {
      * @param page      Page pointer.
      * @param dirtyFlag Determines whether the page was modified since the last checkpoint.
      */
-    public void writeUnlock(int groupId, long pageId, long page, boolean dirtyFlag);
+    void writeUnlock(int groupId, long pageId, long page, boolean dirtyFlag);
 
     /**
      * Checks whether the page is dirty or not.
@@ -123,5 +123,5 @@ public interface PageSupport {
      * @param page    Page pointer.
      * @return {@code True} if the page is dirty.
      */
-    public boolean isDirty(int groupId, long pageId, long page);
+    boolean isDirty(int groupId, long pageId, long page);
 }
