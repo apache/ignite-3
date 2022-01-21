@@ -132,7 +132,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     @Override
     public CompletableFuture<Table> tableAsync(String name) {
         if ("sleep".equals(name)) {
-            return CompletableFuture.supplyAsync(() -> table(name), CompletableFuture.delayedExecutor(300, TimeUnit.MILLISECONDS));
+            return CompletableFuture.supplyAsync(() -> table(name), CompletableFuture.delayedExecutor(100, TimeUnit.MILLISECONDS));
         }
 
         return CompletableFuture.completedFuture(table(name));
