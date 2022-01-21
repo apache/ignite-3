@@ -101,6 +101,7 @@ import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Bits;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
+import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
@@ -3406,11 +3407,16 @@ public class ItNodeTest {
     }
 
     private void testElectionTimeoutAutoAdjustWhenBlockedMessages(BiPredicate<Object, String> blockingPredicate) throws Exception {
-        List<PeerId> peers = TestUtils.generatePeers(3);
-        cluster = new TestCluster("unittest", dataPath, peers,  testInfo);
+        List<PeerId> peers = TestUtils.generatePeers(4);
+        int maxElectionRoundsWithoutAdjusting = 3;
 
-        for (PeerId peer : peers)
+        cluster = new TestCluster("unittest", dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT_MILLIS,
+                opts -> opts.setElectionTimeoutStrategy(new ExponentialBackoffTimeoutStrategy(11_000, maxElectionRoundsWithoutAdjusting)),
+                testInfo);
+
+        for (PeerId peer : peers) {
             assertTrue(cluster.start(peer.getEndpoint()));
+        }
 
         cluster.waitLeader();
 
@@ -3437,7 +3443,7 @@ public class ItNodeTest {
         assertNull(cluster.getLeader());
 
         assertTrue(waitForCondition(() -> followers.stream().allMatch(f -> f.getOptions().getElectionTimeoutMs() > initElectionTimeout),
-                (long) NodeOptions.MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING
+                (long) maxElectionRoundsWithoutAdjusting
                         // need to multiply to 2 because stepDown happens after voteTimer timeout
                         * (initElectionTimeout + followers.get(0).getOptions().getRaftOptions().getMaxElectionDelayMs()) * 2));
 
@@ -3447,10 +3453,11 @@ public class ItNodeTest {
         cluster.waitLeader();
         leader = cluster.getLeader();
 
-        LOG.info("Elect new leader is {}, curTerm={}", leader.getLeaderId(), ((NodeImpl) leader).getCurrentTerm());
+        LOG.info("Elected new leader is {}, curTerm={}", leader.getLeaderId(), ((NodeImpl) leader).getCurrentTerm());
 
-        assertTrue(waitForCondition(() -> followers.stream().allMatch(f -> f.getOptions().getElectionTimeoutMs() == initElectionTimeout),
-                3_000));
+        assertTrue(
+                waitForCondition(() -> followers.stream().allMatch(f -> f.getOptions().getElectionTimeoutMs() == initElectionTimeout),
+                        3_000));
     }
 
     /**

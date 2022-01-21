@@ -21,10 +21,13 @@ package org.apache.ignite.raft.jraft.util;
  * Strategy to calculate next timeout.
  */
 public interface TimeoutStrategy {
+
     /**
      * Get next timeout.
      *
+     * @param currentTimeout Current timeout.
+     * @param round Round of getting next timeout.
      * @return Next timeout.
      */
-    int nextTimeout(int currentTimeout);
+    int nextTimeout(int currentTimeout, long round);
 }

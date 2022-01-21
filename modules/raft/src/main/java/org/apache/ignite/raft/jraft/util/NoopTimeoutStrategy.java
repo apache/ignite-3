@@ -19,7 +19,7 @@ package org.apache.ignite.raft.jraft.util;
 
 public class NoopTimeoutStrategy implements TimeoutStrategy {
     @Override
-    public int nextTimeout(int currentTimeout) {
+    public int nextTimeout(int currentTimeout, long round) {
        return currentTimeout;
     }
 }

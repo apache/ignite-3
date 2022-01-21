@@ -149,7 +149,7 @@ public class NodeImpl implements Node, RaftServerService {
     private ConfigurationEntry conf;
     private StopTransferArg stopTransferArg;
     private boolean electionAdjusted;
-    private int electionRoundsWithoutAdjusting;
+    private long electionRound;
     private int initialElectionTimeout;
 
     /**
@@ -625,21 +625,19 @@ public class NodeImpl implements Node, RaftServerService {
      * Leader election timeout is set to an initial value after a successful election of a leader.
      */
     private void adjustElectionTimeout() {
-        if (electionRoundsWithoutAdjusting < NodeOptions.MAX_ELECTION_ROUNDS_WITHOUT_ADJUSTING) {
-            electionRoundsWithoutAdjusting++;
-            return;
-        }
+        electionRound++;
 
         if (!electionAdjusted) {
             initialElectionTimeout = options.getElectionTimeoutMs();
         }
 
-        long timeout = options.getElectionTimeoutStrategy().nextTimeout(options.getElectionTimeoutMs());
+        long timeout = options.getElectionTimeoutStrategy().nextTimeout(options.getElectionTimeoutMs(), electionRound);
 
         if (timeout != options.getElectionTimeoutMs()) {
             LOG.info("Election timeout was adjusted according to {} ", options.getElectionTimeoutStrategy().toString());
             resetElectionTimeoutMs((int) timeout);
             electionAdjusted = true;
+            electionRound = 0;
         }
     }
 
@@ -649,7 +647,7 @@ public class NodeImpl implements Node, RaftServerService {
      * For more details see {@link NodeImpl#adjustElectionTimeout()}.
      */
     private void resetElectionTimeoutToInitial() {
-        electionRoundsWithoutAdjusting = 0;
+        electionRound = 0;
 
         if (electionAdjusted) {
             LOG.info("Election timeout was reset to initial value due to successful leader election.");

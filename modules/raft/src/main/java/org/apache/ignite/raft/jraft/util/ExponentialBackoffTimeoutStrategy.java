@@ -21,19 +21,45 @@ import org.apache.ignite.internal.tostring.S;
 
 /**
  * Timeout generation strategy.
- * Increases provided timeout based on exponential backoff algorithm. Max timeout equals to {@link TIMEOUT_MS_MAX}
+ * Increases provided timeout based on exponential backoff algorithm. Max timeout equals to {@link DEFAULT_TIMEOUT_MS_MAX}
  */
 public class ExponentialBackoffTimeoutStrategy implements TimeoutStrategy {
     /** Default backoff coefficient to calculate next timeout based on backoff strategy. */
     private static final double DEFAULT_BACKOFF_COEFFICIENT = 2.0;
 
+    /** Default max timeout that strategy could generate, ms. */
+    private static final int DEFAULT_TIMEOUT_MS_MAX = 11_000;
+
+    /** Default max number of a round after which timeout will be adjusted. */
+    public static final long DEFAULT_ROUNDS_WITHOUT_ADJUSTING = 3;
+
     /** Max timeout that strategy could generate, ms. */
-    private static final int TIMEOUT_MS_MAX = 11_000;
+    private int maxTimeout = DEFAULT_TIMEOUT_MS_MAX;
+
+    /** Max number of a round after which timeout will be adjusted. */
+    private long roundsWithoutAdjusting = DEFAULT_ROUNDS_WITHOUT_ADJUSTING;
+
+    public ExponentialBackoffTimeoutStrategy() {
+
+    }
+
+    /*
+     * @param maxTimeout Max timeout that strategy could generate.
+     * @param roundsWithoutAdjusting
+     */
+    public ExponentialBackoffTimeoutStrategy(int maxTimeout, long roundsWithoutAdjusting) {
+        this.maxTimeout = maxTimeout;
+
+        this.roundsWithoutAdjusting = roundsWithoutAdjusting;
+    }
 
     /** {@inheritDoc} */
     @Override
-    public int nextTimeout(int currentTimeout) {
-        return backoffTimeout(currentTimeout, TIMEOUT_MS_MAX);
+    public int nextTimeout(int currentTimeout, long round) {
+        if (round < roundsWithoutAdjusting)
+            return currentTimeout;
+
+        return backoffTimeout(currentTimeout, maxTimeout);
     }
 
     /**
