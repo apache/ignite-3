@@ -50,9 +50,8 @@ public class IgniteObjectName {
     }
 
     /**
-     * Parse canonical table [schemaName].[tableName], unquote identifiers and normalize case,
-     * e.g. "public.tbl0" -&gt; "PUBLIC.TBL0", "PUBLIC.\"Tbl0\"" -&gt; "PUBLIC.Tbl0",
-     * "\"MySchema\".\"Tbl0\"" -&gt; "MySchema.Tbl0", etc.
+     * Parse canonical table [schemaName].[tableName], unquote identifiers and normalize case, e.g. "public.tbl0" -&gt; "PUBLIC.TBL0",
+     * "PUBLIC.\"Tbl0\"" -&gt; "PUBLIC.Tbl0", "\"MySchema\".\"Tbl0\"" -&gt; "MySchema.Tbl0", etc.
      *
      * @param str String to parse canonical name.
      * @return Unquote identifiers and normalize case.
@@ -108,5 +107,34 @@ public class IgniteObjectName {
         name.append(quoted ? id : id.toUpperCase());
 
         return name.toString();
+    }
+
+    /**
+     * Unparse database's object name: quote name.
+     *
+     * @param str Object name.
+     * @return Quoted object name.
+     */
+    public static String unparseName(String str) {
+        return "\"" + str + "\"";
+    }
+
+    /**
+     * Unparse canonical table [schemaName].[tableName], quote identifiers, e.g. "PUBLIC.Tbl0" -&gt; "PUBLIC.\"Tbl0\"",  "MySchema.Tbl0"
+     * -&gt; "\"MySchema\".\"Tbl0\"", etc.
+     *
+     * @param str Canonical table name.
+     * @return Quoted canonical name.
+     */
+    public static String unparseCanonicalName(String str) {
+        StringBuilder sb = new StringBuilder();
+
+        String[] names = str.split("\\.");
+
+        assert names.length == 2 : "Invalid canonical name";
+
+        sb.append("\"").append(names[0]).append("\".\"").append(names[1]).append("\"");
+
+        return sb.toString();
     }
 }

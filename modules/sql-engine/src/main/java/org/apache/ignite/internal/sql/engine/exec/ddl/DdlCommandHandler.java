@@ -45,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
@@ -119,7 +120,10 @@ public class DdlCommandHandler {
         final List<org.apache.ignite.schema.definition.ColumnDefinition> colsInner = new ArrayList<>();
 
         for (ColumnDefinition col : cmd.columns()) {
-            ColumnDefinitionBuilder col0 = SchemaBuilders.column(col.name(), typeFactory.columnType(col.type()))
+            ColumnDefinitionBuilder col0 = SchemaBuilders.column(
+                            IgniteObjectName.unparseName(col.name()),
+                            typeFactory.columnType(col.type())
+                    )
                     .asNullable(col.nullable())
                     .withDefaultValueExpression(col.defaultValue());
 
@@ -127,7 +131,10 @@ public class DdlCommandHandler {
         }
 
         Consumer<TableChange> tblChanger = tblCh -> {
-            TableChange conv = convert(SchemaBuilders.tableBuilder(cmd.schemaName(), cmd.tableName())
+            TableChange conv = convert(SchemaBuilders.tableBuilder(
+                            IgniteObjectName.unparseName(cmd.schemaName()),
+                            IgniteObjectName.unparseName(cmd.tableName())
+                    )
                     .columns(colsInner)
                     .withPrimaryKey(pkeyDef.build()).build(), tblCh);
 
@@ -140,7 +147,10 @@ public class DdlCommandHandler {
             }
         };
 
-        String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
+        String fullName = TableDefinitionImpl.canonicalName(
+                IgniteObjectName.unparseName(cmd.schemaName()),
+                IgniteObjectName.unparseName(cmd.tableName())
+        );
 
         try {
             tableManager.createTableAsyncInternal(fullName, tblChanger).join();
@@ -153,8 +163,10 @@ public class DdlCommandHandler {
 
     /** Handles drop table command. */
     private void handleDropTable(DropTableCommand cmd) {
-        String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
-
+        String fullName = TableDefinitionImpl.canonicalName(
+                IgniteObjectName.unparseName(cmd.schemaName()),
+                IgniteObjectName.unparseName(cmd.tableName())
+        );
         try {
             tableManager.dropTableAsyncInternal(fullName).join();
         } catch (TableNotFoundException ex) {
@@ -170,7 +182,10 @@ public class DdlCommandHandler {
             return;
         }
 
-        String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
+        String fullName = TableDefinitionImpl.canonicalName(
+                IgniteObjectName.unparseName(cmd.schemaName()),
+                IgniteObjectName.unparseName(cmd.tableName())
+        );
 
         try {
             addColumnInternal(fullName, cmd.columns(), cmd.ifColumnNotExists());
@@ -187,7 +202,10 @@ public class DdlCommandHandler {
             return;
         }
 
-        String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
+        String fullName = TableDefinitionImpl.canonicalName(
+                IgniteObjectName.unparseName(cmd.schemaName()),
+                IgniteObjectName.unparseName(cmd.tableName())
+        );
 
         try {
             dropColumnInternal(fullName, cmd.columns(), cmd.ifColumnExists());
@@ -213,7 +231,10 @@ public class DdlCommandHandler {
             idx0.done();
         }
 
-        String fullName = TableDefinitionImpl.canonicalName(cmd.schemaName(), cmd.tableName());
+        String fullName = TableDefinitionImpl.canonicalName(
+                IgniteObjectName.unparseName(cmd.schemaName()),
+                IgniteObjectName.unparseName(cmd.tableName())
+        );
 
         tableManager.alterTableAsyncInternal(fullName, chng -> chng.changeIndices(idxes -> {
             if (idxes.get(cmd.indexName()) != null) {
@@ -262,7 +283,10 @@ public class DdlCommandHandler {
                     final IgniteTypeFactory typeFactory = pctx.typeFactory();
 
                     for (ColumnDefinition col : colsDef0) {
-                        ColumnDefinitionBuilder col0 = SchemaBuilders.column(col.name(), typeFactory.columnType(col.type()))
+                        ColumnDefinitionBuilder col0 = SchemaBuilders.column(
+                                        IgniteObjectName.unparseName(col.name()),
+                                        typeFactory.columnType(col.type())
+                                )
                                 .asNullable(col.nullable())
                                 .withDefaultValueExpression(col.defaultValue());
 
@@ -305,7 +329,7 @@ public class DdlCommandHandler {
                         }
                     }
 
-                    colNames0.forEach(k -> cols.delete(colNamesToOrders.get(k)));
+                    colNames0.forEach(k -> cols.delete(IgniteObjectName.unparseName(colNamesToOrders.get(k))));
                 })).join();
     }
 
