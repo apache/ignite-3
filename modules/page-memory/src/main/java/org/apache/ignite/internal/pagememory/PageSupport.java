@@ -21,7 +21,7 @@ import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Supports operations on pages.
+ * Class responsible for acquiring/releasing and locking/unlocking pages.
  */
 public interface PageSupport {
     /**

@@ -22,7 +22,7 @@ import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 
 /**
- * Page memory.
+ * Class responsible for pages storage and handling.
  */
 public interface PageMemory extends PageIdAllocator, PageSupport {
     /**

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.pagememory;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Class responsible for allocating new page IDs.
+ * Class responsible for allocating/freeing page IDs.
  */
 public interface PageIdAllocator {
     /**
