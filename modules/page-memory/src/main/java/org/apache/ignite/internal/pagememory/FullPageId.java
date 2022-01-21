@@ -56,7 +56,7 @@ public class FullPageId {
     /** Page ID. */
     private final long pageId;
 
-    /** Effective page ID. */
+    /** Effective page ID: pageId with only pageIdx and partitionId. */
     private final long effectivePageId;
 
     /** Group ID. */
