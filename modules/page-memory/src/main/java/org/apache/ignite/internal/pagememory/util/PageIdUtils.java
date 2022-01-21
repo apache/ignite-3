@@ -53,7 +53,7 @@ public final class PageIdUtils {
     /** Page Index is a monotonically growing number within each partition. */
     public static final long PART_ID_MASK = ~(-1L << PART_ID_SIZE);
 
-    /** Flags mask. Flags consists from a number of reserved bits, and page type (data/index page). */
+    /** Flags mask. Flags consists of a number of reserved bits, and page type (data/index page). */
     public static final long FLAG_MASK = ~(-1L << FLAG_SIZE);
 
     /** Effective page ID mask. */
