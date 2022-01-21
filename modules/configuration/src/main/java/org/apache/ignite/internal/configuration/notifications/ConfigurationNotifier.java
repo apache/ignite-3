@@ -56,6 +56,10 @@ public class ConfigurationNotifier {
     /**
      * Recursive notification of all configuration listeners.
      *
+     * <p>NOTE: If {@code oldInnerNode == null}, then {@link ConfigurationListener#onUpdate} and
+     * {@link ConfigurationNamedListListener#onCreate} will be called and the value will only be in
+     * {@link ConfigurationNotificationEvent#newValue}.
+     *
      * @param oldInnerNode Old configuration values root.
      * @param newInnerNode New configuration values root.
      * @param config Public configuration tree node corresponding to the current inner nodes.
@@ -70,7 +74,7 @@ public class ConfigurationNotifier {
             DynamicConfiguration<InnerNode, ?> config,
             long storageRevision
     ) {
-        if (oldInnerNode == null || oldInnerNode == newInnerNode) {
+        if (oldInnerNode != null && oldInnerNode == newInnerNode) {
             return List.of();
         }
 
@@ -78,42 +82,11 @@ public class ConfigurationNotifier {
 
         notificationCtx.addContainer(config, null);
 
-        notifyListeners(oldInnerNode, newInnerNode, config, List.of(), notificationCtx);
-
-        notificationCtx.removeContainer(config);
-
-        return notificationCtx.futures;
-    }
-
-    /**
-     * Recursive notification of all configuration listeners.
-     *
-     * <p>NOTE: Only {@link ConfigurationListener#onUpdate} and {@link ConfigurationNamedListListener#onCreate} will be called.
-     *
-     * <p>NOTE: Value will only be in {@link ConfigurationNotificationEvent#newValue}.
-     *
-     * @param innerNode Configuration values root.
-     * @param config Public configuration tree node corresponding to the current inner nodes.
-     * @param storageRevision Storage revision.
-     * @return Collected configuration listener futures.
-     * @see ConfigurationListener
-     * @see ConfigurationNamedListListener
-     */
-    public static Collection<CompletableFuture<?>> notifyListeners(
-            InnerNode innerNode,
-            DynamicConfiguration<InnerNode, ?> config,
-            long storageRevision
-    ) {
-        ConfigurationNotificationContext notificationCtx = new ConfigurationNotificationContext(storageRevision);
-
-        notificationCtx.addContainer(config, null);
-
-        notifyListeners(
-                innerNode,
-                config,
-                List.of(),
-                notificationCtx
-        );
+        if (oldInnerNode == null) {
+            notifyListeners(newInnerNode, config, List.of(), notificationCtx);
+        } else {
+            notifyListeners(oldInnerNode, newInnerNode, config, List.of(), notificationCtx);
+        }
 
         notificationCtx.removeContainer(config);
 

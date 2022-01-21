@@ -251,6 +251,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                         try {
                                             // Avoid calling listener immediately after the listener completes to create the current table.
+                                            // FIXME: https://issues.apache.org/jira/browse/IGNITE-16231
                                             if (ctx.storageRevision() != schemasCtx.storageRevision()) {
                                                 ((SchemaRegistryImpl) tables.get(tblName).schemaView())
                                                         .onSchemaRegistered(
@@ -277,6 +278,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                     try {
                                         // Avoid calling listener immediately after the listener completes to create the current table.
+                                        // FIXME: https://issues.apache.org/jira/browse/IGNITE-16231
                                         if (ctx.storageRevision() == assignmentsCtx.storageRevision()) {
                                             return CompletableFuture.completedFuture(null);
                                         } else {

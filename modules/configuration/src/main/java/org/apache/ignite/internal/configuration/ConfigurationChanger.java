@@ -70,7 +70,7 @@ import org.apache.ignite.internal.configuration.validation.MemberKey;
 import org.apache.ignite.internal.configuration.validation.ValidationUtil;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Class that handles configuration changes, by validating them, passing to storage and listening to storage updates.
@@ -106,23 +106,23 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         /**
          * Invoked every time when the configuration is updated.
          *
-         * @param oldRoot         Old roots values. All these roots always belong to a single storage.
-         * @param newRoot         New values for the same roots as in {@code oldRoot}.
+         * @param oldRoot Old roots values. All these roots always belong to a single storage.
+         * @param newRoot New values for the same roots as in {@code oldRoot}.
          * @param storageRevision Revision of the storage.
          * @return Not-null future that must signify when processing is completed. Exceptional completion is not expected.
          */
-        @NotNull CompletableFuture<Void> notify(SuperRoot oldRoot, SuperRoot newRoot, long storageRevision);
+        CompletableFuture<Void> notify(@Nullable SuperRoot oldRoot, SuperRoot newRoot, long storageRevision);
     }
 
     /**
      * Immutable data container to store version and all roots associated with the specific storage.
      */
-    static class StorageRoots {
+    private static class StorageRoots {
         /** Immutable forest, so to say. */
-        final SuperRoot roots;
+        private final SuperRoot roots;
 
         /** Version associated with the currently known storage state. */
-        final long version;
+        private final long version;
 
         /** Future that signifies update of current configuration. */
         private final CompletableFuture<Void> changeFuture = new CompletableFuture<>();
@@ -438,10 +438,12 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     }
 
     /**
-     * Returns storage trees.
+     * Get storage super root.
+     *
+     * @return Super root storage.
      */
-    public StorageRoots storageRoots() {
-        return storageRoots;
+    public SuperRoot superRoot() {
+        return storageRoots.roots;
     }
 
     /**
@@ -562,5 +564,16 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                     }
                 });
         }
+    }
+
+    /**
+     * Notifies all listeners of the current configuration.
+     *
+     * @return Future that must signify when processing is completed.
+     */
+    CompletableFuture<Void> notifyCurrentConfigurationListeners() {
+        StorageRoots storageRoots = this.storageRoots;
+
+        return notificator.notify(null, storageRoots.roots, storageRoots.version);
     }
 }

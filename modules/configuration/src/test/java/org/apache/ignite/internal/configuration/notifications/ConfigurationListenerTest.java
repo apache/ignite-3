@@ -1459,6 +1459,7 @@ public class ConfigurationListenerTest {
         config.polyChildren().any().commonIntVal().listen(configListener(ctx -> events.add("polyChildren.any.int")));
 
         Collection<CompletableFuture<?>> futs = notifyListeners(
+                null,
                 (InnerNode) config.value(),
                 (DynamicConfiguration) config,
                 0
