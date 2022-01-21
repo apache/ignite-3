@@ -18,6 +18,9 @@
 namespace Apache.Ignite.Tests.Table
 {
     using System;
+    using System.Collections.Generic;
+    using System.Globalization;
+    using System.Linq;
     using System.Threading.Tasks;
     using NUnit.Framework;
 
@@ -68,28 +71,28 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestGetAndUpsertNonExistentRecordReturnsNull()
         {
-            IIgniteTuple? res = await PocoView.GetAndUpsertAsync(null, GetPoco(2, "2"));
+            Poco? res = await PocoView.GetAndUpsertAsync(null, GetPoco(2, "2"));
 
             Assert.IsNull(res);
-            Assert.AreEqual("2", (await PocoView.GetAsync(null, GetPoco(2)))![1]);
+            Assert.AreEqual("2", (await PocoView.GetAsync(null, GetPoco(2)))!.Val);
         }
 
         [Test]
         public async Task TestGetAndUpsertExistingRecordOverwritesAndReturns()
         {
             await PocoView.UpsertAsync(null, GetPoco(2, "2"));
-            IIgniteTuple? res = await PocoView.GetAndUpsertAsync(null, GetPoco(2, "22"));
+            Poco? res = await PocoView.GetAndUpsertAsync(null, GetPoco(2, "22"));
 
             Assert.IsNotNull(res);
-            Assert.AreEqual(2, res![0]);
-            Assert.AreEqual("2", res[1]);
-            Assert.AreEqual("22", (await PocoView.GetAsync(null, GetPoco(2)))![1]);
+            Assert.AreEqual(2, res!.Key);
+            Assert.AreEqual("2", res.Val);
+            Assert.AreEqual("22", (await PocoView.GetAsync(null, GetPoco(2)))!.Val);
         }
 
         [Test]
         public async Task TestGetAndDeleteNonExistentRecordReturnsNull()
         {
-            IIgniteTuple? res = await PocoView.GetAndDeleteAsync(null, GetPoco(2, "2"));
+            Poco? res = await PocoView.GetAndDeleteAsync(null, GetPoco(2, "2"));
 
             Assert.IsNull(res);
             Assert.IsNull(await PocoView.GetAsync(null, GetPoco(2)));
@@ -99,11 +102,11 @@ namespace Apache.Ignite.Tests.Table
         public async Task TestGetAndDeleteExistingRecordRemovesAndReturns()
         {
             await PocoView.UpsertAsync(null, GetPoco(2, "2"));
-            IIgniteTuple? res = await PocoView.GetAndDeleteAsync(null, GetPoco(2));
+            Poco? res = await PocoView.GetAndDeleteAsync(null, GetPoco(2));
 
             Assert.IsNotNull(res);
-            Assert.AreEqual(2, res![0]);
-            Assert.AreEqual("2", res[1]);
+            Assert.AreEqual(2, res!.Key);
+            Assert.AreEqual("2", res.Val);
             Assert.IsNull(await PocoView.GetAsync(null, GetPoco(2)));
         }
 
@@ -123,7 +126,7 @@ namespace Apache.Ignite.Tests.Table
             var res = await PocoView.InsertAsync(null, GetPoco(1, "2"));
 
             Assert.IsFalse(res);
-            Assert.AreEqual("1", (await PocoView.GetAsync(null, GetPoco(1)))![1]);
+            Assert.AreEqual("1", (await PocoView.GetAsync(null, GetPoco(1)))!.Val);
         }
 
         [Test]
@@ -182,13 +185,13 @@ namespace Apache.Ignite.Tests.Table
             bool res = await PocoView.ReplaceAsync(null, GetPoco(1, "2"));
 
             Assert.IsTrue(res);
-            Assert.AreEqual("2", (await PocoView.GetAsync(null, GetPoco(1)))![1]);
+            Assert.AreEqual("2", (await PocoView.GetAsync(null, GetPoco(1)))!.Val);
         }
 
         [Test]
         public async Task TestGetAndReplaceNonExistentRecordReturnsNullDoesNotCreateRecord()
         {
-            IIgniteTuple? res = await PocoView.GetAndReplaceAsync(null, GetPoco(1, "1"));
+            Poco? res = await PocoView.GetAndReplaceAsync(null, GetPoco(1, "1"));
 
             Assert.IsNull(res);
             Assert.IsNull(await PocoView.GetAsync(null, GetPoco(1)));
@@ -198,11 +201,11 @@ namespace Apache.Ignite.Tests.Table
         public async Task TestGetAndReplaceExistingRecordReturnsOldOverwrites()
         {
             await PocoView.UpsertAsync(null, GetPoco(1, "1"));
-            IIgniteTuple? res = await PocoView.GetAndReplaceAsync(null, GetPoco(1, "2"));
+            Poco? res = await PocoView.GetAndReplaceAsync(null, GetPoco(1, "2"));
 
             Assert.IsNotNull(res);
-            Assert.AreEqual("1", res![1]);
-            Assert.AreEqual("2", (await PocoView.GetAsync(null, GetPoco(1)))![1]);
+            Assert.AreEqual("1", res!.Val);
+            Assert.AreEqual("2", (await PocoView.GetAsync(null, GetPoco(1)))!.Val);
         }
 
         [Test]
@@ -221,7 +224,7 @@ namespace Apache.Ignite.Tests.Table
             bool res = await PocoView.ReplaceAsync(null, GetPoco(1, "11"), GetPoco(1, "22"));
 
             Assert.IsFalse(res);
-            Assert.AreEqual("1", (await PocoView.GetAsync(null, GetPoco(1)))![1]);
+            Assert.AreEqual("1", (await PocoView.GetAsync(null, GetPoco(1)))!.Val);
         }
 
         [Test]
@@ -231,7 +234,7 @@ namespace Apache.Ignite.Tests.Table
             bool res = await PocoView.ReplaceAsync(null, GetPoco(1, "1"), GetPoco(1, "22"));
 
             Assert.IsTrue(res);
-            Assert.AreEqual("22", (await PocoView.GetAsync(null, GetPoco(1)))![1]);
+            Assert.AreEqual("22", (await PocoView.GetAsync(null, GetPoco(1)))!.Val);
         }
 
         [Test]
@@ -245,7 +248,7 @@ namespace Apache.Ignite.Tests.Table
             foreach (var id in ids)
             {
                 var res = await PocoView.GetAsync(null, GetPoco(id));
-                Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res![1]);
+                Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res!.Val);
             }
         }
 
@@ -263,7 +266,7 @@ namespace Apache.Ignite.Tests.Table
             foreach (var id in ids)
             {
                 var res = await PocoView.GetAsync(null, GetPoco(id));
-                Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res![1]);
+                Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res!.Val);
             }
         }
 
@@ -273,47 +276,47 @@ namespace Apache.Ignite.Tests.Table
             var ids = Enumerable.Range(1, 10).ToList();
             var records = ids.Select(x => GetPoco(x, x.ToString(CultureInfo.InvariantCulture)));
 
-            IList<IIgniteTuple> skipped = await PocoView.InsertAllAsync(null, records);
+            IList<Poco> skipped = await PocoView.InsertAllAsync(null, records);
 
             CollectionAssert.IsEmpty(skipped);
 
             foreach (var id in ids)
             {
                 var res = await PocoView.GetAsync(null, GetPoco(id));
-                Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res![1]);
+                Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res!.Val);
             }
         }
 
         [Test]
         public async Task TestInsertAllDoesNotOverwriteExistingDataReturnsSkippedTuples()
         {
-            var existing = new[] { GetPoco(2, "x"), GetPoco(4, "y") }.ToDictionary(x => x[0]);
+            var existing = new[] { GetPoco(2, "x"), GetPoco(4, "y") }.ToDictionary(x => x.Key);
             await PocoView.InsertAllAsync(null, existing.Values);
 
             var ids = Enumerable.Range(1, 10).ToList();
             var records = ids.Select(x => GetPoco(x, x.ToString(CultureInfo.InvariantCulture)));
 
-            IList<IIgniteTuple> skipped = await PocoView.InsertAllAsync(null, records);
-            var skippedArr = skipped.OrderBy(x => x[0]).ToArray();
+            IList<Poco> skipped = await PocoView.InsertAllAsync(null, records);
+            var skippedArr = skipped.OrderBy(x => x.Key).ToArray();
 
             Assert.AreEqual(2, skippedArr.Length);
-            Assert.AreEqual(2, skippedArr[0][0]);
-            Assert.AreEqual("2", skippedArr[0][1]);
+            Assert.AreEqual(2, skippedArr[0].Key);
+            Assert.AreEqual("2", skippedArr[0].Val);
 
-            Assert.AreEqual(4, skippedArr[1][0]);
-            Assert.AreEqual("4", skippedArr[1][1]);
+            Assert.AreEqual(4, skippedArr[1].Key);
+            Assert.AreEqual("4", skippedArr[1].Val);
 
             foreach (var id in ids)
             {
                 var res = await PocoView.GetAsync(null, GetPoco(id));
 
-                if (existing.TryGetValue(res![0], out var old))
+                if (existing.TryGetValue(res!.Key, out var old))
                 {
-                    Assert.AreEqual(old[1], res[1]);
+                    Assert.AreEqual(old.Val, res.Val);
                 }
                 else
                 {
-                    Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res[1]);
+                    Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res.Val);
                 }
             }
         }
@@ -321,14 +324,14 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestInsertAllEmptyCollectionDoesNothingReturnsEmptyList()
         {
-            var res = await PocoView.InsertAllAsync(null, Array.Empty<IIgniteTuple>());
+            var res = await PocoView.InsertAllAsync(null, Array.Empty<Poco>());
             CollectionAssert.IsEmpty(res);
         }
 
         [Test]
         public async Task TestUpsertAllEmptyCollectionDoesNothing()
         {
-            await PocoView.UpsertAllAsync(null, Array.Empty<IIgniteTuple>());
+            await PocoView.UpsertAllAsync(null, Array.Empty<Poco>());
         }
 
         [Test]
@@ -342,15 +345,15 @@ namespace Apache.Ignite.Tests.Table
 
             // TODO: Key order should be preserved by the server (IGNITE-16004).
             var res = await PocoView.GetAllAsync(null, Enumerable.Range(9, 4).Select(x => GetPoco(x)));
-            var resArr = res.OrderBy(x => x?[0]).ToArray();
+            var resArr = res.OrderBy(x => x?.Key).ToArray();
 
             Assert.AreEqual(2, res.Count);
 
-            Assert.AreEqual(9, resArr[0]![0]);
-            Assert.AreEqual("9", resArr[0]![1]);
+            Assert.AreEqual(9, resArr[0]!.Key);
+            Assert.AreEqual("9", resArr[0]!.Val);
 
-            Assert.AreEqual(10, resArr[1]![0]);
-            Assert.AreEqual("10", resArr[1]![1]);
+            Assert.AreEqual(10, resArr[1]!.Key);
+            Assert.AreEqual("10", resArr[1]!.Val);
         }
 
         [Test]
@@ -364,7 +367,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestGetAllEmptyKeysReturnsEmptyList()
         {
-            var res = await PocoView.GetAllAsync(null, Array.Empty<IIgniteTuple>());
+            var res = await PocoView.GetAllAsync(null, Array.Empty<Poco>());
 
             Assert.AreEqual(0, res.Count);
         }
@@ -372,7 +375,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestDeleteAllEmptyKeysReturnsEmptyList()
         {
-            var skipped = await PocoView.DeleteAllAsync(null, Array.Empty<IIgniteTuple>());
+            var skipped = await PocoView.DeleteAllAsync(null, Array.Empty<Poco>());
 
             Assert.AreEqual(0, skipped.Count);
         }
@@ -403,7 +406,7 @@ namespace Apache.Ignite.Tests.Table
             var skipped = await PocoView.DeleteAllAsync(null, new[] { GetPoco(1), GetPoco(2), GetPoco(4) });
 
             Assert.AreEqual(1, skipped.Count);
-            Assert.AreEqual(4, skipped[0][0]);
+            Assert.AreEqual(4, skipped[0].Key);
             Assert.IsNull(await PocoView.GetAsync(null, GetPoco(1)));
             Assert.IsNull(await PocoView.GetAsync(null, GetPoco(2)));
             Assert.IsNotNull(await PocoView.GetAsync(null, GetPoco(3)));
@@ -415,7 +418,7 @@ namespace Apache.Ignite.Tests.Table
             var skipped = await PocoView.DeleteAllExactAsync(null, new[] { GetPoco(1, "1"), GetPoco(2, "2") });
 
             Assert.AreEqual(2, skipped.Count);
-            CollectionAssert.AreEquivalent(new long[] { 1, 2 }, skipped.Select(x => (long)x[0]!).ToArray());
+            CollectionAssert.AreEquivalent(new long[] { 1, 2 }, skipped.Select(x => x.Key).ToArray());
         }
 
         [Test]
@@ -506,17 +509,15 @@ namespace Apache.Ignite.Tests.Table
             long.MaxValue)] long key)
         {
             var val = key.ToString(CultureInfo.InvariantCulture);
-            var tuple = new IgniteTuple { [KeyCol] = key, [ValCol] = val };
-            await PocoView.UpsertAsync(null, tuple);
+            var poco = new Poco { Key = key, Val = val};
+            await PocoView.UpsertAsync(null, poco);
 
-            var keyTuple = new IgniteTuple { [KeyCol] = key };
+            var keyTuple = new Poco { Key = key };
             var resTuple = (await PocoView.GetAsync(null, keyTuple))!;
 
             Assert.IsNotNull(resTuple);
-            Assert.AreEqual(2, resTuple.FieldCount);
-            Assert.AreEqual(key, resTuple["key"]);
-            Assert.AreEqual(val, resTuple["val"]);
+            Assert.AreEqual(key, resTuple.Key);
+            Assert.AreEqual(val, resTuple.Val);
         }
-
     }
 }
