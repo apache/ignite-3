@@ -133,7 +133,7 @@ public final class PageIdUtils {
     }
 
     /**
-     * Converts link into an effective page ID.
+     * Converts link into an effective page ID: pageId with only pageIdx and partitionId.
      *
      * @param link Page link.
      * @return Effective page id.
