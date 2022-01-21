@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.schemas.table.TableChange;
@@ -130,6 +131,10 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Table> tableAsync(String name) {
+        if ("sleep".equals(name)) {
+            return CompletableFuture.supplyAsync(() -> table(name), CompletableFuture.delayedExecutor(300, TimeUnit.MILLISECONDS));
+        }
+
         return CompletableFuture.completedFuture(table(name));
     }
 

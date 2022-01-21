@@ -146,7 +146,7 @@ public class ConfigurationTest extends AbstractClientTest {
                 .asyncContinuationExecutor(Runnable::run);
 
         try (Ignite ignite = builder.build()) {
-            String threadName = ignite.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
+            String threadName = ignite.tables().tableAsync("sleep").thenApply(unused -> Thread.currentThread().getName()).join();
 
             assertThat(threadName, startsWith("nioEventLoopGroup-"));
         }
