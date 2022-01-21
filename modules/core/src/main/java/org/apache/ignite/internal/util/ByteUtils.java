@@ -89,37 +89,14 @@ public class ByteUtils {
      * @param limit Limit of bytes to write into output.
      * @return Number of bytes overwritten in {@code bytes} array.
      */
-    public static byte[] longToBytes(long l, byte[] bytes, int off, int limit) {
+    private static byte[] longToBytes(long l, byte[] bytes, int off, int limit) {
         assert bytes != null;
         assert limit <= Long.BYTES;
         assert bytes.length >= off + limit;
 
         for (int i = limit - 1; i >= 0; i--) {
-            bytes[off + i] = (byte) (l & 0xFF);
+            bytes[off + i] = (byte) l;
             l >>>= 8;
-        }
-
-        return bytes;
-    }
-
-    /**
-     * Converts a primitive {@code int} value to a byte array and stores it in the specified byte array.
-     * The highest byte in the value will be the first byte in the result array.
-     *
-     * @param v     Unsigned int value.
-     * @param bytes Bytes array to write result to.
-     * @param off   Offset in the target array to write result to.
-     * @param limit Limit of bytes to write into output.
-     * @return Number of bytes overwritten in {@code bytes} array.
-     */
-    public static byte[] intToBytes(int v, byte[] bytes, int off, int limit) {
-        assert bytes != null;
-        assert limit <= Integer.BYTES;
-        assert bytes.length >= off + limit;
-
-        for (int i = limit - 1; i >= 0; i--) {
-            bytes[off + i] = (byte) (v & 0xFF);
-            v >>>= 8;
         }
 
         return bytes;

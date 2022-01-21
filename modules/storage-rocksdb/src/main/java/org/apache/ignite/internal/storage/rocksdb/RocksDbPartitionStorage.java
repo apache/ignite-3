@@ -19,9 +19,10 @@ package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.util.Collections.nCopies;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.createSstFile;
-import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -64,14 +65,18 @@ class RocksDbPartitionStorage implements PartitionStorage {
     private static final String TMP_SUFFIX = ".tmp";
 
     /**
-     * Size of the overhead for all keys in the storage: partition ID ({@code int}) + key hash ({@code int}).
+     * Size of the overhead for all keys in the storage: partition ID (unsigned {@code short}) + key hash ({@code int}).
      */
-    private static final int PARTITION_KEY_PREFIX_SIZE = Integer.BYTES + Integer.BYTES;
+    private static final int PARTITION_KEY_PREFIX_SIZE = Short.BYTES + Integer.BYTES;
 
     /** Thread pool for async operations. */
     private final Executor threadPool;
 
-    /** Partition id. */
+    /**
+     * Partition ID (should be treated as an unsigned short).
+     *
+     * <p>Partition IDs are always stored in the big endian order, since they need to be compared lexicographically.
+     */
     private final int partId;
 
     /** RocksDb instance. */
@@ -96,6 +101,8 @@ class RocksDbPartitionStorage implements PartitionStorage {
             RocksDB db,
             ColumnFamily columnFamily
     ) throws StorageException {
+        assert partId >= 0 && partId < 0xFFFF;
+
         this.threadPool = threadPool;
         this.partId = partId;
         this.db = db;
@@ -429,22 +436,23 @@ class RocksDbPartitionStorage implements PartitionStorage {
      * Creates a prefix of all keys in the given partition.
      */
     private byte[] partitionStartPrefix() {
-        byte[] start = new byte[Integer.BYTES];
-
-        intToBytes(partId, start, 0, Integer.BYTES);
-
-        return start;
+        return unsignedShortAsBytes(partId);
     }
 
     /**
      * Creates a prefix of all keys in the next partition, used as an exclusive bound.
      */
     private byte[] partitionEndPrefix() {
-        byte[] end = new byte[Integer.BYTES];
+        return unsignedShortAsBytes(partId + 1);
+    }
 
-        intToBytes(partId + 1, end, 0, Integer.BYTES);
+    private static byte[] unsignedShortAsBytes(int value) {
+        byte[] result = new byte[Short.BYTES];
 
-        return end;
+        result[0] = (byte) (value >>> 8);
+        result[1] = (byte) value;
+
+        return result;
     }
 
     /** Cursor wrapper over the RocksIterator object with custom filter. */
@@ -489,21 +497,12 @@ class RocksDbPartitionStorage implements PartitionStorage {
      * and the key's hash (an optimisation).
      */
     private byte[] partitionKey(byte[] key) {
-        byte[] partitionKey = new byte[PARTITION_KEY_PREFIX_SIZE + key.length];
-
-        int pos = 0;
-
-        intToBytes(partId, partitionKey, pos, Integer.BYTES);
-
-        pos += Integer.BYTES;
-
-        intToBytes(Arrays.hashCode(key), partitionKey, pos, Integer.BYTES);
-
-        pos += Integer.BYTES;
-
-        System.arraycopy(key, 0, partitionKey, pos, key.length);
-
-        return partitionKey;
+        return ByteBuffer.allocate(PARTITION_KEY_PREFIX_SIZE + key.length)
+                .order(ByteOrder.BIG_ENDIAN)
+                .putShort((short) partId)
+                .putInt(Arrays.hashCode(key))
+                .put(key)
+                .array();
     }
 
     /**

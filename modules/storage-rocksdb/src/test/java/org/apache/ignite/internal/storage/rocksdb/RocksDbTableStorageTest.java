@@ -74,6 +74,10 @@ public class RocksDbTableStorageTest {
 
         assertThat(changeFuture, willBe(nullValue(Void.class)));
 
+        changeFuture = tableCfg.change(cfg -> cfg.changePartitions(512));
+
+        assertThat(changeFuture, willBe(nullValue(Void.class)));
+
         dataRegion = engine.createDataRegion(dataRegionCfg);
 
         assertThat(dataRegion, is(instanceOf(RocksDbDataRegion.class)));
@@ -125,8 +129,9 @@ public class RocksDbTableStorageTest {
      */
     @Test
     void testPartitionIndependence() throws Exception {
-        PartitionStorage partitionStorage0 = storage.getOrCreatePartition(0);
-        PartitionStorage partitionStorage1 = storage.getOrCreatePartition(1);
+        PartitionStorage partitionStorage0 = storage.getOrCreatePartition(42);
+        // using a shifted ID value to test a multi-byte scenario
+        PartitionStorage partitionStorage1 = storage.getOrCreatePartition(1 << 8);
 
         var testData = new SimpleDataRow("foo".getBytes(StandardCharsets.UTF_8), "bar".getBytes(StandardCharsets.UTF_8));
 
@@ -163,14 +168,14 @@ public class RocksDbTableStorageTest {
     void testDropPartition() {
         var testData = new SimpleDataRow("foo".getBytes(StandardCharsets.UTF_8), "bar".getBytes(StandardCharsets.UTF_8));
 
-        storage.getOrCreatePartition(0).write(testData);
-        storage.getOrCreatePartition(1).write(testData);
+        storage.getOrCreatePartition(42).write(testData);
+        storage.getOrCreatePartition(1 << 8).write(testData);
 
-        storage.dropPartition(0);
+        storage.dropPartition(42);
 
-        assertThat(storage.getPartition(0), is(nullValue()));
-        assertThat(storage.getOrCreatePartition(0).read(testData), is(nullValue()));
-        assertThat(storage.getPartition(1).read(testData), is(equalTo(testData)));
+        assertThat(storage.getPartition(42), is(nullValue()));
+        assertThat(storage.getOrCreatePartition(42).read(testData), is(nullValue()));
+        assertThat(storage.getPartition(1 << 8).read(testData), is(equalTo(testData)));
     }
 
     /**

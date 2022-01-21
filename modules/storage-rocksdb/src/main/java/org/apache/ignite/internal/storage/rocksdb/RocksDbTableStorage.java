@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
@@ -78,16 +79,13 @@ class RocksDbTableStorage implements TableStorage {
     private volatile RocksDB db;
 
     /** Meta information. */
-    private RocksDbMetaStorage meta;
+    private volatile RocksDbMetaStorage meta;
 
     /** Column Family handle for partition data. */
-    private ColumnFamily partitionCf;
+    private volatile ColumnFamily partitionCf;
 
     /** Partition storages. */
-    private PartitionStorage[] partitions;
-
-    /** Lock for the {@code partitions} variable access. */
-    private final Object partitionsLock = new Object();
+    private volatile AtomicReferenceArray<PartitionStorage> partitions;
 
     /** Column families for indexes by their names. */
     private final Map<String, RocksDbSortedIndexStorage> sortedIndices = new ConcurrentHashMap<>();
@@ -152,55 +150,49 @@ class RocksDbTableStorage implements TableStorage {
 
         addToCloseableResources(db::closeE);
 
-        synchronized (partitionsLock) {
-            // read all existing Column Families from the db and parse them according to type: meta, partition data or index.
-            for (int i = 0; i < cfHandles.size(); i++) {
-                ColumnFamilyHandle cfHandle = cfHandles.get(i);
+        // read all existing Column Families from the db and parse them according to type: meta, partition data or index.
+        for (int i = 0; i < cfHandles.size(); i++) {
+            ColumnFamilyHandle cfHandle = cfHandles.get(i);
 
-                ColumnFamilyDescriptor cfDescriptor = cfDescriptors.get(i);
+            ColumnFamilyDescriptor cfDescriptor = cfDescriptors.get(i);
 
-                String handleName = cfHandleName(cfHandle);
+            String handleName = cfHandleName(cfHandle);
 
-                ColumnFamily cf = new ColumnFamily(db, cfHandle, handleName, cfDescriptor.getOptions(), null);
+            ColumnFamily cf = new ColumnFamily(db, cfHandle, handleName, cfDescriptor.getOptions(), null);
 
-                switch (columnFamilyType(handleName)) {
-                    case META:
-                        meta = addToCloseableResources(new RocksDbMetaStorage(cf));
+            switch (columnFamilyType(handleName)) {
+                case META:
+                    meta = addToCloseableResources(new RocksDbMetaStorage(cf));
 
-                        break;
+                    break;
 
-                    case PARTITION:
-                        partitionCf = addToCloseableResources(cf);
+                case PARTITION:
+                    partitionCf = addToCloseableResources(cf);
 
-                        break;
+                    break;
 
-                    case SORTED_INDEX:
-                        String indexName = sortedIndexName(handleName);
+                case SORTED_INDEX:
+                    String indexName = sortedIndexName(handleName);
 
-                        var indexDescriptor = new SortedIndexDescriptor(indexName, tableCfg.value());
+                    var indexDescriptor = new SortedIndexDescriptor(indexName, tableCfg.value());
 
-                        sortedIndices.put(indexName, new RocksDbSortedIndexStorage(cf, indexDescriptor));
+                    sortedIndices.put(indexName, new RocksDbSortedIndexStorage(cf, indexDescriptor));
 
-                        break;
+                    break;
 
-                    default:
-                        throw new StorageException("Unidentified column family [name=" + handleName + ", table=" + tableCfg.name() + ']');
-                }
+                default:
+                    throw new StorageException("Unidentified column family [name=" + handleName + ", table=" + tableCfg.name() + ']');
             }
+        }
 
-            if (partitionCf == null) {
-                partitionCf = addToCloseableResources(createColumnFamily(PARTITION_CF_NAME, partitionCfDescriptor()));
-            }
+        if (partitionCf == null) {
+            partitionCf = addToCloseableResources(createColumnFamily(PARTITION_CF_NAME, partitionCfDescriptor()));
+        }
 
-            try {
-                partitions = new RocksDbPartitionStorage[tableCfg.value().partitions()];
+        partitions = new AtomicReferenceArray<>(tableCfg.value().partitions());
 
-                for (int partId : meta.getPartitionsList()) {
-                    partitions[partId] = new RocksDbPartitionStorage(threadPool, partId, db, partitionCf);
-                }
-            } catch (RocksDBException e) {
-                throw new StorageException("Unable to read a list of existing partitions", e);
-            }
+        for (int partId : meta.getPartitionIds()) {
+            partitions.set(partId, new RocksDbPartitionStorage(threadPool, partId, db, partitionCf));
         }
     }
 
@@ -226,11 +218,11 @@ class RocksDbTableStorage implements TableStorage {
 
         resources.addAll(sortedIndices.values());
 
-        synchronized (partitionsLock) {
-            for (PartitionStorage partition : partitions) {
-                if (partition != null) {
-                    resources.add(partition);
-                }
+        for (int i = 0; i < partitions.length(); i++) {
+            PartitionStorage partition = partitions.get(i);
+
+            if (partition != null) {
+                resources.add(partition);
             }
         }
 
@@ -254,54 +246,21 @@ class RocksDbTableStorage implements TableStorage {
     /** {@inheritDoc} */
     @Override
     public PartitionStorage getOrCreatePartition(int partId) throws StorageException {
-        assert !stopped : "Storage has been stopped";
+        PartitionStorage storage = getPartition(partId);
 
-        synchronized (partitionsLock) {
-            checkPartitionId(partId);
-
-            if (partitions[partId] != null) {
-                return partitions[partId];
-            }
-
-            var newPartition = new RocksDbPartitionStorage(threadPool, partId, db, partitionCf);
-
-            partitions[partId] = newPartition;
-
-            try {
-                meta.putPartitionsList(getPartitionIds());
-            } catch (RocksDBException e) {
-                throw new StorageException("Unable to save a list of partition IDs", e);
-            }
-
-            return newPartition;
-        }
-    }
-
-    /**
-     * Returns a list of existing partition IDs.
-     */
-    private int[] getPartitionIds() {
-        int nonNullPartitionsCount = 0;
-
-        for (PartitionStorage s : partitions) {
-            if (s != null) {
-                nonNullPartitionsCount += 1;
-            }
+        if (storage != null) {
+            return storage;
         }
 
-        int[] partitionIds = new int[nonNullPartitionsCount];
+        // possible races when creating the partitions with the same ID are safe, since both the storage creation and the meta update
+        // are cheap and idempotent.
+        storage = new RocksDbPartitionStorage(threadPool, partId, db, partitionCf);
 
-        int j = 0;
+        partitions.set(partId, storage);
 
-        for (int i = 0; i < partitions.length; ++i) {
-            if (partitions[i] != null) {
-                partitionIds[j] = i;
+        meta.putPartitionId(partId);
 
-                j += 1;
-            }
-        }
-
-        return partitionIds;
+        return storage;
     }
 
     /** {@inheritDoc} */
@@ -310,32 +269,22 @@ class RocksDbTableStorage implements TableStorage {
     public PartitionStorage getPartition(int partId) {
         assert !stopped : "Storage has been stopped";
 
-        synchronized (partitionsLock) {
-            checkPartitionId(partId);
+        checkPartitionId(partId);
 
-            return partitions[partId];
-        }
+        return partitions.get(partId);
     }
 
     /** {@inheritDoc} */
     @Override
     public void dropPartition(int partId) throws StorageException {
-        assert !stopped : "Storage has been stopped";
-
-        PartitionStorage partition;
-
-        synchronized (partitionsLock) {
-            checkPartitionId(partId);
-
-            partition = partitions[partId];
-
-            if (partition != null) {
-                partitions[partId] = null;
-            }
-        }
+        PartitionStorage partition = getPartition(partId);
 
         if (partition != null) {
+            partitions.set(partId, null);
+
             partition.destroy();
+
+            meta.removePartitionId(partId);
         }
     }
 
@@ -386,12 +335,12 @@ class RocksDbTableStorage implements TableStorage {
      * @param partId Partition id.
      */
     private void checkPartitionId(int partId) {
-        if (partId < 0 || partId >= partitions.length) {
+        if (partId < 0 || partId >= partitions.length()) {
             throw new IllegalArgumentException(S.toString(
                     "Unable to access partition with id outside of configured range",
                     "table", tableCfg.name().value(), false,
                     "partitionId", partId, false,
-                    "partitions", partitions.length, false
+                    "partitions", partitions.length(), false
             ));
         }
     }

@@ -18,10 +18,17 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
+import org.apache.ignite.internal.storage.StorageException;
+import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
+import org.rocksdb.Slice;
 
 /**
  * Wrapper around the "meta" Column Family inside a RocksDB-based storage, which stores some auxiliary information needed for internal
@@ -31,7 +38,15 @@ class RocksDbMetaStorage implements AutoCloseable {
     /**
      * Name of the key that corresponds to a list of existing partition IDs of a storage.
      */
-    private static final byte[] PARTITIONS_LIST_KEY = "partition-list".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] PARTITION_ID_PREFIX = "part".getBytes(StandardCharsets.UTF_8);
+
+    private static final byte[] PARTITION_ID_PREFIX_END;
+
+    static {
+        PARTITION_ID_PREFIX_END = PARTITION_ID_PREFIX.clone();
+
+        PARTITION_ID_PREFIX_END[PARTITION_ID_PREFIX_END.length - 1] += 1;
+    }
 
     private final ColumnFamily metaCf;
 
@@ -43,36 +58,74 @@ class RocksDbMetaStorage implements AutoCloseable {
      * Returns a list of partition IDs that exist in the associated storage.
      *
      * @return list of partition IDs
-     * @throws RocksDBException if RocksDB fails to read the partition list
      */
-    int[] getPartitionsList() throws RocksDBException {
-        byte[] partitionsList = metaCf.get(PARTITIONS_LIST_KEY);
+    int[] getPartitionIds() {
+        Stream.Builder<byte[]> data = Stream.builder();
 
-        if (partitionsList == null) {
-            return new int[0];
+        try (
+                var upperBound = new Slice(PARTITION_ID_PREFIX_END);
+                var options = new ReadOptions().setIterateUpperBound(upperBound);
+                RocksIterator it = metaCf.newIterator(options);
+        ) {
+            it.seek(PARTITION_ID_PREFIX);
+
+            RocksUtils.forEach(it, (key, value) -> data.add(value));
+        } catch (RocksDBException e) {
+            throw new StorageException("Error when reading a list of partition IDs from the meta Column Family", e);
         }
 
-        IntBuffer buf = ByteBuffer.wrap(partitionsList).asIntBuffer();
-
-        int[] result = new int[buf.remaining()];
-
-        buf.get(result);
-
-        return result;
+        return data.build()
+                .mapToInt(RocksDbMetaStorage::bytesToUnsignedShort)
+                .toArray();
     }
 
     /**
-     * Saves the given partition IDs into the meta Column Family.
-     *
-     * @param partitionIds array of partition IDs
-     * @throws RocksDBException if RocksDB fails to write the partition list
+     * Converts a byte array (in big endian format) into an unsigned short (represented as an {@code int}).
      */
-    void putPartitionsList(int[] partitionIds) throws RocksDBException {
-        var buf = ByteBuffer.allocate(partitionIds.length * Integer.BYTES);
+    private static int bytesToUnsignedShort(byte[] array) {
+        assert array.length == 2 : array.length;
 
-        buf.asIntBuffer().put(partitionIds);
+        return array[0] << 8 | array[1];
+    }
 
-        metaCf.put(PARTITIONS_LIST_KEY, buf.array());
+    /**
+     * Saves the given partition ID into the meta Column Family.
+     *
+     * @param partitionId partition ID
+     */
+    void putPartitionId(int partitionId) {
+        byte[] partitionIdKey = partitionIdKey(partitionId);
+
+        byte[] partitionIdBytes = Arrays.copyOfRange(partitionIdKey, PARTITION_ID_PREFIX.length, partitionIdKey.length);
+
+        try {
+            metaCf.put(partitionIdKey, partitionIdBytes);
+        } catch (RocksDBException e) {
+            throw new StorageException("Unable to save partition " + partitionId + " in the meta Column Family", e);
+        }
+    }
+
+    /**
+     * Removes the given partition ID from the meta Column Family.
+     *
+     * @param partitionId partition ID
+     */
+    void removePartitionId(int partitionId) {
+        try {
+            metaCf.delete(partitionIdKey(partitionId));
+        } catch (RocksDBException e) {
+            throw new StorageException("Unable to delete partition " + partitionId + " from the meta Column Family", e);
+        }
+    }
+
+    private static byte[] partitionIdKey(int partitionId) {
+        assert partitionId >= 0 && partitionId <= 0xFFFF : partitionId;
+
+        return ByteBuffer.allocate(PARTITION_ID_PREFIX.length + Short.BYTES)
+                .order(ByteOrder.BIG_ENDIAN)
+                .put(PARTITION_ID_PREFIX)
+                .putShort((short) partitionId)
+                .array();
     }
 
     @Override
