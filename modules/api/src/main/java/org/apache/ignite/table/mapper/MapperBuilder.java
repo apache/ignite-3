@@ -268,7 +268,7 @@ public final class MapperBuilder<T> {
                     .map(Field::getName)
                     .filter(fldName -> !fields.contains(fldName))
                     // Ignore manually mapped fields/columns.
-                    .forEach(fldName -> mapping.putIfAbsent(IgniteObjectName.parse(fldName), fldName));
+                    .forEach(fldName -> mapping.putIfAbsent(fldName.toUpperCase(), fldName));
         }
 
         return new PojoMapperImpl<>(targetType, mapping, columnConverters);
