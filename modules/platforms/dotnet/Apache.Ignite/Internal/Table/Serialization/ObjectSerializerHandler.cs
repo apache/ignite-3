@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
+    using System.Reflection;
     using Buffers;
     using MessagePack;
     using Proto;
@@ -45,12 +46,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     continue;
                 }
 
-                var column = columns[index];
-                var prop = type.GetPropertyIgnoreCase(column.Name);
+                var col = columns[index];
+                var prop = GetPropertyIgnoreCase(type, col.Name);
 
                 if (prop != null)
                 {
-                    var value = reader.ReadObject(column.Type);
+                    var value = reader.ReadObject(col.Type);
                     prop.SetValue(res, value);
                 }
                 else
@@ -76,8 +77,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             for (var i = 0; i < columns.Count; i++)
             {
-                var column = columns[i];
-                var prop = type.GetPropertyIgnoreCase(column.Name);
+                var col = columns[i];
+                var prop = GetPropertyIgnoreCase(type, col.Name);
 
                 if (i < schema.KeyColumnCount)
                 {
@@ -95,7 +96,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                     if (prop != null)
                     {
-                        prop.SetValue(res, r.ReadObject(column.Type));
+                        prop.SetValue(res, r.ReadObject(col.Type));
                     }
                     else
                     {
@@ -118,7 +119,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var index = 0; index < count; index++)
             {
                 var col = columns[index];
-                var prop = type.GetPropertyIgnoreCase(col.Name);
+                var prop = GetPropertyIgnoreCase(type, col.Name);
 
                 if (prop == null)
                 {
@@ -129,6 +130,20 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     writer.WriteObject(prop.GetValue(record));
                 }
             }
+        }
+
+        private static PropertyInfo? GetPropertyIgnoreCase(Type type, string name)
+        {
+            // TODO: Use fields, not properties (IGNITE-16341).
+            foreach (var p in type.GetProperties())
+            {
+                if (p.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return p;
+                }
+            }
+
+            return null;
         }
     }
 }
