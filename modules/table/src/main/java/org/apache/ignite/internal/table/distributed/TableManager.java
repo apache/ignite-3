@@ -192,7 +192,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** {@inheritDoc} */
     @Override
     public void start() {
-        // TODO: IGNITE-15485 Support table rename operation.
         tablesCfg.tables()
                 .listenElements(new ConfigurationNamedListListener<>() {
                     @Override
@@ -349,6 +348,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }
 
                         return CompletableFuture.allOf(futures);
+                    }
+
+                    @Override
+                    public @NotNull CompletableFuture<?> onRename(@NotNull String oldName, @NotNull String newName,
+                            @NotNull ConfigurationNotificationEvent<TableView> ctx) {
+                        // TODO: IGNITE-15485 Support table rename operation.
+
+                        return CompletableFuture.completedFuture(null);
                     }
 
                     @Override

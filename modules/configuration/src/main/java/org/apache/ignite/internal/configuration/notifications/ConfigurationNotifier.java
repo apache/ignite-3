@@ -74,7 +74,7 @@ public class ConfigurationNotifier {
             DynamicConfiguration<InnerNode, ?> config,
             long storageRevision
     ) {
-        if (oldInnerNode != null && oldInnerNode == newInnerNode) {
+        if (oldInnerNode == newInnerNode) {
             return List.of();
         }
 

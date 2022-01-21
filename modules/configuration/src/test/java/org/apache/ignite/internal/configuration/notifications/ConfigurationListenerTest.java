@@ -42,10 +42,8 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -1419,7 +1417,7 @@ public class ConfigurationListenerTest {
 
         config.polyChildren().change(c -> c.create("0", doNothingConsumer())).get(1, SECONDS);
 
-        Set<String> events = new HashSet<>();
+        List<String> events = new ArrayList<>();
 
         config.listen(configListener(ctx -> events.add("root")));
 
@@ -1470,14 +1468,14 @@ public class ConfigurationListenerTest {
         }
 
         assertEquals(
-                Set.of(
+                List.of(
                         "root",
                         "child", "child.str",
-                        "children", "children.onCreate", "children.0", "children.0.str",
-                        "children.any", "children.any.str",
+                        "children", "children.onCreate", "children.any", "children.0",
+                        "children.any.str", "children.0.str",
                         "polyChild", "polyChild.int", "polyChild.str",
-                        "polyChildren", "polyChildren.onCreate", "polyChildren.0", "polyChildren.0.int", "polyChildren.0.str",
-                        "polyChildren.any", "polyChildren.any.int"
+                        "polyChildren", "polyChildren.onCreate", "polyChildren.any", "polyChildren.0",
+                        "polyChildren.any.int", "polyChildren.0.int", "polyChildren.0.str"
                 ),
                 events
         );

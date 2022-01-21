@@ -51,6 +51,9 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.ExceptKeys;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Max;
@@ -316,6 +319,9 @@ public class ConfigurationRegistry implements IgniteComponent {
 
     /**
      * Notifies all listeners of the current configuration.
+     *
+     * <p>{@link ConfigurationListener#onUpdate} and {@link ConfigurationNamedListListener#onCreate} will be called and the value will
+     * only be in {@link ConfigurationNotificationEvent#newValue}.
      *
      * @return Future that must signify when processing is completed.
      */
