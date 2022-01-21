@@ -153,7 +153,7 @@ public class DdlCommandHandler {
         );
 
         try {
-            tableManager.createTableAsyncInternal(fullName, tblChanger).join();
+            tableManager.createTable(fullName, tblChanger);
         } catch (TableAlreadyExistsException ex) {
             if (!cmd.ifTableExists()) {
                 throw ex;
@@ -168,7 +168,7 @@ public class DdlCommandHandler {
                 IgniteObjectName.unparseName(cmd.tableName())
         );
         try {
-            tableManager.dropTableAsyncInternal(fullName).join();
+            tableManager.dropTable(fullName);
         } catch (TableNotFoundException ex) {
             if (!cmd.ifTableExists()) {
                 throw ex;
@@ -236,7 +236,7 @@ public class DdlCommandHandler {
                 IgniteObjectName.unparseName(cmd.tableName())
         );
 
-        tableManager.alterTableAsyncInternal(fullName, chng -> chng.changeIndices(idxes -> {
+        tableManager.alterTable(fullName, chng -> chng.changeIndices(idxes -> {
             if (idxes.get(cmd.indexName()) != null) {
                 if (!cmd.ifIndexNotExists()) {
                     throw new IndexAlreadyExistsException(cmd.indexName());
@@ -246,7 +246,7 @@ public class DdlCommandHandler {
             }
 
             idxes.create(cmd.indexName(), tableIndexChange -> convert(idx.build(), tableIndexChange));
-        })).join();
+        }));
     }
 
     /** Handles drop index command. */
@@ -262,7 +262,7 @@ public class DdlCommandHandler {
      * @param colNotExist Flag indicates exceptionally behavior in case of already existing column.
      */
     private void addColumnInternal(String fullName, List<ColumnDefinition> colsDef, boolean colNotExist) {
-        tableManager.alterTableAsyncInternal(
+        tableManager.alterTable(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
                     Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
@@ -292,7 +292,7 @@ public class DdlCommandHandler {
 
                         cols.create(col.name(), colChg -> convert(col0.build(), colChg));
                     }
-                })).join();
+                }));
     }
 
     /**
@@ -303,7 +303,7 @@ public class DdlCommandHandler {
      * @param colExist Flag indicates exceptionally behavior in case of already existing column.
      */
     private void dropColumnInternal(String fullName, Set<String> colNames, boolean colExist) {
-        tableManager.alterTableAsyncInternal(
+        tableManager.alterTable(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
                     PrimaryKeyView priKey = chng.primaryKey();
@@ -329,8 +329,8 @@ public class DdlCommandHandler {
                         }
                     }
 
-                    colNames0.forEach(k -> cols.delete(IgniteObjectName.unparseName(colNamesToOrders.get(k))));
-                })).join();
+                    colNames0.forEach(k -> cols.delete(colNamesToOrders.get(k)));
+                }));
     }
 
     /** Map column name to order. */

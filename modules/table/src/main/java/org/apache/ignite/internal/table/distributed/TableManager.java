@@ -707,7 +707,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *                         </ul>
      * @see TableAlreadyExistsException
      */
-    public CompletableFuture<Table> createTableAsyncInternal(String name, Consumer<TableChange> tableInitChange) {
+    private CompletableFuture<Table> createTableAsyncInternal(String name, Consumer<TableChange> tableInitChange) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
         tableAsync(name).thenAccept(tbl -> {
@@ -808,7 +808,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @see TableNotFoundException
      */
     @NotNull
-    public CompletableFuture<Void> alterTableAsyncInternal(String name, Consumer<TableChange> tableChange) {
+    private CompletableFuture<Void> alterTableAsyncInternal(String name, Consumer<TableChange> tableChange) {
         CompletableFuture<Void> tblFut = new CompletableFuture<>();
 
         tableAsync(name).thenAccept(tbl -> {
@@ -936,7 +936,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @see TableNotFoundException
      */
     @NotNull
-    public CompletableFuture<Void> dropTableAsyncInternal(String name) {
+    private CompletableFuture<Void> dropTableAsyncInternal(String name) {
         CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
 
         tableAsync(name).thenAccept(tbl -> {
