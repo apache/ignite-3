@@ -101,7 +101,7 @@ class RocksDbPartitionStorage implements PartitionStorage {
             RocksDB db,
             ColumnFamily columnFamily
     ) throws StorageException {
-        assert partId >= 0 && partId < 0xFFFF;
+        assert partId >= 0 && partId < 0xFFFF : partId;
 
         this.threadPool = threadPool;
         this.partId = partId;
@@ -484,9 +484,7 @@ class RocksDbPartitionStorage implements PartitionStorage {
 
         @Override
         protected DataRow decodeEntry(byte[] key, byte[] value) {
-            byte[] rowKey = new byte[key.length - PARTITION_KEY_PREFIX_SIZE];
-
-            System.arraycopy(key, PARTITION_KEY_PREFIX_SIZE, rowKey, 0, rowKey.length);
+            byte[] rowKey = Arrays.copyOfRange(key, PARTITION_KEY_PREFIX_SIZE, key.length);
 
             return new SimpleDataRow(rowKey, value);
         }

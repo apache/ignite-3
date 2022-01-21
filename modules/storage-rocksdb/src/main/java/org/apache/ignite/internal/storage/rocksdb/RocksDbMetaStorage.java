@@ -40,6 +40,9 @@ class RocksDbMetaStorage implements AutoCloseable {
      */
     private static final byte[] PARTITION_ID_PREFIX = "part".getBytes(StandardCharsets.UTF_8);
 
+    /**
+     * Name of the key that is out of range of the partition ID key prefix, used as an exclusive bound.
+     */
     private static final byte[] PARTITION_ID_PREFIX_END;
 
     static {
