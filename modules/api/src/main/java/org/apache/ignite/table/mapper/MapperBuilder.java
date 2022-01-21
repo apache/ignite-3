@@ -202,10 +202,8 @@ public final class MapperBuilder<T> {
             @NotNull String columnName,
             @NotNull TypeConverter<ObjectT, ColumnT> converter
     ) {
-        String colName0 = IgniteObjectName.parse(columnName);
-
-        map(fieldName, colName0);
-        convert(colName0, converter);
+        map(fieldName, columnName);
+        convert(columnName, converter);
 
         return this;
     }

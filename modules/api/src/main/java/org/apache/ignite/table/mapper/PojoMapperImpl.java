@@ -19,7 +19,6 @@ package org.apache.ignite.table.mapper;
 
 import java.util.Map;
 import java.util.Objects;
-import org.apache.ignite.internal.util.IgniteObjectName;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -62,12 +61,12 @@ class PojoMapperImpl<T> implements PojoMapper<T> {
     /** {@inheritDoc} */
     @Override
     public String fieldForColumn(@NotNull String columnName) {
-        return mapping.get(IgniteObjectName.parse(columnName));
+        return mapping.get(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public <FieldT, ColumnT> TypeConverter<FieldT, ColumnT> converterForColumn(@NotNull String columnName) {
-        return (TypeConverter<FieldT, ColumnT>) converters.get(IgniteObjectName.parse(columnName));
+        return (TypeConverter<FieldT, ColumnT>) converters.get(columnName);
     }
 }
