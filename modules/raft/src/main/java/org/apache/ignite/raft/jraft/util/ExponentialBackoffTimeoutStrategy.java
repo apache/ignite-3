@@ -45,7 +45,7 @@ public class ExponentialBackoffTimeoutStrategy implements TimeoutStrategy {
 
     /*
      * @param maxTimeout Max timeout that strategy could generate.
-     * @param roundsWithoutAdjusting
+     * @param roundsWithoutAdjusting Max number of a round after which timeout will be adjusted.
      */
     public ExponentialBackoffTimeoutStrategy(int maxTimeout, long roundsWithoutAdjusting) {
         this.maxTimeout = maxTimeout;
