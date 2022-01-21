@@ -56,7 +56,7 @@ public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, Pri
     /** {@inheritDoc} */
     @Override
     public PrimaryKeyDefinitionBuilderImpl withColumns(List<String> columns) {
-        this.columns = columns.stream().map(IgniteObjectName::parse).collect(Collectors.toList());;
+        this.columns = columns.stream().map(IgniteObjectName::parse).collect(Collectors.toList());
 
         return this;
     }
