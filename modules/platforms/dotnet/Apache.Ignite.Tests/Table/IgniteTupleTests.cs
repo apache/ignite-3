@@ -65,6 +65,30 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        public void TestGetNullOrEmptyNameThrowsException()
+        {
+            var tuple = new IgniteTuple { ["Foo"] = 1 };
+
+            var ex = Assert.Throws<IgniteClientException>(() => tuple.GetOrdinal(string.Empty));
+            Assert.AreEqual("Column name can not be null or empty.", ex!.Message);
+
+            ex = Assert.Throws<IgniteClientException>(() => tuple.GetOrdinal(null!));
+            Assert.AreEqual("Column name can not be null or empty.", ex!.Message);
+
+            ex = Assert.Throws<IgniteClientException>(() =>
+            {
+                var x = tuple[string.Empty];
+            });
+            Assert.AreEqual("Column name can not be null or empty.", ex!.Message);
+
+            ex = Assert.Throws<IgniteClientException>(() =>
+            {
+                var x = tuple[null!];
+            });
+            Assert.AreEqual("Column name can not be null or empty.", ex!.Message);
+        }
+
+        [Test]
         public void TestToStringEmpty()
         {
             Assert.AreEqual("IgniteTuple []", new IgniteTuple().ToString());
