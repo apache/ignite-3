@@ -47,23 +47,13 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     @BeforeAll
     public static void beforeClass() throws Exception {
         try (Statement statement = conn.createStatement()) {
-            statement.executeUpdate("create table TEST(_key int, ID int primary key, NAME varchar(20));");
-            //    statement.executeUpdate("create table TEST2(_key int, ID int primary key, NAME varchar(20));");
+            statement.executeUpdate("create table TEST(ID int primary key, NAME varchar(20));");
 
             int stmtCnt = 10;
 
             for (int i = 0; i < stmtCnt; ++i) {
-                statement.executeUpdate("insert into TEST (_key, ID, NAME) values (" + i + ", " + i + ", 'name_" + i + "'); ");
+                statement.executeUpdate("insert into TEST (ID, NAME) values (" + i + ", 'name_" + i + "'); ");
             }
-
-            statement.execute("select (select ID from TEST)");
-            ResultSet resultSet = statement.getResultSet();
-            statement.execute("select _key from TEST;");
-            resultSet = statement.getResultSet();
-            resultSet.hashCode();
-            statement.execute("select _key, * from TEST;");
-            resultSet = statement.getResultSet();
-            resultSet.hashCode();
         }
     }
 
