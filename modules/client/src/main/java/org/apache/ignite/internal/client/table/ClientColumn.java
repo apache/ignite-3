@@ -52,7 +52,7 @@ public class ClientColumn {
         assert name != null;
         assert schemaIndex >= 0;
 
-        this.name = IgniteObjectName.parse(name);
+        this.name = name;
         this.type = type;
         this.nullable = nullable;
         this.isKey = isKey;
