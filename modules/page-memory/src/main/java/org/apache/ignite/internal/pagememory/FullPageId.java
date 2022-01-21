@@ -83,7 +83,7 @@ public class FullPageId {
     }
 
     /**
-     * Returns an effective page ID.
+     * Returns an effective page ID: pageId with only pageIdx and partitionId.
      */
     public long effectivePageId() {
         return effectivePageId;
