@@ -42,6 +42,8 @@ namespace Apache.Ignite.Tests
 
         protected IIgniteClient Client { get; private set; } = null!;
 
+        protected ITable Table { get; private set; } = null!;
+
         protected IRecordView<IIgniteTuple> TupleView { get; private set; } = null!;
 
         protected IRecordView<Poco> PocoView { get; private set; } = null!;
@@ -54,9 +56,9 @@ namespace Apache.Ignite.Tests
             _serverNode = await JavaServer.StartAsync();
             Client = await IgniteClient.StartAsync(GetConfig());
 
-            var table = (await Client.Tables.GetTableAsync(TableName))!;
-            TupleView = table.RecordBinaryView;
-            PocoView = table.GetRecordView<Poco>();
+            Table = (await Client.Tables.GetTableAsync(TableName))!;
+            TupleView = Table.RecordBinaryView;
+            PocoView = Table.GetRecordView<Poco>();
         }
 
         [OneTimeTearDown]
