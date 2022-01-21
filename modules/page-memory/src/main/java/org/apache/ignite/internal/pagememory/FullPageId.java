@@ -25,8 +25,8 @@ import org.apache.ignite.lang.IgniteStringBuilder;
  * Compound object used to address a page in the global page space.
  * <h3>Page ID structure</h3>
  *
- * <p>Generally, a full page ID consists of a group ID and page ID. A page ID consists of page index (32 bits), partition ID (16 bits) and
- * flags. Higher 8 bits of page ID are unused and reserved to address entries inside data pages or page ID rotation.
+ * <p>Generally, a full page ID consists of a group ID and a page ID. A page ID consists of a page index (32 bits), a partition ID (16 bits) and
+ * flags. Higher 8 bits of a page ID are unused and reserved for addressing entries inside data pages or for page ID rotation.
  *
  * <p>Partition ID {@code 0xFFFF} is reserved for index pages.
  *
@@ -39,15 +39,15 @@ import org.apache.ignite.lang.IgniteStringBuilder;
  * +---------+-----------+------------+--------------------------+
  * </pre>
  *
- * <p><h3>Page ID rotation</h3>
+ * <h3>Page ID rotation</h3>
  * There are scenarios when we reference one page (B) from within another page (A) by page ID. It is also
  * possible that this first page (B) is concurrently reused for a different purpose. In this
  * case we should have a mechanism to determine that the reference from page (A) to page (B) is no longer valid.
- * This is ensured by page ID rotation - together with page's (B) ID we should write some value that is incremented
- * each time a page is reused (page ID rotation). This ID should be verified after page read and a page
- * should be discarded if full ID is different.
+ * This is ensured by page ID rotation - together with the ID of page B we write a value that is incremented
+ * each time a page is reused. This value should be verified after every page read and the page
+ * should be discarded if the full ID is different.
  *
- * <p>Effective page ID is page ID with zeroed bits used for page ID rotation.
+ * <p>Effective page ID is a page ID with zeroed bits used for page ID rotation.
  */
 public class FullPageId {
     /** Null page ID. */

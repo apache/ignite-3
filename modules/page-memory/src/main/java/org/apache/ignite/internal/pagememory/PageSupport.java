@@ -25,8 +25,8 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  */
 public interface PageSupport {
     /**
-     * Returns the page absolute pointer associated with the given page ID. Each page obtained with this method must be released by calling
-     * {@link #releasePage(int, long, long)}. This method will allocate page with given ID if it doesn't exist.
+     * Returns an absolute pointer to a page, associated with the given page ID. Each pointer obtained with this method must be released by calling
+     * {@link #releasePage(int, long, long)}. This method will allocate a page with the given ID if it doesn't exist.
      *
      * @param groupId Group ID.
      * @param pageId  Page ID.
@@ -36,8 +36,8 @@ public interface PageSupport {
     public long acquirePage(int groupId, long pageId) throws IgniteInternalCheckedException;
 
     /**
-     * Returns the page absolute pointer associated with the given page ID. Each page obtained with this method must be released by calling
-     * {@link #releasePage(int, long, long)}. This method will allocate page with given ID if it doesn't exist.
+     * Returns an absolute pointer to a page, associated with the given page ID. Each page obtained with this method must be released by calling
+     * {@link #releasePage(int, long, long)}. This method will allocate a page with the given ID if it doesn't exist.
      *
      * @param groupId    Group ID.
      * @param pageId     Page ID.
@@ -48,7 +48,7 @@ public interface PageSupport {
     public long acquirePage(int groupId, long pageId, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException;
 
     /**
-     * Releases page acquired by one of {@code acquirePage} methods.
+     * Releases pages acquired by any of the {@code acquirePage} methods.
      *
      * @param groupId Group ID.
      * @param pageId  Page ID to release.
@@ -57,7 +57,7 @@ public interface PageSupport {
     public void releasePage(int groupId, long pageId, long page);
 
     /**
-     * Acquires a read lock on the page.
+     * Acquires a read lock associated with the given page.
      *
      * @param groupId Group ID.
      * @param pageId  Page ID.
@@ -67,7 +67,7 @@ public interface PageSupport {
     public long readLock(int groupId, long pageId, long page);
 
     /**
-     * Obtains read lock without checking page tag.
+     * Acquires a read lock, associated with a given page, without checking the page tag.
      *
      * @param groupId Group ID.
      * @param pageId  Page ID.
@@ -77,7 +77,7 @@ public interface PageSupport {
     public long readLockForce(int groupId, long pageId, long page);
 
     /**
-     * Releases locked page.
+     * Releases a read lock, associated with a given page.
      *
      * @param groupId Group ID.
      * @param pageId  Page ID.

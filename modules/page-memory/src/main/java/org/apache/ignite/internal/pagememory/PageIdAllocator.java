@@ -20,7 +20,7 @@ package org.apache.ignite.internal.pagememory;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Allocates page ID's.
+ * Class responsible for allocating new page IDs.
  */
 public interface PageIdAllocator {
     /**
@@ -39,7 +39,7 @@ public interface PageIdAllocator {
     public static final int MAX_PARTITION_ID = 65500;
 
     /**
-     * Special partition reserved for index space.
+     * Special partition reserved for the index space.
      */
     public static final int INDEX_PARTITION = 0xFFFF;
 
@@ -53,7 +53,7 @@ public interface PageIdAllocator {
     public long allocatePage(int groupId, int partId, byte flags) throws IgniteInternalCheckedException;
 
     /**
-     * The given page is free now.
+     * Frees (deallocates?) the given page.
      *
      * @param groupId Group ID.
      * @param pageId  Page ID.

@@ -273,7 +273,7 @@ public class IgniteUtils {
     }
 
     /**
-     * Rtturns a hex string representation of the given integer value.
+     * Returns a hex string representation of the given integer value.
      *
      * @param val Value to convert to string.
      * @return Hex string.

@@ -26,19 +26,19 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
  */
 public interface PageMemory extends PageIdAllocator, PageSupport {
     /**
-     * Returns a page size in bytes.
+     * Returns a page's size in bytes.
      */
     int pageSize();
 
     /**
-     * Returns a page size without encryption overhead.
+     * Returns a page size without the encryption overhead.
      *
      * @param groupId Group id.
      */
     int realPageSize(int groupId);
 
     /**
-     * Returns a page size with system overhead, in bytes.
+     * Returns a page's size with system overhead, in bytes.
      */
     int systemPageSize();
 
@@ -51,12 +51,12 @@ public interface PageMemory extends PageIdAllocator, PageSupport {
     ByteBuffer pageBuffer(long pageAddr);
 
     /**
-     * Returns a total number of loaded pages in memory.
+     * Returns the total number of pages loaded into memory.
      */
     long loadedPages();
 
     /**
-     * Returns a registry to retrieve {@link PageIo} instances for pages.
+     * Returns a registry to obtain {@link PageIo} instances for pages.
      */
     public PageIoRegistry ioRegistry();
 }
