@@ -36,6 +36,7 @@ public interface PageIdAllocator {
     /**
      * Max partition ID that can be used by affinity.
      */
+    // TODO IGNITE-16280 Use constant from the table configuration.
     public static final int MAX_PARTITION_ID = 65500;
 
     /**

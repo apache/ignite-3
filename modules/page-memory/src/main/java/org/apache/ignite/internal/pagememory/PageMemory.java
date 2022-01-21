@@ -43,7 +43,7 @@ public interface PageMemory extends PageIdAllocator, PageSupport {
     int systemPageSize();
 
     /**
-     * Wraps a page address into a direct byte buffer.
+     * Wraps a page address, obtained by a {@code readLock}/{@code writeLock} or their variants, into a direct byte buffer.
      *
      * @param pageAddr Page address.
      * @return Page byte buffer.
