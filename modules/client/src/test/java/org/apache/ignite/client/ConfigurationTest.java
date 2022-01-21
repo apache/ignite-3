@@ -18,6 +18,8 @@
 package org.apache.ignite.client;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.either;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -146,9 +148,10 @@ public class ConfigurationTest extends AbstractClientTest {
                 .asyncContinuationExecutor(Runnable::run);
 
         try (Ignite ignite = builder.build()) {
-            String threadName = ignite.tables().tableAsync("sleep").thenApply(unused -> Thread.currentThread().getName()).join();
+            String threadName = ignite.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
 
-            assertThat(threadName, startsWith("nioEventLoopGroup-"));
+            // Current thread is used when future completes quickly.
+            assertThat(threadName, either(startsWith("nioEventLoopGroup-")).or(equalTo(Thread.currentThread().getName())));
         }
     }
 
