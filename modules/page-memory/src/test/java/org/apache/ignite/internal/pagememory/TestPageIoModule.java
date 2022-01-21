@@ -28,7 +28,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoModule;
  */
 public class TestPageIoModule implements PageIoModule {
     /** Last possible value for IO type. */
-    public static final int TEST_PAGE_TYPE = 65535 - 1;
+    public static final int TEST_PAGE_TYPE = PageIo.MAX_IO_TYPE;
 
     /** Version 1, minimal possible value. */
     public static final int TEST_PAGE_VER = 1;

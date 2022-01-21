@@ -20,6 +20,7 @@ package org.apache.ignite.internal.pagememory.util;
 /**
  * Page lock listener.
  */
+//TODO IGNITE-16350 Consider froper Before/After naming convention for all methods in this class.
 public interface PageLockListener extends AutoCloseable {
     /**
      * Callback that's called before write lock acquiring.
