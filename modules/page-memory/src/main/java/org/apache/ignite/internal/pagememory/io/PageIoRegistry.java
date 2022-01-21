@@ -28,7 +28,7 @@ public class PageIoRegistry {
     /**
      * Arrays of {@link IoVersions} for fast access. Element 0 is reserved.
      */
-    private IoVersions<?>[] ioVersions = new IoVersions[65535];
+    private final IoVersions<?>[] ioVersions = new IoVersions[65535];
 
     /**
      * Loads all {@link IoVersions} from corresponding {@link PageIoModule} using a {@link ServiceLoader} mechanism.

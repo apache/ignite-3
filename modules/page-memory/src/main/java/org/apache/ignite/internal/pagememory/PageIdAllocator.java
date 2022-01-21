@@ -46,11 +46,11 @@ public interface PageIdAllocator {
     /**
      * Allocates a page from the space for the given partition ID and the given flags.
      *
-     * @param groupId Group ID.
-     * @param partId  Partition ID.
+     * @param groupId     Group ID.
+     * @param partitionId Partition ID.
      * @return Allocated page ID.
      */
-    public long allocatePage(int groupId, int partId, byte flags) throws IgniteInternalCheckedException;
+    public long allocatePage(int groupId, int partitionId, byte flags) throws IgniteInternalCheckedException;
 
     /**
      * Frees the given page.

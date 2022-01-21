@@ -431,7 +431,7 @@ public abstract class PageIo {
         assert pageSize <= out.remaining();
         assert pageSize == page.remaining();
 
-        PageHandler.copyMemory(page, 0, out, 0, pageSize);
+        PageUtils.copyMemory(page, 0, out, 0, pageSize);
         out.limit(pageSize);
     }
 

@@ -31,7 +31,7 @@ public interface PageLockListener extends AutoCloseable {
     public void onBeforeWriteLock(int groupId, long pageId, long page);
 
     /**
-     * Callback that's called before after lock acquiring.
+     * Callback that's called after lock acquiring.
      *
      * @param groupId  Group ID.
      * @param pageId   Page ID.

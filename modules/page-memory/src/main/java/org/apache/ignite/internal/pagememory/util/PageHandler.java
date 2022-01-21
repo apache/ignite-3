@@ -19,11 +19,9 @@ package org.apache.ignite.internal.pagememory.util;
 
 import static java.lang.Boolean.FALSE;
 
-import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
-import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
@@ -249,7 +247,7 @@ public interface PageHandler<X, R> {
     }
 
     /**
-     * Executes handler under the read lock or returns {@code lockFailed} if lock failed.
+     * Executes handler under the write lock or returns {@code lockFailed} if lock failed.
      *
      * @param pageMem    Page memory.
      * @param groupId    Group ID.
@@ -315,7 +313,7 @@ public interface PageHandler<X, R> {
     }
 
     /**
-     * Executes handler under the read lock or returns {@code lockFailed} if lock failed. Page must already be acquired.
+     * Executes handler under the write lock or returns {@code lockFailed} if lock failed. Page must already be acquired.
      *
      * @param pageMem    Page memory.
      * @param groupId    Group ID.
@@ -440,39 +438,5 @@ public interface PageHandler<X, R> {
         assert PageIo.getCrc(pageAddr) == 0;
 
         init.initNewPage(pageAddr, pageId, pageMem.realPageSize(groupId));
-    }
-
-    /**
-     * Copies memory from one buffer to another.
-     *
-     * @param src    Source.
-     * @param srcOff Source offset in bytes.
-     * @param dst    Destination.
-     * @param dstOff Destination offset in bytes.
-     * @param cnt    Bytes count to copy.
-     */
-    public static void copyMemory(ByteBuffer src, long srcOff, ByteBuffer dst, long dstOff, long cnt) {
-        byte[] srcArr = src.hasArray() ? src.array() : null;
-        byte[] dstArr = dst.hasArray() ? dst.array() : null;
-        long srcArrOff = src.hasArray() ? src.arrayOffset() + GridUnsafe.BYTE_ARR_OFF : 0;
-        long dstArrOff = dst.hasArray() ? dst.arrayOffset() + GridUnsafe.BYTE_ARR_OFF : 0;
-
-        long srcPtr = src.isDirect() ? GridUnsafe.bufferAddress(src) : 0;
-        long dstPtr = dst.isDirect() ? GridUnsafe.bufferAddress(dst) : 0;
-
-        GridUnsafe.copyMemory(srcArr, srcPtr + srcArrOff + srcOff, dstArr, dstPtr + dstArrOff + dstOff, cnt);
-    }
-
-    /**
-     * Copies memory from one address to another.
-     *
-     * @param srcAddr Source.
-     * @param srcOff  Source offset in bytes.
-     * @param dstAddr Destination.
-     * @param dstOff  Destination offset in bytes.
-     * @param cnt     Bytes count to copy.
-     */
-    public static void copyMemory(long srcAddr, long srcOff, long dstAddr, long dstOff, long cnt) {
-        GridUnsafe.copyMemory(null, srcAddr + srcOff, null, dstAddr + dstOff, cnt);
     }
 }
