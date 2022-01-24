@@ -18,11 +18,8 @@
 package org.apache.ignite.internal.pagememory.io;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
-import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
