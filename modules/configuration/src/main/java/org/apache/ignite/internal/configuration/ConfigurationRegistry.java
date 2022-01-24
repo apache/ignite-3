@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
@@ -61,6 +62,7 @@ import org.apache.ignite.configuration.validation.Min;
 import org.apache.ignite.configuration.validation.OneOf;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
+import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
@@ -95,6 +97,9 @@ public class ConfigurationRegistry implements IgniteComponent {
 
     /** Configuration generator. */
     private final ConfigurationAsmGenerator cgen = new ConfigurationAsmGenerator();
+
+    /** Configuration storage revision change listeners. */
+    private final List<ConfigurationStorageRevisionListener> storageRevisionListeners = new CopyOnWriteArrayList<>();
 
     /**
      * Constructor.
@@ -196,6 +201,8 @@ public class ConfigurationRegistry implements IgniteComponent {
     @Override
     public void stop() {
         changer.stop();
+
+        storageRevisionListeners.clear();
     }
 
     /**
@@ -267,13 +274,15 @@ public class ConfigurationRegistry implements IgniteComponent {
      *
      * @param oldSuperRoot Old roots values. All these roots always belong to a single storage.
      * @param newSuperRoot New values for the same roots as in {@code oldRoot}.
-     * @param storageRevision Revision of the storage.
+     * @param oldStorageRevision Old revision of the storage.
+     * @param newStorageRevision New revision of the storage.
      * @return Future that must signify when processing is completed.
      */
     private CompletableFuture<Void> notificator(
             @Nullable SuperRoot oldSuperRoot,
             SuperRoot newSuperRoot,
-            long storageRevision
+            long oldStorageRevision,
+            long newStorageRevision
     ) {
         Collection<CompletableFuture<?>> futures = new ArrayList<>();
 
@@ -295,11 +304,13 @@ public class ConfigurationRegistry implements IgniteComponent {
                     oldRoot = null;
                 }
 
-                futures.addAll(notifyListeners(oldRoot, newRoot, config, storageRevision));
+                futures.addAll(notifyListeners(oldRoot, newRoot, config, newStorageRevision));
 
                 return null;
             }
         }, true);
+
+        futures.addAll(notifyStorageRevisionListeners(oldStorageRevision, newStorageRevision));
 
         if (futures.isEmpty()) {
             return CompletableFuture.completedFuture(null);
@@ -315,6 +326,24 @@ public class ConfigurationRegistry implements IgniteComponent {
         CompletableFuture<?>[] resultFutures = futures.stream().map(mapping).toArray(CompletableFuture[]::new);
 
         return CompletableFuture.allOf(resultFutures);
+    }
+
+    /**
+     * Adds configuration storage revision change listener.
+     *
+     * @param listener Listener.
+     */
+    public void listenUpdateStorageRevision(ConfigurationStorageRevisionListener listener) {
+        storageRevisionListeners.add(listener);
+    }
+
+    /**
+     * Removes configuration storage revision change listener.
+     *
+     * @param listener Listener.
+     */
+    public void stopListenUpdateStorageRevision(ConfigurationStorageRevisionListener listener) {
+        storageRevisionListeners.remove(listener);
     }
 
     /**
@@ -435,5 +464,29 @@ public class ConfigurationRegistry implements IgniteComponent {
 
             ids.clear();
         }
+    }
+
+    private Collection<CompletableFuture<?>> notifyStorageRevisionListeners(long oldStorageRevision, long newStorageRevision) {
+        if (oldStorageRevision == newStorageRevision || storageRevisionListeners.isEmpty()) {
+            return List.of();
+        }
+
+        List<CompletableFuture<?>> futures = new ArrayList<>(storageRevisionListeners.size());
+
+        for (ConfigurationStorageRevisionListener listener : storageRevisionListeners) {
+            try {
+                CompletableFuture<?> future = listener.onUpdate(oldStorageRevision, newStorageRevision);
+
+                assert future != null;
+
+                if (future.isCompletedExceptionally() || future.isCancelled() || !future.isDone()) {
+                    futures.add(future);
+                }
+            } catch (Throwable t) {
+                futures.add(CompletableFuture.failedFuture(t));
+            }
+        }
+
+        return futures;
     }
 }
