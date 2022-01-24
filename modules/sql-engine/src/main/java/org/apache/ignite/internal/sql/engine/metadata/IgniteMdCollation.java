@@ -26,6 +26,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -342,7 +343,8 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
             fieldCollations.clear();
             boolean skip = false;
             for (RelFieldCollation ifc : ic.getFieldCollations()) {
-                final Collection<Integer> integers = targets.get(ifc.getFieldIndex());
+                final Collection<Integer> integers = targets.getOrDefault(ifc.getFieldIndex(),
+                        Collections.emptyList());
                 if (integers.isEmpty()) {
                     skip = true; // cannot do this collation
 
