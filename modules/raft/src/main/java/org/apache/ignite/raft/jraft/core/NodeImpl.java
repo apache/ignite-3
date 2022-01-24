@@ -33,6 +33,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.Peer;
@@ -1413,10 +1414,10 @@ public class NodeImpl implements Node, RaftServerService {
                     st.setError(RaftError.EBUSY, "Is transferring leadership.");
                 }
                 LOG.debug("Node {} can't apply, status={}.", getNodeId(), st);
-                final List<LogEntryAndClosure> savedTasks = new ArrayList<>(tasks);
+                final List<Closure> dones = tasks.stream().map(ele -> ele.done).collect(Collectors.toList());
                 Utils.runInThread(this.getOptions().getCommonExecutor(), () -> {
-                    for (int i = 0; i < size; i++) {
-                        savedTasks.get(i).done.run(st);
+                    for (final Closure done : dones) {
+                        done.run(st);
                     }
                 });
                 return;
@@ -2052,10 +2053,9 @@ public class NodeImpl implements Node, RaftServerService {
             final List<LogEntry> entries = new ArrayList<>(entriesCount);
             ByteBuffer allData = request.data() != null ? request.data().asReadOnlyByteBuffer() : ByteString.EMPTY.asReadOnlyByteBuffer();
 
-            final List<RaftOutter.EntryMeta> entriesList = request.entriesList();
-            for (int i = 0; i < entriesCount; i++) {
+            final Collection<RaftOutter.EntryMeta> entriesList = request.entriesList();
+            for (RaftOutter.EntryMeta entry : entriesList) {
                 index++;
-                final RaftOutter.EntryMeta entry = entriesList.get(i);
 
                 final LogEntry logEntry = logEntryFromMeta(index, allData, entry);
 

@@ -17,12 +17,14 @@
 
 namespace Apache.Ignite
 {
+    using System;
+
     /// <summary>
     /// Ignite client.
     /// <para />
     /// Extends <see cref="IIgnite"/> with client-specific functionality.
     /// </summary>
-    public interface IIgniteClient : IIgnite
+    public interface IIgniteClient : IIgnite, IDisposable
     {
         /// <summary>
         /// Gets the configuration.

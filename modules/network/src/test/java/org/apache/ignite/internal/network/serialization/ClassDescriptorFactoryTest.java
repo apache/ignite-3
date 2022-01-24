@@ -21,7 +21,10 @@ import static org.apache.ignite.internal.network.serialization.SerializationType
 import static org.apache.ignite.internal.network.serialization.SerializationType.EXTERNALIZABLE;
 import static org.apache.ignite.internal.network.serialization.SerializationType.SERIALIZABLE;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -47,14 +50,14 @@ import org.junit.jupiter.api.Test;
  */
 public class ClassDescriptorFactoryTest {
     /**
-     * Descriptor parser context.
+     * Descriptor registry.
      */
-    private final ClassDescriptorFactoryContext context = new ClassDescriptorFactoryContext();
+    private final ClassDescriptorRegistry registry = new ClassDescriptorRegistry();
 
     /**
      * Descriptor factory.
      */
-    private final ClassDescriptorFactory factory = new ClassDescriptorFactory(context);
+    private final ClassDescriptorFactory factory = new ClassDescriptorFactory(registry);
 
     private static class SerializableClass implements Serializable {
         private static final long serialVersionUID = 0L;
@@ -319,16 +322,16 @@ public class ClassDescriptorFactoryTest {
     public void testHolderClass() {
         ClassDescriptor holderDescriptor = factory.create(Holder.class);
 
-        ClassDescriptor serializableDescriptor = context.getDescriptor(SerializableClass.class);
+        ClassDescriptor serializableDescriptor = registry.getDescriptor(SerializableClass.class);
         assertNotNull(serializableDescriptor);
 
-        ClassDescriptor externalizableDescriptor = context.getDescriptor(ExternalizableClass.class);
+        ClassDescriptor externalizableDescriptor = registry.getDescriptor(ExternalizableClass.class);
         assertNotNull(externalizableDescriptor);
 
-        ClassDescriptor arbitraryDescriptor = context.getDescriptor(ArbitraryClass.class);
+        ClassDescriptor arbitraryDescriptor = registry.getDescriptor(ArbitraryClass.class);
         assertNotNull(arbitraryDescriptor);
 
-        ClassDescriptor intDescriptor = context.getDescriptor(BuiltinType.INT.descriptorId());
+        ClassDescriptor intDescriptor = registry.getDescriptor(BuiltInType.INT.descriptorId());
         assertNotNull(intDescriptor);
 
         List<FieldDescriptor> fields = holderDescriptor.fields();
@@ -355,7 +358,7 @@ public class ClassDescriptorFactoryTest {
 
     @Test
     public void testDefaultType() {
-        ClassDescriptor descriptor = context.getDescriptor(int.class);
+        ClassDescriptor descriptor = registry.getDescriptor(int.class);
 
         assertNotNull(descriptor);
         checkBuiltInType(descriptor.serializationType());
@@ -395,6 +398,27 @@ public class ClassDescriptorFactoryTest {
         checkSerializable(descriptor.serialization(), true, true, true);
     }
 
+    @Test
+    void writeObjectMethodWithNonVoidReturnTypeIsIgnored() {
+        ClassDescriptor descriptor = factory.create(WithWriteObjectWithNonVoidReturnType.class);
+
+        assertFalse(descriptor.hasWriteObject());
+    }
+
+    @Test
+    void readObjectMethodWithNonVoidReturnTypeIsIgnored() {
+        ClassDescriptor descriptor = factory.create(WithReadObjectWithNonVoidReturnType.class);
+
+        assertFalse(descriptor.hasReadObject());
+    }
+
+    @Test
+    void readObjectNoDataMethodWithNonVoidReturnTypeIsIgnored() {
+        ClassDescriptor descriptor = factory.create(WithReadObjectNoDataWithNonVoidReturnType.class);
+
+        assertFalse(descriptor.hasReadObjectNoData());
+    }
+
     /**
      * Checks that serialization type is {@link SerializationType#ARBITRARY}.
      *
@@ -402,7 +426,11 @@ public class ClassDescriptorFactoryTest {
      */
     private void checkArbitraryType(Serialization serialization) {
         assertEquals(ARBITRARY, serialization.type());
-        assertFalse(serialization.hasSerializationOverride());
+
+        assertFalse(serialization.hasWriteObject());
+        assertFalse(serialization.hasReadObject());
+        assertFalse(serialization.hasReadObjectNoData());
+
         assertFalse(serialization.hasWriteReplace());
         assertFalse(serialization.hasReadResolve());
     }
@@ -423,7 +451,11 @@ public class ClassDescriptorFactoryTest {
      */
     private void checkSimpleExternalizable(Serialization serialization) {
         assertEquals(EXTERNALIZABLE, serialization.type());
-        assertFalse(serialization.hasSerializationOverride());
+
+        assertFalse(serialization.hasWriteObject());
+        assertFalse(serialization.hasReadObject());
+        assertFalse(serialization.hasReadObjectNoData());
+
         assertFalse(serialization.hasWriteReplace());
         assertFalse(serialization.hasReadResolve());
     }
@@ -439,37 +471,97 @@ public class ClassDescriptorFactoryTest {
     private void checkSerializable(Serialization serialization, boolean override, boolean writeReplace, boolean readResolve) {
         assertEquals(SERIALIZABLE, serialization.type());
 
-        assertEquals(override, serialization.hasSerializationOverride());
+        assertEquals(override, serialization.hasWriteObject());
+        assertEquals(override, serialization.hasReadObject());
+
         assertEquals(writeReplace, serialization.hasWriteReplace());
         assertEquals(readResolve, serialization.hasReadResolve());
     }
 
     @Test
-    void shouldSortArbitraryObjectFieldsByClassHierarchyAndLexicographicallyByFieldName() {
-        ClassDescriptor descriptor = factory.create(ArbitraryWithFieldNameClashAndOrderPermutation.class);
+    void shouldOnlyConsiderDeclaredFields() {
+        ClassDescriptor descriptor = factory.create(Child.class);
+
+        assertThat(descriptor.fields(), hasSize(1));
 
         assertThat(descriptor.fields().get(0).clazz(), is(String.class));
-        assertThat(descriptor.fields().get(0).name(), is("value"));
-
-        assertThat(descriptor.fields().get(1).clazz(), is(int.class));
-        assertThat(descriptor.fields().get(1).name(), is("apple"));
-
-        assertThat(descriptor.fields().get(2).clazz(), is(int.class));
-        assertThat(descriptor.fields().get(2).name(), is("banana"));
-
-        assertThat(descriptor.fields().get(3).clazz(), is(int.class));
-        assertThat(descriptor.fields().get(3).name(), is("value"));
+        assertThat(descriptor.fields().get(0).name(), is("childValue"));
     }
 
-    @SuppressWarnings("unused")
+    @Test
+    void shouldSortArbitraryObjectFieldsLexicographicallyByFieldName() {
+        ClassDescriptor descriptor = factory.create(ClassWithFieldOrderPermutation.class);
+
+        assertThat(descriptor.fields().get(0).clazz(), is(int.class));
+        assertThat(descriptor.fields().get(0).name(), is("apple"));
+
+        assertThat(descriptor.fields().get(1).clazz(), is(int.class));
+        assertThat(descriptor.fields().get(1).name(), is("banana"));
+
+        assertThat(descriptor.fields().get(2).clazz(), is(int.class));
+        assertThat(descriptor.fields().get(2).name(), is("value"));
+    }
+
+    @SuppressWarnings("ConstantConditions")
+    @Test
+    void detectsSuperClass() {
+        ClassDescriptor descriptor = factory.create(Child.class);
+
+        assertThat(descriptor.superClassDescriptor().clazz(), is(Parent.class));
+    }
+
+    @Test
+    void detectsSuperClassAsNullIfTheSuperClassIsObject() {
+        ClassDescriptor descriptor = factory.create(ExtendsObject.class);
+
+        assertThat(descriptor.superClassDescriptor(), is(nullValue()));
+    }
+
+    @Test
+    void registersSuperClassDescriptorOnParsingSubClass() {
+        factory.create(Child.class);
+
+        assertDoesNotThrow(() -> registry.getRequiredDescriptor(Parent.class));
+    }
+
     private static class Parent {
+        @SuppressWarnings("unused")
         private String value;
     }
 
+    private static class Child extends Parent {
+        @SuppressWarnings("unused")
+        private String childValue;
+    }
+
     @SuppressWarnings("unused")
-    private static class ArbitraryWithFieldNameClashAndOrderPermutation extends Parent {
+    private static class ClassWithFieldOrderPermutation {
         private int value;
         private int banana;
         private int apple;
+    }
+
+    private static class ExtendsObject {
+    }
+
+    private static class WithWriteObjectWithNonVoidReturnType implements Serializable {
+        @SuppressWarnings("unused")
+        private Object writeObject(ObjectOutputStream stream) {
+            return null;
+        }
+    }
+
+    private static class WithReadObjectWithNonVoidReturnType implements Serializable {
+        @SuppressWarnings("unused")
+        private Object readObject(ObjectInputStream stream) {
+            return null;
+        }
+    }
+
+    private static class WithReadObjectNoDataWithNonVoidReturnType implements Serializable {
+        @SuppressWarnings("unused")
+        private Object readObjectNoData(ObjectInputStream stream) {
+            return null;
+        }
     }
 }

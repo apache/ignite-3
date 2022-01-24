@@ -25,6 +25,10 @@ import io.scalecube.cluster.transport.api.Message;
 import io.scalecube.net.Address;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.network.ClusterMembershipView;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
@@ -34,7 +38,12 @@ import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
+import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
+import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationService;
+import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
+import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
@@ -42,6 +51,7 @@ import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.NodeFinderFactory;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Cluster service factory that uses ScaleCube for messaging and topology services.
@@ -69,12 +79,16 @@ public class ScaleCubeClusterServiceFactory {
 
             private volatile ConnectionManager connectionMgr;
 
+            private volatile CompletableFuture<Void> shutdownFuture;
+
             /** {@inheritDoc} */
             @Override
             public void start() {
                 String consistentId = context.getName();
 
-                var serializationService = new SerializationService(context.getSerializationRegistry(), null);
+                UserObjectSerializationContext userObjectSerialization = createUserObjectSerializationContext();
+
+                var serializationService = new SerializationService(context.getSerializationRegistry(), userObjectSerialization);
 
                 UUID launchId = UUID.randomUUID();
 
@@ -113,6 +127,8 @@ public class ScaleCubeClusterServiceFactory {
                         .transport(opts -> opts.transportFactory(new DelegatingTransportFactory(messagingService, config -> transport)))
                         .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
 
+                shutdownFuture = cluster.onShutdown().toFuture();
+
                 // resolve cyclic dependencies
                 messagingService.setCluster(cluster);
                 topologyService.setCluster(cluster);
@@ -127,6 +143,22 @@ public class ScaleCubeClusterServiceFactory {
                 topologyService.onMembershipEvent(localMembershipEvent);
             }
 
+            /**
+             * Creates everything that is needed for the user object serialization.
+             *
+             * @return User object serialization context.
+             */
+            @NotNull
+            private UserObjectSerializationContext createUserObjectSerializationContext() {
+                var userObjectDescriptorRegistry = new ClassDescriptorRegistry();
+                var userObjectDescriptorFactory = new ClassDescriptorFactory(userObjectDescriptorRegistry);
+
+                var userObjectMarshaller = new DefaultUserObjectMarshaller(userObjectDescriptorRegistry, userObjectDescriptorFactory);
+
+                return new UserObjectSerializationContext(userObjectDescriptorRegistry, userObjectDescriptorFactory,
+                        userObjectMarshaller);
+            }
+
             /** {@inheritDoc} */
             @Override
             public void stop() {
@@ -136,7 +168,18 @@ public class ScaleCubeClusterServiceFactory {
                 }
 
                 cluster.shutdown();
-                cluster.onShutdown().block();
+
+                try {
+                    shutdownFuture.get(10, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+
+                    throw new IgniteInternalException("Interrupted while waiting for the ClusterService to stop", e);
+                } catch (TimeoutException e) {
+                    throw new IgniteInternalException("Timeout while waiting for the ClusterService to stop", e);
+                } catch (ExecutionException e) {
+                    throw new IgniteInternalException("Unable to stop the ClusterService", e.getCause());
+                }
 
                 connectionMgr.stop();
             }
@@ -150,7 +193,7 @@ public class ScaleCubeClusterServiceFactory {
             /** {@inheritDoc} */
             @Override
             public boolean isStopped() {
-                return cluster.isShutdown();
+                return shutdownFuture.isDone();
             }
         };
     }
