@@ -252,7 +252,7 @@ class RocksDbTableStorage implements TableStorage {
             return storage;
         }
 
-        // possible races when creating the partitions with the same ID are safe, since both the storage creation and the meta update
+        // Possible races when creating the partitions with the same ID are safe, since both the storage creation and the meta update
         // are cheap and idempotent.
         storage = new RocksDbPartitionStorage(threadPool, partId, db, partitionCf);
 
