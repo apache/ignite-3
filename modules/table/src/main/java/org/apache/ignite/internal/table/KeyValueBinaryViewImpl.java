@@ -76,7 +76,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         Row keyRow = marshal(key, null);
 
-        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(this::unmarshalValue);
     }
 
     /**
@@ -110,7 +110,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public @NotNull CompletableFuture<Tuple> getOrDefaultAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple defaultValue) {
         BinaryRow keyRow = marshal(Objects.requireNonNull(key), null);
 
-        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(r -> IgniteUtils.nonNullOrElse(unmarshal(r), defaultValue));
+        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(r -> IgniteUtils.nonNullOrElse(unmarshalValue(r), defaultValue));
     }
 
     /** {@inheritDoc} */
@@ -132,7 +132,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
             keyRows.add(keyRow);
         }
 
-        return tbl.getAll(keyRows, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return tbl.getAll(keyRows, (InternalTransaction) tx).thenApply(this::unmarshalValue);
     }
 
     /** {@inheritDoc} */
@@ -198,7 +198,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         Row row = marshal(key, val);
 
-        return tbl.getAndUpsert(row, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return tbl.getAndUpsert(row, (InternalTransaction) tx).thenApply(this::unmarshalValue);
     }
 
     /**
@@ -293,17 +293,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         }
 
         return tbl.deleteAll(keyRows, (InternalTransaction) tx)
-                       .thenApply(binaryRows -> {
-                           List<Tuple> tuples = new ArrayList<>(binaryRows.size());
-
-                           for (BinaryRow r : binaryRows) {
-                               if (r != null) {
-                                   tuples.add(this.unmarshal(r));
-                               }
-                           }
-
-                           return tuples;
-                       });
+                       .thenApply(this::unmarshalKeys);
     }
 
     /** {@inheritDoc} */
@@ -319,7 +309,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public @NotNull CompletableFuture<Tuple> getAndRemoveAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         Objects.requireNonNull(key);
 
-        return tbl.getAndDelete(marshal(key, null), (InternalTransaction) tx).thenApply(this::unmarshal);
+        return tbl.getAndDelete(marshal(key, null), (InternalTransaction) tx).thenApply(this::unmarshalValue);
     }
 
     /**
@@ -395,7 +385,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        return tbl.getAndReplace(marshal(key, val), (InternalTransaction) tx).thenApply(this::unmarshal);
+        return tbl.getAndReplace(marshal(key, val), (InternalTransaction) tx).thenApply(this::unmarshalValue);
     }
 
     /**
@@ -485,7 +475,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @param row Binary row.
      * @return Value tuple.
      */
-    private Tuple unmarshal(BinaryRow row) {
+    private Tuple unmarshalValue(BinaryRow row) {
         if (row == null) {
             return null;
         }
@@ -499,7 +489,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @param rows Binary rows.
      * @return Key-value pairs of tuples.
      */
-    public Map<Tuple, Tuple> unmarshal(Collection<BinaryRow> rows) {
+    public Map<Tuple, Tuple> unmarshalValue(Collection<BinaryRow> rows) {
         Map<Tuple, Tuple> pairs = new HashMap<>();
 
         for (Row row : schemaReg.resolve(rows)) {
@@ -509,5 +499,23 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         }
 
         return pairs;
+    }
+
+    /**
+     * Returns key tuples of given row.
+     *
+     * @param rows Binary rows.
+     * @return Value tuple.
+     */
+    private Collection<Tuple> unmarshalKeys(Collection<BinaryRow> rows) {
+        List<Tuple> tuples = new ArrayList<>(rows.size());
+
+        for (Row row : schemaReg.resolve(rows)) {
+            assert !row.hasValue();
+
+            tuples.add(TableRow.keyTuple(row));
+        }
+
+        return tuples;
     }
 }
