@@ -40,7 +40,7 @@ import org.jetbrains.annotations.Nullable;
 /** Default messaging service implementation. */
 public class DefaultMessagingService extends AbstractMessagingService {
     /** Network messages factory. */
-    private final NetworkMessagesFactory factory = new NetworkMessagesFactory();
+    private final NetworkMessagesFactory factory;
 
     /** Topology service. */
     private final TopologyService topologyService;
@@ -49,8 +49,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private volatile ConnectionManager connectionManager;
 
     /**
-     * This node's local socket address. Not volatile because it's piggybacked by the {@link #connectionManager} and connection manager
-     * is always accessed before the localAddress.
+     * This node's local socket address. Not volatile, because access is guarded by volatile reads/writes to the {@code connectionManager}
+     * variable.
      */
     private InetSocketAddress localAddress;
 
@@ -69,9 +69,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
     /**
      * Constructor.
      *
-     * @param topologyService Toplogy service.
+     * @param factory Network messages factory.
+     * @param topologyService Topology service.
      */
-    public DefaultMessagingService(TopologyService topologyService) {
+    public DefaultMessagingService(NetworkMessagesFactory factory, TopologyService topologyService) {
+        this.factory = factory;
         this.topologyService = topologyService;
     }
 
@@ -131,7 +133,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param recipient Target cluster node. TODO: Maybe {@code null} due to IGNITE-16373.
      * @param address Target address.
      * @param msg Message.
-     * @param correlationId Correlation id. Not null iff the message is a response to the invocation request.
+     * @param correlationId Correlation id. Not null iff the message is a response to a {@link #invoke} request.
      * @return Future of the send operation.
      */
     private CompletableFuture<Void> send0(@Nullable ClusterNode recipient, NetworkAddress address, NetworkMessage msg,
@@ -152,23 +154,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return CompletableFuture.completedFuture(null);
         }
 
-        NetworkMessage message = msg;
+        NetworkMessage message = correlationId != null ? responseFromMessage(msg, correlationId) : msg;
 
-        if (correlationId != null) {
-            message = responseFromMessage(msg, correlationId);
-        }
+        String recipientConsistentId = recipient != null ? recipient.name() : address.consistentId();
 
-        final NetworkMessage msg0 = message;
-
-        String recipientConsistentId;
-
-        if (recipient != null) {
-            recipientConsistentId = recipient.name();
-        } else {
-            recipientConsistentId = address.consistentId();
-        }
-
-        return connectionManager.channel(recipientConsistentId, addr).thenCompose(sender -> sender.send(msg0));
+        return connectionManager.channel(recipientConsistentId, addr).thenCompose(sender -> sender.send(message));
     }
 
     /**
@@ -202,13 +192,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         InvokeRequest message = requestFromMessage(msg, correlationId);
 
-        String recipientConsistentId;
-
-        if (recipient != null) {
-            recipientConsistentId = recipient.name();
-        } else {
-            recipientConsistentId = addr.consistentId();
-        }
+        String recipientConsistentId = recipient != null ? recipient.name() : addr.consistentId();
 
         return connectionManager.channel(recipientConsistentId, address).thenCompose(sender -> sender.send(message))
                 .thenCompose(unused -> responseFuture);
@@ -220,7 +204,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param msg Message.
      * @param correlationId Correlation id.
      */
-    private void sendToSelf(NetworkMessage msg, Long correlationId) {
+    private void sendToSelf(NetworkMessage msg, @Nullable Long correlationId) {
         var address = new NetworkAddress(localAddress.getHostName(), localAddress.getPort(), connectionManager.consistentId());
 
         for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(msg.groupType())) {
@@ -241,7 +225,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
 
         if (msg instanceof InvokeResponse) {
-            // Handle invocation response
             InvokeResponse response = (InvokeResponse) msg;
             onInvokeResponse(response.message(), response.correlationId());
             return;
@@ -265,7 +248,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             senderAddress = sender.address();
         } else {
             // TODO: IGNITE-16373 Use fake address if sender is not in cluster yet. For the response, consistentId from this address will
-            // be used
+            //  be used
             senderAddress = new NetworkAddress(UNKNOWN_HOST, UNKNOWN_HOST_PORT, consistentId);
         }
 
@@ -281,7 +264,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param response Response message.
      * @param correlationId Request's correlation id.
      */
-    private void onInvokeResponse(NetworkMessage response, long correlationId) {
+    private void onInvokeResponse(NetworkMessage response, Long correlationId) {
         CompletableFuture<NetworkMessage> responseFuture = requestsMap.remove(correlationId);
         if (responseFuture != null) {
             responseFuture.complete(response);
@@ -356,8 +339,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * Stops the messaging service.
      */
     public void stop() {
-        requestsMap.values().forEach(fut -> {
-            fut.completeExceptionally(new NodeStoppingException());
-        });
+        var exception = new NodeStoppingException();
+
+        requestsMap.values().forEach(fut -> fut.completeExceptionally(exception));
+
+        requestsMap.clear();
     }
 }

@@ -114,7 +114,8 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
         switch (action) {
             case REMOVE_HANDLER:
                 ChannelInboundHandlerAdapter newHandler = newHandlerCreator.apply(result.consistentId());
-                ctx.pipeline().replace(this, null, newHandler);
+                String handlerName = newHandler.getClass().getName();
+                ctx.pipeline().replace(this, handlerName, newHandler);
                 break;
 
             case FAIL:

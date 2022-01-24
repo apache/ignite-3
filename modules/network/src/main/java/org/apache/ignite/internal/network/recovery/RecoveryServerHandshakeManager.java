@@ -22,7 +22,6 @@ import io.netty.channel.ChannelFuture;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
-import org.apache.ignite.internal.network.handshake.HandshakeAction;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.handshake.HandshakeResult;
@@ -66,7 +65,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     /** {@inheritDoc} */
     @Override
     public HandshakeResult init(Channel channel) {
-        return new HandshakeResult(HandshakeAction.NOOP);
+        return HandshakeResult.noOp();
     }
 
     /** {@inheritDoc} */
@@ -87,7 +86,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
             }
         });
 
-        return new HandshakeResult(HandshakeAction.NOOP);
+        return HandshakeResult.noOp();
     }
 
     /** {@inheritDoc} */
@@ -101,14 +100,14 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
 
             handshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId));
 
-            return new HandshakeResult(remoteLaunchId, remoteConsistentId, HandshakeAction.REMOVE_HANDLER);
+            return HandshakeResult.removeHandler(remoteLaunchId, remoteConsistentId);
         }
 
         handshakeCompleteFuture.completeExceptionally(
                 new HandshakeException("Unexpected message during handshake: " + message.toString())
         );
 
-        return new HandshakeResult(HandshakeAction.FAIL);
+        return HandshakeResult.fail();
     }
 
     /** {@inheritDoc} */

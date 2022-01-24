@@ -45,7 +45,6 @@ import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
-import org.apache.ignite.internal.network.handshake.HandshakeAction;
 import org.apache.ignite.internal.network.handshake.HandshakeResult;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.netty.NettySender;
@@ -276,7 +275,7 @@ public class ItRecoveryHandshakeTest {
         public HandshakeResult init(Channel channel) {
             if (failAtStage == SERVER_INIT) {
                 handshakeFuture().completeExceptionally(new RuntimeException());
-                return new HandshakeResult(HandshakeAction.FAIL);
+                return HandshakeResult.fail();
             }
 
             return super.init(channel);
@@ -287,7 +286,7 @@ public class ItRecoveryHandshakeTest {
         public HandshakeResult onConnectionOpen(Channel channel) {
             if (failAtStage == SERVER_CONNECTION_OPENED) {
                 handshakeFuture().completeExceptionally(new RuntimeException());
-                return new HandshakeResult(HandshakeAction.FAIL);
+                return HandshakeResult.fail();
             }
 
             return super.onConnectionOpen(channel);
@@ -298,7 +297,7 @@ public class ItRecoveryHandshakeTest {
         public HandshakeResult onMessage(Channel channel, NetworkMessage message) {
             if (failAtStage == SERVER_CLIENT_RESPONDED) {
                 handshakeFuture().completeExceptionally(new RuntimeException());
-                return new HandshakeResult(HandshakeAction.FAIL);
+                return HandshakeResult.fail();
             }
 
             return super.onMessage(channel, message);
@@ -345,7 +344,7 @@ public class ItRecoveryHandshakeTest {
         public HandshakeResult init(Channel channel) {
             if (failAtStage == CLIENT_INIT) {
                 handshakeFuture().completeExceptionally(new RuntimeException());
-                return new HandshakeResult(HandshakeAction.FAIL);
+                return HandshakeResult.fail();
             }
 
             return super.init(channel);
@@ -356,7 +355,7 @@ public class ItRecoveryHandshakeTest {
         public HandshakeResult onConnectionOpen(Channel channel) {
             if (failAtStage == CLIENT_CONNECTION_OPENED) {
                 handshakeFuture().completeExceptionally(new RuntimeException());
-                return new HandshakeResult(HandshakeAction.FAIL);
+                return HandshakeResult.fail();
             }
 
             return super.onConnectionOpen(channel);
@@ -367,7 +366,7 @@ public class ItRecoveryHandshakeTest {
         public HandshakeResult onMessage(Channel channel, NetworkMessage message) {
             if (failAtStage == CLIENT_SERVER_RESPONDED) {
                 handshakeFuture().completeExceptionally(new RuntimeException());
-                return new HandshakeResult(HandshakeAction.FAIL);
+                return HandshakeResult.fail();
             }
 
             return super.onMessage(channel, message);

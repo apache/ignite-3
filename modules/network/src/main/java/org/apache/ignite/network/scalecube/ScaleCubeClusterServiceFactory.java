@@ -51,7 +51,6 @@ import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.NodeFinderFactory;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Cluster service factory that uses ScaleCube for messaging and topology services.
@@ -70,9 +69,11 @@ public class ScaleCubeClusterServiceFactory {
             NetworkConfiguration networkConfiguration,
             NettyBootstrapFactory nettyBootstrapFactory
     ) {
+        var messageFactory = new NetworkMessagesFactory();
+
         var topologyService = new ScaleCubeTopologyService();
 
-        var messagingService = new DefaultMessagingService(topologyService);
+        var messagingService = new DefaultMessagingService(messageFactory, topologyService);
 
         return new AbstractClusterService(context, topologyService, messagingService) {
             private volatile ClusterImpl cluster;
@@ -91,8 +92,6 @@ public class ScaleCubeClusterServiceFactory {
                 var serializationService = new SerializationService(context.getSerializationRegistry(), userObjectSerialization);
 
                 UUID launchId = UUID.randomUUID();
-
-                var messageFactory = new NetworkMessagesFactory();
 
                 NetworkView configView = networkConfiguration.value();
 
@@ -177,6 +176,21 @@ public class ScaleCubeClusterServiceFactory {
             public boolean isStopped() {
                 return shutdownFuture.isDone();
             }
+
+            /**
+             * Creates everything that is needed for the user object serialization.
+             *
+             * @return User object serialization context.
+             */
+            private UserObjectSerializationContext createUserObjectSerializationContext() {
+                var userObjectDescriptorRegistry = new ClassDescriptorRegistry();
+                var userObjectDescriptorFactory = new ClassDescriptorFactory(userObjectDescriptorRegistry);
+
+                var userObjectMarshaller = new DefaultUserObjectMarshaller(userObjectDescriptorRegistry, userObjectDescriptorFactory);
+
+                return new UserObjectSerializationContext(userObjectDescriptorRegistry, userObjectDescriptorFactory,
+                        userObjectMarshaller);
+            }
         };
     }
 
@@ -212,21 +226,5 @@ public class ScaleCubeClusterServiceFactory {
         return addresses.stream()
                 .map(addr -> Address.create(addr.host(), addr.port()))
                 .collect(Collectors.toList());
-    }
-
-    /**
-     * Creates everything that is needed for the user object serialization.
-     *
-     * @return User object serialization context.
-     */
-    @NotNull
-    private static UserObjectSerializationContext createUserObjectSerializationContext() {
-        var userObjectDescriptorRegistry = new ClassDescriptorRegistry();
-        var userObjectDescriptorFactory = new ClassDescriptorFactory(userObjectDescriptorRegistry);
-
-        var userObjectMarshaller = new DefaultUserObjectMarshaller(userObjectDescriptorRegistry, userObjectDescriptorFactory);
-
-        return new UserObjectSerializationContext(userObjectDescriptorRegistry, userObjectDescriptorFactory,
-            userObjectMarshaller);
     }
 }

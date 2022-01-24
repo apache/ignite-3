@@ -201,11 +201,11 @@ public class ConnectionManager {
     /**
      * Callback that is called upon receiving a new message.
      *
-     * @param from    Consistent id of the message's sender.
+     * @param consistentId Consistent id of the message's sender.
      * @param message New message.
      */
-    private void onMessage(String from, NetworkMessage message) {
-        listeners.forEach(consumer -> consumer.accept(from, message));
+    private void onMessage(String consistentId, NetworkMessage message) {
+        listeners.forEach(consumer -> consumer.accept(consistentId, message));
     }
 
     /**

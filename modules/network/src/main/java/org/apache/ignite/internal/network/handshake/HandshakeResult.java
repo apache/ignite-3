@@ -35,19 +35,10 @@ public class HandshakeResult {
     /**
      * Constructor for a successful handshake.
      */
-    public HandshakeResult(UUID launchId, String consistentId, HandshakeAction action) {
+    private HandshakeResult(UUID launchId, String consistentId, HandshakeAction action) {
         this.action = action;
         this.consistentId = consistentId;
         this.launchId = launchId;
-    }
-
-    /**
-     * Constructor for a failed or in-progress handshake.
-     */
-    public HandshakeResult(HandshakeAction action) {
-        this.action = action;
-        this.consistentId = null;
-        this.launchId = null;
     }
 
     public HandshakeAction action() {
@@ -60,5 +51,17 @@ public class HandshakeResult {
 
     public UUID launchId() {
         return launchId;
+    }
+
+    public static HandshakeResult fail() {
+        return new HandshakeResult(null, null, HandshakeAction.FAIL);
+    }
+
+    public static HandshakeResult noOp() {
+        return new HandshakeResult(null, null, HandshakeAction.NOOP);
+    }
+
+    public static HandshakeResult removeHandler(UUID launchId, String consistentId) {
+        return new HandshakeResult(launchId, consistentId, HandshakeAction.REMOVE_HANDLER);
     }
 }

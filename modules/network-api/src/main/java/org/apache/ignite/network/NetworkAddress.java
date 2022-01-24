@@ -22,6 +22,7 @@ import java.net.InetSocketAddress;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A representation of a network address including a host name and a port.
@@ -36,7 +37,8 @@ public class NetworkAddress implements Serializable {
     /** Port. */
     private final int port;
 
-    /** Consistent id. TODO: IGNITE-16373 Temporal until ticket is not resolved. */
+    /** Consistent id. TODO: IGNITE-16373 Temporary until ticket is not resolved. */
+    @Nullable
     private final String consistentId;
 
     /**
@@ -126,6 +128,7 @@ public class NetworkAddress implements Serializable {
      *
      * @return Consistent id.
      */
+    @Nullable
     public String consistentId() {
         return consistentId;
     }

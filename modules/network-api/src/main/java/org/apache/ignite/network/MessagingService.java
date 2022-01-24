@@ -51,7 +51,7 @@ public interface MessagingService {
     CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg);
 
     /**
-     * Sends a response to the invocation request.
+     * Sends a response to a {@link #invoke} request.
      * Guarantees are the same as for the {@link #send(ClusterNode, NetworkMessage)}.
      *
      * @param recipient     Recipient of the message.
@@ -62,7 +62,7 @@ public interface MessagingService {
     CompletableFuture<Void> respond(ClusterNode recipient, NetworkMessage msg, long correlationId);
 
     /**
-     * Sends a response to the invocation request.
+     * Sends a response to a {@link #invoke} request.
      * Guarantees are the same as for the {@link #send(ClusterNode, NetworkMessage)}.
      *
      * @param addr          Recipient network address.
