@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-// ReSharper disable InconsistentNaming
+// ReSharper disable InconsistentNaming, NotAccessedField.Local, NotAccessedPositionalProperty.Local
 #pragma warning disable SA1201 // Type member order
 namespace Apache.Ignite.Tests.Table
 {
