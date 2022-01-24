@@ -112,13 +112,9 @@ public class DdlCommandHandler {
     /** Handles create table command. */
     private void handleCreateTable(CreateTableCommand cmd) {
         final PrimaryKeyDefinitionBuilder pkeyDef = SchemaBuilders.primaryKey();
-        pkeyDef.withColumns(cmd.primaryKeyColumns() == null
-                ? null
-                : cmd.primaryKeyColumns().stream().map(IgniteObjectName::unparseName).collect(Collectors.toList()));
 
-        pkeyDef.withAffinityColumns(cmd.affColumns() == null
-                ? null
-                : cmd.affColumns().stream().map(IgniteObjectName::unparseName).collect(Collectors.toList()));
+        pkeyDef.withColumns(IgniteObjectName.quoteNames(cmd.primaryKeyColumns()));
+        pkeyDef.withAffinityColumns(IgniteObjectName.quoteNames(cmd.affColumns()));
 
         final IgniteTypeFactory typeFactory = pctx.typeFactory();
 
@@ -126,7 +122,7 @@ public class DdlCommandHandler {
 
         for (ColumnDefinition col : cmd.columns()) {
             ColumnDefinitionBuilder col0 = SchemaBuilders.column(
-                            IgniteObjectName.unparseName(col.name()),
+                            IgniteObjectName.quote(col.name()),
                             typeFactory.columnType(col.type())
                     )
                     .asNullable(col.nullable())
@@ -137,8 +133,8 @@ public class DdlCommandHandler {
 
         Consumer<TableChange> tblChanger = tblCh -> {
             TableChange conv = convert(SchemaBuilders.tableBuilder(
-                            IgniteObjectName.unparseName(cmd.schemaName()),
-                            IgniteObjectName.unparseName(cmd.tableName())
+                            IgniteObjectName.quote(cmd.schemaName()),
+                            IgniteObjectName.quote(cmd.tableName())
                     )
                     .columns(colsInner)
                     .withPrimaryKey(pkeyDef.build()).build(), tblCh);
@@ -153,8 +149,8 @@ public class DdlCommandHandler {
         };
 
         String fullName = TableDefinitionImpl.canonicalName(
-                IgniteObjectName.unparseName(cmd.schemaName()),
-                IgniteObjectName.unparseName(cmd.tableName())
+                IgniteObjectName.quote(cmd.schemaName()),
+                IgniteObjectName.quote(cmd.tableName())
         );
 
         try {
@@ -169,8 +165,8 @@ public class DdlCommandHandler {
     /** Handles drop table command. */
     private void handleDropTable(DropTableCommand cmd) {
         String fullName = TableDefinitionImpl.canonicalName(
-                IgniteObjectName.unparseName(cmd.schemaName()),
-                IgniteObjectName.unparseName(cmd.tableName())
+                IgniteObjectName.quote(cmd.schemaName()),
+                IgniteObjectName.quote(cmd.tableName())
         );
         try {
             tableManager.dropTable(fullName);
@@ -188,8 +184,8 @@ public class DdlCommandHandler {
         }
 
         String fullName = TableDefinitionImpl.canonicalName(
-                IgniteObjectName.unparseName(cmd.schemaName()),
-                IgniteObjectName.unparseName(cmd.tableName())
+                IgniteObjectName.quote(cmd.schemaName()),
+                IgniteObjectName.quote(cmd.tableName())
         );
 
         try {
@@ -208,8 +204,8 @@ public class DdlCommandHandler {
         }
 
         String fullName = TableDefinitionImpl.canonicalName(
-                IgniteObjectName.unparseName(cmd.schemaName()),
-                IgniteObjectName.unparseName(cmd.tableName())
+                IgniteObjectName.quote(cmd.schemaName()),
+                IgniteObjectName.quote(cmd.tableName())
         );
 
         try {
@@ -237,8 +233,8 @@ public class DdlCommandHandler {
         }
 
         String fullName = TableDefinitionImpl.canonicalName(
-                IgniteObjectName.unparseName(cmd.schemaName()),
-                IgniteObjectName.unparseName(cmd.tableName())
+                IgniteObjectName.quote(cmd.schemaName()),
+                IgniteObjectName.quote(cmd.tableName())
         );
 
         tableManager.alterTable(fullName, chng -> chng.changeIndices(idxes -> {
@@ -289,7 +285,7 @@ public class DdlCommandHandler {
 
                     for (ColumnDefinition col : colsDef0) {
                         ColumnDefinitionBuilder col0 = SchemaBuilders.column(
-                                        IgniteObjectName.unparseName(col.name()),
+                                        IgniteObjectName.quote(col.name()),
                                         typeFactory.columnType(col.type())
                                 )
                                 .asNullable(col.nullable())

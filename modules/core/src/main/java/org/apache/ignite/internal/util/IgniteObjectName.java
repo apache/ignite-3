@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.util;
 
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -110,31 +112,26 @@ public class IgniteObjectName {
     }
 
     /**
-     * Unparse database's object name: quote name.
+     * Quote all database's objects names at the collection.
+     *
+     * @param names Collection of objects names.
+     * @return List of the quoted objects names.
+     */
+    public static List<String> quoteNames(List<String> names) {
+        if (names == null) {
+            return null;
+        }
+
+        return names.stream().map(IgniteObjectName::quote).collect(Collectors.toList());
+    }
+
+    /**
+     * Quote database's object name, e.g. "myColumn" -&gt; "\"myColumn\""
      *
      * @param str Object name.
      * @return Quoted object name.
      */
-    public static String unparseName(String str) {
+    public static String quote(String str) {
         return "\"" + str + "\"";
-    }
-
-    /**
-     * Unparse canonical table [schemaName].[tableName], quote identifiers, e.g. "PUBLIC.Tbl0" -&gt; "PUBLIC.\"Tbl0\"",  "MySchema.Tbl0"
-     * -&gt; "\"MySchema\".\"Tbl0\"", etc.
-     *
-     * @param str Canonical table name.
-     * @return Quoted canonical name.
-     */
-    public static String unparseCanonicalName(String str) {
-        StringBuilder sb = new StringBuilder();
-
-        String[] names = str.split("\\.");
-
-        assert names.length == 2 : "Invalid canonical name";
-
-        sb.append("\"").append(names[0]).append("\".\"").append(names[1]).append("\"");
-
-        return sb.toString();
     }
 }
