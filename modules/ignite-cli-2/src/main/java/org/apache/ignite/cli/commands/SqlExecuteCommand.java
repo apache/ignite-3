@@ -17,8 +17,8 @@
 
 package org.apache.ignite.cli.commands;
 
+import jakarta.inject.Inject;
 import java.sql.SQLException;
-import javax.inject.Inject;
 import org.apache.ignite.cli.sql.MonitorNotInitializedException;
 import org.apache.ignite.cli.sql.SqlConnectionMonitor;
 import org.apache.ignite.cli.sql.SqlManager;

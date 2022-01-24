@@ -17,10 +17,10 @@
 
 package org.apache.ignite.cli.sql;
 
+import jakarta.inject.Singleton;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.inject.Singleton;
 
 /**
  * Factory of {@link SqlManager}.

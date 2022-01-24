@@ -17,8 +17,8 @@
 
 package org.apache.ignite.cli.sql;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
 /**
  * Monitor for {@link SqlManager}.

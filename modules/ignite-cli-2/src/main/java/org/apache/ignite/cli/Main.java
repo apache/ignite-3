@@ -17,7 +17,7 @@
 
 package org.apache.ignite.cli;
 
-import io.micronaut.context.ApplicationContext;
+import io.micronaut.configuration.picocli.MicronautFactory;
 import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -25,7 +25,6 @@ import java.util.function.Supplier;
 import org.apache.ignite.cli.commands.SelectDatabaseCommand;
 import org.apache.ignite.cli.commands.SqlExecuteCommand;
 import org.fusesource.jansi.AnsiConsole;
-import org.jline.console.SystemRegistry;
 import org.jline.console.impl.Builtins;
 import org.jline.console.impl.SystemRegistryImpl;
 import org.jline.keymap.KeyMap;
@@ -84,7 +83,6 @@ public class Main {
      * @param args ignore.
      */
     public static void main(String[] args) {
-        ApplicationContext.run();
         AnsiConsole.systemInstall();
         System.setProperty("org.jline.terminal.dumb", "true");
         try {
@@ -95,19 +93,19 @@ public class Main {
             builtins.alias("zle", "widget");
             builtins.alias("bindkey", "keymap");
             // set up picocli commands
-            CliCommands commands = new CliCommands();
 
-            PicocliCommandsFactory factory = new PicocliCommandsFactory();
+            MicronautFactory nextFactory = new MicronautFactory();
+            PicocliCommandsFactory factory = new PicocliCommandsFactory(nextFactory);
             // Or, if you have your own factory, you can chain them like this:
             // MyCustomFactory customFactory = createCustomFactory(); // your application custom factory
             // PicocliCommandsFactory factory = new PicocliCommandsFactory(customFactory); // chain the factories
 
-            CommandLine cmd = new CommandLine(commands, factory);
+            CommandLine cmd = new CommandLine(CliCommands.class, factory);
             PicocliCommands picocliCommands = new PicocliCommands(cmd);
 
             Parser parser = new DefaultParser();
             try (Terminal terminal = TerminalBuilder.builder().build()) {
-                SystemRegistry systemRegistry = new SystemRegistryImpl(parser, terminal, workDir, null);
+                SystemRegistryImpl systemRegistry = new SystemRegistryImpl(parser, terminal, workDir, null);
                 systemRegistry.setCommandRegistries(builtins, picocliCommands);
                 systemRegistry.register("help", picocliCommands);
 
@@ -118,7 +116,6 @@ public class Main {
                         .variable(LineReader.LIST_MAX, 50)   // max tab completion candidates
                         .build();
                 builtins.setLineReader(reader);
-                commands.setReader(reader);
                 factory.setTerminal(terminal);
                 TailTipWidgets widgets = new TailTipWidgets(reader, systemRegistry::commandDescription, 5,
                         TailTipWidgets.TipType.COMPLETER);

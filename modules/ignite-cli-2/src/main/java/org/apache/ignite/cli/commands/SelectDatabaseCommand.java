@@ -17,7 +17,7 @@
 
 package org.apache.ignite.cli.commands;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 import org.apache.ignite.cli.sql.SqlConnectionMonitor;
 import picocli.CommandLine;
 
