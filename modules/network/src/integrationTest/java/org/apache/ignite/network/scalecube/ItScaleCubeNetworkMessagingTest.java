@@ -187,7 +187,7 @@ class ItScaleCubeNetworkMessagingTest {
         Data actualData = dataFuture.get(3, TimeUnit.SECONDS);
 
         assertThat(actualData.message.msg(), is(requestMessage.msg()));
-        assertThat(actualData.sender, is(self.address()));
+        assertThat(actualData.sender.consistentId(), is(self.name()));
         assertNull(actualData.correlationId);
     }
 

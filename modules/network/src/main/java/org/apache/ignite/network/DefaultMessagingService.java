@@ -60,6 +60,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
     /** Correlation id generator. */
     private final AtomicLong correlationIdGenerator = new AtomicLong();
 
+    /** Fake host for nodes that are not in the topology yet. TODO: IGNITE-16373 Remove after the ticket is resolved. */
+    private static final String UNKNOWN_HOST = "unknown";
+
     /**
      * Constructor.
      *
@@ -136,7 +139,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         InetSocketAddress addr = new InetSocketAddress(address.host(), address.port());
 
-        if (isSelf(recipient, addr)) {
+        if (isSelf(recipient, address.consistentId(), addr)) {
             if (correlationId != null) {
                 onInvokeResponse(msg, correlationId);
             } else {
@@ -189,7 +192,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         InetSocketAddress address = new InetSocketAddress(addr.host(), addr.port());
 
-        if (isSelf(recipient, address)) {
+        if (isSelf(recipient, addr.consistentId(), address)) {
             sendToSelf(msg, correlationId);
             return responseFuture;
         }
@@ -260,7 +263,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         } else {
             // TODO: IGNITE-16373 Use fake address if sender is not in cluster yet. For the response, consistentId from this address will
             // be used
-            senderAddress = new NetworkAddress("unknown", 1337, consistentId);
+            senderAddress = new NetworkAddress(UNKNOWN_HOST, 1337, consistentId);
         }
 
         for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(message.groupType())) {
@@ -320,20 +323,28 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param targetSocketAddress Target's socket address.
      * @return {@code true} if the target is the current node, {@code false} otherwise.
      */
-    private boolean isSelf(@Nullable ClusterNode target, SocketAddress targetSocketAddress) {
-        if (target != null && connectionManager.consistentId().equals(target.name())) {
-            return true;
+    private boolean isSelf(@Nullable ClusterNode target, @Nullable String consistentId, SocketAddress targetSocketAddress) {
+        String cid = consistentId;
+
+        if (cid == null && target != null) {
+            cid = target.name();
+        }
+
+        if (cid != null) {
+            return connectionManager.consistentId().equals(cid);
         }
 
         if (Objects.equals(localAddress, targetSocketAddress)) {
             return true;
         }
 
-        InetSocketAddress address2 = (InetSocketAddress) targetSocketAddress;
+        InetSocketAddress targetInetSocketAddress = (InetSocketAddress) targetSocketAddress;
 
-        InetAddress address = address2.getAddress();
-        if (address.isAnyLocalAddress() || address.isLoopbackAddress()) {
-            return address2.getPort() == localAddress.getPort();
+        assert !targetInetSocketAddress.getHostName().equals(UNKNOWN_HOST);
+
+        InetAddress targetInetAddress = targetInetSocketAddress.getAddress();
+        if (targetInetAddress.isAnyLocalAddress() || targetInetAddress.isLoopbackAddress()) {
+            return targetInetSocketAddress.getPort() == localAddress.getPort();
         }
         return false;
     }
