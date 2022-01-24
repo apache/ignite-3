@@ -82,7 +82,7 @@ namespace Apache.Ignite.Tests
         [TearDown]
         public async Task TearDown()
         {
-            await TupleView.DeleteAllAsync(null, Enumerable.Range(-5, 15).Select(x => GetTuple(x)));
+            await TupleView.DeleteAllAsync(null, Enumerable.Range(-5, 20).Select(x => GetTuple(x)));
 
             Assert.AreEqual(_eventListener.BuffersReturned, _eventListener.BuffersRented);
         }
