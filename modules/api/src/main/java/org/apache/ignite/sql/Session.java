@@ -28,9 +28,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * SQL Session provides methods for query execution.
  *
- * <p>Session is a stateful object and holds setting that intended to be used as defaults for the new queries. Session is thread-safe and
- * can be reused and shared between threads, which is normal for asynchronous and reactive flow, however, modifying session state from
- * different threads may lead to the race condition.
+ * <p>Session is a stateful object and holds setting that intended to be used as defaults for the new queries. Session "execute*" methods
+ * are thread-safe and can be called from different threads. Calling other methods, which modify the session state, from concurrent threads
+ * may lead to unexpected behaviour.
  */
 public interface Session extends AsyncSession, ReactiveSession {
     /** Default schema name. */
@@ -53,8 +53,9 @@ public interface Session extends AsyncSession, ReactiveSession {
     long defaultTimeout(@NotNull TimeUnit timeUnit);
 
     /**
-     * Sets default schema for the session, which the queries will be executed with. The default schema is used for query planning to
-     * resolve table names to their canonical names.
+     * Sets default schema for the session, which the queries will be executed with.
+     *
+     * <p>Default schema is used to resolve table names, for which schema was not specified in the query text, to their canonical names.
      *
      * @param schema Default schema.
      */

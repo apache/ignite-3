@@ -34,7 +34,6 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.util.Constants;
-import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -89,7 +88,7 @@ public class IgniteSqlApiTest {
             // Execute in TX.
             ResultSet rs = sess.execute(tx, "INSERT INTO tbl VALUES (?, ?)", 10, "str");
 
-            assertEquals(1, rs.updateCount());
+            assertEquals(1, rs.affectedRows());
 
             // Execute outside TX.
             rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id < {};", 10);
@@ -282,7 +281,7 @@ public class IgniteSqlApiTest {
         Mockito.when(session.execute(Mockito.nullable(Transaction.class), Mockito.eq("INSERT INTO tbl VALUES (?, ?)"),
                 Mockito.any(),
                 Mockito.any()))
-                .thenAnswer(ans -> Mockito.when(Mockito.mock(ResultSet.class).updateCount())
+                .thenAnswer(ans -> Mockito.when(Mockito.mock(ResultSet.class).affectedRows())
                                            .thenReturn(1).getMock());
 
         Mockito.when(session.executeBatch(Mockito.nullable(Transaction.class), Mockito.any(String.class), Mockito.any()))

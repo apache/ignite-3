@@ -49,14 +49,15 @@ public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
     Flow.Publisher<Boolean> hasRowSet();
 
     /**
-     * Returns publisher for the number of rows affected by the query.
+     * Returns number of rows affected by the DML statement execution (such as "INSERT", "UPDATE", etc.),
+     * or {@code 0} if statement return nothing (such as "ALTER TABLE", etc) or {@code -1} if inapplicable.
      *
-     * <p>Note: Number of row equals to {@code -1} means method is inapplicable, and the query either is conditional or returns rows.
+     * <p>Note: when returns {@code -1}, then either {@link #hasRowSet()} or {@link #wasApplied()} returns {@code true}.
      *
      * @return Publisher for number of rows.
-     * @see ResultSet#updateCount()
+     * @see ResultSet#affectedRows()
      */
-    Flow.Publisher<Integer> updateCount();
+    Flow.Publisher<Integer> affectedRows();
 
     /**
      * Returns publisher for a flag which determines whether the query that produce this result was a conditional query, or not.
@@ -64,7 +65,7 @@ public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
      * <p>Note: {@code false} value published means the query either returns rows or is an update query.
      *
      * @return AppliedFlag Publisher.
-     * @see ResultSet#applied()
+     * @see ResultSet#wasApplied()
      */
-    Flow.Publisher<Boolean> applied();
+    Flow.Publisher<Boolean> wasApplied();
 }

@@ -32,13 +32,6 @@ public interface Statement {
     @NotNull String query();
 
     /**
-     * Returns a flag indicating whether it is prepared statement or not.
-     *
-     * @return {@code true} if this is prepared statement, {@code false} otherwise.
-     */
-    boolean prepared();
-
-    /**
      * Sets query timeout.
      *
      * @param timeout Query timeout value.

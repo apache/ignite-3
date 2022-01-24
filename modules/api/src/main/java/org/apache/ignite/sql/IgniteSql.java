@@ -24,30 +24,18 @@ import org.jetbrains.annotations.NotNull;
  */
 public interface IgniteSql {
     /**
-     * Creates SQL session.
+     * Creates an SQL session object that provides methods for SQL queries execution.
      *
      * @return A new session.
      */
     Session createSession();
 
     /**
-     * Creates SQL statement.
+     * Creates an SQL statement abject, which holds the query with query-specific settings that overrides the session default settings.
      *
      * @param sql SQL query template.
      * @return A new statement.
      * @throws SqlException If parsing failed.
      */
     Statement createStatement(@NotNull String sql);
-
-    /**
-     * Creates prepared SQL statement.
-     *
-     * <p>Prepared statement forces query plan caching on the server side. In contrast to regular Statement, an identifier of the prepared
-     * query is send to the server instead of query string when possible. This might be useful for large and for "hot" queries.
-     *
-     * @param sql SQL query template.
-     * @return A new prepared statement.
-     * @throws SqlException If parsing failed.
-     */
-    PreparedStatement createPrepared(@NotNull String sql);
 }

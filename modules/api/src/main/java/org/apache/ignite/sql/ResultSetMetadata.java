@@ -24,26 +24,11 @@ import java.util.List;
  */
 public interface ResultSetMetadata {
     /**
-     * Returns number of columns that every row in a result set contains.
-     *
-     * @return Number of columns.
-     */
-    int columnsCount();
-
-    /**
      * Returns metadata with description for every column in result set.
      *
      * @return Columns metadata.
      */
     List<ColumnMetadata> columns();
-
-    /**
-     * Returns metadata for the requested column.
-     *
-     * @param columnIndex Column index in columns list.
-     * @return Column metadata.
-     */
-    ColumnMetadata column(int columnIndex);
 
     /**
      * Returns column index in columns list by given column name.
