@@ -50,6 +50,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <summary>
+        /// Gets cleaned up member name without compiler-generated prefixes and suffixes.
+        /// </summary>
+        /// <param name="memberInfo">Member.</param>
+        /// <returns>Clean name.</returns>
+        public static string GetCleanName(this MemberInfo memberInfo) => CleanFieldName(memberInfo.Name);
+
+        /// <summary>
         /// Cleans the field name and removes compiler-generated prefixes and suffixes.
         /// </summary>
         /// <param name="fieldName">Field name to clean.</param>

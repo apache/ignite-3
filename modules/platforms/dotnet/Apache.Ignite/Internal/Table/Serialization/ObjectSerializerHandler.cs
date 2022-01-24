@@ -132,14 +132,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
         }
 
-        private static PropertyInfo? GetPropertyIgnoreCase(Type type, string name)
+        private static FieldInfo? GetPropertyIgnoreCase(Type type, string name)
         {
-            // TODO: Use fields, not properties (IGNITE-16341).
-            foreach (var p in type.GetProperties())
+            foreach (var fieldInfo in type.GetAllFields())
             {
-                if (p.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                if (fieldInfo.GetCleanName().Equals(name, StringComparison.OrdinalIgnoreCase))
                 {
-                    return p;
+                    return fieldInfo;
                 }
             }
 
