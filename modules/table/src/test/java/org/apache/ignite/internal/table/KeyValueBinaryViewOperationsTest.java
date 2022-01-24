@@ -150,7 +150,7 @@ public class KeyValueBinaryViewOperationsTest {
     }
 
     @Test
-    public void getNullable() {
+    public void unsupportedOperations() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
                 new Column[]{new Column("id", NativeTypes.INT64, false)},
@@ -160,6 +160,20 @@ public class KeyValueBinaryViewOperationsTest {
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
         assertThrows(UnsupportedOperationException.class, () -> tbl.getNullable(null, Tuple.create(Map.of("id", 1L))));
+        assertThrows(UnsupportedOperationException.class, () -> tbl.getNullableAndPut(
+                null,
+                Tuple.create(Map.of("id", 1L)),
+                Tuple.create(Map.of("id", 1L)))
+        );
+        assertThrows(UnsupportedOperationException.class, () -> tbl.getNullableAndReplace(
+                null,
+                Tuple.create(Map.of("id", 1L)),
+                Tuple.create(Map.of("id", 1L)))
+        );
+        assertThrows(UnsupportedOperationException.class, () -> tbl.getNullableAndRemove(
+                null,
+                Tuple.create(Map.of("id", 1L)))
+        );
     }
 
     @Test
@@ -438,9 +452,9 @@ public class KeyValueBinaryViewOperationsTest {
     /**
      * Check value columns equality.
      *
-     * @param schema   Schema.
+     * @param schema Schema.
      * @param expected Expected tuple.
-     * @param actual   Actual tuple.
+     * @param actual Actual tuple.
      */
     void assertEqualsValues(SchemaDescriptor schema, Tuple expected, Tuple actual) {
         for (int i = 0; i < schema.valueColumns().length(); i++) {

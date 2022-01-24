@@ -223,6 +223,18 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
+    public NullableValue<V> getNullableAndPut(@Nullable Transaction tx, @NotNull K key, V val) {
+        return sync(getNullableAndPutAsync(tx, key, val));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @NotNull CompletableFuture<NullableValue<V>> getNullableAndPutAsync(@Nullable Transaction tx, @NotNull K key, V val) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public boolean putIfAbsent(@Nullable Transaction tx, @NotNull K key, @NotNull V val) {
         return sync(putIfAbsentAsync(tx, key, val));
     }
@@ -313,6 +325,18 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
+    public NullableValue<V> getNullableAndRemove(@Nullable Transaction tx, @NotNull K key) {
+        return sync(getNullableAndRemoveAsync(tx, key));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @NotNull CompletableFuture<NullableValue<V>> getNullableAndRemoveAsync(@Nullable Transaction tx, @NotNull K key) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public boolean replace(@Nullable Transaction tx, @NotNull K key, V val) {
         return sync(replaceAsync(tx, key, val));
     }
@@ -368,6 +392,18 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public NullableValue<V> getNullableAndReplace(@Nullable Transaction tx, @NotNull K key, V val) {
+        return sync(getNullableAndReplaceAsync(tx, key, val));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @NotNull CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, @NotNull K key, V val) {
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */

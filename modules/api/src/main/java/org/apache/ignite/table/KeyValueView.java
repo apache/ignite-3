@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -44,7 +45,7 @@ public interface KeyValueView<K, V> {
      * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which associated the value is to be returned. The key cannot be {@code null}.
      * @return Value or {@code null}, if it does not exist.
-     * @throws org.apache.ignite.lang.UnexpectedNullValueException If value for the key exists, and it is {@code null}.
+     * @throws UnexpectedNullValueException If value for the key exists, and it is {@code null}.
      * @see #getNullable(Transaction, Object)
      */
     V get(@Nullable Transaction tx, @NotNull K key);
@@ -183,6 +184,8 @@ public interface KeyValueView<K, V> {
      * @param key A key with which the specified value is to be associated. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      * @return Replaced value or {@code null}, if not existed.
+     * @throws UnexpectedNullValueException If value for the key exists, and it is {@code null}.
+     * @see #getNullableAndPut(Transaction, Object, Object)
      */
     V getAndPut(@Nullable Transaction tx, @NotNull K key, V val);
 
@@ -193,8 +196,29 @@ public interface KeyValueView<K, V> {
      * @param key A key with which the specified value is to be associated. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
+     * @see #getNullableAndPutAsync(Transaction, Object, Object)
      */
     @NotNull CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, @NotNull K key, V val);
+
+    /**
+     * Puts new or replaces existed value associated with given key into the table.
+     *
+     * @param tx The transaction or {@code null} to auto commit.
+     * @param key A key with which the specified value is to be associated. The key cannot be {@code null}.
+     * @param val Value to be associated with the specified key.
+     * @return Wrapped nullable value that was replaced or {@code null}, if not existed.
+     */
+    NullableValue<V> getNullableAndPut(@Nullable Transaction tx, @NotNull K key, V val);
+
+    /**
+     * Asynchronously puts new or replaces existed value associated with given key into the table.
+     *
+     * @param tx The transaction or {@code null} to auto commit.
+     * @param key A key with which the specified value is to be associated. The key cannot be {@code null}.
+     * @param val Value to be associated with the specified key.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull CompletableFuture<NullableValue<V>> getNullableAndPutAsync(@Nullable Transaction tx, @NotNull K key, V val);
 
     /**
      * Puts value associated with given key into the table if not exists.
@@ -204,7 +228,7 @@ public interface KeyValueView<K, V> {
      * @param val Value to be associated with the specified key.
      * @return {@code True} if successful, {@code false} otherwise.
      */
-    boolean putIfAbsent(@Nullable Transaction tx, @NotNull K key, @NotNull V val);
+    boolean putIfAbsent(@Nullable Transaction tx, @NotNull K key, V val);
 
     /**
      * Asynchronously puts value associated with given key into the table if not exists.
@@ -278,6 +302,8 @@ public interface KeyValueView<K, V> {
      * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which associated value is to be removed from the table. The key cannot be {@code null}.
      * @return Removed value or {@code null}, if not existed.
+     * @throws org.apache.ignite.lang.UnexpectedNullValueException If value for the key exists, and it is {@code null}.
+     * @see #getNullableAndRemove(Transaction, Object)
      */
     V getAndRemove(@Nullable Transaction tx, @NotNull K key);
 
@@ -287,8 +313,26 @@ public interface KeyValueView<K, V> {
      * @param tx The transaction or {@code null} to auto commit.
      * @param key A Key which mapping is to be removed from the table. The key cannot be {@code null}.
      * @return Future representing pending completion of the operation.
+     * @see #getNullableAndRemoveAsync(Transaction, Object)
      */
     @NotNull CompletableFuture<V> getAndRemoveAsync(@Nullable Transaction tx, @NotNull K key);
+    /**
+     * Gets then removes value associated with given key from the table.
+     *
+     * @param tx The transaction or {@code null} to auto commit.
+     * @param key A key which associated value is to be removed from the table. The key cannot be {@code null}.
+     * @return Wrapped nullable value that was removed or {@code null}, if not existed.
+     */
+    NullableValue<V> getNullableAndRemove(@Nullable Transaction tx, @NotNull K key);
+
+    /**
+     * Asynchronously gets then removes value associated with given key from the table.
+     *
+     * @param tx The transaction or {@code null} to auto commit.
+     * @param key A Key which mapping is to be removed from the table. The key cannot be {@code null}.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull CompletableFuture<NullableValue<V>> getNullableAndRemoveAsync(@Nullable Transaction tx, @NotNull K key);
 
     /**
      * Replaces the value for a key only if exists. This is equivalent to
@@ -365,6 +409,8 @@ public interface KeyValueView<K, V> {
      * @param key A key with which the specified value is associated. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      * @return Replaced value, or {@code null} if not existed.
+     * @throws org.apache.ignite.lang.UnexpectedNullValueException If value for the key exists, and it is {@code null}.
+     * @see #getNullableAndReplace(Transaction, Object, Object)
      */
     V getAndReplace(@Nullable Transaction tx, @NotNull K key, V val);
 
@@ -375,15 +421,37 @@ public interface KeyValueView<K, V> {
      * @param key A key with which the specified value is associated. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
+     * @see #getNullableAndReplaceAsync(Transaction, Object, Object)
      */
     @NotNull CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, @NotNull K key, V val);
+
+    /**
+     * Replaces the value for a given key only if exists. See {@link #getAndReplace(Transaction, Object, Object)}
+     *
+     * @param tx The transaction or {@code null} to auto commit.
+     * @param key A key with which the specified value is associated. The key cannot be {@code null}.
+     * @param val Value to be associated with the specified key.
+     * @return Wrapped nullable value that was replaced or {@code null}, if not existed.
+     * @see #getAndReplace(Transaction, Object, Object)
+     */
+    NullableValue<V> getNullableAndReplace(@Nullable Transaction tx, @NotNull K key, V val);
+
+    /**
+     * Asynchronously replaces the value for a given key only if exists. See {@link #getAndReplace(Transaction, Object, Object)}
+     *
+     * @param tx The transaction or {@code null} to auto commit.
+     * @param key A key with which the specified value is associated. The key cannot be {@code null}.
+     * @param val Value to be associated with the specified key.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, @NotNull K key, V val);
 
     /**
      * Executes invoke processor code against the value associated with the provided key.
      *
      * @param tx The transaction or {@code null} to auto commit.
      * @param key A key associated with the value that invoke processor will be applied to. The key cannot be {@code null}.
-     * @param proc Invoke processor.
+     * @param proc An invocation processor.
      * @param args Optional invoke processor arguments.
      * @param <R> Invoke processor result type.
      * @return Result of the processing.
@@ -396,7 +464,7 @@ public interface KeyValueView<K, V> {
      *
      * @param tx The transaction or {@code null} to auto commit.
      * @param key A key associated with the value that invoke processor will be applied to. The key cannot be {@code null}.
-     * @param proc Invoke processor.
+     * @param proc An invocation processor.
      * @param args Optional invoke processor arguments.
      * @param <R> Invoke processor result type.
      * @return Future representing pending completion of the operation.
@@ -414,7 +482,7 @@ public interface KeyValueView<K, V> {
      * @param tx The transaction or {@code null} to auto commit.
      * @param <R> Invoke processor result type.
      * @param keys Ordered collection of keys which values associated with should be processed. The keys cannot be {@code null}.
-     * @param proc Invoke processor.
+     * @param proc An invocation processor.
      * @param args Optional invoke processor arguments.
      * @return Results of the processing.
      * @see InvokeProcessor
@@ -431,7 +499,7 @@ public interface KeyValueView<K, V> {
      * @param tx The transaction or {@code null} to auto commit.
      * @param <R> Invoke processor result type.
      * @param keys Ordered collection of keys which values associated with should be processed. The keys cannot be {@code null}.
-     * @param proc Invoke processor.
+     * @param proc An invocation processor.
      * @param args Optional invoke processor arguments.
      * @return Future representing pending completion of the operation.
      * @see InvokeProcessor

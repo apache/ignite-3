@@ -103,6 +103,8 @@ public class KeyValueViewOperationsTest {
         // Put KV pair.
         tbl.put(null, key, obj3);
         assertEquals(obj3, tbl.get(null, key));
+
+        assertThrows(IllegalArgumentException.class, () -> tbl.getNullableAndRemove(null, null));
     }
 
     @Test
@@ -124,28 +126,8 @@ public class KeyValueViewOperationsTest {
         assertFalse(tbl.putIfAbsent(null, key, obj2));
 
         assertEquals(obj, tbl.get(null, key));
-    }
 
-    @Test
-    public void getAndPut() {
-        final TestKeyObject key = TestKeyObject.randomObject(rnd);
-        final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
-        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
-        final TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
-
-        KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
-
-        assertNull(tbl.get(null, key));
-
-        // Insert new KV pair.
-        assertNull(tbl.getAndPut(null, key, obj));
-        assertEquals(obj, tbl.get(null, key));
-
-        // Update KV pair.
-        assertEquals(obj, tbl.getAndPut(null, key, obj2));
-        assertEquals(obj2, tbl.getAndPut(null, key, obj3));
-
-        assertEquals(obj3, tbl.get(null, key));
+        assertThrows(IllegalArgumentException.class, () -> tbl.putIfAbsent(null, null, obj));
     }
 
     @Test
@@ -161,7 +143,7 @@ public class KeyValueViewOperationsTest {
         // Put KV pair.
         tbl.put(null, key, val);
 
-        assertEquals(new NullableValue<>(val), tbl.getNullable(null, key));
+        assertEquals(val, tbl.getNullable(null, key).get());
 
         // Remove KV pair.
         tbl.remove(null, key);
@@ -172,7 +154,9 @@ public class KeyValueViewOperationsTest {
         // Put KV pair.
         tbl.put(null, key, val2);
         assertEquals(val2, tbl.get(null, key));
-        assertEquals(new NullableValue<>(val2), tbl.getNullable(null, key));
+        assertEquals(val2, tbl.getNullable(null, key).get());
+
+        assertThrows(IllegalArgumentException.class, () -> tbl.getNullable(null, null));
     }
 
     @Test
@@ -205,7 +189,55 @@ public class KeyValueViewOperationsTest {
         assertEquals(val2, tbl.get(null, key));
         assertEquals(val2, tbl.getOrDefault(null, key, defaultTuple));
 
-        assertThrows(Throwable.class, () -> tbl.getOrDefault(null, null, defaultTuple));
+        assertThrows(IllegalArgumentException.class, () -> tbl.getOrDefault(null, null, defaultTuple));
+    }
+
+    @Test
+    public void getAndPut() {
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
+
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
+
+        assertNull(tbl.get(null, key));
+
+        // Insert new KV pair.
+        assertNull(tbl.getAndPut(null, key, obj));
+        assertEquals(obj, tbl.get(null, key));
+
+        // Update KV pair.
+        assertEquals(obj, tbl.getAndPut(null, key, obj2));
+        assertEquals(obj2, tbl.getAndPut(null, key, obj3));
+
+        assertEquals(obj3, tbl.get(null, key));
+
+        assertThrows(IllegalArgumentException.class, () -> tbl.getAndPut(null, null, obj));
+    }
+
+    @Test
+    public void getNullableAndPut() {
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
+
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
+
+        assertNull(tbl.get(null, key));
+
+        // Insert new KV pair.
+        assertNull(tbl.getNullableAndPut(null, key, obj));
+        assertEquals(obj, tbl.get(null, key));
+
+        // Update KV pair.
+        assertEquals(obj, tbl.getNullableAndPut(null, key, obj2).get());
+        assertEquals(obj2, tbl.getNullableAndPut(null, key, obj3).get());
+
+        assertEquals(obj3, tbl.get(null, key));
+
+        assertThrows(IllegalArgumentException.class, () -> tbl.getNullableAndPut(null, null, obj));
     }
 
     @Test
@@ -235,6 +267,8 @@ public class KeyValueViewOperationsTest {
         // Delete key.
         tbl.remove(null, key2);
         assertFalse(tbl.contains(null, key2));
+
+        assertThrows(IllegalArgumentException.class, () -> tbl.contains(null, null));
     }
 
     @Test
@@ -268,6 +302,76 @@ public class KeyValueViewOperationsTest {
         // Delete not existed key.
         assertNull(tbl.get(null, key2));
         assertFalse(tbl.remove(null, key2));
+
+        assertThrows(IllegalArgumentException.class, () -> tbl.remove(null, null));
+    }
+
+    @Test
+    public void getAndRemove() {
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestKeyObject key2 = TestKeyObject.randomObject(rnd);
+        final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
+
+        // Put KV pair.
+        tbl.put(null, key, obj);
+
+        // Delete existed key.
+        assertEquals(obj, tbl.getAndRemove(null, key));
+        assertFalse(tbl.contains(null, key));
+
+        // Delete already deleted key.
+        assertNull(tbl.getAndRemove(null, key));
+        assertFalse(tbl.contains(null, key));
+
+        // Put KV pair.
+        tbl.put(null, key, obj2);
+        assertTrue(tbl.contains(null, key));
+
+        // Delete existed key.
+        assertEquals(obj2, tbl.getAndRemove(null, key));
+        assertFalse(tbl.contains(null, key));
+
+        // Delete not existed key.
+        assertNull(tbl.getAndRemove(null, key2));
+
+        assertThrows(IllegalArgumentException.class, () -> tbl.getAndRemove(null, null));
+    }
+
+    @Test
+    public void getNullableAndRemove() {
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestKeyObject key2 = TestKeyObject.randomObject(rnd);
+        final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
+
+        // Put KV pair.
+        tbl.put(null, key, obj);
+
+        // Delete existed key.
+        assertEquals(obj, tbl.getNullableAndRemove(null, key).get());
+        assertFalse(tbl.contains(null, key));
+
+        // Delete already deleted key.
+        assertNull(tbl.getNullableAndRemove(null, key));
+        assertFalse(tbl.contains(null, key));
+
+        // Put KV pair.
+        tbl.put(null, key, obj2);
+        assertTrue(tbl.contains(null, key));
+
+        // Delete existed key.
+        assertEquals(obj2, tbl.getNullableAndRemove(null, key).get());
+        assertFalse(tbl.contains(null, key));
+
+        // Delete not existed key.
+        assertNull(tbl.getNullableAndRemove(null, key2));
+
+        assertThrows(IllegalArgumentException.class, () -> tbl.getNullableAndRemove(null, null));
     }
 
     @Test
@@ -313,6 +417,8 @@ public class KeyValueViewOperationsTest {
 
         assertFalse(tbl.remove(null, key2, obj2));
         assertNull(tbl.get(null, key2));
+
+        assertThrows(IllegalArgumentException.class, () -> tbl.remove(null, null, obj));
     }
 
     @Test
@@ -347,9 +453,91 @@ public class KeyValueViewOperationsTest {
         tbl.put(null, key, obj3);
         assertEquals(obj3, tbl.get(null, key));
 
-        // Trye remove non-existed KV pair.
+        // Try to remove non-existed KV pair.
         assertThrows(Throwable.class, () -> tbl.replace(null, key2, null));
         assertNull(tbl.get(null, key2));
+
+        assertThrows(IllegalArgumentException.class, () -> tbl.replace(null, null, obj));
+    }
+
+    @Test
+    public void getAndReplace() {
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestKeyObject key2 = TestKeyObject.randomObject(rnd);
+        final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
+
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
+
+        // Ignore replace operation for non-existed KV pair.
+        assertNull(tbl.getAndReplace(null, key, obj));
+        assertFalse(tbl.contains(null, key));
+
+        tbl.put(null, key, obj);
+
+        // Replace existed KV pair.
+        assertEquals(obj, tbl.getAndReplace(null, key, obj2));
+        assertEquals(obj2, tbl.get(null, key));
+
+        // Try remove existed KV pair.
+        assertThrows(Throwable.class, () -> tbl.replace(null, key, null));
+        assertNotNull(tbl.get(null, key));
+
+        tbl.remove(null, key);
+
+        // Ignore replace operation for non-existed KV pair.
+        assertNull(tbl.getAndReplace(null, key, obj3));
+        assertNull(tbl.get(null, key));
+
+        tbl.put(null, key, obj3);
+        assertEquals(obj3, tbl.get(null, key));
+
+        // Try to remove non-existed KV pair.
+        assertThrows(Throwable.class, () -> tbl.getAndReplace(null, key2, null));
+        assertNull(tbl.get(null, key2));
+
+        assertThrows(IllegalArgumentException.class, () -> tbl.getAndReplace(null, null, obj));
+    }
+
+    @Test
+    public void getNullableAndReplace() {
+        final TestKeyObject key = TestKeyObject.randomObject(rnd);
+        final TestKeyObject key2 = TestKeyObject.randomObject(rnd);
+        final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
+
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
+
+        // Ignore replace operation for non-existed KV pair.
+        assertNull(tbl.getNullableAndReplace(null, key, obj));
+        assertFalse(tbl.contains(null, key));
+
+        tbl.put(null, key, obj);
+
+        // Replace existed KV pair.
+        assertEquals(obj, tbl.getNullableAndReplace(null, key, obj2).get());
+        assertEquals(obj2, tbl.get(null, key));
+
+        // Try remove existed KV pair.
+        assertThrows(Throwable.class, () -> tbl.replace(null, key, null));
+        assertNotNull(tbl.get(null, key));
+
+        tbl.remove(null, key);
+
+        // Ignore replace operation for non-existed KV pair.
+        assertNull(tbl.getNullableAndReplace(null, key, obj3));
+        assertNull(tbl.get(null, key));
+
+        tbl.put(null, key, obj3);
+        assertEquals(obj3, tbl.get(null, key));
+
+        // Try to remove non-existed KV pair.
+        assertThrows(Throwable.class, () -> tbl.getNullableAndReplace(null, key2, null));
+        assertNull(tbl.get(null, key2));
+
+        assertThrows(IllegalArgumentException.class, () -> tbl.getNullableAndReplace(null, null, obj));
     }
 
     @Test
@@ -378,6 +566,8 @@ public class KeyValueViewOperationsTest {
         // try remove existed KV pair.
         assertThrows(Throwable.class, () -> tbl.replace(null, key, obj2, null));
         assertNotNull(tbl.get(null, key));
+
+        assertThrows(IllegalArgumentException.class, () -> tbl.replace(null, null, obj, obj2));
     }
 
     @Test
@@ -459,9 +649,9 @@ public class KeyValueViewOperationsTest {
 
         // Validate all types are tested.
         Set<NativeTypeSpec> testedTypes = Arrays.stream(valCols).map(c -> c.type().spec())
-                .collect(Collectors.toSet());
+                                                  .collect(Collectors.toSet());
         Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
-                .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
+                                                  .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 
         assertEquals(Collections.emptySet(), missedTypes);
 

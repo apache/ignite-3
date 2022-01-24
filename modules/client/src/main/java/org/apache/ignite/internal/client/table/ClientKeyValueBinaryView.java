@@ -38,6 +38,9 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Client key-value view implementation for binary user-object representation.
+ *
+ * <p>NB: Binary view doesn't allow null tuples. Methods return either a tuple that represents the value, or {@code null} if no value
+ * exists for the given key.
  */
 public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     /** Underlying table. */
@@ -96,27 +99,21 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     /**
      * This method is not supported, {@link #get(Transaction, Tuple)} must be used instead.
      *
-     * <p>Because of binary view doesn't allow null values, binary view method {@link #get(Transaction, Tuple)} returns {@code null} if and
-     * only if no value exists for the given key. Thus, this method is redundant.
-     *
      * @throws UnsupportedOperationException unconditionally.
      */
     @Override
     public NullableValue<Tuple> getNullable(@Nullable Transaction tx, @NotNull Tuple key) {
-        throw new UnsupportedOperationException("Binary view doesn't allow null values.");
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
     /**
      * This method is not supported, {@link #getAsync(Transaction, Tuple)} must be used instead.
      *
-     * <p>Because of binary view doesn't allow null values, binary view method {@link #get(Transaction, Tuple)} returns {@code null} if and
-     * only if no value exists for the given key. Thus, this method is redundant.
-     *
      * @throws UnsupportedOperationException unconditionally.
      */
     @Override
     public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAsync(@Nullable Transaction tx, @NotNull Tuple key) {
-        throw new UnsupportedOperationException("Binary view doesn't allow null values.");
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
     /** {@inheritDoc} */
@@ -206,6 +203,27 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 ClientTupleSerializer::readValueTuple);
     }
 
+    /**
+     * This method is not supported, {@link #getAndPut(Transaction, Tuple, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public NullableValue<Tuple> getNullableAndPut(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    }
+
+    /**
+     * This method is not supported, {@link #getAndPutAsync(Transaction, Tuple, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAndPutAsync(@Nullable Transaction tx, @NotNull Tuple key,
+            Tuple val) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean putIfAbsent(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
@@ -293,6 +311,26 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 ClientTupleSerializer::readValueTuple);
     }
 
+    /**
+     * This method is not supported, {@link #getAndRemove(Transaction, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public NullableValue<Tuple> getNullableAndRemove(@Nullable Transaction tx, @NotNull Tuple key) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    }
+
+    /**
+     * This method is not supported, {@link #getAndRemoveAsync(Transaction, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAndRemoveAsync(@Nullable Transaction tx, @NotNull Tuple key) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean replace(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
@@ -345,6 +383,27 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
                 ClientTupleSerializer::readValueTuple);
+    }
+
+    /**
+     * This method is not supported, {@link #getAndReplace(Transaction, Tuple, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public NullableValue<Tuple> getNullableAndReplace(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    }
+
+    /**
+     * This method is not supported, {@link #getAndReplaceAsync(Transaction, Tuple, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAndReplaceAsync(@Nullable Transaction tx, @NotNull Tuple key,
+            Tuple val) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
     /** {@inheritDoc} */

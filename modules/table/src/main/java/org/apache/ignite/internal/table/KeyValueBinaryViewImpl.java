@@ -43,6 +43,9 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Key-value view implementation for binary user-object representation.
+ *
+ * <p>NB: Binary view doesn't allow null tuples. Methods return either a tuple that represents the value, or {@code null} if no value
+ * exists for the given key.
  */
 public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValueView<Tuple, Tuple> {
     /** The marshaller. */
@@ -79,27 +82,21 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     /**
      * This method is not supported, {@link #get(Transaction, Tuple)} must be used instead.
      *
-     * <p>Because of binary view doesn't allow null values, binary view method {@link #get(Transaction, Tuple)} returns {@code null} if and
-     * only if no value exists for the given key. Thus, this method is redundant.
-     *
      * @throws UnsupportedOperationException unconditionally.
      */
     @Override
     public NullableValue<Tuple> getNullable(@Nullable Transaction tx, @NotNull Tuple key) {
-        throw new UnsupportedOperationException("Binary view doesn't allow null values.");
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
     /**
      * This method is not supported, {@link #getAsync(Transaction, Tuple)} must be used instead.
      *
-     * <p>Because of binary view doesn't allow null values, binary view method {@link #get(Transaction, Tuple)} returns {@code null} if and
-     * only if no value exists for the given key. Thus, this method is redundant.
-     *
      * @throws UnsupportedOperationException unconditionally.
      */
     @Override
     public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAsync(@Nullable Transaction tx, @NotNull Tuple key) {
-        throw new UnsupportedOperationException("Binary view doesn't allow null values.");
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
     /** {@inheritDoc} */
@@ -204,6 +201,27 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         return tbl.getAndUpsert(row, (InternalTransaction) tx).thenApply(this::unmarshal);
     }
 
+    /**
+     * This method is not supported, {@link #getAndPut(Transaction, Tuple, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public NullableValue<Tuple> getNullableAndPut(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    }
+
+    /**
+     * This method is not supported, {@link #getAndPutAsync(Transaction, Tuple, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAndPutAsync(@Nullable Transaction tx, @NotNull Tuple key,
+            Tuple val) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean putIfAbsent(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
@@ -304,6 +322,26 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         return tbl.getAndDelete(marshal(key, null), (InternalTransaction) tx).thenApply(this::unmarshal);
     }
 
+    /**
+     * This method is not supported, {@link #getAndRemove(Transaction, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public NullableValue<Tuple> getNullableAndRemove(@Nullable Transaction tx, @NotNull Tuple key) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    }
+
+    /**
+     * This method is not supported, {@link #getAndRemoveAsync(Transaction, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAndRemoveAsync(@Nullable Transaction tx, @NotNull Tuple key) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean replace(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
@@ -358,6 +396,27 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Objects.requireNonNull(val);
 
         return tbl.getAndReplace(marshal(key, val), (InternalTransaction) tx).thenApply(this::unmarshal);
+    }
+
+    /**
+     * This method is not supported, {@link #getAndReplace(Transaction, Tuple, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public NullableValue<Tuple> getNullableAndReplace(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    }
+
+    /**
+     * This method is not supported, {@link #getAndReplaceAsync(Transaction, Tuple, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAndReplaceAsync(@Nullable Transaction tx, @NotNull Tuple key,
+            Tuple val) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
     /** {@inheritDoc} */

@@ -31,6 +31,16 @@ import org.jetbrains.annotations.Nullable;
  * @param <T> Value type.
  */
 public final class NullableValue<T> {
+    /**
+     * Wraps nullable object.
+     *
+     * @param obj Value to wrap, or {@code null}.
+     * @return Nullable value.
+     */
+    public static <T> NullableValue<T> of(@Nullable T obj) {
+        return new NullableValue<>(obj);
+    }
+
     /** Wrapped value. */
     private T value;
 
