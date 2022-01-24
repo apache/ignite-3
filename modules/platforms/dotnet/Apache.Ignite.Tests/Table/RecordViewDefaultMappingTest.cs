@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 
+// ReSharper disable InconsistentNaming
+#pragma warning disable SA1201 // Type member order
 namespace Apache.Ignite.Tests.Table
 {
+    using System;
     using System.Threading.Tasks;
     using Ignite.Table;
     using NUnit.Framework;
-    using NUnit.Framework.Internal;
 
     /// <summary>
     /// Tests the default user type mapping behavior in <see cref="IRecordView{T}"/>.
@@ -44,7 +46,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestFieldMappingNoDefaultConstructor()
         {
-            Fields res = Get(new Fields(1, null));
+            FieldsTest res = Get(new FieldsTest(1, null));
 
             Assert.AreEqual("2", res.GetVal());
         }
@@ -52,13 +54,24 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestRecordMapping()
         {
-            Assert.Fail("TODO");
+            RecordTest res = Get(new RecordTest(1, null, Guid.Empty));
+
+            Assert.AreEqual("2", res.Val);
         }
 
         [Test]
         public void TestAnonymousTypeMapping()
         {
-            Assert.Fail("TODO");
+            var key = new
+            {
+                Key = 1L,
+                Val = "unused",
+                Date = DateTime.Now
+            };
+
+            var res = Get(key);
+
+            Assert.AreEqual("2", res.Val);
         }
 
         private T Get<T>(T key)
@@ -67,13 +80,13 @@ namespace Apache.Ignite.Tests.Table
             return Table.GetRecordView<T>().GetAsync(null, key).GetAwaiter().GetResult()!;
         }
 
-        private class Fields
+        private class FieldsTest
         {
-            private long key;
+            private readonly long key;
 
-            private string? val;
+            private readonly string? val;
 
-            public Fields(long key, string? val)
+            public FieldsTest(long key, string? val)
             {
                 this.key = key;
                 this.val = val;
@@ -81,5 +94,7 @@ namespace Apache.Ignite.Tests.Table
 
             public string? GetVal() => val;
         }
+
+        private record RecordTest(long Key, string? Val, Guid Id);
     }
 }
