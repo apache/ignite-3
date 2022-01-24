@@ -29,7 +29,7 @@ public class SqlSystemColumns {
     public static final Set<String> SYSTEM_COLUMNS_NAMES;
 
     static {
-        SYSTEM_COLUMNS_NAMES = Set.of(_KEY.toUpperCase(Locale.ROOT), _KEY.toLowerCase(Locale.ROOT));
+        SYSTEM_COLUMNS_NAMES = Set.of(_KEY.toUpperCase(Locale.ROOT));
     }
 
     private SqlSystemColumns() {

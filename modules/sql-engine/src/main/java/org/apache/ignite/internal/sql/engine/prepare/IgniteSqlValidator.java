@@ -24,6 +24,7 @@ import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import org.apache.calcite.plan.RelOptTable;
@@ -271,7 +272,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
      * @return True if alias is system column name, false otherwise.
      * */
     private boolean isSystemFieldName(String alias) {
-        return SqlSystemColumns.SYSTEM_COLUMNS_NAMES.contains(alias);
+        assert alias != null : "Column name can't be null";
+
+        return SqlSystemColumns.SYSTEM_COLUMNS_NAMES.contains(alias.toUpperCase(Locale.ROOT));
     }
 
     private void validateAggregateFunction(SqlCall call, SqlAggFunction aggFunction) {
