@@ -35,18 +35,18 @@ namespace Apache.Ignite.Tests
 
         protected const string ValCol = "val";
 
-        private static JavaServer _serverNode;
+        private static readonly JavaServer ServerNode;
 
         private TestEventListener _eventListener = null!;
 
         static IgniteTestsBase()
         {
-            _serverNode = JavaServer.StartAsync().GetAwaiter().GetResult();
+            ServerNode = JavaServer.StartAsync().GetAwaiter().GetResult();
 
-            AppDomain.CurrentDomain.ProcessExit += (_, _) => _serverNode.Dispose();
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => ServerNode.Dispose();
         }
 
-        protected static int ServerPort => _serverNode.Port;
+        protected static int ServerPort => ServerNode.Port;
 
         protected IIgniteClient Client { get; private set; } = null!;
 
@@ -61,7 +61,6 @@ namespace Apache.Ignite.Tests
         {
             _eventListener = new TestEventListener();
 
-            _serverNode = await JavaServer.StartAsync();
             Client = await IgniteClient.StartAsync(GetConfig());
 
             Table = (await Client.Tables.GetTableAsync(TableName))!;
@@ -95,7 +94,7 @@ namespace Apache.Ignite.Tests
 
         protected static IgniteClientConfiguration GetConfig() => new()
         {
-            Endpoints = { "127.0.0.1:" + _serverNode.Port }
+            Endpoints = { "127.0.0.1:" + ServerNode.Port }
         };
     }
 }
