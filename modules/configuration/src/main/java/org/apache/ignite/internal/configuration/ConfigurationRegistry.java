@@ -475,7 +475,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         for (ConfigurationStorageRevisionListener listener : storageRevisionListeners) {
             try {
-                CompletableFuture<?> future = listener.onUpdate(oldStorageRevision, newStorageRevision);
+                CompletableFuture<?> future = listener.onUpdate(newStorageRevision);
 
                 assert future != null;
 

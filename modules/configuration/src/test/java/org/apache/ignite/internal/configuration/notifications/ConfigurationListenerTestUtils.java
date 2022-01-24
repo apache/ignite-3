@@ -27,8 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
@@ -214,9 +214,9 @@ class ConfigurationListenerTestUtils {
      *
      * @param consumer Consumer of storage revision change.
      */
-    static ConfigurationStorageRevisionListener configStorageRevisionListener(BiConsumer<Long, Long> consumer) {
-        return (oldStorageRevision, newStorageRevision) -> {
-            consumer.accept(oldStorageRevision, newStorageRevision);
+    static ConfigurationStorageRevisionListener configStorageRevisionListener(LongConsumer consumer) {
+        return (newStorageRevision) -> {
+            consumer.accept(newStorageRevision);
 
             return completedFuture(null);
         };

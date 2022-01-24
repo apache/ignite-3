@@ -29,9 +29,8 @@ public interface ConfigurationStorageRevisionListener {
     /**
      * Called on update the storage version.
      *
-     * @param oldStorageRevision Previous configuration storage revision.
      * @param newStorageRevision Updated configuration storage revision.
      * @return Future that signifies the end of the listener execution.
      */
-    CompletableFuture<?> onUpdate(long oldStorageRevision, long newStorageRevision);
+    CompletableFuture<?> onUpdate(long newStorageRevision);
 }

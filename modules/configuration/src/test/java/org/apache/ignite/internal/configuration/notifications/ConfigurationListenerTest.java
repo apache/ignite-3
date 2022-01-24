@@ -70,6 +70,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
+import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.junit.jupiter.api.AfterEach;
@@ -149,6 +150,8 @@ public class ConfigurationListenerTest {
         public long specificVal = 12;
     }
 
+    private ConfigurationStorage storage;
+
     private ConfigurationRegistry registry;
 
     private ParentConfiguration config;
@@ -158,12 +161,12 @@ public class ConfigurationListenerTest {
      */
     @BeforeEach
     public void before() {
-        var testConfigurationStorage = new TestConfigurationStorage(LOCAL);
+        storage = new TestConfigurationStorage(LOCAL);
 
         registry = new ConfigurationRegistry(
                 List.of(ParentConfiguration.KEY),
                 Map.of(),
-                testConfigurationStorage,
+                storage,
                 List.of(InternalChildConfigurationSchema.class),
                 List.of(StringPolyConfigurationSchema.class, LongPolyConfigurationSchema.class)
         );
@@ -1496,18 +1499,20 @@ public class ConfigurationListenerTest {
     void testNotifyStorageRevisionListener() throws Exception {
         List<String> events = new ArrayList<>();
 
-        registry.listenUpdateStorageRevision((oldStorageRevision, newStorageRevision) -> {
-            assertNotEquals(oldStorageRevision, newStorageRevision);
-            assertTrue(newStorageRevision > oldStorageRevision);
+        long currentStorageRevision = storage.lastRevision().get(1, SECONDS);
+
+        registry.listenUpdateStorageRevision((newStorageRevision) -> {
+            assertNotEquals(currentStorageRevision, newStorageRevision);
+            assertTrue(newStorageRevision > currentStorageRevision);
 
             events.add("0");
 
             return completedFuture(null);
         });
 
-        registry.listenUpdateStorageRevision((oldStorageRevision, newStorageRevision) -> {
-            assertNotEquals(oldStorageRevision, newStorageRevision);
-            assertTrue(newStorageRevision > oldStorageRevision);
+        registry.listenUpdateStorageRevision((newStorageRevision) -> {
+            assertNotEquals(currentStorageRevision, newStorageRevision);
+            assertTrue(newStorageRevision > currentStorageRevision);
 
             events.add("1");
 
@@ -1524,8 +1529,8 @@ public class ConfigurationListenerTest {
     void testRemoveStorageRevisionListener() throws Exception {
         List<String> events = new ArrayList<>();
 
-        ConfigurationStorageRevisionListener listener0 = configStorageRevisionListener((oldRevision, newRevision) -> events.add("0"));
-        ConfigurationStorageRevisionListener listener1 = configStorageRevisionListener((oldRevision, newRevision) -> events.add("1"));
+        ConfigurationStorageRevisionListener listener0 = configStorageRevisionListener((newRevision) -> events.add("0"));
+        ConfigurationStorageRevisionListener listener1 = configStorageRevisionListener((newRevision) -> events.add("1"));
 
         registry.listenUpdateStorageRevision(listener0);
         registry.listenUpdateStorageRevision(listener1);
@@ -1546,7 +1551,7 @@ public class ConfigurationListenerTest {
 
     @Test
     void testNotifyStorageRevisionListenerWithError() {
-        ConfigurationStorageRevisionListener listener0 = (oldStorageRevision, newStorageRevision) -> {
+        ConfigurationStorageRevisionListener listener0 = (newStorageRevision) -> {
             throw new RuntimeException("from listener 0");
         };
 
@@ -1562,7 +1567,7 @@ public class ConfigurationListenerTest {
         registry.stopListenUpdateStorageRevision(listener0);
 
         ConfigurationStorageRevisionListener listener1 =
-                (oldStorageRevision, newStorageRevision) -> failedFuture(new RuntimeException("from listener 1"));
+                (newStorageRevision) -> failedFuture(new RuntimeException("from listener 1"));
 
         registry.listenUpdateStorageRevision(listener1);
 
@@ -1578,7 +1583,7 @@ public class ConfigurationListenerTest {
     void testNotNotifyStorageRevisionListenerForCurrentConfig() throws Exception {
         AtomicBoolean invokeListener = new AtomicBoolean();
 
-        registry.listenUpdateStorageRevision(configStorageRevisionListener((oldRevision, newRevision) -> invokeListener.set(true)));
+        registry.listenUpdateStorageRevision(configStorageRevisionListener((newRevision) -> invokeListener.set(true)));
 
         registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
 
