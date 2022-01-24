@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+// ReSharper disable InconsistentNaming
+// ReSharper disable UnusedMember.Local
 #pragma warning disable SA1306, SA1401, CS0649, CS0169, CA1823, CA1812
 namespace Apache.Ignite.Tests.Table.Serialization
 {
@@ -52,6 +54,16 @@ namespace Apache.Ignite.Tests.Table.Serialization
             };
 
             CollectionAssert.AreEqual(expected, fields);
+        }
+
+        [Test]
+        public void TestCleanFieldNameReturnsPropertyNameForBackingField()
+        {
+            var fieldNames = typeof(Derived).GetAllFields().Select(f => ReflectionUtils.CleanFieldName(f.Name)).ToArray();
+
+            CollectionAssert.Contains(fieldNames, nameof(Base.BaseProp));
+            CollectionAssert.Contains(fieldNames, nameof(BaseTwo.BaseTwoProp));
+            CollectionAssert.Contains(fieldNames, nameof(Derived.DerivedProp));
         }
 
         private class Base
