@@ -66,6 +66,17 @@ namespace Apache.Ignite.Tests.Table.Serialization
             CollectionAssert.Contains(fieldNames, nameof(Derived.DerivedProp));
         }
 
+        [Test]
+        [TestCase("Field", "Field")]
+        [TestCase("_foo", "_foo")]
+        [TestCase("m_fooBar", "m_fooBar")]
+        [TestCase("<MyProperty>k__BackingField", "MyProperty")]
+        [TestCase("FSharpProp@", "FSharpProp")]
+        public void TestCleanFieldName(string name, string expected)
+        {
+            Assert.AreEqual(expected, ReflectionUtils.CleanFieldName(name));
+        }
+
         private class Base
         {
             public int BaseFieldPublic;
