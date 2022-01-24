@@ -63,11 +63,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <returns>Resulting field name.</returns>
         public static string CleanFieldName(string fieldName)
         {
-            // C# auto property backing field:
+            // C# auto property backing field (<MyProperty>k__BackingField)
+            // or anonymous type backing field (<MyProperty>i__Field):
             if (fieldName.StartsWith("<", StringComparison.Ordinal)
-                && fieldName.EndsWith(">k__BackingField", StringComparison.Ordinal))
+                && fieldName.IndexOf(">", StringComparison.Ordinal) is var endIndex and > 0)
             {
-                return fieldName.Substring(1, fieldName.IndexOf(">", StringComparison.Ordinal) - 1);
+                return fieldName.Substring(1, endIndex - 1);
             }
 
             // F# backing field:

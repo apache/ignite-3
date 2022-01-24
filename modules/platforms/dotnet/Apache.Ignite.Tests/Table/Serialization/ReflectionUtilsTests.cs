@@ -72,6 +72,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [TestCase("m_fooBar", "m_fooBar")]
         [TestCase("<MyProperty>k__BackingField", "MyProperty")]
         [TestCase("FSharpProp@", "FSharpProp")]
+        [TestCase("<AnonTypeProp>i__Field", "AnonTypeProp")]
         public void TestCleanFieldName(string name, string expected)
         {
             Assert.AreEqual(expected, ReflectionUtils.CleanFieldName(name));
