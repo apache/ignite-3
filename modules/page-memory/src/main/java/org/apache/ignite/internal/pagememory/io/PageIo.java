@@ -27,25 +27,34 @@ import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Base format for all the page types.
+ * Base format for all page types.
  *
- * <p>Checklist for page IO implementations and usage (The Rules):
+ * <p>Checklist for {@code PageIo} implementations and usage (The Rules):
  *
- * <p>1. IO should not have any `public static` methods. We have versioned IOs and any static method will mean that it have to always work
- * in backward compatible way between all the IO versions. The base class {@link PageIo} has static methods (like {@link #getPageId(long)})
- * intentionally: this base format can not be changed between versions.
+ * <ol>
+ *     <li>
+ *         IO should not have any {@code public static} methods.
  *
- * <p>2. IO must correctly override {@link #initNewPage(long, long, int)} method and call super. We have logic that relies on this behavior.
- *
- * <p>3. Always keep in mind that IOs are versioned and their format can change from version to version. In this respect it is a good
- * practice to avoid exposing details of IO internal format on it's API. The API should be minimalistic and abstract, so that internal
- * format in future IO version can be completely changed without any changes to the API of this page IO.
- *
- * <p>4. Page IO API should not have any version dependent semantics and should not change API semantics in newer versions.
- *
- * <p>5. It is almost always preferable to read or write (especially write) page contents using static methods on {@link PageHandler}. To
- * just initialize new page use {@link PageHandler#initPage(PageMemory, int, long, PageIo, PageLockListener, IoStatisticsHolder)} method
- * with needed IO instance.
+ *         IO implementations are versioned and static methods make it difficult to implement correctly in a backward-compatible way.
+ *         The base {@link PageIo} class has some static methods (like {@link #getPageId(long)}) intentionally:
+ *         this base format can not be changed between versions;
+ *     </li>
+ *     <li>
+ *         IO must correctly override {@link #initNewPage(long, long, int)} method and call the super method;
+ *     </li>
+ *     <li>
+ *         Always keep in mind that IOs are versioned and their format can change from version to version. In this respect it is a good
+ *         practice to avoid exposing details of the internal format through the API. The API should be minimalistic and abstract,
+ *         so the internal format in future IO versions can be changed without any changes to the API of this page IO;
+ *     </li>
+ *     <li>
+ *         Page IO API should not have any version dependent semantics and should not change API semantics in newer versions;
+ *     </li>
+ *     <li>
+ *         It is almost always preferable to read or write (especially write) page contents using static methods declared in
+ *         {@link PageHandler}. To initialize a new page use {@link PageHandler#initPage} method with a corresponding IO instance.
+ *     </li>
+ * </ol>
  */
 public abstract class PageIo {
     /**
@@ -89,7 +98,7 @@ public abstract class PageIo {
     private static final int COMPRESSED_SIZE_OFF = COMPRESSION_TYPE_OFF + Byte.BYTES;
 
     /**
-     * Offset for "short" compracted size.
+     * Offset for "short" compacted size.
      */
     private static final int COMPACTED_SIZE_OFF = COMPRESSED_SIZE_OFF + Short.BYTES;
 
@@ -330,7 +339,7 @@ public abstract class PageIo {
     }
 
     /**
-     * Sets the comacted size to the page.
+     * Sets the compacted size to the page.
      *
      * @param page          Page buffer.
      * @param compactedSize Compacted size.
