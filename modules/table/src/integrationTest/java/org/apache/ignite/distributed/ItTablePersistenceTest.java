@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -99,14 +98,10 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         txManager.start();
 
-        Int2ObjectOpenHashMap<RaftGroupService> map = new Int2ObjectOpenHashMap<>();
-
-        map.put(0, service);
-
         var table = new InternalTableImpl(
                 "table",
                 new IgniteUuid(UUID.randomUUID(), 0),
-                map,
+                Int2ObjectMaps.singleton(0, service),
                 1,
                 NetworkAddress::toString,
                 txManager,
@@ -153,13 +148,10 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         txManager.start();
 
-        Int2ObjectOpenHashMap<RaftGroupService> map = new Int2ObjectOpenHashMap<>();
-        map.put(0, service);
-
         var table = new InternalTableImpl(
                 "table",
                 new IgniteUuid(UUID.randomUUID(), 0),
-                map,
+                Int2ObjectMaps.singleton(0, service),
                 1,
                 NetworkAddress::toString,
                 txManager,
