@@ -39,9 +39,9 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -466,9 +466,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override public <R> CompletableFuture<R> run(Peer peer, ReadCommand cmd) {
         ActionRequest req = factory.actionRequest().command(cmd).groupId(groupId).readOnlySafe(false).build();
 
-        CompletableFuture<ActionResponse> fut = cluster.messagingService().invoke(peer.address(), req, timeout);
-
-        return fut.thenApply(resp -> (R) resp.result());
+        return cluster.messagingService().invoke(peer.address(), req, timeout)
+                .thenApply(resp -> (R) ((ActionResponse) resp).result());
     }
 
     /** {@inheritDoc} */
@@ -655,7 +654,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param peers List of {@link PeerId} string representations.
      * @return List of {@link PeerId}
      */
-    private List<Peer> parsePeerList(List<String> peers) {
+    private List<Peer> parsePeerList(Collection<String> peers) {
         if (peers == null)
             return null;
 

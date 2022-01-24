@@ -17,39 +17,52 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInput;
-import java.io.DataOutput;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.Externalizable;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 
 /**
  * (Um)marshalling specific to EXTERNALIZABLE serialization type.
  */
 class ExternalizableMarshaller {
+    private final ValueReader<Object> valueReader;
+    private final TypedValueWriter typedValueWriter;
+    private final DefaultFieldsReaderWriter defaultFieldsReaderWriter;
+
     private final NoArgConstructorInstantiation instantiation = new NoArgConstructorInstantiation();
 
-    void writeExternalizable(Externalizable externalizable, ClassDescriptor descriptor, DataOutput output, MarshallingContext context)
-            throws IOException {
-        byte[] externalizableBytes = externalize(externalizable);
+    ExternalizableMarshaller(
+            TypedValueWriter typedValueWriter, ValueReader<Object> valueReader,
+            DefaultFieldsReaderWriter defaultFieldsReaderWriter
+    ) {
+        this.valueReader = valueReader;
+        this.typedValueWriter = typedValueWriter;
+        this.defaultFieldsReaderWriter = defaultFieldsReaderWriter;
+    }
 
-        output.writeInt(externalizableBytes.length);
-        output.write(externalizableBytes);
+    void writeExternalizable(Externalizable externalizable, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
+            throws IOException {
+        externalizeTo(externalizable, output, context);
 
         context.addUsedDescriptor(descriptor);
     }
 
-    private byte[] externalize(Externalizable externalizable) throws IOException {
-        var baos = new ByteArrayOutputStream();
-        try (var oos = new ObjectOutputStream(baos)) {
-            externalizable.writeExternal(oos);
-        }
+    private void externalizeTo(Externalizable externalizable, DataOutputStream output, MarshallingContext context)
+            throws IOException {
+        // Do not close the stream yet!
+        UosObjectOutputStream oos = context.objectOutputStream(output, typedValueWriter, defaultFieldsReaderWriter);
 
-        return baos.toByteArray();
+        UosObjectOutputStream.UosPutField oldPut = oos.replaceCurrentPutFieldWithNull();
+        context.endWritingWithWriteObject();
+
+        try {
+            externalizable.writeExternal(oos);
+            oos.flush();
+        } finally {
+            oos.restoreCurrentPutFieldTo(oldPut);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -61,15 +74,20 @@ class ExternalizableMarshaller {
         }
     }
 
-    <T extends Externalizable> void fillExternalizableFrom(DataInput input, T object) throws IOException, UnmarshalException {
-        int length = input.readInt();
-        byte[] bytes = new byte[length];
-        input.readFully(bytes);
+    <T extends Externalizable> void fillExternalizableFrom(DataInputStream input, T object, UnmarshallingContext context)
+            throws IOException, UnmarshalException {
+        // Do not close the stream yet!
+        UosObjectInputStream ois = context.objectInputStream(input, valueReader, defaultFieldsReaderWriter);
 
-        try (var ois = new ObjectInputStream(new ByteArrayInputStream(bytes))) {
+        UosObjectInputStream.UosGetField oldGet = ois.replaceCurrentGetFieldWithNull();
+        context.endReadingWithReadObject();
+
+        try {
             object.readExternal(ois);
         } catch (ClassNotFoundException e) {
             throw new UnmarshalException("Cannot unmarshal due to a missing class", e);
+        } finally {
+            ois.restoreCurrentGetFieldTo(oldGet);
         }
     }
 }

@@ -146,6 +146,12 @@ public class SchemaRegistryImpl implements SchemaRegistry {
 
     /** {@inheritDoc} */
     @Override
+    public Row resolve(BinaryRow row, SchemaDescriptor schemaDescriptor) {
+        return resolveInternal(row, schemaDescriptor);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public Collection<Row> resolve(Collection<BinaryRow> binaryRows) {
         final SchemaDescriptor curSchema = waitLatestSchema();
 

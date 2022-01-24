@@ -18,19 +18,24 @@
 package org.apache.ignite.internal.network.serialization;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry.shouldBeBuiltIn;
 
-import java.util.Collections;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.Set;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
+import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializer;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -41,6 +46,9 @@ public class PerSessionSerializationService {
     /** Network messages factory. */
     private static final NetworkMessagesFactory MSG_FACTORY = new NetworkMessagesFactory();
 
+    /** Integer value that is sent when there is no descriptor. */
+    private static final int NO_DESCRIPTOR_ID = Integer.MIN_VALUE;
+
     /** Global serialization service. */
     @NotNull
     private final SerializationService serializationService;
@@ -49,15 +57,27 @@ public class PerSessionSerializationService {
      * Map with merged class descriptors. They are the result of the merging of a local and a remote descriptor.
      * The key in this map is a <b>remote</b> descriptor id.
      */
-    private final ConcurrentMap<Integer, ClassDescriptor> mergedDescriptorMap = new ConcurrentHashMap<>();
+    private final Int2ObjectMap<ClassDescriptor> mergedDescriptorMap = new Int2ObjectOpenHashMap<>();
 
     /**
-     * Immutable view over {@link #mergedDescriptorMap}. Used by {@link #serializationService}.
+     * A collection of the descriptors that were sent to the remote node.
      */
-    private final Map<Integer, ClassDescriptor> descriptorMapView = Collections.unmodifiableMap(mergedDescriptorMap);
+    private final IntSet sentDescriptors = new IntOpenHashSet();
 
+    /**
+     * Descriptors provider.
+     */
+    private final CompositeIdIndexedDescriptors descriptors;
+
+    /**
+     * Constructor.
+     *
+     * @param serializationService Serialization service.
+     */
     public PerSessionSerializationService(@NotNull SerializationService serializationService) {
         this.serializationService = serializationService;
+        this.descriptors = new CompositeIdIndexedDescriptors(new MapBackedIdIndexedDescriptors(mergedDescriptorMap),
+                serializationService.getDescriptorRegistry());
     }
 
     /**
@@ -81,64 +101,94 @@ public class PerSessionSerializationService {
     /**
      * Serializes a marshallable object to a byte array.
      *
+     * @param marshallable Marshallable object to serialize.
+     * @param <T> Object's type.
+     * @throws UserObjectSerializationException If failed to serialize an object.
      * @see SerializationService#writeMarshallable(Object)
      */
-    public <T> SerializationResult writeMarshallable(T marshallable) {
+    public <T> MarshalledObject writeMarshallable(T marshallable)
+            throws UserObjectSerializationException {
         return serializationService.writeMarshallable(marshallable);
     }
 
     /**
      * Deserializes a marshallable object from a byte array.
      *
-     * @see SerializationService#readMarshallable(Map, byte[])
+     * @param missingDescriptors Descriptors that were received from the remote node.
+     * @param array Byte array that contains a serialized object.
+     * @param <T> Object's type.
+     * @throws UserObjectSerializationException If failed to deserialize an object.
+     * @see SerializationService#readMarshallable(IdIndexedDescriptors, byte[])
      */
-    public <T> T readMarshallable(List<ClassDescriptorMessage> missingDescriptors, byte[] marshallableData) {
+    public <T> T readMarshallable(List<ClassDescriptorMessage> missingDescriptors, byte[] array)
+            throws UserObjectSerializationException {
         mergeDescriptors(missingDescriptors);
 
-        return serializationService.readMarshallable(descriptorMapView, marshallableData);
+        return serializationService.readMarshallable(descriptors, array);
     }
 
     /**
      * Creates a list of messages holding class descriptors.
      *
-     * @param descriptorIds Ids of class descriptors.
+     * @param descriptors Class descriptors.
      * @return List of class descriptor network messages.
      */
-    public List<ClassDescriptorMessage> createClassDescriptorsMessages(List<Integer> descriptorIds) {
-        return descriptorIds.stream().map(id -> {
-            ClassDescriptor descriptor = serializationService.getClassDescriptor(id);
+    @Nullable
+    public List<ClassDescriptorMessage> createClassDescriptorsMessages(Set<ClassDescriptor> descriptors) {
+        List<ClassDescriptorMessage> messages = descriptors.stream()
+                .filter(descriptor -> {
+                    int descriptorId = descriptor.descriptorId();
+                    return !sentDescriptors.contains(descriptorId) && !shouldBeBuiltIn(descriptorId);
+                })
+                .map(descriptor -> {
+                    List<FieldDescriptorMessage> fields = descriptor.fields().stream()
+                            .map(d -> {
+                                return MSG_FACTORY.fieldDescriptorMessage()
+                                    .name(d.name())
+                                    .typeDescriptorId(d.typeDescriptorId())
+                                    .className(d.clazz().getName())
+                                    .build();
+                            })
+                            .collect(toList());
 
-            List<FieldDescriptorMessage> fields = descriptor.fields().stream()
-                    .map(d -> {
-                        return MSG_FACTORY.fieldDescriptorMessage()
-                                .name(d.name())
-                                .typeDescriptorId(d.typeDescriptorId())
-                                .className(d.clazz().getName())
-                                .declaringClassName(d.declaringClass().getName())
-                                .build();
-                    })
-                    .collect(toList());
+                    Serialization serialization = descriptor.serialization();
 
-            Serialization serialization = descriptor.serialization();
+                    return MSG_FACTORY.classDescriptorMessage()
+                            .fields(fields)
+                            .isFinal(descriptor.isFinal())
+                            .serializationType(serialization.type().value())
+                            .hasWriteObject(serialization.hasWriteObject())
+                    .hasReadObject(serialization.hasReadObject())
+                            .hasReadObjectNoData(serialization.hasReadObjectNoData())
+                            .hasWriteReplace(serialization.hasWriteReplace())
+                            .hasReadResolve(serialization.hasReadResolve())
+                            .descriptorId(descriptor.descriptorId())
+                            .className(descriptor.className())
+                            .superClassDescriptorId(superClassDescriptorIdForMessage(descriptor))
+                            .superClassName(descriptor.superClassName())
+                            .build();
+                }).collect(toList());
 
-            return MSG_FACTORY.classDescriptorMessage()
-                    .fields(fields)
-                    .isFinal(descriptor.isFinal())
-                    .serializationType(serialization.type().value())
-                    .hasSerializationOverride(serialization.hasSerializationOverride())
-                    .hasWriteReplace(serialization.hasWriteReplace())
-                    .hasReadResolve(serialization.hasReadResolve())
-                    .descriptorId(descriptor.descriptorId())
-                    .className(descriptor.className())
-                    .build();
-        }).collect(toList());
+        messages.forEach(classDescriptorMessage -> sentDescriptors.add(classDescriptorMessage.descriptorId()));
+
+        return messages;
+    }
+
+    private int superClassDescriptorIdForMessage(ClassDescriptor descriptor) {
+        Integer id = descriptor.superClassDescriptorId();
+
+        if (id == null) {
+            return NO_DESCRIPTOR_ID;
+        }
+
+        return id;
     }
 
     private void mergeDescriptors(List<ClassDescriptorMessage> remoteDescriptors) {
         for (ClassDescriptorMessage clsMsg : remoteDescriptors) {
             int clsDescriptorId = clsMsg.descriptorId();
 
-            boolean isClsBuiltin = serializationService.shouldBeBuiltIn(clsDescriptorId);
+            boolean isClsBuiltin = shouldBeBuiltIn(clsDescriptorId);
 
             if (isClsBuiltin) {
                 continue;
@@ -161,17 +211,19 @@ public class PerSessionSerializationService {
      */
     @NotNull
     private ClassDescriptor messageToMergedClassDescriptor(ClassDescriptorMessage clsMsg) {
-        ClassDescriptor localDescriptor = serializationService.getClassDescriptor(clsMsg.className());
+        ClassDescriptor localDescriptor = serializationService.getOrCreateDescriptor(clsMsg.className());
 
         List<FieldDescriptor> remoteFields = clsMsg.fields().stream()
-                .map(this::fieldDescriptorFromMessage)
+                .map(fieldMsg -> fieldDescriptorFromMessage(fieldMsg, localDescriptor.clazz()))
                 .collect(toList());
 
         SerializationType serializationType = SerializationType.getByValue(clsMsg.serializationType());
 
         var serialization = new Serialization(
                 serializationType,
-                clsMsg.hasSerializationOverride(),
+                clsMsg.hasWriteObject(),
+                clsMsg.hasReadObject(),
+                clsMsg.hasReadObjectNoData(),
                 clsMsg.hasWriteReplace(),
                 clsMsg.hasReadResolve()
         );
@@ -179,6 +231,7 @@ public class PerSessionSerializationService {
         ClassDescriptor remoteDescriptor = new ClassDescriptor(
                 localDescriptor.clazz(),
                 clsMsg.descriptorId(),
+                superClassDescriptor(clsMsg),
                 remoteFields,
                 serialization
         );
@@ -186,9 +239,16 @@ public class PerSessionSerializationService {
         return mergeDescriptor(localDescriptor, remoteDescriptor);
     }
 
-    private FieldDescriptor fieldDescriptorFromMessage(FieldDescriptorMessage fieldMsg) {
+    @Nullable
+    private ClassDescriptor superClassDescriptor(ClassDescriptorMessage clsMsg) {
+        if (clsMsg.superClassDescriptorId() == NO_DESCRIPTOR_ID) {
+            return null;
+        }
+        return getClassDescriptor(clsMsg.superClassDescriptorId(), clsMsg.superClassName());
+    }
+
+    private FieldDescriptor fieldDescriptorFromMessage(FieldDescriptorMessage fieldMsg, Class<?> declaringClass) {
         int typeDescriptorId = fieldMsg.typeDescriptorId();
-        Class<?> declaringClass = serializationService.getClassDescriptor(fieldMsg.declaringClassName()).clazz();
         return new FieldDescriptor(fieldMsg.name(), getClass(typeDescriptorId, fieldMsg.className()), typeDescriptorId, declaringClass);
     }
 
@@ -197,16 +257,20 @@ public class PerSessionSerializationService {
         return remoteDescriptor;
     }
 
-    private Class<?> getClass(int descriptorId, String typeName) {
-        if (serializationService.shouldBeBuiltIn(descriptorId)) {
-            return serializationService.getClassDescriptor(descriptorId).clazz();
+    private ClassDescriptor getClassDescriptor(int descriptorId, String typeName) {
+        if (shouldBeBuiltIn(descriptorId)) {
+            return serializationService.getDescriptor(descriptorId);
         } else {
-            return serializationService.getClassDescriptor(typeName).clazz();
+            return serializationService.getOrCreateDescriptor(typeName);
         }
+    }
+
+    private Class<?> getClass(int descriptorId, String typeName) {
+        return getClassDescriptor(descriptorId, typeName).clazz();
     }
 
     @TestOnly
     Map<Integer, ClassDescriptor> getDescriptorMapView() {
-        return descriptorMapView;
+        return mergedDescriptorMap;
     }
 }
