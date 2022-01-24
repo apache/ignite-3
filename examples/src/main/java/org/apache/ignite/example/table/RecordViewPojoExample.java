@@ -79,34 +79,6 @@ public class RecordViewPojoExample {
         ) {
             //--------------------------------------------------------------------------------------
             //
-            // Defining POJO class.
-            //
-            //--------------------------------------------------------------------------------------
-
-            class Account {
-                final int accountNumber;
-                final String firstName;
-                final String lastName;
-                final double balance;
-
-                public Account(int accountNumber) {
-                    this.accountNumber = accountNumber;
-
-                    firstName = null;
-                    lastName = null;
-                    balance = 0.0d;
-                }
-
-                public Account(int accountNumber, String firstName, String lastName, double balance) {
-                    this.accountNumber = accountNumber;
-                    this.firstName = firstName;
-                    this.lastName = lastName;
-                    this.balance = balance;
-                }
-            }
-
-            //--------------------------------------------------------------------------------------
-            //
             // Creating a record view for the 'accounts' table.
             //
             //--------------------------------------------------------------------------------------
@@ -156,6 +128,31 @@ public class RecordViewPojoExample {
             ) {
                 stmt.executeUpdate("DROP TABLE accounts");
             }
+        }
+    }
+
+    static class Account {
+        int accountNumber;
+        String firstName;
+        String lastName;
+        double balance;
+
+        public Account() {
+        }
+
+        public Account(int accountNumber) {
+            this.accountNumber = accountNumber;
+
+            firstName = null;
+            lastName = null;
+            balance = 0.0d;
+        }
+
+        public Account(int accountNumber, String firstName, String lastName, double balance) {
+            this.accountNumber = accountNumber;
+            this.firstName = firstName;
+            this.lastName = lastName;
+            this.balance = balance;
         }
     }
 }

@@ -68,26 +68,6 @@ public class TransactionsExample {
             //
             //--------------------------------------------------------------------------------------
 
-            class AccountKey {
-                final int accountNumber;
-
-                public AccountKey(int accountNumber) {
-                    this.accountNumber = accountNumber;
-                }
-            }
-
-            class Account {
-                final String firstName;
-                final String lastName;
-                double balance;
-
-                public Account(String firstName, String lastName, double balance) {
-                    this.firstName = firstName;
-                    this.lastName = lastName;
-                    this.balance = balance;
-                }
-            }
-
             KeyValueView<AccountKey, Account> accounts = client.tables()
                 .table("PUBLIC.accounts")
                 .keyValueView(AccountKey.class, Account.class);
@@ -121,11 +101,14 @@ public class TransactionsExample {
             //--------------------------------------------------------------------------------------
 
             CompletableFuture<Void> fut = client.transactions().beginAsync().thenCompose(tx ->
-                accounts.getAsync(tx, key).thenCompose(account -> {
-                    account.balance += 300.0d;
+                accounts
+                    .getAsync(tx, key)
+                    .thenCompose(account -> {
+                        account.balance += 300.0d;
 
-                    return accounts.putAsync(tx, key, account);
-                })
+                        return accounts.putAsync(tx, key, account);
+                    })
+                    .thenCompose(ignored -> tx.commitAsync())
             );
 
             // Wait for completion.
@@ -141,6 +124,32 @@ public class TransactionsExample {
             ) {
                 stmt.executeUpdate("DROP TABLE accounts");
             }
+        }
+    }
+
+    static class AccountKey {
+        int accountNumber;
+
+        public AccountKey() {
+        }
+
+        public AccountKey(int accountNumber) {
+            this.accountNumber = accountNumber;
+        }
+    }
+
+    static class Account {
+        String firstName;
+        String lastName;
+        double balance;
+
+        public Account() {
+        }
+
+        public Account(String firstName, String lastName, double balance) {
+            this.firstName = firstName;
+            this.lastName = lastName;
+            this.balance = balance;
         }
     }
 }

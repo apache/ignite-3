@@ -79,32 +79,6 @@ public class KeyValueViewPojoExample {
         ) {
             //--------------------------------------------------------------------------------------
             //
-            // Defining POJO classes.
-            //
-            //--------------------------------------------------------------------------------------
-
-            class AccountKey {
-                final int accountNumber;
-
-                public AccountKey(int accountNumber) {
-                    this.accountNumber = accountNumber;
-                }
-            }
-
-            class Account {
-                final String firstName;
-                final String lastName;
-                final double balance;
-
-                public Account(String firstName, String lastName, double balance) {
-                    this.firstName = firstName;
-                    this.lastName = lastName;
-                    this.balance = balance;
-                }
-            }
-
-            //--------------------------------------------------------------------------------------
-            //
             // Creating a key-value view for the 'accounts' table.
             //
             //--------------------------------------------------------------------------------------
@@ -155,6 +129,32 @@ public class KeyValueViewPojoExample {
             Statement stmt = conn.createStatement()
         ) {
             stmt.executeUpdate("DROP TABLE accounts");
+        }
+    }
+
+    static class AccountKey {
+        int accountNumber;
+
+        public AccountKey() {
+        }
+
+        public AccountKey(int accountNumber) {
+            this.accountNumber = accountNumber;
+        }
+    }
+
+    static class Account {
+        String firstName;
+        String lastName;
+        double balance;
+
+        public Account() {
+        }
+
+        public Account(String firstName, String lastName, double balance) {
+            this.firstName = firstName;
+            this.lastName = lastName;
+            this.balance = balance;
         }
     }
 }
