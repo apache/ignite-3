@@ -51,13 +51,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// Reads the value part.
         /// </summary>
         /// <param name="buf">Buffer.</param>
-        /// <param name="schema">Schema.</param>
+        /// <param name="schema">Schema or null when there is no value.</param>
         /// <param name="key">Key part.</param>
         /// <returns>Resulting record with key and value parts.</returns>
         public T? ReadValue(PooledBuffer buf, Schema? schema, T key)
         {
             if (schema == null)
             {
+                // Null schema means null record.
                 return null;
             }
 
@@ -68,13 +69,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// Read multiple records.
         /// </summary>
         /// <param name="buf">Buffer.</param>
-        /// <param name="schema">Schema.</param>
+        /// <param name="schema">Schema or null when there is no value.</param>
         /// <param name="keyOnly">Key only mode.</param>
         /// <returns>List of records.</returns>
         public IList<T> ReadMultiple(PooledBuffer buf, Schema? schema, bool keyOnly = false)
         {
             if (schema == null)
             {
+                // Null schema means empty collection.
                 return Array.Empty<T>();
             }
 
@@ -97,13 +99,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// Read multiple records, where some of them might be null.
         /// </summary>
         /// <param name="buf">Buffer.</param>
-        /// <param name="schema">Schema.</param>
+        /// <param name="schema">Schema or null when there is no value.</param>
         /// <param name="keyOnly">Key only mode.</param>
         /// <returns>List of records.</returns>
         public IList<T?> ReadMultipleNullable(PooledBuffer buf, Schema? schema, bool keyOnly = false)
         {
             if (schema == null)
             {
+                // Null schema means empty collection.
                 return Array.Empty<T?>();
             }
 
