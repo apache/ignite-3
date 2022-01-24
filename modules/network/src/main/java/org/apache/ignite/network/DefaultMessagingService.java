@@ -63,6 +63,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
     /** Fake host for nodes that are not in the topology yet. TODO: IGNITE-16373 Remove after the ticket is resolved. */
     private static final String UNKNOWN_HOST = "unknown";
 
+    /** Fake port for nodes that are not in the topology yet. TODO: IGNITE-16373 Remove after the ticket is resolved. */
+    private static final int UNKNOWN_HOST_PORT = 1337;
+
     /**
      * Constructor.
      *
@@ -263,7 +266,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         } else {
             // TODO: IGNITE-16373 Use fake address if sender is not in cluster yet. For the response, consistentId from this address will
             // be used
-            senderAddress = new NetworkAddress(UNKNOWN_HOST, 1337, consistentId);
+            senderAddress = new NetworkAddress(UNKNOWN_HOST, UNKNOWN_HOST_PORT, consistentId);
         }
 
         for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(message.groupType())) {
@@ -340,7 +343,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         InetSocketAddress targetInetSocketAddress = (InetSocketAddress) targetSocketAddress;
 
-        assert !targetInetSocketAddress.getHostName().equals(UNKNOWN_HOST);
+        assert !targetInetSocketAddress.getHostName().equals(UNKNOWN_HOST) && targetInetSocketAddress.getPort() != UNKNOWN_HOST_PORT;
 
         InetAddress targetInetAddress = targetInetSocketAddress.getAddress();
         if (targetInetAddress.isAnyLocalAddress() || targetInetAddress.isLoopbackAddress()) {
