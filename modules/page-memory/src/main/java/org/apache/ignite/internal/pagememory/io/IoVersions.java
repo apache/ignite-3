@@ -104,7 +104,7 @@ public final class IoVersions<V extends PageIo> {
     }
 
     /**
-     * Returns IO for the given version.
+     * Returns IO for the given page.
      *
      * @param pageAddr Page address.
      * @return IO.

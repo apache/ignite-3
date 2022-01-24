@@ -31,7 +31,7 @@ public class PageIoRegistry {
     private final IoVersions<?>[] ioVersions = new IoVersions[PageIo.MAX_IO_TYPE + 1];
 
     /**
-     * Loads all {@link IoVersions} from corresponding {@link PageIoModule} using a {@link ServiceLoader} mechanism.
+     * Loads all {@link IoVersions} from a {@link PageIoModule} using the {@link ServiceLoader} mechanism.
      */
     public void loadFromServiceLoader() {
         ServiceLoader<PageIoModule> serviceLoader = ServiceLoader.load(PageIoModule.class);

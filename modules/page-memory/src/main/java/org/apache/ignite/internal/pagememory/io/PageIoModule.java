@@ -20,12 +20,12 @@ package org.apache.ignite.internal.pagememory.io;
 import java.util.Collection;
 
 /**
- * Extension point for modules to provide their own {@link PageIo} implementations by implementing current interface and exporting
- * the implementation via corresponding {@code META-INF/services} resource.
+ * Extension point for modules to provide their own {@link PageIo} implementations by implementing this interface and exporting
+ * it via the {@code META-INF/services} resource.
  */
 public interface PageIoModule {
     /**
-     * Returns a collection of {@link IoVersions} instances for all new page IO types in the module.
+     * Returns a collection of {@link IoVersions} instances for all page IO types declared in a module.
      */
     Collection<IoVersions<?>> ioVersions();
 }

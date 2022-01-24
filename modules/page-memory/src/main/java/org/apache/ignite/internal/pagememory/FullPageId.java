@@ -26,8 +26,8 @@ import org.apache.ignite.lang.IgniteStringBuilder;
  * <h3>Page ID structure</h3>
  *
  * <p>Generally, a full page ID consists of a group ID and a page ID. A page ID consists of a page index (32 bits), a partition ID (16 bits)
- * and flags. Group ID is an integer inentifier of a logical pages group, like a specific SQL table or metadata storage, for example.
- * Page index is the unique page identifier inside of a specific partition of a specific group. Set of indexes in the partition represents
+ * and flags (8 bits). Group ID is an integer identifier of a logical pages group, like a SQL table or metadata storage, for example.
+ * Page index is a unique page identifier inside of a specific partition of a page group. Set of indexes in the partition represents
  * a continuous range that starts with 0. Higher 8 bits of a page ID are reserved for addressing entries inside data pages or for
  * page ID rotation.
  *

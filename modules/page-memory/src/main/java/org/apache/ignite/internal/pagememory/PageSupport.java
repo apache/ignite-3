@@ -117,7 +117,7 @@ public interface PageSupport {
     void writeUnlock(int groupId, long pageId, long page, boolean dirtyFlag);
 
     /**
-     * Checks whether the page is dirty or not.
+     * Checks whether the page is dirty.
      *
      * @param groupId Group ID.
      * @param pageId  Page ID.
