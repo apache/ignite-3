@@ -32,14 +32,21 @@ public class PageIoRegistry {
 
     /**
      * Loads all {@link IoVersions} from a {@link PageIoModule} using the {@link ServiceLoader} mechanism.
+     *
+     * @throws IllegalStateException If there's an invalid page type or several different {@link IoVersions} instances for the same type.
      */
     public void loadFromServiceLoader() {
         ServiceLoader<PageIoModule> serviceLoader = ServiceLoader.load(PageIoModule.class);
 
         for (PageIoModule pageIoModule : serviceLoader) {
             for (IoVersions<?> ios : pageIoModule.ioVersions()) {
-                assert ios.getType() != 0 : "Type 0 is reserved and can't be used: " + ios;
-                assert ioVersions[ios.getType()] == null || ioVersions[ios.getType()].equals(ios) : "Duplication IOVersions found: " + ios;
+                if (ios.getType() == 0) {
+                    throw new IllegalStateException("Type 0 is reserved and can't be used: " + ios);
+                }
+
+                if (ioVersions[ios.getType()] != null && !ioVersions[ios.getType()].equals(ios)) {
+                    throw new IllegalStateException("Duplicated IOVersions found: " + ios);
+                }
 
                 ioVersions[ios.getType()] = ios;
             }

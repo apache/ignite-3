@@ -141,11 +141,7 @@ public class PageUtils {
      * @param bytes Bytes.
      */
     public static void putBytes(long addr, int off, byte[] bytes) {
-        assert addr > 0 : addr;
-        assert off >= 0;
-        assert bytes != null;
-
-        GridUnsafe.copyMemory(bytes, GridUnsafe.BYTE_ARR_OFF, null, addr + off, bytes.length);
+        putBytes(addr, off, bytes, 0, bytes.length);
     }
 
     /**
@@ -157,12 +153,7 @@ public class PageUtils {
      * @param bytesOff Bytes array offset.
      */
     public static void putBytes(long addr, int off, byte[] bytes, int bytesOff) {
-        assert addr > 0 : addr;
-        assert off >= 0;
-        assert bytes != null;
-        assert bytesOff >= 0 && (bytesOff < bytes.length || bytes.length == 0) : bytesOff;
-
-        GridUnsafe.copyMemory(bytes, GridUnsafe.BYTE_ARR_OFF + bytesOff, null, addr + off, bytes.length - bytesOff);
+        putBytes(addr, off, bytes, bytesOff, bytes.length - bytesOff);
     }
 
     /**
@@ -179,6 +170,7 @@ public class PageUtils {
         assert off >= 0;
         assert bytes != null;
         assert bytesOff >= 0 && (bytesOff < bytes.length || bytes.length == 0) : bytesOff;
+        assert len >= 0 && (bytesOff + len <= bytes.length);
 
         GridUnsafe.copyMemory(bytes, GridUnsafe.BYTE_ARR_OFF + bytesOff, null, addr + off, len);
     }
