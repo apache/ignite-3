@@ -1501,6 +1501,8 @@ public class ConfigurationListenerTest {
 
         long currentStorageRevision = storage.lastRevision().get(1, SECONDS);
 
+        config.listen(configListener(ctx -> events.add("root")));
+
         registry.listenUpdateStorageRevision((newStorageRevision) -> {
             assertNotEquals(currentStorageRevision, newStorageRevision);
             assertTrue(newStorageRevision > currentStorageRevision);
@@ -1522,7 +1524,8 @@ public class ConfigurationListenerTest {
         config.child().str().update(randomUuid()).get(1, SECONDS);
 
         // Order of subscriptions must match the order of notifications.
-        assertEquals(List.of("0", "1"), events);
+        // Storage revision listener must be the last one.
+        assertEquals(List.of("root", "0", "1"), events);
     }
 
     @Test
