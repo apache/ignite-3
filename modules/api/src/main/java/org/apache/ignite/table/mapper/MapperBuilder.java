@@ -78,7 +78,9 @@ public final class MapperBuilder<T> {
      * Creates a mapper builder for a natively supported type.
      *
      * @param targetType   Target type.
-     * @param mappedColumn Column name to map to.
+     * @param mappedColumn Column name to map to; column name must use SQL-parser style quotation, e.g.
+     *                     "myColumn" - means column name "MYCOLUMN",
+     *                     "\"MyColumn\"" - "MyColumn", etc.
      */
     MapperBuilder(@NotNull Class<T> targetType, String mappedColumn) {
         this.targetType = Mapper.ensureNativelySupported(targetType);
@@ -135,7 +137,7 @@ public final class MapperBuilder<T> {
      * Ensure field name is valid and field with this name exists.
      *
      * @param fieldName Field name.
-     * @return Field name for chaining.
+     * @return Field's name for chaining.
      * @throws IllegalArgumentException If field is {@code null} or class has no declared field with given name.
      */
     private String requireValidField(String fieldName) {
@@ -155,8 +157,11 @@ public final class MapperBuilder<T> {
      * Maps a field to a column.
      *
      * @param fieldName        Field name.
-     * @param columnName       Column name.
-     * @param fieldColumnPairs Vararg that accepts (fieldName, columnName) pairs.
+     * @param columnName       Column name with SQL-parser style quotation, e.g.
+     *                         "myColumn" - means column name "MYCOLUMN",
+     *                         "\"MyColumn\"" - "MyColumn", etc.
+     * @param fieldColumnPairs Vararg that accepts (fieldName, columnName) pairs, column's names should use SQL SQL-parser style
+     *                        quotation like {@code columnName} parameter.
      * @return {@code this} for chaining.
      * @throws IllegalArgumentException If a field name has not paired column name in {@code fieldColumnPairs}, or a column was already
      *                                  mapped to another field.
@@ -194,7 +199,9 @@ public final class MapperBuilder<T> {
      * @param <ObjectT>  Value type. Must match the object field type if the individual field is mapped to a given column.
      * @param <ColumnT>  Column type.
      * @param fieldName  Field name.
-     * @param columnName Column name.
+     * @param columnName Column name with SQL-parser style quotation, e.g.
+     *                   "myColumn" - means column name "MYCOLUMN",
+     *                   "\"MyColumn\"" - "MyColumn", etc.
      * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
      */
     public <ObjectT, ColumnT> MapperBuilder<T> map(
@@ -213,7 +220,9 @@ public final class MapperBuilder<T> {
      *
      * @param <ObjectT>  Value type. Must match either the object field type if a field mapped to given column, or the object type {@link T}
      * @param <ColumnT>  Column type.
-     * @param columnName Column name.
+     * @param columnName Column name with SQL-parser style quotation, e.g.
+     *                   "myColumn" - means column name "MYCOLUMN",
+     *                   "\"MyColumn\"" - "MyColumn", etc.
      * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
      */
     public <ObjectT, ColumnT> MapperBuilder<T> convert(@NotNull String columnName, @NotNull TypeConverter<ObjectT, ColumnT> converter) {
