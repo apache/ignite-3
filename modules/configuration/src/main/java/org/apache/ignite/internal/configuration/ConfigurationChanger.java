@@ -108,11 +108,10 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
          *
          * @param oldRoot Old roots values. All these roots always belong to a single storage.
          * @param newRoot New values for the same roots as in {@code oldRoot}.
-         * @param oldStorageRevision Old revision of the storage.
-         * @param newStorageRevision New revision of the storage.
-         * @return Not-null future that must signify when processing is completed. Exceptional completion is not expected.
+         * @param storageRevision Revision of the storage.
+         * @return Future that must signify when processing is completed. Exceptional completion is not expected.
          */
-        CompletableFuture<Void> notify(@Nullable SuperRoot oldRoot, SuperRoot newRoot, long oldStorageRevision, long newStorageRevision);
+        CompletableFuture<Void> notify(@Nullable SuperRoot oldRoot, SuperRoot newRoot, long storageRevision);
     }
 
     /**
@@ -556,7 +555,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             return CompletableFuture.completedFuture(null);
         } else {
-            return notificator.notify(oldSuperRoot, newSuperRoot, oldStorageRoots.version, newChangeId)
+            return notificator.notify(oldSuperRoot, newSuperRoot, newChangeId)
                 .whenComplete((v, t) -> {
                     if (t == null) {
                         oldStorageRoots.changeFuture.complete(null);
@@ -575,6 +574,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     CompletableFuture<Void> notifyCurrentConfigurationListeners() {
         StorageRoots storageRoots = this.storageRoots;
 
-        return notificator.notify(null, storageRoots.roots, storageRoots.version, storageRoots.version);
+        return notificator.notify(null, storageRoots.roots, storageRoots.version);
     }
 }

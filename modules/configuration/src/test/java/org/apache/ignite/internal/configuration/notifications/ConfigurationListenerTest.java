@@ -35,7 +35,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -1583,13 +1582,13 @@ public class ConfigurationListenerTest {
     }
 
     @Test
-    void testNotNotifyStorageRevisionListenerForCurrentConfig() throws Exception {
+    void testNotifyStorageRevisionListenerForCurrentConfig() throws Exception {
         AtomicBoolean invokeListener = new AtomicBoolean();
 
         registry.listenUpdateStorageRevision(configStorageRevisionListener((newRevision) -> invokeListener.set(true)));
 
         registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
 
-        assertFalse(invokeListener.get());
+        assertTrue(invokeListener.get());
     }
 }

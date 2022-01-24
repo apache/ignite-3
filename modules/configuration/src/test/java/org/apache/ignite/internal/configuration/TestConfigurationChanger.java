@@ -61,7 +61,7 @@ public class TestConfigurationChanger extends ConfigurationChanger {
             Collection<Class<?>> polymorphicSchemaExtensions
     ) {
         super(
-                (oldRoot, newRoot, oldRevision, newRevision) -> completedFuture(null),
+                (oldRoot, newRoot, revision) -> completedFuture(null),
                 rootKeys,
                 validators,
                 storage

@@ -274,15 +274,13 @@ public class ConfigurationRegistry implements IgniteComponent {
      *
      * @param oldSuperRoot Old roots values. All these roots always belong to a single storage.
      * @param newSuperRoot New values for the same roots as in {@code oldRoot}.
-     * @param oldStorageRevision Old revision of the storage.
-     * @param newStorageRevision New revision of the storage.
+     * @param storageRevision Revision of the storage.
      * @return Future that must signify when processing is completed.
      */
     private CompletableFuture<Void> notificator(
             @Nullable SuperRoot oldSuperRoot,
             SuperRoot newSuperRoot,
-            long oldStorageRevision,
-            long newStorageRevision
+            long storageRevision
     ) {
         Collection<CompletableFuture<?>> futures = new ArrayList<>();
 
@@ -304,13 +302,13 @@ public class ConfigurationRegistry implements IgniteComponent {
                     oldRoot = null;
                 }
 
-                futures.addAll(notifyListeners(oldRoot, newRoot, config, newStorageRevision));
+                futures.addAll(notifyListeners(oldRoot, newRoot, config, storageRevision));
 
                 return null;
             }
         }, true);
 
-        futures.addAll(notifyStorageRevisionListeners(oldStorageRevision, newStorageRevision));
+        futures.addAll(notifyStorageRevisionListeners(storageRevision));
 
         if (futures.isEmpty()) {
             return CompletableFuture.completedFuture(null);
@@ -466,8 +464,8 @@ public class ConfigurationRegistry implements IgniteComponent {
         }
     }
 
-    private Collection<CompletableFuture<?>> notifyStorageRevisionListeners(long oldStorageRevision, long newStorageRevision) {
-        if (oldStorageRevision == newStorageRevision || storageRevisionListeners.isEmpty()) {
+    private Collection<CompletableFuture<?>> notifyStorageRevisionListeners(long storageRevision) {
+        if (storageRevisionListeners.isEmpty()) {
             return List.of();
         }
 
@@ -475,7 +473,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         for (ConfigurationStorageRevisionListener listener : storageRevisionListeners) {
             try {
-                CompletableFuture<?> future = listener.onUpdate(newStorageRevision);
+                CompletableFuture<?> future = listener.onUpdate(storageRevision);
 
                 assert future != null;
 
