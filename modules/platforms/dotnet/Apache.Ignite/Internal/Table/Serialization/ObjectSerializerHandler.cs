@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
     using System.Reflection;
+    using System.Runtime.Serialization;
     using Buffers;
     using MessagePack;
     using Proto;
@@ -36,8 +37,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
             // TODO: Emit code for efficient serialization (IGNITE-16341).
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
-            var res = Activator.CreateInstance<T>();
             var type = typeof(T);
+            var res = (T) FormatterServices.GetUninitializedObject(type);
 
             for (var index = 0; index < count; index++)
             {
@@ -72,8 +73,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
             r.Skip();
 
             var columns = schema.Columns;
-            var res = Activator.CreateInstance<T>();
             var type = typeof(T);
+            var res = (T) FormatterServices.GetUninitializedObject(type);
 
             for (var i = 0; i < columns.Count; i++)
             {

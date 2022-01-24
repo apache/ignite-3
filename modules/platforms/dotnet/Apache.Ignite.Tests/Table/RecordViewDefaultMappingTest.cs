@@ -17,24 +17,36 @@
 
 namespace Apache.Ignite.Tests.Table
 {
+    using System.Threading.Tasks;
     using Ignite.Table;
     using NUnit.Framework;
+    using NUnit.Framework.Internal;
 
     /// <summary>
     /// Tests the default user type mapping behavior in <see cref="IRecordView{T}"/>.
     /// </summary>
-    public class RecordViewDefaultMappingTest
+    public class RecordViewDefaultMappingTest : IgniteTestsBase
     {
-        [Test]
-        public void TestPropertyMapping()
+        [SetUp]
+        public async Task SetUp()
         {
-            Assert.Fail("TODO");
+            await Table.RecordBinaryView.UpsertAsync(null, GetTuple(1, "2"));
         }
 
         [Test]
-        public void TestFieldMapping()
+        public void TestPropertyMapping()
         {
-            Assert.Fail("TODO");
+            Poco res = Get(new Poco { Key = 1 });
+
+            Assert.AreEqual("2", res.Val);
+        }
+
+        [Test]
+        public void TestFieldMappingNoDefaultConstructor()
+        {
+            Fields res = Get(new Fields(1, null));
+
+            Assert.AreEqual("2", res.GetVal());
         }
 
         [Test]
@@ -49,10 +61,25 @@ namespace Apache.Ignite.Tests.Table
             Assert.Fail("TODO");
         }
 
-        [Test]
-        public void TestValueTupleMapping()
+        private T Get<T>(T key)
+            where T : class
         {
-            Assert.Fail("TODO");
+            return Table.GetRecordView<T>().GetAsync(null, key).GetAwaiter().GetResult()!;
+        }
+
+        private class Fields
+        {
+            private long key;
+
+            private string? val;
+
+            public Fields(long key, string? val)
+            {
+                this.key = key;
+                this.val = val;
+            }
+
+            public string? GetVal() => val;
         }
     }
 }
