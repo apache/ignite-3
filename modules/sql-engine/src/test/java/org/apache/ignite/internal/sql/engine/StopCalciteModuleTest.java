@@ -58,6 +58,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -167,6 +168,7 @@ public class StopCalciteModuleTest {
         LOG.info(">>>> Starting test {}", testInfo.getTestMethod().orElseThrow().getName());
     }
 
+    @Disabled("IGNITE-16389")
     @Test
     public void testStopQueryOnNodeStop() throws Exception {
         SqlQueryProcessor qryProc = new SqlQueryProcessor(clusterSrvc, tableManager);
