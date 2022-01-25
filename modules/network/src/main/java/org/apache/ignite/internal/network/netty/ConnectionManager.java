@@ -143,6 +143,8 @@ public class ConnectionManager {
             Throwable cause = e.getCause();
             throw new IgniteInternalException("Failed to start the connection manager: " + cause.getMessage(), cause);
         } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
             throw new IgniteInternalException("Interrupted while starting the connection manager", e);
         }
     }
