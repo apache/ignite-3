@@ -43,7 +43,7 @@ public class NetworkConfigurationSchema {
     /**
      * Graceful shutdown of the {@link io.netty.util.concurrent.EventExecutorGroup} ensures that no tasks are submitted for
      * <i>'the quiet period'</i> before it shuts itself down.  If a task is submitted during the quiet period,
-     * it is guaranteed to be accepted and the quiet period will start over
+     * it is guaranteed to be accepted and the quiet period will start over.
      */
     @Min(0)
     @Value(hasDefault = true)
