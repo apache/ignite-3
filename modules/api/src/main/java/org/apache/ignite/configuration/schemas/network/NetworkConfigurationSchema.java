@@ -41,8 +41,8 @@ public class NetworkConfigurationSchema {
     public final int portRange = 0;
 
     /**
-     * Graceful shutdown of the {@link io.netty.util.concurrent.EventExecutorGroup} ensures that no tasks are submitted for
-     * <i>'the quiet period'</i> before it shuts itself down.  If a task is submitted during the quiet period,
+     * Graceful shutdown of the Netty's EventExecutorGroup ensures that no tasks are submitted for
+     * <i>'the quiet period'</i> before it shuts itself down. If a task is submitted during the quiet period,
      * it is guaranteed to be accepted and the quiet period will start over.
      */
     @Min(0)
@@ -50,8 +50,8 @@ public class NetworkConfigurationSchema {
     public final long shutdownQuietPeriod = 0;
 
     /**
-     * The maximum amount of time to wait until each network executor is {@link io.netty.util.concurrent.EventExecutorGroup#shutdown()}
-     * regardless if a new network message was submitted during the quiet period.
+     * The maximum amount of time to wait until each Netty's EventExecutorGroup is shutdown regardless if a new network message was
+     * submitted during the quiet period.
      */
     @Min(0)
     @Value(hasDefault = true)
