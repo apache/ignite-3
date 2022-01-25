@@ -17,12 +17,11 @@
 
 package org.apache.ignite.example.table;
 
-import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.table.RecordView;
-
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.table.RecordView;
 
 /**
  * This example demonstrates the usage of the {@link RecordView} API.
@@ -52,16 +51,15 @@ public class RecordViewPojoExample {
         //--------------------------------------------------------------------------------------
 
         try (
-            Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-            Statement stmt = conn.createStatement()
+                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                Statement stmt = conn.createStatement()
         ) {
             stmt.executeUpdate(
-                "CREATE TABLE accounts (" +
-                "    accountNumber INT PRIMARY KEY," +
-                "    firstName     VARCHAR," +
-                "    lastName      VARCHAR," +
-                "    balance       DOUBLE" +
-                ")"
+                    "CREATE TABLE accounts ("
+                            + "accountNumber INT PRIMARY KEY,"
+                            + "firstName     VARCHAR,"
+                            + "lastName      VARCHAR,"
+                            + "balance       DOUBLE)"
             );
         }
 
@@ -74,8 +72,8 @@ public class RecordViewPojoExample {
         System.out.println("\nConnecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
-            .addresses("127.0.0.1:10800")
-            .build()
+                .addresses("127.0.0.1:10800")
+                .build()
         ) {
             //--------------------------------------------------------------------------------------
             //
@@ -84,8 +82,8 @@ public class RecordViewPojoExample {
             //--------------------------------------------------------------------------------------
 
             RecordView<Account> accounts = client.tables()
-                .table("PUBLIC.accounts")
-                .recordView(Account.class);
+                    .table("PUBLIC.accounts")
+                    .recordView(Account.class);
 
             //--------------------------------------------------------------------------------------
             //
@@ -96,10 +94,10 @@ public class RecordViewPojoExample {
             System.out.println("\nInserting a record into the 'accounts' table...");
 
             Account newAccount = new Account(
-                123456,
-                "Val",
-                "Kulichenko",
-                100.00d
+                    123456,
+                    "Val",
+                    "Kulichenko",
+                    100.00d
             );
 
             accounts.insert(null, newAccount);
@@ -115,16 +113,16 @@ public class RecordViewPojoExample {
             Account account = accounts.get(null, new Account(123456));
 
             System.out.println(
-                "\nRetrieved record:\n" +
-                "    Account Number: " + account.accountNumber + '\n' +
-                "    Owner: " + account.firstName + " " + account.lastName + '\n' +
-                "    Balance: $" + account.balance);
+                    "\nRetrieved record:\n"
+                        + "    Account Number: " + account.accountNumber + '\n'
+                        + "    Owner: " + account.firstName + " " + account.lastName + '\n'
+                        + "    Balance: $" + account.balance);
 
             System.out.println("\nDropping the table...");
 
             try (
-                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                Statement stmt = conn.createStatement()
+                    Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                    Statement stmt = conn.createStatement()
             ) {
                 stmt.executeUpdate("DROP TABLE accounts");
             }

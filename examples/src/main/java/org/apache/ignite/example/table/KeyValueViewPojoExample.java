@@ -17,12 +17,11 @@
 
 package org.apache.ignite.example.table;
 
-import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.table.KeyValueView;
-
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.table.KeyValueView;
 
 /**
  * This example demonstrates the usage of the {@link KeyValueView} API.
@@ -52,16 +51,15 @@ public class KeyValueViewPojoExample {
         //--------------------------------------------------------------------------------------
 
         try (
-            Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-            Statement stmt = conn.createStatement()
+                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                Statement stmt = conn.createStatement()
         ) {
             stmt.executeUpdate(
-                "CREATE TABLE accounts (" +
-                "    accountNumber INT PRIMARY KEY," +
-                "    firstName     VARCHAR," +
-                "    lastName      VARCHAR," +
-                "    balance       DOUBLE" +
-                ")"
+                    "CREATE TABLE accounts ("
+                            + "accountNumber INT PRIMARY KEY,"
+                            + "firstName     VARCHAR,"
+                            + "lastName      VARCHAR,"
+                            + "balance       DOUBLE)"
             );
         }
 
@@ -74,8 +72,8 @@ public class KeyValueViewPojoExample {
         System.out.println("\nConnecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
-            .addresses("127.0.0.1:10800")
-            .build()
+                .addresses("127.0.0.1:10800")
+                .build()
         ) {
             //--------------------------------------------------------------------------------------
             //
@@ -84,8 +82,8 @@ public class KeyValueViewPojoExample {
             //--------------------------------------------------------------------------------------
 
             KeyValueView<AccountKey, Account> kvView = client.tables()
-                .table("PUBLIC.accounts")
-                .keyValueView(AccountKey.class, Account.class);
+                    .table("PUBLIC.accounts")
+                    .keyValueView(AccountKey.class, Account.class);
 
             //--------------------------------------------------------------------------------------
             //
@@ -98,9 +96,9 @@ public class KeyValueViewPojoExample {
             AccountKey key = new AccountKey(123456);
 
             Account value = new Account(
-                "Val",
-                "Kulichenko",
-                100.00d
+                    "Val",
+                    "Kulichenko",
+                    100.00d
             );
 
             kvView.put(null, key, value);
@@ -116,17 +114,17 @@ public class KeyValueViewPojoExample {
             value = kvView.get(null, key);
 
             System.out.println(
-                "\nRetrieved value:\n" +
-                "    Account Number: " + key.accountNumber + '\n' +
-                "    Owner: " + value.firstName + " " + value.lastName + '\n' +
-                "    Balance: $" + value.balance);
+                    "\nRetrieved value:\n"
+                        + "    Account Number: " + key.accountNumber + '\n'
+                        + "    Owner: " + value.firstName + " " + value.lastName + '\n'
+                        + "    Balance: $" + value.balance);
         }
 
         System.out.println("\nDropping the table...");
 
         try (
-            Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-            Statement stmt = conn.createStatement()
+                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                Statement stmt = conn.createStatement()
         ) {
             stmt.executeUpdate("DROP TABLE accounts");
         }

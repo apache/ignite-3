@@ -17,13 +17,12 @@
 
 package org.apache.ignite.example.table;
 
-import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.Tuple;
-
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.Tuple;
 
 /**
  * This example demonstrates the usage of the {@link KeyValueView} API.
@@ -53,16 +52,15 @@ public class KeyValueViewExample {
         //--------------------------------------------------------------------------------------
 
         try (
-            Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-            Statement stmt = conn.createStatement()
+                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                Statement stmt = conn.createStatement()
         ) {
             stmt.executeUpdate(
-                "CREATE TABLE accounts (" +
-                "    accountNumber INT PRIMARY KEY," +
-                "    firstName     VARCHAR," +
-                "    lastName      VARCHAR," +
-                "    balance       DOUBLE" +
-                ")"
+                    "CREATE TABLE accounts ("
+                            + "accountNumber INT PRIMARY KEY,"
+                            + "firstName     VARCHAR,"
+                            + "lastName      VARCHAR,"
+                            + "balance       DOUBLE)"
             );
         }
 
@@ -75,8 +73,8 @@ public class KeyValueViewExample {
         System.out.println("\nConnecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
-            .addresses("127.0.0.1:10800")
-            .build()
+                .addresses("127.0.0.1:10800")
+                .build()
         ) {
             //--------------------------------------------------------------------------------------
             //
@@ -95,12 +93,12 @@ public class KeyValueViewExample {
             System.out.println("\nInserting a key-value pair into the 'accounts' table...");
 
             Tuple key = Tuple.create()
-                .set("accountNumber", 123456);
+                    .set("accountNumber", 123456);
 
             Tuple value = Tuple.create()
-                .set("firstName", "Val")
-                .set("lastName", "Kulichenko")
-                .set("balance", 100.00d);
+                    .set("firstName", "Val")
+                    .set("lastName", "Kulichenko")
+                    .set("balance", 100.00d);
 
             kvView.put(null, key, value);
 
@@ -115,17 +113,17 @@ public class KeyValueViewExample {
             value = kvView.get(null, key);
 
             System.out.println(
-                "\nRetrieved value:\n" +
-                "    Account Number: " + key.intValue("accountNumber") + '\n' +
-                "    Owner: " + value.stringValue("firstName") + " " + value.stringValue("lastName") + '\n' +
-                "    Balance: $" + value.doubleValue("balance"));
+                    "\nRetrieved value:\n"
+                            + "    Account Number: " + key.intValue("accountNumber") + '\n'
+                            + "    Owner: " + value.stringValue("firstName") + " " + value.stringValue("lastName") + '\n'
+                            + "    Balance: $" + value.doubleValue("balance"));
         }
 
         System.out.println("\nDropping the table...");
 
         try (
-            Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-            Statement stmt = conn.createStatement()
+                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                Statement stmt = conn.createStatement()
         ) {
             stmt.executeUpdate("DROP TABLE accounts");
         }

@@ -17,7 +17,11 @@
 
 package org.apache.ignite.example.sql.jdbc;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
 
 /**
  * This example demonstrates the usage of the Apache Ignite JDBC driver.
@@ -57,20 +61,18 @@ public class SqlJdbcExample {
 
             try (Statement stmt = conn.createStatement()) {
                 stmt.executeUpdate(
-                    "CREATE TABLE CITIES (" +
-                    "    ID   INT PRIMARY KEY," +
-                    "    NAME VARCHAR" +
-                    ")"
+                        "CREATE TABLE CITIES ("
+                                + "ID   INT PRIMARY KEY,"
+                                + "NAME VARCHAR)"
                 );
 
                 stmt.executeUpdate(
-                    "CREATE TABLE ACCOUNTS (" +
-                    "    ACCOUNT_ID INT PRIMARY KEY," +
-                    "    CITY_ID    INT," +
-                    "    FIRST_NAME VARCHAR," +
-                    "    LAST_NAME  VARCHAR," +
-                    "    BALANCE    DOUBLE" +
-                    ")"
+                        "CREATE TABLE ACCOUNTS ("
+                                + "    ACCOUNT_ID INT PRIMARY KEY,"
+                                + "    CITY_ID    INT,"
+                                + "    FIRST_NAME VARCHAR,"
+                                + "    LAST_NAME  VARCHAR,"
+                                + "    BALANCE    DOUBLE)"
                 );
             }
 
@@ -105,7 +107,7 @@ public class SqlJdbcExample {
             System.out.println("\nPopulating 'ACCOUNTS' table...");
 
             try (PreparedStatement stmt = conn.prepareStatement(
-                "INSERT INTO ACCOUNTS (ACCOUNT_ID, CITY_ID, FIRST_NAME, LAST_NAME, BALANCE) values (?, ?, ?, ?, ?)")) {
+                    "INSERT INTO ACCOUNTS (ACCOUNT_ID, CITY_ID, FIRST_NAME, LAST_NAME, BALANCE) values (?, ?, ?, ?, ?)")) {
                 stmt.setInt(1, 1);
                 stmt.setInt(2, 1);
                 stmt.setString(3, "John");
@@ -145,13 +147,13 @@ public class SqlJdbcExample {
 
             try (Statement stmt = conn.createStatement()) {
                 try (ResultSet rs = stmt.executeQuery(
-                    "SELECT a.FIRST_NAME, a.LAST_NAME, c.NAME FROM ACCOUNTS a "
-                        + "INNER JOIN CITIES c on c.ID = a.CITY_ID ORDER BY a.ACCOUNT_ID")) {
+                        "SELECT a.FIRST_NAME, a.LAST_NAME, c.NAME FROM ACCOUNTS a "
+                                + "INNER JOIN CITIES c on c.ID = a.CITY_ID ORDER BY a.ACCOUNT_ID")) {
                     while (rs.next()) {
                         System.out.println("    "
-                            + rs.getString(1) + ", "
-                            + rs.getString(2) + ", "
-                            + rs.getString(3));
+                                + rs.getString(1) + ", "
+                                + rs.getString(2) + ", "
+                                + rs.getString(3));
                     }
                 }
             }
@@ -166,13 +168,13 @@ public class SqlJdbcExample {
 
             try (Statement stmt = conn.createStatement()) {
                 try (ResultSet rs = stmt.executeQuery(
-                    "SELECT a.FIRST_NAME, a.LAST_NAME, a.BALANCE FROM ACCOUNTS a WHERE a.BALANCE < 1500.0 "
-                        + "ORDER BY a.ACCOUNT_ID")) {
+                        "SELECT a.FIRST_NAME, a.LAST_NAME, a.BALANCE FROM ACCOUNTS a WHERE a.BALANCE < 1500.0 "
+                                + "ORDER BY a.ACCOUNT_ID")) {
                     while (rs.next()) {
                         System.out.println("    "
-                            + rs.getString(1) + ", "
-                            + rs.getString(2) + ", "
-                            + rs.getDouble(3));
+                                + rs.getString(1) + ", "
+                                + rs.getString(2) + ", "
+                                + rs.getDouble(3));
                     }
                 }
             }
@@ -201,13 +203,13 @@ public class SqlJdbcExample {
 
             try (Statement stmt = conn.createStatement()) {
                 try (ResultSet rs = stmt.executeQuery(
-                    "SELECT a.FIRST_NAME, a.LAST_NAME, c.NAME FROM ACCOUNTS a "
-                            + "INNER JOIN CITIES c on c.ID = a.CITY_ID ORDER BY a.ACCOUNT_ID")) {
+                        "SELECT a.FIRST_NAME, a.LAST_NAME, c.NAME FROM ACCOUNTS a "
+                                + "INNER JOIN CITIES c on c.ID = a.CITY_ID ORDER BY a.ACCOUNT_ID")) {
                     while (rs.next()) {
                         System.out.println("    "
-                            + rs.getString(1) + ", "
-                            + rs.getString(2) + ", "
-                            + rs.getString(3));
+                                + rs.getString(1) + ", "
+                                + rs.getString(2) + ", "
+                                + rs.getString(3));
                     }
                 }
             }

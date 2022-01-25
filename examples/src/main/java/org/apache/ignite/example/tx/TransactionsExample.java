@@ -1,13 +1,12 @@
 package org.apache.ignite.example.tx;
 
-import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.tx.IgniteTransactions;
-
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.tx.IgniteTransactions;
 
 /**
  * This example demonstrates the usage of the {@link IgniteTransactions} API.
@@ -37,16 +36,15 @@ public class TransactionsExample {
         //--------------------------------------------------------------------------------------
 
         try (
-            Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-            Statement stmt = conn.createStatement()
+                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                Statement stmt = conn.createStatement()
         ) {
             stmt.executeUpdate(
-                "CREATE TABLE accounts (" +
-                "    accountNumber INT PRIMARY KEY," +
-                "    firstName     VARCHAR," +
-                "    lastName      VARCHAR," +
-                "    balance       DOUBLE" +
-                ")"
+                    "CREATE TABLE accounts ("
+                            + "accountNumber INT PRIMARY KEY,"
+                            + "firstName     VARCHAR,"
+                            + "lastName      VARCHAR,"
+                            + "balance       DOUBLE)"
             );
         }
 
@@ -59,8 +57,8 @@ public class TransactionsExample {
         System.out.println("\nConnecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
-            .addresses("127.0.0.1:10800")
-            .build()
+                .addresses("127.0.0.1:10800")
+                .build()
         ) {
             //--------------------------------------------------------------------------------------
             //
@@ -69,8 +67,8 @@ public class TransactionsExample {
             //--------------------------------------------------------------------------------------
 
             KeyValueView<AccountKey, Account> accounts = client.tables()
-                .table("PUBLIC.accounts")
-                .keyValueView(AccountKey.class, Account.class);
+                    .table("PUBLIC.accounts")
+                    .keyValueView(AccountKey.class, Account.class);
 
             final AccountKey key = new AccountKey(123);
 
@@ -101,14 +99,14 @@ public class TransactionsExample {
             //--------------------------------------------------------------------------------------
 
             CompletableFuture<Void> fut = client.transactions().beginAsync().thenCompose(tx ->
-                accounts
-                    .getAsync(tx, key)
-                    .thenCompose(account -> {
-                        account.balance += 300.0d;
+                    accounts
+                        .getAsync(tx, key)
+                        .thenCompose(account -> {
+                            account.balance += 300.0d;
 
-                        return accounts.putAsync(tx, key, account);
-                    })
-                    .thenCompose(ignored -> tx.commitAsync())
+                            return accounts.putAsync(tx, key, account);
+                        })
+                        .thenCompose(ignored -> tx.commitAsync())
             );
 
             // Wait for completion.
@@ -119,8 +117,8 @@ public class TransactionsExample {
             System.out.println("\nDropping the table...");
 
             try (
-                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                Statement stmt = conn.createStatement()
+                    Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                    Statement stmt = conn.createStatement()
             ) {
                 stmt.executeUpdate("DROP TABLE accounts");
             }
