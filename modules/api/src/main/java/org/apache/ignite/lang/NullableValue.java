@@ -31,6 +31,9 @@ import org.jetbrains.annotations.Nullable;
  * @param <T> Value type.
  */
 public final class NullableValue<T> {
+    /** Null value instance. */
+    private static final NullableValue<?> NULL = new NullableValue<>(null);
+
     /**
      * Wraps nullable object.
      *
@@ -38,7 +41,7 @@ public final class NullableValue<T> {
      * @return Nullable value.
      */
     public static <T> NullableValue<T> of(@Nullable T obj) {
-        return new NullableValue<>(obj);
+        return obj == null ? (NullableValue<T>) NULL : new NullableValue<>(obj);
     }
 
     /** Wrapped value. */
@@ -49,7 +52,7 @@ public final class NullableValue<T> {
      *
      * @param value Value.
      */
-    public NullableValue(@Nullable T value) {
+    private NullableValue(@Nullable T value) {
         this.value = value;
     }
 
