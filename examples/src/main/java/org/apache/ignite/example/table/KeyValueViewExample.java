@@ -117,15 +117,15 @@ public class KeyValueViewExample {
                             + "    Account Number: " + key.intValue("accountNumber") + '\n'
                             + "    Owner: " + value.stringValue("firstName") + " " + value.stringValue("lastName") + '\n'
                             + "    Balance: $" + value.doubleValue("balance"));
-        }
+        } finally {
+            System.out.println("\nDropping the table...");
 
-        System.out.println("\nDropping the table...");
-
-        try (
-                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                Statement stmt = conn.createStatement()
-        ) {
-            stmt.executeUpdate("DROP TABLE accounts");
+            try (
+                    Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                    Statement stmt = conn.createStatement()
+            ) {
+                stmt.executeUpdate("DROP TABLE accounts");
+            }
         }
     }
 }

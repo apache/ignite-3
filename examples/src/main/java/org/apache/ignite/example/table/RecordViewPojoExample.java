@@ -24,7 +24,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.RecordView;
 
 /**
- * This example demonstrates the usage of the {@link RecordView} API.
+ * This example demonstrates the usage of the {@link RecordView} API with user-defined POJOs.
  *
  * <p>To run the example, do the following:
  * <ol>
@@ -117,7 +117,7 @@ public class RecordViewPojoExample {
                         + "    Account Number: " + account.accountNumber + '\n'
                         + "    Owner: " + account.firstName + " " + account.lastName + '\n'
                         + "    Balance: $" + account.balance);
-
+        } finally {
             System.out.println("\nDropping the table...");
 
             try (
@@ -129,12 +129,19 @@ public class RecordViewPojoExample {
         }
     }
 
+    /**
+     * POJO class that represents record.
+     */
     static class Account {
         int accountNumber;
         String firstName;
         String lastName;
         double balance;
 
+        /**
+         * Default constructor (required for deserialization).
+         */
+        @SuppressWarnings("unused")
         public Account() {
         }
 

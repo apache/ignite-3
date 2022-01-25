@@ -113,7 +113,7 @@ public class TransactionsExample {
             fut.join();
 
             System.out.println("\nBalance after the async transaction: " + accounts.get(null, key).balance);
-
+        } finally {
             System.out.println("\nDropping the table...");
 
             try (
@@ -125,9 +125,16 @@ public class TransactionsExample {
         }
     }
 
+    /**
+     * POJO class that represents key.
+     */
     static class AccountKey {
         int accountNumber;
 
+        /**
+         * Default constructor (required for deserialization).
+         */
+        @SuppressWarnings("unused")
         public AccountKey() {
         }
 
@@ -136,11 +143,18 @@ public class TransactionsExample {
         }
     }
 
+    /**
+     * POJO class that represents value.
+     */
     static class Account {
         String firstName;
         String lastName;
         double balance;
 
+        /**
+         * Default constructor (required for deserialization).
+         */
+        @SuppressWarnings("unused")
         public Account() {
         }
 

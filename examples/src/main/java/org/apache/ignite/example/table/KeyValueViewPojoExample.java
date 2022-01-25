@@ -24,7 +24,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.KeyValueView;
 
 /**
- * This example demonstrates the usage of the {@link KeyValueView} API.
+ * This example demonstrates the usage of the {@link KeyValueView} API with user-defined POJOs.
  *
  * <p>To run the example, do the following:
  * <ol>
@@ -118,21 +118,28 @@ public class KeyValueViewPojoExample {
                         + "    Account Number: " + key.accountNumber + '\n'
                         + "    Owner: " + value.firstName + " " + value.lastName + '\n'
                         + "    Balance: $" + value.balance);
-        }
+        } finally {
+            System.out.println("\nDropping the table...");
 
-        System.out.println("\nDropping the table...");
-
-        try (
-                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                Statement stmt = conn.createStatement()
-        ) {
-            stmt.executeUpdate("DROP TABLE accounts");
+            try (
+                    Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                    Statement stmt = conn.createStatement()
+            ) {
+                stmt.executeUpdate("DROP TABLE accounts");
+            }
         }
     }
 
+    /**
+     * POJO class that represents key.
+     */
     static class AccountKey {
         int accountNumber;
 
+        /**
+         * Default constructor (required for deserialization).
+         */
+        @SuppressWarnings("unused")
         public AccountKey() {
         }
 
@@ -141,11 +148,18 @@ public class KeyValueViewPojoExample {
         }
     }
 
+    /**
+     * POJO class that represents value.
+     */
     static class Account {
         String firstName;
         String lastName;
         double balance;
 
+        /**
+         * Default constructor (required for deserialization).
+         */
+        @SuppressWarnings("unused")
         public Account() {
         }
 

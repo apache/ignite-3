@@ -117,7 +117,7 @@ public class RecordViewExample {
                             + "    Account Number: " + accountTuple.intValue("accountNumber") + '\n'
                             + "    Owner: " + accountTuple.stringValue("firstName") + " " + accountTuple.stringValue("lastName") + '\n'
                             + "    Balance: $" + accountTuple.doubleValue("balance"));
-
+        } finally {
             System.out.println("\nDropping the table...");
 
             try (
