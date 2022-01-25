@@ -99,7 +99,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         tbl.put(null, 1L, 33L);
         assertEquals(33L, tbl.get(null, 1L));
 
-        assertThrows(IllegalArgumentException.class, () -> tbl.put(null, null, 33L));
+        assertThrows(NullPointerException.class, () -> tbl.put(null, null, 33L));
     }
 
     @Test
@@ -125,7 +125,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertFalse(tbl.putIfAbsent(null, 2L, 33L));
         assertNull(tbl.getNullable(null, 2L).get());
 
-        assertThrows(IllegalArgumentException.class, () -> tbl.putIfAbsent(null, null, 33L));
+        assertThrows(NullPointerException.class, () -> tbl.putIfAbsent(null, null, 33L));
     }
 
     @Test
@@ -155,7 +155,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertEquals(22L, tbl.get(null, 1L));
         assertEquals(22L, tbl.getNullable(null, 1L).get());
 
-        assertThrows(IllegalArgumentException.class, () -> tbl.getNullable(null, null));
+        assertThrows(NullPointerException.class, () -> tbl.getNullable(null, null));
     }
 
     @Test
@@ -188,7 +188,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertEquals(22L, tbl.getOrDefault(null, 1L, null));
         assertEquals(22L, tbl.getOrDefault(null, 1L, Long.MAX_VALUE));
 
-        assertThrows(IllegalArgumentException.class, () -> tbl.getOrDefault(null, null, Long.MAX_VALUE));
+        assertThrows(NullPointerException.class, () -> tbl.getOrDefault(null, null, Long.MAX_VALUE));
     }
 
     @Test
@@ -210,7 +210,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertThrows(UnexpectedNullValueException.class, () -> tbl.getAndPut(null, 1L, 33L));
         assertEquals(33L, tbl.getNullable(null, 1L).get()); // Previous operation applied.
 
-        assertThrows(IllegalArgumentException.class, () -> tbl.getAndPut(null, null, 1L));
+        assertThrows(NullPointerException.class, () -> tbl.getAndPut(null, null, 1L));
     }
 
     @Test
@@ -231,7 +231,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertNull(tbl.getNullableAndPut(null, 1L, 33L).get());
         assertEquals(33L, tbl.get(null, 1L));
 
-        assertThrows(IllegalArgumentException.class, () -> tbl.getNullableAndPut(null, null, 1L));
+        assertThrows(NullPointerException.class, () -> tbl.getNullableAndPut(null, null, 1L));
     }
 
     @Test
@@ -258,7 +258,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertTrue(tbl.contains(null, 1L));
         assertNull(tbl.getNullable(null, 1L).get());
 
-        assertThrows(IllegalArgumentException.class, () -> tbl.contains(null, null));
+        assertThrows(NullPointerException.class, () -> tbl.contains(null, null));
     }
 
     @Test
@@ -295,7 +295,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertTrue(tbl.remove(null, 1L));
         assertFalse(tbl.contains(null, 1L));
 
-        assertThrows(IllegalArgumentException.class, () -> tbl.remove(null, null));
+        assertThrows(NullPointerException.class, () -> tbl.remove(null, null));
     }
 
     @Test
@@ -330,7 +330,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertFalse(tbl.contains(null, 1L));
         assertNull(tbl.getNullable(null, 1L));
 
-        assertThrows(IllegalArgumentException.class, () -> tbl.getAndRemove(null, null));
+        assertThrows(NullPointerException.class, () -> tbl.getAndRemove(null, null));
     }
 
     @Test
@@ -365,7 +365,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertFalse(tbl.contains(null, 1L));
         assertNull(tbl.getNullable(null, 1L));
 
-        assertThrows(IllegalArgumentException.class, () -> tbl.getNullableAndRemove(null, null));
+        assertThrows(NullPointerException.class, () -> tbl.getNullableAndRemove(null, null));
     }
 
     @Test
@@ -408,7 +408,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertTrue(tbl.remove(null, 1L, null));
         assertNull(tbl.get(null, 1L));
 
-        assertThrows(IllegalArgumentException.class, () -> tbl.remove(null, null));
+        assertThrows(NullPointerException.class, () -> tbl.remove(null, null));
     }
 
     @Test
@@ -434,7 +434,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertTrue(tbl.replace(null, 1L, 33L));
         assertEquals(33L, tbl.get(null, 1L));
 
-        assertThrows(IllegalArgumentException.class, () -> tbl.replace(null, null, 33L));
+        assertThrows(NullPointerException.class, () -> tbl.replace(null, null, 33L));
     }
 
     @Test
@@ -460,7 +460,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertThrows(UnexpectedNullValueException.class, () -> tbl.getAndReplace(null, 1L, 33L));
         assertEquals(33L, tbl.get(null, 1L));
 
-        assertThrows(IllegalArgumentException.class, () -> tbl.replace(null, null, 33L));
+        assertThrows(NullPointerException.class, () -> tbl.replace(null, null, 33L));
     }
 
     @Test
@@ -492,7 +492,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         // Remove non-existed KV pair.
         assertFalse(tbl.replace(null, 2L, null, null));
 
-        assertThrows(IllegalArgumentException.class, () -> tbl.replace(null, null, null, 33L));
+        assertThrows(NullPointerException.class, () -> tbl.replace(null, null, null, 33L));
     }
 
     @Test
