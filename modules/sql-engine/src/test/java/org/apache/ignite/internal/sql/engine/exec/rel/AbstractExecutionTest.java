@@ -78,12 +78,18 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
     }
 
     protected ExecutionContext<Object[]> executionContext() {
-        StripedThreadPoolExecutor testExecutor = new IgniteTestStripedThreadPoolExecutor(4,
-                NamedThreadFactory.threadPrefix("fake-test-node", "sqlTestExec"),
-                null,
-                false,
-                0);
-        IgniteTestUtils.setFieldValue(taskExecutor, "stripedThreadPoolExecutor", testExecutor);
+        return executionContext(false);
+    }
+
+    protected ExecutionContext<Object[]> executionContext(boolean withDelays) {
+        if (withDelays) {
+            StripedThreadPoolExecutor testExecutor = new IgniteTestStripedThreadPoolExecutor(4,
+                    NamedThreadFactory.threadPrefix("fake-test-node", "sqlTestExec"),
+                    null,
+                    false,
+                    0);
+            IgniteTestUtils.setFieldValue(taskExecutor, "stripedThreadPoolExecutor", testExecutor);
+        }
 
         FragmentDescription fragmentDesc = new FragmentDescription(0, null, null, null);
         return new ExecutionContext<>(
