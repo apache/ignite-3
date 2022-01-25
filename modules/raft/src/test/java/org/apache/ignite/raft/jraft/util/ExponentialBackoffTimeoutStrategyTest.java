@@ -36,12 +36,12 @@ public class ExponentialBackoffTimeoutStrategyTest {
 
         TimeoutStrategy timeoutStrategy = new ExponentialBackoffTimeoutStrategy(maxTimeout, roundsWithoutAdjusting);
 
-        assertEquals(initialTimeout, timeoutStrategy.nextTimeout(initialTimeout, 0));
         assertEquals(initialTimeout, timeoutStrategy.nextTimeout(initialTimeout, 1));
+        assertEquals(initialTimeout, timeoutStrategy.nextTimeout(initialTimeout, 2));
 
         // default backoff coefficient equals to 2
-        assertEquals(2 * initialTimeout, timeoutStrategy.nextTimeout(initialTimeout, 2 ));
-        assertEquals(2 * initialTimeout, timeoutStrategy.nextTimeout(initialTimeout, 2 ));
+        assertEquals(2 * initialTimeout, timeoutStrategy.nextTimeout(initialTimeout, 3));
+        assertEquals(2 * initialTimeout, timeoutStrategy.nextTimeout(initialTimeout, 3));
 
         assertEquals(2 * initialTimeout, timeoutStrategy.nextTimeout(initialTimeout, 4));
 
