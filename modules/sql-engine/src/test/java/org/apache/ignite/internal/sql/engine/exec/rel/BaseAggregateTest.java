@@ -320,7 +320,12 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
      * @param mustFail  {@code true} If expression must throw exception.
      **/
     @SuppressWarnings("ThrowableNotThrown")
-    public void singleAggr(TestAggregateType testAgg, List<Object[]> scanInput, Object[] output, boolean mustFail) {
+    public void singleAggr(
+            TestAggregateType testAgg,
+            List<Object[]> scanInput,
+            Object[] output,
+            boolean mustFail
+    ) {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
@@ -505,7 +510,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         }
     }
 
-    private SingleNode<Object[]> createAggregateNodesChain(
+    protected SingleNode<Object[]> createAggregateNodesChain(
             TestAggregateType testAgg,
             ExecutionContext<Object[]> ctx,
             List<ImmutableBitSet> grpSets,
