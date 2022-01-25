@@ -618,7 +618,7 @@ public class NodeImpl implements Node, RaftServerService {
      * Method that adjusts election timeout after several consecutive unsuccessful leader elections according to {@link TimeoutStrategy}
      * <p>
      * Notes about general algorithm: The main idea is that in a stable cluster election timeout should be relatively small, but when
-     * something is preventing elections from completion, like an unstable network or long GC pauses, we don't want to have a lot of
+     * something prevents elections from completion, like an unstable network or long GC pauses, we don't want to have a lot of
      * elections, so election timeout is adjusted. Hence, the upper bound of the election timeout adjusting is the value, which is enough to
      * elect a leader or handle problems that prevent a successful leader election.
      * <p>
@@ -627,6 +627,9 @@ public class NodeImpl implements Node, RaftServerService {
     private void adjustElectionTimeout() {
         electionRound++;
 
+        if (electionRound > 1)
+            LOG.info("Unsuccessful election round number {}", electionRound);
+
         if (!electionAdjusted) {
             initialElectionTimeout = options.getElectionTimeoutMs();
         }
@@ -634,10 +637,9 @@ public class NodeImpl implements Node, RaftServerService {
         long timeout = options.getElectionTimeoutStrategy().nextTimeout(options.getElectionTimeoutMs(), electionRound);
 
         if (timeout != options.getElectionTimeoutMs()) {
-            LOG.info("Election timeout was adjusted according to {} ", options.getElectionTimeoutStrategy().toString());
             resetElectionTimeoutMs((int) timeout);
+            LOG.info("Election timeout was adjusted according to {} ", options.getElectionTimeoutStrategy());
             electionAdjusted = true;
-            electionRound = 0;
         }
     }
 

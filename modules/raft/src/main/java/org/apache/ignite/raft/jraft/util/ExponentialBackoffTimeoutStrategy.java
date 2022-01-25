@@ -31,16 +31,16 @@ public class ExponentialBackoffTimeoutStrategy implements TimeoutStrategy {
     private static final int DEFAULT_TIMEOUT_MS_MAX = 11_000;
 
     /** Default max number of a round after which timeout will be adjusted. */
-    public static final long DEFAULT_ROUNDS_WITHOUT_ADJUSTING = 3;
+    private static final long DEFAULT_ROUNDS_WITHOUT_ADJUSTING = 3;
 
     /** Max timeout that strategy could generate, ms. */
-    private int maxTimeout = DEFAULT_TIMEOUT_MS_MAX;
+    private final int maxTimeout;
 
     /** Max number of a round after which timeout will be adjusted. */
-    private long roundsWithoutAdjusting = DEFAULT_ROUNDS_WITHOUT_ADJUSTING;
+    private final long roundsWithoutAdjusting;
 
     public ExponentialBackoffTimeoutStrategy() {
-
+        this(DEFAULT_TIMEOUT_MS_MAX, DEFAULT_ROUNDS_WITHOUT_ADJUSTING);
     }
 
     /*
@@ -56,7 +56,7 @@ public class ExponentialBackoffTimeoutStrategy implements TimeoutStrategy {
     /** {@inheritDoc} */
     @Override
     public int nextTimeout(int currentTimeout, long round) {
-        if (round < roundsWithoutAdjusting)
+        if (round <= roundsWithoutAdjusting)
             return currentTimeout;
 
         return backoffTimeout(currentTimeout, maxTimeout);
