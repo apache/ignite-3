@@ -35,6 +35,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -1590,5 +1591,68 @@ public class ConfigurationListenerTest {
         registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
 
         assertTrue(invokeListener.get());
+    }
+
+    @Test
+    void testNotifyListenersOnNextUpdateConfiguration() throws Exception {
+        List<String> events = new ArrayList<>();
+
+        AtomicBoolean addListeners = new AtomicBoolean(true);
+
+        config.listen(configListener(ctx0 -> {
+            events.add("root");
+
+            if (addListeners.get()) {
+                registry.listenUpdateStorageRevision(configStorageRevisionListener(ctx -> events.add("storageRevision")));
+
+                config.child().listen(configListener(ctx1 -> events.add("child")));
+
+                config.child().str().listen(configListener(ctx1 -> events.add("child.str")));
+
+                config.children().listen(configListener(ctx1 -> events.add("children")));
+
+                config.children().listenElements(configNamedListenerOnCreate(ctx1 -> events.add("children.onCreate")));
+
+                config.children().listenElements(configNamedListenerOnUpdate(ctx1 -> events.add("children.onUpdate")));
+
+                config.children().get("0").listen(configListener(ctx1 -> events.add("children.0")));
+
+                config.children().get("0").str().listen(configListener(ctx1 -> events.add("children.0.str")));
+
+                config.children().any().listen(configListener(ctx1 -> events.add("children.any")));
+
+                config.children().any().str().listen(configListener(ctx1 -> events.add("children.any.str")));
+
+                addListeners.set(false);
+            }
+        }));
+
+        config.change(
+                c0 -> c0.changeChild(c1 -> c1.changeStr(randomUuid())).changeChildren(c1 -> c1.create("0", doNothingConsumer()))
+        ).get(1, SECONDS);
+
+        assertEquals(List.of("root"), events);
+
+        assertFalse(addListeners.get());
+
+        events.clear();
+
+        config.change(c0 -> c0.changeChild(c1 -> c1.changeStr(randomUuid()))
+                .changeChildren(c1 -> c1.create("1", doNothingConsumer()).update("0", c2 -> c2.changeStr(randomUuid())))
+        ).get(1, SECONDS);
+
+        assertEquals(
+                List.of(
+                        "root",
+                        "child", "child.str",
+                        "children",
+                        "children.onCreate", "children.any", "children.any.str",
+                        "children.onUpdate", "children.any", "children.0", "children.any.str", "children.0.str",
+                        "storageRevision"
+                ),
+                events
+        );
+
+        assertFalse(addListeners.get());
     }
 }
