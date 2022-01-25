@@ -160,20 +160,22 @@ public class IgniteComputeImpl implements IgniteCompute, IgniteComponent {
     private class ComputeNetworkHandler implements NetworkMessageHandler {
         /** {@inheritDoc} */
         @Override
-        public void onReceived(NetworkMessage message, NetworkAddress senderAddr, String correlationId) {
+        public void onReceived(NetworkMessage message, NetworkAddress senderAddr, @Nullable Long correlationId) {
             short messageType = message.messageType();
+
+            ClusterNode senderNode = clusterService.topologyService().getByAddress(senderAddr);
 
             switch (messageType) {
                 case ComputeMessagesType.EXECUTE_MESSAGE:
                     assert message instanceof ExecuteMessage;
 
-                    handleExecuteCommand((ExecuteMessage) message, senderAddr);
+                    handleExecuteCommand((ExecuteMessage) message, senderNode);
                     break;
 
                 case ComputeMessagesType.RESULT_MESSAGE:
                     assert message instanceof ResultMessage;
 
-                    handleResult((ResultMessage) message, senderAddr);
+                    handleResult((ResultMessage) message, senderNode);
                     break;
 
                 default:
@@ -186,31 +188,29 @@ public class IgniteComputeImpl implements IgniteCompute, IgniteComponent {
      * Handles an intermediate result sent by a node.
      *
      * @param message Message with the intermediate result.
-     * @param senderAddr Node's address.
+     * @param senderNode Remote node.
      */
-    private void handleResult(ResultMessage message, NetworkAddress senderAddr) {
+    private void handleResult(ResultMessage message, @Nullable ClusterNode senderNode) {
         UUID executionId = message.executionId();
 
         @SuppressWarnings("rawtypes") Execution execution = executions.get(executionId);
 
-        ClusterNode clusterNode = clusterService.topologyService().getByAddress(senderAddr);
-
-        if (clusterNode == null) {
+        if (senderNode == null) {
             // Node left the topology, this will be handled by the TopologyHandler
             return;
         }
 
         //noinspection unchecked
-        execution.onResultReceived(clusterNode.id(), message.result(), message.exception());
+        execution.onResultReceived(senderNode.id(), message.result(), message.exception());
     }
 
     /**
      * Handles the execution command sent by a node.
      *
      * @param msg Message with the execution command.
-     * @param senderAddr Node's address.
+     * @param senderNode Remote node.
      */
-    private void handleExecuteCommand(ExecuteMessage msg, NetworkAddress senderAddr) {
+    private void handleExecuteCommand(ExecuteMessage msg, @Nullable ClusterNode senderNode) {
         String className = msg.className();
         Object argument = msg.argument();
 
@@ -227,7 +227,7 @@ public class IgniteComputeImpl implements IgniteCompute, IgniteComponent {
                     .exception(throwable)
                     .build();
 
-            this.clusterService.messagingService().send(senderAddr, resultMessage, null);
+            this.clusterService.messagingService().send(senderNode, resultMessage);
         });
     }
 

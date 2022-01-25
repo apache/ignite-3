@@ -32,9 +32,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeTask;
-import org.apache.ignite.internal.compute.message.ComputeMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
@@ -202,15 +200,11 @@ public class ItComputeTest {
     }
 
     private ClusterService clusterService(TestInfo testInfo, int port) {
-        MessageSerializationRegistryImpl registry = new MessageSerializationRegistryImpl();
-        ComputeMessagesSerializationRegistryInitializer.registerFactories(registry);
-
         return ClusterServiceTestUtils.clusterService(
             testInfo,
             port,
             new StaticNodeFinder(List.of(new NetworkAddress("localhost", 3344))),
-            new TestScaleCubeClusterServiceFactory(),
-            registry
+            new TestScaleCubeClusterServiceFactory()
         );
     }
 

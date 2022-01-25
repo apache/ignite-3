@@ -151,7 +151,18 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     /** {@inheritDoc} */
     @Override
     public ClusterNode getByAddress(NetworkAddress addr) {
-        return members.get(addr);
+        ClusterNode clusterNode = members.get(addr);
+
+        if (clusterNode != null) {
+            return clusterNode;
+        }
+
+        String consistentId = addr.consistentId();
+        if (consistentId != null) {
+            return consistentIdToMemberMap.get(consistentId);
+        }
+
+        return null;
     }
 
     /** {@inheritDoc} */

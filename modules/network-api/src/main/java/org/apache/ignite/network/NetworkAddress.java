@@ -143,13 +143,13 @@ public class NetworkAddress implements Serializable {
             return false;
         }
         NetworkAddress address = (NetworkAddress) o;
-        return port == address.port && host.equals(address.host) && Objects.equals(consistentId, address.consistentId);
+        return port == address.port && host.equals(address.host);
     }
 
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(host, port, consistentId);
+        return Objects.hash(host, port);
     }
 
     /** {@inheritDoc} */
