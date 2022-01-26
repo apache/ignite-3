@@ -203,7 +203,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     if (fieldInfo.FieldType.IsValueType)
                     {
                         // TODO: Call proper method without boxing.
-                        il.Emit(OpCodes.Box);
+                        il.Emit(OpCodes.Box, fieldInfo.FieldType);
                     }
 
                     il.Emit(OpCodes.Call, typeof(MessagePackWriterExtensions).GetMethod(nameof(MessagePackWriterExtensions.WriteObject)));
