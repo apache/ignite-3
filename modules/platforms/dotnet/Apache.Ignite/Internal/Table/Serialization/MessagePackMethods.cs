@@ -29,16 +29,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
     internal static class MessagePackMethods
     {
         /// <summary>
-        /// String writer.
-        /// </summary>
-        public static readonly MethodInfo WriteString = GetWriteMethod<string>();
-
-        /// <summary>
-        /// Int writer.
-        /// </summary>
-        public static readonly MethodInfo WriteInt = GetWriteMethod<int>();
-
-        /// <summary>
         /// No-value writer.
         /// </summary>
         public static readonly MethodInfo WriteNoValue =
@@ -52,8 +42,16 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private static readonly IReadOnlyDictionary<Type, MethodInfo> WriteMethods = new Dictionary<Type, MethodInfo>
         {
-            { typeof(int), WriteInt },
-            { typeof(string), WriteString }
+            { typeof(string), GetWriteMethod<string>() },
+            { typeof(byte), GetWriteMethod<byte>() },
+            { typeof(sbyte), GetWriteMethod<sbyte>() },
+            { typeof(short), GetWriteMethod<short>() },
+            { typeof(ushort), GetWriteMethod<ushort>() },
+            { typeof(int), GetWriteMethod<int>() },
+            { typeof(uint), GetWriteMethod<uint>() },
+            { typeof(long), GetWriteMethod<long>() },
+            { typeof(ulong), GetWriteMethod<ulong>() },
+            { typeof(Guid), GetWriteMethod<Guid>() },
         };
 
         /// <summary>
@@ -68,8 +66,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private static MethodInfo GetWriteMethod<TArg>()
         {
-            var methodInfo = typeof(MessagePackWriter).GetMethod(
-                nameof(MessagePackWriter.Write), new[] { typeof(TArg) });
+            const string methodName = nameof(MessagePackWriter.Write);
+
+            var methodInfo = typeof(MessagePackWriter).GetMethod(methodName, new[] { typeof(TArg) }) ??
+                             typeof(MessagePackWriterExtensions).GetMethod(
+                                 methodName, new[] { typeof(MessagePackWriter).MakeByRefType(), typeof(TArg) });
 
             if (methodInfo == null)
             {

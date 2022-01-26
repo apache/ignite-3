@@ -91,7 +91,7 @@ namespace Apache.Ignite.Internal.Table
             }
             else
             {
-                w.WriteInt64(tx.Id);
+                w.Write(tx.Id);
             }
         }
 
