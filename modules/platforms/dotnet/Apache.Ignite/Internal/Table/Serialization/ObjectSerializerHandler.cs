@@ -147,29 +147,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
             writeDelegate(ref writer, record);
         }
 
-        private static void WriteOld(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false)
+        private static void WriteOld(ref MessagePackWriter writer, MyClass record)
         {
-            var columns = schema.Columns;
-            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
-            var type = record.GetType();
-
-            for (var index = 0; index < count; index++)
-            {
-                var col = columns[index];
-                var prop = GetFieldIgnoreCase(type, col.Name);
-
-                if (prop == null)
-                {
-                    writer.WriteNoValue();
-                }
-                else
-                {
-                    var t = prop.FieldType;
-                    var value = prop.GetValue(record);
-
-                    writer.WriteObject(value);
-                }
-            }
+            writer.WriteObject(record.MyField);
         }
 
         private static FieldInfo? GetFieldIgnoreCase(Type type, string name)
@@ -220,6 +200,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                     il.Emit(OpCodes.Ldarg_1); // record
                     il.Emit(OpCodes.Ldfld, fieldInfo); // Get field value
+                    il.Emit(OpCodes.Box); // TODO: Call proper method.
 
                     il.Emit(OpCodes.Call, typeof(MessagePackWriterExtensions).GetMethod(nameof(MessagePackWriterExtensions.WriteObject)));
                 }
@@ -228,6 +209,15 @@ namespace Apache.Ignite.Internal.Table.Serialization
             il.Emit(OpCodes.Ret);
 
             return (WriteDelegate<T>)method.CreateDelegate(typeof(WriteDelegate<T>));
+        }
+
+        private class MyClass
+        {
+#pragma warning disable CS0649
+#pragma warning disable SA1401
+            public int MyField;
+#pragma warning restore SA1401
+#pragma warning restore CS0649
         }
     }
 }
