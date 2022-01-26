@@ -197,10 +197,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 {
                     // writer.WriteObject(prop.GetValue(record));
                     il.Emit(OpCodes.Ldarg_0); // writer
-
                     il.Emit(OpCodes.Ldarg_1); // record
                     il.Emit(OpCodes.Ldfld, fieldInfo); // Get field value
-                    il.Emit(OpCodes.Box); // TODO: Call proper method.
+
+                    if (fieldInfo.FieldType.IsValueType)
+                    {
+                        // TODO: Call proper method without boxing.
+                        il.Emit(OpCodes.Box);
+                    }
 
                     il.Emit(OpCodes.Call, typeof(MessagePackWriterExtensions).GetMethod(nameof(MessagePackWriterExtensions.WriteObject)));
                 }
@@ -215,7 +219,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
 #pragma warning disable CS0649
 #pragma warning disable SA1401
-            public int MyField;
+            public long MyField;
 #pragma warning restore SA1401
 #pragma warning restore CS0649
         }
