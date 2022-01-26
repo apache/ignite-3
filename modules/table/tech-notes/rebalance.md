@@ -21,6 +21,15 @@ Every algorithm phase has the following main sections:
 - Start new raft nodes. Initiate/update change peer request to raft group (effectively from 1 node per partition)
 - Stop all redundant nodes. Change stable partition assignment to the new one and finish rebalance process.
 
+## New metastore keys
+For further steps, we should introduce some new metastore keys:
+- `partition.assignments.stable` - the list of peers, which process operations for partition at the current moment.
+- `partition.assignments.pending` - the list of peers, where current rebalance move the partition.
+- `partition.assignments.planned` - the list of peers, which will be used for new rebalance, when current will be finished.
+
+Also, we will need the utility key:
+- `partition.assignments.change.trigger.revision` - the key, needed for processing the event about assignments' update trigger only once.
+
 ## Operations, which can trigger rebalance
 Three types of events can trigger the rebalance:
 - API call of any special method like `org.apache.ignite.Ignite.setBaseline`, which will change baseline value in metastore (1 for all tables for now, but maybe it should be separate per table in future)
@@ -51,14 +60,14 @@ onReplicaNumberChange:
             <inline metastoreInvoke>
 
 metastoreInvoke: // atomic metastore call through multi-invoke api
-    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
+    if empty(partition.assignments.change.trigger.revision) || partition.assignments.change.trigger.revision < event.revision:
         if empty(partition.assignments.pending) && partition.assignments.stable != calcPartAssighments():
             partition.assignments.pending = calcPartAssignments() 
-            partition.change.trigger.revision = event.revision
+            partition.assignments.change.trigger.revision = event.revision
         else:
             if partition.assignments.pending != calcPartAssignments
                 partition.assignments.planned = calcPartAssignments()
-                partition.change.trigger.revision = event.revision
+                partition.assignments.change.trigger.revision = event.revision
             else
                 remove(partition.assignments.planned)
     else:
@@ -142,20 +151,20 @@ This approach can be addressed with different implemetation details, but let's d
 **Pseudocode**
 ```
 metastoreInvoke: // atomic metastore call through multi-invoke api
-    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
+    if empty(partition.assignments.change.trigger.revision) || partition.assignments.change.trigger.revision < event.revision:
         if empty(partition.assignments.pending):
             if partition.assignments.stable != calcPartAssignments():
                 partition.assignments.pending = calcPartAssignments() 
-                partition.change.trigger.revision = event.revision
+                partition.assignments.change.trigger.revision = event.revision
             else:
                 skip
         else:
             if empty(partition.assignments.pending.lock):
                 partition.assignments.pending = calcPartAssignments() 
-                partition.change.trigger.revision = event.revision
+                partition.assignments.change.trigger.revision = event.revision
             else:
                 partition.assignments.planned = calcPartAssignments() 
-                partition.change.trigger.revision = event.revision
+                partition.assignments.change.trigger.revision = event.revision
     else:
         skip
 ```
