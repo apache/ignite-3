@@ -83,7 +83,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
 
     protected ExecutionContext<Object[]> executionContext(boolean withDelays) {
         if (withDelays) {
-            StripedThreadPoolExecutor testExecutor = new IgniteTestStripedThreadPoolExecutor(4,
+            StripedThreadPoolExecutor testExecutor = new IgniteTestStripedThreadPoolExecutor(8,
                     NamedThreadFactory.threadPrefix("fake-test-node", "sqlTestExec"),
                     null,
                     false,
