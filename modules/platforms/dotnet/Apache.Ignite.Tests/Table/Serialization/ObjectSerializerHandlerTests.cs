@@ -22,6 +22,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
     using Internal.Proto;
     using Internal.Table;
     using Internal.Table.Serialization;
+    using MessagePack;
     using NUnit.Framework;
 
     /// <summary>
@@ -32,17 +33,29 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [Test]
         public void TestWritePocoType()
         {
-            var poco = new Poco { Key = 1234 };
+            var poco = new Poco { Key = 1234, Val = "foo" };
             var handler = new ObjectSerializerHandler<Poco>();
 
             using var pooledWriter = new PooledArrayBufferWriter();
             var writer = pooledWriter.GetMessageWriter();
 
-            var columns = new[] { new Column("Key", ClientDataType.Int64, false, true, 0) };
+            var columns = new[]
+            {
+                new Column("Key", ClientDataType.Int64, false, true, 0),
+                new Column("Val", ClientDataType.String, false, false, 1)
+            };
+
             var columnsMap = columns.ToDictionary(x => x.Name);
             var schema = new Schema(1, 1, columns, columnsMap);
 
             handler.Write(ref writer, schema, poco);
+            writer.Flush();
+
+            var resMem = pooledWriter.GetWrittenMemory()[4..]; // Skip length header.
+            var reader = new MessagePackReader(resMem);
+
+            Assert.AreEqual(1234, reader.ReadInt32());
+            Assert.AreEqual("foo", reader.ReadString());
         }
     }
 }

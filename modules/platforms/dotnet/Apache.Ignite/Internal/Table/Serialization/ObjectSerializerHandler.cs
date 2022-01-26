@@ -121,35 +121,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <inheritdoc/>
         public void Write(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false)
         {
-            // TODO: Emit code for efficient serialization (IGNITE-16341).
-            // var columns = schema.Columns;
-            // var count = keyOnly ? schema.KeyColumnCount : columns.Count;
-            // var type = record.GetType();
-            //
-            // for (var index = 0; index < count; index++)
-            // {
-            //     var col = columns[index];
-            //     var prop = GetFieldIgnoreCase(type, col.Name);
-            //
-            //     if (prop == null)
-            //     {
-            //         writer.WriteNoValue();
-            //     }
-            //     else
-            //     {
-            //         var value = prop.GetValue(record);
-            //
-            //         writer.WriteObject(value);
-            //     }
-            // }
             var writeDelegate = EmitWriter(schema, keyOnly);
 
             writeDelegate(ref writer, record);
-        }
-
-        private static void WriteOld(ref MessagePackWriter writer, MyClass record)
-        {
-            writer.WriteObject(record.MyField);
         }
 
         private static FieldInfo? GetFieldIgnoreCase(Type type, string name)
@@ -213,15 +187,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             il.Emit(OpCodes.Ret);
 
             return (WriteDelegate<T>)method.CreateDelegate(typeof(WriteDelegate<T>));
-        }
-
-        private class MyClass
-        {
-#pragma warning disable CS0649
-#pragma warning disable SA1401
-            public long MyField;
-#pragma warning restore SA1401
-#pragma warning restore CS0649
         }
     }
 }
