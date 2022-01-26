@@ -23,6 +23,7 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
@@ -126,6 +127,8 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
         /** Inner execution service. */
         ExecutorService exec = Executors.newWorkStealingPool();
 
+        CompletableFuture fut;
+
         /** {@inheritDoc} */
         public IgniteTestStripedThreadPoolExecutor(
                 int concurrentLvl,
@@ -136,7 +139,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
         ) {
             super(concurrentLvl, threadNamePrefix, exHnd, allowCoreThreadTimeOut, keepAliveTime);
 
-            IgniteTestUtils.runAsync(() -> {
+            fut = IgniteTestUtils.runAsync(() -> {
                 while (!stop.get()) {
                     synchronized (tasks) {
                         while (!tasks.isEmpty()) {
@@ -146,10 +149,10 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
                                 LockSupport.parkNanos(ThreadLocalRandom.current().nextLong(0, 10_000));
                                 super.execute(r.getFirst(), r.getSecond());
                             });
+
+                            tasks.notifyAll();
                         }
                     }
-
-                    LockSupport.parkNanos(5000);
                 }
             });
         }
@@ -164,6 +167,8 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
         /** {@inheritDoc} */
         @Override public void shutdown() {
             stop.set(true);
+
+            fut.cancel(true);
 
             super.shutdown();
         }
