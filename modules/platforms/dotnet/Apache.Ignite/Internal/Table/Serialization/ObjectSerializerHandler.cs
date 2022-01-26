@@ -179,24 +179,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     il.Emit(OpCodes.Ldarg_1); // record
                     il.Emit(OpCodes.Ldfld, fieldInfo); // Get field value
 
-                    // TODO: use Dictionary, support all types.
-                    if (fieldInfo.FieldType == typeof(int))
-                    {
-                        il.Emit(OpCodes.Call, MessagePackMethods.WriteInt);
-                    }
-                    else if (fieldInfo.FieldType == typeof(string))
-                    {
-                        il.Emit(OpCodes.Call, MessagePackMethods.WriteString);
-                    }
-                    else
-                    {
-                        if (fieldInfo.FieldType.IsValueType)
-                        {
-                            il.Emit(OpCodes.Box, fieldInfo.FieldType);
-                        }
+                    var writeMethod = MessagePackMethods.GetWriteMethod(fieldInfo.FieldType);
 
-                        il.Emit(OpCodes.Call, MessagePackMethods.WriteObject);
+                    if (fieldInfo.FieldType.IsValueType && writeMethod == MessagePackMethods.WriteObject)
+                    {
+                        il.Emit(OpCodes.Box, fieldInfo.FieldType);
                     }
+
+                    il.Emit(OpCodes.Call, writeMethod);
                 }
             }
 

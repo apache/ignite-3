@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
+    using System.Collections.Generic;
     using System.Reflection;
     using MessagePack;
     using Proto;
@@ -48,6 +49,22 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         public static readonly MethodInfo WriteObject =
             typeof(MessagePackWriterExtensions).GetMethod(nameof(MessagePackWriterExtensions.WriteObject))!;
+
+        private static readonly IReadOnlyDictionary<Type, MethodInfo> WriteMethods = new Dictionary<Type, MethodInfo>
+        {
+            { typeof(int), WriteInt },
+            { typeof(string), WriteString }
+        };
+
+        /// <summary>
+        /// Gets the write methods.
+        /// </summary>
+        /// <param name="valueType">Type of the value to write.</param>
+        /// <returns>Write method for the specified value type.</returns>
+        public static MethodInfo GetWriteMethod(Type valueType) =>
+            WriteMethods.TryGetValue(valueType, out var method)
+                ? method
+                : WriteObject;
 
         private static MethodInfo GetWriteMethod<TArg>()
         {
