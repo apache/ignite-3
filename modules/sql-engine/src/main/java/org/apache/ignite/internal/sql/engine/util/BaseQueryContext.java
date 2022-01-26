@@ -29,7 +29,6 @@ import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.config.CalciteConnectionConfigImpl;
 import org.apache.calcite.config.CalciteConnectionProperty;
 import org.apache.calcite.jdbc.CalciteSchema;
-import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptSchema;
@@ -126,7 +125,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private final RexBuilder rexBuilder;
 
-    private final QueryCancel qryCancel;
+    private final QueryCancel cancel;
 
     private final Map<String, SqlExtension> extensions;
 
@@ -137,23 +136,22 @@ public final class BaseQueryContext extends AbstractQueryContext {
      */
     private BaseQueryContext(
             FrameworkConfig cfg,
-            Context parentCtx,
+            QueryCancel cancel,
             IgniteLogger log,
             Map<String, SqlExtension> extensions
     ) {
-        super(Contexts.chain(parentCtx, cfg.getContext()));
+        super(Contexts.chain(cfg.getContext()));
 
         // link frameworkConfig#context() to this.
         this.cfg = Frameworks.newConfigBuilder(cfg).context(this).build();
 
         this.log = log;
+        this.cancel = cancel;
         this.extensions = extensions;
 
         RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, cfg.getTypeSystem());
 
         typeFactory = new IgniteTypeFactory(typeSys);
-
-        qryCancel = unwrap(QueryCancel.class);
 
         rexBuilder = new RexBuilder(typeFactory);
     }
@@ -219,8 +217,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
                 typeFactory(), CALCITE_CONNECTION_CONFIG);
     }
 
-    public QueryCancel queryCancel() {
-        return qryCancel;
+    public QueryCancel cancel() {
+        return cancel;
     }
 
     /**
@@ -235,7 +233,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         private FrameworkConfig frameworkCfg = EMPTY_CONFIG;
 
-        private Context parentCtx = Contexts.empty();
+        private QueryCancel cancel = new QueryCancel();
 
         private IgniteLogger log = new NullLogger();
 
@@ -246,8 +244,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
             return this;
         }
 
-        public Builder parentContext(@NotNull Context parentCtx) {
-            this.parentCtx = parentCtx;
+        public Builder cancel(@NotNull QueryCancel cancel) {
+            this.cancel = cancel;
             return this;
         }
 
@@ -262,7 +260,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         }
 
         public BaseQueryContext build() {
-            return new BaseQueryContext(frameworkCfg, parentCtx, log, extensions);
+            return new BaseQueryContext(frameworkCfg, cancel, log, extensions);
         }
     }
 }

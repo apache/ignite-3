@@ -93,6 +93,21 @@ public final class CollectionUtils {
     }
 
     /**
+     * Gets first element from given collection or returns {@code null} if collection is empty.
+     *
+     * @param col Collection to retrieve the first element.
+     * @param <T>  Type of the elements of the collection.
+     * @return The first element of the given collection or {@code null} in case the collection is empty.
+     */
+    public static <T> T first(Collection<? extends T> col) {
+        if (nullOrEmpty(col)) {
+            return null;
+        }
+
+        return col.iterator().next();
+    }
+
+    /**
      * Union set and items.
      *
      * @param set Set.

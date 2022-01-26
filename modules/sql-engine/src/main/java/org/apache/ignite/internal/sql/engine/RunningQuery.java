@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.sql.engine;
 
-import java.util.List;
-import org.apache.ignite.internal.sql.engine.RootQuery;
-import org.apache.ignite.internal.sql.engine.SqlCursor;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import java.util.UUID;
 
 /**
- * ExecutionService interface.
- * // TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Query which is currently executing on the server.
  */
-public interface ExecutionService<RowT> extends LifecycleAware {
-    SqlCursor<List<?>> executePlan(RootQuery<RowT> qry, QueryPlan plan);
+public interface RunningQuery {
+    /** Returns identifier of the query. */
+    UUID id();
+
+    /** Returns the current state of the query. */
+    QueryState state();
+
+    /** Cancels the query. */
+    void cancel();
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.Contexts;
@@ -28,6 +29,7 @@ import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.RuleSet;
+import org.apache.calcite.util.CancelFlag;
 import org.apache.ignite.internal.sql.engine.extension.SqlExtension;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -42,6 +44,8 @@ public final class PlanningContext implements Context {
     private final String qry;
 
     private final Object[] parameters;
+
+    private final CancelFlag cancelFlag = new CancelFlag(new AtomicBoolean());
 
     private Function<RuleSet, RuleSet> rulesFilter;
 
@@ -158,6 +162,10 @@ public final class PlanningContext implements Context {
     public <C> C unwrap(Class<C> clazz) {
         if (clazz == getClass()) {
             return clazz.cast(this);
+        }
+
+        if (clazz == CancelFlag.class) {
+            return clazz.cast(cancelFlag);
         }
 
         return parentCtx.unwrap(clazz);
