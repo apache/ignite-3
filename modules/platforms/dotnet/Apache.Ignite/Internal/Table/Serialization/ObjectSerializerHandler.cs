@@ -177,7 +177,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     // writer.WriteObject(prop.GetValue(record));
                     il.Emit(OpCodes.Ldarg_0); // writer
                     il.Emit(OpCodes.Ldarg_1); // record
-                    il.Emit(OpCodes.Ldfld, fieldInfo); // Get field value
+                    il.Emit(OpCodes.Ldfld, fieldInfo);
 
                     var writeMethod = MessagePackMethods.GetWriteMethod(fieldInfo.FieldType);
 
