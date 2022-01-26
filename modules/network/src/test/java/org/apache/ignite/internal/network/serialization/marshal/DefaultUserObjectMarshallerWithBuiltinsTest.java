@@ -27,7 +27,6 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.sameInstance;
-import static org.junit.jupiter.api.Assumptions.assumingThat;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -132,10 +131,35 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     }
 
     @Test
-    void marshalsEnumUsingOnlyEnumDescriptor() throws Exception {
+    void marshalsSimpleEnumsUsingOnlyEnumClassDescriptor() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(SimpleEnum.FIRST);
 
         assertThat(marshalled.usedDescriptors(), equalTo(Set.of(descriptorRegistry.getRequiredDescriptor(SimpleEnum.class))));
+    }
+
+    @Test
+    void marshalsEnumsWithAnonClassesForMembersUsingOnlyEnumClassDescriptor() throws Exception {
+        MarshalledObject marshalled = marshaller.marshal(EnumWithAnonClassesForMembers.FIRST);
+
+        assertThat(marshalled.usedDescriptors(),
+                equalTo(Set.of(descriptorRegistry.getRequiredDescriptor(EnumWithAnonClassesForMembers.class)))
+        );
+    }
+
+    @Test
+    void marshalsSimpleEnumsUsingCorrectDescriptorIdInMarshalledRepresentation() throws Exception {
+        MarshalledObject marshalled = marshaller.marshal(SimpleEnum.FIRST);
+
+        assertThat(readDescriptorId(marshalled), equalTo(descriptorRegistry.getRequiredDescriptor(SimpleEnum.class).descriptorId()));
+    }
+
+    @Test
+    void marshalsEnumsWithAnonClassesForMembersUsingCorrectDescriptorIdInMarshalledRepresentation() throws Exception {
+        MarshalledObject marshalled = marshaller.marshal(EnumWithAnonClassesForMembers.FIRST);
+
+        assertThat(readDescriptorId(marshalled),
+                equalTo(descriptorRegistry.getRequiredDescriptor(EnumWithAnonClassesForMembers.class).descriptorId())
+        );
     }
 
     @Test
@@ -182,13 +206,11 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
 
     @ParameterizedTest
     @MethodSource("builtInNonCollectionTypes")
-    void marshalsUsingOnlyCorrespondingDescriptorForBuiltInNonCollectionTypes(BuiltInTypeValue typeValue) {
-        assumingThat(typeValue.builtinType != BuiltInType.ENUM, () -> {
-            MarshalledObject marshalled = marshaller.marshal(typeValue.value);
+    void marshalsUsingOnlyCorrespondingDescriptorForBuiltInNonCollectionTypes(BuiltInTypeValue typeValue) throws Exception {
+        MarshalledObject marshalled = marshaller.marshal(typeValue.value);
 
-            ClassDescriptor expectedDescriptor = descriptorRegistry.getBuiltInDescriptor(typeValue.builtinType);
-            assertThat(marshalled.usedDescriptors(), equalTo(Set.of(expectedDescriptor)));
-        });
+        ClassDescriptor expectedDescriptor = descriptorRegistry.getBuiltInDescriptor(typeValue.builtinType);
+        assertThat(marshalled.usedDescriptors(), equalTo(Set.of(expectedDescriptor)));
     }
 
     static Stream<Arguments> builtInNonCollectionTypes() {
@@ -216,8 +238,6 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
                 builtInTypeValue(new boolean[]{true, false}, BuiltInType.BOOLEAN_ARRAY),
                 builtInTypeValue(new char[]{'a', 'b'}, BuiltInType.CHAR_ARRAY),
                 builtInTypeValue(new BigDecimal(42), BuiltInType.DECIMAL),
-                builtInTypeValue(SimpleEnum.FIRST, BuiltInType.ENUM),
-                builtInTypeValue(EnumWithAnonClassesForMembers.FIRST, BuiltInType.ENUM),
                 builtInTypeValue(BitSet.valueOf(new long[]{42, 43}), BuiltInType.BIT_SET),
                 builtInTypeValue(null, BuiltInType.NULL),
                 builtInTypeValue(IntHolder.class, BuiltInType.CLASS)
@@ -269,12 +289,10 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
 
     @ParameterizedTest
     @MethodSource("builtInTypes")
-    void marshalsBuiltInTypesWithCorrectDescriptorIdsInMarshalledRepresentation(BuiltInTypeValue typeValue) {
-        assumingThat(typeValue.builtinType != BuiltInType.ENUM, () -> {
-            MarshalledObject marshalled = marshaller.marshal(typeValue.value);
+    void marshalsBuiltInTypesWithCorrectDescriptorIdsInMarshalledRepresentation(BuiltInTypeValue typeValue) throws Exception {
+        MarshalledObject marshalled = marshaller.marshal(typeValue.value);
 
-            assertThat(readDescriptorId(marshalled), is(equalTo(typeValue.builtinType.descriptorId())));
-        });
+        assertThat(readDescriptorId(marshalled), is(equalTo(typeValue.builtinType.descriptorId())));
     }
 
     static Stream<Arguments> builtInTypes() {

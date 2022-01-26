@@ -35,7 +35,6 @@ import static org.apache.ignite.internal.network.serialization.BuiltInType.DECIM
 import static org.apache.ignite.internal.network.serialization.BuiltInType.DOUBLE;
 import static org.apache.ignite.internal.network.serialization.BuiltInType.DOUBLE_ARRAY;
 import static org.apache.ignite.internal.network.serialization.BuiltInType.DOUBLE_BOXED;
-import static org.apache.ignite.internal.network.serialization.BuiltInType.ENUM;
 import static org.apache.ignite.internal.network.serialization.BuiltInType.FLOAT;
 import static org.apache.ignite.internal.network.serialization.BuiltInType.FLOAT_ARRAY;
 import static org.apache.ignite.internal.network.serialization.BuiltInType.FLOAT_BOXED;
@@ -103,18 +102,17 @@ public class BuiltInDescriptorsTest {
         assertEquals(27, BOOLEAN_ARRAY.descriptorId());
         assertEquals(28, CHAR_ARRAY.descriptorId());
         assertEquals(29, DECIMAL.descriptorId());
-        assertEquals(30, ENUM.descriptorId());
-        assertEquals(31, ARRAY_LIST.descriptorId());
-        assertEquals(32, LINKED_LIST.descriptorId());
-        assertEquals(33, HASH_SET.descriptorId());
-        assertEquals(34, LINKED_HASH_SET.descriptorId());
-        assertEquals(35, SINGLETON_LIST.descriptorId());
-        assertEquals(36, HASH_MAP.descriptorId());
-        assertEquals(37, LINKED_HASH_MAP.descriptorId());
-        assertEquals(38, BIT_SET.descriptorId());
-        assertEquals(39, NULL.descriptorId());
-        assertEquals(40, REFERENCE.descriptorId());
-        assertEquals(41, CLASS.descriptorId());
-        assertEquals(42, PROXY.descriptorId());
+        assertEquals(30, ARRAY_LIST.descriptorId());
+        assertEquals(31, LINKED_LIST.descriptorId());
+        assertEquals(32, HASH_SET.descriptorId());
+        assertEquals(33, LINKED_HASH_SET.descriptorId());
+        assertEquals(34, SINGLETON_LIST.descriptorId());
+        assertEquals(35, HASH_MAP.descriptorId());
+        assertEquals(36, LINKED_HASH_MAP.descriptorId());
+        assertEquals(37, BIT_SET.descriptorId());
+        assertEquals(38, NULL.descriptorId());
+        assertEquals(39, REFERENCE.descriptorId());
+        assertEquals(40, CLASS.descriptorId());
+        assertEquals(41, PROXY.descriptorId());
     }
 }

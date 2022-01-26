@@ -65,19 +65,18 @@ public enum BuiltInType {
     BOOLEAN_ARRAY(27, boolean[].class),
     CHAR_ARRAY(28, char[].class),
     DECIMAL(29, BigDecimal.class),
-    ENUM(30, Enum.class),
-    ARRAY_LIST(31, ArrayList.class),
-    LINKED_LIST(32, LinkedList.class),
-    HASH_SET(33, HashSet.class),
-    LINKED_HASH_SET(34, LinkedHashSet.class),
-    SINGLETON_LIST(35, Collections.singletonList(null).getClass()),
-    HASH_MAP(36, HashMap.class),
-    LINKED_HASH_MAP(37, LinkedHashMap.class),
-    BIT_SET(38, BitSet.class),
-    NULL(39, Null.class),
-    REFERENCE(40, ReferencePlaceholder.class),
-    CLASS(41, Class.class),
-    PROXY(42, Proxy.class)
+    ARRAY_LIST(30, ArrayList.class),
+    LINKED_LIST(31, LinkedList.class),
+    HASH_SET(32, HashSet.class),
+    LINKED_HASH_SET(33, LinkedHashSet.class),
+    SINGLETON_LIST(34, Collections.singletonList(null).getClass()),
+    HASH_MAP(35, HashMap.class),
+    LINKED_HASH_MAP(36, LinkedHashMap.class),
+    BIT_SET(37, BitSet.class),
+    NULL(38, Null.class),
+    REFERENCE(39, ReferencePlaceholder.class),
+    CLASS(40, Class.class),
+    PROXY(41, Proxy.class)
     ;
 
     /**
