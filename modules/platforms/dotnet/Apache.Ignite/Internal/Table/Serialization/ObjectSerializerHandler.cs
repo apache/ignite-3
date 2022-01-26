@@ -147,6 +147,31 @@ namespace Apache.Ignite.Internal.Table.Serialization
             writeDelegate(ref writer, record);
         }
 
+        private static void WriteOld(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false)
+        {
+            var columns = schema.Columns;
+            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+            var type = record.GetType();
+
+            for (var index = 0; index < count; index++)
+            {
+                var col = columns[index];
+                var prop = GetFieldIgnoreCase(type, col.Name);
+
+                if (prop == null)
+                {
+                    writer.WriteNoValue();
+                }
+                else
+                {
+                    var t = prop.FieldType;
+                    var value = prop.GetValue(record);
+
+                    writer.WriteObject(value);
+                }
+            }
+        }
+
         private static FieldInfo? GetFieldIgnoreCase(Type type, string name)
         {
             // TODO: Cache results in a dictionary per type?
@@ -192,11 +217,15 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 {
                     // writer.WriteObject(prop.GetValue(record));
                     il.Emit(OpCodes.Ldarg_0); // writer
+
                     il.Emit(OpCodes.Ldarg_1); // record
                     il.Emit(OpCodes.Ldfld, fieldInfo); // Get field value
+
                     il.Emit(OpCodes.Call, typeof(MessagePackWriterExtensions).GetMethod(nameof(MessagePackWriterExtensions.WriteObject)));
                 }
             }
+
+            il.Emit(OpCodes.Ret);
 
             return (WriteDelegate<T>)method.CreateDelegate(typeof(WriteDelegate<T>));
         }
