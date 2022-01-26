@@ -1025,8 +1025,9 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <argLine>
-                        -Dio.netty.tryReflectionSetAccessible=true -Djava.util.logging.config.file=../../config/java.util.logging.properties
                         --add-opens java.base/jdk.internal.misc=ALL-UNNAMED
+                        -Dio.netty.tryReflectionSetAccessible=true
+                        -Djava.util.logging.config.file=../../config/java.util.logging.properties
                     </argLine>
                     <excludes>
                         <exclude>%regex[.*(It)[A-Z].*]</exclude>
@@ -1044,8 +1045,9 @@
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
                     <argLine>
-                        -Dio.netty.tryReflectionSetAccessible=true -Djava.util.logging.config.file=../../config/java.util.logging.properties
                         --add-opens java.base/jdk.internal.misc=ALL-UNNAMED
+                        -Dio.netty.tryReflectionSetAccessible=true
+                        -Djava.util.logging.config.file=../../config/java.util.logging.properties
                     </argLine>
                     <useModulePath>false</useModulePath>
                     <includes>
