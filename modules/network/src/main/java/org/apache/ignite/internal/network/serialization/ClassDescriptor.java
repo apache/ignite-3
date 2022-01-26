@@ -79,6 +79,7 @@ public class ClassDescriptor {
      * @see #isValueTypeKnownUpfront()
      */
     private final int fieldNullsBitmapSize;
+
     /**
      * Map from field names to indices in the nulls bitmap corresponding to the described class. It contains an entry
      * for each field, but only entries for nullable (that is, non-primitive) fields which types are known upfront
