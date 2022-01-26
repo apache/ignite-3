@@ -18,7 +18,9 @@
 namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
+    using System.Linq;
     using System.Reflection;
 
     /// <summary>
@@ -26,6 +28,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
     /// </summary>
     internal static class ReflectionUtils
     {
+        private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, FieldInfo>> FieldsByNameCache = new();
+
         /// <summary>
         /// Gets all fields from the type, including non-public and inherited.
         /// </summary>
@@ -47,6 +51,23 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                 t = t.BaseType;
             }
+        }
+
+        /// <summary>
+        /// Gets the field by name ignoring case.
+        /// </summary>
+        /// <param name="type">Type.</param>
+        /// <param name="name">Field name.</param>
+        /// <returns>Field info, or null when no matching fields exist.</returns>
+        public static FieldInfo? GetFieldIgnoreCase(this Type type, string name)
+        {
+            // ReSharper disable once HeapView.CanAvoidClosure, ConvertClosureToMethodGroup
+            return FieldsByNameCache.GetOrAdd(type, t => GetFieldsByName(t)).TryGetValue(name, out var fieldInfo)
+                ? fieldInfo
+                : null;
+
+            static IReadOnlyDictionary<string, FieldInfo> GetFieldsByName(Type type) =>
+                type.GetAllFields().ToDictionary(f => f.GetCleanName(), StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>

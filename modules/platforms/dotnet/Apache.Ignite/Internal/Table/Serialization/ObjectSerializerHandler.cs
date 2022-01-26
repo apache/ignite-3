@@ -17,9 +17,7 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization
 {
-    using System;
     using System.Collections.Concurrent;
-    using System.Reflection;
     using System.Reflection.Emit;
     using System.Runtime.Serialization;
     using Buffers;
@@ -60,7 +58,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
 
                 var col = columns[index];
-                var prop = GetFieldIgnoreCase(type, col.Name);
+                var prop = type.GetFieldIgnoreCase(col.Name);
 
                 if (prop != null)
                 {
@@ -91,7 +89,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var i = 0; i < columns.Count; i++)
             {
                 var col = columns[i];
-                var prop = GetFieldIgnoreCase(type, col.Name);
+                var prop = type.GetFieldIgnoreCase(col.Name);
 
                 if (i < schema.KeyColumnCount)
                 {
@@ -131,20 +129,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             writeDelegate(ref writer, record);
         }
 
-        private static FieldInfo? GetFieldIgnoreCase(Type type, string name)
-        {
-            // TODO: Cache results in a dictionary per type?
-            foreach (var fieldInfo in type.GetAllFields())
-            {
-                if (fieldInfo.GetCleanName().Equals(name, StringComparison.OrdinalIgnoreCase))
-                {
-                    return fieldInfo;
-                }
-            }
-
-            return null;
-        }
-
         private static WriteDelegate<T> EmitWriter(Schema schema, bool keyOnly)
         {
             var type = typeof(T);
@@ -164,7 +148,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var index = 0; index < count; index++)
             {
                 var col = columns[index];
-                var fieldInfo = GetFieldIgnoreCase(type, col.Name);
+                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
 
                 if (fieldInfo == null)
                 {
