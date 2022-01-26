@@ -233,19 +233,19 @@ public class IgniteSqlApiTest {
 
         ResultSetMetadata meta = rs.metadata();
 
-        assertEquals(rs.metadata().columnsCount(), row.columnCount());
+        assertEquals(rs.metadata().columns().size(), row.columnCount());
 
         assertEquals(0, meta.indexOf("id"));
         assertEquals(1, meta.indexOf("val"));
 
-        assertEquals("id", meta.column(0).name());
-        assertEquals("val", meta.column(1).name());
+        assertEquals("id", meta.columns().get(0).name());
+        assertEquals("val", meta.columns().get(1).name());
 
-        assertEquals(Long.class, meta.column(0).valueClass());
-        assertEquals(String.class, meta.column(1).valueClass());
+        assertEquals(Long.class, meta.columns().get(0).valueClass());
+        assertEquals(String.class, meta.columns().get(1).valueClass());
 
-        assertFalse(meta.column(0).nullable());
-        assertTrue(meta.column(1).nullable());
+        assertFalse(meta.columns().get(0).nullable());
+        assertTrue(meta.columns().get(1).nullable());
     }
 
     @NotNull
