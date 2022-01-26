@@ -239,6 +239,12 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
             public <T> T getLatest(List<KeyPathNode> path) {
                 return findEx(path, superRootRef.get());
             }
+
+            /** {@inheritDoc} */
+            @Override
+            public long storageRevision() {
+                return storageRev.get();
+            }
         }));
 
         touch(cfgRef.get());

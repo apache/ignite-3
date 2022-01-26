@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.configuration;
 
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BiFunction;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.NamedConfigurationTree;
@@ -43,7 +43,8 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
         extends DynamicConfiguration<NamedListView<VIEWT>, NamedListChange<VIEWT, CHANGET>>
         implements NamedConfigurationTree<T, VIEWT, CHANGET> {
     /** Listeners of property update. */
-    private final List<ConfigurationNamedListListener<VIEWT>> extendedListeners = new CopyOnWriteArrayList<>();
+    private final ConfigurationListenerHolder<ConfigurationNamedListListener<VIEWT>> extendedListeners =
+            new ConfigurationListenerHolder<>();
 
     /** Creator of named configuration. */
     private final BiFunction<List<String>, String, T> cfgCreator;
@@ -155,25 +156,27 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
         return Collections.unmodifiableMap(res);
     }
 
-    /**
-     * Returns list of listeners that are specific for named configurations.
-     *
-     * @return List of listeners that are specific for named configurations.
-     */
-    public List<ConfigurationNamedListListener<VIEWT>> extendedListeners() {
-        return Collections.unmodifiableList(extendedListeners);
-    }
-
     /** {@inheritDoc} */
     @Override
     public void listenElements(ConfigurationNamedListListener<VIEWT> listener) {
-        extendedListeners.add(listener);
+        extendedListeners.addListener(listener, changer.storageRevision() + 1);
     }
 
     /** {@inheritDoc} */
     @Override
     public void stopListenElements(ConfigurationNamedListListener<VIEWT> listener) {
-        extendedListeners.remove(listener);
+        extendedListeners.removeListener(listener);
+    }
+
+    /**
+     * Returns an iterator of the listeners for the {@code storageRevision} (were added for and before it).
+     *
+     * <p>NOTE: {@link Iterator#remove} - not supported.
+     *
+     * @param storageRevision Configuration storage revision.
+     */
+    public Iterator<ConfigurationNamedListListener<VIEWT>> extendedListeners(long storageRevision) {
+        return extendedListeners.listeners(storageRevision);
     }
 
     /** {@inheritDoc} */

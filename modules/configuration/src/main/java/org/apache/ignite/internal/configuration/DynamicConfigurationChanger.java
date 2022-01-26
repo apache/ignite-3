@@ -42,7 +42,6 @@ public interface DynamicConfigurationChanger {
      * Get root node by root key.
      *
      * @param rootKey Root key.
-     * @return Root node.
      */
     InnerNode getRootNode(RootKey<?, ?> rootKey);
 
@@ -54,4 +53,9 @@ public interface DynamicConfigurationChanger {
      * @throws NoSuchElementException If no value could be found.
      */
     <T> T getLatest(List<KeyPathNode> path);
+
+    /**
+     * Returns the current storage revision.
+     */
+    long storageRevision();
 }

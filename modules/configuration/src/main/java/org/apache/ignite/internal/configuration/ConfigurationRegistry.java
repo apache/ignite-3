@@ -39,11 +39,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
@@ -99,7 +99,8 @@ public class ConfigurationRegistry implements IgniteComponent {
     private final ConfigurationAsmGenerator cgen = new ConfigurationAsmGenerator();
 
     /** Configuration storage revision change listeners. */
-    private final List<ConfigurationStorageRevisionListener> storageRevisionListeners = new CopyOnWriteArrayList<>();
+    private final ConfigurationListenerHolder<ConfigurationStorageRevisionListener> storageRevisionListeners =
+            new ConfigurationListenerHolder<>();
 
     /**
      * Constructor.
@@ -332,7 +333,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param listener Listener.
      */
     public void listenUpdateStorageRevision(ConfigurationStorageRevisionListener listener) {
-        storageRevisionListeners.add(listener);
+        storageRevisionListeners.addListener(listener, changer.storageRevision() + 1);
     }
 
     /**
@@ -341,7 +342,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param listener Listener.
      */
     public void stopListenUpdateStorageRevision(ConfigurationStorageRevisionListener listener) {
-        storageRevisionListeners.remove(listener);
+        storageRevisionListeners.removeListener(listener);
     }
 
     /**
@@ -465,13 +466,16 @@ public class ConfigurationRegistry implements IgniteComponent {
     }
 
     private Collection<CompletableFuture<?>> notifyStorageRevisionListeners(long storageRevision) {
-        if (storageRevisionListeners.isEmpty()) {
-            return List.of();
-        }
+        // Lazy init.
+        List<CompletableFuture<?>> futures = null;
 
-        List<CompletableFuture<?>> futures = new ArrayList<>(storageRevisionListeners.size());
+        for (Iterator<ConfigurationStorageRevisionListener> it = storageRevisionListeners.listeners(storageRevision); it.hasNext(); ) {
+            if (futures == null) {
+                futures = new ArrayList<>();
+            }
 
-        for (ConfigurationStorageRevisionListener listener : storageRevisionListeners) {
+            ConfigurationStorageRevisionListener listener = it.next();
+
             try {
                 CompletableFuture<?> future = listener.onUpdate(storageRevision);
 
@@ -485,6 +489,6 @@ public class ConfigurationRegistry implements IgniteComponent {
             }
         }
 
-        return futures;
+        return futures == null ? List.of() : futures;
     }
 }

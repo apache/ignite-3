@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  */
 class ConfigurationNotificationContext {
     /** Storage revision. */
-    private final long storageRevision;
+    final long storageRevision;
 
     /** The tail of containers, implements a stack for safe traversal in {@link ConfigurationNotificationEventImpl events}. */
     @Nullable

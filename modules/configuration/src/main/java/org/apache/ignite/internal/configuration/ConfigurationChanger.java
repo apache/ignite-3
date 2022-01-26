@@ -95,7 +95,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     private final ConfigurationStorage storage;
 
     /** Storage trees. */
-    private volatile StorageRoots storageRoots;
+    @Nullable private volatile StorageRoots storageRoots;
 
     /**
      * Closure interface to be used by the configuration changer. An instance of this closure is passed into the constructor and invoked
@@ -575,5 +575,13 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         StorageRoots storageRoots = this.storageRoots;
 
         return notificator.notify(null, storageRoots.roots, storageRoots.version);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long storageRevision() {
+        StorageRoots storageRoots = this.storageRoots;
+
+        return storageRoots == null ? 0 : storageRoots.version;
     }
 }
