@@ -42,6 +42,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.IgniteSystemProperties;
 
 /**
  * Page header structure is described by the following diagram.
@@ -68,10 +69,13 @@ import org.apache.ignite.lang.IgniteLogger;
  * on whether the page is in use or not.
  */
 public class PageMemoryNoStoreImpl implements PageMemory {
-    /** */
+    /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(PageMemoryNoStoreImpl.class);
 
-    /** */
+    /** Ignite page memory concurrency level. */
+    private static final String IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL = "IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL";
+
+    /** Marker bytes that signify beginning of used page in memory. */
     public static final long PAGE_MARKER = 0xBEEAAFDEADBEEF01L;
 
     /** Full relative pointer mask. */
@@ -125,7 +129,7 @@ public class PageMemoryNoStoreImpl implements PageMemory {
     /** Data region configuration view. */
     private final PageMemoryDataRegionView dataRegionCfg;
 
-    /** */
+    /** Head of the singly linked list of free pages. */
     private final AtomicLong freePageListHead = new AtomicLong(INVALID_REL_PTR);
 
     /** Segments array. */
@@ -134,29 +138,25 @@ public class PageMemoryNoStoreImpl implements PageMemory {
     /** Lock for segments changes. */
     private final Object segmentsLock = new Object();
 
-    /** */
+    /** Total number of pages loaded into memory. */
     private final AtomicInteger allocatedPages = new AtomicInteger();
 
-    /** */
-    private final AtomicInteger selector = new AtomicInteger();
-
-    /** */
+    /** Offheap read write lock instance. */
     private final OffheapReadWriteLock rwLock;
 
     /** Concurrency level. */
-    private final int lockConcLvl = 128;
-    //            IgniteSystemProperties.getInteger(
-    //        IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL,
-    //        IgniteUtils.nearestPow2(Runtime.getRuntime().availableProcessors() * 4)
-    //    );
+    private final int lockConcLvl = IgniteSystemProperties.getInteger(
+            IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL,
+            Integer.highestOneBit(Runtime.getRuntime().availableProcessors() * 4)
+    );
 
-    /** */
+    /** Total number of pages may be allocated for this instance. */
     private final int totalPages;
 
-    /** */
+    /** Flag for enabling of acquired pages tracking. */
     private final boolean trackAcquiredPages;
 
-    /** */
+    /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
 
     /**
@@ -165,6 +165,8 @@ public class PageMemoryNoStoreImpl implements PageMemory {
     private volatile boolean started;
 
     /**
+     * Constructor.
+     *
      * @param directMemoryProvider Memory allocator to use.
      * @param dataRegionCfg Data region configuration.
      * @param ioRegistry IO registry.
@@ -349,39 +351,20 @@ public class PageMemoryNoStoreImpl implements PageMemory {
         return pageSize();
     }
 
-    /**
-     * @return Next index.
-     */
-    private int nextRoundRobinIndex() {
-        while (true) {
-            int idx = selector.get();
-
-            int nextIdx = idx + 1;
-
-            if (nextIdx >= segments.length) {
-                nextIdx = 0;
-            }
-
-            if (selector.compareAndSet(idx, nextIdx)) {
-                return nextIdx;
-            }
-        }
-    }
-
     /** {@inheritDoc} */
     @Override public long loadedPages() {
         return allocatedPages.get();
     }
 
     /**
-     * @return Total number of pages may be allocated for this instance.
+     * Returns a total number of pages may be allocated for this instance.
      */
     public int totalPages() {
         return totalPages;
     }
 
     /**
-     * @return Total number of acquired pages.
+     * Return a total number of acquired pages.
      */
     public long acquiredPages() {
         long total = 0;
@@ -414,6 +397,8 @@ public class PageMemoryNoStoreImpl implements PageMemory {
     }
 
     /**
+     * Returns the segment that contains given page.
+     *
      * @param pageIdx Page index.
      * @return Segment.
      */
@@ -424,6 +409,8 @@ public class PageMemoryNoStoreImpl implements PageMemory {
     }
 
     /**
+     * Extracts a segment index from the full page index.
+     *
      * @param pageIdx Page index to extract segment index from.
      * @return Segment index.
      */
@@ -432,8 +419,10 @@ public class PageMemoryNoStoreImpl implements PageMemory {
     }
 
     /**
+     * Creates a full page index.
+     *
      * @param segIdx Segment index.
-     * @param pageIdx Page index.
+     * @param pageIdx Page index inside of the segment.
      * @return Full page index.
      */
     private long fromSegmentIndex(int segIdx, long pageIdx) {
@@ -557,6 +546,8 @@ public class PageMemoryNoStoreImpl implements PageMemory {
     }
 
     /**
+     * Converts page index into a sequence number.
+     *
      * @param pageIdx Page index.
      * @return Total page sequence number.
      */
@@ -567,6 +558,8 @@ public class PageMemoryNoStoreImpl implements PageMemory {
     }
 
     /**
+     * Converts sequential page number to the page index.
+     *
      * @param seqNo Page sequence number.
      * @return Page index.
      */
@@ -597,6 +590,8 @@ public class PageMemoryNoStoreImpl implements PageMemory {
     }
 
     /**
+     * Adds a page to the free pages list.
+     *
      * @param pageId Page ID to release.
      */
     private void releaseFreePage(long pageId) {
@@ -629,7 +624,7 @@ public class PageMemoryNoStoreImpl implements PageMemory {
     }
 
     /**
-     * @return Relative pointer to a free page that was borrowed from the allocated pool.
+     * Returns a relative pointer to a free page that was borrowed from the allocated pool.
      */
     private long borrowFreePage() {
         while (true) {
@@ -705,11 +700,8 @@ public class PageMemoryNoStoreImpl implements PageMemory {
         return segments[segments.length - 1];
     }
 
-    /**
-     *
-     */
     private class Segment extends ReentrantReadWriteLock {
-        /** */
+        /** Serial version uid. */
         private static final long serialVersionUID = 0L;
 
         /** Segment index. */
@@ -724,16 +716,18 @@ public class PageMemoryNoStoreImpl implements PageMemory {
         /** Base address for all pages. */
         private long pagesBase;
 
-        /** */
+        /** Capacity of all previous segments combined. */
         private final int pagesInPrevSegments;
 
-        /** */
+        /** Segments capacity. */
         private int maxPages;
 
-        /** */
+        /** Total number of currently acquired pages. */
         private final AtomicInteger acquiredPages;
 
         /**
+         * Constructor.
+         *
          * @param idx Index.
          * @param region Memory region to use.
          * @param pagesInPrevSegments Number of pages in previously allocated segments.
@@ -767,6 +761,8 @@ public class PageMemoryNoStoreImpl implements PageMemory {
         }
 
         /**
+         * Acquires a page from the segment..
+         *
          * @param pageIdx Page index.
          * @return Page absolute pointer.
          */
@@ -782,13 +778,13 @@ public class PageMemoryNoStoreImpl implements PageMemory {
             return absPtr;
         }
 
-        /**
-         */
         private void onPageRelease() {
             acquiredPages.decrementAndGet();
         }
 
         /**
+         * Returns absolute pointer to the page with given index.
+         *
          * @param pageIdx Page index.
          * @return Absolute pointer.
          */
@@ -801,6 +797,8 @@ public class PageMemoryNoStoreImpl implements PageMemory {
         }
 
         /**
+         * Converts page index into a sequence number.
+         *
          * @param pageIdx Page index with encoded segment.
          * @return Absolute page sequence number.
          */
@@ -811,22 +809,24 @@ public class PageMemoryNoStoreImpl implements PageMemory {
         }
 
         /**
-         * @return Page sequence number upper bound.
+         * Returns a page sequence number upper bound.
          */
         private int sumPages() {
             return pagesInPrevSegments + maxPages;
         }
 
         /**
-         * @return Total number of currently acquired pages.
+         * Returns a total number of currently acquired pages.
          */
         private int acquiredPages() {
             return acquiredPages.get();
         }
 
         /**
+         * Allocates new page in the segment.
+         *
          * @param tag Tag to initialize RW lock.
-         * @return Relative pointer of the allocated page.
+         * @return Relative pointer of the allocated page or {@link #INVALID_REL_PTR} if segment is overflown.
          */
         private long allocateFreePage(int tag) {
             long limit = region.address() + region.size();
@@ -860,6 +860,8 @@ public class PageMemoryNoStoreImpl implements PageMemory {
         }
 
         /**
+         * Checks if given sequence number belongs to the current segment.
+         *
          * @param seqNo Page sequence number.
          * @return {@code 0} if this segment contains the page with the given sequence number,
          *      {@code -1} if one of the previous segments contains the page with the given sequence number,
@@ -876,6 +878,8 @@ public class PageMemoryNoStoreImpl implements PageMemory {
         }
 
         /**
+         * Converts sequential page number to the page index.
+         *
          * @param seqNo Page sequence number.
          * @return Page index
          */

@@ -22,18 +22,18 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
- *
+ * Basic implementation of {@link DirectMemoryRegion} that stores direct memory address and the length of the region.
  */
 public class UnsafeChunk implements DirectMemoryRegion {
-    /** */
+    /** Raw pointer. */
     private long ptr;
 
-    /**
-     *
-     */
+    /** Size of the chunk. */
     private long len;
 
     /**
+     * Constructor.
+     *
      * @param ptr Pointer to the memory start.
      * @param len Memory length.
      */

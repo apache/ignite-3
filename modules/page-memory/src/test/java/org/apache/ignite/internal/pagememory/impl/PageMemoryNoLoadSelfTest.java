@@ -52,20 +52,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- *
+ * Tests {@link PageMemoryNoStoreImpl}.
  */
 @ExtendWith(ConfigurationExtension.class)
 public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
-    /** */
     protected static final int PAGE_SIZE = 8 * 1024;
 
-    /** */
     private static final int MAX_MEMORY_SIZE = 10 * 1024 * 1024;
 
-    /** */
     private static final PageIo PAGE_IO = new TestPageIo();
 
-    /** */
     @InjectConfiguration(
             value = "mock.type = pagemem",
             polymorphicExtensions = {
@@ -74,9 +70,6 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
             })
     private DataRegionConfiguration dataRegionCfg;
 
-    /**
-     * @throws Exception If failed.
-     */
     @Test
     public void testPageTearingInner() throws Exception {
         PageMemory mem = memory();
@@ -116,9 +109,6 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
         }
     }
 
-    /**
-     * @throws Exception If failed.
-     */
     @Test
     public void testLoadedPagesCount() throws Exception {
         PageMemory mem = memory();
@@ -133,17 +123,14 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
             }
         } catch (IgniteOutOfMemoryException e) {
             log.error(e.getMessage(), e);
-            // Expected.
 
+            // Expected.
             assertEquals(mem.loadedPages(), expPages);
         } finally {
             mem.stop(true);
         }
     }
 
-    /**
-     * @throws Exception If failed.
-     */
     @Test
     public void testPageTearingSequential() throws Exception {
         PageMemory mem = memory();
@@ -193,9 +180,6 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
         }
     }
 
-    /**
-     * @throws Exception If failed.
-     */
     @Test
     public void testPageHandleDeallocation() throws Exception {
         PageMemory mem = memory();
@@ -223,9 +207,6 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
         }
     }
 
-    /**
-     * @throws Exception If failed.
-     */
     @Test
     public void testPageIdRotation() throws Exception {
         PageMemory mem = memory();
@@ -323,6 +304,8 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
     }
 
     /**
+     * Creates new page memory instance.
+     *
      * @return Page memory implementation.
      * @throws Exception If failed.
      */
@@ -348,6 +331,8 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
     }
 
     /**
+     * Fills page with passed value.
+     *
      * @param mem Page memory.
      * @param fullId Page ID.
      * @param page Page pointer.
@@ -368,6 +353,8 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
     }
 
     /**
+     * Reads a page from page memory and asserts that it is full of expected values.
+     *
      * @param mem Page memory.
      * @param pageId Page ID.
      * @param page Page pointer.
@@ -392,6 +379,8 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
     }
 
     /**
+     * Allocates page.
+     *
      * @param mem Memory.
      * @return Page.
      * @throws IgniteCheckedException If failed.

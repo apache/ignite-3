@@ -22,6 +22,8 @@ package org.apache.ignite.internal.pagememory.mem;
  */
 public interface MemoryAllocator {
     /**
+     * Allocates memory.
+     *
      * @param size Size of allocated memory.
      *
      * @return Pointer to memory or {@code 0} if failed.

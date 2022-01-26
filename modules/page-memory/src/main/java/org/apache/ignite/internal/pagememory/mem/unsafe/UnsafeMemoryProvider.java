@@ -34,22 +34,22 @@ import org.jetbrains.annotations.Nullable;
  * <p>Supports memory reuse semantics.
  */
 public class UnsafeMemoryProvider implements DirectMemoryProvider {
-    /** */
+    /** Logger.*/
+    private static final IgniteLogger LOG = IgniteLogger.forClass(UnsafeMemoryProvider.class);
+
+    /** Array with memory regions sizes. */
     private long[] sizes;
 
-    /** */
+    /** List of allocated memory regions. */
     private List<DirectMemoryRegion> regions;
-
-    /** */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(UnsafeMemoryProvider.class);
 
     /** Flag shows if current memory provider have been already initialized. */
     private boolean isInit;
 
-    /** */
+    /** Number of used data regions in {@link #regions} list. */
     private int used = 0;
 
-    /** */
+    /** Memory allocator. */
     private final MemoryAllocator allocator;
 
     /**
