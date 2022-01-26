@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Tests.Table.Serialization
 {
-    using System.Linq;
     using Internal.Buffers;
     using Internal.Proto;
     using Internal.Table;
@@ -45,8 +44,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
                 new Column("Val", ClientDataType.String, false, false, 1)
             };
 
-            var columnsMap = columns.ToDictionary(x => x.Name);
-            var schema = new Schema(1, 1, columns, columnsMap);
+            var schema = new Schema(1, 1, columns);
 
             handler.Write(ref writer, schema, poco);
             writer.Flush();

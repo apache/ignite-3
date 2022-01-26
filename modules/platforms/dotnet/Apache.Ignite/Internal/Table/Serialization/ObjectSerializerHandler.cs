@@ -38,7 +38,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="writer">Writer.</param>
         /// <param name="value">Value.</param>
         /// <typeparam name="TV">Value type.</typeparam>
-        public delegate void WriteDelegate<in TV>(ref MessagePackWriter writer, TV value);
+        private delegate void WriteDelegate<in TV>(ref MessagePackWriter writer, TV value);
 
         /// <inheritdoc/>
         public T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
