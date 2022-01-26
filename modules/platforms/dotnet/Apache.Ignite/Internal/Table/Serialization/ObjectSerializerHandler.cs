@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
     using System.Reflection;
+    using System.Reflection.Emit;
     using System.Runtime.Serialization;
     using Buffers;
     using MessagePack;
@@ -31,6 +32,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
     internal class ObjectSerializerHandler<T> : IRecordSerializerHandler<T>
         where T : class
     {
+        /// <summary>
+        /// Write delegate.
+        /// </summary>
+        /// <param name="writer">Writer.</param>
+        /// <param name="value">Value.</param>
+        /// <typeparam name="TV">Value type.</typeparam>
+        public delegate void WriteDelegate<in TV>(ref MessagePackWriter writer, TV value);
+
         /// <inheritdoc/>
         public T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
         {
@@ -48,7 +57,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
 
                 var col = columns[index];
-                var prop = GetPropertyIgnoreCase(type, col.Name);
+                var prop = GetFieldIgnoreCase(type, col.Name);
 
                 if (prop != null)
                 {
@@ -79,7 +88,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var i = 0; i < columns.Count; i++)
             {
                 var col = columns[i];
-                var prop = GetPropertyIgnoreCase(type, col.Name);
+                var prop = GetFieldIgnoreCase(type, col.Name);
 
                 if (i < schema.KeyColumnCount)
                 {
@@ -113,28 +122,34 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public void Write(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false)
         {
             // TODO: Emit code for efficient serialization (IGNITE-16341).
-            var columns = schema.Columns;
-            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
-            var type = record.GetType();
+            // var columns = schema.Columns;
+            // var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+            // var type = record.GetType();
+            //
+            // for (var index = 0; index < count; index++)
+            // {
+            //     var col = columns[index];
+            //     var prop = GetFieldIgnoreCase(type, col.Name);
+            //
+            //     if (prop == null)
+            //     {
+            //         writer.WriteNoValue();
+            //     }
+            //     else
+            //     {
+            //         var value = prop.GetValue(record);
+            //
+            //         writer.WriteObject(value);
+            //     }
+            // }
+            var writeDelegate = EmitWriter(schema, keyOnly);
 
-            for (var index = 0; index < count; index++)
-            {
-                var col = columns[index];
-                var prop = GetPropertyIgnoreCase(type, col.Name);
-
-                if (prop == null)
-                {
-                    writer.WriteNoValue();
-                }
-                else
-                {
-                    writer.WriteObject(prop.GetValue(record));
-                }
-            }
+            writeDelegate(ref writer, record);
         }
 
-        private static FieldInfo? GetPropertyIgnoreCase(Type type, string name)
+        private static FieldInfo? GetFieldIgnoreCase(Type type, string name)
         {
+            // TODO: Cache results in a dictionary per type?
             foreach (var fieldInfo in type.GetAllFields())
             {
                 if (fieldInfo.GetCleanName().Equals(name, StringComparison.OrdinalIgnoreCase))
@@ -144,6 +159,42 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
 
             return null;
+        }
+
+        private static WriteDelegate<T> EmitWriter(Schema schema, bool keyOnly)
+        {
+            var type = typeof(T);
+            var parameterTypes = new[] { typeof(MessagePackWriter), type };
+
+            // TODO: Which module? Separate assembly?
+            var method = new DynamicMethod("Write" + type.Name, typeof(void), parameterTypes, typeof(IIgnite).Module, true);
+            var il = method.GetILGenerator();
+
+            var columns = schema.Columns;
+            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+
+            for (var index = 0; index < count; index++)
+            {
+                var col = columns[index];
+                var fieldInfo = GetFieldIgnoreCase(type, col.Name);
+
+                if (fieldInfo == null)
+                {
+                    // writer.WriteNoValue();
+                    il.Emit(OpCodes.Ldarg_0); // writer
+                    il.Emit(OpCodes.Call, typeof(MessagePackWriterExtensions).GetMethod(nameof(MessagePackWriterExtensions.WriteNoValue)));
+                }
+                else
+                {
+                    // writer.WriteObject(prop.GetValue(record));
+                    il.Emit(OpCodes.Ldarg_0); // writer
+                    il.Emit(OpCodes.Ldarg_1); // record
+                    il.Emit(OpCodes.Ldfld, fieldInfo); // Get field value
+                    il.Emit(OpCodes.Call, typeof(MessagePackWriterExtensions).GetMethod(nameof(MessagePackWriterExtensions.WriteObject)));
+                }
+            }
+
+            return (WriteDelegate<T>)method.CreateDelegate(typeof(WriteDelegate<T>));
         }
     }
 }
