@@ -164,7 +164,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static WriteDelegate<T> EmitWriter(Schema schema, bool keyOnly)
         {
             var type = typeof(T);
-            var parameterTypes = new[] { typeof(MessagePackWriter), type };
+            var parameterTypes = new[]
+            {
+                typeof(MessagePackWriter).MakeByRefType(),
+                type
+            };
 
             // TODO: Which module? Separate assembly?
             var method = new DynamicMethod("Write" + type.Name, typeof(void), parameterTypes, typeof(IIgnite).Module, true);
