@@ -142,16 +142,22 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
             fut = IgniteTestUtils.runAsync(() -> {
                 while (!stop.get()) {
                     synchronized (tasks) {
-                        while (!tasks.isEmpty()) {
-                            Pair<Runnable, Integer> r = tasks.pollFirst();
-
-                            exec.execute(() -> {
-                                LockSupport.parkNanos(ThreadLocalRandom.current().nextLong(0, 10_000));
-                                super.execute(r.getFirst(), r.getSecond());
-                            });
-
-                            tasks.notifyAll();
+                        while (tasks.isEmpty()) {
+                            try {
+                                tasks.wait();
+                            } catch (InterruptedException e) {
+                                // no op.
+                            }
                         }
+
+                        Pair<Runnable, Integer> r = tasks.pollFirst();
+
+                        exec.execute(() -> {
+                            LockSupport.parkNanos(ThreadLocalRandom.current().nextLong(0, 10_000));
+                            super.execute(r.getFirst(), r.getSecond());
+                        });
+
+                        tasks.notifyAll();
                     }
                 }
             });
@@ -161,6 +167,8 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
         @Override public void execute(Runnable task, int idx) {
             synchronized (tasks) {
                 tasks.add(new Pair<>(task, idx));
+
+                tasks.notifyAll();
             }
         }
 
@@ -176,6 +184,8 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
         /** {@inheritDoc} */
         @Override public List<Runnable> shutdownNow() {
             stop.set(true);
+
+            fut.cancel(true);
 
             return super.shutdownNow();
         }

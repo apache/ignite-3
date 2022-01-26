@@ -93,10 +93,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         if (!grpSets.isEmpty() && grpSets.stream().anyMatch(set -> !set.isEmpty())) {
             // Sort by group to simplify compare results with expected results.
             collation = RelCollations.of(
-                    ImmutableIntList.copyOf(
-                            IntStream.range(0, Objects.requireNonNull(first(grpSets)).cardinality()).boxed().collect(Collectors.toList())
-                    )
-            );
+                    ImmutableIntList.of(IntStream.range(0, Objects.requireNonNull(first(grpSets)).cardinality()).toArray()));
         } else {
             // Sort for the first column if there are no groups.
             collation = RelCollations.of(0);
