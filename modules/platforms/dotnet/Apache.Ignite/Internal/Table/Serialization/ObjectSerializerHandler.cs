@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
+    using System.Collections.Concurrent;
     using System.Reflection;
     using System.Reflection.Emit;
     using System.Runtime.Serialization;
@@ -32,6 +33,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
     internal class ObjectSerializerHandler<T> : IRecordSerializerHandler<T>
         where T : class
     {
+        private readonly ConcurrentDictionary<int, WriteDelegate<T>> _writers = new();
+
         /// <summary>
         /// Write delegate.
         /// </summary>
@@ -121,7 +124,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <inheritdoc/>
         public void Write(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false)
         {
-            var writeDelegate = EmitWriter(schema, keyOnly);
+            var writeDelegate = _writers.TryGetValue(schema.Version, out var w)
+                ? w
+                : _writers.GetOrAdd(schema.Version, EmitWriter(schema, keyOnly));
 
             writeDelegate(ref writer, record);
         }
