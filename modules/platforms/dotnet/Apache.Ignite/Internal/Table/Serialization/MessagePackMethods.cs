@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System;
     using System.Reflection;
     using MessagePack;
+    using Proto;
 
     /// <summary>
     /// MethodInfos for <see cref="MessagePackWriter"/> and <see cref="MessagePackReader"/>.
@@ -35,6 +36,18 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// Int writer.
         /// </summary>
         public static readonly MethodInfo WriteInt = GetWriteMethod<int>();
+
+        /// <summary>
+        /// No-value writer.
+        /// </summary>
+        public static readonly MethodInfo WriteNoValue =
+            typeof(MessagePackWriterExtensions).GetMethod(nameof(MessagePackWriterExtensions.WriteNoValue))!;
+
+        /// <summary>
+        /// Object (catch all) writer.
+        /// </summary>
+        public static readonly MethodInfo WriteObject =
+            typeof(MessagePackWriterExtensions).GetMethod(nameof(MessagePackWriterExtensions.WriteObject))!;
 
         private static MethodInfo GetWriteMethod<TArg>()
         {

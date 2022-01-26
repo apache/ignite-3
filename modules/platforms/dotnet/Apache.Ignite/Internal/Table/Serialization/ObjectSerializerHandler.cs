@@ -170,7 +170,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 {
                     // writer.WriteNoValue();
                     il.Emit(OpCodes.Ldarg_0); // writer
-                    il.Emit(OpCodes.Call, typeof(MessagePackWriterExtensions).GetMethod(nameof(MessagePackWriterExtensions.WriteNoValue)));
+                    il.Emit(OpCodes.Call, MessagePackMethods.WriteNoValue);
                 }
                 else
                 {
@@ -185,7 +185,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                         il.Emit(OpCodes.Box, fieldInfo.FieldType);
                     }
 
-                    il.Emit(OpCodes.Call, typeof(MessagePackWriterExtensions).GetMethod(nameof(MessagePackWriterExtensions.WriteObject)));
+                    il.Emit(OpCodes.Call, MessagePackMethods.WriteObject);
                 }
             }
 
