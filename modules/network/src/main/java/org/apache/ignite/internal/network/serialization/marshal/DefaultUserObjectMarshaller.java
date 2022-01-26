@@ -196,7 +196,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     }
 
     private void writeReference(int objectId, Class<?> declaredClass, DataOutput output) throws IOException {
-        if (!concreteTypeIsKnownUpfront(declaredClass)) {
+        if (!runtimeTypeIsKnownUpfront(declaredClass)) {
             ProtocolMarshalling.writeDescriptorOrCommandId(BuiltInType.REFERENCE.descriptorId(), output);
         }
         ProtocolMarshalling.writeObjectId(objectId, output);
@@ -210,7 +210,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
             DataOutputStream output,
             MarshallingContext context
     ) throws IOException, MarshalException {
-        if (!concreteTypeIsKnownUpfront(declaredClass)) {
+        if (!runtimeTypeIsKnownUpfront(declaredClass)) {
             writeDescriptorId(descriptor, output);
         }
         ProtocolMarshalling.writeObjectId(objectId, output);
@@ -218,13 +218,13 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         writeObject(object, descriptor, output, context);
     }
 
-    private boolean concreteTypeIsKnownUpfront(@Nullable Class<?> declaredClass) {
+    private boolean runtimeTypeIsKnownUpfront(@Nullable Class<?> declaredClass) {
         if (declaredClass == null) {
             return false;
         }
 
         ClassDescriptor declaredClassDescriptor = localDescriptors.getOrCreateDescriptor(declaredClass);
-        return declaredClassDescriptor.isValueTypeKnownUpfront();
+        return declaredClassDescriptor.isRuntimeTypeKnownUpfront();
     }
 
     private void writeDescriptorId(ClassDescriptor descriptor, DataOutput output) throws IOException {
@@ -238,7 +238,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
             DataOutputStream output,
             MarshallingContext context
     ) throws IOException, MarshalException {
-        if (!concreteTypeIsKnownUpfront(declaredClass)) {
+        if (!runtimeTypeIsKnownUpfront(declaredClass)) {
             writeDescriptorId(descriptor, output);
         }
 
@@ -337,7 +337,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
 
     private ClassDescriptor resolveDescriptor(DataInputStream input, @Nullable Class<?> declaredClass, UnmarshallingContext context)
             throws UnmarshalException, IOException {
-        if (concreteTypeIsKnownUpfront(declaredClass)) {
+        if (runtimeTypeIsKnownUpfront(declaredClass)) {
             return context.resolveDescriptorOfDeclaredClass(declaredClass);
         } else {
             int commandOrDescriptorId = ProtocolMarshalling.readDescriptorOrCommandId(input);

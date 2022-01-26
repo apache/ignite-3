@@ -85,7 +85,7 @@ class BuiltInContainerMarshallers {
         BuiltInMarshalling.writeClass(componentType, output);
         writeLength(array.length, output);
 
-        if (array.length > 0 && Classes.isValueTypeKnownUpfront(componentType)) {
+        if (array.length > 0 && Classes.isRuntimeTypeKnownUpfront(componentType)) {
             BitSet nullsBitSet = new BitSet(array.length);
 
             for (int i = 0; i < array.length; i++) {
@@ -115,7 +115,7 @@ class BuiltInContainerMarshallers {
             return;
         }
 
-        if (Classes.isValueTypeKnownUpfront(array.getClass().getComponentType())) {
+        if (Classes.isRuntimeTypeKnownUpfront(array.getClass().getComponentType())) {
             BitSet nullsBitSet = BuiltInMarshalling.readBitSet(input);
 
             for (int i = 0; i < array.length; i++) {

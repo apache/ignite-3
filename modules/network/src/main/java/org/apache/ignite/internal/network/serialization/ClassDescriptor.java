@@ -76,7 +76,7 @@ public class ClassDescriptor {
      * fields that have a type known upfront.
      *
      * @see #fieldNullsBitmapIndices
-     * @see #isValueTypeKnownUpfront()
+     * @see #isRuntimeTypeKnownUpfront()
      */
     private final int fieldNullsBitmapSize;
 
@@ -85,7 +85,7 @@ public class ClassDescriptor {
      * for each field, but only entries for nullable (that is, non-primitive) fields which types are known upfront
      * have meaningful (non-negative) indices; all other fields have -1 as a value in this map.
      *
-     * @see #isValueTypeKnownUpfront()
+     * @see #isRuntimeTypeKnownUpfront()
      */
     private final Object2IntMap<String> fieldNullsBitmapIndices;
 
@@ -146,7 +146,7 @@ public class ClassDescriptor {
     private static int computeFieldNullsBitmapSize(List<FieldDescriptor> fields) {
         int count = 0;
         for (FieldDescriptor fieldDescriptor : fields) {
-            if (!fieldDescriptor.isPrimitive() && fieldDescriptor.isTypeKnownUpfront()) {
+            if (!fieldDescriptor.isPrimitive() && fieldDescriptor.isRuntimeTypeKnownUpfront()) {
                 count++;
             }
         }
@@ -159,7 +159,7 @@ public class ClassDescriptor {
 
         int index = 0;
         for (FieldDescriptor fieldDescriptor : fields) {
-            int indexToPut = !fieldDescriptor.isPrimitive() && fieldDescriptor.isTypeKnownUpfront() ? (index++) : -1;
+            int indexToPut = !fieldDescriptor.isPrimitive() && fieldDescriptor.isRuntimeTypeKnownUpfront() ? (index++) : -1;
             map.put(fieldDescriptor.name(), indexToPut);
         }
 
@@ -416,7 +416,7 @@ public class ClassDescriptor {
      *
      * @return size of the nulls bitmap for the described class
      * @see #fieldIndexInNullsBitmap(String)
-     * @see #isValueTypeKnownUpfront()
+     * @see #isRuntimeTypeKnownUpfront()
      */
     public int fieldIndexInNullsBitmapSize() {
         return fieldNullsBitmapSize;
@@ -538,15 +538,15 @@ public class ClassDescriptor {
     }
 
     /**
-     * Returns {@code true} if a field (or array item) of the described class can only host instances of this type (and not subtypes),
-     * so the type is known upfront. This is also true for enums, even though technically their values might have subtypes;
-     * but we serialize them using their names, so we still treat the type as known upfront.
+     * Returns {@code true} if a field (or array item) of the described class can only host (at runtime) instances of this type
+     * (and not subtypes), so the runtime type is known upfront. This is also true for enums, even though technically their values
+     * might have subtypes; but we serialize them using their names, so we still treat the type as known upfront.
      *
-     * @return {@code true} if a field (or array item) of the described class can only host instances of the concrete type
+     * @return {@code true} if a field (or array item) of the described class can only host (at runtime) instances of the concrete type
      *     that is known upfront
      */
-    public boolean isValueTypeKnownUpfront() {
-        return Classes.isValueTypeKnownUpfront(clazz);
+    public boolean isRuntimeTypeKnownUpfront() {
+        return Classes.isRuntimeTypeKnownUpfront(clazz);
     }
 
     /** {@inheritDoc} */

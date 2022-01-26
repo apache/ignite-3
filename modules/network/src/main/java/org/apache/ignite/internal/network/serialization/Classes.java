@@ -96,16 +96,16 @@ public class Classes {
     }
 
     /**
-     * Returns {@code true} if a field (or array item) of the described class can only host instances of this type (and not subtypes),
-     * so the type is known upfront. This is also true for enums, even though technically their values might have subtypes;
-     * but we serialize them using their names, so we still treat the type as known upfront.
+     * Returns {@code true} if a field (or array item) of the described class can only host (at runtime) instances of this type
+     * (and not subtypes), so the runtime type is known upfront. This is also true for enums, even though technically their values
+     * might have subtypes; but we serialize them using their names, so we still treat the type as known upfront.
      *
-     * @return {@code true} if a field (or array item) of the described class can only host instances of the concrete type
+     * @return {@code true} if a field (or array item) of the described class can only host (at runtime) instances of the concrete type
      *     that is known upfront
      */
-    public static boolean isValueTypeKnownUpfront(Class<?> clazz) {
+    public static boolean isRuntimeTypeKnownUpfront(Class<?> clazz) {
         if (clazz.isArray()) {
-            return isValueTypeKnownUpfront(clazz.getComponentType());
+            return isRuntimeTypeKnownUpfront(clazz.getComponentType());
         }
 
         return clazz.isPrimitive() || Modifier.isFinal(clazz.getModifiers()) || isRuntimeEnum(clazz);

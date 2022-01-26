@@ -139,33 +139,33 @@ class ClassesTest {
 
     @Test
     void isValueTypeKnownUpfrontReturnsTrueForFinalNonArrayClasses() {
-        assertTrue(Classes.isValueTypeKnownUpfront(FinalClass.class));
+        assertTrue(Classes.isRuntimeTypeKnownUpfront(FinalClass.class));
     }
 
     @ParameterizedTest
     @ValueSource(classes = {byte.class, short.class, int.class, long.class, float.class, double.class, char.class, boolean.class})
     void isValueTypeKnownUpfrontReturnsTrueForPrimitiveClasses(Class<?> primitiveClass) {
-        assertTrue(Classes.isValueTypeKnownUpfront(primitiveClass));
+        assertTrue(Classes.isRuntimeTypeKnownUpfront(primitiveClass));
     }
 
     @Test
     void isValueTypeKnownUpfrontReturnsFalseForNonFinalNonArrayClasses() {
-        assertFalse(Classes.isValueTypeKnownUpfront(NonFinalClass.class));
+        assertFalse(Classes.isRuntimeTypeKnownUpfront(NonFinalClass.class));
     }
 
     @Test
     void isValueTypeKnownUpfrontReturnsTrueForSimpleEnumClasses() {
-        assertTrue(Classes.isValueTypeKnownUpfront(SimpleEnum.class));
+        assertTrue(Classes.isRuntimeTypeKnownUpfront(SimpleEnum.class));
     }
 
     @Test
     void isValueTypeKnownUpfrontReturnsTrueForEnumClassesWithAnonMembers() {
-        assertTrue(Classes.isValueTypeKnownUpfront(EnumWithAnonClassMember.class));
+        assertTrue(Classes.isRuntimeTypeKnownUpfront(EnumWithAnonClassMember.class));
     }
 
     @Test
     void isValueTypeKnownUpfrontReturnsFalseForAbstractEnum() {
-        assertFalse(Classes.isValueTypeKnownUpfront(Enum.class));
+        assertFalse(Classes.isRuntimeTypeKnownUpfront(Enum.class));
     }
 
     @ParameterizedTest
@@ -174,32 +174,32 @@ class ClassesTest {
             float[].class, double[].class, char[].class, boolean[].class
     })
     void isValueTypeKnownUpfrontReturnsTrueForPrimitiveArrayClasses(Class<?> primitiveArrayClass) {
-        assertTrue(Classes.isValueTypeKnownUpfront(primitiveArrayClass));
+        assertTrue(Classes.isRuntimeTypeKnownUpfront(primitiveArrayClass));
     }
 
     @Test
     void isValueTypeKnownUpfrontReturnsTrueForArraysOfFinalClasses() {
-        assertTrue(Classes.isValueTypeKnownUpfront(FinalClass[].class));
+        assertTrue(Classes.isRuntimeTypeKnownUpfront(FinalClass[].class));
     }
 
     @Test
     void isValueTypeKnownUpfrontReturnsFalseForArraysOfNonFinalClasses() {
-        assertFalse(Classes.isValueTypeKnownUpfront(NonFinalClass[].class));
+        assertFalse(Classes.isRuntimeTypeKnownUpfront(NonFinalClass[].class));
     }
 
     @Test
     void isValueTypeKnownUpfrontReturnsTrueForArraysOfSimpleEnumClasses() {
-        assertTrue(Classes.isValueTypeKnownUpfront(SimpleEnum[].class));
+        assertTrue(Classes.isRuntimeTypeKnownUpfront(SimpleEnum[].class));
     }
 
     @Test
     void isValueTypeKnownUpfrontReturnsTrueForArraysOfEnumClassesWithAnonMembers() {
-        assertTrue(Classes.isValueTypeKnownUpfront(EnumWithAnonClassMember[].class));
+        assertTrue(Classes.isRuntimeTypeKnownUpfront(EnumWithAnonClassMember[].class));
     }
 
     @Test
     void isValueTypeKnownUpfrontReturnsFalseForArraysOfAbstractEnum() {
-        assertFalse(Classes.isValueTypeKnownUpfront(Enum[].class));
+        assertFalse(Classes.isRuntimeTypeKnownUpfront(Enum[].class));
     }
 
     private static class EmptySerializable implements Serializable {
