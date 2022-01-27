@@ -31,6 +31,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     /// Benchmarks for <see cref="IRecordSerializerHandler{T}"/> implementations.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
+    [MemoryDiagnoser]
     public class SerializerHandlerBenchmarks
     {
         private static readonly Car Object = new()

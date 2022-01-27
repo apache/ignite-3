@@ -19,12 +19,13 @@ namespace Apache.Ignite.Benchmarks
 {
     using BenchmarkDotNet.Running;
     using Proto;
+    using Table.Serialization;
 
     internal static class Program
     {
         private static void Main()
         {
-            BenchmarkRunner.Run<WriteGuidBenchmarks>();
+            BenchmarkRunner.Run<SerializerHandlerBenchmarks>();
         }
     }
 }
