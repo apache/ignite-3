@@ -33,9 +33,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     {
         private readonly ConcurrentDictionary<int, WriteDelegate<T>> _writers = new();
 
-#pragma warning disable CA1823
         private readonly ConcurrentDictionary<int, ReadDelegate<T>> _readers = new();
-#pragma warning restore CA1823
 
         private delegate void WriteDelegate<in TV>(ref MessagePackWriter writer, TV value);
 
@@ -129,13 +127,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                 if (fieldInfo == null)
                 {
-                    // writer.WriteNoValue();
                     il.Emit(OpCodes.Ldarg_0); // writer
                     il.Emit(OpCodes.Call, MessagePackMethods.WriteNoValue);
                 }
                 else
                 {
-                    // writer.WriteObject(prop.GetValue(record));
+                    // TODO: Validate type compatibility.
                     il.Emit(OpCodes.Ldarg_0); // writer
                     il.Emit(OpCodes.Ldarg_1); // record
                     il.Emit(OpCodes.Ldfld, fieldInfo);
@@ -192,6 +189,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
+                    // TODO: Validate type compatibility.
                     il.Emit(OpCodes.Ldarg_0); // reader
                     il.Emit(OpCodes.Call, MessagePackMethods.TryReadNoValue);
 
@@ -204,6 +202,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     il.Emit(OpCodes.Ldloc_0); // res
                     il.Emit(OpCodes.Ldarg_0); // reader
                     il.Emit(OpCodes.Call, readMethod);
+
+                    if (readMethod == MessagePackMethods.ReadObject && fieldInfo.FieldType.IsValueType)
+                    {
+                        il.Emit(OpCodes.Unbox_Any, fieldInfo.FieldType);
+                    }
+
                     il.Emit(OpCodes.Stfld, fieldInfo);
 
                     il.MarkLabel(noValueLabel);
