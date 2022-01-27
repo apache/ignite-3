@@ -53,6 +53,20 @@ public class TableExamplesTest {
     }
 
     /**
+     * Runs RecordViewPojoExample.
+     *
+     * @throws Exception If failed and checks its output.
+     */
+    @Test
+    public void testRecordViewPojoExample() throws Exception {
+        ExampleTestUtils.assertConsoleOutputContains(RecordViewPojoExample::main, EMPTY_ARGS,
+                "\nRetrieved record:\n"
+                        + "    Account Number: 123456\n"
+                        + "    Owner: Val Kulichenko\n"
+                        + "    Balance: $100.0\n");
+    }
+
+    /**
      * Runs KeyValueViewExample and checks its output.
      *
      * @throws Exception If failed.
@@ -60,6 +74,20 @@ public class TableExamplesTest {
     @Test
     public void testKeyValueViewExample() throws Exception {
         ExampleTestUtils.assertConsoleOutputContains(KeyValueViewExample::main, EMPTY_ARGS,
+                "\nRetrieved value:\n"
+                        + "    Account Number: 123456\n"
+                        + "    Owner: Val Kulichenko\n"
+                        + "    Balance: $100.0\n");
+    }
+
+    /**
+     * Runs KeyValueViewPojoExample and checks its output.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testKeyValueViewPojoExample() throws Exception {
+        ExampleTestUtils.assertConsoleOutputContains(KeyValueViewPojoExample::main, EMPTY_ARGS,
                 "\nRetrieved value:\n"
                         + "    Account Number: 123456\n"
                         + "    Owner: Val Kulichenko\n"

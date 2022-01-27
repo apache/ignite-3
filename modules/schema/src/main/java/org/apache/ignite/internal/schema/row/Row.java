@@ -91,6 +91,16 @@ public class Row implements BinaryRow, SchemaAware {
      *
      * @param col Column index.
      * @return Column value.
+     */
+    public Object value(int col) {
+        return schema.column(col).type().spec().objectValue(this, col);
+    }
+
+    /**
+     * Reads value for specified column.
+     *
+     * @param col Column index.
+     * @return Column value.
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public byte byteValue(int col) throws InvalidTypeException {
@@ -455,6 +465,17 @@ public class Row implements BinaryRow, SchemaAware {
         }
 
         return Instant.ofEpochSecond(seconds, nanos);
+    }
+
+    /**
+     * Checks whether the given column contains a null value.
+     *
+     * @param col Column index.
+     * @param expectedType Column type (needed for type checking).
+     * @return {@code true} if this column contains a null value, {@code false} otherwise.
+     */
+    public boolean hasNullValue(int col, NativeTypeSpec expectedType) {
+        return findColumn(col, expectedType) < 0;
     }
 
     /**

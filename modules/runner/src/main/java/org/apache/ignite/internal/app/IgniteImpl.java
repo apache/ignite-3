@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -43,13 +44,16 @@ import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorag
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
-import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
-import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.message.TxMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -62,6 +66,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.raft.jraft.RaftMessagesSerializationRegistryInitializer;
 import org.apache.ignite.rest.RestModule;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -96,6 +101,9 @@ public class IgniteImpl implements Ignite {
     /** Vault manager. */
     private final VaultManager vaultMgr;
 
+    /** Sql query engine. */
+    private final SqlQueryProcessor qryEngine;
+
     /** Configuration manager that handles node (local) configuration. */
     private final ConfigurationManager nodeCfgMgr;
 
@@ -122,9 +130,6 @@ public class IgniteImpl implements Ignite {
 
     /** Distributed table manager. */
     private final TableManager distributedTblMgr;
-
-    /** Query engine. */
-    private final SqlQueryProcessor qryEngine;
 
     /** Rest module. */
     private final RestModule restModule;
@@ -165,7 +170,12 @@ public class IgniteImpl implements Ignite {
 
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
 
-        var clusterLocalConfiguration = new ClusterLocalConfiguration(name, new MessageSerializationRegistryImpl());
+        MessageSerializationRegistryImpl serializationRegistry = new MessageSerializationRegistryImpl();
+        RaftMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
+        SqlQueryMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
+        TxMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
+
+        var clusterLocalConfiguration = new ClusterLocalConfiguration(name, serializationRegistry);
 
         nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, clusterLocalConfiguration.getName());
 
@@ -221,6 +231,7 @@ public class IgniteImpl implements Ignite {
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
+                new IgniteTransactionsImpl(txManager),
                 nodeCfgMgr.configurationRegistry(),
                 nettyBootstrapFactory
         );
@@ -316,6 +327,8 @@ public class IgniteImpl implements Ignite {
                 doStartComponent(name, startedComponents, component);
             }
 
+            notifyConfigurationListeners();
+
             // Deploy all registered watches because all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
 
@@ -356,7 +369,7 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {
-        return null;
+        return new IgniteTransactionsImpl(txManager);
     }
 
     /** {@inheritDoc} */
@@ -466,6 +479,18 @@ public class IgniteImpl implements Ignite {
                 LOG.error("Unable to stop component=[" + componentToStop + "] within node=[" + name + ']', e);
             }
         }
+    }
+
+    /**
+     * Notify all listeners of current configurations.
+     *
+     * @throws Exception If failed.
+     */
+    private void notifyConfigurationListeners() throws Exception {
+        CompletableFuture.allOf(
+                nodeConfiguration().notifyCurrentConfigurationListeners(),
+                clusterConfiguration().notifyCurrentConfigurationListeners()
+        ).get();
     }
 
     /**

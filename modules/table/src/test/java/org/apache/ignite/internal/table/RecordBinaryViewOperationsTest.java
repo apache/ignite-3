@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -24,6 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
+import java.util.Collection;
+import java.util.List;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -54,29 +57,12 @@ import org.mockito.Mockito;
  * <p>TODO: IGNITE-14486 Add tests for invoke operations. Add tests for bulk operations. Add tests for async operations.
  */
 public class RecordBinaryViewOperationsTest {
-    /** Cluster service. */
-    private ClusterService clusterService;
-
-    /**
-     * Creates a table for tests.
-     *
-     * @return The table instance for test.
-     */
-    private InternalTable createTable() {
-        clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
-
-        TxManagerImpl txManager = new TxManagerImpl(clusterService, new HeapLockManager());
-
-        return new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
-    }
-
     @Test
     public void insert() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, false)}
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
         RecordView<Tuple> tbl = createTableImpl(schema).recordView();
@@ -85,27 +71,27 @@ public class RecordBinaryViewOperationsTest {
         final Tuple newTuple = Tuple.create().set("id", 1L).set("val", 22L);
         final Tuple nonExistedTuple = Tuple.create().set("id", 2L);
 
-        assertNull(tbl.get(Tuple.create().set("id", 1L)));
+        assertNull(tbl.get(null, Tuple.create().set("id", 1L)));
 
         // Insert new tuple.
-        assertTrue(tbl.insert(tuple));
+        assertTrue(tbl.insert(null, tuple));
 
-        assertEqualsRows(schema, tuple, tbl.get(Tuple.create().set("id", 1L)));
+        assertEqualsRows(schema, tuple, tbl.get(null, Tuple.create().set("id", 1L)));
 
         // Ignore insert operation for exited row.
-        assertFalse(tbl.insert(newTuple));
+        assertFalse(tbl.insert(null, newTuple));
 
-        assertEqualsRows(schema, tuple, tbl.get(Tuple.create().set("id", 1L)));
+        assertEqualsRows(schema, tuple, tbl.get(null, Tuple.create().set("id", 1L)));
 
-        assertNull(tbl.get(nonExistedTuple));
+        assertNull(tbl.get(null, nonExistedTuple));
     }
 
     @Test
     public void upsert() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, false)}
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
         RecordView<Tuple> tbl = createTableImpl(schema).recordView();
@@ -114,27 +100,27 @@ public class RecordBinaryViewOperationsTest {
         final Tuple newTuple = Tuple.create().set("id", 1L).set("val", 22L);
         final Tuple nonExistedTuple = Tuple.create().set("id", 2L);
 
-        assertNull(tbl.get(Tuple.create().set("id", 1L)));
+        assertNull(tbl.get(null, Tuple.create().set("id", 1L)));
 
         // Insert new tuple.
-        tbl.upsert(tuple);
+        tbl.upsert(null, tuple);
 
-        assertEqualsRows(schema, tuple, tbl.get(Tuple.create().set("id", 1L)));
+        assertEqualsRows(schema, tuple, tbl.get(null, Tuple.create().set("id", 1L)));
 
         // Update exited row.
-        tbl.upsert(newTuple);
+        tbl.upsert(null, newTuple);
 
-        assertEqualsRows(schema, newTuple, tbl.get(Tuple.create().set("id", 1L)));
+        assertEqualsRows(schema, newTuple, tbl.get(null, Tuple.create().set("id", 1L)));
 
-        assertNull(tbl.get(nonExistedTuple));
+        assertNull(tbl.get(null, nonExistedTuple));
     }
 
     @Test
     public void getAndUpsert() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, false)}
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
         RecordView<Tuple> tbl = createTableImpl(schema).recordView();
@@ -142,50 +128,50 @@ public class RecordBinaryViewOperationsTest {
         final Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
         final Tuple newTuple = Tuple.create().set("id", 1L).set("val", 22L);
 
-        assertNull(tbl.get(Tuple.create().set("id", 1L)));
+        assertNull(tbl.get(null, Tuple.create().set("id", 1L)));
 
         // Insert new tuple.
-        assertNull(tbl.getAndUpsert(tuple));
+        assertNull(tbl.getAndUpsert(null, tuple));
 
-        assertEqualsRows(schema, tuple, tbl.get(Tuple.create().set("id", 1L)));
+        assertEqualsRows(schema, tuple, tbl.get(null, Tuple.create().set("id", 1L)));
 
         // Update exited row.
-        assertEqualsRows(schema, tuple, tbl.getAndUpsert(newTuple));
+        assertEqualsRows(schema, tuple, tbl.getAndUpsert(null, newTuple));
 
-        assertEqualsRows(schema, newTuple, tbl.get(Tuple.create().set("id", 1L)));
+        assertEqualsRows(schema, newTuple, tbl.get(null, Tuple.create().set("id", 1L)));
     }
 
     @Test
     public void remove() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, false)}
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
         RecordView<Tuple> tbl = createTableImpl(schema).recordView();
 
-        tbl.upsert(Tuple.create().set("id", 1L).set("val", 11L));
+        tbl.upsert(null, Tuple.create().set("id", 1L).set("val", 11L));
 
         final Tuple keyTuple = Tuple.create().set("id", 1L);
 
         // Delete not existed keyTuple.
-        assertFalse(tbl.delete(Tuple.create().set("id", 2L)));
+        assertFalse(tbl.delete(null, Tuple.create().set("id", 2L)));
 
         // Delete existed keyTuple.
-        assertTrue(tbl.delete(keyTuple));
-        assertNull(tbl.get(keyTuple));
+        assertTrue(tbl.delete(null, keyTuple));
+        assertNull(tbl.get(null, keyTuple));
 
         // Delete already deleted keyTuple.
-        assertFalse(tbl.delete(keyTuple));
+        assertFalse(tbl.delete(null, keyTuple));
     }
 
     @Test
     public void removeExact() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, false)}
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
         RecordView<Tuple> tbl = createTableImpl(schema).recordView();
@@ -195,45 +181,45 @@ public class RecordBinaryViewOperationsTest {
         final Tuple tuple2 = Tuple.create().set("id", 1L).set("val", 22L);
         final Tuple nonExistedTuple = Tuple.create().set("id", 2L).set("val", 22L);
 
-        tbl.insert(tuple);
+        tbl.insert(null, tuple);
 
-        assertEqualsRows(schema, tuple, tbl.get(keyTuple));
+        assertEqualsRows(schema, tuple, tbl.get(null, keyTuple));
 
         // Fails to delete not existed tuple.
-        assertFalse(tbl.deleteExact(nonExistedTuple));
-        assertEqualsRows(schema, tuple, tbl.get(keyTuple));
+        assertFalse(tbl.deleteExact(null, nonExistedTuple));
+        assertEqualsRows(schema, tuple, tbl.get(null, keyTuple));
 
         // Fails to delete tuple with unexpected value.
-        assertFalse(tbl.deleteExact(tuple2));
-        assertEqualsRows(schema, tuple, tbl.get(keyTuple));
+        assertFalse(tbl.deleteExact(null, tuple2));
+        assertEqualsRows(schema, tuple, tbl.get(null, keyTuple));
 
         // TODO: IGNITE-14479: Fix default value usage.
         //        assertFalse(tbl.deleteExact(keyTuple));
         //        assertEqualsRows(schema, tuple, tbl.get(keyTuple));
 
         // Delete tuple with expected value.
-        assertTrue(tbl.deleteExact(tuple));
-        assertNull(tbl.get(keyTuple));
+        assertTrue(tbl.deleteExact(null, tuple));
+        assertNull(tbl.get(null, keyTuple));
 
         // Once again.
-        assertFalse(tbl.deleteExact(tuple));
-        assertNull(tbl.get(keyTuple));
+        assertFalse(tbl.deleteExact(null, tuple));
+        assertNull(tbl.get(null, keyTuple));
 
         // Insert new.
-        tbl.insert(tuple2);
-        assertEqualsRows(schema, tuple2, tbl.get(keyTuple));
+        tbl.insert(null, tuple2);
+        assertEqualsRows(schema, tuple2, tbl.get(null, keyTuple));
 
         // Delete tuple with expected value.
-        assertTrue(tbl.deleteExact(tuple2));
-        assertNull(tbl.get(keyTuple));
+        assertTrue(tbl.deleteExact(null, tuple2));
+        assertNull(tbl.get(null, keyTuple));
     }
 
     @Test
     public void replace() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, false)}
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
         RecordView<Tuple> tbl = createTableImpl(schema).recordView();
@@ -242,28 +228,28 @@ public class RecordBinaryViewOperationsTest {
         final Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
         final Tuple tuple2 = Tuple.create().set("id", 1L).set("val", 22L);
 
-        assertNull(tbl.get(keyTuple));
+        assertNull(tbl.get(null, keyTuple));
 
         // Ignore replace operation for non-existed row.
-        assertFalse(tbl.replace(tuple));
+        assertFalse(tbl.replace(null, tuple));
 
-        assertNull(tbl.get(keyTuple));
+        assertNull(tbl.get(null, keyTuple));
 
         // Insert row.
-        tbl.insert(tuple);
+        tbl.insert(null, tuple);
 
         // Replace existed row.
-        assertTrue(tbl.replace(tuple2));
+        assertTrue(tbl.replace(null, tuple2));
 
-        assertEqualsRows(schema, tuple2, tbl.get(keyTuple));
+        assertEqualsRows(schema, tuple2, tbl.get(null, keyTuple));
     }
 
     @Test
     public void replaceExact() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, false)}
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
         RecordView<Tuple> tbl = createTableImpl(schema).recordView();
@@ -271,7 +257,7 @@ public class RecordBinaryViewOperationsTest {
         final Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
         final Tuple tuple2 = Tuple.create().set("id", 1L).set("val", 22L);
 
-        assertNull(tbl.get(Tuple.create().set("id", 1L)));
+        assertNull(tbl.get(null, Tuple.create().set("id", 1L)));
 
         // Ignore replace operation for non-existed row.
         // TODO: IGNITE-14479: Fix default value usage.
@@ -281,23 +267,23 @@ public class RecordBinaryViewOperationsTest {
         //        assertNull(tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1)));
 
         // Insert row.
-        tbl.insert(tuple);
+        tbl.insert(null, tuple);
 
         // Replace existed row.
-        assertTrue(tbl.replace(tuple, tuple2));
+        assertTrue(tbl.replace(null, tuple, tuple2));
 
-        assertEqualsRows(schema, tuple2, tbl.get(Tuple.create().set("id", 1L)));
+        assertEqualsRows(schema, tuple2, tbl.get(null, Tuple.create().set("id", 1L)));
     }
 
     @Test
     public void validateSchema() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("val", NativeTypes.INT64, true),
-                        new Column("str", NativeTypes.stringOf(3), true),
-                        new Column("blob", NativeTypes.blobOf(3), true)
+                        new Column("val".toUpperCase(), NativeTypes.INT64, true),
+                        new Column("str".toUpperCase(), NativeTypes.stringOf(3), true),
+                        new Column("blob".toUpperCase(), NativeTypes.blobOf(3), true)
                 }
         );
 
@@ -308,28 +294,28 @@ public class RecordBinaryViewOperationsTest {
         final Tuple tuple0 = new TestTupleBuilder().set("id", 1L).set("str", "qweqweqwe").set("val", 11L);
         final Tuple tuple1 = new TestTupleBuilder().set("id", 1L).set("blob", new byte[]{0, 1, 2, 3}).set("val", 22L);
 
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.get(keyTuple0));
-        assertThrowsWithCause(SchemaMismatchException.class, () -> tbl.get(keyTuple1));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.get(null, keyTuple0));
+        assertThrowsWithCause(SchemaMismatchException.class, () -> tbl.get(null, keyTuple1));
 
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(tuple0));
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(tuple1));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple0));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple1));
 
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(tuple0));
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(tuple1));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(null, tuple0));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(null, tuple1));
 
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(tuple0));
-        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(tuple1));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple0));
+        assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple1));
     }
 
     @Test
     public void defaultValues() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("val", NativeTypes.INT64, true, () -> 28L),
-                        new Column("str", NativeTypes.stringOf(3), true, () -> "ABC"),
-                        new Column("blob", NativeTypes.blobOf(3), true, () -> new byte[]{0, 1, 2})
+                        new Column("val".toUpperCase(), NativeTypes.INT64, true, () -> 28L),
+                        new Column("str".toUpperCase(), NativeTypes.stringOf(3), true, () -> "ABC"),
+                        new Column("blob".toUpperCase(), NativeTypes.blobOf(3), true, () -> new byte[]{0, 1, 2})
                 }
         );
 
@@ -342,11 +328,39 @@ public class RecordBinaryViewOperationsTest {
         final Tuple tupleExpected0 = Tuple.create().set("id", 0L).set("val", 28L).set("str", "ABC").set("blob", new byte[]{0, 1, 2});
         final Tuple tuple1 = Tuple.create().set("id", 1L).set("val", null).set("str", null).set("blob", null);
 
-        tbl.insert(tuple0);
-        tbl.insert(tuple1);
+        tbl.insert(null, tuple0);
+        tbl.insert(null, tuple1);
 
-        assertEqualsRows(schema, tupleExpected0, tbl.get(keyTuple0));
-        assertEqualsRows(schema, tuple1, tbl.get(keyTuple1));
+        assertEqualsRows(schema, tupleExpected0, tbl.get(null, keyTuple0));
+        assertEqualsRows(schema, tuple1, tbl.get(null, keyTuple1));
+    }
+
+    @Test
+    public void getAll() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
+        );
+
+        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+
+        Tuple rec1 = Tuple.create().set("id", 1L).set("val", 11L);
+        Tuple rec3 = Tuple.create().set("id", 3L).set("val", 33L);
+
+        tbl.upsertAll(null, List.of(rec1, rec3));
+
+        Collection<Tuple> res = tbl.getAll(
+                null,
+                List.of(
+                        Tuple.create().set("id", 1L),
+                        Tuple.create().set("id", 2L),
+                        Tuple.create().set("id", 3L)
+                ));
+
+        assertEquals(2, res.size());
+        assertTrue(res.contains(rec1));
+        assertTrue(res.contains(rec1));
     }
 
     /**
@@ -422,7 +436,7 @@ public class RecordBinaryViewOperationsTest {
                 new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager),
                 txManager);
 
-        return new TableImpl(table, new DummySchemaManagerImpl(schema), null);
+        return new TableImpl(table, new DummySchemaManagerImpl(schema));
     }
 
     private <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {

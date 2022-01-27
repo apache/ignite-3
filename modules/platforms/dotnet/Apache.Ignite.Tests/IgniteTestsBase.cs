@@ -17,9 +17,12 @@
 
 namespace Apache.Ignite.Tests
 {
+    using System;
+    using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
     using NUnit.Framework;
+    using Table;
 
     /// <summary>
     /// Base class for client tests.
@@ -32,20 +35,37 @@ namespace Apache.Ignite.Tests
 
         protected const string ValCol = "val";
 
-        private JavaServer? _serverNode;
+        private static readonly JavaServer ServerNode;
 
-        protected int ServerPort => _serverNode?.Port ?? 0;
+        private TestEventListener _eventListener = null!;
+
+        static IgniteTestsBase()
+        {
+            ServerNode = JavaServer.StartAsync().GetAwaiter().GetResult();
+
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => ServerNode.Dispose();
+        }
+
+        protected static int ServerPort => ServerNode.Port;
 
         protected IIgniteClient Client { get; private set; } = null!;
 
         protected ITable Table { get; private set; } = null!;
 
+        protected IRecordView<IIgniteTuple> TupleView { get; private set; } = null!;
+
+        protected IRecordView<Poco> PocoView { get; private set; } = null!;
+
         [OneTimeSetUp]
         public async Task OneTimeSetUp()
         {
-            _serverNode = await JavaServer.StartAsync();
+            _eventListener = new TestEventListener();
+
             Client = await IgniteClient.StartAsync(GetConfig());
+
             Table = (await Client.Tables.GetTableAsync(TableName))!;
+            TupleView = Table.RecordBinaryView;
+            PocoView = Table.GetRecordView<Poco>();
         }
 
         [OneTimeTearDown]
@@ -53,12 +73,28 @@ namespace Apache.Ignite.Tests
         {
             // ReSharper disable once ConstantConditionalAccessQualifier
             Client?.Dispose();
-            _serverNode?.Dispose();
+
+            Assert.Greater(_eventListener.BuffersRented, 0);
+            Assert.AreEqual(_eventListener.BuffersReturned, _eventListener.BuffersRented);
+            _eventListener.Dispose();
         }
 
-        protected IgniteClientConfiguration GetConfig() => new()
+        [TearDown]
+        public async Task TearDown()
         {
-            Endpoints = { "127.0.0.1:" + _serverNode?.Port }
+            await TupleView.DeleteAllAsync(null, Enumerable.Range(-5, 20).Select(x => GetTuple(x)));
+
+            Assert.AreEqual(_eventListener.BuffersReturned, _eventListener.BuffersRented);
+        }
+
+        protected static IIgniteTuple GetTuple(long id, string? val = null) =>
+            new IgniteTuple { [KeyCol] = id, [ValCol] = val };
+
+        protected static Poco GetPoco(long id, string? val = null) => new() {Key = id, Val = val};
+
+        protected static IgniteClientConfiguration GetConfig() => new()
+        {
+            Endpoints = { "127.0.0.1:" + ServerNode.Port }
         };
     }
 }

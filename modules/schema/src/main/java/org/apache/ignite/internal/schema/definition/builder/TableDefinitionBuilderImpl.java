@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.schema.definition.builder;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
+import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
@@ -60,13 +63,13 @@ public class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
      * @param tableName  Table name.
      */
     public TableDefinitionBuilderImpl(String schemaName, String tableName) {
-        this.schemaName = schemaName;
-        this.tableName = tableName;
+        this.schemaName = IgniteObjectName.parse(schemaName);
+        this.tableName = IgniteObjectName.parse(tableName);
     }
 
     /** {@inheritDoc} */
     @Override
-    public TableDefinitionBuilderImpl columns(ColumnDefinition... columns) {
+    public TableDefinitionBuilderImpl columns(List<ColumnDefinition> columns) {
         for (ColumnDefinition column : columns) {
             if (this.columns.put(column.name(), column) != null) {
                 throw new IllegalArgumentException("Column with same name already exists: columnName=" + column.name());
@@ -74,6 +77,12 @@ public class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
         }
 
         return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public TableDefinitionBuilderImpl columns(ColumnDefinition... columns) {
+        return columns(Arrays.asList(columns));
     }
 
     /** {@inheritDoc} */
@@ -89,7 +98,7 @@ public class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
     /** {@inheritDoc} */
     @Override
     public TableDefinitionBuilder withPrimaryKey(String colName) {
-        primaryKeyDefinition = SchemaBuilders.primaryKey().withColumns(colName).build();
+        primaryKeyDefinition = SchemaBuilders.primaryKey().withColumns(IgniteObjectName.parse(colName)).build();
 
         return this;
     }
@@ -114,8 +123,8 @@ public class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
     public TableDefinition build() {
         assert schemaName != null : "Database schema name must be specified.";
 
-        assert columns.size() > primaryKeyDefinition.columns().size() : "Key or/and value columns must be defined.";
         assert primaryKeyDefinition != null : "Primary key index must be configured.";
+        assert columns.size() > primaryKeyDefinition.columns().size() : "Key or/and value columns must be defined.";
 
         validateIndices(indices.values(), columns.values(), primaryKeyDefinition.affinityColumns());
 

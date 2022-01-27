@@ -86,7 +86,7 @@
 
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-calcite</artifactId>
+            <artifactId>ignite-sql-engine</artifactId>
         </dependency>
 
         <dependency>
@@ -160,6 +160,12 @@
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-network</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.github.classgraph</groupId>
+            <artifactId>classgraph</artifactId>
             <scope>test</scope>
         </dependency>
 

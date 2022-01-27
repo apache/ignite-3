@@ -33,6 +33,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.Peer;
@@ -115,6 +116,7 @@ import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.SystemPropertyUtil;
 import org.apache.ignite.raft.jraft.util.ThreadHelper;
 import org.apache.ignite.raft.jraft.util.ThreadId;
+import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.LongHeldDetectingReadWriteLock;
 
@@ -146,6 +148,10 @@ public class NodeImpl implements Node, RaftServerService {
     private final Ballot prevVoteCtx = new Ballot();
     private ConfigurationEntry conf;
     private StopTransferArg stopTransferArg;
+    private boolean electionAdjusted;
+    private long electionRound;
+    private int initialElectionTimeout;
+
     /**
      * Raft group and node options and identifier
      */
@@ -597,6 +603,7 @@ public class NodeImpl implements Node, RaftServerService {
             }
 
             doUnlock = false;
+            adjustElectionTimeout();
             preVote();
 
         }
@@ -604,6 +611,50 @@ public class NodeImpl implements Node, RaftServerService {
             if (doUnlock) {
                 this.writeLock.unlock();
             }
+        }
+    }
+
+    /**
+     * Method that adjusts election timeout after several consecutive unsuccessful leader elections according to {@link TimeoutStrategy}
+     * <p>
+     * Notes about general algorithm: The main idea is that in a stable cluster election timeout should be relatively small, but when
+     * something prevents elections from completion, like an unstable network or long GC pauses, we don't want to have a lot of
+     * elections, so election timeout is adjusted. Hence, the upper bound of the election timeout adjusting is the value, which is enough to
+     * elect a leader or handle problems that prevent a successful leader election.
+     * <p>
+     * Leader election timeout is set to an initial value after a successful election of a leader.
+     */
+    private void adjustElectionTimeout() {
+        electionRound++;
+
+        if (electionRound > 1)
+            LOG.info("Unsuccessful election round number {}", electionRound);
+
+        if (!electionAdjusted) {
+            initialElectionTimeout = options.getElectionTimeoutMs();
+        }
+
+        long timeout = options.getElectionTimeoutStrategy().nextTimeout(options.getElectionTimeoutMs(), electionRound);
+
+        if (timeout != options.getElectionTimeoutMs()) {
+            resetElectionTimeoutMs((int) timeout);
+            LOG.info("Election timeout was adjusted according to {} ", options.getElectionTimeoutStrategy());
+            electionAdjusted = true;
+        }
+    }
+
+    /**
+     * Method that resets election timeout to initial value after an adjusting.
+     *
+     * For more details see {@link NodeImpl#adjustElectionTimeout()}.
+     */
+    private void resetElectionTimeoutToInitial() {
+        electionRound = 0;
+
+        if (electionAdjusted) {
+            LOG.info("Election timeout was reset to initial value due to successful leader election.");
+            resetElectionTimeoutMs(initialElectionTimeout);
+            electionAdjusted = false;
         }
     }
 
@@ -1158,7 +1209,7 @@ public class NodeImpl implements Node, RaftServerService {
 
     // should be in writeLock
     private void electSelf() {
-        long oldTerm;
+        long electSelfTerm;
         try {
             LOG.info("Node {} start vote and grant vote self, term={}.", getNodeId(), this.currTerm);
             if (!this.conf.contains(this.serverId)) {
@@ -1177,7 +1228,7 @@ public class NodeImpl implements Node, RaftServerService {
             LOG.debug("Node {} start vote timer, term={} .", getNodeId(), this.currTerm);
             this.voteTimer.start();
             this.voteCtx.init(this.conf.getConf(), this.conf.isStable() ? null : this.conf.getOldConf());
-            oldTerm = this.currTerm;
+            electSelfTerm = this.currTerm;
         }
         finally {
             this.writeLock.unlock();
@@ -1188,7 +1239,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.writeLock.lock();
         try {
             // vote need defense ABA after unlock&writeLock
-            if (oldTerm != this.currTerm) {
+            if (electSelfTerm != this.currTerm) {
                 LOG.warn("Node {} raise term {} when getLastLogId.", getNodeId(), this.currTerm);
                 return;
             }
@@ -1196,20 +1247,20 @@ public class NodeImpl implements Node, RaftServerService {
                 if (peer.equals(this.serverId)) {
                     continue;
                 }
-    
+
                 rpcClientService.connectAsync(peer.getEndpoint()).thenAccept(ok -> {
                     if (!ok) {
                         LOG.warn("Node {} failed to init channel, address={}.", getNodeId(), peer.getEndpoint());
                         return ;
                     }
-                    final OnRequestVoteRpcDone done = new OnRequestVoteRpcDone(peer, this.currTerm, this);
+                    final OnRequestVoteRpcDone done = new OnRequestVoteRpcDone(peer, electSelfTerm, this);
                     done.request = raftOptions.getRaftMessagesFactory()
                             .requestVoteRequest()
                             .preVote(false) // It's not a pre-vote request.
                             .groupId(this.groupId)
                             .serverId(this.serverId.toString())
                             .peerId(peer.toString())
-                            .term(this.currTerm)
+                            .term(electSelfTerm)
                             .lastLogIndex(lastLogId.getIndex())
                             .lastLogTerm(lastLogId.getTerm())
                             .build();
@@ -1217,7 +1268,7 @@ public class NodeImpl implements Node, RaftServerService {
                 });
             }
 
-            this.metaStorage.setTermAndVotedFor(this.currTerm, this.serverId);
+            this.metaStorage.setTermAndVotedFor(electSelfTerm, this.serverId);
             this.voteCtx.grant(this.serverId);
             if (this.voteCtx.isGranted()) {
                 becomeLeader();
@@ -1240,6 +1291,8 @@ public class NodeImpl implements Node, RaftServerService {
                 this.fsmCaller.onStartFollowing(new LeaderChangeContext(newLeaderId, this.currTerm, status));
             }
             this.leaderId = newLeaderId.copy();
+
+            resetElectionTimeoutToInitial();
         }
     }
 
@@ -1300,6 +1353,7 @@ public class NodeImpl implements Node, RaftServerService {
             throw new IllegalStateException();
         }
         this.confCtx.flush(this.conf.getConf(), this.conf.getOldConf());
+        resetElectionTimeoutToInitial();
         this.stepDownTimer.start();
     }
 
@@ -1413,10 +1467,10 @@ public class NodeImpl implements Node, RaftServerService {
                     st.setError(RaftError.EBUSY, "Is transferring leadership.");
                 }
                 LOG.debug("Node {} can't apply, status={}.", getNodeId(), st);
-                final List<LogEntryAndClosure> savedTasks = new ArrayList<>(tasks);
+                final List<Closure> dones = tasks.stream().map(ele -> ele.done).collect(Collectors.toList());
                 Utils.runInThread(this.getOptions().getCommonExecutor(), () -> {
-                    for (int i = 0; i < size; i++) {
-                        savedTasks.get(i).done.run(st);
+                    for (final Closure done : dones) {
+                        done.run(st);
                     }
                 });
                 return;
@@ -1833,11 +1887,18 @@ public class NodeImpl implements Node, RaftServerService {
                         stepDown(request.term(), false, new Status(RaftError.EHIGHERTERMRESPONSE,
                             "Raft node receives higher term RequestVoteRequest."));
                     }
+                    else if (candidateId.equals(leaderId)) { // Already follows a leader in this term.
+                        LOG.info("Node {} ignores RequestVoteRequest from {}, term={}, currTerm={}.", getNodeId(),
+                            request.serverId(), request.term(), this.currTerm);
+
+                        break;
+                    }
                 }
                 else {
                     // ignore older term
-                    LOG.info("Node {} ignore RequestVoteRequest from {}, term={}, currTerm={}.", getNodeId(),
+                    LOG.info("Node {} ignores RequestVoteRequest from {}, term={}, currTerm={}.", getNodeId(),
                         request.serverId(), request.term(), this.currTerm);
+
                     break;
                 }
 
@@ -2045,10 +2106,9 @@ public class NodeImpl implements Node, RaftServerService {
             final List<LogEntry> entries = new ArrayList<>(entriesCount);
             ByteBuffer allData = request.data() != null ? request.data().asReadOnlyByteBuffer() : ByteString.EMPTY.asReadOnlyByteBuffer();
 
-            final List<RaftOutter.EntryMeta> entriesList = request.entriesList();
-            for (int i = 0; i < entriesCount; i++) {
+            final Collection<RaftOutter.EntryMeta> entriesList = request.entriesList();
+            for (RaftOutter.EntryMeta entry : entriesList) {
                 index++;
-                final RaftOutter.EntryMeta entry = entriesList.get(i);
 
                 final LogEntry logEntry = logEntryFromMeta(index, allData, entry);
 
@@ -2488,7 +2548,7 @@ public class NodeImpl implements Node, RaftServerService {
         return this.raftOptions;
     }
 
-    @OnlyForTest
+    @Override
     public long getCurrentTerm() {
         this.readLock.lock();
         try {
@@ -2719,7 +2779,7 @@ public class NodeImpl implements Node, RaftServerService {
 
     // in writeLock
     private void preVote() {
-        long oldTerm;
+        long preVoteTerm;
         try {
             LOG.info("Node {} term {} start preVote.", getNodeId(), this.currTerm);
             if (this.snapshotExecutor != null && this.snapshotExecutor.isInstallingSnapshot()) {
@@ -2732,7 +2792,7 @@ public class NodeImpl implements Node, RaftServerService {
                 LOG.warn("Node {} can't do preVote as it is not in conf <{}>.", getNodeId(), this.conf);
                 return;
             }
-            oldTerm = this.currTerm;
+            preVoteTerm = this.currTerm;
         }
         finally {
             this.writeLock.unlock();
@@ -2744,7 +2804,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.writeLock.lock();
         try {
             // pre_vote need defense ABA after unlock&writeLock
-            if (oldTerm != this.currTerm) {
+            if (preVoteTerm != this.currTerm) {
                 LOG.warn("Node {} raise term {} when get lastLogId.", getNodeId(), this.currTerm);
                 return;
             }
@@ -2753,20 +2813,20 @@ public class NodeImpl implements Node, RaftServerService {
                 if (peer.equals(this.serverId)) {
                     continue;
                 }
-    
+
                 rpcClientService.connectAsync(peer.getEndpoint()).thenAccept(ok -> {
                     if (!ok) {
                         LOG.warn("Node {} failed to init channel, address={}.", getNodeId(), peer.getEndpoint());
                         return;
                     }
-                    final OnPreVoteRpcDone done = new OnPreVoteRpcDone(peer, this.currTerm);
+                    final OnPreVoteRpcDone done = new OnPreVoteRpcDone(peer, preVoteTerm);
                     done.request = raftOptions.getRaftMessagesFactory()
                             .requestVoteRequest()
                             .preVote(true) // it's a pre-vote request.
                             .groupId(this.groupId)
                             .serverId(this.serverId.toString())
                             .peerId(peer.toString())
-                            .term(this.currTerm + 1) // next term
+                            .term(preVoteTerm + 1) // next term
                             .lastLogIndex(lastLogId.getIndex())
                             .lastLogTerm(lastLogId.getTerm())
                             .build();
@@ -2792,6 +2852,10 @@ public class NodeImpl implements Node, RaftServerService {
             this.writeLock.unlock();
             return;
         }
+
+        // This is needed for the node, which won preVote in a previous iteration, but leader wasn't elected.
+        if (this.prevVoteCtx.isGranted())
+            adjustElectionTimeout();
 
         if (this.raftOptions.isStepDownWhenVoteTimedout()) {
             LOG.warn(
@@ -3400,10 +3464,10 @@ public class NodeImpl implements Node, RaftServerService {
             // Parallelize response and election
             done.sendResponse(resp);
             doUnlock = false;
-    
+
             LOG.info("Node {} received TimeoutNowRequest from {}, term={} and starts voting.", getNodeId(), request.serverId(),
                     savedTerm);
-            
+
             electSelf();
         }
         finally {

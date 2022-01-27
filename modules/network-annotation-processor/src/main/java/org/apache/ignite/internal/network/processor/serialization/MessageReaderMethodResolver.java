@@ -24,6 +24,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
+import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.serialization.MessageReader;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 
@@ -57,6 +58,12 @@ class MessageReaderMethodResolver {
         TypeMirror parameterType = getter.getReturnType();
 
         String parameterName = getter.getSimpleName().toString();
+
+        if (getter.getAnnotation(Marshallable.class) != null) {
+            return CodeBlock.builder()
+                    .add("readMarshallable($S)", parameterName)
+                    .build();
+        }
 
         String methodName = methodNameResolver.resolveBaseMethodName(parameterType);
 

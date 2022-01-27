@@ -20,11 +20,24 @@ namespace Apache.Ignite.Table
     /// <summary>
     /// Table view.
     /// </summary>
-    public interface ITable : ITableView<IIgniteTuple>
+    public interface ITable
     {
         /// <summary>
         /// Gets the table name.
         /// </summary>
         public string Name { get; }
+
+        /// <summary>
+        /// Gets the record binary view.
+        /// </summary>
+        public IRecordView<IIgniteTuple> RecordBinaryView { get; }
+
+        /// <summary>
+        /// Gets the record view mapped to specified type <typeparamref name="T"/>.
+        /// </summary>
+        /// <typeparam name="T">Record type.</typeparam>
+        /// <returns>Record view.</returns>
+        public IRecordView<T> GetRecordView<T>() // TODO: Custom mapping (IGNITE-16356)
+            where T : class;
     }
 }

@@ -47,6 +47,10 @@ import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -64,15 +68,17 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.schema.marshaller.asm.AsmMarshallerGenerator;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
+import org.apache.ignite.internal.schema.marshaller.reflection.SerializingConverter;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithNoDefaultConstructor;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithPrivateConstructor;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ObjectFactory;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.table.mapper.Mapper;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.TestFactory;
@@ -87,7 +93,10 @@ public class KvMarshallerTest {
      * Return list of marshaller factories for test.
      */
     private static List<MarshallerFactory> marshallerFactoryProvider() {
-        return List.of(new ReflectionMarshallerFactory());
+        return List.of(
+                new ReflectionMarshallerFactory(),
+                new AsmMarshallerGenerator()
+        );
     }
 
     /** Random. */
@@ -161,17 +170,18 @@ public class KvMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void narrowType(MarshallerFactory factory) throws MarshallerException {
+        Assumptions.assumeFalse(factory instanceof AsmMarshallerGenerator, "Generated marshaller doesn't support truncated values, yet.");
+
         Column[] cols = new Column[]{
-                new Column("primitiveIntCol", INT32, false),
-                new Column("primitiveLongCol", INT64, false),
-                new Column("primitiveFloatCol", FLOAT, false),
-                new Column("primitiveDoubleCol", DOUBLE, false),
-                new Column("stringCol", STRING, false),
-                new Column("uuidCol", UUID, false),
+                new Column("primitiveIntCol".toUpperCase(), INT32, false),
+                new Column("primitiveLongCol".toUpperCase(), INT64, false),
+                new Column("primitiveFloatCol".toUpperCase(), FLOAT, false),
+                new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
+                new Column("stringCol".toUpperCase(), STRING, false),
+                new Column("uuidCol".toUpperCase(), UUID, false),
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, columnsAllTypes());
-
         KvMarshaller<TestTruncatedObject, TestTruncatedObject> marshaller =
                 factory.create(schema, TestTruncatedObject.class, TestTruncatedObject.class);
 
@@ -194,9 +204,9 @@ public class KvMarshallerTest {
     @MethodSource("marshallerFactoryProvider")
     public void wideType(MarshallerFactory factory) throws MarshallerException {
         Column[] cols = new Column[]{
-                new Column("primitiveLongCol", INT64, false),
-                new Column("primitiveDoubleCol", DOUBLE, false),
-                new Column("stringCol", STRING, true),
+                new Column("primitiveLongCol".toUpperCase(), INT64, false),
+                new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
+                new Column("stringCol".toUpperCase(), STRING, true),
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
@@ -238,19 +248,21 @@ public class KvMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void columnNameMapping(MarshallerFactory factory) throws MarshallerException {
+        Assumptions.assumeFalse(factory instanceof AsmMarshallerGenerator, "Generated marshaller doesn't support column mapping, yet.");
+
         SchemaDescriptor schema = new SchemaDescriptor(1,
-                new Column[]{new Column("key", INT64, false)},
+                new Column[]{new Column("key".toUpperCase(), INT64, false)},
                 new Column[]{
-                        new Column("col1", INT64, false),
-                        new Column("col2", INT64, true),
-                        new Column("col3", STRING, false)
+                        new Column("col1".toUpperCase(), INT64, false),
+                        new Column("col2".toUpperCase(), INT64, true),
+                        new Column("col3".toUpperCase(), STRING, false)
                 });
 
-        Mapper<TestKeyObject> keyMapper = Mapper.builderFor(TestKeyObject.class)
+        Mapper<TestKeyObject> keyMapper = Mapper.builder(TestKeyObject.class)
                 .map("id", "key")
                 .build();
 
-        Mapper<TestObject> valMapper = Mapper.builderFor(TestObject.class)
+        Mapper<TestObject> valMapper = Mapper.builder(TestObject.class)
                 .map("longCol", "col1")
                 .map("stringCol", "col3")
                 .build();
@@ -278,8 +290,8 @@ public class KvMarshallerTest {
     @MethodSource("marshallerFactoryProvider")
     public void classWithWrongFieldType(MarshallerFactory factory) {
         Column[] cols = new Column[]{
-                new Column("bitmaskCol", NativeTypes.bitmaskOf(42), true),
-                new Column("shortCol", UUID, true)
+                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
+                new Column("shortCol".toUpperCase(), UUID, true)
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
@@ -304,8 +316,8 @@ public class KvMarshallerTest {
     @MethodSource("marshallerFactoryProvider")
     public void classWithoutKeyField(MarshallerFactory factory) {
         Column[] keyCols = new Column[]{
-                new Column("id", INT64, false),
-                new Column("id2", INT64, false),
+                new Column("id".toUpperCase(), INT64, false),
+                new Column("id2".toUpperCase(), INT64, false),
         };
 
         Column[] valCols = new Column[]{
@@ -322,8 +334,8 @@ public class KvMarshallerTest {
     @MethodSource("marshallerFactoryProvider")
     public void classWithIncorrectBitmaskSize(MarshallerFactory factory) {
         Column[] cols = new Column[]{
-                new Column("primitiveLongCol", INT64, false),
-                new Column("bitmaskCol", NativeTypes.bitmaskOf(9), true),
+                new Column("primitiveLongCol".toUpperCase(), INT64, false),
+                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(9), true),
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
@@ -345,8 +357,8 @@ public class KvMarshallerTest {
     @MethodSource("marshallerFactoryProvider")
     public void classWithPrivateConstructor(MarshallerFactory factory) throws MarshallerException {
         Column[] cols = new Column[]{
-                new Column("primLongCol", INT64, false),
-                new Column("primIntCol", INT32, false),
+                new Column("primLongCol".toUpperCase(), INT64, false),
+                new Column("primIntCol".toUpperCase(), INT32, false),
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
@@ -381,14 +393,14 @@ public class KvMarshallerTest {
         final Object key = TestObjectWithNoDefaultConstructor.randomObject(rnd);
         final Object val = TestObjectWithNoDefaultConstructor.randomObject(rnd);
 
-        assertThrows(IgniteInternalException.class, () -> factory.create(schema, key.getClass(), val.getClass()));
+        assertThrows(IllegalArgumentException.class, () -> factory.create(schema, key.getClass(), val.getClass()));
     }
 
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void privateClass(MarshallerFactory factory) throws MarshallerException {
         Column[] cols = new Column[]{
-                new Column("primLongCol", INT64, false),
+                new Column("primLongCol".toUpperCase(), INT64, false),
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
@@ -417,13 +429,13 @@ public class KvMarshallerTest {
             Thread.currentThread().setContextClassLoader(new DynamicClassLoader(getClass().getClassLoader()));
 
             Column[] keyCols = new Column[]{
-                    new Column("key", INT64, false)
+                    new Column("key".toUpperCase(), INT64, false)
             };
 
             Column[] valCols = new Column[]{
-                    new Column("col0", INT64, false),
-                    new Column("col1", INT64, false),
-                    new Column("col2", INT64, false),
+                    new Column("col0".toUpperCase(), INT64, false),
+                    new Column("col1".toUpperCase(), INT64, false),
+                    new Column("col2".toUpperCase(), INT64, false),
             };
 
             SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
@@ -448,6 +460,69 @@ public class KvMarshallerTest {
         }
     }
 
+    @ParameterizedTest
+    @MethodSource("marshallerFactoryProvider")
+    public void pojoMapping(MarshallerFactory factory) throws MarshallerException, IOException {
+        Assumptions.assumeFalse(factory instanceof AsmMarshallerGenerator, "Generated marshaller doesn't support column mapping.");
+
+        final SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("key", INT64, false)},
+                new Column[]{new Column("val", BYTES, true),
+                });
+
+        final TestPojo pojo = new TestPojo(42);
+        final byte[] serializedPojo = serializeObject(pojo);
+
+        final KvMarshaller<Long, TestPojo> marshaller1 = factory.create(schema,
+                Mapper.of(Long.class, "\"key\""),
+                Mapper.of(TestPojo.class, "\"val\"", new SerializingConverter<>()));
+
+        final KvMarshaller<Long, byte[]> marshaller2 = factory.create(schema,
+                Mapper.of(Long.class, "\"key\""),
+                Mapper.of(byte[].class, "\"val\""));
+
+        final KvMarshaller<Long, TestPojoWrapper> marshaller3 = factory.create(schema,
+                Mapper.of(Long.class, "\"key\""),
+                Mapper.builder(TestPojoWrapper.class).map("pojoField", "\"val\"", new SerializingConverter<>()).build());
+
+        final KvMarshaller<Long, TestPojoWrapper> marshaller4 = factory.create(schema,
+                Mapper.of(Long.class, "\"key\""),
+                Mapper.builder(TestPojoWrapper.class).map("rawField", "\"val\"").build());
+
+        BinaryRow row = marshaller1.marshal(1L, pojo);
+        BinaryRow row2 = marshaller2.marshal(1L, serializedPojo);
+        BinaryRow row3 = marshaller3.marshal(1L, new TestPojoWrapper(pojo));
+        BinaryRow row4 = marshaller4.marshal(1L, new TestPojoWrapper(serializedPojo));
+
+        // Verify all rows are equivalent.
+        assertArrayEquals(row.bytes(), row2.bytes());
+        assertArrayEquals(row.bytes(), row3.bytes());
+        assertArrayEquals(row.bytes(), row4.bytes());
+
+        // Check key.
+        assertEquals(1L, marshaller1.unmarshalKey(new Row(schema, row)));
+        assertEquals(1L, marshaller2.unmarshalKey(new Row(schema, row)));
+        assertEquals(1L, marshaller3.unmarshalKey(new Row(schema, row)));
+        assertEquals(1L, marshaller4.unmarshalKey(new Row(schema, row)));
+
+        // Check values.
+        assertEquals(pojo, marshaller1.unmarshalValue(new Row(schema, row)));
+        assertArrayEquals(serializedPojo, marshaller2.unmarshalValue(new Row(schema, row)));
+        assertEquals(new TestPojoWrapper(pojo), marshaller3.unmarshalValue(new Row(schema, row)));
+        assertEquals(new TestPojoWrapper(serializedPojo), marshaller4.unmarshalValue(new Row(schema, row)));
+    }
+
+    private byte[] serializeObject(TestPojo obj) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(512);
+
+        try (ObjectOutputStream dos = new ObjectOutputStream(baos)) {
+            dos.writeObject(obj);
+        }
+
+        return baos.toByteArray();
+    }
+
     /**
      * Generate random key-value pair of given types and check serialization and deserialization works fine.
      *
@@ -466,8 +541,9 @@ public class KvMarshallerTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
 
-        KvMarshaller<Object, Object> marshaller = factory.create(schema, (Class<Object>) key.getClass(), (Class<Object>) val.getClass());
-
+        KvMarshaller<Object, Object> marshaller = factory.create(schema,
+                Mapper.of((Class<Object>) key.getClass(), "\"key\""),
+                Mapper.of((Class<Object>) val.getClass(), "\"val\""));
         BinaryRow row = marshaller.marshal(key, val);
 
         Object key1 = marshaller.unmarshalKey(new Row(schema, row));
@@ -548,33 +624,33 @@ public class KvMarshallerTest {
 
     private Column[] columnsAllTypes() {
         Column[] cols = new Column[]{
-                new Column("primitiveByteCol", INT8, false, () -> (byte) 0x42),
-                new Column("primitiveShortCol", INT16, false, () -> (short) 0x4242),
-                new Column("primitiveIntCol", INT32, false, () -> 0x42424242),
-                new Column("primitiveLongCol", INT64, false),
-                new Column("primitiveFloatCol", FLOAT, false),
-                new Column("primitiveDoubleCol", DOUBLE, false),
+                new Column("primitiveByteCol".toUpperCase(), INT8, false, () -> (byte) 0x42),
+                new Column("primitiveShortCol".toUpperCase(), INT16, false, () -> (short) 0x4242),
+                new Column("primitiveIntCol".toUpperCase(), INT32, false, () -> 0x42424242),
+                new Column("primitiveLongCol".toUpperCase(), INT64, false),
+                new Column("primitiveFloatCol".toUpperCase(), FLOAT, false),
+                new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
 
-                new Column("byteCol", INT8, true),
-                new Column("shortCol", INT16, true),
-                new Column("intCol", INT32, true),
-                new Column("longCol", INT64, true),
-                new Column("nullLongCol", INT64, true),
-                new Column("floatCol", FLOAT, true),
-                new Column("doubleCol", DOUBLE, true),
+                new Column("byteCol".toUpperCase(), INT8, true),
+                new Column("shortCol".toUpperCase(), INT16, true),
+                new Column("intCol".toUpperCase(), INT32, true),
+                new Column("longCol".toUpperCase(), INT64, true),
+                new Column("nullLongCol".toUpperCase(), INT64, true),
+                new Column("floatCol".toUpperCase(), FLOAT, true),
+                new Column("doubleCol".toUpperCase(), DOUBLE, true),
 
-                new Column("dateCol", DATE, true),
-                new Column("timeCol", time(), true),
-                new Column("dateTimeCol", datetime(), true),
-                new Column("timestampCol", timestamp(), true),
+                new Column("dateCol".toUpperCase(), DATE, true),
+                new Column("timeCol".toUpperCase(), time(), true),
+                new Column("dateTimeCol".toUpperCase(), datetime(), true),
+                new Column("timestampCol".toUpperCase(), timestamp(), true),
 
-                new Column("uuidCol", UUID, true),
-                new Column("bitmaskCol", NativeTypes.bitmaskOf(42), true),
-                new Column("stringCol", STRING, true),
-                new Column("nullBytesCol", BYTES, true),
-                new Column("bytesCol", BYTES, true),
-                new Column("numberCol", NativeTypes.numberOf(12), true),
-                new Column("decimalCol", NativeTypes.decimalOf(19, 3), true),
+                new Column("uuidCol".toUpperCase(), UUID, true),
+                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
+                new Column("stringCol".toUpperCase(), STRING, true),
+                new Column("nullBytesCol".toUpperCase(), BYTES, true),
+                new Column("bytesCol".toUpperCase(), BYTES, true),
+                new Column("numberCol".toUpperCase(), NativeTypes.numberOf(12), true),
+                new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), true),
         };
         // Validate all types are tested.
         Set<NativeTypeSpec> testedTypes = Arrays.stream(cols).map(c -> c.type().spec())
@@ -768,6 +844,79 @@ public class KvMarshallerTest {
         @Override
         public int hashCode() {
             return Objects.hash(primLongCol);
+        }
+    }
+
+    /**
+     * Test object represents a user object of arbitrary type.
+     */
+    static class TestPojo implements Serializable {
+        private static final long serialVersionUid = -1L;
+
+        int intField;
+
+        public TestPojo() {
+        }
+
+        public TestPojo(int intVal) {
+            this.intField = intVal;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TestPojo testPojo = (TestPojo) o;
+            return intField == testPojo.intField;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(intField);
+        }
+    }
+
+    /**
+     * Wrapper for the {@link TestPojo}.
+     */
+    static class TestPojoWrapper {
+        TestPojo pojoField;
+
+        byte[] rawField;
+
+        public TestPojoWrapper() {
+        }
+
+        public TestPojoWrapper(TestPojo pojoField) {
+            this.pojoField = pojoField;
+        }
+
+        public TestPojoWrapper(byte[] rawField) {
+            this.rawField = rawField;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TestPojoWrapper that = (TestPojoWrapper) o;
+            return Objects.equals(pojoField, that.pojoField)
+                    && Arrays.equals(rawField, that.rawField);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = Objects.hash(pojoField);
+            result = 31 * result + Arrays.hashCode(rawField);
+            return result;
         }
     }
 }

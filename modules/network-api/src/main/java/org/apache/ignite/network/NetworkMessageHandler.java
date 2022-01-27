@@ -17,6 +17,8 @@
 
 package org.apache.ignite.network;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Handler of incoming messages.
  */
@@ -26,7 +28,8 @@ public interface NetworkMessageHandler {
      *
      * @param message       Message, which was received from the cluster.
      * @param senderAddr    Sender address. Use {@link TopologyService#getByAddress} to resolve the corresponding {@link ClusterNode}.
-     * @param correlationId Correlation id. Used to track correspondence between requests and responses.
+     * @param correlationId Correlation id. Used to track correspondence between requests and responses. Can be {@code null} if the received
+     *                      message is not a request from a {@link MessagingService#invoke} method from another node.
      */
-    void onReceived(NetworkMessage message, NetworkAddress senderAddr, String correlationId);
+    void onReceived(NetworkMessage message, NetworkAddress senderAddr, @Nullable Long correlationId);
 }

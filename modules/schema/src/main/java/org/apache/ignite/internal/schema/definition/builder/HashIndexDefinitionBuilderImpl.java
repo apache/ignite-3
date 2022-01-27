@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.schema.definition.builder;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.definition.index.HashIndexDefinitionImpl;
+import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.schema.definition.builder.HashIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.index.HashIndexDefinition;
 
@@ -27,7 +31,7 @@ import org.apache.ignite.schema.definition.index.HashIndexDefinition;
  */
 public class HashIndexDefinitionBuilderImpl extends AbstractIndexBuilder implements HashIndexDefinitionBuilder {
     /** Index columns. */
-    private String[] columns;
+    private List<String> columns;
 
     /**
      * Constructor.
@@ -40,8 +44,16 @@ public class HashIndexDefinitionBuilderImpl extends AbstractIndexBuilder impleme
 
     /** {@inheritDoc} */
     @Override
+    public HashIndexDefinitionBuilder withColumns(List<String> columns) {
+        this.columns = columns.stream().map(IgniteObjectName::parse).collect(Collectors.toList());
+
+        return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public HashIndexDefinitionBuilder withColumns(String... columns) {
-        this.columns = columns.clone();
+        this.columns = Arrays.stream(columns).map(IgniteObjectName::parse).collect(Collectors.toList());
 
         return this;
     }
@@ -58,7 +70,7 @@ public class HashIndexDefinitionBuilderImpl extends AbstractIndexBuilder impleme
     @Override
     public HashIndexDefinition build() {
         assert columns != null;
-        assert columns.length > 0;
+        assert !columns.isEmpty();
 
         return new HashIndexDefinitionImpl(name, columns);
     }

@@ -42,7 +42,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.lang.LoggerMessageHelper;
+import org.apache.ignite.lang.IgniteStringBuilder;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -259,6 +260,28 @@ public class IgniteUtils {
      */
     private static void addByteAsHex(StringBuilder sb, byte b) {
         sb.append(Integer.toHexString(MASK & b >>> 4)).append(Integer.toHexString(MASK & b));
+    }
+
+    /**
+     * Returns a hex string representation of the given long value.
+     *
+     * @param val Value to convert to string.
+     * @return Hex string.
+     */
+    //TODO IGNITE-16350 Consider renaming or moving into other class.
+    public static String hexLong(long val) {
+        return new IgniteStringBuilder(16).appendHex(val).toString();
+    }
+
+    /**
+     * Returns a hex string representation of the given integer value.
+     *
+     * @param val Value to convert to string.
+     * @return Hex string.
+     */
+    //TODO IGNITE-16350 Consider renaming or moving into other class.
+    public static String hexInt(int val) {
+        return new IgniteStringBuilder(8).appendHex(val).toString();
     }
 
     /**
@@ -522,7 +545,7 @@ public class IgniteUtils {
     public static void dumpStack(IgniteLogger log, String msg, Object... params) {
         String reason = "Dumping stack.";
 
-        var err = new Exception(LoggerMessageHelper.format(msg, params));
+        var err = new Exception(IgniteStringFormatter.format(msg, params));
 
         if (log != null) {
             log.error(reason, err);
@@ -597,5 +620,15 @@ public class IgniteUtils {
         }
 
         return success;
+    }
+
+    /**
+     * Tests if given string is {@code null} or empty.
+     *
+     * @param s String to test.
+     * @return Whether or not the given string is {@code null} or empty.
+     */
+    public static boolean nullOrEmpty(@Nullable String s) {
+        return s == null || s.isEmpty();
     }
 }

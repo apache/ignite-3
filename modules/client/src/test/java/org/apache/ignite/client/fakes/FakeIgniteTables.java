@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -40,6 +41,12 @@ import org.jetbrains.annotations.NotNull;
  */
 public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     public static final String TABLE_EXISTS = "Table exists";
+
+    public static final String TABLE_ALL_COLUMNS = "all-columns";
+
+    public static final String TABLE_ONE_COLUMN = "one-column";
+
+    public static final String TABLE_WITH_DEFAULT_VALUES = "default-columns";
 
     private final ConcurrentHashMap<String, TableImpl> tables = new ConcurrentHashMap<>();
 
@@ -76,28 +83,6 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     @Override
     public CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange) {
         throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Table createTableIfNotExists(String name, Consumer<TableChange> tableInitChange) {
-        var newTable = getNewTable(name);
-
-        var oldTable = tables.putIfAbsent(name, newTable);
-
-        if (oldTable != null) {
-            return oldTable;
-        }
-
-        tablesById.put(newTable.tableId(), newTable);
-
-        return newTable;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Table> createTableIfNotExistsAsync(String name, Consumer<TableChange> tableInitChange) {
-        return CompletableFuture.completedFuture(createTableIfNotExists(name, tableInitChange));
     }
 
     /** {@inheritDoc} */
@@ -156,10 +141,29 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     @NotNull
     private TableImpl getNewTable(String name) {
+        Function<Integer, SchemaDescriptor> history;
+
+        switch (name) {
+            case TABLE_ALL_COLUMNS:
+                history = this::getAllColumnsSchema;
+                break;
+
+            case TABLE_ONE_COLUMN:
+                history = this::getOneColumnSchema;
+                break;
+
+            case TABLE_WITH_DEFAULT_VALUES:
+                history = this::getDefaultColumnValuesSchema;
+                break;
+
+            default:
+                history = this::getSchema;
+                break;
+        }
+
         return new TableImpl(
                 new FakeInternalTable(name, new IgniteUuid(UUID.randomUUID(), 0)),
-                new FakeSchemaRegistry(this::getSchema),
-                null
+                new FakeSchemaRegistry(history)
         );
     }
 
@@ -174,19 +178,84 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
             case 1:
                 return new SchemaDescriptor(
                         1,
-                        new Column[]{new Column("id", NativeTypes.INT64, false)},
-                        new Column[]{new Column("name", NativeTypes.STRING, true)});
+                        new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
+                        new Column[]{new Column("name".toUpperCase(), NativeTypes.STRING, true)});
 
             case 2:
                 return new SchemaDescriptor(
                         2,
-                        new Column[]{new Column("id", NativeTypes.INT64, false)},
+                        new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                         new Column[]{
-                                new Column("name", NativeTypes.STRING, true),
-                                new Column("xyz", NativeTypes.STRING, true)
+                                new Column("name".toUpperCase(), NativeTypes.STRING, true),
+                                new Column("xyz".toUpperCase(), NativeTypes.STRING, true)
                         });
             default:
                 return null;
         }
+    }
+
+    /**
+     * Gets the schema.
+     *
+     * @param v Version.
+     * @return Schema descriptor.
+     */
+    private SchemaDescriptor getAllColumnsSchema(Integer v) {
+        return new SchemaDescriptor(
+                v,
+                new Column[]{
+                        new Column("gid".toUpperCase(), NativeTypes.INT32, false),
+                        new Column("id".toUpperCase(), NativeTypes.STRING, false)
+                },
+                new Column[]{
+                        new Column("zbyte".toUpperCase(), NativeTypes.INT8, true),
+                        new Column("zshort".toUpperCase(), NativeTypes.INT16, true),
+                        new Column("zint".toUpperCase(), NativeTypes.INT32, true),
+                        new Column("zlong".toUpperCase(), NativeTypes.INT64, true),
+                        new Column("zfloat".toUpperCase(), NativeTypes.FLOAT, true),
+                        new Column("zdouble".toUpperCase(), NativeTypes.DOUBLE, true),
+                        new Column("zdate".toUpperCase(), NativeTypes.DATE, true),
+                        new Column("ztime".toUpperCase(), NativeTypes.time(), true),
+                        new Column("ztimestamp".toUpperCase(), NativeTypes.timestamp(), true),
+                        new Column("zstring".toUpperCase(), NativeTypes.STRING, true),
+                        new Column("zbytes".toUpperCase(), NativeTypes.BYTES, true),
+                        new Column("zuuid".toUpperCase(), NativeTypes.UUID, true),
+                        new Column("zbitmask".toUpperCase(), NativeTypes.bitmaskOf(16), true),
+                        new Column("zdecimal".toUpperCase(), NativeTypes.decimalOf(20, 3), true),
+                        new Column("znumber".toUpperCase(), NativeTypes.numberOf(24), true),
+                });
+    }
+
+    /**
+     * Gets the schema.
+     *
+     * @param v Version.
+     * @return Schema descriptor.
+     */
+    private SchemaDescriptor getDefaultColumnValuesSchema(Integer v) {
+        return new SchemaDescriptor(
+                v,
+                new Column[]{
+                        new Column("id".toUpperCase(), NativeTypes.INT32, false)
+                },
+                new Column[]{
+                        new Column("num".toUpperCase(), NativeTypes.INT8, true, () -> (byte) 42),
+                        new Column("str".toUpperCase(), NativeTypes.STRING, true, () -> "def_str"),
+                        new Column("str_non_null".toUpperCase(), NativeTypes.STRING, false, () -> "def_str2"),
+                });
+    }
+
+    /**
+     * Gets the schema.
+     *
+     * @param v Version.
+     * @return Schema descriptor.
+     */
+    @SuppressWarnings("ZeroLengthArrayAllocation")
+    private SchemaDescriptor getOneColumnSchema(Integer v) {
+        return new SchemaDescriptor(
+                v,
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.STRING, false)},
+                new Column[0]);
     }
 }

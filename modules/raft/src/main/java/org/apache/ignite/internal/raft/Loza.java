@@ -35,7 +35,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.LoggerMessageHelper;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -62,12 +62,10 @@ public class Loza implements IgniteComponent {
     private static final int CLIENT_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
 
     /** Timeout. */
-    // TODO: IGNITE-15705 Correct value should be investigated
-    private static final int TIMEOUT = 10000;
+    private static final int RETRY_TIMEOUT = 10000;
 
     /** Network timeout. */
-    // TODO: IGNITE-15705 Correct value should be investigated
-    private static final int NETWORK_TIMEOUT = 3000;
+    private static final int RPC_TIMEOUT = 3000;
 
     /** Retry delay. */
     private static final int DELAY = 200;
@@ -193,7 +191,7 @@ public class Loza implements IgniteComponent {
 
         if (hasLocalRaft) {
             if (!raftServer.startRaftGroup(groupId, lsnrSupplier.get(), peers)) {
-                throw new IgniteInternalException(LoggerMessageHelper.format(
+                throw new IgniteInternalException(IgniteStringFormatter.format(
                         "Raft group on the node is already started [node={}, raftGrp={}]",
                         locNodeName,
                         groupId
@@ -205,8 +203,8 @@ public class Loza implements IgniteComponent {
                 groupId,
                 clusterNetSvc,
                 FACTORY,
-                TIMEOUT,
-                NETWORK_TIMEOUT,
+                RETRY_TIMEOUT,
+                RPC_TIMEOUT,
                 peers,
                 true,
                 DELAY,
@@ -262,7 +260,7 @@ public class Loza implements IgniteComponent {
 
         if (deltaNodes.stream().anyMatch(n -> locNodeName.equals(n.name()))) {
             if (!raftServer.startRaftGroup(groupId, lsnrSupplier.get(), peers)) {
-                throw new IgniteInternalException(LoggerMessageHelper.format(
+                throw new IgniteInternalException(IgniteStringFormatter.format(
                         "Raft group on the node is already started [node={}, raftGrp={}]",
                         locNodeName,
                         groupId
@@ -274,7 +272,7 @@ public class Loza implements IgniteComponent {
                 groupId,
                 clusterNetSvc,
                 FACTORY,
-                TIMEOUT,
+                RETRY_TIMEOUT,
                 peers,
                 true,
                 DELAY,
@@ -323,8 +321,8 @@ public class Loza implements IgniteComponent {
                 groupId,
                 clusterNetSvc,
                 FACTORY,
-                10 * TIMEOUT,
-                10 * NETWORK_TIMEOUT,
+                10 * RETRY_TIMEOUT,
+                10 * RPC_TIMEOUT,
                 expectedPeers,
                 true,
                 DELAY,

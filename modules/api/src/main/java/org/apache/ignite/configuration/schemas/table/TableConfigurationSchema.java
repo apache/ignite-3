@@ -21,7 +21,6 @@ import static org.apache.ignite.configuration.schemas.store.DataStorageConfigura
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.DirectAccess;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
@@ -32,7 +31,6 @@ import org.apache.ignite.configuration.validation.Min;
  * Table configuration schema class.
  */
 @Config
-@DirectAccess
 public class TableConfigurationSchema {
     /** Table name. */
     @Value
@@ -43,7 +41,8 @@ public class TableConfigurationSchema {
     @Min(0)
     @Max(65000)
     @Value(hasDefault = true)
-    public int partitions = 1024;
+    // todo: https://issues.apache.org/jira/browse/IGNITE-16065, with prewious default it was impossible to start multi node cluster.
+    public int partitions = 20;
 
     /** Count of table partition replicas. */
     @Min(1)

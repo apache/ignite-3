@@ -19,7 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.lang.LoggerMessageHelper.format;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
@@ -80,11 +80,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * <p>TODO IGNITE-15932 use Storage for locks. Introduce limits, deny lock operation if the limit is exceeded.
      */
     private final ConcurrentHashMap<Timestamp, Map<LockKey, Boolean>> locks = new ConcurrentHashMap<>();
-
-    /**
-     * TODO IGNITE-15930.
-     */
-    private ThreadLocal<InternalTransaction> threadCtx = new ThreadLocal<>();
 
     /**
      * The constructor.
@@ -273,31 +268,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** {@inheritDoc} */
     @Override
-    public void setTx(InternalTransaction tx) {
-        threadCtx.set(tx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    @Nullable
-    public InternalTransaction tx() throws TransactionException {
-        InternalTransaction tx = threadCtx.get();
-
-        if (tx != null && tx.thread() != Thread.currentThread()) {
-            throw new TransactionException("Transactional operation is attempted from another thread");
-        }
-
-        return tx;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void clearTx() {
-        threadCtx.remove();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public int finished() {
         return states.size();
     }
@@ -380,7 +350,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** {@inheritDoc} */
     @Override
     public void onReceived(NetworkMessage message, NetworkAddress senderAddr,
-            String correlationId) {
+            @Nullable Long correlationId) {
         // Support raft and transactions interop.
         if (message instanceof TxFinishRequest) {
             TxFinishRequest req = (TxFinishRequest) message;
@@ -409,7 +379,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                             }
 
                             clusterService.messagingService()
-                                    .send(senderAddr, resp.build(), correlationId);
+                                    .respond(senderAddr, resp.build(), correlationId);
 
                             return null;
                         }

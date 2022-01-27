@@ -17,6 +17,20 @@
 
 package org.apache.ignite.raft.jraft.core;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+
 import java.net.ConnectException;
 import java.util.Collections;
 import java.util.List;
@@ -47,6 +61,8 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
@@ -59,20 +75,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
 
 /**
  * Test methods of raft group service.
@@ -99,6 +101,9 @@ public class RaftGroupServiceTest {
 
     /** Retry delay. */
     private static final int DELAY = 200;
+
+    /** Current term */
+    private static final int CURRENT_TERM = 1;
 
     /** Mock cluster. */
     @Mock
@@ -506,7 +511,7 @@ public class RaftGroupServiceTest {
         assertEquals(NODES, service.peers());
         assertEquals(Collections.emptyList(), service.learners());
 
-        service.refreshMembers(false);
+        service.refreshMembers(false).get(3, TimeUnit.SECONDS);
 
         assertEquals(NODES.subList(0, 2), service.peers());
         assertEquals(NODES.subList(2, 2), service.learners());
@@ -747,6 +752,29 @@ public class RaftGroupServiceTest {
         assertEquals(NODES.subList(1, 2), service.learners());
     }
 
+    /** */
+    @Test
+    public void testGetLeaderRequest() throws Exception {
+        String groupId = "test";
+
+        mockLeaderRequest(false);
+
+        RaftGroupService service =
+                RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
+
+        assertNull(service.leader());
+
+        service.refreshLeader().get();
+
+        GetLeaderRequest req = FACTORY.getLeaderRequest().groupId(groupId).build();
+
+        GetLeaderResponse fut = (GetLeaderResponse) messagingService.invoke(leader.address(), req, TIMEOUT).get();
+
+        assertEquals(fut.leaderId(), PeerId.fromPeer(leader).toString());
+
+        assertEquals(fut.currentTerm(), CURRENT_TERM);
+    }
+
     /**
      * @param delay {@code True} to create a delay before response.
      * @param peer Fail the request targeted to given peer.
@@ -816,7 +844,7 @@ public class RaftGroupServiceTest {
 
                 Object resp = leader0 == null ?
                     FACTORY.errorResponse().errorCode(RaftError.EPERM.getNumber()).build() :
-                    FACTORY.getLeaderResponse().leaderId(leader0.toString()).build();
+                    FACTORY.getLeaderResponse().leaderId(leader0.toString()).currentTerm(CURRENT_TERM).build();
 
                 return completedFuture(resp);
             });

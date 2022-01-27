@@ -36,7 +36,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -78,23 +80,23 @@ public class RecordViewOperationsTest {
 
         RecordView<TestObjectWithAllTypes> tbl = recordView();
 
-        assertNull(tbl.get(key));
+        assertNull(tbl.get(null, key));
 
         // Insert new row.
-        tbl.upsert(obj);
-        assertEquals(obj, tbl.get(key));
+        tbl.upsert(null, obj);
+        assertEquals(obj, tbl.get(null, key));
 
         // Upsert row.
-        tbl.upsert(obj2);
-        assertEquals(obj2, tbl.get(key));
+        tbl.upsert(null, obj2);
+        assertEquals(obj2, tbl.get(null, key));
 
         // Remove row.
-        tbl.delete(key);
-        assertNull(tbl.get(key));
+        tbl.delete(null, key);
+        assertNull(tbl.get(null, key));
 
         // Insert new row.
-        tbl.upsert(obj3);
-        assertEquals(obj3, tbl.get(key));
+        tbl.upsert(null, obj3);
+        assertEquals(obj3, tbl.get(null, key));
     }
 
     @Test
@@ -105,15 +107,15 @@ public class RecordViewOperationsTest {
 
         RecordView<TestObjectWithAllTypes> tbl = recordView();
 
-        assertNull(tbl.get(key));
+        assertNull(tbl.get(null, key));
 
         // Insert new row.
-        assertTrue(tbl.insert(obj));
-        assertEquals(obj, tbl.get(key));
+        assertTrue(tbl.insert(null, obj));
+        assertEquals(obj, tbl.get(null, key));
 
         // Ignore existed row pair.
-        assertFalse(tbl.insert(obj2));
-        assertEquals(obj, tbl.get(key));
+        assertFalse(tbl.insert(null, obj2));
+        assertEquals(obj, tbl.get(null, key));
     }
 
     @Test
@@ -125,17 +127,17 @@ public class RecordViewOperationsTest {
 
         RecordView<TestObjectWithAllTypes> tbl = recordView();
 
-        assertNull(tbl.get(key));
+        assertNull(tbl.get(null, key));
 
         // Insert new row.
-        assertNull(tbl.getAndUpsert(obj));
-        assertEquals(obj, tbl.get(key));
+        assertNull(tbl.getAndUpsert(null, obj));
+        assertEquals(obj, tbl.get(null, key));
 
         // Update exited row.
-        assertEquals(obj, tbl.getAndUpsert(obj2));
-        assertEquals(obj2, tbl.getAndUpsert(obj3));
+        assertEquals(obj, tbl.getAndUpsert(null, obj2));
+        assertEquals(obj2, tbl.getAndUpsert(null, obj3));
 
-        assertEquals(obj3, tbl.get(key));
+        assertEquals(obj3, tbl.get(null, key));
     }
 
     @Test
@@ -147,23 +149,23 @@ public class RecordViewOperationsTest {
         RecordView<TestObjectWithAllTypes> tbl = recordView();
 
         // Delete not existed key.
-        assertNull(tbl.get(key));
-        assertFalse(tbl.delete(key));
+        assertNull(tbl.get(null, key));
+        assertFalse(tbl.delete(null, key));
 
         // Insert a new row.
-        tbl.upsert(obj);
+        tbl.upsert(null, obj);
 
         // Delete existed row.
-        assertEquals(obj, tbl.get(key));
-        assertTrue(tbl.delete(key));
-        assertNull(tbl.get(key));
+        assertEquals(obj, tbl.get(null, key));
+        assertTrue(tbl.delete(null, key));
+        assertNull(tbl.get(null, key));
 
         // Delete already deleted row.
-        assertFalse(tbl.delete(key));
+        assertFalse(tbl.delete(null, key));
 
         // Insert a new row.
-        tbl.upsert(obj2);
-        assertEquals(obj2, tbl.get(key));
+        tbl.upsert(null, obj2);
+        assertEquals(obj2, tbl.get(null, key));
     }
 
     @Test
@@ -175,31 +177,31 @@ public class RecordViewOperationsTest {
         RecordView<TestObjectWithAllTypes> tbl = recordView();
 
         // Insert a new row.
-        tbl.upsert(obj);
-        assertEquals(obj, tbl.get(key));
+        tbl.upsert(null, obj);
+        assertEquals(obj, tbl.get(null, key));
 
         // Fails to delete row with unexpected value.
-        assertFalse(tbl.deleteExact(obj2));
-        assertEquals(obj, tbl.get(key));
+        assertFalse(tbl.deleteExact(null, obj2));
+        assertEquals(obj, tbl.get(null, key));
 
         // Delete row with expected value.
-        assertTrue(tbl.deleteExact(obj));
-        assertNull(tbl.get(key));
+        assertTrue(tbl.deleteExact(null, obj));
+        assertNull(tbl.get(null, key));
 
         // Try to remove non-existed key.
-        assertFalse(tbl.deleteExact(obj));
-        assertNull(tbl.get(key));
+        assertFalse(tbl.deleteExact(null, obj));
+        assertNull(tbl.get(null, key));
 
         // Insert a new row.
-        tbl.upsert(obj2);
-        assertEquals(obj2, tbl.get(key));
+        tbl.upsert(null, obj2);
+        assertEquals(obj2, tbl.get(null, key));
 
         // Delete row with expected value.
-        assertTrue(tbl.delete(obj2));
-        assertNull(tbl.get(key));
+        assertTrue(tbl.delete(null, obj2));
+        assertNull(tbl.get(null, key));
 
-        assertFalse(tbl.delete(obj2));
-        assertNull(tbl.get(obj2));
+        assertFalse(tbl.delete(null, obj2));
+        assertNull(tbl.get(null, obj2));
     }
 
     @Test
@@ -212,26 +214,26 @@ public class RecordViewOperationsTest {
         RecordView<TestObjectWithAllTypes> tbl = recordView();
 
         // Ignore replace operation for non-existed row.
-        assertFalse(tbl.replace(obj));
-        assertNull(tbl.get(key));
+        assertFalse(tbl.replace(null, obj));
+        assertNull(tbl.get(null, key));
 
         // Insert new row.
-        tbl.upsert(obj);
+        tbl.upsert(null, obj);
 
         // Replace existed row.
-        assertTrue(tbl.replace(obj2));
-        assertEquals(obj2, tbl.get(key));
+        assertTrue(tbl.replace(null, obj2));
+        assertEquals(obj2, tbl.get(null, key));
 
         // Replace existed row.
-        assertTrue(tbl.replace(obj3));
-        assertEquals(obj3, tbl.get(key));
+        assertTrue(tbl.replace(null, obj3));
+        assertEquals(obj3, tbl.get(null, key));
 
         // Remove existed row.
-        assertTrue(tbl.delete(key));
-        assertNull(tbl.get(key));
+        assertTrue(tbl.delete(null, key));
+        assertNull(tbl.get(null, key));
 
-        tbl.upsert(obj);
-        assertEquals(obj, tbl.get(key));
+        tbl.upsert(null, obj);
+        assertEquals(obj, tbl.get(null, key));
     }
 
     @Test
@@ -245,30 +247,49 @@ public class RecordViewOperationsTest {
         RecordView<TestObjectWithAllTypes> tbl = recordView();
 
         // Ignore replace operation for non-existed row.
-        assertFalse(tbl.replace(obj, obj2));
-        assertNull(tbl.get(key));
+        assertFalse(tbl.replace(null, obj, obj2));
+        assertNull(tbl.get(null, key));
 
         // Insert new row.
-        tbl.upsert(obj);
+        tbl.upsert(null, obj);
 
         // Ignore un-exepected row replacement.
-        assertFalse(tbl.replace(obj2, obj3));
-        assertEquals(obj, tbl.get(key));
+        assertFalse(tbl.replace(null, obj2, obj3));
+        assertEquals(obj, tbl.get(null, key));
 
         // Replace existed row.
-        assertTrue(tbl.replace(obj, obj2));
-        assertEquals(obj2, tbl.get(key));
+        assertTrue(tbl.replace(null, obj, obj2));
+        assertEquals(obj2, tbl.get(null, key));
 
         // Replace existed KV pair.
-        assertTrue(tbl.replace(obj2, obj3));
-        assertEquals(obj3, tbl.get(key));
+        assertTrue(tbl.replace(null, obj2, obj3));
+        assertEquals(obj3, tbl.get(null, key));
 
         // Remove existed row.
-        assertTrue(tbl.delete(key));
-        assertNull(tbl.get(key));
+        assertTrue(tbl.delete(null, key));
+        assertNull(tbl.get(null, key));
 
-        assertFalse(tbl.replace(key, obj4));
-        assertNull(tbl.get(key));
+        assertFalse(tbl.replace(null, key, obj4));
+        assertNull(tbl.get(null, key));
+    }
+
+    @Test
+    public void getAll() {
+        final TestObjectWithAllTypes key1 = key(rnd);
+        final TestObjectWithAllTypes key2 = key(rnd);
+        final TestObjectWithAllTypes key3 = key(rnd);
+        final TestObjectWithAllTypes val1 = randomObject(rnd, key1);
+        final TestObjectWithAllTypes val3 = randomObject(rnd, key3);
+
+        RecordView<TestObjectWithAllTypes> tbl = recordView();
+
+        tbl.upsertAll(null, List.of(val1, val3));
+
+        Collection<TestObjectWithAllTypes> res = tbl.getAll(null, List.of(key1, key2, key3));
+
+        assertEquals(2, res.size());
+        assertTrue(res.contains(val1));
+        assertTrue(res.contains(val3));
     }
 
     /**
@@ -284,40 +305,40 @@ public class RecordViewOperationsTest {
         DummyInternalTableImpl table = new DummyInternalTableImpl(
                 new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
 
-        Mapper<TestObjectWithAllTypes> recMapper = Mapper.identity(TestObjectWithAllTypes.class);
+        Mapper<TestObjectWithAllTypes> recMapper = Mapper.of(TestObjectWithAllTypes.class);
 
         Column[] valCols = {
-                new Column("primitiveByteCol", INT8, false),
-                new Column("primitiveShortCol", INT16, false),
-                new Column("primitiveIntCol", INT32, false),
-                new Column("primitiveFloatCol", FLOAT, false),
-                new Column("primitiveDoubleCol", DOUBLE, false),
+                new Column("primitiveByteCol".toUpperCase(), INT8, false),
+                new Column("primitiveShortCol".toUpperCase(), INT16, false),
+                new Column("primitiveIntCol".toUpperCase(), INT32, false),
+                new Column("primitiveFloatCol".toUpperCase(), FLOAT, false),
+                new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
 
-                new Column("byteCol", INT8, true),
-                new Column("shortCol", INT16, true),
-                new Column("intCol", INT32, true),
-                new Column("longCol", INT64, true),
-                new Column("nullLongCol", INT64, true),
-                new Column("floatCol", FLOAT, true),
-                new Column("doubleCol", DOUBLE, true),
+                new Column("byteCol".toUpperCase(), INT8, true),
+                new Column("shortCol".toUpperCase(), INT16, true),
+                new Column("intCol".toUpperCase(), INT32, true),
+                new Column("longCol".toUpperCase(), INT64, true),
+                new Column("nullLongCol".toUpperCase(), INT64, true),
+                new Column("floatCol".toUpperCase(), FLOAT, true),
+                new Column("doubleCol".toUpperCase(), DOUBLE, true),
 
-                new Column("dateCol", DATE, true),
-                new Column("timeCol", time(), true),
-                new Column("dateTimeCol", datetime(), true),
-                new Column("timestampCol", timestamp(), true),
+                new Column("dateCol".toUpperCase(), DATE, true),
+                new Column("timeCol".toUpperCase(), time(), true),
+                new Column("dateTimeCol".toUpperCase(), datetime(), true),
+                new Column("timestampCol".toUpperCase(), timestamp(), true),
 
-                new Column("uuidCol", NativeTypes.UUID, true),
-                new Column("bitmaskCol", NativeTypes.bitmaskOf(42), true),
-                new Column("stringCol", STRING, true),
-                new Column("nullBytesCol", BYTES, true),
-                new Column("bytesCol", BYTES, true),
-                new Column("numberCol", NativeTypes.numberOf(12), true),
-                new Column("decimalCol", NativeTypes.decimalOf(19, 3), true),
+                new Column("uuidCol".toUpperCase(), NativeTypes.UUID, true),
+                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
+                new Column("stringCol".toUpperCase(), STRING, true),
+                new Column("nullBytesCol".toUpperCase(), BYTES, true),
+                new Column("bytesCol".toUpperCase(), BYTES, true),
+                new Column("numberCol".toUpperCase(), NativeTypes.numberOf(12), true),
+                new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), true),
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("primitiveLongCol", NativeTypes.INT64, false)},
+                new Column[]{new Column("primitiveLongCol".toUpperCase(), NativeTypes.INT64, false)},
                 valCols
         );
 
@@ -332,8 +353,7 @@ public class RecordViewOperationsTest {
         return new RecordViewImpl<>(
                 table,
                 new DummySchemaManagerImpl(schema),
-                recMapper,
-                null
+                recMapper
         );
     }
 

@@ -17,8 +17,19 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_ALL_COLUMNS;
+import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_ONE_COLUMN;
+import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_WITH_DEFAULT_VALUES;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
+import java.util.UUID;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 
@@ -31,6 +42,14 @@ public class AbstractClientTableTest extends AbstractClientTest {
 
     /** Default id. */
     protected static final Long DEFAULT_ID = 123L;
+
+    protected static final LocalDate localDate = LocalDate.now();
+
+    protected static final LocalTime localTime = LocalTime.now();
+
+    protected static final Instant instant = Instant.now();
+
+    protected static final UUID uuid = UUID.randomUUID();
 
     protected static Tuple[] sortedTuples(Collection<Tuple> tuples) {
         Tuple[] res = tuples.toArray(new Tuple[0]);
@@ -70,8 +89,128 @@ public class AbstractClientTableTest extends AbstractClientTest {
     }
 
     protected Table defaultTable() {
-        server.tables().createTableIfNotExists(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
+        server.tables().createTable(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
 
         return client.tables().table(DEFAULT_TABLE);
+    }
+
+    protected Table tableWithDefaultValues() {
+        if (server.tables().table(TABLE_WITH_DEFAULT_VALUES) == null) {
+            server.tables().createTable(TABLE_WITH_DEFAULT_VALUES, tbl -> tbl.changeReplicas(1));
+        }
+
+        return client.tables().table(TABLE_WITH_DEFAULT_VALUES);
+    }
+
+    protected static Tuple allClumnsTableKey(long id) {
+        return Tuple.create().set("gid", id).set("id", String.valueOf(id));
+    }
+
+    protected static Tuple allColumnsTableVal(String name) {
+        return Tuple.create()
+                .set("gid", DEFAULT_ID)
+                .set("id", String.valueOf(DEFAULT_ID))
+                .set("zbyte", (byte) 11)
+                .set("zshort", (short) 12)
+                .set("zint", (int) 13)
+                .set("zlong", (long) 14)
+                .set("zfloat", (float) 1.5)
+                .set("zdouble", (double) 1.6)
+                .set("zdate", localDate)
+                .set("ztime", localTime)
+                .set("ztimestamp", instant)
+                .set("zstring", name)
+                .set("zbytes", new byte[]{1, 2})
+                .set("zbitmask", BitSet.valueOf(new byte[]{32}))
+                .set("zdecimal", BigDecimal.valueOf(21))
+                .set("znumber", BigInteger.valueOf(22))
+                .set("zuuid", uuid);
+    }
+
+    protected Table fullTable() {
+        if (server.tables().table(TABLE_ALL_COLUMNS) == null) {
+            server.tables().createTable(TABLE_ALL_COLUMNS, tbl -> tbl.changeReplicas(1));
+        }
+
+        return client.tables().table(TABLE_ALL_COLUMNS);
+    }
+
+    protected static Tuple oneColumnTableKey(String id) {
+        return Tuple.create().set("id", id);
+    }
+
+    protected Table oneColumnTable() {
+        if (server.tables().table(TABLE_ONE_COLUMN) == null) {
+            server.tables().createTable(TABLE_ONE_COLUMN, tbl -> tbl.changeReplicas(1));
+        }
+
+        return client.tables().table(TABLE_ONE_COLUMN);
+    }
+
+    /** Person. */
+    protected static class PersonPojo {
+        public long id;
+
+        public String name;
+
+        public PersonPojo() {
+            // No-op.
+        }
+
+        public PersonPojo(long id) {
+            this.id = id;
+        }
+
+        public PersonPojo(long id, String name) {
+            this.id = id;
+            this.name = name;
+        }
+    }
+
+    /** Name column. */
+    protected static class NamePojo {
+        public String name;
+    }
+
+    /** Partial column set. */
+    protected static class IncompletePojo {
+        public byte zbyte;
+        public String id;
+        public int gid;
+        public String zstring;
+        public byte[] zbytes;
+    }
+
+    /** Partial column set. */
+    protected static class IncompletePojoNullable {
+        public int gid;
+        public String id;
+        public Byte zbyte;
+        public Short zshort;
+        public Integer zint;
+        public Long zlong;
+        public Float zfloat;
+        public Double zdouble;
+    }
+
+    /** Columns of all types. */
+    protected static class AllColumnsPojo {
+        public int gid;
+        public String id;
+        public byte zbyte;
+        public short zshort;
+        public int zint;
+        public long zlong;
+        public float zfloat;
+        public double zdouble;
+        public LocalDate zdate;
+        public LocalTime ztime;
+        public Instant ztimestamp;
+        public String zstring;
+        public byte[] zbytes;
+        public UUID zuuid;
+        public BitSet zbitmask;
+        public BigDecimal zdecimal;
+        public BigInteger znumber;
     }
 }

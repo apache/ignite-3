@@ -39,6 +39,8 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
@@ -78,28 +80,28 @@ public class KeyValueViewOperationsTest {
 
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
-        assertNull(tbl.get(key));
+        assertNull(tbl.get(null, key));
 
         // Put KV pair.
-        tbl.put(key, obj);
+        tbl.put(null, key, obj);
 
-        assertEquals(obj, tbl.get(key));
-        assertEquals(obj, tbl.get(key));
+        assertEquals(obj, tbl.get(null, key));
+        assertEquals(obj, tbl.get(null, key));
 
         // Update KV pair.
-        tbl.put(key, obj2);
+        tbl.put(null, key, obj2);
 
-        assertEquals(obj2, tbl.get(key));
-        assertEquals(obj2, tbl.get(key));
+        assertEquals(obj2, tbl.get(null, key));
+        assertEquals(obj2, tbl.get(null, key));
 
         // Remove KV pair.
-        tbl.put(key, null);
+        tbl.remove(null, key);
 
-        assertNull(tbl.get(key));
+        assertNull(tbl.get(null, key));
 
         // Put KV pair.
-        tbl.put(key, obj3);
-        assertEquals(obj3, tbl.get(key));
+        tbl.put(null, key, obj3);
+        assertEquals(obj3, tbl.get(null, key));
     }
 
     @Test
@@ -110,17 +112,17 @@ public class KeyValueViewOperationsTest {
 
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
-        assertNull(tbl.get(key));
+        assertNull(tbl.get(null, key));
 
         // Insert new KV pair.
-        assertTrue(tbl.putIfAbsent(key, obj));
+        assertTrue(tbl.putIfAbsent(null, key, obj));
 
-        assertEquals(obj, tbl.get(key));
+        assertEquals(obj, tbl.get(null, key));
 
         // Update KV pair.
-        assertFalse(tbl.putIfAbsent(key, obj2));
+        assertFalse(tbl.putIfAbsent(null, key, obj2));
 
-        assertEquals(obj, tbl.get(key));
+        assertEquals(obj, tbl.get(null, key));
     }
 
     @Test
@@ -132,17 +134,17 @@ public class KeyValueViewOperationsTest {
 
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
-        assertNull(tbl.get(key));
+        assertNull(tbl.get(null, key));
 
         // Insert new KV pair.
-        assertNull(tbl.getAndPut(key, obj));
-        assertEquals(obj, tbl.get(key));
+        assertNull(tbl.getAndPut(null, key, obj));
+        assertEquals(obj, tbl.get(null, key));
 
         // Update KV pair.
-        assertEquals(obj, tbl.getAndPut(key, obj2));
-        assertEquals(obj2, tbl.getAndPut(key, obj3));
+        assertEquals(obj, tbl.getAndPut(null, key, obj2));
+        assertEquals(obj2, tbl.getAndPut(null, key, obj3));
 
-        assertEquals(obj3, tbl.get(key));
+        assertEquals(obj3, tbl.get(null, key));
     }
 
     @Test
@@ -155,23 +157,23 @@ public class KeyValueViewOperationsTest {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         // Not-existed value.
-        assertFalse(tbl.contains(key));
+        assertFalse(tbl.contains(null, key));
 
         // Put KV pair.
-        tbl.put(key, obj);
-        assertTrue(tbl.contains(key));
+        tbl.put(null, key, obj);
+        assertTrue(tbl.contains(null, key));
 
         // Delete key.
-        assertTrue(tbl.remove(key));
-        assertFalse(tbl.contains(key));
+        assertTrue(tbl.remove(null, key));
+        assertFalse(tbl.contains(null, key));
 
         // Put KV pair.
-        tbl.put(key, obj2);
-        assertTrue(tbl.contains(key));
+        tbl.put(null, key, obj2);
+        assertTrue(tbl.contains(null, key));
 
         // Delete key.
-        tbl.remove(key2);
-        assertFalse(tbl.contains(key2));
+        tbl.remove(null, key2);
+        assertFalse(tbl.contains(null, key2));
     }
 
     @Test
@@ -184,27 +186,27 @@ public class KeyValueViewOperationsTest {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         // Put KV pair.
-        tbl.put(key, obj);
+        tbl.put(null, key, obj);
 
         // Delete existed key.
-        assertEquals(obj, tbl.get(key));
-        assertTrue(tbl.remove(key));
-        assertNull(tbl.get(key));
+        assertEquals(obj, tbl.get(null, key));
+        assertTrue(tbl.remove(null, key));
+        assertNull(tbl.get(null, key));
 
         // Delete already deleted key.
-        assertFalse(tbl.remove(key));
+        assertFalse(tbl.remove(null, key));
 
         // Put KV pair.
-        tbl.put(key, obj2);
-        assertEquals(obj2, tbl.get(key));
+        tbl.put(null, key, obj2);
+        assertEquals(obj2, tbl.get(null, key));
 
         // Delete existed key.
-        assertTrue(tbl.remove(key));
-        assertNull(tbl.get(key));
+        assertTrue(tbl.remove(null, key));
+        assertNull(tbl.get(null, key));
 
         // Delete not existed key.
-        assertNull(tbl.get(key2));
-        assertFalse(tbl.remove(key2));
+        assertNull(tbl.get(null, key2));
+        assertFalse(tbl.remove(null, key2));
     }
 
     @Test
@@ -217,39 +219,39 @@ public class KeyValueViewOperationsTest {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         // Put KV pair.
-        tbl.put(key, obj);
-        assertEquals(obj, tbl.get(key));
+        tbl.put(null, key, obj);
+        assertEquals(obj, tbl.get(null, key));
 
         // Fails to delete KV pair with unexpected value.
-        assertFalse(tbl.remove(key, obj2));
-        assertEquals(obj, tbl.get(key));
+        assertFalse(tbl.remove(null, key, obj2));
+        assertEquals(obj, tbl.get(null, key));
 
         // Delete KV pair with expected value.
-        assertTrue(tbl.remove(key, obj));
-        assertNull(tbl.get(key));
+        assertTrue(tbl.remove(null, key, obj));
+        assertNull(tbl.get(null, key));
 
         // Once again.
-        assertFalse(tbl.remove(key, obj));
-        assertNull(tbl.get(key));
+        assertFalse(tbl.remove(null, key, obj));
+        assertNull(tbl.get(null, key));
 
         // Try to remove non-existed key.
-        assertFalse(tbl.remove(key, obj));
-        assertNull(tbl.get(key));
+        assertFalse(tbl.remove(null, key, obj));
+        assertNull(tbl.get(null, key));
 
         // Put KV pair.
-        tbl.put(key, obj2);
-        assertEquals(obj2, tbl.get(key));
+        tbl.put(null, key, obj2);
+        assertEquals(obj2, tbl.get(null, key));
 
         // Check null value ignored.
-        assertThrows(Throwable.class, () -> tbl.remove(key, null));
-        assertEquals(obj2, tbl.get(key));
+        assertThrows(Throwable.class, () -> tbl.remove(null, key, null));
+        assertEquals(obj2, tbl.get(null, key));
 
         // Delete KV pair with expected value.
-        assertTrue(tbl.remove(key, obj2));
-        assertNull(tbl.get(key));
+        assertTrue(tbl.remove(null, key, obj2));
+        assertNull(tbl.get(null, key));
 
-        assertFalse(tbl.remove(key2, obj2));
-        assertNull(tbl.get(key2));
+        assertFalse(tbl.remove(null, key2, obj2));
+        assertNull(tbl.get(null, key2));
     }
 
     @Test
@@ -263,30 +265,30 @@ public class KeyValueViewOperationsTest {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         // Ignore replace operation for non-existed KV pair.
-        assertFalse(tbl.replace(key, obj));
-        assertNull(tbl.get(key));
+        assertFalse(tbl.replace(null, key, obj));
+        assertNull(tbl.get(null, key));
 
-        tbl.put(key, obj);
+        tbl.put(null, key, obj);
 
         // Replace existed KV pair.
-        assertTrue(tbl.replace(key, obj2));
-        assertEquals(obj2, tbl.get(key));
+        assertTrue(tbl.replace(null, key, obj2));
+        assertEquals(obj2, tbl.get(null, key));
 
         // Try remove existed KV pair.
-        assertThrows(Throwable.class, () -> tbl.replace(key, null));
-        assertNotNull(tbl.get(key));
-        tbl.remove(key);
+        assertThrows(Throwable.class, () -> tbl.replace(null, key, null));
+        assertNotNull(tbl.get(null, key));
+        tbl.remove(null, key);
 
         // Ignore replace operation for non-existed KV pair.
-        assertFalse(tbl.replace(key, obj3));
-        assertNull(tbl.get(key));
+        assertFalse(tbl.replace(null, key, obj3));
+        assertNull(tbl.get(null, key));
 
-        tbl.put(key, obj3);
-        assertEquals(obj3, tbl.get(key));
+        tbl.put(null, key, obj3);
+        assertEquals(obj3, tbl.get(null, key));
 
         // Trye remove non-existed KV pair.
-        assertThrows(Throwable.class, () -> tbl.replace(key2, null));
-        assertNull(tbl.get(key2));
+        assertThrows(Throwable.class, () -> tbl.replace(null, key2, null));
+        assertNull(tbl.get(null, key2));
     }
 
     @Test
@@ -299,22 +301,47 @@ public class KeyValueViewOperationsTest {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         // Insert KV pair.
-        assertThrows(Throwable.class, () -> tbl.replace(key, null, obj));
-        tbl.put(key, obj);
-        assertEquals(obj, tbl.get(key));
-        assertNull(tbl.get(key2));
+        assertThrows(Throwable.class, () -> tbl.replace(null, key, null, obj));
+        tbl.put(null, key, obj);
+        assertEquals(obj, tbl.get(null, key));
+        assertNull(tbl.get(null, key2));
 
         // Ignore replace operation for non-existed KV pair.
-        assertFalse(tbl.replace(key2, obj, obj2));
-        assertNull(tbl.get(key2));
+        assertFalse(tbl.replace(null, key2, obj, obj2));
+        assertNull(tbl.get(null, key2));
 
         // Replace existed KV pair.
-        assertTrue(tbl.replace(key, obj, obj2));
-        assertEquals(obj2, tbl.get(key));
+        assertTrue(tbl.replace(null, key, obj, obj2));
+        assertEquals(obj2, tbl.get(null, key));
 
         // try remove existed KV pair.
-        assertThrows(Throwable.class, () -> tbl.replace(key, obj2, null));
-        assertNotNull(tbl.get(key));
+        assertThrows(Throwable.class, () -> tbl.replace(null, key, obj2, null));
+        assertNotNull(tbl.get(null, key));
+    }
+
+    @Test
+    public void getAll() {
+        KeyValueView<TestKeyObject, TestObjectWithAllTypes> kvView = kvView();
+
+        final TestKeyObject key1 = TestKeyObject.randomObject(rnd);
+        final TestKeyObject key2 = TestKeyObject.randomObject(rnd);
+        final TestKeyObject key3 = TestKeyObject.randomObject(rnd);
+        final TestObjectWithAllTypes val1 = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes val3 = TestObjectWithAllTypes.randomObject(rnd);
+
+        kvView.putAll(
+                null,
+                Map.of(
+                        key1, val1,
+                        key3, val3
+                ));
+
+        Map<TestKeyObject, TestObjectWithAllTypes> res = kvView.getAll(null, List.of(key1, key2, key3));
+
+        assertEquals(2, res.size());
+        assertEquals(val1, res.get(key1));
+        assertEquals(val3, res.get(key3));
+        assertNull(res.get(key2));
     }
 
     /**
@@ -330,42 +357,42 @@ public class KeyValueViewOperationsTest {
         DummyInternalTableImpl table = new DummyInternalTableImpl(
                 new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
 
-        Mapper<TestKeyObject> keyMapper = Mapper.identity(TestKeyObject.class);
-        Mapper<TestObjectWithAllTypes> valMapper = Mapper.identity(TestObjectWithAllTypes.class);
+        Mapper<TestKeyObject> keyMapper = Mapper.of(TestKeyObject.class);
+        Mapper<TestObjectWithAllTypes> valMapper = Mapper.of(TestObjectWithAllTypes.class);
 
         Column[] valCols = {
-                new Column("primitiveByteCol", INT8, false),
-                new Column("primitiveShortCol", INT16, false),
-                new Column("primitiveIntCol", INT32, false),
-                new Column("primitiveLongCol", INT64, false),
-                new Column("primitiveFloatCol", FLOAT, false),
-                new Column("primitiveDoubleCol", DOUBLE, false),
+                new Column("primitiveByteCol".toUpperCase(), INT8, false),
+                new Column("primitiveShortCol".toUpperCase(), INT16, false),
+                new Column("primitiveIntCol".toUpperCase(), INT32, false),
+                new Column("primitiveLongCol".toUpperCase(), INT64, false),
+                new Column("primitiveFloatCol".toUpperCase(), FLOAT, false),
+                new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
 
-                new Column("byteCol", INT8, true),
-                new Column("shortCol", INT16, true),
-                new Column("intCol", INT32, true),
-                new Column("longCol", INT64, true),
-                new Column("nullLongCol", INT64, true),
-                new Column("floatCol", FLOAT, true),
-                new Column("doubleCol", DOUBLE, true),
+                new Column("byteCol".toUpperCase(), INT8, true),
+                new Column("shortCol".toUpperCase(), INT16, true),
+                new Column("intCol".toUpperCase(), INT32, true),
+                new Column("longCol".toUpperCase(), INT64, true),
+                new Column("nullLongCol".toUpperCase(), INT64, true),
+                new Column("floatCol".toUpperCase(), FLOAT, true),
+                new Column("doubleCol".toUpperCase(), DOUBLE, true),
 
-                new Column("dateCol", DATE, true),
-                new Column("timeCol", time(), true),
-                new Column("dateTimeCol", datetime(), true),
-                new Column("timestampCol", timestamp(), true),
+                new Column("dateCol".toUpperCase(), DATE, true),
+                new Column("timeCol".toUpperCase(), time(), true),
+                new Column("dateTimeCol".toUpperCase(), datetime(), true),
+                new Column("timestampCol".toUpperCase(), timestamp(), true),
 
-                new Column("uuidCol", NativeTypes.UUID, true),
-                new Column("bitmaskCol", NativeTypes.bitmaskOf(42), true),
-                new Column("stringCol", STRING, true),
-                new Column("nullBytesCol", BYTES, true),
-                new Column("bytesCol", BYTES, true),
-                new Column("numberCol", NativeTypes.numberOf(12), true),
-                new Column("decimalCol", NativeTypes.decimalOf(19, 3), true),
+                new Column("uuidCol".toUpperCase(), NativeTypes.UUID, true),
+                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
+                new Column("stringCol".toUpperCase(), STRING, true),
+                new Column("nullBytesCol".toUpperCase(), BYTES, true),
+                new Column("bytesCol".toUpperCase(), BYTES, true),
+                new Column("numberCol".toUpperCase(), NativeTypes.numberOf(12), true),
+                new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), true),
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                 valCols
         );
 
@@ -381,8 +408,7 @@ public class KeyValueViewOperationsTest {
                 table,
                 new DummySchemaManagerImpl(schema),
                 keyMapper,
-                valMapper,
-                null
+                valMapper
         );
     }
 

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -58,9 +57,9 @@ import org.apache.ignite.internal.table.distributed.command.response.SingleRowRe
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
-import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
@@ -68,7 +67,6 @@ import org.apache.ignite.raft.client.scan.ScanCloseCommand;
 import org.apache.ignite.raft.client.scan.ScanInitCommand;
 import org.apache.ignite.raft.client.scan.ScanRetrieveBatchCommand;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -174,14 +172,6 @@ public class InternalTableImpl implements InternalTable {
             BiFunction<Collection<BinaryRow>, InternalTransaction, Command> op,
             Function<CompletableFuture<R>[], CompletableFuture<T>> reducer
     ) {
-        if (tx == null) {
-            try {
-                tx = txManager.tx();
-            } catch (TransactionException e) {
-                return failedFuture(e);
-            }
-        }
-
         final boolean implicit = tx == null;
 
         final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
@@ -220,14 +210,6 @@ public class InternalTableImpl implements InternalTable {
             Function<InternalTransaction, Command> op,
             Function<R, T> trans
     ) {
-        if (tx == null) {
-            try {
-                tx = txManager.tx();
-            } catch (TransactionException e) {
-                return failedFuture(e);
-            }
-        }
-
         final boolean implicit = tx == null;
 
         final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
@@ -365,7 +347,7 @@ public class InternalTableImpl implements InternalTable {
     public @NotNull Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
         if (p < 0 || p >= partitions) {
             throw new IllegalArgumentException(
-                    LoggerMessageHelper.format(
+                    IgniteStringFormatter.format(
                             "Invalid partition [partition={}, minValue={}, maxValue={}].",
                             p,
                             0,
@@ -580,7 +562,7 @@ public class InternalTableImpl implements InternalTable {
                 if (n <= 0) {
                     cancel();
 
-                    subscriber.onError(new IllegalArgumentException(LoggerMessageHelper
+                    subscriber.onError(new IllegalArgumentException(IgniteStringFormatter
                             .format("Invalid requested amount of items [requested={}, minValue=1]", n))
                     );
                 }

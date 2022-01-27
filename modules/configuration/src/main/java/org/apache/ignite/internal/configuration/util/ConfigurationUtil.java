@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.configuration.util;
 
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.configuration.tree.InnerNode.INJECTED_NAME;
+import static org.apache.ignite.internal.configuration.tree.InnerNode.INTERNAL_ID;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
@@ -38,24 +41,34 @@ import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.RandomAccess;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationProperty;
+import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
-import org.apache.ignite.configuration.DirectConfigurationProperty;
+import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.DirectAccess;
+import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.InternalId;
+import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.configuration.ConfigurationNode;
+import org.apache.ignite.internal.configuration.DynamicConfiguration;
+import org.apache.ignite.internal.configuration.NamedListConfiguration;
+import org.apache.ignite.internal.configuration.direct.DirectNamedListProxy;
+import org.apache.ignite.internal.configuration.direct.DirectPropertyProxy;
+import org.apache.ignite.internal.configuration.direct.KeyPathNode;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -71,6 +84,11 @@ public class ConfigurationUtil {
     /** Configuration source that copies values without modifying tham. */
     public static final ConfigurationSource EMPTY_CFG_SRC = new ConfigurationSource() {
     };
+
+    /**
+     * Seperator string for both public and internal representations of configuration keys.
+     */
+    public static final String KEY_SEPARATOR = ".";
 
     /**
      * Replaces all {@code .} and {@code \} characters with {@code \.} and {@code \\} respectively.
@@ -99,6 +117,7 @@ public class ConfigurationUtil {
      * @return Random access list of unescaped subkeys.
      * @see #unescape(String)
      * @see #join(List)
+     * @see #KEY_SEPARATOR
      */
     public static List<String> split(String keys) {
         String[] split = keys.split("(?<!\\\\)[.]", -1);
@@ -117,9 +136,10 @@ public class ConfigurationUtil {
      * @return Escaped keys joined with dots.
      * @see #escape(String)
      * @see #split(String)
+     * @see #KEY_SEPARATOR
      */
     public static String join(List<String> keys) {
-        return keys.stream().map(ConfigurationUtil::escape).collect(Collectors.joining("."));
+        return keys.stream().map(ConfigurationUtil::escape).collect(joining(KEY_SEPARATOR));
     }
 
     /**
@@ -260,18 +280,19 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Creates new list that is a conjunction of given list and element.
+     * Creates a new list that is a concatenation of a given list and an element.
      *
      * @param prefix Head of the new list.
      * @param key    Tail element of the new list.
+     * @param <K>    Type of elements in the list.
      * @return New list.
      */
-    public static List<String> appendKey(List<String> prefix, String key) {
+    public static <K> List<K> appendKey(List<K> prefix, K key) {
         if (prefix.isEmpty()) {
             return List.of(key);
         }
 
-        List<String> res = new ArrayList<>(prefix.size() + 1);
+        List<K> res = new ArrayList<>(prefix.size() + 1);
         res.addAll(prefix);
         res.add(key);
 
@@ -451,6 +472,17 @@ public class ConfigurationUtil {
     }
 
     /**
+     * Checks whether configuration schema field represents internal id.
+     *
+     * @param schemaField Configuration schema class field.
+     * @return {@code true} if field represents internal id.
+     * @see InternalId
+     */
+    public static boolean isInternalId(Field schemaField) {
+        return schemaField.isAnnotationPresent(InternalId.class);
+    }
+
+    /**
      * Get the value of a {@link NamedConfigValue#syntheticKeyName}.
      *
      * @param field Configuration Schema class field.
@@ -536,19 +568,6 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Extracts the "direct" value from the given property.
-     *
-     * @param property Property to get the value from.
-     * @return "direct" value of the property.
-     * @throws ClassCastException if the property has not been annotated with {@link DirectAccess}.
-     * @see DirectAccess
-     * @see DirectConfigurationProperty
-     */
-    public static <T> T directValue(ConfigurationProperty<T> property) {
-        return ((DirectConfigurationProperty<T>) property).directValue();
-    }
-
-    /**
      * Get configuration schemas and their validated internal extensions.
      *
      * @param extensions Schema extensions with {@link InternalConfiguration}.
@@ -615,7 +634,7 @@ public class ConfigurationUtil {
      */
     public static List<Field> schemaFields(Class<?> schemaClass) {
         return Arrays.stream(schemaClass.getDeclaredFields())
-                .filter(f -> isValue(f) || isConfigValue(f) || isNamedConfigValue(f) || isPolymorphicId(f))
+                .filter(f -> isValue(f) || isConfigValue(f) || isNamedConfigValue(f) || isPolymorphicId(f) || isInjectedName(f))
                 .collect(toList());
     }
 
@@ -736,6 +755,111 @@ public class ConfigurationUtil {
     }
 
     /**
+     * Finds a node or a leaf by the given path.
+     *
+     * @param path     Path.
+     * @param rootNode Root node.
+     * @param <T>      Arbitrary result type.
+     * @return Node or leaf.
+     */
+    @Nullable
+    public static <T> T findEx(List<KeyPathNode> path, InnerNode rootNode) {
+        try {
+            var visitor = new ConfigurationVisitor<T>() {
+                private final int pathSize = path.size();
+
+                /** Current index of the key in the {@code path}. */
+                private int idx;
+
+                /** {@inheritDoc} */
+                @Override
+                public T visitLeafNode(String key, Serializable val) {
+                    if (idx != pathSize) {
+                        throw new KeyNotFoundException("Configuration value '" + joinPath(path.subList(0, idx)) + "' is a leaf");
+                    } else {
+                        return (T) val;
+                    }
+                }
+
+                /** {@inheritDoc} */
+                @Override
+                public T visitInnerNode(String key, InnerNode node) {
+                    if (node == null) {
+                        throw new KeyNotFoundException("Configuration node '" + joinPath(path.subList(0, idx)) + "' is null");
+                    } else if (idx == pathSize) {
+                        return (T) node;
+                    } else {
+                        try {
+                            KeyPathNode pathNode = path.get(idx++);
+
+                            assert !pathNode.unresolvedName;
+
+                            if (INTERNAL_ID.equals(pathNode.key)) {
+                                // It's impossible to get this value with a regular traversal. Just call a method.
+                                return (T) node.internalId();
+                            } else if (INJECTED_NAME.equals(pathNode.key)) {
+                                // It's impossible to get this value with a regular traversal. Just call a method.
+                                return (T) node.getInjectedNameFieldValue();
+                            }
+
+                            return node.traverseChild(pathNode.key, this, true);
+                        } catch (NoSuchElementException e) {
+                            throw new KeyNotFoundException(
+                                    "Configuration value '" + joinPath(path.subList(0, idx)) + "' has not been found"
+                            );
+                        } catch (ConfigurationWrongPolymorphicTypeIdException e) {
+                            assert false : e;
+
+                            return null;
+                        }
+                    }
+                }
+
+                /** {@inheritDoc} */
+                @Override
+                public T visitNamedListNode(String key, NamedListNode<?> node) {
+                    if (idx == pathSize) {
+                        return (T) node;
+                    } else {
+                        KeyPathNode pathNode = path.get(idx++);
+
+                        assert pathNode.namedListEntry;
+
+                        String name = pathNode.unresolvedName
+                                ? pathNode.key
+                                : node.keyByInternalId(UUID.fromString(pathNode.key));
+
+                        return visitInnerNode(name, node.getInnerNode(name));
+                    }
+                }
+            };
+
+            return rootNode.accept(null, visitor);
+        } catch (KeyNotFoundException e) {
+            throw new NoSuchElementException(joinPath(path));
+        }
+    }
+
+    private static String joinPath(List<KeyPathNode> path) {
+        return path.stream().map(pathNode -> pathNode.key).map(ConfigurationUtil::escape).collect(joining(KEY_SEPARATOR));
+    }
+
+    /**
+     * Ensures that dynamic configuration tree is up-to-date.
+     *
+     * @param cfg Dynamic configuration node instance.
+     */
+    public static void touch(DynamicConfiguration<?, ?> cfg) {
+        cfg.touchMembers();
+
+        for (ConfigurationProperty<?> value : cfg.members().values()) {
+            if (value instanceof DynamicConfiguration) {
+                touch((DynamicConfiguration<?, ?>) value);
+            }
+        }
+    }
+
+    /**
      * Leaf configuration source.
      */
     public static class LeafConfigurationSource implements ConfigurationSource {
@@ -835,7 +959,15 @@ public class ConfigurationUtil {
             var orderedKeys = new ArrayList<>(((NamedListView<?>) node).namedListKeys());
 
             for (Map.Entry<String, ?> entry : map.entrySet()) {
-                String internalId = entry.getKey();
+                String internalIdStr = entry.getKey();
+
+                // This is the mapping of internal ids to names. Skip it.
+                if (NamedListNode.IDS.equals(internalIdStr)) {
+                    continue;
+                }
+
+                UUID internalId = UUID.fromString(internalIdStr);
+
                 Object val = entry.getValue();
 
                 assert val == null || val instanceof Map || val instanceof Serializable;
@@ -916,5 +1048,105 @@ public class ConfigurationUtil {
                     : orderedKeys
             );
         }
+    }
+
+    /**
+     * Checks whether configuration schema field contains {@link InjectedName}.
+     *
+     * @param schemaField Configuration schema class field.
+     * @return {@code true} if the field contains {@link InjectedName}.
+     */
+    public static boolean isInjectedName(Field schemaField) {
+        return schemaField.isAnnotationPresent(InjectedName.class);
+    }
+
+    /**
+     * Checks whether configuration schema field contains {@link Name}.
+     *
+     * @param schemaField Configuration schema class field.
+     * @return {@code true} if the field contains {@link Name}.
+     */
+    public static boolean containsNameAnnotation(Field schemaField) {
+        return schemaField.isAnnotationPresent(Name.class);
+    }
+
+    /**
+     * Removes the last key.
+     *
+     * @param keys Keys.
+     * @return New list.
+     */
+    public static List<String> removeLastKey(List<String> keys) {
+        if (keys.isEmpty() || keys.size() == 1) {
+            return List.of();
+        } else {
+            return List.copyOf(keys.subList(0, keys.size() - 1));
+        }
+    }
+
+    /**
+     * Returns a configuration tree for the purpose of reading configuration directly from the underlying storage. Actual reading is only
+     * happening while invoking {@link ConfigurationTree#value()}. It will either throw {@link NoSuchElementException},
+     * {@link StorageException} or return the value.
+     * <p/>
+     * It is important to understand how it processes named list elements. Imagine having element named {@code a} with internalId
+     * {@code aId}.
+     * <pre><code>
+     *     var namedListProxy = directProxy(namedList);
+     *
+     *     // Creates another proxy.
+     *     var aElementProxy = namedListProxy.get("a");
+     *
+     *     // This operation performs actual reading. It'll throw an exception if element named "a" doesn't exist anymore.
+     *     // It's been renamed or deleted.
+     *     var aElement = aElementProxy.value();
+     *
+     *     // Creates another proxy.
+     *     var aIdElementProxy = getByInternalId(namedListProxy, aId);
+     *
+     *     // This operation performs actual reading as previously stated. But, unlike the access by name, it won't throw an exception in
+     *     // case of a rename. Only after deletion.
+     *     var aIdElement = aIdElementProxy.value();
+     * </code></pre>
+     * <p/>
+     * Another important case is how already resolved named list elements are being proxied.
+     * <pre><code>
+     *     // Following code is in fact equivalent to a "getByInternalId(directProxy(namedList), aId);"
+     *     // Already resolved elements are always referenced to by their internal ids. This means that proxy will return a valid value
+     *     // even after rename despite it looking like name "a" should be resolved once again.
+     *     var aElementProxy = directProxy(namedList.get("a"));
+     * </code></pre>
+     *
+     * @see #getByInternalId(NamedConfigurationTree, UUID)
+     * @see #getByInternalId(NamedListView, UUID)
+     */
+    public static <T extends ConfigurationProperty<?>> T directProxy(T property) {
+        if (property instanceof DirectPropertyProxy) {
+            return property;
+        }
+
+        assert property instanceof ConfigurationNode;
+
+        return (T) ((ConfigurationNode<T>) property).directProxy();
+    }
+
+    /**
+     * Returns named list configuration element by its internal id rather than its name.
+     */
+    public static <T extends ConfigurationProperty<?>> T getByInternalId(NamedConfigurationTree<T, ?, ?> cfg, UUID internalId) {
+        assert cfg instanceof NamedListConfiguration || cfg instanceof DirectNamedListProxy : cfg.getClass();
+
+        if (cfg instanceof NamedListConfiguration) {
+            return ((NamedListConfiguration<T, ?, ?>) cfg).getByInternalId(internalId);
+        } else {
+            return ((DirectNamedListProxy<T, ?, ?>) cfg).getByInternalId(internalId);
+        }
+    }
+
+    /**
+     * Returns named list node element by its internal id rather than its name.
+     */
+    public static <N> N getByInternalId(NamedListView<N> node, UUID internalId) {
+        return node.get(((NamedListNode<?>) node).keyByInternalId(internalId));
     }
 }

@@ -90,7 +90,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     TcpClientChannel(ClientChannelConfiguration cfg, ClientConnectionMultiplexer connMgr) {
         validateConfiguration(cfg);
 
-        asyncContinuationExecutor = ForkJoinPool.commonPool();
+        asyncContinuationExecutor = cfg.clientConfiguration().asyncContinuationExecutor() == null
+                ? ForkJoinPool.commonPool()
+                : cfg.clientConfiguration().asyncContinuationExecutor();
 
         connectTimeout = cfg.clientConfiguration().connectTimeout();
 
@@ -271,6 +273,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             pendingReq.complete(unpacker);
         } else {
             var errMsg = unpacker.unpackString();
+            unpacker.close();
+
             var err = new IgniteClientException(errMsg, status);
             pendingReq.completeExceptionally(err);
         }

@@ -134,20 +134,45 @@ namespace Apache.Ignite.Internal.Proto
         /// <returns>Ignite UUID.</returns>
         public static unsafe IgniteUuid ReadIgniteUuid(this ref MessagePackReader reader)
         {
-            ValidateExtensionType(ref reader, ClientMessagePackType.IgniteUuid, IgniteUuid.Size);
-            var bytes = reader.ReadRaw(IgniteUuid.Size);
+            var size = ValidateExtensionType(ref reader, ClientMessagePackType.IgniteUuid);
+            var bytes = reader.ReadRaw(size);
 
             var res = default(IgniteUuid);
-            bytes.CopyTo(new Span<byte>(res.Bytes, IgniteUuid.Size));
+            bytes.CopyTo(new Span<byte>(res.Bytes, size));
+            res.Size = (byte)size;
 
             return res;
         }
 
+        /// <summary>
+        /// Reads <see cref="ClientMessagePackType.NoValue"/> if it is the next token.
+        /// </summary>
+        /// <param name="reader">Reader.</param>
+        /// <returns><c>true</c> if the next token was NoValue; <c>false</c> otherwise.</returns>
+        public static bool TryReadNoValue(this ref MessagePackReader reader)
+        {
+            if (reader.NextCode != MessagePackCode.FixExt1)
+            {
+                return false;
+            }
+
+            var header = reader.CreatePeekReader().ReadExtensionFormatHeader();
+
+            if (header.TypeCode != (sbyte)ClientMessagePackType.NoValue)
+            {
+                return false;
+            }
+
+            reader.ReadRaw(3);
+
+            return true;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void ValidateExtensionType(
+        private static int ValidateExtensionType(
             ref MessagePackReader reader,
             ClientMessagePackType expectedType,
-            int expectedLength)
+            int? expectedLength = null)
         {
             ExtensionHeader hdr = reader.ReadExtensionFormatHeader();
 
@@ -157,11 +182,13 @@ namespace Apache.Ignite.Internal.Proto
                     $"Expected {expectedType} extension ({(int)expectedType}), but got {hdr.TypeCode}.");
             }
 
-            if (hdr.Length != expectedLength)
+            if (expectedLength != null && hdr.Length != expectedLength)
             {
                 throw new IgniteClientException(
                     $"Expected {expectedLength} bytes for {expectedType} extension, but got {hdr.Length}.");
             }
+
+            return (int)hdr.Length;
         }
     }
 }

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
@@ -27,6 +29,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.UUID;
+import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -43,7 +46,10 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.msgpack.core.MessageTypeException;
 
 /**
  * Common table functionality.
@@ -311,7 +317,7 @@ class ClientTableCommon {
         var tuple = Tuple.create(cnt);
 
         for (int i = 0; i < cnt; i++) {
-            if (unpacker.tryUnpackNil()) {
+            if (unpacker.tryUnpackNoValue()) {
                 continue;
             }
 
@@ -377,8 +383,29 @@ class ClientTableCommon {
         }
     }
 
+    /**
+     * Reads transaction.
+     *
+     * @param in Unpacker.
+     * @param resources Resource registry.
+     * @return Transaction, if present, or null.
+     */
+    public static @Nullable Transaction readTx(ClientMessageUnpacker in, ClientResourceRegistry resources) {
+        if (in.tryUnpackNil()) {
+            return null;
+        }
+
+        return resources.get(in.unpackLong()).get(Transaction.class);
+    }
+
     private static void readAndSetColumnValue(ClientMessageUnpacker unpacker, Tuple tuple, Column col) {
-        tuple.set(col.name(), unpacker.unpackObject(getClientDataType(col.type().spec())));
+        try {
+            int type = getClientDataType(col.type().spec());
+            Object val = unpacker.unpackObject(type);
+            tuple.set(col.name(), val);
+        } catch (MessageTypeException e) {
+            throw new IgniteException("Incorrect value type for column '" + col.name() + "': " + e.getMessage(), e);
+        }
     }
 
     private static int getClientDataType(NativeTypeSpec spec) {
@@ -437,10 +464,15 @@ class ClientTableCommon {
     }
 
     private static void writeColumnValue(ClientMessagePacker packer, Tuple tuple, Column col) {
-        var val = tuple.valueOrDefault(col.name(), null);
+        var val = tuple.valueOrDefault(col.name(), NO_VALUE);
 
         if (val == null) {
             packer.packNil();
+            return;
+        }
+
+        if (val == NO_VALUE) {
+            packer.packNoValue();
             return;
         }
 

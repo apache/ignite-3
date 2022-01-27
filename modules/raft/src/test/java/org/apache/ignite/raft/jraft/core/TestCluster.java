@@ -16,6 +16,11 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import static java.util.stream.Collectors.toList;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -34,11 +39,11 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -60,11 +65,6 @@ import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
-import static java.util.stream.Collectors.toList;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 /**
  * Test cluster for NodeTest
  */
@@ -74,7 +74,7 @@ public class TestCluster {
      * Important: due to sync disk ops (writing raft meta) during probe request processing this timeout should be high
      * enough to avoid test flakiness. Test environment might give another instability.
      */
-    private static final int ELECTION_TIMEOUT_MILLIS = 1000;
+    public static final int ELECTION_TIMEOUT_MILLIS = 1000;
 
     private static final IgniteLogger LOG = IgniteLogger.forClass(TestCluster.class);
 
@@ -235,6 +235,8 @@ public class TestCluster {
             nodeOptions.setTimerPoolSize(Utils.cpus() * 2);
             nodeOptions.setRpcProcessorThreadPoolSize(Utils.cpus() * 3);
 
+            nodeOptions.setElectionTimeoutStrategy(new ExponentialBackoffTimeoutStrategy());
+
             MockStateMachine fsm = new MockStateMachine(listenAddr);
             nodeOptions.setFsm(fsm);
 
@@ -249,11 +251,10 @@ public class TestCluster {
             NodeManager nodeManager = new NodeManager();
 
             ClusterService clusterService = ClusterServiceTestUtils.clusterService(
-                testInfo,
-                listenAddr.getPort(),
-                new StaticNodeFinder(addressList),
-                new TestMessageSerializationRegistryImpl(),
-                new TestScaleCubeClusterServiceFactory()
+                    testInfo,
+                    listenAddr.getPort(),
+                    new StaticNodeFinder(addressList),
+                    new TestScaleCubeClusterServiceFactory()
             );
 
             var rpcClient = new IgniteRpcClient(clusterService);

@@ -107,8 +107,8 @@ public class ItBaselineChangesTest {
 
         // Create table on node 0.
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
-                SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
-                SchemaBuilders.column("val", ColumnType.INT32).asNullable().build()
+                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
         clusterNodes.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
@@ -121,7 +121,7 @@ public class ItBaselineChangesTest {
         Table tbl1 = clusterNodes.get(1).tables().table(schTbl1.canonicalName());
         RecordView<Tuple> recView1 = tbl1.recordView();
 
-        recView1.insert(Tuple.create().set("key", 1L).set("val", 111));
+        recView1.insert(null, Tuple.create().set("key", 1L).set("val", 111));
 
         var metaStoreNode = clusterNodes.get(0);
 
@@ -149,7 +149,7 @@ public class ItBaselineChangesTest {
 
         final Tuple keyTuple1 = Tuple.create().set("key", 1L);
 
-        assertEquals(1, (Long) tbl4.recordView().get(keyTuple1).value("key"));
+        assertEquals(1, (Long) tbl4.recordView().get(null, keyTuple1).value("key"));
     }
 
     private String buildConfig(String metastoreNodeName, int nodeIdx) {

@@ -26,20 +26,17 @@ import org.jetbrains.annotations.Nullable;
  * @param <VIEWT> Type of the subtree or the value that has been changed.
  * @see ConfigurationProperty#listen(ConfigurationListener)
  * @see ConfigurationListener
- * @see ConfigurationNotificationEvent
  */
 public interface ConfigurationNotificationEvent<VIEWT> {
     /**
      * Returns the previous value of the updated configuration.
      *
-     * @return Previous value of the updated configuration.
+     * <p>NOTE: For a new configuration/property will be {@code null}.
      */
     @Nullable VIEWT oldValue();
 
     /**
      * Returns updated value of the configuration.
-     *
-     * @return Updated value of the configuration.
      */
     @Nullable VIEWT newValue();
 
@@ -57,10 +54,9 @@ public interface ConfigurationNotificationEvent<VIEWT> {
      * <p>For example, if we changed the child configuration, then we can get both the parent and the current child configuration.
      *
      * @param configClass Configuration interface, for example {@code RootConfiguration}.
-     * @param <T>         Configuration type.
-     * @return Configuration instance.
+     * @param <T> Configuration type.
      */
-    @Nullable <T extends ConfigurationProperty> T config(Class<? extends ConfigurationProperty> configClass);
+    @Nullable <T extends ConfigurationProperty> T config(Class<?> configClass);
 
     /**
      * Returns the key of a named list item for the parent (any from the root) or current configuration.
@@ -69,8 +65,6 @@ public interface ConfigurationNotificationEvent<VIEWT> {
      * occurred.
      *
      * @param configClass Configuration interface, for example {@code TableConfiguration}.
-     * @param <T>         Configuration type.
-     * @return Configuration instance.
      */
-    @Nullable <T extends ConfigurationProperty> String name(Class<? extends ConfigurationProperty> configClass);
+    @Nullable String name(Class<?> configClass);
 }
