@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization
 {
+    using System;
     using System.Collections.Concurrent;
     using System.Reflection.Emit;
     using System.Runtime.Serialization;
@@ -33,13 +34,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
     {
         private readonly ConcurrentDictionary<int, WriteDelegate<T>> _writers = new();
 
-        /// <summary>
-        /// Write delegate.
-        /// </summary>
-        /// <param name="writer">Writer.</param>
-        /// <param name="value">Value.</param>
-        /// <typeparam name="TV">Value type.</typeparam>
+        private readonly ConcurrentDictionary<int, ReadDelegate<T>> _readers = new();
+
         private delegate void WriteDelegate<in TV>(ref MessagePackWriter writer, TV value);
+
+        private delegate TV ReadDelegate<out TV>(ref MessagePackReader reader);
 
         /// <inheritdoc/>
         public T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
@@ -132,14 +131,64 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static WriteDelegate<T> EmitWriter(Schema schema, bool keyOnly)
         {
             var type = typeof(T);
-            var parameterTypes = new[]
-            {
-                typeof(MessagePackWriter).MakeByRefType(),
-                type
-            };
 
-            // TODO: Which module? Separate assembly?
-            var method = new DynamicMethod("Write" + type.Name, typeof(void), parameterTypes, typeof(IIgnite).Module, true);
+            var method = new DynamicMethod(
+                name: "Write" + type.Name,
+                returnType: typeof(void),
+                parameterTypes: new[] { typeof(MessagePackWriter).MakeByRefType(), type },
+                m: typeof(IIgnite).Module,
+                skipVisibility: true);
+
+            var il = method.GetILGenerator();
+
+            var columns = schema.Columns;
+            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+
+            for (var index = 0; index < count; index++)
+            {
+                var col = columns[index];
+                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+
+                if (fieldInfo == null)
+                {
+                    // writer.WriteNoValue();
+                    il.Emit(OpCodes.Ldarg_0); // writer
+                    il.Emit(OpCodes.Call, MessagePackMethods.WriteNoValue);
+                }
+                else
+                {
+                    // writer.WriteObject(prop.GetValue(record));
+                    il.Emit(OpCodes.Ldarg_0); // writer
+                    il.Emit(OpCodes.Ldarg_1); // record
+                    il.Emit(OpCodes.Ldfld, fieldInfo);
+
+                    var writeMethod = MessagePackMethods.GetWriteMethod(fieldInfo.FieldType);
+
+                    if (fieldInfo.FieldType.IsValueType && writeMethod == MessagePackMethods.WriteObject)
+                    {
+                        il.Emit(OpCodes.Box, fieldInfo.FieldType);
+                    }
+
+                    il.Emit(OpCodes.Call, writeMethod);
+                }
+            }
+
+            il.Emit(OpCodes.Ret);
+
+            return (WriteDelegate<T>)method.CreateDelegate(typeof(WriteDelegate<T>));
+        }
+
+        private static ReadDelegate<T> EmitReader(Schema schema, bool keyOnly)
+        {
+            var type = typeof(T);
+
+            var method = new DynamicMethod(
+                name: "Read" + type.Name,
+                returnType: type,
+                parameterTypes: new[] { typeof(MessagePackReader).MakeByRefType() },
+                m: typeof(IIgnite).Module,
+                skipVisibility: true);
+
             var il = method.GetILGenerator();
 
             var columns = schema.Columns;
