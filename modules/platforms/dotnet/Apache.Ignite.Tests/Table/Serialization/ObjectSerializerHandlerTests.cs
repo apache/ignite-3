@@ -33,7 +33,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
     {
         private record BadPoco(ClientOp Key, DateTimeOffset Val);
 
-        private record BadPoco2(Guid Key, Type Val);
+        private record BadPoco2(Guid Key, float Val);
 
         private static readonly Schema Schema = new(1, 1, new[]
         {
@@ -62,7 +62,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
         }
 
         [Test]
-        public void TestReadIntoUnsupportedFieldTypeThrowsException()
+        public void TestReadUnsupportedFieldTypeThrowsException()
         {
             var reader = WriteAndGetReader();
             var handler = new ObjectSerializerHandler<BadPoco>();
@@ -73,7 +73,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
         }
 
         [Test]
-        public void TestReadIntoMismatchedFieldTypeThrowsException()
+        public void TestReadMismatchedFieldTypeThrowsException()
         {
             var reader = WriteAndGetReader();
             var handler = new ObjectSerializerHandler<BadPoco2>();
@@ -83,19 +83,38 @@ namespace Apache.Ignite.Tests.Table.Serialization
             Assert.AreEqual("foo", resPoco.Val);
         }
 
+        [Test]
+        public void TestWriteUnsupportedFieldTypeThrowsException()
+        {
+            Write(new BadPoco(ClientOp.SchemasGet, DateTimeOffset.Now));
+        }
+
+        [Test]
+        public void TestWriteMismatchedFieldTypeThrowsException()
+        {
+            Write(new BadPoco2(Guid.NewGuid(), 0.1f));
+            Assert.Fail("TODO");
+        }
+
         private static MessagePackReader WriteAndGetReader()
         {
-            var poco = new Poco { Key = 1234, Val = "foo" };
-            var handler = new ObjectSerializerHandler<Poco>();
+            var pooledWriter = Write(new Poco { Key = 1234, Val = "foo" });
+
+            var resMem = pooledWriter.GetWrittenMemory()[4..]; // Skip length header.
+            return new MessagePackReader(resMem);
+        }
+
+        private static PooledArrayBufferWriter Write<T>(T obj)
+            where T : class
+        {
+            var handler = new ObjectSerializerHandler<T>();
 
             using var pooledWriter = new PooledArrayBufferWriter();
             var writer = pooledWriter.GetMessageWriter();
 
-            handler.Write(ref writer, Schema, poco);
+            handler.Write(ref writer, Schema, obj);
             writer.Flush();
-
-            var resMem = pooledWriter.GetWrittenMemory()[4..]; // Skip length header.
-            return new MessagePackReader(resMem);
+            return pooledWriter;
         }
     }
 }
