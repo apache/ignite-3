@@ -211,6 +211,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     if (isGenericReader)
                     {
                         il.Emit(OpCodes.Ldc_I4_S, (int)col.Type);
+                        il.Emit(OpCodes.Ldstr, col.Name);
+                        il.Emit(OpCodes.Ldstr, fieldInfo.Name);
                     }
 
                     il.Emit(OpCodes.Call, readMethod);

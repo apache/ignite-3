@@ -34,11 +34,21 @@ namespace Apache.Ignite.Internal.Proto
         /// </summary>
         /// <param name="reader">Reader.</param>
         /// <param name="type">Type.</param>
+        /// <param name="columnName">Column name.</param>
+        /// <param name="fieldName">Field name.</param>
         /// <typeparam name="T">Result type.</typeparam>
         /// <returns>Resulting object.</returns>
-        public static T ReadObjectGeneric<T>(this ref MessagePackReader reader, ClientDataType type)
+        public static T ReadObjectGeneric<T>(this ref MessagePackReader reader, ClientDataType type, string columnName, string fieldName)
         {
-            return (T)ReadObject(ref reader, type)!;
+            // TODO: This method is specific to serialization, move it to ObjectSerializerHandler.
+            try
+            {
+                return (T)ReadObject(ref reader, type)!;
+            }
+            catch (InvalidCastException e)
+            {
+                throw new IgniteClientException($"Failed to read column `{columnName}` into field `{fieldName}`: " + e.Message, e);
+            }
         }
 
         /// <summary>
