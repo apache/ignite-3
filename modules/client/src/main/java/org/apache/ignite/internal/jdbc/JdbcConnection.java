@@ -280,8 +280,6 @@ public class JdbcConnection implements Connection {
 
         if (autoCommit != this.autoCommit) {
             this.autoCommit = autoCommit;
-
-            doCommit(); // Specification requires to commit current tx if 'autoCommit' state was changed.
         }
     }
 
@@ -301,8 +299,6 @@ public class JdbcConnection implements Connection {
         if (autoCommit) {
             throw new SQLException("Transaction cannot be committed explicitly in auto-commit mode.");
         }
-
-        doCommit();
     }
 
     /** {@inheritDoc} */
@@ -312,10 +308,6 @@ public class JdbcConnection implements Connection {
 
         if (autoCommit) {
             throw new SQLException("Transaction cannot be rolled back explicitly in auto-commit mode.");
-        }
-
-        try (Statement s = createStatement()) {
-            s.execute("ROLLBACK");
         }
     }
 
@@ -784,17 +776,6 @@ public class JdbcConnection implements Connection {
     @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return iface != null && iface.isAssignableFrom(JdbcConnection.class);
-    }
-
-    /**
-     * Send to the server {@code COMMIT} command.
-     *
-     * @throws SQLException if failed.
-     */
-    private void doCommit() throws SQLException {
-        try (Statement s = createStatement()) {
-            s.execute("COMMIT");
-        }
     }
 
     /**

@@ -51,8 +51,7 @@ public class BatchExecuteRequest implements ClientMessage {
      * @param autoCommit Client auto commit flag state.
      */
     public BatchExecuteRequest(String schemaName, List<Query> queries, boolean autoCommit) {
-
-        assert queries != null || !queries.isEmpty();
+        assert queries != null && !queries.isEmpty();
 
         this.schemaName = schemaName;
         this.queries = queries;
@@ -89,7 +88,7 @@ public class BatchExecuteRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
-        packer.packString(schemaName);
+        ClientMessageUtils.writeStringNullable(packer, schemaName);
 
         packer.packArrayHeader(queries.size());
 
@@ -101,7 +100,7 @@ public class BatchExecuteRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
-        schemaName = unpacker.unpackString();
+        schemaName = ClientMessageUtils.readStringNullable(unpacker);
 
         int n = unpacker.unpackArrayHeader();
 
