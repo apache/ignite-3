@@ -607,9 +607,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {
-            Entry e = get(condition.key());
+            Collection<Entry> e = getAll(Arrays.asList(condition.keys()));
 
-            boolean branch = condition.test(e);
+            boolean branch = condition.test(e.toArray(new Entry[]{ }));
 
             Collection<Operation> ops = branch ? success : failure;
 

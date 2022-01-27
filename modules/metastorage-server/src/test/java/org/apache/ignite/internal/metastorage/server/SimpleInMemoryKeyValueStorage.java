@@ -263,9 +263,9 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     @Override
     public boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure) {
         synchronized (mux) {
-            Entry e = get(condition.key());
+            Collection<Entry> e = getAll(Arrays.asList(condition.keys()));
 
-            boolean branch = condition.test(e);
+            boolean branch = condition.test(e.toArray(new Entry[]{}));
 
             Collection<Operation> ops = branch ? success : failure;
 

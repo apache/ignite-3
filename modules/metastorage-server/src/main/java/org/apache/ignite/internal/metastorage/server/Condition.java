@@ -31,7 +31,7 @@ public interface Condition {
      *
      * @return The key which identifies an entry which condition will applied to.
      */
-    @NotNull byte[] key();
+    @NotNull byte[][] keys();
 
     /**
      * Tests the given entry on condition.
@@ -39,5 +39,7 @@ public interface Condition {
      * @param e Entry which will be tested on the condition. Can't be {@code null}.
      * @return {@code True} if the given entry satisfies to the condition, otherwise - {@code false}.
      */
-    boolean test(@NotNull Entry e);
+    boolean test(Entry... e);
+    
+    int arity();
 }

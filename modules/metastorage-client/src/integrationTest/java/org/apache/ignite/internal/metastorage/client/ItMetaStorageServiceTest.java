@@ -758,7 +758,7 @@ public class ItMetaStorageServiceTest {
 
         assertTrue(metaStorageSvc.invoke(condition, success, failure).get());
 
-        var conditionCaptor = ArgumentCaptor.forClass(org.apache.ignite.internal.metastorage.server.Condition.class);
+        var conditionCaptor = ArgumentCaptor.forClass(org.apache.ignite.internal.metastorage.server.AbstractCondition.class);
 
         ArgumentCaptor<Collection<org.apache.ignite.internal.metastorage.server.Operation>> successCaptor =
                 ArgumentCaptor.forClass(Collection.class);

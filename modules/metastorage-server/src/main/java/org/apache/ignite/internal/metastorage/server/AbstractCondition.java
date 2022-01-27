@@ -25,7 +25,7 @@ import org.jetbrains.annotations.NotNull;
 public abstract class AbstractCondition implements Condition {
     /** Entry key. */
     @NotNull
-    private final byte[] key;
+    private final byte[][] keys;
 
     /**
      * Constructs a condition with the given entry key.
@@ -33,13 +33,29 @@ public abstract class AbstractCondition implements Condition {
      * @param key Key identifies an entry which the condition will applied to.
      */
     public AbstractCondition(@NotNull byte[] key) {
-        this.key = key;
+        this.keys = new byte[][]{ key };
     }
 
     /** {@inheritDoc} */
     @NotNull
-    @Override
     public byte[] key() {
-        return key;
+        return keys[0];
     }
+    
+    @Override
+    public @NotNull byte[][] keys() {
+        return keys;
+    }
+    
+    @Override
+    public boolean test(Entry... e) {
+        return test(e[0]);
+    }
+    
+    @Override
+    public int arity() {
+        return 1;
+    }
+    
+    public abstract boolean test(Entry entry);
 }
