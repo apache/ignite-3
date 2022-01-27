@@ -25,7 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -520,21 +522,106 @@ public class KeyValueViewOperationsSimpleSchemaTest {
 
     @Test
     public void getAll() {
-        KeyValueView<Long, Long> kvView = kvView();
+        KeyValueView<Long, Long> tbl = kvView();
 
-        kvView.putAll(
-                null,
-                Map.of(
-                        1L, 11L,
-                        3L, 33L
-                ));
+        tbl.put(null, 1L, 11L);
+        tbl.put(null, 3L, 33L);
+        tbl.put(null, 4L, null);
 
-        Map<Long, Long> res = kvView.getAll(null, List.of(1L, 2L, 3L));
+        // Check missed value
+        Map<Long, Long> res = tbl.getAll(null, List.of(1L, 2L, 3L));
 
         assertEquals(2, res.size());
         assertEquals(11L, res.get(1L));
+        assertNull(res.get(2L));
         assertEquals(33L, res.get(3L));
-        assertNull(res.get(22L));
+
+        // Check null value
+        res = tbl.getAll(null, List.of(1L, 2L, 4L));
+
+        assertEquals(2, res.size());
+        assertEquals(11L, res.get(1L));
+        assertNull(res.get(2L));
+        assertNull(res.get(4L)); // 'null' value exists.
+        assertTrue(res.containsKey(4L));
+
+        // Check getOrDefault for result.
+        assertEquals(Long.MAX_VALUE, res.getOrDefault(2L, Long.MAX_VALUE));
+        assertEquals(Long.MAX_VALUE, res.getOrDefault(3L, Long.MAX_VALUE));
+        assertNull(res.getOrDefault(4L, Long.MAX_VALUE));
+
+        // Check empty keys collection.
+        res = tbl.getAll(null, List.of());
+        assertTrue(res.isEmpty());
+
+        // Check empty result.
+        res = tbl.getAll(null, List.of(2L));
+        assertTrue(res.isEmpty());
+
+        // Check null value in result.
+        res = tbl.getAll(null, List.of(3L));
+        assertFalse(res.isEmpty());
+        assertTrue(res.containsKey(3L));
+    }
+
+    @Test
+    public void putAll() {
+        KeyValueView<Long, Long> tbl = kvView();
+
+        // Check empty collection.
+        tbl.putAll(null, Map.of());
+
+        // Check non-null values.
+        tbl.putAll(null, Map.of(1L, 11L, 3L, 33L));
+
+        assertEquals(11L, tbl.get(null, 1L));
+        assertEquals(33L, tbl.get(null, 3L));
+
+        // Check null values.
+        Map<Long, Long> map = new HashMap<>() {
+            {
+                put(1L, 11L);
+                put(3L, null);
+            }
+        };
+
+        tbl.putAll(null, map);
+
+        assertEquals(11L, tbl.get(null, 1L));
+        assertNull(tbl.get(null, 2L));
+        assertNull(tbl.getNullable(null, 3L).get());
+    }
+
+    @Test
+    public void removeAll() {
+        KeyValueView<Long, Long> tbl = kvView();
+
+        tbl.put(null, 1L, 11L);
+        tbl.put(null, 3L, 33L);
+        tbl.put(null, 4L, null);
+
+        assertTrue(tbl.contains(null, 4L));
+
+        // Check null values.
+        Collection<Long> notFound = tbl.removeAll(null, List.of(2L, 3L, 4L));
+
+        assertEquals(1 , notFound.size());
+        assertEquals(2L, notFound.iterator().next());
+
+        assertEquals(11L, tbl.get(null, 1L));
+        assertFalse(tbl.contains(null, 3L));
+        assertFalse(tbl.contains(null, 4L));
+
+        // Check empty collection
+        notFound = tbl.removeAll(null, List.of());
+
+        assertTrue(notFound.isEmpty());
+        assertEquals(11L, tbl.get(null, 1L));
+
+        // Check simple collection.
+        assertTrue(tbl.removeAll(null, List.of(1L)).isEmpty());
+
+        assertEquals(1L, tbl.removeAll(null, List.of(1L)).iterator().next());
     }
 
     @SuppressWarnings("ConstantConditions")
