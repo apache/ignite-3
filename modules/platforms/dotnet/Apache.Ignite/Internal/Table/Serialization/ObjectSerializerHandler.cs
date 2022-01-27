@@ -170,6 +170,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 skipVisibility: true);
 
             var il = method.GetILGenerator();
+            il.DeclareLocal(type);
 
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
@@ -178,23 +179,23 @@ namespace Apache.Ignite.Internal.Table.Serialization
             il.Emit(OpCodes.Ldtoken, type);
             il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
             il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
+
             il.Emit(OpCodes.Stloc_0);
 
-            for (var i = 0; i < columns.Count; i++)
-            {
-                var col = columns[i];
-                var prop = type.GetFieldIgnoreCase(col.Name);
-
-                il.Emit(OpCodes.Ldarg_0); // reader
-                il.Emit(OpCodes.Call, MessagePackMethods.ReadNoValue);
-
-                Label noValueLabel = il.DefineLabel();
-                il.Emit(OpCodes.Brfalse_S, noValueLabel);
-
-                // TODO: Read into prop here.
-                il.MarkLabel(noValueLabel);
-            }
-
+            // for (var i = 0; i < columns.Count; i++)
+            // {
+            //     var col = columns[i];
+            //     var prop = type.GetFieldIgnoreCase(col.Name);
+            //
+            //     il.Emit(OpCodes.Ldarg_0); // reader
+            //     il.Emit(OpCodes.Call, MessagePackMethods.ReadNoValue);
+            //
+            //     Label noValueLabel = il.DefineLabel();
+            //     il.Emit(OpCodes.Brfalse_S, noValueLabel);
+            //
+            //     // TODO: Read into prop here.
+            //     il.MarkLabel(noValueLabel);
+            // }
             // for (var index = 0; index < count; index++)
             // {
             //     var col = columns[index];
@@ -223,6 +224,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             //         il.Emit(OpCodes.Call, writeMethod);
             //     }
             // }
+            il.Emit(OpCodes.Ldloc_0);
             il.Emit(OpCodes.Ret);
 
             return (ReadDelegate<T>)method.CreateDelegate(typeof(ReadDelegate<T>));

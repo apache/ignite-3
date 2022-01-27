@@ -47,6 +47,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static readonly MethodInfo WriteObject =
             typeof(MessagePackWriterExtensions).GetMethod(nameof(MessagePackWriterExtensions.WriteObject))!;
 
+        /// <summary>
+        /// Object (catch all) reader.
+        /// </summary>
+        public static readonly MethodInfo ReadObject =
+            typeof(MessagePackReaderExtensions).GetMethod(nameof(MessagePackReaderExtensions.ReadObject))!;
+
         private static readonly IReadOnlyDictionary<Type, MethodInfo> WriteMethods = new Dictionary<Type, MethodInfo>
         {
             { typeof(string), GetWriteMethod<string>() },
@@ -61,8 +67,22 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(Guid), GetWriteMethod<Guid>() },
         };
 
+        private static readonly IReadOnlyDictionary<Type, MethodInfo> ReadMethods = new Dictionary<Type, MethodInfo>
+        {
+            { typeof(string), GetReadMethod<string>() },
+            { typeof(byte), GetReadMethod<byte>() },
+            { typeof(sbyte), GetReadMethod<sbyte>() },
+            { typeof(short), GetReadMethod<short>() },
+            { typeof(ushort), GetReadMethod<ushort>() },
+            { typeof(int), GetReadMethod<int>() },
+            { typeof(uint), GetReadMethod<uint>() },
+            { typeof(long), GetReadMethod<long>() },
+            { typeof(ulong), GetReadMethod<ulong>() },
+            { typeof(Guid), GetReadMethod<Guid>() },
+        };
+
         /// <summary>
-        /// Gets the write methods.
+        /// Gets the write method.
         /// </summary>
         /// <param name="valueType">Type of the value to write.</param>
         /// <returns>Write method for the specified value type.</returns>
@@ -70,6 +90,16 @@ namespace Apache.Ignite.Internal.Table.Serialization
             WriteMethods.TryGetValue(valueType, out var method)
                 ? method
                 : WriteObject;
+
+        /// <summary>
+        /// Gets the read method.
+        /// </summary>
+        /// <param name="valueType">Type of the value to read.</param>
+        /// <returns>Read method for the specified value type.</returns>
+        public static MethodInfo GetReadMethod(Type valueType) =>
+            ReadMethods.TryGetValue(valueType, out var method)
+                ? method
+                : ReadObject;
 
         private static MethodInfo GetWriteMethod<TArg>()
         {
@@ -82,6 +112,21 @@ namespace Apache.Ignite.Internal.Table.Serialization
             if (methodInfo == null)
             {
                 throw new InvalidOperationException($"Method not found: Write({typeof(TArg).Name})");
+            }
+
+            return methodInfo;
+        }
+
+        private static MethodInfo GetReadMethod<TRes>()
+        {
+            var methodName = "Read" + typeof(TRes).Name;
+
+            var methodInfo = typeof(MessagePackReader).GetMethod(methodName) ??
+                             typeof(MessagePackReaderExtensions).GetMethod(methodName);
+
+            if (methodInfo == null)
+            {
+                throw new InvalidOperationException($"Method not found: {methodName}");
             }
 
             return methodInfo;
