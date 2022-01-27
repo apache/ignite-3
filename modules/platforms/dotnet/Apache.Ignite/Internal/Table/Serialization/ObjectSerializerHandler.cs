@@ -180,9 +180,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
             il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
             il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
 
-            il.Emit(OpCodes.Stloc_0);
+            il.Emit(OpCodes.Stloc_0); // res
 
-            for (var i = 0; i < columns.Count; i++)
+            for (var i = 0; i < count; i++)
             {
                 var col = columns[i];
                 var fieldInfo = type.GetFieldIgnoreCase(col.Name);
@@ -202,6 +202,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                     var readMethod = MessagePackMethods.GetReadMethod(fieldInfo.FieldType);
 
+                    il.Emit(OpCodes.Ldloc_0); // res
                     il.Emit(OpCodes.Ldarg_0); // reader
                     il.Emit(OpCodes.Call, readMethod);
                     il.Emit(OpCodes.Stfld, fieldInfo);
@@ -238,7 +239,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             //         il.Emit(OpCodes.Call, writeMethod);
             //     }
             // }
-            il.Emit(OpCodes.Ldloc_0);
+            il.Emit(OpCodes.Ldloc_0); // res
             il.Emit(OpCodes.Ret);
 
             return (ReadDelegate<T>)method.CreateDelegate(typeof(ReadDelegate<T>));
