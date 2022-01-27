@@ -2285,6 +2285,10 @@ public class NodeImpl implements Node, RaftServerService {
      */
     private boolean checkDeadNodes0(final List<PeerId> peers, final long monotonicNowMs, final boolean checkReplicator,
         final Configuration deadNodes) {
+//        if (ThreadLocalRandom.current().nextInt(4) % 10 == 0) {
+//            System.out.println("FAILEDEDE");
+//            return false;
+//        }
         final int leaderLeaseTimeoutMs = this.options.getLeaderLeaseTimeoutMs();
         int aliveCount = 0;
         long startLease = Long.MAX_VALUE;
