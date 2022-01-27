@@ -86,13 +86,9 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertEquals(22L, tbl.get(null, 1L));
         assertEquals(22L, tbl.get(null, 1L));
 
-        // Remove KV pair.
-        tbl.remove(null, 1L);
-
-        assertNull(tbl.get(null, 1L));
-
         // Put `null` value.
         tbl.put(null, 1L, null);
+        assertTrue(tbl.contains(null, 1L));
 
         assertThrows(UnexpectedNullValueException.class, () -> tbl.get(null, 1L));
         assertNull(tbl.getNullable(null, 1L).get());
@@ -116,13 +112,12 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertFalse(tbl.putIfAbsent(null, 1L, 22L));
         assertEquals(11L, tbl.get(null, 1L));
 
-        // Insert KV pair.
-        assertTrue(tbl.putIfAbsent(null, 2L, null));
-        assertNull(tbl.getNullable(null, 2L).get());
-        assertTrue(tbl.contains(null, 2L));
+        // Put null value
+        assertFalse(tbl.putIfAbsent(null, 1L, null));
+        assertEquals(11L, tbl.get(null, 1L));
 
-        // Update KV pair.
-        assertFalse(tbl.putIfAbsent(null, 2L, 33L));
+        assertTrue(tbl.putIfAbsent(null, 2L, null));
+        assertTrue(tbl.contains(null, 2L));
         assertNull(tbl.getNullable(null, 2L).get());
     }
 
@@ -473,8 +468,9 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertTrue(tbl.replace(null, 1L, null, 33L));
         assertEquals(33L, tbl.get(null, 1L));
 
-        // Remove non-existed KV pair.
+        // Check non-existed KV pair.
         assertFalse(tbl.replace(null, 2L, null, null));
+        assertNull(tbl.getNullable(null, 2L));
     }
 
     @Test
