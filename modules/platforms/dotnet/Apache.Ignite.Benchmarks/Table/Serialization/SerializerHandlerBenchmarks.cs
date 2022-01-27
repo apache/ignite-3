@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-#pragma warning disable SA1401 // Fields should be private.
 namespace Apache.Ignite.Benchmarks.Table.Serialization
 {
     using System;
@@ -72,6 +71,9 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             var writer = pooledWriter.GetMessageWriter();
 
             TupleSerializerHandler.Instance.Write(ref writer, Schema, Tuple);
+
+            writer.Flush();
+            VerifyWritten(pooledWriter);
         }
 
         [Benchmark]
@@ -81,6 +83,9 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             var writer = pooledWriter.GetMessageWriter();
 
             ObjectSerializerHandler.Write(ref writer, Schema, Object);
+
+            writer.Flush();
+            VerifyWritten(pooledWriter);
         }
 
         [Benchmark(Baseline = true)]
@@ -90,15 +95,28 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             var writer = pooledWriter.GetMessageWriter();
 
             ObjectSerializerHandlerOld.Write(ref writer, Schema, Object);
+
+            writer.Flush();
+            VerifyWritten(pooledWriter);
+        }
+
+        private static void VerifyWritten(PooledArrayBufferWriter pooledWriter)
+        {
+            var bytesWritten = pooledWriter.GetWrittenMemory().Length;
+
+            if (bytesWritten != 29)
+            {
+                throw new Exception("Unexpected number of bytes written: " + bytesWritten);
+            }
         }
 
         private class Car
         {
-            public Guid Id;
+            public Guid Id { get; set; }
 
-            public string BodyType = null!;
+            public string BodyType { get; set; } = null!;
 
-            public int Seats;
+            public int Seats { get; set; }
         }
     }
 }
