@@ -29,11 +29,12 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
     /// <summary>
     /// Benchmarks for <see cref="IRecordSerializerHandler{T}"/> implementations.
-    /// Results on Intel Core i7-9700K, .NET SDK 5.0.404, Ubuntu 20.04:
-    /// |      Method |     Mean |   Error |  StdDev |  Gen 0 | Allocated |
-    /// |------------ |---------:|--------:|--------:|-------:|----------:|
-    /// |  WriteTuple | 317.8 ns | 3.16 ns | 2.96 ns | 0.0229 |     144 B |
-    /// | WriteObject | 156.5 ns | 0.64 ns | 0.53 ns | 0.0062 |      40 B |.
+    /// Results on Intel Core i7-9700K, .NET SDK 3.1.416, Ubuntu 20.04:
+    /// |         Method |     Mean |   Error |  StdDev | Ratio |  Gen 0 | Allocated |
+    /// |--------------- |---------:|--------:|--------:|------:|-------:|----------:|
+    /// |     WriteTuple | 326.5 ns | 2.45 ns | 2.30 ns |  1.43 | 0.0229 |     144 B |
+    /// |    WriteObject | 157.1 ns | 0.53 ns | 0.47 ns |  0.69 | 0.0062 |      40 B |
+    /// | WriteObjectOld | 228.7 ns | 2.71 ns | 2.53 ns |  1.00 | 0.0062 |      40 B |.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     [MemoryDiagnoser]
