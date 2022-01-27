@@ -29,6 +29,11 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
     /// <summary>
     /// Benchmarks for <see cref="IRecordSerializerHandler{T}"/> implementations.
+    /// Results on Intel Core i7-9700K, .NET SDK 5.0.404, Ubuntu 20.04:
+    /// |      Method |     Mean |   Error |  StdDev |  Gen 0 | Allocated |
+    /// |------------ |---------:|--------:|--------:|-------:|----------:|
+    /// |  WriteTuple | 270.8 ns | 1.21 ns | 1.13 ns | 0.0215 |     136 B |
+    /// | WriteObject | 151.1 ns | 1.74 ns | 1.63 ns | 0.0062 |      40 B |.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     [MemoryDiagnoser]
@@ -50,9 +55,9 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
         private static readonly Schema Schema = new(1, 1, new[]
         {
-            new Column("Id", ClientDataType.Uuid, false, true, 0),
-            new Column("Name", ClientDataType.String, false, true, 1),
-            new Column("Seat", ClientDataType.Int32, false, true, 2)
+            new Column(nameof(Car.Id), ClientDataType.Uuid, Nullable: false, IsKey: true, SchemaIndex: 0),
+            new Column(nameof(Car.BodyType), ClientDataType.String, Nullable: false, IsKey: false, SchemaIndex: 1),
+            new Column(nameof(Car.Seats), ClientDataType.Int32, Nullable: false, IsKey: false, SchemaIndex: 2)
         });
 
         private static readonly ObjectSerializerHandler<Car> ObjectSerializerHandler = new();
