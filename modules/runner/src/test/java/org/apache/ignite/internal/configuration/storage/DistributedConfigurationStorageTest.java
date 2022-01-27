@@ -44,7 +44,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.LoggerMessageHelper;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -229,7 +229,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
                 if (n <= 0) {
                     cancel();
 
-                    subscriber.onError(new IllegalArgumentException(LoggerMessageHelper
+                    subscriber.onError(new IllegalArgumentException(IgniteStringFormatter
                             .format("Invalid requested amount of items [requested={}, minValue=1]", n))
                     );
                 }

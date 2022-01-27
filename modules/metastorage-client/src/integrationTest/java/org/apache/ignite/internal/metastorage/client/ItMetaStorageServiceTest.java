@@ -908,56 +908,6 @@ public class ItMetaStorageServiceTest {
     }
 
     /**
-     * Tests {@link MetaStorageService#closeCursors(String)}.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testCursorsCleanup() throws Exception {
-        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key().bytes(), null)).thenAnswer(invocation -> {
-            var cursor = mock(Cursor.class);
-
-            when(cursor.hasNext()).thenReturn(true);
-            when(cursor.next()).thenReturn(EXPECTED_SRV_RESULT_ENTRY);
-
-            return cursor;
-        });
-
-        List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
-
-        RaftGroupService metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
-                METASTORAGE_RAFT_GROUP_NAME,
-                cluster.get(1),
-                FACTORY,
-                10_000,
-                peers,
-                true,
-                200,
-                executor
-        ).get(3, TimeUnit.SECONDS);
-
-        try {
-            MetaStorageService metaStorageSvc2 = new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_1);
-
-            Cursor<Entry> cursorNode0 = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
-
-            Cursor<Entry> cursor2Node0 = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
-
-            final Cursor<Entry> cursorNode1 = metaStorageSvc2.range(EXPECTED_RESULT_ENTRY.key(), null);
-
-            metaStorageSvc.closeCursors(NODE_ID_0).get();
-
-            assertThrows(NoSuchElementException.class, () -> cursorNode0.iterator().next());
-
-            assertThrows(NoSuchElementException.class, () -> cursor2Node0.iterator().next());
-
-            assertEquals(EXPECTED_RESULT_ENTRY, (cursorNode1.iterator().next()));
-        } finally {
-            metaStorageRaftGrpSvc.shutdown();
-        }
-    }
-
-    /**
      * Wait for topology.
      *
      * @param cluster The cluster.

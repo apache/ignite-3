@@ -57,9 +57,9 @@ import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCo
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorsCloseCommand;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
-import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.raft.client.scan.ScanRetrieveBatchCommand;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
@@ -495,12 +495,14 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
                     subscriber.onError(
                             new IllegalArgumentException(
-                                    LoggerMessageHelper.format("Invalid requested amount of items [requested={}, minValue=1]", n))
+                                    IgniteStringFormatter
+                                            .format("Invalid requested amount of items [requested={}, minValue=1]", n))
                     );
                 }
 
                 // TODO: IGNITE-14691 Back pressure logic should be adjusted after implementing reactive server-side watches.
-                assert n == 1 : LoggerMessageHelper.format("Invalid requested amount of watch items [requested={}, expected=1]", n);
+                assert n == 1 : IgniteStringFormatter
+                        .format("Invalid requested amount of watch items [requested={}, expected=1]", n);
 
                 watchInitOp.thenRun(this::retrieveNextWatchEvent);
             }
@@ -667,7 +669,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 if (n <= 0) {
                     cancel();
 
-                    subscriber.onError(new IllegalArgumentException(LoggerMessageHelper
+                    subscriber.onError(new IllegalArgumentException(IgniteStringFormatter
                             .format("Invalid requested amount of items [requested={}, minValue=1]", n))
                     );
                 }

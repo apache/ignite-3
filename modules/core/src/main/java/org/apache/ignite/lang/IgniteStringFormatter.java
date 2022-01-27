@@ -25,7 +25,7 @@ import java.util.HashSet;
  * <p>For example,
  *
  * <pre>
- * LoggerMessageHelper.format(&quot;Hi {}.&quot;, &quot;there&quot;).get1();
+ * IgniteStringFormatter.format(&quot;Hi {}.&quot;, &quot;there&quot;).get1();
  * </pre>
  *
  * <p>will return the string "Hi there.".
@@ -37,7 +37,7 @@ import java.util.HashSet;
  * immediately follows '{'. For example,
  *
  * <pre>
- * LoggerMessageHelper.format(&quot;Set {1,2,3} is not equal to {}.&quot;, &quot;1,2&quot;).get1();
+ * IgniteStringFormatter.format(&quot;Set {1,2,3} is not equal to {}.&quot;, &quot;1,2&quot;).get1();
  * </pre>
  *
  * <p>will return the string "Set {1,2,3} is not equal to 1,2.".
@@ -47,7 +47,7 @@ import java.util.HashSet;
  * escape the '}' character. For example,
  *
  * <pre>
- * LoggerMessageHelper.format(&quot;Set \\{} is not equal to {}.&quot;, &quot;1,2&quot;).get1();
+ * IgniteStringFormatter.format(&quot;Set \\{} is not equal to {}.&quot;, &quot;1,2&quot;).get1();
  * </pre>
  *
  * <p>will return the string "Set {} is not equal to 1,2.".
@@ -55,7 +55,7 @@ import java.util.HashSet;
  * <p>The escaping behavior just described can be overridden by escaping the escape character '\'. Calling
  *
  * <pre>
- * LoggerMessageHelper.format(&quot;File name is C:\\\\{}.&quot;, &quot;file.zip&quot;).get1();
+ * IgniteStringFormatter.format(&quot;File name is C:\\\\{}.&quot;, &quot;file.zip&quot;).get1();
  * </pre>
  *
  * <p>will return the string "File name is C:\file.zip".

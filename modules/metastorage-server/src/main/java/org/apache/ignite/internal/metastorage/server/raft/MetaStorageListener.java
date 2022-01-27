@@ -63,8 +63,8 @@ import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -302,7 +302,7 @@ public class MetaStorageListener implements RaftGroupListener {
                 CursorMeta cursorDesc = cursors.get(scanRetrieveBatchCmd.scanId());
 
                 if (cursorDesc == null) {
-                    clo.result(new NoSuchElementException(LoggerMessageHelper.format(
+                    clo.result(new NoSuchElementException(IgniteStringFormatter.format(
                             "Cursor with id={} is not found on server side.", scanRetrieveBatchCmd.scanId())));
 
                     return;
