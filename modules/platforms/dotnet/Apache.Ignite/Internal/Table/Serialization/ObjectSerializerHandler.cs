@@ -167,15 +167,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var il = method.GetILGenerator();
             il.DeclareLocal(type);
 
-            var columns = schema.Columns;
-            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
-
-            // var res = (T) FormatterServices.GetUninitializedObject(type);
             il.Emit(OpCodes.Ldtoken, type);
             il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
             il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
 
-            il.Emit(OpCodes.Stloc_0); // res
+            il.Emit(OpCodes.Stloc_0); // T res
+
+            var columns = schema.Columns;
+            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
 
             for (var i = 0; i < count; i++)
             {
@@ -223,34 +222,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
             }
 
-            // for (var index = 0; index < count; index++)
-            // {
-            //     var col = columns[index];
-            //     var fieldInfo = type.GetFieldIgnoreCase(col.Name);
-            //
-            //     if (fieldInfo == null)
-            //     {
-            //         // writer.WriteNoValue();
-            //         il.Emit(OpCodes.Ldarg_0); // writer
-            //         il.Emit(OpCodes.Call, MessagePackMethods.WriteNoValue);
-            //     }
-            //     else
-            //     {
-            //         // writer.WriteObject(prop.GetValue(record));
-            //         il.Emit(OpCodes.Ldarg_0); // writer
-            //         il.Emit(OpCodes.Ldarg_1); // record
-            //         il.Emit(OpCodes.Ldfld, fieldInfo);
-            //
-            //         var writeMethod = MessagePackMethods.GetWriteMethod(fieldInfo.FieldType);
-            //
-            //         if (fieldInfo.FieldType.IsValueType && writeMethod == MessagePackMethods.WriteObject)
-            //         {
-            //             il.Emit(OpCodes.Box, fieldInfo.FieldType);
-            //         }
-            //
-            //         il.Emit(OpCodes.Call, writeMethod);
-            //     }
-            // }
             il.Emit(OpCodes.Ldloc_0); // res
             il.Emit(OpCodes.Ret);
 
