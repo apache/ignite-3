@@ -278,6 +278,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 else
                 {
                     // TODO: Validate type compatibility.
+                    // TODO: Deduplicate code.
                     il.Emit(OpCodes.Ldarg_0); // reader
                     il.Emit(OpCodes.Call, MessagePackMethods.TryReadNoValue);
 
