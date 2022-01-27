@@ -20,11 +20,11 @@ package org.apache.ignite.internal.table.distributed;
 import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -196,7 +196,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tablesCfg.tables()
                 .listenElements(new ConfigurationNamedListListener<>() {
                     @Override
-                    public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<TableView> ctx) {
+                    public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableView> ctx) {
                         if (!busyLock.enterBusy()) {
                             String tblName = ctx.newValue().name();
                             IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableView) ctx.newValue()).id());
@@ -223,7 +223,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                      *
                      * @param ctx Configuration event.
                      */
-                    private void onTableCreateInternal(@NotNull ConfigurationNotificationEvent<TableView> ctx) {
+                    private void onTableCreateInternal(ConfigurationNotificationEvent<TableView> ctx) {
                         String tblName = ctx.newValue().name();
                         IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableView) ctx.newValue()).id());
 
@@ -236,9 +236,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName)).schemas()
                                 .listenElements(new ConfigurationNamedListListener<>() {
                                     @Override
-                                    public @NotNull CompletableFuture<?> onCreate(
-                                            @NotNull ConfigurationNotificationEvent<SchemaView> schemasCtx
-                                    ) {
+                                    public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<SchemaView> schemasCtx) {
                                         if (!busyLock.enterBusy()) {
                                             fireEvent(
                                                     TableEvent.ALTER,
@@ -298,10 +296,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         );
                     }
 
-                    @NotNull
                     private CompletableFuture<?> updateAssignmentInternal(
                             IgniteUuid tblId,
-                            @NotNull ConfigurationNotificationEvent<byte[]> assignmentsCtx
+                            ConfigurationNotificationEvent<byte[]> assignmentsCtx
                     ) {
                         List<List<ClusterNode>> oldAssignments =
                                 (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.oldValue());
@@ -352,17 +349,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
 
                     @Override
-                    public @NotNull CompletableFuture<?> onRename(@NotNull String oldName, @NotNull String newName,
-                            @NotNull ConfigurationNotificationEvent<TableView> ctx) {
+                    public CompletableFuture<?> onRename(String oldName, String newName, ConfigurationNotificationEvent<TableView> ctx) {
                         // TODO: IGNITE-15485 Support table rename operation.
 
                         return CompletableFuture.completedFuture(null);
                     }
 
                     @Override
-                    public @NotNull CompletableFuture<?> onDelete(
-                            @NotNull ConfigurationNotificationEvent<TableView> ctx
-                    ) {
+                    public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<TableView> ctx) {
                         if (!busyLock.enterBusy()) {
                             String tblName = ctx.oldValue().name();
                             IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableView) ctx.oldValue()).id());
@@ -504,7 +498,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         CompletableFuture.allOf(partitionsGroupsFutures.toArray(CompletableFuture[]::new)).thenRun(() -> {
             try {
-                HashMap<Integer, RaftGroupService> partitionMap = new HashMap<>(partitions);
+                Int2ObjectOpenHashMap<RaftGroupService> partitionMap = new Int2ObjectOpenHashMap<>(partitions);
 
                 for (int p = 0; p < partitions; p++) {
                     CompletableFuture<RaftGroupService> future = partitionsGroupsFutures.get(p);
@@ -1066,7 +1060,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param schemaVer Schema version.
      * @return True when the schema configured, false otherwise.
      */
-    // TODO: IGNITE-15412 Configuration manager will be used to retrieve distributed values
     private boolean isSchemaExists(IgniteUuid tblId, int schemaVer) {
         return latestSchemaVersion(tblId) >= schemaVer;
     }
