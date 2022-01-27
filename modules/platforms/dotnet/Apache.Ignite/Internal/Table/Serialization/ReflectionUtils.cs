@@ -21,13 +21,26 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Linq.Expressions;
     using System.Reflection;
+    using System.Runtime.Serialization;
 
     /// <summary>
     /// Reflection utilities.
     /// </summary>
     internal static class ReflectionUtils
     {
+        /// <summary>
+        /// GetUninitializedObject method.
+        /// </summary>
+        public static readonly MethodInfo GetUninitializedObjectMethod = GetMethodInfo(
+            () => FormatterServices.GetUninitializedObject(null!));
+
+        /// <summary>
+        /// GetTypeFromHandle method.
+        /// </summary>
+        public static readonly MethodInfo GetTypeFromHandleMethod = GetMethodInfo(() => Type.GetTypeFromHandle(default));
+
         private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, FieldInfo>> FieldsByNameCache = new();
 
         /// <summary>
@@ -100,5 +113,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             return fieldName;
         }
+
+        /// <summary>
+        /// Gets the method info.
+        /// </summary>
+        /// <param name="expression">Expression.</param>
+        /// <typeparam name="T">Argument type.</typeparam>
+        /// <returns>Corresponding MethodInfo.</returns>
+        public static MethodInfo GetMethodInfo<T>(Expression<Func<T>> expression) => ((MethodCallExpression)expression.Body).Method;
     }
 }

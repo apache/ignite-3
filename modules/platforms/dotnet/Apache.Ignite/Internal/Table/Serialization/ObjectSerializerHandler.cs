@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
     using System.Collections.Concurrent;
+    using System.Reflection;
     using System.Reflection.Emit;
     using System.Runtime.Serialization;
     using Buffers;
@@ -34,7 +35,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
     {
         private readonly ConcurrentDictionary<int, WriteDelegate<T>> _writers = new();
 
+#pragma warning disable CA1823
         private readonly ConcurrentDictionary<int, ReadDelegate<T>> _readers = new();
+#pragma warning restore CA1823
 
         private delegate void WriteDelegate<in TV>(ref MessagePackWriter writer, TV value);
 
@@ -43,34 +46,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <inheritdoc/>
         public T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
         {
-            // TODO: Emit code for efficient serialization (IGNITE-16341).
-            var columns = schema.Columns;
-            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
-            var type = typeof(T);
-            var res = (T) FormatterServices.GetUninitializedObject(type);
+            var readDelegate = _readers.TryGetValue(schema.Version, out var w)
+                ? w
+                : _readers.GetOrAdd(schema.Version, EmitReader(schema, keyOnly));
 
-            for (var index = 0; index < count; index++)
-            {
-                if (reader.TryReadNoValue())
-                {
-                    continue;
-                }
-
-                var col = columns[index];
-                var prop = type.GetFieldIgnoreCase(col.Name);
-
-                if (prop != null)
-                {
-                    var value = reader.ReadObject(col.Type);
-                    prop.SetValue(res, value);
-                }
-                else
-                {
-                    reader.Skip();
-                }
-            }
-
-            return (T)(object)res;
+            return readDelegate(ref reader);
         }
 
         /// <inheritdoc/>
@@ -194,38 +174,71 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
 
-            for (var index = 0; index < count; index++)
-            {
-                var col = columns[index];
-                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+            // var res = (T) FormatterServices.GetUninitializedObject(type);
+            il.Emit(OpCodes.Ldtoken, type);
+            il.EmitCall(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod, null);
+            il.EmitCall(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod, null);
 
-                if (fieldInfo == null)
-                {
-                    // writer.WriteNoValue();
-                    il.Emit(OpCodes.Ldarg_0); // writer
-                    il.Emit(OpCodes.Call, MessagePackMethods.WriteNoValue);
-                }
-                else
-                {
-                    // writer.WriteObject(prop.GetValue(record));
-                    il.Emit(OpCodes.Ldarg_0); // writer
-                    il.Emit(OpCodes.Ldarg_1); // record
-                    il.Emit(OpCodes.Ldfld, fieldInfo);
-
-                    var writeMethod = MessagePackMethods.GetWriteMethod(fieldInfo.FieldType);
-
-                    if (fieldInfo.FieldType.IsValueType && writeMethod == MessagePackMethods.WriteObject)
-                    {
-                        il.Emit(OpCodes.Box, fieldInfo.FieldType);
-                    }
-
-                    il.Emit(OpCodes.Call, writeMethod);
-                }
-            }
-
+            // for (var i = 0; i < columns.Count; i++)
+            // {
+            //     var col = columns[i];
+            //     var prop = type.GetFieldIgnoreCase(col.Name);
+            //
+            //     if (i < schema.KeyColumnCount)
+            //     {
+            //         if (prop != null)
+            //         {
+            //             prop.SetValue(res, prop.GetValue(key));
+            //         }
+            //     }
+            //     else
+            //     {
+            //         if (r.TryReadNoValue())
+            //         {
+            //             continue;
+            //         }
+            //
+            //         if (prop != null)
+            //         {
+            //             prop.SetValue(res, r.ReadObject(col.Type));
+            //         }
+            //         else
+            //         {
+            //             r.Skip();
+            //         }
+            //     }
+            // }
+            // for (var index = 0; index < count; index++)
+            // {
+            //     var col = columns[index];
+            //     var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+            //
+            //     if (fieldInfo == null)
+            //     {
+            //         // writer.WriteNoValue();
+            //         il.Emit(OpCodes.Ldarg_0); // writer
+            //         il.Emit(OpCodes.Call, MessagePackMethods.WriteNoValue);
+            //     }
+            //     else
+            //     {
+            //         // writer.WriteObject(prop.GetValue(record));
+            //         il.Emit(OpCodes.Ldarg_0); // writer
+            //         il.Emit(OpCodes.Ldarg_1); // record
+            //         il.Emit(OpCodes.Ldfld, fieldInfo);
+            //
+            //         var writeMethod = MessagePackMethods.GetWriteMethod(fieldInfo.FieldType);
+            //
+            //         if (fieldInfo.FieldType.IsValueType && writeMethod == MessagePackMethods.WriteObject)
+            //         {
+            //             il.Emit(OpCodes.Box, fieldInfo.FieldType);
+            //         }
+            //
+            //         il.Emit(OpCodes.Call, writeMethod);
+            //     }
+            // }
             il.Emit(OpCodes.Ret);
 
-            return (WriteDelegate<T>)method.CreateDelegate(typeof(WriteDelegate<T>));
+            return (ReadDelegate<T>)method.CreateDelegate(typeof(WriteDelegate<T>));
         }
     }
 }

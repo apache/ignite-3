@@ -29,31 +29,47 @@ namespace Apache.Ignite.Tests.Table.Serialization
     /// </summary>
     public class ObjectSerializerHandlerTests
     {
+        private static readonly Schema Schema = new(1, 1, new[]
+        {
+            new Column("Key", ClientDataType.Int64, false, true, 0),
+            new Column("Val", ClientDataType.String, false, false, 1)
+        });
+
         [Test]
         public void TestWritePocoType()
         {
             var poco = new Poco { Key = 1234, Val = "foo" };
             var handler = new ObjectSerializerHandler<Poco>();
 
-            using var pooledWriter = new PooledArrayBufferWriter();
-            var writer = pooledWriter.GetMessageWriter();
-
-            var columns = new[]
-            {
-                new Column("Key", ClientDataType.Int64, false, true, 0),
-                new Column("Val", ClientDataType.String, false, false, 1)
-            };
-
-            var schema = new Schema(1, 1, columns);
-
-            handler.Write(ref writer, schema, poco);
-            writer.Flush();
-
-            var resMem = pooledWriter.GetWrittenMemory()[4..]; // Skip length header.
-            var reader = new MessagePackReader(resMem);
+            var reader = WriteAndGetReader(handler, poco);
 
             Assert.AreEqual(1234, reader.ReadInt32());
             Assert.AreEqual("foo", reader.ReadString());
+        }
+
+        [Test]
+        public void TestReadPocoType()
+        {
+            var poco = new Poco { Key = 1234, Val = "foo" };
+            var handler = new ObjectSerializerHandler<Poco>();
+
+            var reader = WriteAndGetReader(handler, poco);
+            var resPoco = handler.Read(ref reader, Schema);
+
+            Assert.AreEqual(1234, resPoco.Key);
+            Assert.AreEqual("foo", resPoco.Val);
+        }
+
+        private static MessagePackReader WriteAndGetReader(ObjectSerializerHandler<Poco> handler, Poco poco)
+        {
+            using var pooledWriter = new PooledArrayBufferWriter();
+            var writer = pooledWriter.GetMessageWriter();
+
+            handler.Write(ref writer, Schema, poco);
+            writer.Flush();
+
+            var resMem = pooledWriter.GetWrittenMemory()[4..]; // Skip length header.
+            return new MessagePackReader(resMem);
         }
     }
 }
