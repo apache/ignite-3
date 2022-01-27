@@ -39,6 +39,24 @@ public class PageMemoryDataRegionConfigurationSchema extends DataRegionConfigura
     /** Default max size. */
     public static final long DFLT_DATA_REGION_MAX_SIZE = 256 * 1024 * 1024;
 
+    /** Eviction is disabled. */
+    public static final String DISABLED_EVICTION_MODE = "DISABLED";
+
+    /** Random-LRU algorithm. */
+    public static final String RANDOM_LRU_EVICTION_MODE = "RANDOM_LRU";
+
+    /** Random-2-LRU algorithm: scan-resistant version of Random-LRU. */
+    public static final String RANDOM_2_LRU_EVICTION_MODE = "RANDOM_2_LRU";
+
+    /** Random-LRU algorithm. */
+    public static final String RANDOM_LRU_REPLACEMENT_MODE = "RANDOM_LRU";
+
+    /** Segmented-LRU algorithm. */
+    public static final String SEGMENTED_LRU_REPLACEMENT_MODE = "SEGMENTED_LRU";
+
+    /** CLOCK algorithm. */
+    public static final String CLOCK_REPLACEMENT_MODE = "CLOCK";
+
     @Immutable
     @Value(hasDefault = true)
     public int pageSize = 16 * 1024;
@@ -55,13 +73,13 @@ public class PageMemoryDataRegionConfigurationSchema extends DataRegionConfigura
     @ConfigValue
     public MemoryAllocatorConfigurationSchema memoryAllocator;
 
-    @OneOf({"DISABLED", "RANDOM_LRU", "RANDOM_2_LRU"})
+    @OneOf({DISABLED_EVICTION_MODE, RANDOM_LRU_EVICTION_MODE, RANDOM_2_LRU_EVICTION_MODE})
     @Value(hasDefault = true)
-    public String evictionPolicy = "DISABLED";
+    public String evictionMode = DISABLED_EVICTION_MODE;
 
-    @OneOf({"RANDOM_LRU", "SEGMENTED_LRU", "CLOCK"})
+    @OneOf({RANDOM_LRU_REPLACEMENT_MODE, SEGMENTED_LRU_REPLACEMENT_MODE, CLOCK_REPLACEMENT_MODE})
     @Value(hasDefault = true)
-    public String replacementMode = "CLOCK";
+    public String replacementMode = CLOCK_REPLACEMENT_MODE;
 
     @Value(hasDefault = true)
     public double evictionThreshold = 0.9;
@@ -74,6 +92,4 @@ public class PageMemoryDataRegionConfigurationSchema extends DataRegionConfigura
 
     @Value(hasDefault = true)
     public boolean lazyMemoryAllocation = true;
-
-    // Warmup.
 }

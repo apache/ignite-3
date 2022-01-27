@@ -26,7 +26,7 @@ public class ConfigurationTestUtils {
     /**
      * Casts dynamic configuration to its specific type. Can be applied to polymorphic configuration instances.
      */
-    public static  <C extends ConfigurationTree> C fixConfiguration(C cfg) {
+    public static <C extends ConfigurationTree> C fixConfiguration(C cfg) {
         return (C) ((DynamicConfiguration) cfg).specificConfigTree();
     }
 }
