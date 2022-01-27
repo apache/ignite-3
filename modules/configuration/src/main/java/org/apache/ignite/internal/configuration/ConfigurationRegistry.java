@@ -332,6 +332,8 @@ public class ConfigurationRegistry implements IgniteComponent {
     /**
      * Adds configuration storage revision change listener.
      *
+     * <p>NOTE: Listener will be called starting from the next notification of all configuration listeners.
+     *
      * @param listener Listener.
      */
     public void listenUpdateStorageRevision(ConfigurationStorageRevisionListener listener) {
@@ -340,6 +342,9 @@ public class ConfigurationRegistry implements IgniteComponent {
 
     /**
      * Removes configuration storage revision change listener.
+     *
+     * <p>NOTE: This method introduces unpredictable behavior at the moment, because the final behavior of this method is unclear.
+     * Should the listener be removed immediately or only on the next notification? We'll fix it later if there's a problem.
      *
      * @param listener Listener.
      */

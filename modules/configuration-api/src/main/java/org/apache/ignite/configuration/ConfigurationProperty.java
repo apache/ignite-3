@@ -27,20 +27,18 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 public interface ConfigurationProperty<VIEWT> {
     /**
      * Get key of this node.
-     *
-     * @return Key.
      */
     String key();
 
     /**
      * Get value of this property.
-     *
-     * @return Value of this property.
      */
     VIEWT value();
 
     /**
      * Adds configuration values listener.
+     *
+     * <p>NOTE: Listener will be called starting from the next notification of all configuration listeners.
      *
      * @param listener Listener.
      */
@@ -48,6 +46,9 @@ public interface ConfigurationProperty<VIEWT> {
 
     /**
      * Removes configuration values listener.
+     *
+     * <p>NOTE: This method introduces unpredictable behavior at the moment, because the final behavior of this method is unclear.
+     * Should the listener be removed immediately or only on the next notification? We'll fix it later if there's a problem.
      *
      * @param listener Listener.
      */
