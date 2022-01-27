@@ -37,7 +37,7 @@ class ConfigurationListenerHolder<L> {
      * @see ConfigurationListenerHolder#listeners
      */
     void addListener(L listener, long notificationNumber) {
-        containers.add(new Container<>(listener, notificationNumber));
+        containers.add(new Container<>(listener, notificationNumber + 1));
     }
 
     /**
