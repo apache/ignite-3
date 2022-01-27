@@ -238,7 +238,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             // }
             il.Emit(OpCodes.Ret);
 
-            return (ReadDelegate<T>)method.CreateDelegate(typeof(WriteDelegate<T>));
+            return (ReadDelegate<T>)method.CreateDelegate(typeof(ReadDelegate<T>));
         }
     }
 }
