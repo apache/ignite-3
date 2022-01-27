@@ -1,12 +1,10 @@
-package org.apache.ignite.internal.metastorage.server.persistence;
+package org.apache.ignite.internal.metastorage.server;
 
 import java.util.Arrays;
-import org.apache.ignite.internal.metastorage.server.Condition;
-import org.apache.ignite.internal.metastorage.server.Entry;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.NotNull;
 
-public abstract class AbstractBinaryCondition implements Condition {
+public abstract class AbstractBinaryCondition extends AbstractCondition {
     
     private final Condition leftCondition;
     
@@ -16,7 +14,11 @@ public abstract class AbstractBinaryCondition implements Condition {
     
     private final int arity;
     
-    public AbstractBinaryCondition(Condition leftCondition, Condition rightCondition) {
+    public AbstractBinaryCondition(Condition leftCondition,
+            Condition rightCondition,
+            ConditionBranch andThen,
+            ConditionBranch orElse) {
+        super(andThen, orElse);
         this.leftCondition = leftCondition;
         this.rightCondition = rightCondition;
         keys = ArrayUtils.concat(leftCondition.keys(), rightCondition.keys());

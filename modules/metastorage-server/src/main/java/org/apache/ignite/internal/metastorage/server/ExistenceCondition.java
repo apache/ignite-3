@@ -22,7 +22,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Condition tests an entry on existence in meta storage. Entry exists if it is not empty and not tombstone.
  */
-public class ExistenceCondition extends AbstractCondition {
+public class ExistenceCondition extends AbstractUnaryCondition {
     /** Condition type. */
     @NotNull
     private final Type type;

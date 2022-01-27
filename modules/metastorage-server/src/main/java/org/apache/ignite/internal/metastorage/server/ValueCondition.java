@@ -23,7 +23,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Defines condition on entry value.
  */
-public class ValueCondition extends AbstractCondition {
+public class ValueCondition extends AbstractUnaryCondition {
     /** Condition type. */
     @NotNull
     private final Type type;

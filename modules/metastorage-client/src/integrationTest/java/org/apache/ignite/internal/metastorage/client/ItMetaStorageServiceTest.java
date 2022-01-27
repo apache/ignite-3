@@ -50,6 +50,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.OperationType;
+import org.apache.ignite.internal.metastorage.server.AbstractUnaryCondition;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
@@ -758,7 +759,7 @@ public class ItMetaStorageServiceTest {
 
         assertTrue(metaStorageSvc.invoke(condition, success, failure).get());
 
-        var conditionCaptor = ArgumentCaptor.forClass(org.apache.ignite.internal.metastorage.server.AbstractCondition.class);
+        var conditionCaptor = ArgumentCaptor.forClass(AbstractUnaryCondition.class);
 
         ArgumentCaptor<Collection<org.apache.ignite.internal.metastorage.server.Operation>> successCaptor =
                 ArgumentCaptor.forClass(Collection.class);

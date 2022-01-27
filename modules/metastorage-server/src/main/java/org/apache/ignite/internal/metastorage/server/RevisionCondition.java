@@ -22,7 +22,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Defines condition on entry revision.
  */
-public class RevisionCondition extends AbstractCondition {
+public class RevisionCondition extends AbstractUnaryCondition {
     /** Condition type. */
     @NotNull
     private final Type type;
