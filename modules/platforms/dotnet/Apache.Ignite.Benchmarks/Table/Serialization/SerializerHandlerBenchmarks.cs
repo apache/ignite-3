@@ -31,9 +31,9 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     /// Results on Intel Core i7-9700K, .NET SDK 3.1.416, Ubuntu 20.04:
     /// |         Method |     Mean |   Error |  StdDev | Ratio |  Gen 0 | Allocated |
     /// |--------------- |---------:|--------:|--------:|------:|-------:|----------:|
-    /// |     WriteTuple | 326.5 ns | 2.45 ns | 2.30 ns |  1.43 | 0.0229 |     144 B |
-    /// |    WriteObject | 157.1 ns | 0.53 ns | 0.47 ns |  0.69 | 0.0062 |      40 B |
-    /// | WriteObjectOld | 228.7 ns | 2.71 ns | 2.53 ns |  1.00 | 0.0062 |      40 B |.
+    /// |     WriteTuple | 331.6 ns | 2.66 ns | 2.49 ns |  0.42 | 0.0229 |     144 B |
+    /// |    WriteObject | 163.2 ns | 3.19 ns | 3.42 ns |  0.21 | 0.0062 |      40 B |
+    /// | WriteObjectOld | 786.7 ns | 3.19 ns | 2.98 ns |  1.00 | 0.0381 |     240 B |.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     [MemoryDiagnoser]
