@@ -17,9 +17,7 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization
 {
-    using System;
     using System.Collections.Concurrent;
-    using System.Reflection;
     using System.Reflection.Emit;
     using System.Runtime.Serialization;
     using Buffers;
@@ -200,6 +198,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     Label noValueLabel = il.DefineLabel();
                     il.Emit(OpCodes.Brfalse_S, noValueLabel);
 
+                    // TODO: Unbox.any if the method is ReadObject?
                     var readMethod = MessagePackMethods.GetReadMethod(fieldInfo.FieldType);
 
                     il.Emit(OpCodes.Ldloc_0); // res
