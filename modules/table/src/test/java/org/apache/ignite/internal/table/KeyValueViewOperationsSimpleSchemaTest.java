@@ -616,8 +616,8 @@ public class KeyValueViewOperationsSimpleSchemaTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", type, nullable)}
+                new Column[]{new Column("ID", NativeTypes.INT64, false)},
+                new Column[]{new Column("VAL", type, nullable)}
         );
 
         return new KeyValueViewImpl<>(

@@ -40,14 +40,14 @@ public interface ConfigurationProperty<VIEWT> {
     VIEWT value();
 
     /**
-     * Add configuration values listener.
+     * Adds configuration values listener.
      *
      * @param listener Listener.
      */
     void listen(ConfigurationListener<VIEWT> listener);
 
     /**
-     * Remove configuration values listener.
+     * Removes configuration values listener.
      *
      * @param listener Listener.
      */

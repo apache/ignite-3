@@ -53,7 +53,7 @@ import org.mockito.Mockito;
 public class KeyValueBinaryViewOperationsTest {
     @Test
     public void put() {
-        SchemaDescriptor schema = createSchema();
+        SchemaDescriptor schema = schemaDescriptor();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -88,7 +88,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void putIfAbsent() {
-        SchemaDescriptor schema = createSchema();
+        SchemaDescriptor schema = schemaDescriptor();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -113,7 +113,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void getAndPut() {
-        SchemaDescriptor schema = createSchema();
+        SchemaDescriptor schema = schemaDescriptor();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -139,7 +139,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void unsupportedOperations() {
-        SchemaDescriptor schema = createSchema();
+        SchemaDescriptor schema = schemaDescriptor();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -162,7 +162,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void getOrDefault() {
-        SchemaDescriptor schema = createSchema();
+        SchemaDescriptor schema = schemaDescriptor();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -202,7 +202,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void contains() {
-        SchemaDescriptor schema = createSchema();
+        SchemaDescriptor schema = schemaDescriptor();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -233,7 +233,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void remove() {
-        SchemaDescriptor schema = createSchema();
+        SchemaDescriptor schema = schemaDescriptor();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -268,7 +268,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void removeExact() {
-        SchemaDescriptor schema = createSchema();
+        SchemaDescriptor schema = schemaDescriptor();
 
         final KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -315,7 +315,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void replace() {
-        SchemaDescriptor schema = createSchema();
+        SchemaDescriptor schema = schemaDescriptor();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -345,7 +345,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void replaceExact() {
-        SchemaDescriptor schema = createSchema();
+        SchemaDescriptor schema = schemaDescriptor();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -367,7 +367,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void getAll() {
-        SchemaDescriptor schema = createSchema();
+        SchemaDescriptor schema = schemaDescriptor();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -393,7 +393,7 @@ public class KeyValueBinaryViewOperationsTest {
     @SuppressWarnings("ConstantConditions")
     @Test
     public void nullKeyValidation() {
-        SchemaDescriptor schema = createSchema();
+        SchemaDescriptor schema = schemaDescriptor();
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
         final Tuple val = Tuple.create().set("val", 11L);
@@ -426,17 +426,17 @@ public class KeyValueBinaryViewOperationsTest {
     @SuppressWarnings("ConstantConditions")
     @Test
     public void nonNullableValueColumn() {
-        SchemaDescriptor schema = createSchema();
+        SchemaDescriptor schema = schemaDescriptor();
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
         final Tuple key = Tuple.create().set("id", 11L);
         final Tuple val = Tuple.create().set("val", 22L);
 
         assertThrows(NullPointerException.class, () -> tbl.getAndPut(null, key, null));
-        assertThrows(NullPointerException.class, () -> tbl.getAndReplace(null,  key, null));
+        assertThrows(NullPointerException.class, () -> tbl.getAndReplace(null, key, null));
 
         assertThrows(NullPointerException.class, () -> tbl.put(null, key, null));
-        assertThrows(NullPointerException.class, () -> tbl.putIfAbsent(null, key ,null));
+        assertThrows(NullPointerException.class, () -> tbl.putIfAbsent(null, key, null));
         assertThrows(NullPointerException.class, () -> tbl.remove(null, key, null));
         assertThrows(NullPointerException.class, () -> tbl.replace(null, key, null));
         assertThrows(NullPointerException.class, () -> tbl.replace(null, key, null, val));
@@ -445,11 +445,11 @@ public class KeyValueBinaryViewOperationsTest {
         assertThrows(NullPointerException.class, () -> tbl.putAll(null, Collections.singletonMap(key, null)));
     }
 
-    private SchemaDescriptor createSchema() {
+    private SchemaDescriptor schemaDescriptor() {
         return new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, true)}
+                new Column[]{new Column("ID", NativeTypes.INT64, false)},
+                new Column[]{new Column("VAL", NativeTypes.INT64, false)}
         );
     }
 

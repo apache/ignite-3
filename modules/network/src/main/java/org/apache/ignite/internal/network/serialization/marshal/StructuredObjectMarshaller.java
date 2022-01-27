@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
+import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.network.serialization.BuiltInTypeIds;
@@ -31,6 +33,7 @@ import org.apache.ignite.internal.network.serialization.IdIndexedDescriptors;
 import org.apache.ignite.internal.network.serialization.SpecialMethodInvocationException;
 import org.apache.ignite.internal.network.serialization.marshal.UosObjectInputStream.UosGetField;
 import org.apache.ignite.internal.network.serialization.marshal.UosObjectOutputStream.UosPutField;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * (Un)marshals objects that have structure (fields). These are {@link java.io.Serializable}s
@@ -38,15 +41,26 @@ import org.apache.ignite.internal.network.serialization.marshal.UosObjectOutputS
  */
 class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
     private final IdIndexedDescriptors descriptors;
+
     private final TypedValueWriter valueWriter;
-    private final ValueReader<Object> valueReader;
+    private final TypedValueWriter unsharedWriter;
+    private final TypedValueReader valueReader;
+    private final TypedValueReader unsharedReader;
 
     private final Instantiation instantiation;
 
-    StructuredObjectMarshaller(IdIndexedDescriptors descriptors, TypedValueWriter valueWriter, ValueReader<Object> valueReader) {
+    StructuredObjectMarshaller(
+            IdIndexedDescriptors descriptors,
+            TypedValueWriter valueWriter,
+            TypedValueWriter unsharedWriter,
+            TypedValueReader valueReader,
+            TypedValueReader unsharedReader
+    ) {
         this.descriptors = descriptors;
         this.valueWriter = valueWriter;
+        this.unsharedWriter = unsharedWriter;
         this.valueReader = valueReader;
+        this.unsharedReader = unsharedReader;
 
         instantiation = new BestEffortInstantiation(
                 new SerializableInstantiation(),
@@ -95,7 +109,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
     private void writeWithWriteObject(Object object, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
             throws IOException, MarshalException {
         // Do not close the stream yet!
-        UosObjectOutputStream oos = context.objectOutputStream(output, valueWriter, this);
+        UosObjectOutputStream oos = context.objectOutputStream(output, valueWriter, unsharedWriter, this);
 
         UosPutField oldPut = oos.replaceCurrentPutFieldWithNull();
         context.startWritingWithWriteObject(object, descriptor);
@@ -115,9 +129,45 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
     @Override
     public void defaultWriteFields(Object object, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
             throws MarshalException, IOException {
+        @Nullable BitSet nullsBitSet = writeNullsBitSet(object, descriptor, output);
+
         for (FieldDescriptor fieldDescriptor : descriptor.fields()) {
-            writeField(object, fieldDescriptor, output, context);
+            if (cannotAvoidWritingNull(fieldDescriptor, descriptor, nullsBitSet)) {
+                writeField(object, fieldDescriptor, output, context);
+            }
         }
+    }
+
+    static boolean cannotAvoidWritingNull(FieldDescriptor fieldDescriptor, ClassDescriptor descriptor, @Nullable BitSet nullsBitSet) {
+        int maybeIndexInBitmap = descriptor.fieldIndexInNullsBitmap(fieldDescriptor.name());
+
+        assert maybeIndexInBitmap < 0 || nullsBitSet != null : "Index is " + maybeIndexInBitmap;
+
+        return maybeIndexInBitmap < 0 || !nullsBitSet.get(maybeIndexInBitmap);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    @Nullable
+    public BitSet writeNullsBitSet(Object object, ClassDescriptor descriptor, DataOutputStream output) throws IOException {
+        BitSet nullsBitSet = descriptor.fieldIndexInNullsBitmapSize() == 0 ? null : new BitSet(descriptor.fieldIndexInNullsBitmapSize());
+
+        for (FieldDescriptor fieldDescriptor : descriptor.fields()) {
+            int indexInBitmap = descriptor.fieldIndexInNullsBitmap(fieldDescriptor.name());
+            if (indexInBitmap >= 0) {
+                Object fieldValue = getFieldValue(object, fieldDescriptor);
+                if (fieldValue == null) {
+                    assert nullsBitSet != null;
+                    nullsBitSet.set(indexInBitmap);
+                }
+            }
+        }
+
+        if (nullsBitSet != null) {
+            ProtocolMarshalling.writeFixedLengthBitSet(nullsBitSet, descriptor.fieldIndexInNullsBitmapSize(), output);
+        }
+
+        return nullsBitSet;
     }
 
     private void writeField(Object object, FieldDescriptor fieldDescriptor, DataOutputStream output, MarshallingContext context)
@@ -127,9 +177,13 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
 
             context.addUsedDescriptor(descriptors.getRequiredDescriptor(fieldDescriptor.typeDescriptorId()));
         } else {
-            Object fieldValue = fieldDescriptor.accessor().getObject(object);
+            Object fieldValue = getFieldValue(object, fieldDescriptor);
             valueWriter.write(fieldValue, fieldDescriptor.clazz(), output, context);
         }
+    }
+
+    private Object getFieldValue(Object object, FieldDescriptor fieldDescriptor) {
+        return fieldDescriptor.accessor().getObject(object);
     }
 
     private void writePrimitiveFieldValue(Object object, FieldDescriptor fieldDescriptor, DataOutputStream output) throws IOException {
@@ -196,7 +250,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
             UnmarshallingContext context
     ) throws IOException, UnmarshalException {
         // Do not close the stream yet!
-        UosObjectInputStream ois = context.objectInputStream(input, valueReader, this);
+        UosObjectInputStream ois = context.objectInputStream(input, valueReader, unsharedReader, this);
 
         UosGetField oldGet = ois.replaceCurrentGetFieldWithNull();
         context.startReadingWithReadObject(object, descriptor);
@@ -215,9 +269,34 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
     @Override
     public void defaultFillFieldsFrom(DataInputStream input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
             throws IOException, UnmarshalException {
+        @Nullable BitSet nullsBitSet = readNullsBitSet(input, descriptor);
+
         for (FieldDescriptor fieldDescriptor : descriptor.fields()) {
-            fillFieldFrom(input, object, context, fieldDescriptor);
+            if (nullWasSkippedWhileWriting(fieldDescriptor, descriptor, nullsBitSet)) {
+                setFieldValue(object, fieldDescriptor, null);
+            } else {
+                fillFieldFrom(input, object, context, fieldDescriptor);
+            }
         }
+    }
+
+    static boolean nullWasSkippedWhileWriting(FieldDescriptor fieldDescriptor, ClassDescriptor descriptor, @Nullable BitSet nullsBitSet) {
+        int maybeIndexInBitmap = descriptor.fieldIndexInNullsBitmap(fieldDescriptor.name());
+
+        assert maybeIndexInBitmap < 0 || nullsBitSet != null : "Index is " + maybeIndexInBitmap;
+
+        return maybeIndexInBitmap >= 0 && nullsBitSet.get(maybeIndexInBitmap);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    @Nullable
+    public BitSet readNullsBitSet(DataInput input, ClassDescriptor descriptor) throws IOException {
+        if (descriptor.fieldIndexInNullsBitmapSize() == 0) {
+            return null;
+        }
+
+        return ProtocolMarshalling.readFixedLengthBitSet(descriptor.fieldIndexInNullsBitmapSize(), input);
     }
 
     private void fillFieldFrom(DataInputStream input, Object object, UnmarshallingContext context, FieldDescriptor fieldDescriptor)
@@ -225,9 +304,13 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         if (fieldDescriptor.clazz().isPrimitive()) {
             fillPrimitiveFieldFrom(input, object, fieldDescriptor);
         } else {
-            Object fieldValue = valueReader.read(input, context);
-            fieldDescriptor.accessor().setObject(object, fieldValue);
+            Object fieldValue = valueReader.read(input, fieldDescriptor.clazz(), context);
+            setFieldValue(object, fieldDescriptor, fieldValue);
         }
+    }
+
+    private void setFieldValue(Object object, FieldDescriptor fieldDescriptor, Object fieldValue) {
+        fieldDescriptor.accessor().setObject(object, fieldValue);
     }
 
     private void fillPrimitiveFieldFrom(DataInputStream input, Object object, FieldDescriptor fieldDescriptor) throws IOException {

@@ -17,32 +17,9 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import java.io.Serializable;
+class TestDescriptors {
+    static final int MIN_CUSTOM_DESCRIPTOR_ID = 200;
 
-/**
- * Utilities to work with classes.
- */
-class Classes {
-    static boolean isSerializable(Class<?> objectClass) {
-        return Serializable.class.isAssignableFrom(objectClass);
-    }
-
-    static boolean isLambda(Class<?> objectClass) {
-        return !objectClass.isPrimitive() && !objectClass.isArray()
-                && !objectClass.isAnonymousClass() && !objectClass.isLocalClass()
-                && objectClass.isSynthetic()
-                && classCannotBeLoadedByName(objectClass);
-    }
-
-    private static boolean classCannotBeLoadedByName(Class<?> objectClass) {
-        try {
-            Class.forName(objectClass.getName());
-            return false;
-        } catch (ClassNotFoundException e) {
-            return true;
-        }
-    }
-
-    private Classes() {
+    private TestDescriptors() {
     }
 }
