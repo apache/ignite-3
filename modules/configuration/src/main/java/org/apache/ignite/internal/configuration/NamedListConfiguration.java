@@ -159,7 +159,7 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
     /** {@inheritDoc} */
     @Override
     public void listenElements(ConfigurationNamedListListener<VIEWT> listener) {
-        extendedListeners.addListener(listener, changer.storageRevision() + 1);
+        extendedListeners.addListener(listener, changer.notificationCount() + 1);
     }
 
     /** {@inheritDoc} */
@@ -169,14 +169,14 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
     }
 
     /**
-     * Returns an iterator of the listeners for the {@code storageRevision} (were added for and before it).
+     * Returns an iterator of the listeners for the {@code notificationNumber} (were added for and before it).
      *
      * <p>NOTE: {@link Iterator#remove} - not supported.
      *
-     * @param storageRevision Configuration storage revision.
+     * @param notificationNumber Configuration notification listener number.
      */
-    public Iterator<ConfigurationNamedListListener<VIEWT>> extendedListeners(long storageRevision) {
-        return extendedListeners.listeners(storageRevision);
+    public Iterator<ConfigurationNamedListListener<VIEWT>> extendedListeners(long notificationNumber) {
+        return extendedListeners.listeners(notificationNumber);
     }
 
     /** {@inheritDoc} */

@@ -101,7 +101,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
     /** {@inheritDoc} */
     @Override
     public void listen(ConfigurationListener<VIEWT> listener) {
-        updateListeners.addListener(listener, changer.storageRevision() + 1);
+        updateListeners.addListener(listener, changer.notificationCount() + 1);
     }
 
     /** {@inheritDoc} */
@@ -111,14 +111,14 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
     }
 
     /**
-     * Returns an iterator of the listeners for the {@code storageRevision} (were added for and before it).
+     * Returns an iterator of the listeners for the {@code notificationNumber} (were added for and before it).
      *
      * <p>NOTE: {@link Iterator#remove} - not supported.
      *
-     * @param storageRevision Configuration storage revision.
+     * @param notificationNumber Configuration notification listener number.
      */
-    public Iterator<ConfigurationListener<VIEWT>> listeners(long storageRevision) {
-        return updateListeners.listeners(storageRevision);
+    public Iterator<ConfigurationListener<VIEWT>> listeners(long notificationNumber) {
+        return updateListeners.listeners(notificationNumber);
     }
 
     /**

@@ -1458,7 +1458,8 @@ public class ConfigurationListenerTest {
                 null,
                 (InnerNode) config.value(),
                 (DynamicConfiguration) config,
-                0
+                0,
+                registry.notificationCount() + 1
         );
 
         for (CompletableFuture<?> fut : futs) {
@@ -1591,6 +1592,21 @@ public class ConfigurationListenerTest {
         registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
 
         assertTrue(invokeListener.get());
+    }
+
+    @Test
+    void testIncreaseNotificationCount() throws Exception {
+        long notificationCount = registry.notificationCount();
+
+        assertTrue(notificationCount >= 0);
+
+        config.child().str().update(randomUuid()).get(1, SECONDS);
+
+        assertEquals(notificationCount + 1, registry.notificationCount());
+
+        registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
+
+        assertEquals(notificationCount + 2, registry.notificationCount());
     }
 
     @Test

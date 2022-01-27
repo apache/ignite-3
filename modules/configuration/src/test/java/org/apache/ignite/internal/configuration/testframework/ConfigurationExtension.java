@@ -35,7 +35,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.configuration.RootKey;
@@ -199,7 +199,9 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         var cfgRef = new AtomicReference<DynamicConfiguration<?, ?>>();
 
         cfgRef.set(cgen.instantiateCfg(rootKey, new DynamicConfigurationChanger() {
-            private final AtomicInteger storageRev = new AtomicInteger();
+            private final AtomicLong storageRev = new AtomicLong();
+
+            private final AtomicLong notificationListenerCnt = new AtomicLong();
 
             /** {@inheritDoc} */
             @Override
@@ -218,7 +220,8 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
                                 sr.getRoot(rootKey),
                                 copy.getRoot(rootKey),
                                 (DynamicConfiguration<InnerNode, ?>) cfgRef.get(),
-                                storageRev.incrementAndGet()
+                                storageRev.incrementAndGet(),
+                                notificationListenerCnt.incrementAndGet()
                         );
 
                         return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
@@ -242,8 +245,8 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
 
             /** {@inheritDoc} */
             @Override
-            public long storageRevision() {
-                return storageRev.get();
+            public long notificationCount() {
+                return notificationListenerCnt.get();
             }
         }));
 

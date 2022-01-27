@@ -276,12 +276,14 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param oldSuperRoot Old roots values. All these roots always belong to a single storage.
      * @param newSuperRoot New values for the same roots as in {@code oldRoot}.
      * @param storageRevision Revision of the storage.
+     * @param notificationNumber Current configuration listener notification number.
      * @return Future that must signify when processing is completed.
      */
     private CompletableFuture<Void> notificator(
             @Nullable SuperRoot oldSuperRoot,
             SuperRoot newSuperRoot,
-            long storageRevision
+            long storageRevision,
+            long notificationNumber
     ) {
         Collection<CompletableFuture<?>> futures = new ArrayList<>();
 
@@ -303,13 +305,13 @@ public class ConfigurationRegistry implements IgniteComponent {
                     oldRoot = null;
                 }
 
-                futures.addAll(notifyListeners(oldRoot, newRoot, config, storageRevision));
+                futures.addAll(notifyListeners(oldRoot, newRoot, config, storageRevision, notificationNumber));
 
                 return null;
             }
         }, true);
 
-        futures.addAll(notifyStorageRevisionListeners(storageRevision));
+        futures.addAll(notifyStorageRevisionListeners(storageRevision, notificationNumber));
 
         if (futures.isEmpty()) {
             return CompletableFuture.completedFuture(null);
@@ -333,7 +335,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param listener Listener.
      */
     public void listenUpdateStorageRevision(ConfigurationStorageRevisionListener listener) {
-        storageRevisionListeners.addListener(listener, changer.storageRevision() + 1);
+        storageRevisionListeners.addListener(listener, changer.notificationCount() + 1);
     }
 
     /**
@@ -465,11 +467,11 @@ public class ConfigurationRegistry implements IgniteComponent {
         }
     }
 
-    private Collection<CompletableFuture<?>> notifyStorageRevisionListeners(long storageRevision) {
+    private Collection<CompletableFuture<?>> notifyStorageRevisionListeners(long storageRevision, long notificationNumber) {
         // Lazy init.
         List<CompletableFuture<?>> futures = null;
 
-        for (Iterator<ConfigurationStorageRevisionListener> it = storageRevisionListeners.listeners(storageRevision); it.hasNext(); ) {
+        for (Iterator<ConfigurationStorageRevisionListener> it = storageRevisionListeners.listeners(notificationNumber); it.hasNext(); ) {
             if (futures == null) {
                 futures = new ArrayList<>();
             }
@@ -490,5 +492,15 @@ public class ConfigurationRegistry implements IgniteComponent {
         }
 
         return futures == null ? List.of() : futures;
+    }
+
+    /**
+     * Returns the count of configuration listener notifications.
+     *
+     * <p>Monotonically increasing value that should be incremented each time an attempt is made to notify all listeners of the
+     * configuration. Allows to guarantee that new listeners will be called only on the next notification of all configuration listeners.
+     */
+    public long notificationCount() {
+        return changer.notificationCount();
     }
 }

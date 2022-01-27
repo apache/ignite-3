@@ -55,7 +55,10 @@ public interface DynamicConfigurationChanger {
     <T> T getLatest(List<KeyPathNode> path);
 
     /**
-     * Returns the current storage revision.
+     * Returns the count of configuration listener notifications.
+     *
+     * <p>Monotonically increasing value that should be incremented each time an attempt is made to notify all listeners of the
+     * configuration. Allows to guarantee that new listeners will be called only on the next notification of all configuration listeners.
      */
-    long storageRevision();
+    long notificationCount();
 }

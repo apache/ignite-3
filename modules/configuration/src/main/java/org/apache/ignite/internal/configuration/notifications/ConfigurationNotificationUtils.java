@@ -85,23 +85,23 @@ class ConfigurationNotificationUtils {
      * Null-safe version of {@link ConfigurationNode#listeners(long)}.
      *
      * @param node Configuration tree node.
-     * @param storageRevision Configuration storage revision.
+     * @param notificationNumber Configuration notification listener number.
      */
-    static <T> Iterator<ConfigurationListener<T>> listeners(@Nullable ConfigurationNode<T> node, long storageRevision) {
-        return node == null ? emptyIterator() : node.listeners(storageRevision);
+    static <T> Iterator<ConfigurationListener<T>> listeners(@Nullable ConfigurationNode<T> node, long notificationNumber) {
+        return node == null ? emptyIterator() : node.listeners(notificationNumber);
     }
 
     /**
      * Null-safe version of {@link NamedListConfiguration#extendedListeners(long)}.
      *
      * @param node Named list configuration.
-     * @param storageRevision Configuration storage revision.
+     * @param notificationNumber Configuration notification listener number.
      */
     static <T> Iterator<ConfigurationNamedListListener<T>> extendedListeners(
             @Nullable NamedListConfiguration<?, T, ?> node,
-            long storageRevision
+            long notificationNumber
     ) {
-        return node == null ? emptyIterator() : node.extendedListeners(storageRevision);
+        return node == null ? emptyIterator() : node.extendedListeners(notificationNumber);
     }
 
     /**

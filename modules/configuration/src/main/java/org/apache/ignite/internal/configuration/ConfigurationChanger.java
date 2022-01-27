@@ -51,6 +51,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.RootKey;
@@ -97,6 +98,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /** Storage trees. */
     @Nullable private volatile StorageRoots storageRoots;
 
+    /** Configuration listener notification counter, must be incremented before each use of {@link #notificator}. */
+    private final AtomicLong notificationListenerCnt = new AtomicLong();
+
     /**
      * Closure interface to be used by the configuration changer. An instance of this closure is passed into the constructor and invoked
      * every time when there's an update from any of the storages.
@@ -108,10 +112,11 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
          *
          * @param oldRoot Old roots values. All these roots always belong to a single storage.
          * @param newRoot New values for the same roots as in {@code oldRoot}.
-         * @param storageRevision Revision of the storage.
+         * @param storageRevision Configuration revision of the storage.
+         * @param notificationNumber Configuration listener notification number.
          * @return Future that must signify when processing is completed. Exceptional completion is not expected.
          */
-        CompletableFuture<Void> notify(@Nullable SuperRoot oldRoot, SuperRoot newRoot, long storageRevision);
+        CompletableFuture<Void> notify(@Nullable SuperRoot oldRoot, SuperRoot newRoot, long storageRevision, long notificationNumber);
     }
 
     /**
@@ -130,7 +135,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         /**
          * Constructor.
          *
-         * @param roots   Forest.
+         * @param roots Forest.
          * @param version Version associated with the currently known storage state.
          */
         private StorageRoots(SuperRoot roots, long version) {
@@ -143,9 +148,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * Constructor.
      *
      * @param notificator Closure to execute when update from the storage is received.
-     * @param rootKeys    Configuration root keys.
-     * @param validators  Validators.
-     * @param storage     Configuration storage.
+     * @param rootKeys Configuration root keys.
+     * @param validators Validators.
+     * @param storage Configuration storage.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
      */
     public ConfigurationChanger(
@@ -225,7 +230,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * Initializes the configuration storage - reads data and sets default values for missing configuration properties.
      *
      * @throws ConfigurationValidationException If configuration validation failed.
-     * @throws ConfigurationChangeException     If configuration framework failed to add default values and save them to storage.
+     * @throws ConfigurationChangeException If configuration framework failed to add default values and save them to storage.
      */
     public void initializeDefaults() throws ConfigurationValidationException, ConfigurationChangeException {
         try {
@@ -555,7 +560,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             return CompletableFuture.completedFuture(null);
         } else {
-            return notificator.notify(oldSuperRoot, newSuperRoot, newChangeId)
+            return notificator.notify(oldSuperRoot, newSuperRoot, newChangeId, notificationListenerCnt.incrementAndGet())
                 .whenComplete((v, t) -> {
                     if (t == null) {
                         oldStorageRoots.changeFuture.complete(null);
@@ -574,14 +579,12 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     CompletableFuture<Void> notifyCurrentConfigurationListeners() {
         StorageRoots storageRoots = this.storageRoots;
 
-        return notificator.notify(null, storageRoots.roots, storageRoots.version);
+        return notificator.notify(null, storageRoots.roots, storageRoots.version, notificationListenerCnt.incrementAndGet());
     }
 
     /** {@inheritDoc} */
     @Override
-    public long storageRevision() {
-        StorageRoots storageRoots = this.storageRoots;
-
-        return storageRoots == null ? 0 : storageRoots.version;
+    public long notificationCount() {
+        return notificationListenerCnt.get();
     }
 }

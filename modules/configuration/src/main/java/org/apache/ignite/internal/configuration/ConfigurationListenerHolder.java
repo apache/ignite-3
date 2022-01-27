@@ -33,11 +33,11 @@ class ConfigurationListenerHolder<L> {
      * Adds a listener.
      *
      * @param listener Configuration change listener.
-     * @param storageRevision Storage revision after which the listener will be called.
+     * @param notificationNumber Configuration notification listener number after which the listener will be called.
      * @see ConfigurationListenerHolder#listeners
      */
-    void addListener(L listener, long storageRevision) {
-        containers.add(new Container<>(listener, storageRevision));
+    void addListener(L listener, long notificationNumber) {
+        containers.add(new Container<>(listener, notificationNumber));
     }
 
     /**
@@ -50,20 +50,20 @@ class ConfigurationListenerHolder<L> {
             /** {@inheritDoc} */
             @Override
             public boolean equals(Object obj) {
-                return listener == ((Container) obj).listener;
+                return listener == ((Container<L>) obj).listener;
             }
         });
     }
 
     /**
-     * Returns an iterator of the listeners for the {@code storageRevision} (were added for and before it).
+     * Returns an iterator of the listeners for the {@code notificationNumber} (were added for and before it).
      *
      * <p>NOTE: {@link Iterator#remove} - not supported.
      *
-     * @param storageRevision Storage revision.
+     * @param notificationNumber Configuration notification listener number.
      * @see ConfigurationListenerHolder#addListener
      */
-    Iterator<L> listeners(long storageRevision) {
+    Iterator<L> listeners(long notificationNumber) {
         Iterator<Container<L>> it = containers.iterator();
 
         return new Iterator<L>() {
@@ -93,7 +93,7 @@ class ConfigurationListenerHolder<L> {
                 while (it.hasNext()) {
                     Container<L> next = it.next();
 
-                    if (next.storageRevision <= storageRevision) {
+                    if (next.notificationNumber <= notificationNumber) {
                         return next.listener;
                     }
                 }
@@ -116,11 +116,11 @@ class ConfigurationListenerHolder<L> {
     private static class Container<L> {
         final L listener;
 
-        final long storageRevision;
+        final long notificationNumber;
 
         Container(L listener, long storageRevision) {
             this.listener = listener;
-            this.storageRevision = storageRevision;
+            this.notificationNumber = storageRevision;
         }
     }
 }
