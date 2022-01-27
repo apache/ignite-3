@@ -96,7 +96,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     private final ConfigurationStorage storage;
 
     /** Storage trees. */
-    @Nullable private volatile StorageRoots storageRoots;
+    private volatile StorageRoots storageRoots;
 
     /** Configuration listener notification counter, must be incremented before each use of {@link #notificator}. */
     private final AtomicLong notificationListenerCnt = new AtomicLong();

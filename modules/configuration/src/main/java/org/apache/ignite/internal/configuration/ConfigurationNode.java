@@ -101,7 +101,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
     /** {@inheritDoc} */
     @Override
     public void listen(ConfigurationListener<VIEWT> listener) {
-        updateListeners.addListener(listener, changer.notificationCount() + 1);
+        updateListeners.addListener(listener, changer.notificationCount());
     }
 
     /** {@inheritDoc} */

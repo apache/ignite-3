@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.configuration;
 
-import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.jetbrains.annotations.Nullable;
@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
  * Holder (thread safe) for configuration change listeners.
  */
 class ConfigurationListenerHolder<L> {
-    private final Collection<Container<L>> containers = new CopyOnWriteArrayList<>();
+    private final List<Container<L>> containers = new CopyOnWriteArrayList<>();
 
     /**
      * Adds a listener.
@@ -42,6 +42,9 @@ class ConfigurationListenerHolder<L> {
 
     /**
      * Removes the listener.
+     *
+     * <p>NOTE: This method introduces unpredictable behavior at the moment, because the final behavior of this method is unclear.
+     * Should the listener be removed immediately or only on the next notification? We'll fix it later if there's a problem.
      *
      * @param listener Configuration change listener.
      */

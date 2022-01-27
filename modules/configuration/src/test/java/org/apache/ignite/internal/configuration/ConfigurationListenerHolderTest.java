@@ -48,7 +48,7 @@ public class ConfigurationListenerHolderTest {
 
         assertEquals(
                 List.of(1, 2, 1, 3),
-                collect(holder.listeners(0))
+                collect(holder.listeners(1))
         );
     }
 
@@ -62,7 +62,7 @@ public class ConfigurationListenerHolderTest {
 
         assertEquals(
                 List.of(2, 1),
-                collect(holder.listeners(0))
+                collect(holder.listeners(1))
         );
     }
 
@@ -87,22 +87,22 @@ public class ConfigurationListenerHolderTest {
 
         assertEquals(
                 List.of(1, 2, 1, 3),
-                collect(holder.listeners(0))
-        );
-
-        assertEquals(
-                List.of(1, 2, 1, 3, 4, 5),
                 collect(holder.listeners(1))
         );
 
         assertEquals(
-                List.of(1, 2, 1, 3, 4, 5, 7, 8),
+                List.of(1, 2, 1, 3, 4, 5),
                 collect(holder.listeners(2))
         );
 
         assertEquals(
                 List.of(1, 2, 1, 3, 4, 5, 7, 8),
                 collect(holder.listeners(3))
+        );
+
+        assertEquals(
+                List.of(1, 2, 1, 3, 4, 5, 7, 8),
+                collect(holder.listeners(4))
         );
     }
 
@@ -113,7 +113,7 @@ public class ConfigurationListenerHolderTest {
 
         holder.clear();
 
-        assertTrue(collect(holder.listeners(0)).isEmpty());
+        assertTrue(collect(holder.listeners(1)).isEmpty());
     }
 
     private List<?> collect(Iterator<?> iterator) {

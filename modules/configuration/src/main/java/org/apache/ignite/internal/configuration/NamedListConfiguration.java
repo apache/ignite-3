@@ -159,7 +159,7 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
     /** {@inheritDoc} */
     @Override
     public void listenElements(ConfigurationNamedListListener<VIEWT> listener) {
-        extendedListeners.addListener(listener, changer.notificationCount() + 1);
+        extendedListeners.addListener(listener, changer.notificationCount());
     }
 
     /** {@inheritDoc} */

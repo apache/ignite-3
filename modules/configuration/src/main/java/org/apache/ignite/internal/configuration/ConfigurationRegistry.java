@@ -335,7 +335,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param listener Listener.
      */
     public void listenUpdateStorageRevision(ConfigurationStorageRevisionListener listener) {
-        storageRevisionListeners.addListener(listener, changer.notificationCount() + 1);
+        storageRevisionListeners.addListener(listener, changer.notificationCount());
     }
 
     /**
