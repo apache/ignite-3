@@ -39,6 +39,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private delegate TV ReadDelegate<out TV>(ref MessagePackReader reader);
 
+        private delegate TV ReadValuePartDelegate<TV>(ref MessagePackReader reader, TV key);
+
         /// <inheritdoc/>
         public T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
         {
@@ -226,6 +228,93 @@ namespace Apache.Ignite.Internal.Table.Serialization
             il.Emit(OpCodes.Ret);
 
             return (ReadDelegate<T>)method.CreateDelegate(typeof(ReadDelegate<T>));
+        }
+
+        private static ReadValuePartDelegate<T> EmitValuePartReader(Schema schema)
+        {
+            var type = typeof(T);
+
+            var method = new DynamicMethod(
+                name: "ReadValuePart" + type.Name,
+                returnType: type,
+                parameterTypes: new[] { typeof(MessagePackReader).MakeByRefType(), type },
+                m: typeof(IIgnite).Module,
+                skipVisibility: true);
+
+            var il = method.GetILGenerator();
+            il.DeclareLocal(type);
+
+            il.Emit(OpCodes.Ldtoken, type);
+            il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
+            il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
+
+            il.Emit(OpCodes.Stloc_0); // T res
+
+            var columns = schema.Columns;
+
+            for (var i = 0; i < columns.Count; i++)
+            {
+                var col = columns[i];
+                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+
+                if (i < schema.KeyColumnCount)
+                {
+                    if (fieldInfo != null)
+                    {
+                        il.Emit(OpCodes.Ldloc_0);
+                        il.Emit(OpCodes.Ldarg_1); // key
+                        il.Emit(OpCodes.Ldfld, fieldInfo);
+                        il.Emit(OpCodes.Stfld, fieldInfo);
+                    }
+
+                    continue;
+                }
+
+                if (fieldInfo == null)
+                {
+                    il.Emit(OpCodes.Ldarg_0); // reader
+                    il.Emit(OpCodes.Call, MessagePackMethods.Skip);
+                }
+                else
+                {
+                    // TODO: Validate type compatibility.
+                    il.Emit(OpCodes.Ldarg_0); // reader
+                    il.Emit(OpCodes.Call, MessagePackMethods.TryReadNoValue);
+
+                    Label noValueLabel = il.DefineLabel();
+                    il.Emit(OpCodes.Brtrue_S, noValueLabel);
+
+                    var readMethod = MessagePackMethods.GetReadMethod(fieldInfo.FieldType);
+
+                    var isGenericReader = readMethod == MessagePackMethods.ReadObjectGeneric;
+
+                    if (isGenericReader)
+                    {
+                        readMethod = readMethod.MakeGenericMethod(fieldInfo.FieldType);
+                    }
+
+                    il.Emit(OpCodes.Ldloc_0); // res
+                    il.Emit(OpCodes.Ldarg_0); // reader
+
+                    if (isGenericReader)
+                    {
+                        il.Emit(OpCodes.Ldc_I4_S, (int)col.Type);
+                        il.Emit(OpCodes.Ldstr, col.Name);
+                        il.Emit(OpCodes.Ldstr, fieldInfo.Name);
+                    }
+
+                    il.Emit(OpCodes.Call, readMethod);
+
+                    il.Emit(OpCodes.Stfld, fieldInfo);
+
+                    il.MarkLabel(noValueLabel);
+                }
+            }
+
+            il.Emit(OpCodes.Ldloc_0); // res
+            il.Emit(OpCodes.Ret);
+
+            return (ReadValuePartDelegate<T>)method.CreateDelegate(typeof(ReadValuePartDelegate<T>));
         }
     }
 }
