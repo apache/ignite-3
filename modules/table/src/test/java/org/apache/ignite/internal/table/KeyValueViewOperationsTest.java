@@ -616,13 +616,13 @@ public class KeyValueViewOperationsTest {
         final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
 
         assertThrows(NullPointerException.class, () -> tbl.getAndPut(null, key, null));
-        assertThrows(NullPointerException.class, () -> tbl.getAndReplace(null,  key, null));
-        assertThrows(MarshallerException.class, () -> tbl.getNullableAndPut(null,  key, null));
+        assertThrows(NullPointerException.class, () -> tbl.getAndReplace(null, key, null));
+        assertThrows(MarshallerException.class, () -> tbl.getNullableAndPut(null, key, null));
         assertThrows(MarshallerException.class, () -> tbl.getNullableAndReplace(null, key, null));
         assertNull(tbl.getOrDefault(null, key, null));
 
         assertThrows(MarshallerException.class, () -> tbl.put(null, key, null));
-        assertThrows(MarshallerException.class, () -> tbl.putIfAbsent(null, key ,null));
+        assertThrows(MarshallerException.class, () -> tbl.putIfAbsent(null, key, null));
         assertThrows(MarshallerException.class, () -> tbl.remove(null, key, null));
         assertThrows(MarshallerException.class, () -> tbl.replace(null, key, null));
         assertThrows(MarshallerException.class, () -> tbl.replace(null, key, null, val));
