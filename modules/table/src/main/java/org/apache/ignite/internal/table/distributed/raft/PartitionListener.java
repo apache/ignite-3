@@ -460,9 +460,8 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleScanRetrieveBatchCommand(CommandClosure<ScanRetrieveBatchCommand> clo) {
-        //LOG.debug("!@#@!±!@#");
-        //System.out.println("!@#@!±!@#");
-        if (internalBatchCounter.getAndSet(clo.command().getCounter()) == clo.command().getCounter() - 1) {
+        System.out.println("internalBatchCounter = " + internalBatchCounter.get() + " clo.command().getCounter() = " + clo.command().getCounter());
+        if (internalBatchCounter.getAndSet(clo.command().getCounter()) != clo.command().getCounter() - 1) {
             throw new IllegalStateException("Counters not match");
         }
 
@@ -485,7 +484,11 @@ public class PartitionListener implements RaftGroupListener {
             clo.result(e);
         }
 
-        //LOG.debug("Send " + res.size() + " elements");
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         clo.result(new MultiRowsResponse(res));
     }
 
@@ -505,6 +508,8 @@ public class PartitionListener implements RaftGroupListener {
 
         try {
             cursorDesc.cursor().close();
+
+            internalBatchCounter.set(0);
         } catch (Exception e) {
             throw new IgniteInternalException(e);
         }

@@ -540,7 +540,7 @@ public class InternalTableImpl implements InternalTable {
              */
             private final CompletableFuture<Void> scanInitOp;
 
-            private AtomicInteger scanCounter = new AtomicInteger(0);
+            private AtomicInteger scanCounter = new AtomicInteger(1);
 
             /**
              * The constructor.
