@@ -1491,7 +1491,7 @@ public class ConfigurationListenerTest {
             assertNotNull(ctx.newValue());
         }));
 
-        registry.notifyCurrentConfigurationListeners().get(1_000_000, SECONDS);
+        registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
 
         assertTrue(invokeListener.get());
     }
