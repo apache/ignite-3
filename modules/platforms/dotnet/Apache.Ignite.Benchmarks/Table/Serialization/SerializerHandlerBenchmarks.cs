@@ -17,13 +17,9 @@
 
 namespace Apache.Ignite.Benchmarks.Table.Serialization
 {
-    using System;
     using System.Diagnostics.CodeAnalysis;
     using BenchmarkDotNet.Attributes;
-    using Ignite.Table;
     using Internal.Buffers;
-    using Internal.Proto;
-    using Internal.Table;
     using Internal.Table.Serialization;
 
     /// <summary>
@@ -36,34 +32,10 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     /// | WriteObjectOld | 786.7 ns | 3.19 ns | 2.98 ns |  1.00 | 0.0381 |     240 B |.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
+    [SuppressMessage("Microsoft.Performance", "CA1812:MarkMembersAsStatic", Justification = "Benchmarks.")]
     [MemoryDiagnoser]
-    public class SerializerHandlerBenchmarks
+    public class SerializerHandlerBenchmarks : SerializerHandlerBenchmarksBase
     {
-        private static readonly Car Object = new()
-        {
-            Id = Guid.NewGuid(),
-            BodyType = "Sedan",
-            Seats = 5
-        };
-
-        private static readonly IgniteTuple Tuple = new()
-        {
-            [nameof(Car.Id)] = Object.Id,
-            [nameof(Car.BodyType)] = Object.BodyType,
-            [nameof(Car.Seats)] = Object.Seats
-        };
-
-        private static readonly Schema Schema = new(1, 1, new[]
-        {
-            new Column(nameof(Car.Id), ClientDataType.Uuid, Nullable: false, IsKey: true, SchemaIndex: 0),
-            new Column(nameof(Car.BodyType), ClientDataType.String, Nullable: false, IsKey: false, SchemaIndex: 1),
-            new Column(nameof(Car.Seats), ClientDataType.Int32, Nullable: false, IsKey: false, SchemaIndex: 2)
-        });
-
-        private static readonly ObjectSerializerHandler<Car> ObjectSerializerHandler = new();
-
-        private static readonly ObjectSerializerHandlerOld<Car> ObjectSerializerHandlerOld = new();
-
         [Benchmark]
         public void WriteTuple()
         {
@@ -98,25 +70,6 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
             writer.Flush();
             VerifyWritten(pooledWriter);
-        }
-
-        private static void VerifyWritten(PooledArrayBufferWriter pooledWriter)
-        {
-            var bytesWritten = pooledWriter.GetWrittenMemory().Length;
-
-            if (bytesWritten != 29)
-            {
-                throw new Exception("Unexpected number of bytes written: " + bytesWritten);
-            }
-        }
-
-        private class Car
-        {
-            public Guid Id { get; set; }
-
-            public string BodyType { get; set; } = null!;
-
-            public int Seats { get; set; }
         }
     }
 }
