@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.schema.Column;
@@ -40,7 +41,6 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -53,11 +53,7 @@ import org.mockito.Mockito;
 public class KeyValueBinaryViewOperationsTest {
     @Test
     public void put() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = createSchema();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -81,7 +77,7 @@ public class KeyValueBinaryViewOperationsTest {
         assertEqualsValues(schema, val2, tbl.get(null, Tuple.create().set("id", 1L)));
 
         // Remove KV pair.
-        tbl.put(null, key, null);
+        tbl.remove(null, key);
 
         assertNull(tbl.get(null, key));
 
@@ -92,11 +88,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void putIfAbsent() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = createSchema();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -121,11 +113,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void getAndPut() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = createSchema();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -151,11 +139,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void unsupportedOperations() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, true)}
-        );
+        SchemaDescriptor schema = createSchema();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -178,11 +162,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void getOrDefault() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, true)}
-        );
+        SchemaDescriptor schema = createSchema();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -192,13 +172,16 @@ public class KeyValueBinaryViewOperationsTest {
         final Tuple defaultTuple = Tuple.create().set("val", "undefined");
 
         assertEquals(defaultTuple, tbl.getOrDefault(null, key, defaultTuple));
+        assertNull(tbl.getOrDefault(null, key, null));
 
         // Put KV pair.
         tbl.put(null, key, val);
 
         assertEquals(val, tbl.getOrDefault(null, key, defaultTuple));
+        assertEquals(val, tbl.getOrDefault(null, key, null));
 
-        tbl.put(null, key, null);
+        // Remove KV pair.
+        tbl.remove(null, key);
 
         assertNull(tbl.get(null, key));
         assertNull(tbl.getOrDefault(null, key, null));
@@ -209,23 +192,17 @@ public class KeyValueBinaryViewOperationsTest {
 
         assertNull(tbl.get(null, key));
         assertEquals(defaultTuple, tbl.getOrDefault(null, key, defaultTuple));
-        assertEquals(null, tbl.getOrDefault(null, key, null));
+        assertNull(tbl.getOrDefault(null, key, null));
 
         // Put KV pair.
         tbl.put(null, key, val2);
         assertEquals(val2, tbl.get(null, key));
         assertEquals(val2, tbl.getOrDefault(null, key, defaultTuple));
-
-        assertThrows(Throwable.class, () -> tbl.getOrDefault(null, null, defaultTuple));
     }
 
     @Test
     public void contains() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = createSchema();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -256,11 +233,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void remove() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = createSchema();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -295,11 +268,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void removeExact() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = createSchema();
 
         final KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -346,11 +315,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void replace() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = createSchema();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -380,11 +345,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void replaceExact() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = createSchema();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -406,11 +367,7 @@ public class KeyValueBinaryViewOperationsTest {
 
     @Test
     public void getAll() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = createSchema();
 
         KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
 
@@ -433,7 +390,69 @@ public class KeyValueBinaryViewOperationsTest {
         assertNull(res.get(key2));
     }
 
-    @NotNull
+    @SuppressWarnings("ConstantConditions")
+    @Test
+    public void nullKeyValidation() {
+        SchemaDescriptor schema = createSchema();
+        KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
+
+        final Tuple val = Tuple.create().set("val", 11L);
+        final Tuple val2 = Tuple.create().set("val", 22L);
+
+        // Null key.
+        assertThrows(NullPointerException.class, () -> tbl.contains(null, null));
+
+        assertThrows(NullPointerException.class, () -> tbl.get(null, null));
+        assertThrows(NullPointerException.class, () -> tbl.getAndPut(null, null, val));
+        assertThrows(NullPointerException.class, () -> tbl.getAndRemove(null, null));
+        assertThrows(NullPointerException.class, () -> tbl.getAndReplace(null, null, val));
+        assertThrows(NullPointerException.class, () -> tbl.getOrDefault(null, null, val));
+
+        assertThrows(NullPointerException.class, () -> tbl.put(null, null, val));
+        assertThrows(NullPointerException.class, () -> tbl.putIfAbsent(null, null, val));
+        assertThrows(NullPointerException.class, () -> tbl.remove(null, null));
+        assertThrows(NullPointerException.class, () -> tbl.remove(null, null, val));
+        assertThrows(NullPointerException.class, () -> tbl.replace(null, null, val));
+        assertThrows(NullPointerException.class, () -> tbl.replace(null, null, val, val2));
+
+        assertThrows(NullPointerException.class, () -> tbl.getAll(null, null));
+        assertThrows(NullPointerException.class, () -> tbl.getAll(null, Collections.singleton(null)));
+        assertThrows(NullPointerException.class, () -> tbl.putAll(null, null));
+        assertThrows(NullPointerException.class, () -> tbl.putAll(null, Collections.singletonMap(null, val)));
+        assertThrows(NullPointerException.class, () -> tbl.removeAll(null, null));
+        assertThrows(NullPointerException.class, () -> tbl.removeAll(null, Collections.singleton(null)));
+    }
+
+    @SuppressWarnings("ConstantConditions")
+    @Test
+    public void nonNullableValueColumn() {
+        SchemaDescriptor schema = createSchema();
+        KeyValueView<Tuple, Tuple> tbl = createTable(schema).keyValueView();
+
+        final Tuple key = Tuple.create().set("id", 11L);
+        final Tuple val = Tuple.create().set("val", 22L);
+
+        assertThrows(NullPointerException.class, () -> tbl.getAndPut(null, key, null));
+        assertThrows(NullPointerException.class, () -> tbl.getAndReplace(null,  key, null));
+
+        assertThrows(NullPointerException.class, () -> tbl.put(null, key, null));
+        assertThrows(NullPointerException.class, () -> tbl.putIfAbsent(null, key ,null));
+        assertThrows(NullPointerException.class, () -> tbl.remove(null, key, null));
+        assertThrows(NullPointerException.class, () -> tbl.replace(null, key, null));
+        assertThrows(NullPointerException.class, () -> tbl.replace(null, key, null, val));
+        assertThrows(NullPointerException.class, () -> tbl.replace(null, key, val, null));
+
+        assertThrows(NullPointerException.class, () -> tbl.putAll(null, Collections.singletonMap(key, null)));
+    }
+
+    private SchemaDescriptor createSchema() {
+        return new SchemaDescriptor(
+                1,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("val", NativeTypes.INT64, true)}
+        );
+    }
+
     private TableImpl createTable(SchemaDescriptor schema) {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);

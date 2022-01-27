@@ -439,7 +439,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         try {
             return marsh.marshal(key, val);
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 
@@ -462,7 +462,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
                 keyRows.add(keyRow);
             }
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
 
         return keyRows;
@@ -487,7 +487,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
                 rows.add(row);
             }
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
 
         return rows;
@@ -518,7 +518,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
             return keys;
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 
@@ -540,7 +540,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         try {
             return marshaller.unmarshalValue(row);
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 
@@ -569,7 +569,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
             return pairs;
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 

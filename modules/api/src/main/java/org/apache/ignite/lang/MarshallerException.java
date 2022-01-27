@@ -18,15 +18,16 @@
 package org.apache.ignite.lang;
 
 /**
- * Exception is thrown when a column value doesn't match the column type.
+ * Exception is thrown when failed to marshall or unmarshall value.
+ * E.g. due to a value mismatch a schema or any other reason.
  */
-public class SchemaMismatchException extends IgniteException {
+public class MarshallerException extends IgniteException {
     /**
      * Creates a new exception with the given error message.
      *
-     * @param msg Error message.
+     * @param cause Non-null throwable cause.
      */
-    public SchemaMismatchException(String msg) {
-        super(msg);
+    public MarshallerException(Throwable cause) {
+        super(cause);
     }
 }

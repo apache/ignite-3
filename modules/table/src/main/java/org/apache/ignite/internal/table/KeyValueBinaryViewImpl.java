@@ -147,8 +147,9 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> putAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public @NotNull CompletableFuture<Void> putAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
+        Objects.requireNonNull(val);
 
         Row row = marshal(key, val);
 
@@ -163,13 +164,13 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<Tuple, Tuple> pairs) {
+    public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<@NotNull Tuple, @NotNull Tuple> pairs) {
         Objects.requireNonNull(pairs);
 
         List<BinaryRow> rows = new ArrayList<>(pairs.size());
 
         for (Map.Entry<Tuple, Tuple> pair : pairs.entrySet()) {
-            final Row row = marshal(Objects.requireNonNull(pair.getKey()), pair.getValue());
+            final Row row = marshal(Objects.requireNonNull(pair.getKey()), Objects.requireNonNull(pair.getValue()));
 
             rows.add(row);
         }
@@ -223,8 +224,9 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
+        Objects.requireNonNull(val);
 
         Row row = marshal(key, val);
 
