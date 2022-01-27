@@ -193,28 +193,30 @@ public interface KeyValueView<K, V> {
 
     /**
      * Puts new or replaces existed value associated with given key into the table.
+     * <p>
+     * NB: Method doesn't support {@code null} value, use {@link #getNullableAndPut(Transaction, Object, Object)} instead.
      *
      * @param tx The transaction or {@code null} to auto commit.
      * @param key A key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key.
+     * @param val Value to be associated with the specified key. The value cannot be {@code null}.
      * @return Replaced value or {@code null}, if not existed.
      * @throws SchemaMismatchException if one of key, or values doesn't match the schema.
      * @throws UnexpectedNullValueException If value for the key exists, and it is {@code null}.
-     * @see #getNullableAndPut(Transaction, Object, Object)
      */
-    V getAndPut(@Nullable Transaction tx, @NotNull K key, V val);
+    V getAndPut(@Nullable Transaction tx, @NotNull K key, @NotNull V val);
 
     /**
      * Asynchronously puts new or replaces existed value associated with given key into the table.
+     * <p>
+     * NB: Method doesn't support {@code null} value, use {@link #getNullableAndPutAsync(Transaction, Object, Object)} instead.
      *
      * @param tx The transaction or {@code null} to auto commit.
      * @param key A key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key.
+     * @param val Value to be associated with the specified key. The value cannot be {@code null}.
      * @return Future representing pending completion of the operation.
      * @throws SchemaMismatchException if the key and/or the value doesn't match the schema.
-     * @see #getNullableAndPutAsync(Transaction, Object, Object)
      */
-    @NotNull CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, @NotNull K key, V val);
+    @NotNull CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, @NotNull K key, @NotNull V val);
 
     /**
      * Puts new or replaces existed value associated with given key into the table.
@@ -324,24 +326,26 @@ public interface KeyValueView<K, V> {
 
     /**
      * Gets then removes value associated with given key from the table.
+     * <p>
+     * NB: Method doesn't support {@code null} value, use {@link #getNullableAndRemove(Transaction, Object)} (Transaction, Object, Object)} instead.
      *
      * @param tx The transaction or {@code null} to auto commit.
      * @param key A key which associated value is to be removed from the table. The key cannot be {@code null}.
      * @return Removed value or {@code null}, if not existed.
      * @throws UnexpectedNullValueException If value for the key exists, and it is {@code null}.
      * @throws SchemaMismatchException if the key doesn't match the schema.
-     * @see #getNullableAndRemove(Transaction, Object)
      */
     V getAndRemove(@Nullable Transaction tx, @NotNull K key);
 
     /**
      * Asynchronously gets then removes value associated with given key from the table.
+     * <p>
+     * NB: Method doesn't support {@code null} value, use {@link #getNullableAndRemoveAsync(Transaction, Object)} instead.
      *
      * @param tx The transaction or {@code null} to auto commit.
      * @param key A Key which mapping is to be removed from the table. The key cannot be {@code null}.
      * @return Future representing pending completion of the operation.
      * @throws SchemaMismatchException if the key doesn't match the schema.
-     * @see #getNullableAndRemoveAsync(Transaction, Object)
      */
     @NotNull CompletableFuture<V> getAndRemoveAsync(@Nullable Transaction tx, @NotNull K key);
 
@@ -439,31 +443,34 @@ public interface KeyValueView<K, V> {
      * }
      * </code></pre>
      * except that the action is performed atomically.
+     * <p>
+     * NB: Method doesn't support {@code null} value, use {@link #getNullableAndReplace(Transaction, Object, Object)} instead.
      *
      * @param tx The transaction or {@code null} to auto commit.
      * @param key A key with which the specified value is associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key.
+     * @param val Value to be associated with the specified key. The value cannot be {@code null}.
      * @return Replaced value, or {@code null} if not existed.
      * @throws UnexpectedNullValueException If value for the key exists, and it is {@code null}.
      * @throws SchemaMismatchException if the key, or the value doesn't match the schema.
-     * @see #getNullableAndReplace(Transaction, Object, Object)
      */
-    V getAndReplace(@Nullable Transaction tx, @NotNull K key, V val);
+    V getAndReplace(@Nullable Transaction tx, @NotNull K key, @NotNull V val);
 
     /**
-     * Asynchronously replaces the value for a given key only if exists. See {@link #getAndReplace(Transaction, Object, Object)}
+     * Asynchronously replaces the value for a given key only if exists.
+     * <p>
+     * NB: Method doesn't support {@code null} value, use {@link #getNullableAndReplaceAsync(Transaction, Object, Object)} instead.
      *
      * @param tx The transaction or {@code null} to auto commit.
      * @param key A key with which the specified value is associated. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
      * @throws SchemaMismatchException if the key, or the value doesn't match the schema.
-     * @see #getNullableAndReplaceAsync(Transaction, Object, Object)
+     * @see #getAndReplace(Transaction, Object, Object)
      */
-    @NotNull CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, @NotNull K key, V val);
+    @NotNull CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, @NotNull K key, @NotNull V val);
 
     /**
-     * Replaces the value for a given key only if exists. See {@link #getAndReplace(Transaction, Object, Object)}
+     * Replaces the value for a given key only if exists.
      *
      * @param tx The transaction or {@code null} to auto commit.
      * @param key A key with which the specified value is associated. The key cannot be {@code null}.
@@ -475,13 +482,14 @@ public interface KeyValueView<K, V> {
     NullableValue<V> getNullableAndReplace(@Nullable Transaction tx, @NotNull K key, V val);
 
     /**
-     * Asynchronously replaces the value for a given key only if exists. See {@link #getAndReplace(Transaction, Object, Object)}
+     * Asynchronously replaces the value for a given key only if exists.
      *
      * @param tx The transaction or {@code null} to auto commit.
      * @param key A key with which the specified value is associated. The key cannot be {@code null}.
      * @param val Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
      * @throws SchemaMismatchException if the key, or the value doesn't match the schema.
+     * @see #getAndReplace(Transaction, Object, Object)
      */
     @NotNull CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, @NotNull K key, V val);
 

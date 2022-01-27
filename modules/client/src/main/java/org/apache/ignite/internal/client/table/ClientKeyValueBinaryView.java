@@ -194,8 +194,9 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndPutAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public @NotNull CompletableFuture<Tuple> getAndPutAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
+        Objects.requireNonNull(val);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
@@ -370,14 +371,15 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getAndReplace(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public Tuple getAndReplace(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         return sync(getAndReplaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
+        Objects.requireNonNull(val);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,

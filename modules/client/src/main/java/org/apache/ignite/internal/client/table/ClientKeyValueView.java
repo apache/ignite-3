@@ -206,14 +206,15 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public V getAndPut(@Nullable Transaction tx, @NotNull K key, V val) {
+    public V getAndPut(@Nullable Transaction tx, @NotNull K key, @NotNull V val) {
         return sync(getAndPutAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, @NotNull K key, V val) {
+    public @NotNull CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, @NotNull K key, @NotNull V val) {
         Objects.requireNonNull(key);
+        Objects.requireNonNull(val);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
@@ -379,14 +380,15 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public V getAndReplace(@Nullable Transaction tx, @NotNull K key, V val) {
+    public V getAndReplace(@Nullable Transaction tx, @NotNull K key, @NotNull V val) {
         return sync(getAndReplaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, @NotNull K key, V val) {
+    public @NotNull CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, @NotNull K key, @NotNull V val) {
         Objects.requireNonNull(key);
+        Objects.requireNonNull(val);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,

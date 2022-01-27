@@ -122,15 +122,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
-        Objects.requireNonNull(keys);
-
-        List<BinaryRow> keyRows = new ArrayList<>(keys.size());
-
-        for (Tuple keyRec : keys) {
-            final Row keyRow = marshal(keyRec, null);
-
-            keyRows.add(keyRow);
-        }
+        List<BinaryRow> keyRows = marshalKeys(Objects.requireNonNull(keys));
 
         return tbl.getAll(keyRows, (InternalTransaction) tx).thenApply(this::unmarshalValue);
     }
@@ -177,7 +169,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         List<BinaryRow> rows = new ArrayList<>(pairs.size());
 
         for (Map.Entry<Tuple, Tuple> pair : pairs.entrySet()) {
-            final Row row = marshal(pair.getKey(), pair.getValue());
+            final Row row = marshal(Objects.requireNonNull(pair.getKey()), pair.getValue());
 
             rows.add(row);
         }
@@ -187,14 +179,15 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getAndPut(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public Tuple getAndPut(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         return sync(getAndPutAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndPutAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public @NotNull CompletableFuture<Tuple> getAndPutAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
+        Objects.requireNonNull(val);
 
         Row row = marshal(key, val);
 
@@ -274,23 +267,13 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     /** {@inheritDoc} */
     @Override
     public Collection<Tuple> removeAll(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
-        Objects.requireNonNull(keys);
-
         return sync(removeAllAsync(tx, keys));
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<Tuple>> removeAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
-        Objects.requireNonNull(keys);
-
-        List<BinaryRow> keyRows = new ArrayList<>(keys.size());
-
-        for (Tuple keyRec : keys) {
-            final Row keyRow = marshal(keyRec, null);
-
-            keyRows.add(keyRow);
-        }
+        List<BinaryRow> keyRows = marshalKeys(Objects.requireNonNull(keys));
 
         return tbl.deleteAll(keyRows, (InternalTransaction) tx)
                        .thenApply(this::unmarshalKeys);
@@ -499,6 +482,23 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         }
 
         return pairs;
+    }
+
+    /**
+     * Marshal key tuples to rows.
+     *
+     * @param keys Key tuples.
+     * @return Rows.
+     */
+    public List<BinaryRow> marshalKeys(@NotNull Collection<Tuple> keys) {
+        List<BinaryRow> keyRows = new ArrayList<>(keys.size());
+
+        for (Tuple keyRec : keys) {
+            final Row keyRow = marshal(Objects.requireNonNull(keyRec), null);
+
+            keyRows.add(keyRow);
+        }
+        return keyRows;
     }
 
     /**
