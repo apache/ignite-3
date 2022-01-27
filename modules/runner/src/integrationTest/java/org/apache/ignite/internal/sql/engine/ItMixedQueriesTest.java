@@ -112,10 +112,10 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @RepeatedTest(100)
     public void testOrderingByColumnOutsideSelectList() {
-//        while (true) {
-            //System.out.println("Start");
+        int i = 0;
+        while (true) {
+            System.out.println("Start " + i++);
             assertQuery("select salary from emp2 order by id desc")
                     .returns(13d)
                     .returns(13d)
@@ -124,8 +124,8 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
                     .returns(11d)
                     .returns(10d)
                     .check();
-            //System.out.println("End");
-//        }
+            System.out.println("End");
+        }
 //
 //        assertQuery("select name, sum(salary) from emp2 group by name order by count(salary)")
 //                .returns("Roman", 46d)

@@ -41,7 +41,7 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
 
     protected static final int IO_BATCH_CNT = 4; //IgniteSystemProperties.getInteger("IGNITE_CALCITE_EXEC_IO_BATCH_CNT", 4);
 
-    protected final int inBufSize = Commons.IN_BUFFER_SIZE; //IgniteSystemProperties.getInteger("IGNITE_CALCITE_EXEC_IN_BUFFER_SIZE", 2);
+    protected final int inBufSize = 1; //IgniteSystemProperties.getInteger("IGNITE_CALCITE_EXEC_IN_BUFFER_SIZE", 2);
 
     protected final IgniteLogger log = IgniteLogger.forClass(getClass());
 
