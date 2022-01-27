@@ -185,16 +185,29 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var i = 0; i < columns.Count; i++)
             {
                 var col = columns[i];
-                var prop = type.GetFieldIgnoreCase(col.Name);
+                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
 
-                il.Emit(OpCodes.Ldarg_0); // reader
-                il.Emit(OpCodes.Call, MessagePackMethods.ReadNoValue);
+                if (fieldInfo == null)
+                {
+                    il.Emit(OpCodes.Ldarg_0); // reader
+                    il.Emit(OpCodes.Call, MessagePackMethods.Skip);
+                }
+                else
+                {
+                    il.Emit(OpCodes.Ldarg_0); // reader
+                    il.Emit(OpCodes.Call, MessagePackMethods.ReadNoValue);
 
-                Label noValueLabel = il.DefineLabel();
-                il.Emit(OpCodes.Brfalse_S, noValueLabel);
+                    Label noValueLabel = il.DefineLabel();
+                    il.Emit(OpCodes.Brfalse_S, noValueLabel);
 
-                // TODO: Read into prop here.
-                il.MarkLabel(noValueLabel);
+                    var readMethod = MessagePackMethods.GetReadMethod(fieldInfo.FieldType);
+
+                    il.Emit(OpCodes.Ldarg_0); // reader
+                    il.Emit(OpCodes.Call, readMethod);
+                    il.Emit(OpCodes.Stfld, fieldInfo);
+
+                    il.MarkLabel(noValueLabel);
+                }
             }
 
             // for (var index = 0; index < count; index++)

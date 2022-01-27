@@ -42,6 +42,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
             typeof(MessagePackReaderExtensions).GetMethod(nameof(MessagePackReaderExtensions.TryReadNoValue))!;
 
         /// <summary>
+        /// Skip reader.
+        /// </summary>
+        public static readonly MethodInfo Skip =
+            typeof(MessagePackReaderExtensions).GetMethod(nameof(MessagePackReaderExtensions.Skip))!;
+
+        /// <summary>
         /// Object (catch all) writer.
         /// </summary>
         public static readonly MethodInfo WriteObject =
