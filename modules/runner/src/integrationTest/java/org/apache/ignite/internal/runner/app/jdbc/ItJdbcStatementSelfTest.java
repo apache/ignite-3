@@ -720,7 +720,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16268")
     public void testStatementTypeMismatchUpdate() throws Exception {
         assertThrows(
                 SQLException.class,

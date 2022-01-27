@@ -69,7 +69,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public ResultSet executeQuery() throws SQLException {
-        executeWithArguments();
+        executeWithArguments(JdbcStatementType.SELECT_STATEMENT_TYPE);
 
         ResultSet rs = getResultSet();
 
@@ -90,7 +90,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public int executeUpdate() throws SQLException {
-        executeWithArguments();
+        executeWithArguments(JdbcStatementType.UPDATE_STMT_TYPE);
 
         int res = getUpdateCount();
 
@@ -132,7 +132,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public boolean execute() throws SQLException {
-        executeWithArguments();
+        executeWithArguments(JdbcStatementType.ANY_STATEMENT_TYPE);
 
         return isQuery();
     }
@@ -597,7 +597,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
      *
      * @throws SQLException If failed.
      */
-    private void executeWithArguments() throws SQLException {
-        execute0(sql, args);
+    private void executeWithArguments(JdbcStatementType stmtType) throws SQLException {
+        execute0(stmtType, sql, args);
     }
 }

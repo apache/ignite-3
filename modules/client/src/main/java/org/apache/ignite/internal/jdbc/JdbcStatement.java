@@ -100,7 +100,7 @@ public class JdbcStatement implements Statement {
     /** {@inheritDoc} */
     @Override
     public ResultSet executeQuery(String sql) throws SQLException {
-        execute0(Objects.requireNonNull(sql), null);
+        execute0(JdbcStatementType.SELECT_STATEMENT_TYPE, Objects.requireNonNull(sql), null);
 
         ResultSet rs = getResultSet();
 
@@ -118,7 +118,7 @@ public class JdbcStatement implements Statement {
      * @param args Query parameters.
      * @throws SQLException Onj error.
      */
-    protected void execute0(String sql, List<Object> args) throws SQLException {
+    protected void execute0(JdbcStatementType stmtType, String sql, List<Object> args) throws SQLException {
         ensureNotClosed();
 
         closeResults();
@@ -156,7 +156,7 @@ public class JdbcStatement implements Statement {
     /** {@inheritDoc} */
     @Override
     public int executeUpdate(String sql) throws SQLException {
-        execute0(Objects.requireNonNull(sql), null);
+        execute0(JdbcStatementType.UPDATE_STMT_TYPE, Objects.requireNonNull(sql), null);
 
         int res = getUpdateCount();
 
@@ -320,7 +320,7 @@ public class JdbcStatement implements Statement {
     public boolean execute(String sql) throws SQLException {
         ensureNotClosed();
 
-        execute0(Objects.requireNonNull(sql), null);
+        execute0(JdbcStatementType.ANY_STATEMENT_TYPE, Objects.requireNonNull(sql), null);
 
         return isQuery();
     }

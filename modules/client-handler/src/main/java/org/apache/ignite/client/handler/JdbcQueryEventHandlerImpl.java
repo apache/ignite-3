@@ -110,6 +110,13 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         try {
             for (SqlCursor<List<?>> cur : cursors) {
+                if (!checkQueryExpectedType(req, cur.queryType())) {
+                    return CompletableFuture.completedFuture(new QueryExecuteResult(Response.STATUS_FAILED,
+                            "Expected query type " + req.sqlQuery() + " does not match with real type: " + cur.queryType()));
+                }
+            }
+
+            for (SqlCursor<List<?>> cur : cursors) {
                 QuerySingleResult res = createJdbcResult(cur, req);
                 results.add(res);
             }
