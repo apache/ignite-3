@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.handler.requests.sql.JdbcMetadataCatalog;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
+import org.apache.ignite.client.proto.query.JdbcStatementType;
 import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
 import org.apache.ignite.client.proto.query.event.JdbcColumnMeta;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.Cursor;
 
@@ -110,9 +112,11 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         try {
             for (SqlCursor<List<?>> cur : cursors) {
-                if (!checkQueryExpectedType(req, cur.queryType())) {
+                if (!checkQueryExpectedType(req.getStmtType(), cur.queryType())) {
                     return CompletableFuture.completedFuture(new QueryExecuteResult(Response.STATUS_FAILED,
-                            "Expected query type " + req.sqlQuery() + " does not match with real type: " + cur.queryType()));
+                            "Expected query type " + req.getStmtType()
+                                    + " for query " + req.sqlQuery()
+                                    + " does not match with real type: " + cur.queryType()));
                 }
             }
 
@@ -128,6 +132,20 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
         return CompletableFuture.completedFuture(new QueryExecuteResult(results));
+    }
+
+    private boolean checkQueryExpectedType(JdbcStatementType expectedType, SqlQueryType queryType) {
+        if (queryType == SqlQueryType.EXPLAIN || expectedType == JdbcStatementType.ANY_STATEMENT_TYPE) {
+            return true;
+        }
+        switch (expectedType) {
+            case SELECT_STATEMENT_TYPE:
+                return queryType == SqlQueryType.QUERY;
+            case UPDATE_STMT_TYPE:
+                return queryType == SqlQueryType.DDL || queryType == SqlQueryType.DML;
+        }
+
+        return false;
     }
 
     /** {@inheritDoc} */

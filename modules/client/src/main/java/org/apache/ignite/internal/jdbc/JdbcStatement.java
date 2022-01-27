@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.client.proto.query.IgniteQueryErrorCode;
+import org.apache.ignite.client.proto.query.JdbcStatementType;
 import org.apache.ignite.client.proto.query.SqlStateCode;
 import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
@@ -127,7 +128,7 @@ public class JdbcStatement implements Statement {
             throw new SQLException("SQL query is empty.");
         }
 
-        QueryExecuteRequest req = new QueryExecuteRequest(schema, pageSize, maxRows, sql,
+        QueryExecuteRequest req = new QueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql,
                 args == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : args.toArray());
 
         QueryExecuteResult res = conn.handler().queryAsync(req).join();

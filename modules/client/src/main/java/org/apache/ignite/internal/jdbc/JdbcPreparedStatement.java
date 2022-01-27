@@ -40,6 +40,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Objects;
+import org.apache.ignite.client.proto.query.JdbcStatementType;
 import org.apache.ignite.client.proto.query.SqlStateCode;
 
 /**
