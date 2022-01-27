@@ -62,6 +62,8 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
         private static readonly ObjectSerializerHandler<Car> ObjectSerializerHandler = new();
 
+        private static readonly ObjectSerializerHandlerOld<Car> ObjectSerializerHandlerOld = new();
+
         [Benchmark]
         public void WriteTuple()
         {
@@ -78,6 +80,15 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             var writer = pooledWriter.GetMessageWriter();
 
             ObjectSerializerHandler.Write(ref writer, Schema, Object);
+        }
+
+        [Benchmark(Baseline = true)]
+        public void WriteObjectOld()
+        {
+            using var pooledWriter = new PooledArrayBufferWriter();
+            var writer = pooledWriter.GetMessageWriter();
+
+            ObjectSerializerHandlerOld.Write(ref writer, Schema, Object);
         }
 
         private class Car

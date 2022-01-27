@@ -34,4 +34,8 @@
         <ProjectReference Include="..\Apache.Ignite.Tests\Apache.Ignite.Tests.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Compile Remove="Table\SerializerHandlerBenchmarks.cs" />
+    </ItemGroup>
+
 </Project>
