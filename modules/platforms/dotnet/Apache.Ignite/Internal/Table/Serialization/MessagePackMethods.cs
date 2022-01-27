@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System;
     using System.Collections.Generic;
     using System.Reflection;
-    using System.Runtime.Serialization;
     using MessagePack;
     using Proto;
 
@@ -56,8 +55,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <summary>
         /// Object (catch all) reader.
         /// </summary>
-        public static readonly MethodInfo ReadObject =
-            typeof(MessagePackReaderExtensions).GetMethod(nameof(MessagePackReaderExtensions.ReadObject))!;
+        public static readonly MethodInfo ReadObjectGeneric =
+            typeof(MessagePackReaderExtensions).GetMethod(nameof(MessagePackReaderExtensions.ReadObjectGeneric))!;
 
         private static readonly IReadOnlyDictionary<Type, MethodInfo> WriteMethods = new Dictionary<Type, MethodInfo>
         {
@@ -105,7 +104,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static MethodInfo GetReadMethod(Type valueType) =>
             ReadMethods.TryGetValue(valueType, out var method)
                 ? method
-                : ReadObject;
+                : ReadObjectGeneric;
 
         private static MethodInfo GetWriteMethod<TArg>()
         {

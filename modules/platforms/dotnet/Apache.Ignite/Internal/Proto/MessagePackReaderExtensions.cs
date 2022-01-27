@@ -34,6 +34,18 @@ namespace Apache.Ignite.Internal.Proto
         /// </summary>
         /// <param name="reader">Reader.</param>
         /// <param name="type">Type.</param>
+        /// <typeparam name="T">Result type.</typeparam>
+        /// <returns>Resulting object.</returns>
+        public static T ReadObjectGeneric<T>(this ref MessagePackReader reader, ClientDataType type)
+        {
+            return (T)ReadObject(ref reader, type)!;
+        }
+
+        /// <summary>
+        /// Reads an object with specified type.
+        /// </summary>
+        /// <param name="reader">Reader.</param>
+        /// <param name="type">Type.</param>
         /// <returns>Resulting object.</returns>
         public static object? ReadObject(this ref MessagePackReader reader, ClientDataType type)
         {
