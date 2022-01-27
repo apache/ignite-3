@@ -34,12 +34,12 @@ import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * Group of tests that still has not been sorted out. It’s better to avoid extending this class with new tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ItMixedQueriesTest.class);
     /**
@@ -101,6 +101,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
     /** Tests varchar min\max aggregates. */
     @Test
+    @Disabled
     public void testVarCharMinMax() {
         sql("CREATE TABLE TEST(val VARCHAR primary key, val1 integer);");
         sql("INSERT INTO test VALUES ('б', 1), ('бб', 2), ('щ', 3), ('щщ', 4), ('Б', 4), ('ББ', 4), ('Я', 4);");
@@ -111,9 +112,10 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @RepeatedTest(100)
     public void testOrderingByColumnOutsideSelectList() {
-        while (true) {
-            System.out.println("Start");
+//        while (true) {
+            //System.out.println("Start");
             assertQuery("select salary from emp2 order by id desc")
                     .returns(13d)
                     .returns(13d)
@@ -122,8 +124,8 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
                     .returns(11d)
                     .returns(10d)
                     .check();
-            System.out.println("End");
-        }
+            //System.out.println("End");
+//        }
 //
 //        assertQuery("select name, sum(salary) from emp2 group by name order by count(salary)")
 //                .returns("Roman", 46d)
@@ -132,6 +134,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled
     public void testEqConditionWithDistinctSubquery() {
         List<List<?>> rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT DISTINCT(salary) FROM emp2 WHERE name='Igor1')");
@@ -140,6 +143,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled
     public void testEqConditionWithAggregateSubqueryMax() {
         List<List<?>> rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT MAX(salary) FROM emp2 WHERE name='Roman')");
@@ -148,6 +152,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled
     public void testEqConditionWithAggregateSubqueryMin() {
         List<List<?>> rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT MIN(salary) FROM emp2 WHERE name='Roman')");
@@ -156,6 +161,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled
     public void testInConditionWithSubquery() {
         List<List<?>> rows = sql(
                 "SELECT name FROM emp1 WHERE name IN (SELECT name FROM emp2)");
@@ -164,6 +170,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled
     public void testDistinctQueryWithInConditionWithSubquery() {
         List<List<?>> rows = sql("SELECT distinct(name) FROM emp1 o WHERE name IN ("
                 + "   SELECT name"
@@ -173,6 +180,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled
     public void testNotInConditionWithSubquery() {
         List<List<?>> rows = sql(
                 "SELECT name FROM emp1 WHERE name NOT IN (SELECT name FROM emp2)");
@@ -181,6 +189,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled
     public void testExistsConditionWithSubquery() {
         List<List<?>> rows = sql("SELECT name FROM emp1 o WHERE EXISTS ("
                 + "   SELECT 1"
@@ -191,6 +200,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled
     public void testNotExistsConditionWithSubquery() {
         List<List<?>> rows = sql("SELECT name FROM emp1 o WHERE NOT EXISTS ("
                 + "   SELECT 1"
@@ -230,6 +240,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
      * Verifies that table modification events are passed to a calcite schema modification listener.
      */
     @Test
+    @Disabled
     public void testIgniteSchemaAwaresAlterTableCommand() {
         String selectAllQry = "select * from test_tbl";
 
@@ -267,6 +278,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
     /** Quantified predicates test. */
     @Test
+    @Disabled
     public void quantifiedCompTest() throws InterruptedException {
         assertQuery("select salary from emp2 where salary > SOME (10, 11) ORDER BY salary")
                 .returns(11d)
@@ -302,6 +314,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
      * Checks bang equal is allowed and works.
      */
     @Test
+    @Disabled
     public void testBangEqual() {
         assertEquals(4, sql("SELECT * FROM EMP1 WHERE name != ?", "Igor").size());
     }
