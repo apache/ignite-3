@@ -38,7 +38,8 @@ public interface ConfigurationProperty<VIEWT> {
     /**
      * Adds configuration values listener.
      *
-     * <p>NOTE: Listener will be called starting from the next notification of all configuration listeners.
+     * <p>NOTE: If this method is called from another listener, then it is guaranteed to be called starting from the next configuration
+     * update only.
      *
      * @param listener Listener.
      */
@@ -47,8 +48,7 @@ public interface ConfigurationProperty<VIEWT> {
     /**
      * Removes configuration values listener.
      *
-     * <p>NOTE: This method introduces unpredictable behavior at the moment, because the final behavior of this method is unclear.
-     * Should the listener be removed immediately or only on the next notification? We'll fix it later if there's a problem.
+     * <p>NOTE: Unpredictable behavior if the method is called inside other listeners.
      *
      * @param listener Listener.
      */
