@@ -36,6 +36,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
             typeof(MessagePackWriterExtensions).GetMethod(nameof(MessagePackWriterExtensions.WriteNoValue))!;
 
         /// <summary>
+        /// No-value reader.
+        /// </summary>
+        public static readonly MethodInfo ReadNoValue =
+            typeof(MessagePackReaderExtensions).GetMethod(nameof(MessagePackReaderExtensions.TryReadNoValue))!;
+
+        /// <summary>
         /// Object (catch all) writer.
         /// </summary>
         public static readonly MethodInfo WriteObject =

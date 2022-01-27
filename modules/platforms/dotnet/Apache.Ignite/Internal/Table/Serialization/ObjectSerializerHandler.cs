@@ -176,38 +176,25 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             // var res = (T) FormatterServices.GetUninitializedObject(type);
             il.Emit(OpCodes.Ldtoken, type);
-            il.EmitCall(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod, null);
-            il.EmitCall(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod, null);
+            il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
+            il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
+            il.Emit(OpCodes.Stloc_0);
 
-            // for (var i = 0; i < columns.Count; i++)
-            // {
-            //     var col = columns[i];
-            //     var prop = type.GetFieldIgnoreCase(col.Name);
-            //
-            //     if (i < schema.KeyColumnCount)
-            //     {
-            //         if (prop != null)
-            //         {
-            //             prop.SetValue(res, prop.GetValue(key));
-            //         }
-            //     }
-            //     else
-            //     {
-            //         if (r.TryReadNoValue())
-            //         {
-            //             continue;
-            //         }
-            //
-            //         if (prop != null)
-            //         {
-            //             prop.SetValue(res, r.ReadObject(col.Type));
-            //         }
-            //         else
-            //         {
-            //             r.Skip();
-            //         }
-            //     }
-            // }
+            for (var i = 0; i < columns.Count; i++)
+            {
+                var col = columns[i];
+                var prop = type.GetFieldIgnoreCase(col.Name);
+
+                il.Emit(OpCodes.Ldarg_0); // reader
+                il.Emit(OpCodes.Call, MessagePackMethods.ReadNoValue);
+
+                Label noValueLabel = il.DefineLabel();
+                il.Emit(OpCodes.Brfalse_S, noValueLabel);
+
+                // TODO: Read into prop here.
+                il.MarkLabel(noValueLabel);
+            }
+
             // for (var index = 0; index < count; index++)
             // {
             //     var col = columns[index];
