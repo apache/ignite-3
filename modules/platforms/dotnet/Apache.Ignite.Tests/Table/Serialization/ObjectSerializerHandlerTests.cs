@@ -33,6 +33,8 @@ namespace Apache.Ignite.Tests.Table.Serialization
     {
         private record BadPoco(ClientOp Key, DateTimeOffset Val);
 
+        private record BadPoco2(Guid Key, Type Val);
+
         private static readonly Schema Schema = new(1, 1, new[]
         {
             new Column("Key", ClientDataType.Int64, false, true, 0),
@@ -60,10 +62,21 @@ namespace Apache.Ignite.Tests.Table.Serialization
         }
 
         [Test]
-        public void TestReadBadPocoType()
+        public void TestReadIntoUnsupportedFieldTypeThrowsException()
         {
             var reader = WriteAndGetReader();
             var handler = new ObjectSerializerHandler<BadPoco>();
+            var resPoco = handler.Read(ref reader, Schema);
+
+            Assert.AreEqual(1234, resPoco.Key);
+            Assert.AreEqual("foo", resPoco.Val);
+        }
+
+        [Test]
+        public void TestReadIntoMismatchedFieldTypeThrowsException()
+        {
+            var reader = WriteAndGetReader();
+            var handler = new ObjectSerializerHandler<BadPoco2>();
             var resPoco = handler.Read(ref reader, Schema);
 
             Assert.AreEqual(1234, resPoco.Key);
