@@ -38,7 +38,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <summary>
         /// No-value reader.
         /// </summary>
-        public static readonly MethodInfo ReadNoValue =
+        public static readonly MethodInfo TryReadNoValue =
             typeof(MessagePackReaderExtensions).GetMethod(nameof(MessagePackReaderExtensions.TryReadNoValue))!;
 
         /// <summary>

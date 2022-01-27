@@ -193,10 +193,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 else
                 {
                     il.Emit(OpCodes.Ldarg_0); // reader
-                    il.Emit(OpCodes.Call, MessagePackMethods.ReadNoValue);
+                    il.Emit(OpCodes.Call, MessagePackMethods.TryReadNoValue);
 
                     Label noValueLabel = il.DefineLabel();
-                    il.Emit(OpCodes.Brfalse_S, noValueLabel);
+                    il.Emit(OpCodes.Brtrue_S, noValueLabel);
 
                     // TODO: Unbox.any if the method is ReadObject?
                     var readMethod = MessagePackMethods.GetReadMethod(fieldInfo.FieldType);
