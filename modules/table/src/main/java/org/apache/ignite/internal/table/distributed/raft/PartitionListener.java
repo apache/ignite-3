@@ -29,6 +29,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.DataRow;
@@ -64,6 +65,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
@@ -78,6 +80,8 @@ import org.jetbrains.annotations.TestOnly;
  * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(PartitionListener.class);
+
     /** Lock id. */
     private final IgniteUuid lockId;
 
@@ -89,6 +93,8 @@ public class PartitionListener implements RaftGroupListener {
 
     /** Transaction manager. */
     private final TxManager txManager;
+
+    AtomicInteger internalBatchCounter = new AtomicInteger(0);
 
     /**
      * The constructor.
@@ -454,6 +460,11 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleScanRetrieveBatchCommand(CommandClosure<ScanRetrieveBatchCommand> clo) {
+        //LOG.debug("!@#@!±!@#");
+        if (internalBatchCounter.getAndSet(clo.command().getCounter()) == clo.command().getCounter() - 1) {
+            throw new IllegalStateException("Counters not match");
+        }
+
         CursorMeta cursorDesc = cursors.get(clo.command().scanId());
 
         if (cursorDesc == null) {
@@ -473,6 +484,7 @@ public class PartitionListener implements RaftGroupListener {
             clo.result(e);
         }
 
+        //LOG.debug("Send " + res.size() + " elements");
         clo.result(new MultiRowsResponse(res));
     }
 

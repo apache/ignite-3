@@ -29,6 +29,8 @@ public class ScanRetrieveBatchCommand implements WriteCommand {
     /** Amount of items to retrieve. */
     private final int itemsToRetrieveCnt;
 
+    int counter;
+
     /** Id of scan that is associated with the current command. */
     @NotNull
     private final IgniteUuid scanId;
@@ -41,10 +43,12 @@ public class ScanRetrieveBatchCommand implements WriteCommand {
      */
     public ScanRetrieveBatchCommand(
             int itemsToRetrieveCnt,
-            @NotNull IgniteUuid scanId
+            @NotNull IgniteUuid scanId,
+            int counter
     ) {
         this.itemsToRetrieveCnt = itemsToRetrieveCnt;
         this.scanId = scanId;
+        this.counter = counter;
     }
 
     /**
@@ -60,5 +64,9 @@ public class ScanRetrieveBatchCommand implements WriteCommand {
     @NotNull
     public IgniteUuid scanId() {
         return scanId;
+    }
+
+    public int getCounter() {
+        return counter;
     }
 }

@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
@@ -40,24 +41,25 @@ import org.junit.jupiter.api.Test;
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ItMixedQueriesTest.class);
     /**
      * Before all.
      */
     @BeforeAll
     static void initTestData() {
-        Table emp1 = createTable("EMP1");
+        //Table emp1 = createTable("EMP1");
         Table emp2 = createTable("EMP2");
 
         int idx = 0;
-        insertData(emp1, new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
-                {idx++, "Igor", 10d},
-                {idx++, "Igor", 11d},
-                {idx++, "Igor", 12d},
-                {idx++, "Igor1", 13d},
-                {idx++, "Igor1", 13d},
-                {idx++, "Igor1", 13d},
-                {idx, "Roman", 14d}
-        });
+//        insertData(emp1, new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+//                {idx++, "Igor", 10d},
+//                {idx++, "Igor", 11d},
+//                {idx++, "Igor", 12d},
+//                {idx++, "Igor1", 13d},
+//                {idx++, "Igor1", 13d},
+//                {idx++, "Igor1", 13d},
+//                {idx, "Roman", 14d}
+//        });
 
         idx = 0;
         insertData(emp2, new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
@@ -110,19 +112,23 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testOrderingByColumnOutsideSelectList() {
-        assertQuery("select salary from emp2 order by id desc")
-                .returns(13d)
-                .returns(13d)
-                .returns(13d)
-                .returns(12d)
-                .returns(11d)
-                .returns(10d)
-                .check();
-
-        assertQuery("select name, sum(salary) from emp2 group by name order by count(salary)")
-                .returns("Roman", 46d)
-                .returns("Igor1", 26d)
-                .check();
+        while (true) {
+            System.out.println("Start");
+            assertQuery("select salary from emp2 order by id desc")
+                    .returns(13d)
+                    .returns(13d)
+                    .returns(13d)
+                    .returns(12d)
+                    .returns(11d)
+                    .returns(10d)
+                    .check();
+            System.out.println("End");
+        }
+//
+//        assertQuery("select name, sum(salary) from emp2 group by name order by count(salary)")
+//                .returns("Roman", 46d)
+//                .returns("Igor1", 26d)
+//                .check();
     }
 
     @Test
@@ -386,7 +392,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         return CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl1, tblCh)
                         .changeReplicas(2)
-                        .changePartitions(10)
+                        .changePartitions(1)
         );
     }
 }
