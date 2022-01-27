@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 
+#pragma warning disable CA1812
 namespace Apache.Ignite.Tests.Table.Serialization
 {
+    using System;
     using Internal.Buffers;
     using Internal.Proto;
     using Internal.Table;
@@ -29,6 +31,8 @@ namespace Apache.Ignite.Tests.Table.Serialization
     /// </summary>
     public class ObjectSerializerHandlerTests
     {
+        private record BadPoco(ClientOp Key, DateTimeOffset Val);
+
         private static readonly Schema Schema = new(1, 1, new[]
         {
             new Column("Key", ClientDataType.Int64, false, true, 0),
@@ -38,10 +42,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [Test]
         public void TestWritePocoType()
         {
-            var poco = new Poco { Key = 1234, Val = "foo" };
-            var handler = new ObjectSerializerHandler<Poco>();
-
-            var reader = WriteAndGetReader(handler, poco);
+            var reader = WriteAndGetReader();
 
             Assert.AreEqual(1234, reader.ReadInt32());
             Assert.AreEqual("foo", reader.ReadString());
@@ -50,18 +51,30 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [Test]
         public void TestReadPocoType()
         {
-            var poco = new Poco { Key = 1234, Val = "foo" };
+            var reader = WriteAndGetReader();
             var handler = new ObjectSerializerHandler<Poco>();
-
-            var reader = WriteAndGetReader(handler, poco);
             var resPoco = handler.Read(ref reader, Schema);
 
             Assert.AreEqual(1234, resPoco.Key);
             Assert.AreEqual("foo", resPoco.Val);
         }
 
-        private static MessagePackReader WriteAndGetReader(ObjectSerializerHandler<Poco> handler, Poco poco)
+        [Test]
+        public void TestReadBadPocoType()
         {
+            var reader = WriteAndGetReader();
+            var handler = new ObjectSerializerHandler<BadPoco>();
+            var resPoco = handler.Read(ref reader, Schema);
+
+            Assert.AreEqual(1234, resPoco.Key);
+            Assert.AreEqual("foo", resPoco.Val);
+        }
+
+        private static MessagePackReader WriteAndGetReader()
+        {
+            var poco = new Poco { Key = 1234, Val = "foo" };
+            var handler = new ObjectSerializerHandler<Poco>();
+
             using var pooledWriter = new PooledArrayBufferWriter();
             var writer = pooledWriter.GetMessageWriter();
 
