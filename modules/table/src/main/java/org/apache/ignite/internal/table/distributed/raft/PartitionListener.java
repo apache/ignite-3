@@ -461,6 +461,7 @@ public class PartitionListener implements RaftGroupListener {
      */
     private void handleScanRetrieveBatchCommand(CommandClosure<ScanRetrieveBatchCommand> clo) {
         //LOG.debug("!@#@!±!@#");
+        //System.out.println("!@#@!±!@#");
         if (internalBatchCounter.getAndSet(clo.command().getCounter()) == clo.command().getCounter() - 1) {
             throw new IllegalStateException("Counters not match");
         }
