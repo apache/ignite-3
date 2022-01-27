@@ -23,7 +23,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     using Internal.Table.Serialization;
 
     /// <summary>
-    /// Benchmarks for <see cref="IRecordSerializerHandler{T}"/> implementations.
+    /// Benchmarks for <see cref="IRecordSerializerHandler{T}.Write"/> implementations.
     /// Results on Intel Core i7-9700K, .NET SDK 3.1.416, Ubuntu 20.04:
     /// |         Method |     Mean |   Error |  StdDev | Ratio |  Gen 0 | Allocated |
     /// |--------------- |---------:|--------:|--------:|------:|-------:|----------:|
@@ -32,9 +32,8 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     /// | WriteObjectOld | 786.7 ns | 3.19 ns | 2.98 ns |  1.00 | 0.0381 |     240 B |.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
-    [SuppressMessage("Microsoft.Performance", "CA1812:MarkMembersAsStatic", Justification = "Benchmarks.")]
     [MemoryDiagnoser]
-    public class SerializerHandlerBenchmarks : SerializerHandlerBenchmarksBase
+    public class SerializerHandlerWriteBenchmarks : SerializerHandlerBenchmarksBase
     {
         [Benchmark]
         public void WriteTuple()
