@@ -79,7 +79,7 @@ namespace Apache.Ignite.Internal.Proto
             writer.WriteExtensionFormatHeader(
                 new ExtensionHeader((sbyte)ClientMessagePackType.IgniteUuid, igniteUuid.Size));
 
-            writer.WriteRaw(new Span<byte>(igniteUuid.Bytes, igniteUuid.Size));
+            writer.WriteRaw(new Span<byte>(&igniteUuid, igniteUuid.Size));
         }
 
         /// <summary>

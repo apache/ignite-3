@@ -137,8 +137,8 @@ namespace Apache.Ignite.Internal.Proto
             var size = ValidateExtensionType(ref reader, ClientMessagePackType.IgniteUuid);
             var bytes = reader.ReadRaw(size);
 
-            var res = default(IgniteUuid);
-            bytes.CopyTo(new Span<byte>(res.Bytes, size));
+            IgniteUuid res = default;
+            bytes.CopyTo(new Span<byte>(&res, size));
             res.Size = (byte)size;
 
             return res;

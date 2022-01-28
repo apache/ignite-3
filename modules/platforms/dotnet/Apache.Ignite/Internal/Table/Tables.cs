@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Table
 {
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Threading.Tasks;
     using Buffers;
@@ -32,6 +33,9 @@ namespace Apache.Ignite.Internal.Table
     {
         /** Socket. */
         private readonly ClientFailoverSocket _socket;
+
+        /** Cached tables. */
+        private readonly ConcurrentDictionary<IgniteUuid, ITable> _tables = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Tables"/> class.
@@ -62,7 +66,10 @@ namespace Apache.Ignite.Internal.Table
             ITable? Read(MessagePackReader r) =>
                 r.NextMessagePackType == MessagePackType.Nil
                     ? null
-                    : new Table(name, r.ReadIgniteUuid(), _socket);
+                    : _tables.GetOrAdd(
+                        r.ReadIgniteUuid(),
+                        static (IgniteUuid id, (string Name, ClientFailoverSocket Socket) a) => new Table(a.Name, id, a.Socket),
+                        (name, _socket));
         }
 
         /// <inheritdoc/>
