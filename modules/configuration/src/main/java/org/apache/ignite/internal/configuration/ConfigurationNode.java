@@ -17,15 +17,12 @@
 
 package org.apache.ignite.internal.configuration;
 
-import static java.util.Collections.unmodifiableCollection;
-
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.configuration.ConfigurationListenOnlyException;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.RootKey;
@@ -45,7 +42,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<VIEWT> {
     /** Listeners of property update. */
-    private final List<ConfigurationListener<VIEWT>> updateListeners = new CopyOnWriteArrayList<>();
+    private final ConfigurationListenerHolder<ConfigurationListener<VIEWT>> updateListeners = new ConfigurationListenerHolder<>();
 
     /** Full path to the current node. */
     protected final List<String> keys;
@@ -104,22 +101,24 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
     /** {@inheritDoc} */
     @Override
     public void listen(ConfigurationListener<VIEWT> listener) {
-        updateListeners.add(listener);
+        updateListeners.addListener(listener, changer.notificationCount());
     }
 
     /** {@inheritDoc} */
     @Override
     public void stopListen(ConfigurationListener<VIEWT> listener) {
-        updateListeners.remove(listener);
+        updateListeners.removeListener(listener);
     }
 
     /**
-     * Returns list of update listeners.
+     * Returns an iterator of the listeners for the {@code notificationNumber} (were added for and before it).
      *
-     * @return List of update listeners.
+     * <p>NOTE: {@link Iterator#remove} - not supported.
+     *
+     * @param notificationNumber Configuration notification listener number.
      */
-    public Collection<ConfigurationListener<VIEWT>> listeners() {
-        return unmodifiableCollection(updateListeners);
+    public Iterator<ConfigurationListener<VIEWT>> listeners(long notificationNumber) {
+        return updateListeners.listeners(notificationNumber);
     }
 
     /**

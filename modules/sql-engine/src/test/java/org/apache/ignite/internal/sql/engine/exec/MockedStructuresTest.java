@@ -23,8 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import java.util.Objects;
@@ -44,7 +46,11 @@ import org.apache.ignite.internal.idx.IndexManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
+import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
+import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
@@ -52,6 +58,7 @@ import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -72,6 +79,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -79,7 +87,7 @@ import org.mockito.quality.Strictness;
 /** Mock ddl usage. */
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class DdlWithMockedManagersTest extends IgniteAbstractTest {
+public class MockedStructuresTest extends IgniteAbstractTest {
     /** Node name. */
     private static final String NODE_NAME = "node1";
 
@@ -162,10 +170,46 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
     }
 
     /**
+     * Checks that appropriate methods called form table manager on rel node construction.
+     */
+    @Test
+    void checkAppropriateTableFound() throws Exception {
+        TableManager tableManager = mock(TableManager.class);
+
+        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, () -> {});
+        IgniteUuid tblId = new IgniteUuid(UUID.randomUUID(), 0);
+
+        assertTrue(assertThrows(IgniteInternalException.class, () -> schemaManager.tableById(tblId))
+                .getMessage().contains("Table not found"));
+        Mockito.verify(tableManager).table(any(IgniteUuid.class));
+
+        TableImpl tbl = mock(TableImpl.class);
+        SchemaDescriptor schDesc = mock(SchemaDescriptor.class);
+        SchemaRegistryImpl schReg = mock(SchemaRegistryImpl.class);
+
+        clearInvocations(tableManager);
+
+        when(tbl.name()).thenReturn("TEST_SCHEMA.T");
+        when(tbl.tableId()).thenReturn(tblId);
+        when(tbl.schemaView()).thenReturn(schReg);
+        when(schReg.schema()).thenReturn(schDesc);
+        when(schDesc.isKeyColumn(any(Integer.class))).thenReturn(true);
+
+        InternalTable internalTbl = mock(InternalTable.class);
+        when(tbl.internalTable()).thenReturn(internalTbl);
+        when(internalTbl.tableId()).thenReturn(tblId);
+
+        schemaManager.onTableCreated("TEST_SCHEMA", tbl);
+
+        schemaManager.tableById(tblId);
+        Mockito.verify(tableManager, never()).table(any(IgniteUuid.class));
+    }
+
+    /**
      * Tests create a table through public API.
      */
     @Test
-    public void testCreateTable() throws Exception {
+    public void testCreateTable() {
         SqlQueryProcessor finalQueryProc = queryProc;
 
         String curMethodName = getCurrentMethodName();
@@ -206,7 +250,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
      * Tests create a table with multiple pk through public API.
      */
     @Test
-    public void testCreateTableMultiplePk() throws Exception {
+    public void testCreateTableMultiplePk() {
         String curMethodName = getCurrentMethodName();
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int, c2 int NOT NULL DEFAULT 1, c3 int, primary key(c1, c2))", curMethodName);
@@ -221,7 +265,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
      * Tests create and drop table through public API.
      */
     @Test
-    public void testDropTable() throws Exception {
+    public void testDropTable() {
         String curMethodName = getCurrentMethodName();
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))", curMethodName);
@@ -253,7 +297,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
      * Tests alter and drop columns through public API.
      */
     @Test
-    public void testAlterAndDropSimpleCase() throws Exception {
+    public void testAlterAndDropSimpleCase() {
         SqlQueryProcessor finalQueryProc = queryProc;
 
         String curMethodName = getCurrentMethodName();
@@ -301,7 +345,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
      * Tests alter add multiple columns through public API.
      */
     @Test
-    public void testAlterColumnsAddBatch() throws Exception {
+    public void testAlterColumnsAddBatch() {
         String curMethodName = getCurrentMethodName();
 
         queryProc.query("PUBLIC", String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))", curMethodName));
@@ -323,7 +367,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
      * Tests alter drop multiple columns through public API.
      */
     @Test
-    public void testAlterColumnsDropBatch() throws Exception {
+    public void testAlterColumnsDropBatch() {
         String curMethodName = getCurrentMethodName();
 
         queryProc.query("PUBLIC", String.format("CREATE TABLE %s "
@@ -344,7 +388,7 @@ public class DdlWithMockedManagersTest extends IgniteAbstractTest {
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16032")
     @Test
-    public void testCreateDropIndex() throws Exception {
+    public void testCreateDropIndex() {
         SqlQueryProcessor finalQueryProc = queryProc;
 
         String curMethodName = getCurrentMethodName();

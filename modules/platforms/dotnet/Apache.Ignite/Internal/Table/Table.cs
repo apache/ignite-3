@@ -17,8 +17,8 @@
 
 namespace Apache.Ignite.Internal.Table
 {
+    using System;
     using System.Collections.Concurrent;
-    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Threading.Tasks;
     using Buffers;
@@ -40,6 +40,9 @@ namespace Apache.Ignite.Internal.Table
 
         /** Schemas. */
         private readonly ConcurrentDictionary<int, Schema> _schemas = new();
+
+        /** Cached record views. */
+        private readonly ConcurrentDictionary<Type, object> _recordViews = new();
 
         /** */
         private readonly object _latestSchemaLock = new();
@@ -74,7 +77,10 @@ namespace Apache.Ignite.Internal.Table
         public IRecordView<T> GetRecordView<T>()
             where T : class
         {
-            return new RecordView<T>(this, new RecordSerializer<T>(this, new ObjectSerializerHandler<T>()));
+            // ReSharper disable once HeapView.CanAvoidClosure (generics prevent this)
+            return (IRecordView<T>)_recordViews.GetOrAdd(
+                typeof(T),
+                _ => new RecordView<T>(this, new RecordSerializer<T>(this, new ObjectSerializerHandler<T>())));
         }
 
         /// <summary>
@@ -92,7 +98,7 @@ namespace Apache.Ignite.Internal.Table
             }
             else
             {
-                w.WriteInt64(tx.Id);
+                w.Write(tx.Id);
             }
         }
 
@@ -226,7 +232,6 @@ namespace Apache.Ignite.Internal.Table
             var keyColumnCount = 0;
 
             var columns = new Column[columnCount];
-            var columnsMap = new Dictionary<string, Column>(columnCount);
 
             for (var i = 0; i < columnCount; i++)
             {
@@ -244,7 +249,6 @@ namespace Apache.Ignite.Internal.Table
                 var column = new Column(name, (ClientDataType)type, isNullable, isKey, i);
 
                 columns[i] = column;
-                columnsMap[column.Name] = column;
 
                 if (isKey)
                 {
@@ -252,7 +256,7 @@ namespace Apache.Ignite.Internal.Table
                 }
             }
 
-            var schema = new Schema(schemaVersion, keyColumnCount, columns, columnsMap);
+            var schema = new Schema(schemaVersion, keyColumnCount, columns);
 
             _schemas[schemaVersion] = schema;
 
