@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Table
 {
+    using System;
     using System.Collections.Concurrent;
     using System.Diagnostics;
     using System.Threading.Tasks;
@@ -39,6 +40,9 @@ namespace Apache.Ignite.Internal.Table
 
         /** Schemas. */
         private readonly ConcurrentDictionary<int, Schema> _schemas = new();
+
+        /** Cached record views. */
+        private readonly ConcurrentDictionary<Type, object> _recordViews = new();
 
         /** */
         private readonly object _latestSchemaLock = new();
@@ -73,7 +77,9 @@ namespace Apache.Ignite.Internal.Table
         public IRecordView<T> GetRecordView<T>()
             where T : class
         {
-            return new RecordView<T>(this, new RecordSerializer<T>(this, new ObjectSerializerHandler<T>()));
+            return (IRecordView<T>)_recordViews.GetOrAdd(
+                typeof(T),
+                _ => new RecordView<T>(this, new RecordSerializer<T>(this, new ObjectSerializerHandler<T>())));
         }
 
         /// <summary>
