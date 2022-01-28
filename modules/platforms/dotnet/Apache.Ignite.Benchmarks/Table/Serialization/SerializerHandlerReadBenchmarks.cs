@@ -19,41 +19,64 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 {
     using System.Diagnostics.CodeAnalysis;
     using BenchmarkDotNet.Attributes;
+    using Internal.Proto;
     using Internal.Table.Serialization;
     using MessagePack;
 
     /// <summary>
     /// Benchmarks for <see cref="IRecordSerializerHandler{T}.Read"/> implementations.
     /// Results on Intel Core i7-9700K, .NET SDK 3.1.416, Ubuntu 20.04:
-    /// |        Method |       Mean |   Error |  StdDev | Ratio |  Gen 0 | Allocated |
-    /// |-------------- |-----------:|--------:|--------:|------:|-------:|----------:|
-    /// |     ReadTuple |   555.6 ns | 2.56 ns | 2.40 ns |  0.53 | 0.0849 |     536 B |
-    /// |    ReadObject |   262.1 ns | 0.37 ns | 0.33 ns |  0.25 | 0.0124 |      80 B |
-    /// | ReadObjectOld | 1,040.9 ns | 3.93 ns | 3.68 ns |  1.00 | 0.0744 |     472 B |.
+    /// |           Method |       Mean |   Error |  StdDev | Ratio | RatioSD |  Gen 0 | Allocated |
+    /// |----------------- |-----------:|--------:|--------:|------:|--------:|-------:|----------:|
+    /// | ReadObjectManual |   180.5 ns | 1.36 ns | 1.28 ns |  1.00 |    0.00 | 0.0126 |      80 B |
+    /// |       ReadObject |   257.5 ns | 1.38 ns | 1.22 ns |  1.43 |    0.01 | 0.0124 |      80 B |
+    /// |        ReadTuple |   554.2 ns | 5.91 ns | 5.52 ns |  3.07 |    0.02 | 0.0849 |     536 B |
+    /// |    ReadObjectOld | 1,011.3 ns | 5.00 ns | 4.18 ns |  5.59 |    0.04 | 0.0744 |     472 B |.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     [MemoryDiagnoser]
     public class SerializerHandlerReadBenchmarks : SerializerHandlerBenchmarksBase
     {
-        [Benchmark]
-        public void ReadTuple()
+        [Benchmark(Baseline = true)]
+        public void ReadObjectManual()
         {
             var reader = new MessagePackReader(SerializedData);
-            TupleSerializerHandler.Instance.Read(ref reader, Schema);
+
+            var res = new Car
+            {
+                Id = reader.ReadGuid(),
+                BodyType = reader.ReadString(),
+                Seats = reader.ReadInt32()
+            };
+
+            Consumer.Consume(res);
         }
 
         [Benchmark]
         public void ReadObject()
         {
             var reader = new MessagePackReader(SerializedData);
-            ObjectSerializerHandler.Read(ref reader, Schema);
+            var res = ObjectSerializerHandler.Read(ref reader, Schema);
+
+            Consumer.Consume(res);
         }
 
-        [Benchmark(Baseline = true)]
+        [Benchmark]
+        public void ReadTuple()
+        {
+            var reader = new MessagePackReader(SerializedData);
+            var res = TupleSerializerHandler.Instance.Read(ref reader, Schema);
+
+            Consumer.Consume(res);
+        }
+
+        [Benchmark]
         public void ReadObjectOld()
         {
             var reader = new MessagePackReader(SerializedData);
-            ObjectSerializerHandlerOld.Read(ref reader, Schema);
+            var res = ObjectSerializerHandlerOld.Read(ref reader, Schema);
+
+            Consumer.Consume(res);
         }
     }
 }
