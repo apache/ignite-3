@@ -53,11 +53,10 @@ public interface ReuseList {
      * Converts recycled page id back to a usable id. Might modify page content as well if flag is changing.
      *
      * @param pageId Id of the recycled page.
-     * @param flag   Flag value for the page. One of {@link PageIdAllocator#FLAG_DATA} or {@link PageIdAllocator#FLAG_AUX}.
+     * @param flag Flag value for the page. One of {@link PageIdAllocator#FLAG_DATA} or {@link PageIdAllocator#FLAG_AUX}.
      * @param initIo Page IO to reinit reused page.
      * @return Updated page id.
      * @throws IgniteInternalCheckedException If failed.
-     *
      * @see FullPageId
      */
     long initRecycledPage(long pageId, byte flag, @Nullable PageIo initIo) throws IgniteInternalCheckedException;

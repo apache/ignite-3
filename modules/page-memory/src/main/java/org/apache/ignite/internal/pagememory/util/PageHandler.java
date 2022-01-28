@@ -23,6 +23,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Page handler.
@@ -269,7 +270,7 @@ public interface PageHandler<X, R> {
             final long pageId,
             PageLockListener lsnr,
             PageHandler<X, R> h,
-            PageIo init,
+            @Nullable PageIo init,
             X arg,
             int intArg,
             R lockFailed,
