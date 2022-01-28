@@ -1048,6 +1048,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Direct id of the table, or {@code null} if the table with the {@code tblName} has not been found.
      * @see DirectConfigurationProperty
      */
+    @Nullable
     private IgniteUuid directTableId(String tblName) {
         try {
             String id = ((ExtendedTableConfiguration) directProxy(tablesCfg.tables()).get(tblName)).id().value();
