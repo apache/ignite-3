@@ -135,6 +135,8 @@ namespace Apache.Ignite.Internal.Proto
         public static unsafe IgniteUuid ReadIgniteUuid(this ref MessagePackReader reader)
         {
             var size = ValidateExtensionType(ref reader, ClientMessagePackType.IgniteUuid);
+            Debug.Assert(size < byte.MaxValue, "size < byte.MaxValue");
+
             var bytes = reader.ReadRaw(size);
 
             IgniteUuid res = default;
