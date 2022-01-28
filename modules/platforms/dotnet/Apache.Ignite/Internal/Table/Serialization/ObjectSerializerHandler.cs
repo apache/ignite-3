@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System.Collections.Concurrent;
+    using System.Reflection;
     using System.Reflection.Emit;
     using System.Runtime.Serialization;
     using Buffers;
@@ -138,7 +139,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
-                    // TODO: Validate type compatibility.
+                    ValidateFieldType(fieldInfo, col);
                     il.Emit(OpCodes.Ldarg_0); // writer
                     il.Emit(OpCodes.Ldarg_1); // record
                     il.Emit(OpCodes.Ldfld, fieldInfo);
@@ -194,7 +195,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
-                    // TODO: Validate type compatibility.
+                    ValidateFieldType(fieldInfo, col);
                     il.Emit(OpCodes.Ldarg_0); // reader
                     il.Emit(OpCodes.Call, MessagePackMethods.TryReadNoValue);
 
@@ -281,8 +282,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
-                    // TODO: Validate type compatibility.
                     // TODO: Deduplicate code.
+                    ValidateFieldType(fieldInfo, col);
                     il.Emit(OpCodes.Ldarg_0); // reader
                     il.Emit(OpCodes.Call, MessagePackMethods.TryReadNoValue);
 
@@ -320,6 +321,19 @@ namespace Apache.Ignite.Internal.Table.Serialization
             il.Emit(OpCodes.Ret);
 
             return (ReadValuePartDelegate<T>)method.CreateDelegate(typeof(ReadValuePartDelegate<T>));
+        }
+
+        private static void ValidateFieldType(FieldInfo fieldInfo, Column column)
+        {
+            var columnType = column.Type.ToType();
+            var fieldType = fieldInfo.FieldType;
+
+            if (columnType != fieldType)
+            {
+                throw new IgniteClientException(
+                    $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldType}' " +
+                    $"to column '{column.Name}' of type '{columnType}' - types do not match.");
+            }
         }
     }
 }
