@@ -27,6 +27,8 @@ import org.jetbrains.annotations.Nullable;
  * Holder (thread safe) for configuration change listeners.
  */
 class ConfigurationListenerHolder<L> {
+    private static final Object NULL_LISTENER = new Object();
+
     private final List<Container<L>> containers = new CopyOnWriteArrayList<>();
 
     /**
@@ -34,17 +36,19 @@ class ConfigurationListenerHolder<L> {
      *
      * @param listener Configuration change listener.
      * @param notificationNumber Configuration notification listener number after which the listener will be called.
+     * @throws IllegalArgumentException If {@code notificationNumber} less than zero.
      * @see ConfigurationListenerHolder#listeners
      */
     void addListener(L listener, long notificationNumber) {
+        if (notificationNumber < 0) {
+            throw new IllegalArgumentException("notificationNumber must be greater than or equal to 0");
+        }
+
         containers.add(new Container<>(listener, notificationNumber + 1));
     }
 
     /**
      * Removes the listener.
-     *
-     * <p>NOTE: This method introduces unpredictable behavior at the moment, because the final behavior of this method is unclear.
-     * Should the listener be removed immediately or only on the next notification? We'll fix it later if there's a problem.
      *
      * @param listener Configuration change listener.
      */
@@ -53,7 +57,15 @@ class ConfigurationListenerHolder<L> {
             /** {@inheritDoc} */
             @Override
             public boolean equals(Object obj) {
-                return listener == ((Container<L>) obj).listener;
+                Container<L> container = (Container<L>) obj;
+
+                if (listener == container.listener) {
+                    container.notificationNumber = -1;
+
+                    return true;
+                } else {
+                    return false;
+                }
             }
         });
     }
@@ -64,30 +76,43 @@ class ConfigurationListenerHolder<L> {
      * <p>NOTE: {@link Iterator#remove} - not supported.
      *
      * @param notificationNumber Configuration notification listener number.
+     * @throws IllegalArgumentException If {@code notificationNumber} less than zero.
      * @see ConfigurationListenerHolder#addListener
      */
     Iterator<L> listeners(long notificationNumber) {
+        if (notificationNumber < 0) {
+            throw new IllegalArgumentException("notificationNumber must be greater than or equal to 0");
+        }
+
         Iterator<Container<L>> it = containers.iterator();
 
         return new Iterator<L>() {
-            @Nullable L curr = advance();
+            @Nullable L curr = (L) NULL_LISTENER;
 
             /** {@inheritDoc} */
             @Override
             public boolean hasNext() {
+                if (curr == NULL_LISTENER) {
+                    curr = advance();
+                }
+
                 return curr != null;
             }
 
             /** {@inheritDoc} */
             @Override
             public L next() {
-                L next = curr;
+                if (curr == NULL_LISTENER) {
+                    curr = advance();
+                }
 
-                if (next == null) {
+                if (curr == null) {
                     throw new NoSuchElementException();
                 }
 
-                curr = advance();
+                L next = curr;
+
+                curr = (L) NULL_LISTENER;
 
                 return next;
             }
@@ -96,7 +121,10 @@ class ConfigurationListenerHolder<L> {
                 while (it.hasNext()) {
                     Container<L> next = it.next();
 
-                    if (next.notificationNumber <= notificationNumber) {
+                    long number = next.notificationNumber;
+
+                    // Negative number means the container has been removed.
+                    if (number >= 0 && number <= notificationNumber) {
                         return next.listener;
                     }
                 }
@@ -119,7 +147,7 @@ class ConfigurationListenerHolder<L> {
     private static class Container<L> {
         final L listener;
 
-        final long notificationNumber;
+        volatile long notificationNumber;
 
         Container(L listener, long storageRevision) {
             this.listener = listener;
