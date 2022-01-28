@@ -37,7 +37,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableRow;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -46,8 +45,6 @@ import org.jetbrains.annotations.Nullable;
  * Internal index manager facade provides low-level methods for indexes operations.
  */
 public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowListener {
-    private final IgniteUuid id;
-
     private final String name;
 
     private final TableImpl tbl;
@@ -59,19 +56,12 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
     /**
      * Create sorted index.
      */
-    public InternalSortedIndexImpl(IgniteUuid id, String name, SortedIndexStorage store, TableImpl tbl) {
-        this.id = id;
+    public InternalSortedIndexImpl(String name, SortedIndexStorage store, TableImpl tbl) {
         this.name = name;
         this.store = store;
         this.tbl = tbl;
 
         desc = store.indexDescriptor();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteUuid id() {
-        return id;
     }
 
     /** {@inheritDoc} */

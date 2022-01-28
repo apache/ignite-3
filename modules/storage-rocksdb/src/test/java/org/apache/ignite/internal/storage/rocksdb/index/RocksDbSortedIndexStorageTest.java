@@ -53,7 +53,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
 import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.TableStorage;
-import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;

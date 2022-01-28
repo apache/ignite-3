@@ -21,10 +21,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 import org.apache.ignite.internal.storage.index.IndexRow;
-import org.apache.ignite.internal.storage.index.IndexRowDeserializer;
-import org.apache.ignite.internal.storage.index.IndexRowSerializer;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 
 /**

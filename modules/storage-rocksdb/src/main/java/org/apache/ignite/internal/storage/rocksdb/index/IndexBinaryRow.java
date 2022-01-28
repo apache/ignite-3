@@ -15,18 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.index;
-
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.table.Tuple;
+package org.apache.ignite.internal.storage.rocksdb.index;
 
 /**
- * Temporary API for creating Index rows from a list of column values. All columns must be sorted according to the index columns order,
- * specified by the SortedIndexDescriptor.
+ * Represents an Index Row - a set of indexed columns and Primary Key columns (for key uniqueness).
  */
-public interface IndexRowFactory {
+public interface IndexBinaryRow {
     /**
-     * Creates an Index row from a list of column values.
+     * Get ByteBuffer slice representing the key chunk.
      */
-    IndexRow createIndexRow(Tuple row, BinaryRow pk, int partId);
+    byte[] keySlice();
+
+    /**
+     * Get ByteBuffer slice representing the value chunk.
+     */
+    byte[] valueSlice();
 }

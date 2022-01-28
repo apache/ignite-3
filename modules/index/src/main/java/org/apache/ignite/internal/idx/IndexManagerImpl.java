@@ -58,7 +58,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.LoggerMessageHelper;
@@ -70,8 +69,6 @@ import org.jetbrains.annotations.NotNull;
  */
 public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventParameters> implements IndexManager, IgniteComponent {
     private static final IgniteLogger LOG = IgniteLogger.forClass(IndexManagerImpl.class);
-
-    private static final IgniteUuidGenerator INDEX_ID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
 
     private final TablesConfiguration tablesCfg;
 
@@ -85,9 +82,6 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
     /** Indexes by canonical name. */
     private final Map<String, InternalSortedIndex> idxsByName = new ConcurrentHashMap<>();
-
-    /** Indexes by ID. */
-    private final Map<IgniteUuid, InternalSortedIndex> idxsById = new ConcurrentHashMap<>();
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -120,7 +114,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
     @Override
     public void start() {
         tablesCfg.tables().any().indices().listenElements(
-                new ConfigurationNamedListListener<TableIndexView>() {
+                new ConfigurationNamedListListener<>() {
                     @Override
                     public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
                         TableConfiguration tbl = ctx.config(TableConfiguration.class);
@@ -141,7 +135,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
                             LOG.error(LoggerMessageHelper.format(
                                     "Internal error, index creation failed [name={}, table={}]", idxName, tblName
-                                    ), e);
+                            ), e);
 
                             return CompletableFuture.completedFuture(e);
                         } finally {
@@ -193,10 +187,8 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
     private void onIndexDrop(ConfigurationNotificationEvent<TableIndexView> ctx) {
         TableConfiguration tbl = ctx.config(TableConfiguration.class);
         String tblName = tbl.name().value();
-        IgniteUuid idxId = IgniteUuid.fromString(ctx.oldValue().id());
 
-        InternalSortedIndex idx = idxsById.remove(idxId);
-        idxsByName.remove(idx.name());
+        InternalSortedIndex idx = idxsByName.remove(ctx.oldValue().name());
 
         idx.drop();
 
@@ -298,8 +290,6 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
         try {
             CompletableFuture<InternalSortedIndex> idxFut = new CompletableFuture<>();
 
-            final IgniteUuid idxId = INDEX_ID_GENERATOR.randomUuid();
-
             tblMgr.alterTableAsync(tblCanonicalName, chng -> chng.changeIndices(idxes -> {
                 if (idxsByName.get(idxCanonicalName) != null) {
                     throw new IndexAlreadyExistsException(idxCanonicalName);
@@ -307,8 +297,6 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
                 idxes.create(idxCanonicalName, idxCh -> {
                     idx.accept(idxCh);
-
-                    idxCh.changeId(idxId.toString());
                 });
             })).whenComplete((res, t) -> {
                 if (t != null) {
@@ -320,7 +308,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
                     idxFut.completeExceptionally(ex);
                 } else {
-                    idxFut.complete(idxsById.get(idxId));
+                    idxFut.complete(idxsByName.get(idxCanonicalName));
                 }
             });
 
@@ -413,7 +401,6 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
         SortedIndexDescriptor idxDesc = new SortedIndexDescriptor(idxView.name(), idxCols);
 
         InternalSortedIndexImpl idx = new InternalSortedIndexImpl(
-                IgniteUuid.fromString(idxView.id()),
                 idxView.name(),
                 tbl.internalTable().storage().createSortedIndex(idxDesc),
                 tbl
@@ -422,7 +409,6 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
         tbl.addRowListener(idx);
 
         idxsByName.put(idx.name(), idx);
-        idxsById.put(idx.id(), idx);
 
         fireEvent(IndexEvent.CREATE, new IndexEventParameters(idx), null);
     }

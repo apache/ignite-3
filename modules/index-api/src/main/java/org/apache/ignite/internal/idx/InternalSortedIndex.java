@@ -21,7 +21,6 @@ import java.util.BitSet;
 import java.util.List;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.Tuple;
 
 /**
@@ -39,13 +38,6 @@ public interface InternalSortedIndex {
 
     /** Include upper bound. */
     byte LESS_OR_EQUAL = 1 << 1;
-
-    /**
-     * Return index identifier.
-     *
-     * @return Index identifier.
-     */
-    IgniteUuid id();
 
     /**
      * Return index name.

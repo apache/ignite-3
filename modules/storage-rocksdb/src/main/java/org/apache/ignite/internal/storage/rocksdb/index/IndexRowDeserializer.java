@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.index;
+package org.apache.ignite.internal.storage.rocksdb.index;
+
+import org.apache.ignite.internal.storage.index.IndexRow;
 
 /**
- * Represents an Index Row - a set of indexed columns and Primary Key columns (for key uniqueness).
+ * Class for extracting indexed column values from an {@link IndexBinaryRow}.
  */
-public interface IndexBinaryRow {
+public interface IndexRowDeserializer {
     /**
-     * Get ByteBuffer slice representing the key chunk.
+     * De-serializes column values that were used to create the index.
+     *
+     * @param indexRow Index row.
+     * @return Values of the indexed columns.
      */
-    byte[] keySlice();
-
-    /**
-     * Get ByteBuffer slice representing the value chunk.
-     */
-    byte[] valueSlice();
+    IndexRow deserialize(IndexBinaryRow indexRow);
 }

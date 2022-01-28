@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 import java.util.Arrays;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 
 /**
  * Implementation of the {@link IndexBinaryRow}.

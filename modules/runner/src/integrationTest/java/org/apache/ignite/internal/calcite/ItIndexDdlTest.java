@@ -45,7 +45,7 @@ public class ItIndexDdlTest extends AbstractBasicIntegrationTest {
         );
 
         // Scan index only
-        assertQuery("SELECT VAL0, ID FROM test_tbl WHERE val0 > 1 and val1 > 'val' ORDER BY val0")
+        assertQuery("SELECT VAL0, ID FROM test_tbl WHERE val0 > 1 and val1 > 'val' ORDER BY val1")
                 .matches(containsIndexScan("PUBLIC", "TEST_TBL", "TEST_IDX"))
                 .ordered()
                 .returns(2, 1)
@@ -53,7 +53,7 @@ public class ItIndexDdlTest extends AbstractBasicIntegrationTest {
                 .check();
 
         // Scan index with lookup rows at the table
-        assertQuery("SELECT * FROM test_tbl WHERE val0 > 1 and val1 > 'val' ORDER BY val0")
+        assertQuery("SELECT * FROM test_tbl WHERE val0 > 1 and val1 > 'val' ORDER BY val1")
                 .ordered()
                 .matches(containsIndexScan("PUBLIC", "TEST_TBL", "TEST_IDX"))
                 .returns(1, 2, "val1", 1)
@@ -62,7 +62,7 @@ public class ItIndexDdlTest extends AbstractBasicIntegrationTest {
 
         sql("drop index TEST_IDX");
 
-        assertQuery("SELECT * FROM test_tbl WHERE val0 > 1 and val1 > 'val' ORDER BY val0")
+        assertQuery("SELECT * FROM test_tbl WHERE val0 > 1 and val1 > 'val' ORDER BY val1")
                 .ordered()
                 .matches(not(containsIndexScan("PUBLIC", "TEST_TBL", "TEST_IDX")))
                 .matches(containsTableScan("PUBLIC", "TEST_TBL"))

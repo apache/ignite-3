@@ -15,17 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.index;
+package org.apache.ignite.internal.storage.rocksdb.index;
+
+import org.apache.ignite.internal.storage.index.IndexRow;
 
 /**
  * Class for extracting indexed column values from an {@link IndexBinaryRow}.
  */
-public interface IndexRowDeserializer {
+public interface IndexRowSerializer {
     /**
-     * De-serializes column values that were used to create the index.
+     * Serializes index row.
      *
      * @param indexRow Index row.
      * @return Values of the indexed columns.
      */
-    IndexRow deserialize(IndexBinaryRow indexRow);
+    IndexBinaryRow serialize(IndexRow indexRow);
 }
