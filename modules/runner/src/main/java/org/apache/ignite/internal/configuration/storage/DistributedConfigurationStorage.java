@@ -151,7 +151,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override
     public Serializable readLatest(String key) throws StorageException {
         try {
-            Entry entry = metaStorageMgr.get(new ByteArray(key)).join();
+            Entry entry = metaStorageMgr.get(new ByteArray(DISTRIBUTED_PREFIX + key)).join();
 
             return entry.value() == null ? null : ConfigurationSerializationUtil.fromBytes(entry.value());
         } catch (Exception e) {
