@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization
 {
-    using Buffers;
     using Ignite.Table;
     using MessagePack;
     using Proto;
@@ -62,12 +61,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <inheritdoc/>
-        public IIgniteTuple ReadValuePart(PooledBuffer buf, Schema schema, IIgniteTuple key)
+        public IIgniteTuple ReadValuePart(ref MessagePackReader reader, Schema schema, IIgniteTuple key)
         {
-            // Skip schema version.
-            var r = buf.GetReader();
-            r.Skip();
-
             var columns = schema.Columns;
             var tuple = new IgniteTuple(columns.Count);
 
@@ -81,12 +76,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
-                    if (r.TryReadNoValue())
+                    if (reader.TryReadNoValue())
                     {
                         continue;
                     }
 
-                    tuple[column.Name] = r.ReadObject(column.Type);
+                    tuple[column.Name] = reader.ReadObject(column.Type);
                 }
             }
 
