@@ -605,7 +605,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         // Check null values.
         Collection<Long> notFound = tbl.removeAll(null, List.of(2L, 3L, 4L));
 
-        assertEquals(1 , notFound.size());
+        assertEquals(1, notFound.size());
         assertEquals(2L, notFound.iterator().next());
 
         assertEquals(11L, tbl.get(null, 1L));
