@@ -63,12 +63,13 @@ namespace Apache.Ignite.Internal.Table
                 w.Flush();
             }
 
+            // ReSharper disable once LambdaExpressionMustBeStatic (requires .NET 5+)
             ITable? Read(MessagePackReader r) =>
                 r.NextMessagePackType == MessagePackType.Nil
                     ? null
                     : _tables.GetOrAdd(
                         r.ReadIgniteUuid(),
-                        static (IgniteUuid id, (string Name, ClientFailoverSocket Socket) a) => new Table(a.Name, id, a.Socket),
+                        (IgniteUuid id, (string Name, ClientFailoverSocket Socket) arg) => new Table(arg.Name, id, arg.Socket),
                         (name, _socket));
         }
 
