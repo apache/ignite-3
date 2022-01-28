@@ -147,30 +147,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 var col = columns[i];
                 var fieldInfo = type.GetFieldIgnoreCase(col.Name);
 
-                if (fieldInfo == null)
-                {
-                    il.Emit(OpCodes.Ldarg_0); // reader
-                    il.Emit(OpCodes.Call, MessagePackMethods.Skip);
-                }
-                else
-                {
-                    ValidateFieldType(fieldInfo, col);
-                    il.Emit(OpCodes.Ldarg_0); // reader
-                    il.Emit(OpCodes.Call, MessagePackMethods.TryReadNoValue);
-
-                    Label noValueLabel = il.DefineLabel();
-                    il.Emit(OpCodes.Brtrue_S, noValueLabel);
-
-                    var readMethod = MessagePackMethods.GetReadMethod(fieldInfo.FieldType);
-
-                    il.Emit(OpCodes.Ldloc_0); // res
-                    il.Emit(OpCodes.Ldarg_0); // reader
-
-                    il.Emit(OpCodes.Call, readMethod);
-                    il.Emit(OpCodes.Stfld, fieldInfo);
-
-                    il.MarkLabel(noValueLabel);
-                }
+                EmitFieldRead(fieldInfo, il, col);
             }
 
             il.Emit(OpCodes.Ldloc_0); // res
@@ -219,37 +196,41 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     continue;
                 }
 
-                if (fieldInfo == null)
-                {
-                    il.Emit(OpCodes.Ldarg_0); // reader
-                    il.Emit(OpCodes.Call, MessagePackMethods.Skip);
-                }
-                else
-                {
-                    // TODO: Deduplicate code.
-                    ValidateFieldType(fieldInfo, col);
-                    il.Emit(OpCodes.Ldarg_0); // reader
-                    il.Emit(OpCodes.Call, MessagePackMethods.TryReadNoValue);
-
-                    Label noValueLabel = il.DefineLabel();
-                    il.Emit(OpCodes.Brtrue_S, noValueLabel);
-
-                    var readMethod = MessagePackMethods.GetReadMethod(fieldInfo.FieldType);
-
-                    il.Emit(OpCodes.Ldloc_0); // res
-                    il.Emit(OpCodes.Ldarg_0); // reader
-
-                    il.Emit(OpCodes.Call, readMethod);
-                    il.Emit(OpCodes.Stfld, fieldInfo); // res.field = value
-
-                    il.MarkLabel(noValueLabel);
-                }
+                EmitFieldRead(fieldInfo, il, col);
             }
 
             il.Emit(OpCodes.Ldloc_0); // res
             il.Emit(OpCodes.Ret);
 
             return (ReadValuePartDelegate<T>)method.CreateDelegate(typeof(ReadValuePartDelegate<T>));
+        }
+
+        private static void EmitFieldRead(FieldInfo? fieldInfo, ILGenerator il, Column col)
+        {
+            if (fieldInfo == null)
+            {
+                il.Emit(OpCodes.Ldarg_0); // reader
+                il.Emit(OpCodes.Call, MessagePackMethods.Skip);
+            }
+            else
+            {
+                ValidateFieldType(fieldInfo, col);
+                il.Emit(OpCodes.Ldarg_0); // reader
+                il.Emit(OpCodes.Call, MessagePackMethods.TryReadNoValue);
+
+                Label noValueLabel = il.DefineLabel();
+                il.Emit(OpCodes.Brtrue_S, noValueLabel);
+
+                var readMethod = MessagePackMethods.GetReadMethod(fieldInfo.FieldType);
+
+                il.Emit(OpCodes.Ldloc_0); // res
+                il.Emit(OpCodes.Ldarg_0); // reader
+
+                il.Emit(OpCodes.Call, readMethod);
+                il.Emit(OpCodes.Stfld, fieldInfo); // res.field = value
+
+                il.MarkLabel(noValueLabel);
+            }
         }
 
         private static void ValidateFieldType(FieldInfo fieldInfo, Column column)
