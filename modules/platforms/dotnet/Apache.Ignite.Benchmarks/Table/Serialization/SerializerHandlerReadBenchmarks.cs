@@ -25,7 +25,11 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     /// <summary>
     /// Benchmarks for <see cref="IRecordSerializerHandler{T}.Read"/> implementations.
     /// Results on Intel Core i7-9700K, .NET SDK 3.1.416, Ubuntu 20.04:
-    /// TODO.
+    /// |        Method |       Mean |   Error |  StdDev | Ratio |  Gen 0 | Allocated |
+    /// |-------------- |-----------:|--------:|--------:|------:|-------:|----------:|
+    /// |     ReadTuple |   555.6 ns | 2.56 ns | 2.40 ns |  0.53 | 0.0849 |     536 B |
+    /// |    ReadObject |   262.1 ns | 0.37 ns | 0.33 ns |  0.25 | 0.0124 |      80 B |
+    /// | ReadObjectOld | 1,040.9 ns | 3.93 ns | 3.68 ns |  1.00 | 0.0744 |     472 B |.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     [MemoryDiagnoser]
