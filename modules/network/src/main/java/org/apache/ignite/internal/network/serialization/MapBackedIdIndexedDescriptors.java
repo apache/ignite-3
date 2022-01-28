@@ -17,23 +17,23 @@
 
 package org.apache.ignite.internal.network.serialization;
 
-import java.util.Map;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A map-backed implementation of {@link IdIndexedDescriptors}.
  */
 public class MapBackedIdIndexedDescriptors implements IdIndexedDescriptors {
-    private final Map<Integer, ClassDescriptor> descriptors;
+    private final Int2ObjectMap<ClassDescriptor> descriptorsById;
 
-    public MapBackedIdIndexedDescriptors(Map<Integer, ClassDescriptor> descriptors) {
-        this.descriptors = descriptors;
+    public MapBackedIdIndexedDescriptors(Int2ObjectMap<ClassDescriptor> descriptorsById) {
+        this.descriptorsById = descriptorsById;
     }
 
     /** {@inheritDoc} */
     @Override
     @Nullable
     public ClassDescriptor getDescriptor(int descriptorId) {
-        return descriptors.get(descriptorId);
+        return descriptorsById.get(descriptorId);
     }
 }

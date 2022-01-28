@@ -62,7 +62,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 return null;
             }
 
-            return _handler.ReadValuePart(buf, schema, key);
+            // Skip schema version.
+            var r = buf.GetReader();
+            r.Skip();
+
+            return _handler.ReadValuePart(ref r, schema, key);
         }
 
         /// <summary>
