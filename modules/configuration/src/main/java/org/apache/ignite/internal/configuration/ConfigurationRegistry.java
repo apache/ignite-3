@@ -344,7 +344,7 @@ public class ConfigurationRegistry implements IgniteComponent {
     /**
      * Removes configuration storage revision change listener.
      *
-     * <p>NOTE: If this method is called inside another listener, then the listener is removed immediately and will not be called.
+     * <p>NOTE: Unpredictable behavior if the method is called inside other listeners.
      *
      * @param listener Listener.
      */
