@@ -44,9 +44,9 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
             var res = new Car
             {
-                Id = reader.ReadGuid(),
-                BodyType = reader.ReadString(),
-                Seats = reader.ReadInt32()
+                Id = reader.TryReadNoValue() ? default : reader.ReadGuid(),
+                BodyType = reader.TryReadNoValue() ? default! : reader.ReadString(),
+                Seats = reader.TryReadNoValue() ? default : reader.ReadInt32()
             };
 
             Consumer.Consume(res);
