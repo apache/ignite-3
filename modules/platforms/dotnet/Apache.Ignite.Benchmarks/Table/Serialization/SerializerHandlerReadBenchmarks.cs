@@ -28,10 +28,10 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     /// Results on Intel Core i7-9700K, .NET SDK 3.1.416, Ubuntu 20.04:
     /// |           Method |       Mean |   Error |  StdDev | Ratio | RatioSD |  Gen 0 | Allocated |
     /// |----------------- |-----------:|--------:|--------:|------:|--------:|-------:|----------:|
-    /// | ReadObjectManual |   180.5 ns | 1.36 ns | 1.28 ns |  1.00 |    0.00 | 0.0126 |      80 B |
-    /// |       ReadObject |   257.5 ns | 1.38 ns | 1.22 ns |  1.43 |    0.01 | 0.0124 |      80 B |
-    /// |        ReadTuple |   554.2 ns | 5.91 ns | 5.52 ns |  3.07 |    0.02 | 0.0849 |     536 B |
-    /// |    ReadObjectOld | 1,011.3 ns | 5.00 ns | 4.18 ns |  5.59 |    0.04 | 0.0744 |     472 B |.
+    /// | ReadObjectManual |   210.9 ns | 0.73 ns | 0.65 ns |  1.00 |    0.00 | 0.0126 |      80 B |
+    /// |       ReadObject |   257.5 ns | 1.41 ns | 1.25 ns |  1.22 |    0.01 | 0.0124 |      80 B |
+    /// |        ReadTuple |   561.0 ns | 3.09 ns | 2.89 ns |  2.66 |    0.01 | 0.0849 |     536 B |
+    /// |    ReadObjectOld | 1,020.9 ns | 9.05 ns | 8.47 ns |  4.84 |    0.05 | 0.0744 |     472 B |.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     [MemoryDiagnoser]
