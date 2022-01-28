@@ -429,32 +429,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    public void testExecuteUpdate2() throws Exception {
-        final String s1 = "CREATE TABLE usertable (\n"
-                + "    ycsb_key int PRIMARY KEY,\n"
-                + "    field1   varchar(100),\n"
-                + "    field2   varchar(100),\n"
-                + "    field3   varchar(100),\n"
-                + "    field4   varchar(100),\n"
-                + "    field5   varchar(100),\n"
-                + "    field6   varchar(100),\n"
-                + "    field7   varchar(100),\n"
-                + "    field8   varchar(100),\n"
-                + "    field9   varchar(100),\n"
-                + "    field10  varchar(100)\n"
-                + ");";
-
-        final String s2 = "INSERT INTO usertable values(1, 'a','a','a','a','a','a','a','a','a','a');";
-
-        String s3 = "UPDATE usertable SET FIELD1='a',FIELD2='a',FIELD3='a',FIELD4='a',FIELD5='a',"
-                + "FIELD6='a',FIELD7='a',FIELD8='a',FIELD9='a',FIELD10='a' WHERE YCSB_KEY=1";
-
-        assertEquals(0, stmt.executeUpdate(s1));
-        assertEquals(1, stmt.executeUpdate(s2));
-        assertEquals(1, stmt.executeUpdate(s3));
-    }
-
-    @Test
     public void testExecuteUpdateProducesResultSet() {
         final String sqlText = "select * from TEST;";
 

@@ -19,8 +19,6 @@ package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
@@ -43,7 +41,6 @@ import org.apache.ignite.client.proto.query.event.JdbcMetaSchemasResult;
 import org.apache.ignite.client.proto.query.event.JdbcMetaTablesRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaTablesResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryMetadataRequest;
-import org.apache.ignite.client.proto.query.event.Query;
 import org.apache.ignite.client.proto.query.event.QueryCloseRequest;
 import org.apache.ignite.client.proto.query.event.QueryCloseResult;
 import org.apache.ignite.client.proto.query.event.QueryExecuteRequest;
@@ -160,16 +157,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req) {
-        IntList res = new IntArrayList();
-        String sql = req.queries().get(0).sql();
-        for (Query query : req.queries()) {
-            List<SqlCursor<List<?>>> query1 = processor.query(req.schemaName(), sql,
-                    query.args());
-            for (SqlCursor<List<?>> lists : query1) {
-                lists.next();
-            }
-        }
-        return CompletableFuture.completedFuture(new BatchExecuteResult(res.toIntArray()));
+        return CompletableFuture.completedFuture(new BatchExecuteResult(UNSUPPORTED_OPERATION,
+                "ExecuteBatch operation is not implemented yet."));
     }
 
     /** {@inheritDoc} */
