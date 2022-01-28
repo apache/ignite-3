@@ -619,14 +619,12 @@ public class InternalTableImpl implements InternalTable {
                         .thenAccept(
                                 res -> {
                                     if (res.getValues() == null) {
-                                        //LOG.debug("Received empty res");
                                         cancel();
 
                                         subscriber.onComplete();
 
                                         return;
                                     } else {
-                                        //LOG.debug("Received " + res.getValues().size() + " elements");
                                         res.getValues().forEach(subscriber::onNext);
                                     }
 
