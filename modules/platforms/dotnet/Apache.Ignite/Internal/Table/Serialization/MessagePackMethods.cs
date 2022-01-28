@@ -52,12 +52,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static readonly MethodInfo WriteObject =
             typeof(MessagePackWriterExtensions).GetMethod(nameof(MessagePackWriterExtensions.WriteObject))!;
 
-        /// <summary>
-        /// Object (catch all) reader.
-        /// </summary>
-        public static readonly MethodInfo ReadObjectGeneric =
-            typeof(MessagePackReaderExtensions).GetMethod(nameof(MessagePackReaderExtensions.ReadObjectGeneric))!;
-
         private static readonly IReadOnlyDictionary<Type, MethodInfo> WriteMethods = new Dictionary<Type, MethodInfo>
         {
             { typeof(string), GetWriteMethod<string>() },
@@ -104,7 +98,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static MethodInfo GetReadMethod(Type valueType) =>
             ReadMethods.TryGetValue(valueType, out var method)
                 ? method
-                : ReadObjectGeneric;
+                : null!; // TODO: match on schema type
 
         private static MethodInfo GetWriteMethod<TArg>()
         {

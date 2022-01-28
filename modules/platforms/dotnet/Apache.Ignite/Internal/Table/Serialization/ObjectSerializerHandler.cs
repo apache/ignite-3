@@ -169,25 +169,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                     var readMethod = MessagePackMethods.GetReadMethod(fieldInfo.FieldType);
 
-                    var isGenericReader = readMethod == MessagePackMethods.ReadObjectGeneric;
-
-                    if (isGenericReader)
-                    {
-                        readMethod = readMethod.MakeGenericMethod(fieldInfo.FieldType);
-                    }
-
                     il.Emit(OpCodes.Ldloc_0); // res
                     il.Emit(OpCodes.Ldarg_0); // reader
 
-                    if (isGenericReader)
-                    {
-                        il.Emit(OpCodes.Ldc_I4_S, (int)col.Type);
-                        il.Emit(OpCodes.Ldstr, col.Name);
-                        il.Emit(OpCodes.Ldstr, fieldInfo.Name);
-                    }
-
                     il.Emit(OpCodes.Call, readMethod);
-
                     il.Emit(OpCodes.Stfld, fieldInfo);
 
                     il.MarkLabel(noValueLabel);
@@ -231,7 +216,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 {
                     if (fieldInfo != null)
                     {
-                        il.Emit(OpCodes.Ldloc_0);
+                        il.Emit(OpCodes.Ldloc_0); // res
                         il.Emit(OpCodes.Ldarg_1); // key
                         il.Emit(OpCodes.Ldfld, fieldInfo);
                         il.Emit(OpCodes.Stfld, fieldInfo);
@@ -257,26 +242,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                     var readMethod = MessagePackMethods.GetReadMethod(fieldInfo.FieldType);
 
-                    var isGenericReader = readMethod == MessagePackMethods.ReadObjectGeneric;
-
-                    if (isGenericReader)
-                    {
-                        readMethod = readMethod.MakeGenericMethod(fieldInfo.FieldType);
-                    }
-
                     il.Emit(OpCodes.Ldloc_0); // res
                     il.Emit(OpCodes.Ldarg_0); // reader
 
-                    if (isGenericReader)
-                    {
-                        il.Emit(OpCodes.Ldc_I4_S, (int)col.Type);
-                        il.Emit(OpCodes.Ldstr, col.Name);
-                        il.Emit(OpCodes.Ldstr, fieldInfo.Name);
-                    }
-
                     il.Emit(OpCodes.Call, readMethod);
-
-                    il.Emit(OpCodes.Stfld, fieldInfo);
+                    il.Emit(OpCodes.Stfld, fieldInfo); // res.field = value
 
                     il.MarkLabel(noValueLabel);
                 }
