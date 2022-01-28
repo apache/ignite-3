@@ -111,7 +111,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(Arrays.asList("щщ", "Б"), first(rows));
     }
 
-    @RepeatedTest(200)
+    @RepeatedTest(1000)
     public void testOrderingByColumnOutsideSelectList() {
         assertQuery("select salary from emp2 order by id desc")
                 .returns(13d)
