@@ -41,7 +41,6 @@ import org.apache.ignite.configuration.schemas.table.TableIndexChange;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
-import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.idx.event.IndexEvent;
 import org.apache.ignite.internal.idx.event.IndexEventParameters;
 import org.apache.ignite.internal.manager.AbstractProducer;
@@ -60,7 +59,6 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
-import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 
@@ -133,9 +131,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                         } catch (Exception e) {
                             fireEvent(IndexEvent.CREATE, new IndexEventParameters(idxName, tblName), e);
 
-                            LOG.error(LoggerMessageHelper.format(
-                                    "Internal error, index creation failed [name={}, table={}]", idxName, tblName
-                            ), e);
+                            LOG.error("Internal error, index creation failed [name={}, table={}]", e, idxName, tblName);
 
                             return CompletableFuture.completedFuture(e);
                         } finally {
@@ -197,16 +193,13 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
     private void onIndexCreate(ConfigurationNotificationEvent<TableIndexView> ctx) throws NodeStoppingException {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-15916
-        assert ((InnerNode) ctx.newValue()).specificNode() instanceof SortedIndexView : "Unsupported index type: " + ctx.newValue();
+        assert ctx.newValue() instanceof SortedIndexView : "Unsupported index type: " + ctx.newValue();
 
         ExtendedTableConfiguration tblCfg = ctx.config(TableConfiguration.class);
 
         TableImpl tbl = tblMgr.table(IgniteUuid.fromString(tblCfg.id().value()));
 
-        createIndexLocally(
-                tbl,
-                ((InnerNode) ctx.newValue()).specificNode()
-        );
+        createIndexLocally(tbl, (SortedIndexView) ctx.newValue());
     }
 
     @Override
@@ -262,7 +255,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                             Throwable ex = getRootCause(t);
 
                             if (!(ex instanceof IndexNotFoundException)) {
-                                LOG.error(LoggerMessageHelper.format("Index wasn't dropped [name={}]", idxCanonicalName), ex);
+                                LOG.error("Index wasn't dropped [name={}]", ex, idxCanonicalName);
                             }
 
                             idxFut.completeExceptionally(ex);
@@ -303,7 +296,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                     Throwable ex = getRootCause(t);
 
                     if (!(ex instanceof IndexAlreadyExistsException)) {
-                        LOG.error(LoggerMessageHelper.format("Index wasn't created [name={}]", idxCanonicalName), ex);
+                        LOG.error("Index wasn't created [name={}]", ex, idxCanonicalName);
                     }
 
                     idxFut.completeExceptionally(ex);

@@ -443,6 +443,8 @@ public class JraftServerImpl implements RaftServer {
             } catch (Exception err) {
                 Status st = new Status(RaftError.ESTATEMACHINE, err.getMessage());
 
+                err.printStackTrace();
+
                 if (iter.done() != null) {
                     iter.done().run(st);
                 }

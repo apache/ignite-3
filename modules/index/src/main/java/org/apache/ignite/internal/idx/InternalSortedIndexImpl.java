@@ -111,11 +111,12 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
     @Override
     public void onUpdate(@Nullable BinaryRow oldRow, BinaryRow newRow, int partId) {
         Tuple tupleNew = TableRow.tuple(tbl.schemaView().resolve(newRow));
-        Tuple tupleOld = TableRow.tuple(tbl.schemaView().resolve(newRow));
 
         store.put(new IndexRowTuple(tupleNew, newRow.keyRow(), partId));
 
         if (oldRow != null) {
+            Tuple tupleOld = TableRow.tuple(tbl.schemaView().resolve(oldRow));
+
             store.remove(new IndexRowTuple(tupleOld, oldRow.keyRow(), partId));
         }
     }

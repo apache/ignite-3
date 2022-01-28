@@ -41,7 +41,6 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.idx.IndexManager;
-import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;

@@ -32,6 +32,7 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.PrimaryKeyView;
 import org.apache.ignite.configuration.schemas.table.TableChange;
+import org.apache.ignite.internal.idx.IndexManager;
 import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AbstractTableDdlCommand;
@@ -54,10 +55,9 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
+import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.lang.IndexNotFoundException;
-import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.PrimaryKeyDefinitionBuilder;
@@ -159,7 +159,7 @@ public class DdlCommandHandler {
         );
 
         try {
-            tableManager.createTable(fullName, tblChanger);
+            tblManager.createTable(fullName, tblChanger);
         } catch (TableAlreadyExistsException ex) {
             if (!cmd.ifTableExists()) {
                 throw ex;
@@ -174,7 +174,7 @@ public class DdlCommandHandler {
                 IgniteObjectName.quote(cmd.tableName())
         );
         try {
-            tableManager.dropTable(fullName);
+            tblManager.dropTable(fullName);
         } catch (TableNotFoundException ex) {
             if (!cmd.ifTableExists()) {
                 throw ex;
@@ -243,7 +243,7 @@ public class DdlCommandHandler {
         );
 
         try {
-            idxManager.createIndex(cmd.indexName(), tblCanonicalName, idxCh -> convert(idx.build(), idxCh));
+            idxManager.createIndex(cmd.indexName(), fullName, idxCh -> convert(idx.build(), idxCh));
         } catch (IndexAlreadyExistsException e) {
             if (!cmd.ifIndexNotExists()) {
                 throw e;

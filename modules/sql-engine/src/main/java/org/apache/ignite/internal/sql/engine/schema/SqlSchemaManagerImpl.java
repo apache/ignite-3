@@ -30,10 +30,12 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.idx.InternalSortedIndex;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.sql.engine.extension.SqlExtension.ExternalCatalog;
 import org.apache.ignite.internal.sql.engine.extension.SqlExtension.ExternalSchema;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -158,43 +160,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     ) {
         IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
 
-        IgniteTableImpl t = new IgniteTableImpl(createTableDescriptor(table), table);
-
-        schema.addTable(removeSchema(schemaName, table.name()), t);
-
-        rebuild();
-    }
-
-    /**
-     * OnSqlTypeCreated.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public synchronized void onTableUpdated(
-            String schemaName,
-            TableImpl table
-    ) {
-        IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
-
-        String tblName = removeSchema(schemaName, table.name());
-
-        IgniteTableImpl t = new IgniteTableImpl(
-                createTableDescriptor(table),
-                table
-        );
-
-        // Rebuild indexes collation.
-        t.addIndexes(schema.internalTable(tblName).indexes().values().stream()
-                .map(idx -> createIndex(idx.index(), t))
-                .collect(Collectors.toList())
-        );
-
-        schema.addTable(tblName, t);
-
-        rebuild();
-    }
-
-    @NotNull
-    private TableDescriptorImpl createTableDescriptor(TableImpl table) {
         SchemaDescriptor descriptor = table.schemaView().schema();
 
         List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()
@@ -270,7 +235,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private IgniteIndex createIndex(InternalSortedIndex idx, InternalIgniteTable tbl) {
         IntArrayList cols = IntArrayList.toList(
                 idx.columns().stream()
-                        .mapToInt(c -> tbl.table().schemaView().schema().column(c.name()).columnOrder())
+                        .mapToInt(c -> tbl.descriptor().columnDescriptor(c.name()).logicalIndex())
         );
 
         return new IgniteIndex(

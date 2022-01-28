@@ -49,6 +49,7 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.ValidationException;
+import org.apache.ignite.internal.idx.IndexManager;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;

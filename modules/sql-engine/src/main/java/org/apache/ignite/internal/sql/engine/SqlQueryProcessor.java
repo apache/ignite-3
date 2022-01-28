@@ -123,7 +123,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         extensions = extensionList.stream().collect(Collectors.toMap(SqlExtension::name, Function.identity()));
 
-        SqlSchemaManagerImpl schemaHolder = new SqlSchemaManagerImpl(tableManager, planCache::clear);
+        SqlSchemaManagerImpl schemaHolder = new SqlSchemaManagerImpl(tblManager, planCache::clear);
 
         executionSrvc = new ExecutionServiceImpl<>(
                 clusterSrvc.topologyService(),
@@ -301,10 +301,10 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private abstract static class AbstractIndexEventListener implements EventListener<IndexEventParameters> {
-        protected final SchemaHolderImpl schemaHolder;
+        protected final SqlSchemaManagerImpl schemaHolder;
 
         private AbstractIndexEventListener(
-                SchemaHolderImpl schemaHolder
+                SqlSchemaManagerImpl schemaHolder
         ) {
             this.schemaHolder = schemaHolder;
         }
@@ -318,7 +318,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private static class IndexCreatedListener extends AbstractIndexEventListener {
         private IndexCreatedListener(
-                SchemaHolderImpl schemaHolder
+                SqlSchemaManagerImpl schemaHolder
         ) {
             super(schemaHolder);
         }
@@ -342,7 +342,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private static class IndexDroppedListener extends AbstractIndexEventListener {
         private IndexDroppedListener(
-                SchemaHolderImpl schemaHolder
+                SqlSchemaManagerImpl schemaHolder
         ) {
             super(schemaHolder);
         }
