@@ -197,6 +197,8 @@ public class StopCalciteModuleTest {
                 "SELECT 1"
         )).getCause() instanceof NodeStoppingException);
 
+        System.gc();
+
         // Check: there are no alive Ignite threads.
         assertFalse(isThereNodeThreads(NODE_NAME));
     }
