@@ -54,79 +54,49 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * </ol>
  */
 public abstract class PageIo {
-    /**
-     * Maximum value for page type.
-     */
+    /** Maximum value for page type. */
     public static final int MAX_IO_TYPE = 65535 - 1;
 
-    /**
-     * Offset for "short" page type.
-     */
+    /** Offset for "short" page type. */
     public static final int TYPE_OFF = 0;
 
-    /**
-     * Offset for "short" page version.
-     */
+    /** Offset for "short" page version. */
     public static final int VER_OFF = TYPE_OFF + Short.BYTES;
 
-    /**
-     * Offset for "int" CRC.
-     */
+    /** Offset for "int" CRC. */
     public static final int CRC_OFF = VER_OFF + Short.BYTES;
 
-    /**
-     * Offset for "long" page ID.
-     */
+    /** Offset for "long" page ID. */
     public static final int PAGE_ID_OFF = CRC_OFF + Integer.BYTES;
 
-    /**
-     * Offset for "byte" rotated ID.
-     */
+    /** Offset for "byte" rotated ID. */
     public static final int ROTATED_ID_PART_OFF = PAGE_ID_OFF + Long.BYTES;
 
-    /**
-     * Offset for "byte" compression type.
-     */
+    /** Offset for "byte" compression type. */
     private static final int COMPRESSION_TYPE_OFF = ROTATED_ID_PART_OFF + Byte.BYTES;
 
-    /**
-     * Offset for "short" compressed size.
-     */
+    /** Offset for "short" compressed size. */
     private static final int COMPRESSED_SIZE_OFF = COMPRESSION_TYPE_OFF + Byte.BYTES;
 
-    /**
-     * Offset for "short" compacted size.
-     */
+    /** Offset for "short" compacted size. */
     private static final int COMPACTED_SIZE_OFF = COMPRESSED_SIZE_OFF + Short.BYTES;
 
-    /**
-     * Offset for reserved "short" value.
-     */
+    /** Offset for reserved "short" value. */
     private static final int RESERVED_SHORT_OFF = COMPACTED_SIZE_OFF + Short.BYTES;
 
-    /**
-     * Offset for reserved "long" value.
-     */
+    /** Offset for reserved "long" value. */
     private static final int RESERVED_2_OFF = RESERVED_SHORT_OFF + Short.BYTES;
 
-    /**
-     * Offset for reserved "long" value.
-     */
+    /** Offset for reserved "long" value. */
     private static final int RESERVED_3_OFF = RESERVED_2_OFF + Long.BYTES;
 
-    /**
-     * Total size of common header, including reserved bytes.
-     */
+    /** Total size of common header, including reserved bytes. */
     public static final int COMMON_HEADER_END = RESERVED_3_OFF + Long.BYTES;
 
-    /**
-     * IO version.
-     */
+    /** IO version. */
     private final int ver;
 
-    /**
-     * IO type.
-     */
+    /** IO type. */
     private final int type;
 
     /**
