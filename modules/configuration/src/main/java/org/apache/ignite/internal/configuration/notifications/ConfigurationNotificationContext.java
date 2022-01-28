@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
  * Context to notify configuration listeners.
  */
 class ConfigurationNotificationContext {
-    /** Storage revision. */
+    /** Current configuration storage revision. */
     private final long storageRevision;
 
     /** The tail of containers, implements a stack for safe traversal in {@link ConfigurationNotificationEventImpl events}. */
@@ -39,13 +39,18 @@ class ConfigurationNotificationContext {
     /** For collect configuration listener futures. */
     final Collection<CompletableFuture<?>> futures = new ArrayList<>();
 
+    /** Current configuration listener notification number. */
+    final long notificationNum;
+
     /**
      * Constructor.
      *
      * @param storageRevision Storage revision.
+     * @param notificationNum Current configuration listener notification number.
      */
-    ConfigurationNotificationContext(long storageRevision) {
+    ConfigurationNotificationContext(long storageRevision, long notificationNum) {
         this.storageRevision = storageRevision;
+        this.notificationNum = notificationNum;
     }
 
     /**

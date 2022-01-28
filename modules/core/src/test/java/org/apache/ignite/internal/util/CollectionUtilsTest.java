@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.util;
 
+import static java.util.Collections.emptyIterator;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
@@ -33,8 +34,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.Spliterators;
 import java.util.stream.StreamSupport;
 import org.junit.jupiter.api.Test;
 
@@ -44,8 +47,8 @@ import org.junit.jupiter.api.Test;
 public class CollectionUtilsTest {
     @Test
     void testConcatIterables() {
-        assertTrue(collect(concat(null)).isEmpty());
-        assertTrue(collect(concat(List.of())).isEmpty());
+        assertTrue(collect(concat((Iterable<?>[]) null)).isEmpty());
+        assertTrue(collect(concat((Iterable<?>) List.of())).isEmpty());
         assertTrue(collect(concat(List.of(), List.of())).isEmpty());
 
         assertEquals(List.of(1), collect(concat(List.of(1))));
@@ -111,24 +114,13 @@ public class CollectionUtilsTest {
     @Test
     void testCollectionUnion() {
         assertTrue(union().isEmpty());
-        assertTrue(union(new Collection[]{}).isEmpty());
+        assertTrue(union().isEmpty());
         assertTrue(union(List.of()).isEmpty());
 
         assertEquals(List.of(1), collect(union(List.of(1), List.of())));
         assertEquals(List.of(1), collect(union(List.of(), List.of(1))));
 
         assertEquals(List.of(1, 2), collect(union(List.of(1), List.of(2))));
-    }
-
-    /**
-     * Collect of elements.
-     *
-     * @param iterable Iterable.
-     * @param <T>      Type of the elements.
-     * @return Collected elements.
-     */
-    private <T> List<? extends T> collect(Iterable<? extends T> iterable) {
-        return StreamSupport.stream(iterable.spliterator(), false).collect(toList());
     }
 
     /**
@@ -157,6 +149,54 @@ public class CollectionUtilsTest {
         testSetOf(set);
 
         testSetOf(Collections.emptySet());
+    }
+
+    @Test
+    void testConcatIterators() {
+        assertTrue(collect(concat((Iterator<?>[]) null)).isEmpty());
+        assertTrue(collect(concat(emptyIterator())).isEmpty());
+        assertTrue(collect(concat(emptyIterator(), emptyIterator())).isEmpty());
+
+        assertEquals(List.of(1), collect(concat(List.of(1).iterator())));
+        assertEquals(List.of(1), collect(concat(List.of(1).iterator(), emptyIterator())));
+        assertEquals(List.of(1), collect(concat(emptyIterator(), List.of(1).iterator())));
+
+        assertEquals(List.of(1, 2, 3), collect(concat(List.of(1).iterator(), List.of(2, 3).iterator())));
+    }
+
+    @Test
+    void testConcatCollectionOfIterators() {
+        assertTrue(collect(concat((Collection<Iterator<?>>) null)).isEmpty());
+        assertTrue(collect(concat(List.of())).isEmpty());
+        assertTrue(collect(concat(List.of(emptyIterator(), emptyIterator()))).isEmpty());
+
+        assertEquals(List.of(1), collect(concat(List.of(List.of(1).iterator()))));
+        assertEquals(List.of(1), collect(concat(List.of(List.of(1).iterator(), emptyIterator()))));
+        assertEquals(List.of(1), collect(concat(List.of(emptyIterator(), List.of(1).iterator()))));
+
+        assertEquals(List.of(1, 2, 3), collect(concat(List.of(List.of(1).iterator(), List.of(2, 3).iterator()))));
+    }
+
+    /**
+     * Collect of elements.
+     *
+     * @param iterable Iterable.
+     * @param <T> Type of the elements.
+     * @return Collected elements.
+     */
+    private <T> List<? extends T> collect(Iterable<? extends T> iterable) {
+        return StreamSupport.stream(iterable.spliterator(), false).collect(toList());
+    }
+
+    /**
+     * Collect of elements.
+     *
+     * @param iterator Iterator.
+     * @param <T> Type of the elements.
+     * @return Collected elements.
+     */
+    private <T> List<? extends T> collect(Iterator<? extends T> iterator) {
+        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(iterator, 0), false).collect(toList());
     }
 
     private void testSetOf(Collection<Integer> data) {
