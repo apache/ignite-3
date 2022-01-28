@@ -34,7 +34,7 @@ namespace Apache.Ignite.Internal.Proto
         {
             return clientDataType switch
             {
-                ClientDataType.Int8 => (typeof(byte), null),
+                ClientDataType.Int8 => (typeof(byte), typeof(sbyte)),
                 ClientDataType.Int16 => (typeof(short), typeof(ushort)),
                 ClientDataType.Int32 => (typeof(int), typeof(uint)),
                 ClientDataType.Int64 => (typeof(long), typeof(ulong)),
