@@ -105,12 +105,16 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [Test]
         public void TestReadMismatchedFieldTypeThrowsException()
         {
-            var reader = WriteAndGetReader();
-            var handler = new ObjectSerializerHandler<BadPoco2>();
-            var resPoco = handler.Read(ref reader, Schema);
+            var ex = Assert.Throws<IgniteClientException>(() =>
+            {
+                var reader = WriteAndGetReader();
+                new ObjectSerializerHandler<BadPoco2>().Read(ref reader, Schema);
+            });
 
-            Assert.AreEqual(1234, resPoco.Key);
-            Assert.AreEqual("foo", resPoco.Val);
+            Assert.AreEqual(
+                "Can't map field 'BadPoco2.<Key>k__BackingField' of type 'System.Guid'" +
+                " to column 'Key' of type 'System.Int64' - types do not match.",
+                ex!.Message);
         }
 
         [Test]
