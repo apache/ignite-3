@@ -31,9 +31,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
     /// </summary>
     public class ObjectSerializerHandlerTests
     {
-        private record BadPoco(ClientOp Key, DateTimeOffset Val);
-
-        private record BadPoco2(Guid Key, float Val);
+        private record BadPoco(Guid Key, DateTimeOffset Val);
 
         private static readonly Schema Schema = new(1, 1, new[]
         {
@@ -94,25 +92,14 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [Test]
         public void TestReadUnsupportedFieldTypeThrowsException()
         {
-            var reader = WriteAndGetReader();
-            var handler = new ObjectSerializerHandler<BadPoco>();
-            var resPoco = handler.Read(ref reader, Schema);
-
-            Assert.AreEqual(1234, resPoco.Key);
-            Assert.AreEqual("foo", resPoco.Val);
-        }
-
-        [Test]
-        public void TestReadMismatchedFieldTypeThrowsException()
-        {
             var ex = Assert.Throws<IgniteClientException>(() =>
             {
                 var reader = WriteAndGetReader();
-                new ObjectSerializerHandler<BadPoco2>().Read(ref reader, Schema);
+                new ObjectSerializerHandler<BadPoco>().Read(ref reader, Schema);
             });
 
             Assert.AreEqual(
-                "Can't map field 'BadPoco2.<Key>k__BackingField' of type 'System.Guid'" +
+                "Can't map field 'BadPoco.<Key>k__BackingField' of type 'System.Guid'" +
                 " to column 'Key' of type 'System.Int64' - types do not match.",
                 ex!.Message);
         }
@@ -120,14 +107,12 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [Test]
         public void TestWriteUnsupportedFieldTypeThrowsException()
         {
-            Write(new BadPoco(ClientOp.SchemasGet, DateTimeOffset.Now));
-        }
+            var ex = Assert.Throws<IgniteClientException>(() => Write(new BadPoco(Guid.Empty, DateTimeOffset.Now)));
 
-        [Test]
-        public void TestWriteMismatchedFieldTypeThrowsException()
-        {
-            Write(new BadPoco2(Guid.NewGuid(), 0.1f));
-            Assert.Fail("TODO");
+            Assert.AreEqual(
+                "Can't map field 'BadPoco.<Key>k__BackingField' of type 'System.Guid'" +
+                " to column 'Key' of type 'System.Int64' - types do not match.",
+                ex!.Message);
         }
 
         private static MessagePackReader WriteAndGetReader(bool keyOnly = false)
