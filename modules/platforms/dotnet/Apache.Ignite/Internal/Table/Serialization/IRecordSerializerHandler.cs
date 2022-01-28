@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization
 {
-    using Buffers;
     using MessagePack;
 
     /// <summary>
@@ -39,11 +38,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <summary>
         /// Reads the value part and combines with the specified key part into a new object.
         /// </summary>
-        /// <param name="buf">Buffer.</param>
+        /// <param name="reader">Reader.</param>
         /// <param name="schema">Schema.</param>
         /// <param name="key">Key part.</param>
         /// <returns>Resulting record with key and value parts.</returns>
-        T? ReadValuePart(PooledBuffer buf, Schema schema, T key);
+        T? ReadValuePart(ref MessagePackReader reader, Schema schema, T key);
 
         /// <summary>
         /// Writes a record.

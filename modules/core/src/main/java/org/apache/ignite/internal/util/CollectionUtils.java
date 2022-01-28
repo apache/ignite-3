@@ -42,6 +42,11 @@ import org.jetbrains.annotations.Nullable;
  * Utility class provides various method to work with collections.
  */
 public final class CollectionUtils {
+    /** Stub. */
+    private CollectionUtils() {
+        // No op.
+    }
+
     /**
      * Tests if the given collection is either {@code null} or empty.
      *
@@ -91,7 +96,7 @@ public final class CollectionUtils {
      * Union set and items.
      *
      * @param set Set.
-     * @param ts  Items.
+     * @param ts Items.
      * @param <T> Type of the elements of set and items..
      * @return Immutable union of set and items.
      */
@@ -116,7 +121,7 @@ public final class CollectionUtils {
      * Union collections.
      *
      * @param collections Collections.
-     * @param <T>         Type of the elements of collections.
+     * @param <T> Type of the elements of collections.
      * @return Immutable union of collections.
      */
     @SafeVarargs
@@ -159,7 +164,7 @@ public final class CollectionUtils {
      * <p>NOTE: {@link Iterator#remove} - not supported.
      *
      * @param iterables Iterables.
-     * @param <T>       Type of the elements.
+     * @param <T> Type of the elements.
      * @return Concatenation of iterables.
      */
     @SafeVarargs
@@ -198,12 +203,99 @@ public final class CollectionUtils {
     }
 
     /**
+     * Create a lazy concatenation of iterators.
+     *
+     * <p>NOTE: {@link Iterator#remove} - not supported.
+     *
+     * @param iterators Iterators.
+     * @param <T> Type of the elements.
+     * @return Concatenation of iterators.
+     */
+    @SafeVarargs
+    public static <T> Iterator<T> concat(@Nullable Iterator<? extends T>... iterators) {
+        if (iterators == null || iterators.length == 0) {
+            return emptyIterator();
+        }
+
+        return new Iterator<>() {
+            /** Current index at {@code iterators}. */
+            int idx = 0;
+
+            /** Current iterator. */
+            Iterator<? extends T> curr = emptyIterator();
+
+            /** {@inheritDoc} */
+            @Override
+            public boolean hasNext() {
+                while (!curr.hasNext() && idx < iterators.length) {
+                    curr = iterators[idx++];
+                }
+
+                return curr.hasNext();
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public T next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                } else {
+                    return curr.next();
+                }
+            }
+        };
+    }
+
+    /**
+     * Create a lazy concatenation of iterators.
+     *
+     * <p>NOTE: {@link Iterator#remove} - not supported.
+     *
+     * @param iterators Iterators.
+     * @param <T> Type of the elements.
+     * @return Concatenation of iterators.
+     */
+    public static <T> Iterator<T> concat(@Nullable Collection<Iterator<? extends T>> iterators) {
+        if (iterators == null || iterators.isEmpty()) {
+            return emptyIterator();
+        }
+
+        return new Iterator<>() {
+            /** Super iterator. */
+            final Iterator<Iterator<? extends T>> it = iterators.iterator();
+
+            /** Current iterator. */
+            Iterator<? extends T> curr = emptyIterator();
+
+            /** {@inheritDoc} */
+            @Override
+            public boolean hasNext() {
+                while (!curr.hasNext() && it.hasNext()) {
+                    curr = it.next();
+                }
+
+                return curr.hasNext();
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public T next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                } else {
+                    return curr.next();
+                }
+            }
+        };
+    }
+
+    /**
      * Create a collection view that can only be read.
      *
      * @param collection Basic collection.
-     * @param mapper     Conversion function.
-     * @param <T1>       Base type of the collection.
-     * @param <T2>       Type for view.
+     * @param mapper Conversion function.
+     * @param <T1> Base type of the collection.
+     * @param <T2> Type for view.
      * @return Read-only collection view.
      */
     public static <T1, T2> Collection<T2> viewReadOnly(
@@ -256,8 +348,8 @@ public final class CollectionUtils {
     /**
      * Difference of two sets.
      *
-     * @param a   First set.
-     * @param b   Second set.
+     * @param a First set.
+     * @param b Second set.
      * @param <T> Type of the elements.
      * @return Immutable set of elements of the first without the second.
      */
@@ -282,11 +374,6 @@ public final class CollectionUtils {
         }
 
         return res == null ? Set.of() : unmodifiableSet(res);
-    }
-
-    /** Stub. */
-    private CollectionUtils() {
-        // No op.
     }
 
     /**

@@ -60,7 +60,7 @@ public class RelJsonReaderTest {
                 + "  \"rels\" : [ {\n"
                 + "    \"id\" : \"0\",\n"
                 + "    \"relOp\" : \"IgniteTableScan\",\n"
-                + "    \"tableId\" : \"" + tableId.toString() + "\",\n"
+                + "    \"tableId\" : \"" + tableId + "\",\n"
                 + "    \"inputs\" : [ ]\n"
                 + "  } ]\n"
                 + "}";

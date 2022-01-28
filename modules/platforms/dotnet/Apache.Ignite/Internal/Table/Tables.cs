@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Table
 {
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Threading.Tasks;
     using Buffers;
@@ -32,6 +33,9 @@ namespace Apache.Ignite.Internal.Table
     {
         /** Socket. */
         private readonly ClientFailoverSocket _socket;
+
+        /** Cached tables. */
+        private readonly ConcurrentDictionary<IgniteUuid, ITable> _tables = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Tables"/> class.
@@ -59,10 +63,14 @@ namespace Apache.Ignite.Internal.Table
                 w.Flush();
             }
 
+            // ReSharper disable once LambdaExpressionMustBeStatic (requires .NET 5+)
             ITable? Read(MessagePackReader r) =>
                 r.NextMessagePackType == MessagePackType.Nil
                     ? null
-                    : new Table(name, r.ReadIgniteUuid(), _socket);
+                    : _tables.GetOrAdd(
+                        r.ReadIgniteUuid(),
+                        (IgniteUuid id, (string Name, ClientFailoverSocket Socket) arg) => new Table(arg.Name, id, arg.Socket),
+                        (name, _socket));
         }
 
         /// <inheritdoc/>
