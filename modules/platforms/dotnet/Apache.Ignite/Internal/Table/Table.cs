@@ -77,6 +77,7 @@ namespace Apache.Ignite.Internal.Table
         public IRecordView<T> GetRecordView<T>()
             where T : class
         {
+            // ReSharper disable once HeapView.CanAvoidClosure (generics prevent this)
             return (IRecordView<T>)_recordViews.GetOrAdd(
                 typeof(T),
                 _ => new RecordView<T>(this, new RecordSerializer<T>(this, new ObjectSerializerHandler<T>())));
