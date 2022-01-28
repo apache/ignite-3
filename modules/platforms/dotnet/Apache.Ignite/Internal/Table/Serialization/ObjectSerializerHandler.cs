@@ -20,8 +20,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Collections.Concurrent;
     using System.Reflection;
     using System.Reflection.Emit;
-    using System.Runtime.Serialization;
-    using Buffers;
     using MessagePack;
     using Proto;
 
@@ -35,6 +33,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private readonly ConcurrentDictionary<(int, bool), WriteDelegate<T>> _writers = new();
 
         private readonly ConcurrentDictionary<(int, bool), ReadDelegate<T>> _readers = new();
+
+        private readonly ConcurrentDictionary<int, ReadValuePartDelegate<T>> _valuePartReaders = new();
 
         private delegate void WriteDelegate<in TV>(ref MessagePackWriter writer, TV value);
 
@@ -55,48 +55,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <inheritdoc/>
-        public T ReadValuePart(PooledBuffer buf, Schema schema, T key)
+        public T ReadValuePart(ref MessagePackReader reader, Schema schema, T key)
         {
-            // TODO: Emit code for efficient serialization (IGNITE-16341).
-            // Skip schema version.
-            var r = buf.GetReader();
-            r.Skip();
+            var readDelegate = _valuePartReaders.TryGetValue(schema.Version, out var w)
+                ? w
+                : _valuePartReaders.GetOrAdd(schema.Version, EmitValuePartReader(schema));
 
-            var columns = schema.Columns;
-            var type = typeof(T);
-            var res = (T) FormatterServices.GetUninitializedObject(type);
-
-            for (var i = 0; i < columns.Count; i++)
-            {
-                var col = columns[i];
-                var prop = type.GetFieldIgnoreCase(col.Name);
-
-                if (i < schema.KeyColumnCount)
-                {
-                    if (prop != null)
-                    {
-                        prop.SetValue(res, prop.GetValue(key));
-                    }
-                }
-                else
-                {
-                    if (r.TryReadNoValue())
-                    {
-                        continue;
-                    }
-
-                    if (prop != null)
-                    {
-                        prop.SetValue(res, r.ReadObject(col.Type));
-                    }
-                    else
-                    {
-                        r.Skip();
-                    }
-                }
-            }
-
-            return res;
+            return readDelegate(ref reader, key);
         }
 
         /// <inheritdoc/>

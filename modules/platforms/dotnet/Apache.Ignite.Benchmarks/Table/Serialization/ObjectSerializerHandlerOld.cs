@@ -19,7 +19,6 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 {
     using System;
     using System.Reflection;
-    using Internal.Buffers;
     using Internal.Proto;
     using Internal.Table;
     using Internal.Table.Serialization;
@@ -65,12 +64,8 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
         }
 
         /// <inheritdoc/>
-        public T ReadValuePart(PooledBuffer buf, Schema schema, T key)
+        public T ReadValuePart(ref MessagePackReader reader, Schema schema, T key)
         {
-            // Skip schema version.
-            var r = buf.GetReader();
-            r.Skip();
-
             var columns = schema.Columns;
             var res = Activator.CreateInstance<T>();
             var type = typeof(T);
@@ -89,18 +84,18 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
                 }
                 else
                 {
-                    if (r.TryReadNoValue())
+                    if (reader.TryReadNoValue())
                     {
                         continue;
                     }
 
                     if (prop != null)
                     {
-                        prop.SetValue(res, r.ReadObject(col.Type));
+                        prop.SetValue(res, reader.ReadObject(col.Type));
                     }
                     else
                     {
-                        r.Skip();
+                        reader.Skip();
                     }
                 }
             }
