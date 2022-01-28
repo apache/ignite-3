@@ -17,16 +17,15 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.table.Tuple;
-
 /**
- * Temporary API for creating Index rows from a list of column values. All columns must be sorted according to the index columns order,
- * specified by the SortedIndexDescriptor.
+ * Class for extracting indexed column values from an {@link IndexBinaryRow}.
  */
-public interface IndexRowFactory {
+public interface IndexRowSerializer {
     /**
-     * Creates an Index row from a list of column values.
+     * Serializes index row.
+     *
+     * @param indexRow Index row.
+     * @return Values of the indexed columns.
      */
-    IndexRow createIndexRow(Tuple row, BinaryRow pk, int partId);
+    IndexBinaryRow serialize(IndexRow indexRow);
 }

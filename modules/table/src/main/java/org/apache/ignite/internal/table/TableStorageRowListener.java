@@ -36,9 +36,9 @@ public class TableStorageRowListener implements StorageRowListener {
 
     /** {@inheritDoc} */
     @Override
-    public void onRemove(BinaryRow row) {
+    public void onRemove(BinaryRow row, int partId) {
         if (delegate != null) {
-            delegate.onRemove(row);
+            delegate.onRemove(row, partId);
         }
     }
 

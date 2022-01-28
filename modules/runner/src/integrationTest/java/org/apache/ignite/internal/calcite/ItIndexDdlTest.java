@@ -33,7 +33,7 @@ public class ItIndexDdlTest extends AbstractBasicIntegrationTest {
     public void indexBasic() {
         sql("create table test_tbl (id int primary key, val0 int, val1 varchar, val2 int)");
 
-        sql("create index TEST_IDX on test_tbl (val0, val1)");
+        sql("create index TEST_IDX on test_tbl (val1, val0)");
 
         insertData(
                 "PUBLIC.TEST_TBL",
@@ -60,7 +60,7 @@ public class ItIndexDdlTest extends AbstractBasicIntegrationTest {
                 .returns(2, 3, "val2", 2)
                 .check();
 
-        sql("drop  index TEST_IDX");
+        sql("drop index TEST_IDX");
 
         assertQuery("SELECT * FROM test_tbl WHERE val0 > 1 and val1 > 'val' ORDER BY val0")
                 .ordered()

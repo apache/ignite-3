@@ -27,9 +27,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.table.StorageRowListener;
 import org.apache.ignite.internal.table.TableImpl;
@@ -53,6 +54,8 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
 
     private final SortedIndexStorage store;
 
+    private final SortedIndexDescriptor desc;
+
     /**
      * Create sorted index.
      */
@@ -61,6 +64,8 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
         this.name = name;
         this.store = store;
         this.tbl = tbl;
+
+        desc = store.indexDescriptor();
     }
 
     /** {@inheritDoc} */
@@ -93,8 +98,9 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
     @Override
     public Cursor<Tuple> scan(Tuple low, Tuple up, byte scanBoundMask, BitSet proj) {
         Cursor<IndexRow> cur = store.range(
-                low != null ? new IndexSearchRow(low) : null,
-                up != null ? new IndexSearchRow(up) : null,
+                low != null ? new IndexRowPrefixTuple(low) {
+                } : null,
+                up != null ? new IndexRowPrefixTuple(up) : null,
                 r -> true
         );
 
@@ -114,30 +120,28 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
     /** {@inheritDoc} */
     @Override
     public void onUpdate(@Nullable BinaryRow oldRow, BinaryRow newRow, int partId) {
-        Tuple t = TableRow.tuple(tbl.schemaView().resolve(newRow));
+        Tuple tupleNew = TableRow.tuple(tbl.schemaView().resolve(newRow));
+        Tuple tupleOld = TableRow.tuple(tbl.schemaView().resolve(newRow));
 
-        IndexBinaryRow idxBinRow = store.indexRowFactory().createIndexRow(t, newRow.keyRow(), partId);
+        store.put(new IndexRowTuple(tupleNew, newRow.keyRow(), partId));
 
-        store.put(idxBinRow);
+        if (oldRow != null) {
+            store.remove(new IndexRowTuple(tupleOld, oldRow.keyRow(), partId));
+        }
     }
 
     /** {@inheritDoc} */
     @Override
-    public void onRemove(BinaryRow row) {
+    public void onRemove(BinaryRow row, int partId) {
         Tuple t = TableRow.tuple(tbl.schemaView().resolve(row));
 
-        IndexBinaryRow idxBinRow = store.indexRowFactory().createIndexRow(t, row.keyRow(), -1);
-
-        store.remove(idxBinRow);
+        store.remove(new IndexRowTuple(t, row.keyRow(), partId));
     }
 
     /**
      * Used for index only scan.
      */
     private Tuple convertIndexedOnly(IndexRow r) {
-        assert r.columnsCount() == store.indexDescriptor().columns().size() : "Unexpected Index row to convert [idxRow=" + r
-                + ", index=" + this + ']';
-
         Tuple t = Tuple.create();
 
         // Create the tuple with column order similar to table Binary Row column order.
@@ -149,8 +153,8 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
                 .map(Column::name)
                 .forEach(colName -> t.set(colName, null));
 
-        for (int i = 0; i < r.columnsCount(); ++i) {
-            t.set(store.indexDescriptor().columns().get(i).column().name(), r.value(i));
+        for (int i = 0; i < desc.columns().size(); ++i) {
+            t.set(desc.columns().get(i).column().name(), r.value(i));
         }
 
         return t;
@@ -170,23 +174,42 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
         }
     }
 
-    private class IndexSearchRow implements IndexRow {
+    private class IndexRowTuple implements IndexRow {
         private final Tuple tuple;
 
-        IndexSearchRow(Tuple t) {
-            this.tuple = t;
-        }
+        private final BinaryRow pk;
 
-        /** {@inheritDoc} */
-        @Override
-        public byte[] rowBytes() {
-            return null;
+        private final int part;
+
+        IndexRowTuple(Tuple t, BinaryRow pk, int part) {
+            this.tuple = t;
+            this.pk = pk;
+            this.part = part;
         }
 
         /** {@inheritDoc} */
         @Override
         public BinaryRow primaryKey() {
-            return null;
+            return pk;
+        }
+
+        @Override
+        public int partition() {
+            return part;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Object value(int idxColOrder) {
+            return tuple.value(desc.columns().get(idxColOrder).column().name());
+        }
+    }
+
+    private class IndexRowPrefixTuple implements IndexRowPrefix {
+        private final Tuple tuple;
+
+        IndexRowPrefixTuple(Tuple t) {
+            this.tuple = t;
         }
 
         /** {@inheritDoc} */
@@ -197,7 +220,7 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
 
         /** {@inheritDoc} */
         @Override
-        public int columnsCount() {
+        public int length() {
             return tuple.columnCount();
         }
     }

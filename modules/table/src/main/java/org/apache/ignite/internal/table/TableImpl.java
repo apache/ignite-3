@@ -145,7 +145,7 @@ public class TableImpl implements Table, StorageRowListener {
     }
 
     @Override
-    public void onRemove(BinaryRow row) {
-        rowLstns.forEach(l -> l.onRemove(row));
+    public void onRemove(BinaryRow row, int partId) {
+        rowLstns.forEach(l -> l.onRemove(row, partId));
     }
 }

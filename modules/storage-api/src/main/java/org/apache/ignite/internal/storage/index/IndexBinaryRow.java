@@ -17,26 +17,17 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.PartitionStorage;
-
 /**
  * Represents an Index Row - a set of indexed columns and Primary Key columns (for key uniqueness).
  */
 public interface IndexBinaryRow {
     /**
-     * Returns the serialized presentation of this row as a byte array.
-     *
-     * @return Serialized byte array value.
+     * Get ByteBuffer slice representing the key chunk.
      */
-    byte[] rowBytes();
+    byte[] keySlice();
 
     /**
-     * Returns the Primary Key that is a part of this row.
-     *
-     * <p>This is a convenience method for easier extraction of the Primary Key to use it for accessing the {@link PartitionStorage}.
-     *
-     * @return Primary key of the associated {@link PartitionStorage}.
+     * Get ByteBuffer slice representing the value chunk.
      */
-    BinaryRow primaryKey();
+    byte[] valueSlice();
 }

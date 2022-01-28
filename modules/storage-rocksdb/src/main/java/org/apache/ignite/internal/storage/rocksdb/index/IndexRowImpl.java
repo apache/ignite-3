@@ -21,31 +21,29 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 
 /**
- * {@link IndexBinaryRow} implementation that uses {@link BinaryRow} serialization.
+ * {@link IndexRow} implementation.
  */
-class IndexRowImpl implements IndexRow, IndexBinaryRow {
-    private final IndexBinaryRow binRow;
+class IndexRowImpl implements IndexRow {
+    private final Row keyRow;
 
-    private final Row row;
+    private final byte[] valBytes;
 
     private final SortedIndexDescriptor desc;
 
     /**
      * Creates index row by index data schema over the bytes.
      *
-     * @param binRow Binary presentation of the index row.
      * @param desc   Index descriptor.
      */
-    IndexRowImpl(IndexBinaryRow binRow, SortedIndexDescriptor desc) {
-        this.binRow = binRow;
+    IndexRowImpl(byte[] keyBytes, byte[] valBytes, SortedIndexDescriptor desc) {
         this.desc = desc;
 
-        row = new Row(desc.schema(), new ByteBufferRow(binRow.rowBytes()));
+        keyRow = new Row(desc.schema(), new ByteBufferRow(keyBytes));
+        this.valBytes = valBytes;
     }
 
     /** {@inheritDoc} */
@@ -55,52 +53,52 @@ class IndexRowImpl implements IndexRow, IndexBinaryRow {
 
         switch (c.type().spec()) {
             case INT8:
-                return row.byteValueBoxed(c.schemaIndex());
+                return keyRow.byteValueBoxed(c.schemaIndex());
 
             case INT16:
-                return row.shortValueBoxed(c.schemaIndex());
+                return keyRow.shortValueBoxed(c.schemaIndex());
 
             case INT32:
-                return row.intValueBoxed(c.schemaIndex());
+                return keyRow.intValueBoxed(c.schemaIndex());
 
             case INT64:
-                return row.longValueBoxed(c.schemaIndex());
+                return keyRow.longValueBoxed(c.schemaIndex());
 
             case FLOAT:
-                return row.floatValueBoxed(c.schemaIndex());
+                return keyRow.floatValueBoxed(c.schemaIndex());
 
             case DOUBLE:
-                return row.doubleValueBoxed(c.schemaIndex());
+                return keyRow.doubleValueBoxed(c.schemaIndex());
 
             case DECIMAL:
-                return row.decimalValue(c.schemaIndex());
+                return keyRow.decimalValue(c.schemaIndex());
 
             case UUID:
-                return row.uuidValue(c.schemaIndex());
+                return keyRow.uuidValue(c.schemaIndex());
 
             case STRING:
-                return row.stringValue(c.schemaIndex());
+                return keyRow.stringValue(c.schemaIndex());
 
             case BYTES:
-                return row.bytesValue(c.schemaIndex());
+                return keyRow.bytesValue(c.schemaIndex());
 
             case BITMASK:
-                return row.bitmaskValue(c.schemaIndex());
+                return keyRow.bitmaskValue(c.schemaIndex());
 
             case NUMBER:
-                return row.numberValue(c.schemaIndex());
+                return keyRow.numberValue(c.schemaIndex());
 
             case DATE:
-                return row.dateValue(c.schemaIndex());
+                return keyRow.dateValue(c.schemaIndex());
 
             case TIME:
-                return row.timeValue(c.schemaIndex());
+                return keyRow.timeValue(c.schemaIndex());
 
             case DATETIME:
-                return row.dateTimeValue(c.schemaIndex());
+                return keyRow.dateTimeValue(c.schemaIndex());
 
             case TIMESTAMP:
-                return row.timestampValue(c.schemaIndex());
+                return keyRow.timestampValue(c.schemaIndex());
 
             default:
                 throw new IllegalStateException("Unexpected value: " + c.type().spec());
@@ -109,19 +107,12 @@ class IndexRowImpl implements IndexRow, IndexBinaryRow {
 
     /** {@inheritDoc} */
     @Override
-    public int columnsCount() {
-        return desc.columns().size();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public byte[] rowBytes() {
-        return binRow.rowBytes();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public BinaryRow primaryKey() {
-        return binRow.primaryKey();
+        return new ByteBufferRow(valBytes);
+    }
+
+    @Override
+    public int partition() {
+        return 0;
     }
 }

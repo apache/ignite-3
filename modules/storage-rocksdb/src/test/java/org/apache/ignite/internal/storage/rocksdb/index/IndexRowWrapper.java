@@ -30,11 +30,10 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
-import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -54,9 +53,9 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
 
     private final SortedIndexDescriptor desc;
 
-    IndexRowWrapper(SortedIndexStorage storage, IndexBinaryRow idxRow, Tuple row) {
+    IndexRowWrapper(SortedIndexStorage storage, IndexRow idxRow, Tuple row) {
         this.desc = storage.indexDescriptor();
-        this.idxRow = new IndexRowImpl(idxRow, desc);
+        this.idxRow = idxRow;
         this.row = row;
     }
 
@@ -74,40 +73,24 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
 
         var primaryKey = new ByteBufferRow(randomBytes(random, 25));
 
-        IndexBinaryRow idxRow = indexStorage.indexRowFactory().createIndexRow(row, primaryKey, 0);
-
-        return new IndexRowWrapper(indexStorage, idxRow, row);
+        return new IndexRowWrapper(indexStorage, new TestIndexRow(row, primaryKey, 0), row);
     }
 
     /**
      * Creates an Index Key prefix of the given length.
      */
-    IndexRow prefix(int length) {
-        return new IndexRow() {
+    IndexRowPrefix prefix(int length) {
+        return new IndexRowPrefix() {
             @Override
             public Object value(int idxColOrder) {
                 return idxRow.value(idxColOrder);
             }
 
             @Override
-            public int columnsCount() {
+            public int length() {
                 return length;
             }
-
-            @Override
-            public byte[] rowBytes() {
-                return idxRow.rowBytes();
-            }
-
-            @Override
-            public BinaryRow primaryKey() {
-                return idxRow.primaryKey();
-            }
         };
-    }
-
-    IndexBinaryRow row() {
-        return idxRow;
     }
 
     @Override
@@ -173,5 +156,12 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
                 .mapToObj(i -> Array.get(array, i))
                 .map(Comparable.class::cast)
                 .toArray(Comparable[]::new);
+    }
+
+    /**
+     * Returns index row.
+     */
+    public IndexRow row() {
+        return idxRow;
     }
 }

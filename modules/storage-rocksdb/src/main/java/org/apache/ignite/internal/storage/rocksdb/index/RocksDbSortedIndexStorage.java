@@ -25,7 +25,8 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowDeserializer;
-import org.apache.ignite.internal.storage.index.IndexRowFactory;
+import org.apache.ignite.internal.storage.index.IndexRowPrefix;
+import org.apache.ignite.internal.storage.index.IndexRowSerializer;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -41,9 +42,9 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
     private final SortedIndexDescriptor descriptor;
 
-    private final IndexRowFactory indexRowFactory;
-
     private final IndexRowDeserializer indexRowDeserializer;
+
+    private final IndexRowSerializer indexRowSerializer;
 
     /**
      * Creates a new Index storage.
@@ -54,8 +55,10 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     public RocksDbSortedIndexStorage(ColumnFamily indexCf, SortedIndexDescriptor descriptor) {
         this.indexCf = indexCf;
         this.descriptor = descriptor;
-        this.indexRowFactory = new BinaryIndexRowFactory(descriptor);
-        this.indexRowDeserializer = new BinaryIndexRowDeserializer(descriptor);
+
+        BinaryIndexRowSerializer serializer = new BinaryIndexRowSerializer(descriptor);
+        this.indexRowSerializer = serializer;
+        this.indexRowDeserializer = serializer;
     }
 
     @Override
@@ -64,38 +67,31 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
-    public IndexRowFactory indexRowFactory() {
-        return indexRowFactory;
-    }
-
-    @Override
-    public IndexRowDeserializer indexRowDeserializer() {
-        return indexRowDeserializer;
-    }
-
-    @Override
-    public void put(IndexBinaryRow row) {
-        assert row.rowBytes().length > 0;
+    public void put(IndexRow row) {
         assert row.primaryKey().bytes().length > 0;
 
         try {
-            indexCf.put(row.rowBytes(), row.primaryKey().bytes());
+            IndexBinaryRow binRow = indexRowSerializer.serialize(row);
+
+            indexCf.put(binRow.keySlice(), binRow.valueSlice());
         } catch (RocksDBException e) {
             throw new StorageException("Error while adding data to Rocks DB", e);
         }
     }
 
     @Override
-    public void remove(IndexBinaryRow key) {
+    public void remove(IndexRow row) {
         try {
-            indexCf.delete(key.rowBytes());
+            IndexBinaryRow binRow = indexRowSerializer.serialize(row);
+
+            indexCf.delete(binRow.keySlice());
         } catch (RocksDBException e) {
             throw new StorageException("Error while removing data from Rocks DB", e);
         }
     }
 
     @Override
-    public Cursor<IndexRow> range(IndexRow low, IndexRow up, Predicate<IndexRow> filter) {
+    public Cursor<IndexRow> range(IndexRowPrefix low, IndexRowPrefix up, Predicate<IndexRow> filter) {
         RocksIterator iter = indexCf.newIterator();
 
         iter.seekToFirst();
@@ -131,7 +127,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
             @Override
             protected IndexRow decodeEntry(byte[] key, byte[] value) {
-                return indexRowDeserializer.row(new IndexBinaryRowImpl(key, value));
+                return indexRowDeserializer.deserialize(new IndexBinaryRowImpl(key, value));
             }
         };
     }

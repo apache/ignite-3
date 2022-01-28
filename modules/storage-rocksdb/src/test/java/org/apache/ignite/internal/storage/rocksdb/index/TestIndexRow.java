@@ -18,23 +18,42 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 import org.apache.ignite.internal.storage.index.IndexRow;
-import org.apache.ignite.internal.storage.index.IndexRowDeserializer;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
+import org.apache.ignite.table.Tuple;
 
 /**
- * {@link IndexRowDeserializer} implementation that uses {@link BinaryRow} infrastructure for deserialization purposes.
+ * Index row for tests.
  */
-class BinaryIndexRowDeserializer implements IndexRowDeserializer {
-    private final SortedIndexDescriptor descriptor;
+public class TestIndexRow implements IndexRow {
+    private final Tuple tuple;
 
-    BinaryIndexRowDeserializer(SortedIndexDescriptor descriptor) {
-        this.descriptor = descriptor;
+    private final BinaryRow pk;
+
+    private final int part;
+
+    /**
+     * Constructor.
+     */
+    public TestIndexRow(Tuple t, BinaryRow pk, int part) {
+        this.tuple = t;
+        this.pk = pk;
+        this.part = part;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BinaryRow primaryKey() {
+        return pk;
     }
 
     @Override
-    public IndexRow row(IndexBinaryRow binRow) {
-        return new IndexRowImpl(binRow, descriptor);
+    public int partition() {
+        return part;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Object value(int idxColOrder) {
+        return tuple.value(idxColOrder);
     }
 }

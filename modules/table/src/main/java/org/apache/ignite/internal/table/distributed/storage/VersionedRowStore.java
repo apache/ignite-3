@@ -185,7 +185,7 @@ public class VersionedRowStore {
         // Write a tombstone.
         storage.write(pack(key, new Value(null, pair.getSecond(), ts)));
 
-        lsnr.onRemove(pair.getSecond());
+        lsnr.onRemove(pair.getSecond(), storage.partitionId());
 
         return true;
     }

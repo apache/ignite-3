@@ -23,7 +23,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.jetbrains.annotations.Nullable;
@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
  */
 class PrefixComparator {
     private final SortedIndexDescriptor descriptor;
-    private final @Nullable IndexRow prefix;
+    private final @Nullable IndexRowPrefix prefix;
 
     /**
      * Creates a new prefix comparator.
@@ -41,8 +41,8 @@ class PrefixComparator {
      * @param descriptor Index Descriptor of the enclosing index.
      * @param prefix Prefix to compare the incoming rows against.
      */
-    PrefixComparator(SortedIndexDescriptor descriptor, IndexRow prefix) {
-        assert descriptor.columns().size() >= prefix.columnsCount();
+    PrefixComparator(SortedIndexDescriptor descriptor, IndexRowPrefix prefix) {
+        assert descriptor.columns().size() >= prefix.length();
 
         this.descriptor = descriptor;
         this.prefix = prefix;
@@ -59,7 +59,7 @@ class PrefixComparator {
     int compare(BinaryRow binaryRow) {
         var row = new Row(descriptor.schema(), binaryRow);
 
-        for (int i = 0; i < prefix.columnsCount(); ++i) {
+        for (int i = 0; i < prefix.length(); ++i) {
             SortedIndexColumnDescriptor columnDescriptor = descriptor.columns().get(i);
 
             int compare = compare(columnDescriptor.column(), row, prefix.value(i));

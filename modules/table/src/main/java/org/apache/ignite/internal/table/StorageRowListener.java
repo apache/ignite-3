@@ -31,7 +31,7 @@ public interface StorageRowListener {
         }
 
         @Override
-        public void onRemove(BinaryRow row) {
+        public void onRemove(BinaryRow row, int partId) {
             // No-op.
         }
     };
@@ -49,5 +49,5 @@ public interface StorageRowListener {
      *
      * @param row Removed row.
      */
-    void onRemove(BinaryRow row);
+    void onRemove(BinaryRow row, int partId);
 }

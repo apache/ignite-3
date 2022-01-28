@@ -19,7 +19,6 @@ package org.apache.ignite.internal.idx;
 
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -400,7 +399,6 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
         List<SortedIndexColumnDescriptor> idxCols = Stream.concat(
                         idxView.columns().namedListKeys().stream(),
                         Arrays.stream(tbl.schemaView().schema().keyColumns().columns())
-                                .sorted(Comparator.comparing(Column::columnOrder))
                                 .map(Column::name)
                 )
                 .distinct()
@@ -408,7 +406,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                     IndexColumnView idxCol = idxView.columns().get(colName);
                     return new SortedIndexColumnDescriptor(
                             cols.get(colName),
-                            new SortedIndexColumnCollation(idxCol != null ? idxCol.asc() : true));
+                            new SortedIndexColumnCollation(idxCol == null || idxCol.asc()));
                 })
                 .collect(Collectors.toList());
 

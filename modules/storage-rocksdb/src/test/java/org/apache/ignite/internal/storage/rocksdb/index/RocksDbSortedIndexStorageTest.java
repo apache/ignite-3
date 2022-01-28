@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.generateRandomValue;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
@@ -39,6 +38,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
@@ -55,6 +55,7 @@ import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -89,24 +90,72 @@ public class RocksDbSortedIndexStorageTest {
      * Definitions of all supported column types.
      */
     private static final List<ColumnDefinition> ALL_TYPES_COLUMN_DEFINITIONS = allTypesColumnDefinitions();
-
+    /**
+     * List of resources that need to be closed at the end of each test.
+     */
+    private final List<AutoCloseable> resources = new ArrayList<>();
     private Random random;
-
     @InjectConfiguration(polymorphicExtensions = {
             HashIndexConfigurationSchema.class,
             SortedIndexConfigurationSchema.class
     })
     private TableConfiguration tableCfg;
-
     /**
      * Table Storage for creating indices.
      */
     private TableStorage tableStorage;
 
+    private static List<ColumnDefinition> allTypesColumnDefinitions() {
+        Stream<ColumnType> allColumnTypes = Stream.of(
+                ColumnType.INT8,
+                ColumnType.INT16,
+                ColumnType.INT32,
+                ColumnType.INT64,
+                ColumnType.FLOAT,
+                ColumnType.DOUBLE,
+                ColumnType.UUID,
+                ColumnType.DATE,
+                ColumnType.bitmaskOf(32),
+                ColumnType.string(),
+                ColumnType.blobOf(),
+                ColumnType.numberOf(),
+                ColumnType.decimalOf(),
+                ColumnType.time(),
+                ColumnType.datetime(),
+                ColumnType.timestamp()
+        );
+
+        return allColumnTypes
+                .map(type -> column(type.typeSpec().name(), type).asNullable(true).build())
+                .collect(toUnmodifiableList());
+    }
+
     /**
-     * List of resources that need to be closed at the end of each test.
+     * Extracts all data from a given cursor and closes it.
      */
-    private final List<AutoCloseable> resources = new ArrayList<>();
+    private static <T> List<T> cursorToList(Cursor<T> cursor) throws Exception {
+        try (cursor) {
+            var list = new ArrayList<T>();
+
+            cursor.forEachRemaining(list::add);
+
+            return list;
+        }
+    }
+
+    /**
+     * Extracts a single value by a given key or {@code null} if it does not exist.
+     */
+    @Nullable
+    private static IndexRow getSingle(SortedIndexStorage indexStorage, IndexRowWrapper entry) throws Exception {
+        IndexRowPrefix fullPrefix = entry.prefix(indexStorage.indexDescriptor().columns().size());
+
+        List<IndexRow> values = cursorToList(indexStorage.range(fullPrefix, fullPrefix, r -> true));
+
+        assertThat(values, anyOf(empty(), hasSize(1)));
+
+        return values.isEmpty() ? null : values.get(0);
+    }
 
     @BeforeEach
     void setUp(@WorkDirectory Path workDir, @InjectConfiguration DataRegionConfiguration dataRegionCfg) {
@@ -159,31 +208,6 @@ public class RocksDbSortedIndexStorageTest {
         assertThat(createTableFuture, willBe(nullValue(Void.class)));
     }
 
-    private static List<ColumnDefinition> allTypesColumnDefinitions() {
-        Stream<ColumnType> allColumnTypes = Stream.of(
-                ColumnType.INT8,
-                ColumnType.INT16,
-                ColumnType.INT32,
-                ColumnType.INT64,
-                ColumnType.FLOAT,
-                ColumnType.DOUBLE,
-                ColumnType.UUID,
-                ColumnType.DATE,
-                ColumnType.bitmaskOf(32),
-                ColumnType.string(),
-                ColumnType.blobOf(),
-                ColumnType.numberOf(),
-                ColumnType.decimalOf(),
-                ColumnType.time(),
-                ColumnType.datetime(),
-                ColumnType.timestamp()
-        );
-
-        return allColumnTypes
-                .map(type -> column(type.typeSpec().name(), type).asNullable(true).build())
-                .collect(toUnmodifiableList());
-    }
-
     @AfterEach
     void tearDown() throws Exception {
         Collections.reverse(resources);
@@ -198,18 +222,20 @@ public class RocksDbSortedIndexStorageTest {
     void testRowSerialization() {
         SortedIndexStorage indexStorage = createIndex(ALL_TYPES_COLUMN_DEFINITIONS);
 
-        Tuple row = Tuple.create();
+        Tuple tuple = Tuple.create();
         indexStorage.indexDescriptor().columns().stream()
                 .sequential()
                 .map(SortedIndexColumnDescriptor::column)
-                .forEach(column -> row.set(column.name(), generateRandomValue(random, column.type())));
+                .forEach(column -> tuple.set(column.name(), generateRandomValue(random, column.type())));
 
-        IndexBinaryRow idxBinRow = indexStorage.indexRowFactory().createIndexRow(row, new ByteBufferRow(new byte[0]), 0);
+        BinaryIndexRowSerializer ser = new BinaryIndexRowSerializer(indexStorage.indexDescriptor());
 
-        IndexRow idxRow = indexStorage.indexRowDeserializer().row(idxBinRow);
+        IndexBinaryRow binRow = ser.serialize(new TestIndexRow(tuple, new ByteBufferRow(new byte[]{(byte) 0}), 0));
 
-        for (int i = 0; i < idxRow.columnsCount(); ++i) {
-            assertThat(row.value(i), is(equalTo(idxRow.value(i))));
+        IndexRow idxRow = ser.deserialize(binRow);
+
+        for (int i = 0; i < indexStorage.indexDescriptor().columns().size(); ++i) {
+            assertThat(tuple.value(i), is(equalTo(idxRow.value(i))));
         }
     }
 
@@ -248,7 +274,7 @@ public class RocksDbSortedIndexStorageTest {
                     return entry;
                 })
                 .sorted()
-                .collect(toList());
+                .collect(Collectors.toList());
 
         int firstIndex = 3;
         int lastIndex = 8;
@@ -257,16 +283,16 @@ public class RocksDbSortedIndexStorageTest {
                 .skip(firstIndex)
                 .limit(lastIndex - firstIndex + 1)
                 .map(e -> e.row().primaryKey().bytes())
-                .collect(toList());
+                .collect(Collectors.toList());
 
-        IndexRow first = entries.get(firstIndex).prefix(3);
-        IndexRow last = entries.get(lastIndex).prefix(5);
+        IndexRowPrefix first = entries.get(firstIndex).prefix(3);
+        IndexRowPrefix last = entries.get(lastIndex).prefix(5);
 
         List<byte[]> actual = cursorToList(indexStorage.range(first, last, r -> true))
                 .stream()
-                .map(IndexBinaryRow::primaryKey)
+                .map(IndexRow::primaryKey)
                 .map(BinaryRow::bytes)
-                .collect(toList());
+                .collect(Collectors.toList());
 
         assertThat(actual, hasSize(lastIndex - firstIndex + 1));
 
@@ -303,36 +329,6 @@ public class RocksDbSortedIndexStorageTest {
         assertThat(actual, is(empty()));
     }
 
-    @ParameterizedTest
-    @VariableSource("ALL_TYPES_COLUMN_DEFINITIONS")
-    void testNullValues(ColumnDefinition columnDefinition) throws Exception {
-        // TODO: disabled temporary
-        //        SortedIndexStorage storage = createIndex(List.of(columnDefinition));
-        //
-        //        IndexRowWrapper entry1 = IndexRowWrapper.randomRow(storage);
-        //
-        //        Object[] nullArray = storage.indexDescriptor().columns().stream()
-        //                .map(columnDescriptor -> columnDescriptor.indexedColumn() ? null : (byte) random.nextInt())
-        //                .toArray();
-        //
-        //        IndexRow nullRow = storage.indexRowFactory().createIndexRow(nullArray, new ByteArraySearchRow(randomBytes(random, 10)));
-        //
-        //        IndexRowWrapper entry2 = new IndexRowWrapper(storage, nullRow, nullArray);
-        //
-        //        storage.put(entry1.row());
-        //        storage.put(entry2.row());
-        //
-        //        if (entry1.compareTo(entry2) > 0) {
-        //            IndexRowWrapper t = entry2;
-        //            entry2 = entry1;
-        //            entry1 = t;
-        //        }
-        //
-        //        List<IndexRow> rows = cursorToList(storage.range(entry1::columns, entry2::columns));
-        //
-        //        assertThat(rows, contains(entry1.row(), entry2.row()));
-    }
-
     private List<ColumnDefinition> shuffledRandomDefinitions() {
         return shuffledDefinitions(d -> random.nextBoolean());
     }
@@ -344,12 +340,12 @@ public class RocksDbSortedIndexStorageTest {
     private List<ColumnDefinition> shuffledDefinitions(Predicate<ColumnDefinition> filter) {
         List<ColumnDefinition> shuffledDefinitions = ALL_TYPES_COLUMN_DEFINITIONS.stream()
                 .filter(filter)
-                .collect(toList());
+                .collect(Collectors.toList());
 
         Collections.shuffle(shuffledDefinitions, random);
 
         if (log.isInfoEnabled()) {
-            List<String> columnNames = shuffledDefinitions.stream().map(ColumnDefinition::name).collect(toList());
+            List<String> columnNames = shuffledDefinitions.stream().map(ColumnDefinition::name).collect(Collectors.toList());
 
             log.info("Creating index with the following column order: " + columnNames);
         }
@@ -404,32 +400,5 @@ public class RocksDbSortedIndexStorageTest {
         }
 
         return tableStorage.createSortedIndex(new SortedIndexDescriptor("foo", cols));
-    }
-
-    /**
-     * Extracts all data from a given cursor and closes it.
-     */
-    private static <T> List<T> cursorToList(Cursor<T> cursor) throws Exception {
-        try (cursor) {
-            var list = new ArrayList<T>();
-
-            cursor.forEachRemaining(list::add);
-
-            return list;
-        }
-    }
-
-    /**
-     * Extracts a single value by a given key or {@code null} if it does not exist.
-     */
-    @Nullable
-    private static IndexBinaryRow getSingle(SortedIndexStorage indexStorage, IndexRowWrapper entry) throws Exception {
-        IndexRow fullPrefix = entry.prefix(indexStorage.indexDescriptor().columns().size());
-
-        List<IndexRow> values = cursorToList(indexStorage.range(fullPrefix, fullPrefix, r -> true));
-
-        assertThat(values, anyOf(empty(), hasSize(1)));
-
-        return values.isEmpty() ? null : values.get(0);
     }
 }

@@ -23,33 +23,30 @@ import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.index.IndexBinaryRow;
 
 /**
- * {@link IndexBinaryRow} implementation that uses {@link BinaryRow} serialization.
+ * Implementation of the {@link IndexBinaryRow}.
  */
 class IndexBinaryRowImpl implements IndexBinaryRow {
     private final byte[] bytes;
 
     private final BinaryRow pk;
 
+    /**
+     * Constructor.
+     */
     IndexBinaryRowImpl(byte[] bytes, byte[] pkBytes) {
         this.bytes = bytes;
         this.pk = new ByteBufferRow(pkBytes);
     }
 
+    /**
+     * Constructor.
+     */
     IndexBinaryRowImpl(BinaryRow row, BinaryRow pk) {
         this.bytes = row.bytes();
         this.pk = pk;
     }
 
-    @Override
-    public byte[] rowBytes() {
-        return bytes;
-    }
-
-    @Override
-    public BinaryRow primaryKey() {
-        return pk;
-    }
-
+    /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -62,8 +59,21 @@ class IndexBinaryRowImpl implements IndexBinaryRow {
         return Arrays.equals(bytes, that.bytes);
     }
 
+    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         return Arrays.hashCode(bytes);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] keySlice() {
+        return bytes;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] valueSlice() {
+        return pk.bytes();
     }
 }

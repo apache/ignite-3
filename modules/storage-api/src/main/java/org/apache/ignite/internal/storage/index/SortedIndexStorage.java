@@ -36,28 +36,18 @@ public interface SortedIndexStorage extends AutoCloseable {
     SortedIndexDescriptor indexDescriptor();
 
     /**
-     * Returns a factory for creating index rows for this storage.
-     */
-    IndexRowFactory indexRowFactory();
-
-    /**
-     * Returns a class deserializing index columns.
-     */
-    IndexRowDeserializer indexRowDeserializer();
-
-    /**
      * Adds the given index key and {@link SearchRow} to the index.
      *
      * <p>Putting a new value under the same key will overwrite the previous associated value.
      */
-    void put(IndexBinaryRow row);
+    void put(IndexRow row);
 
     /**
      * Removes the given key from the index.
      *
      * <p>Removing a non-existent key is a no-op.
      */
-    void remove(IndexBinaryRow row);
+    void remove(IndexRow row);
 
     /**
      * Returns a range of index values between the lower bound (inclusive) and the upper bound (inclusive).
@@ -66,8 +56,7 @@ public interface SortedIndexStorage extends AutoCloseable {
      * @param up Upper bound of the range to scan.
      * @param filter Row filter. Basically it is used to filter by partition number.
      */
-    // TODO: add options https://issues.apache.org/jira/browse/IGNITE-16059
-    Cursor<IndexRow> range(IndexRow low, IndexRow up, Predicate<IndexRow> filter);
+    Cursor<IndexRow> range(IndexRowPrefix low, IndexRowPrefix up, Predicate<IndexRow> filter);
 
     /**
      * Removes all data in this index and frees the associated resources.
