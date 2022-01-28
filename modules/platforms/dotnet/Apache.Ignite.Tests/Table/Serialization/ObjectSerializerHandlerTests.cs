@@ -48,16 +48,46 @@ namespace Apache.Ignite.Tests.Table.Serialization
 
             Assert.AreEqual(1234, reader.ReadInt32());
             Assert.AreEqual("foo", reader.ReadString());
+            Assert.IsTrue(reader.End);
+        }
+
+        [Test]
+        public void TestWritePocoTypeKeyOnly()
+        {
+            var reader = WriteAndGetReader(keyOnly: true);
+
+            Assert.AreEqual(1234, reader.ReadInt32());
+            Assert.IsTrue(reader.End);
         }
 
         [Test]
         public void TestReadPocoType()
         {
             var reader = WriteAndGetReader();
-            var handler = new ObjectSerializerHandler<Poco>();
-            var resPoco = handler.Read(ref reader, Schema);
+            var resPoco = new ObjectSerializerHandler<Poco>().Read(ref reader, Schema);
 
             Assert.AreEqual(1234, resPoco.Key);
+            Assert.AreEqual("foo", resPoco.Val);
+        }
+
+        [Test]
+        public void TestReadPocoTypeKeyOnly()
+        {
+            var reader = WriteAndGetReader();
+            var resPoco = new ObjectSerializerHandler<Poco>().Read(ref reader, Schema, keyOnly: true);
+
+            Assert.AreEqual(1234, resPoco.Key);
+            Assert.IsNull(resPoco.Val);
+        }
+
+        [Test]
+        public void TestReadPocoTypeValuePart()
+        {
+            var reader = WriteAndGetReader();
+            reader.Skip(); // Skip key.
+            var resPoco = new ObjectSerializerHandler<Poco>().ReadValuePart(ref reader, Schema, new Poco{Key = 4321});
+
+            Assert.AreEqual(4321, resPoco.Key);
             Assert.AreEqual("foo", resPoco.Val);
         }
 
@@ -96,15 +126,15 @@ namespace Apache.Ignite.Tests.Table.Serialization
             Assert.Fail("TODO");
         }
 
-        private static MessagePackReader WriteAndGetReader()
+        private static MessagePackReader WriteAndGetReader(bool keyOnly = false)
         {
-            var pooledWriter = Write(new Poco { Key = 1234, Val = "foo" });
+            var pooledWriter = Write(new Poco { Key = 1234, Val = "foo" }, keyOnly);
 
             var resMem = pooledWriter.GetWrittenMemory()[4..]; // Skip length header.
             return new MessagePackReader(resMem);
         }
 
-        private static PooledArrayBufferWriter Write<T>(T obj)
+        private static PooledArrayBufferWriter Write<T>(T obj, bool keyOnly = false)
             where T : class
         {
             var handler = new ObjectSerializerHandler<T>();
@@ -112,7 +142,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
             using var pooledWriter = new PooledArrayBufferWriter();
             var writer = pooledWriter.GetMessageWriter();
 
-            handler.Write(ref writer, Schema, obj);
+            handler.Write(ref writer, Schema, obj, keyOnly);
             writer.Flush();
             return pooledWriter;
         }
