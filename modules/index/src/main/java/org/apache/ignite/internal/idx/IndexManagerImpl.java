@@ -121,7 +121,10 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
                         if (!busyLock.enterBusy()) {
                             fireEvent(IndexEvent.CREATE,
-                                    new IndexEventParameters(idxName, tblName),
+                                    new IndexEventParameters(
+                                            idxName,
+                                            IgniteUuid.fromString(((ExtendedTableConfiguration) tbl).id().value()),
+                                            tblName),
                                     new NodeStoppingException());
 
                             return CompletableFuture.completedFuture(new NodeStoppingException());
@@ -129,7 +132,14 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                         try {
                             onIndexCreate(ctx);
                         } catch (Exception e) {
-                            fireEvent(IndexEvent.CREATE, new IndexEventParameters(idxName, tblName), e);
+                            fireEvent(
+                                    IndexEvent.CREATE,
+                                    new IndexEventParameters(
+                                            idxName,
+                                            IgniteUuid.fromString(((ExtendedTableConfiguration) tbl).id().value()),
+                                            tblName),
+                                    e
+                            );
 
                             LOG.error("Internal error, index creation failed [name={}, table={}]", e, idxName, tblName);
 
@@ -156,7 +166,11 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
                         if (!busyLock.enterBusy()) {
                             fireEvent(IndexEvent.DROP,
-                                    new IndexEventParameters(idxName, tblName),
+                                    new IndexEventParameters(
+                                            idxName,
+                                            IgniteUuid.fromString(((ExtendedTableConfiguration) tbl).id().value()),
+                                            tblName
+                                    ),
                                     new NodeStoppingException());
 
                             return CompletableFuture.completedFuture(new NodeStoppingException());
@@ -188,7 +202,11 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
         idx.drop();
 
-        fireEvent(IndexEvent.DROP, new IndexEventParameters(idx.name(), tblName), null);
+        fireEvent(IndexEvent.DROP, new IndexEventParameters(
+                idx.name(),
+                IgniteUuid.fromString(((ExtendedTableConfiguration) tbl).id().value()),
+                tblName
+        ), null);
     }
 
     private void onIndexCreate(ConfigurationNotificationEvent<TableIndexView> ctx) throws NodeStoppingException {

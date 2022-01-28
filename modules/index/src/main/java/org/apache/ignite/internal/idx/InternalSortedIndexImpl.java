@@ -37,6 +37,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableRow;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -74,6 +75,12 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
     @Override
     public String tableName() {
         return tbl.name();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteUuid tableId() {
+        return tbl.tableId();
     }
 
     /** {@inheritDoc} */

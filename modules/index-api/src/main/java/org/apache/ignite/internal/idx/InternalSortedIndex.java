@@ -21,6 +21,7 @@ import java.util.BitSet;
 import java.util.List;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.Tuple;
 
 /**
@@ -52,6 +53,13 @@ public interface InternalSortedIndex {
      * @return Indexed table.
      */
     String tableName();
+
+    /**
+     * Return indexed table.
+     *
+     * @return Indexed table identifier.
+     */
+    IgniteUuid tableId();
 
     /**
      * Return indexed columns.

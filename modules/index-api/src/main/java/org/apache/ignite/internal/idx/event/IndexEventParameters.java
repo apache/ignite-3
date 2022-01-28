@@ -19,6 +19,7 @@ package org.apache.ignite.internal.idx.event;
 
 import org.apache.ignite.internal.idx.InternalSortedIndex;
 import org.apache.ignite.internal.manager.EventParameters;
+import org.apache.ignite.lang.IgniteUuid;
 
 /**
  * Table event parameters. There are properties which associate with a concrete table.
@@ -26,6 +27,9 @@ import org.apache.ignite.internal.manager.EventParameters;
 public class IndexEventParameters implements EventParameters {
     /** Index name. */
     private final String idxName;
+
+    /** Indexed table identifier. */
+    private final IgniteUuid tblId;
 
     /** Indexed table name. */
     private final String tblName;
@@ -36,10 +40,10 @@ public class IndexEventParameters implements EventParameters {
     /**
      * Constructor.
      *
-     * @param idx     Index instance.
+     * @param idx Index instance.
      */
     public IndexEventParameters(InternalSortedIndex idx) {
-        this(idx.name(), idx.tableName(), idx);
+        this(idx.name(), idx.tableId(), idx.tableName(), idx);
     }
 
 
@@ -47,22 +51,25 @@ public class IndexEventParameters implements EventParameters {
      * Constructor.
      *
      * @param idxName Index name.
-     * @param tbl     Table instance.
+     * @param tblId   Table identifier.
+     * @param tblName Table name.
      */
-    public IndexEventParameters(String idxName, String tbl) {
-        this(idxName, tbl, null);
+    public IndexEventParameters(String idxName, IgniteUuid tblId, String tblName) {
+        this(idxName, tblId,  tblName, null);
     }
 
     /**
      * Constructor.
      *
      * @param idxName Index name.
-     * @param tbl     Table instance.
+     * @param tblId   Table identifier.
+     * @param tblName Table name.
      * @param idx     Index.
      */
-    private IndexEventParameters(String idxName, String tbl, InternalSortedIndex idx) {
+    private IndexEventParameters(String idxName, IgniteUuid tblId, String tblName, InternalSortedIndex idx) {
         this.idxName = idxName;
-        this.tblName = tbl;
+        this.tblName = tblName;
+        this.tblId = tblId;
         this.idx = idx;
     }
 
