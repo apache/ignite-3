@@ -54,12 +54,12 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [Test]
         public void TestWriteUnsigned()
         {
-            var pooledWriter = Write(new UnsignedPoco(1234, "foo"));
+            var pooledWriter = Write(new UnsignedPoco(ulong.MaxValue, "foo"));
 
             var resMem = pooledWriter.GetWrittenMemory()[4..]; // Skip length header.
             var reader = new MessagePackReader(resMem);
 
-            Assert.AreEqual(1234, reader.ReadInt32());
+            Assert.AreEqual(ulong.MaxValue, reader.ReadUInt64());
             Assert.AreEqual("foo", reader.ReadString());
             Assert.IsTrue(reader.End);
         }
