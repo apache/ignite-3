@@ -51,7 +51,10 @@ namespace Apache.Ignite.Tests.Table
             var table = await Client.Tables.GetTableAsync(TableName);
             var table2 = await Client.Tables.GetTableAsync(TableName);
 
+            // Tables and views are cached to avoid extra allocations and serializer handler initializations.
             Assert.AreSame(table, table2);
+            Assert.AreSame(table!.RecordBinaryView, table2!.RecordBinaryView);
+            Assert.AreSame(table.GetRecordView<Poco>(), table2.GetRecordView<Poco>());
         }
 
         [Test]
