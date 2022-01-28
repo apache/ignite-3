@@ -110,12 +110,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     il.Emit(OpCodes.Ldfld, fieldInfo);
 
                     var writeMethod = MessagePackMethods.GetWriteMethod(fieldInfo.FieldType);
-
-                    if (fieldInfo.FieldType.IsValueType && writeMethod == MessagePackMethods.WriteObject)
-                    {
-                        il.Emit(OpCodes.Box, fieldInfo.FieldType);
-                    }
-
                     il.Emit(OpCodes.Call, writeMethod);
                 }
             }
@@ -260,6 +254,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private static void ValidateFieldType(FieldInfo fieldInfo, Column column)
         {
+            // TODO: Check unsigned variants.
             var columnType = column.Type.ToType();
             var fieldType = fieldInfo.FieldType;
 

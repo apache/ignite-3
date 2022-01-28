@@ -46,12 +46,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static readonly MethodInfo Skip =
             typeof(MessagePackReaderExtensions).GetMethod(nameof(MessagePackReaderExtensions.Skip))!;
 
-        /// <summary>
-        /// Object (catch all) writer.
-        /// </summary>
-        public static readonly MethodInfo WriteObject =
-            typeof(MessagePackWriterExtensions).GetMethod(nameof(MessagePackWriterExtensions.WriteObject))!;
-
         private static readonly IReadOnlyDictionary<Type, MethodInfo> WriteMethods = new Dictionary<Type, MethodInfo>
         {
             { typeof(string), GetWriteMethod<string>() },
@@ -88,7 +82,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static MethodInfo GetWriteMethod(Type valueType) =>
             WriteMethods.TryGetValue(valueType, out var method)
                 ? method
-                : WriteObject;
+                : throw new IgniteClientException("Unsupported type: " + valueType);
 
         /// <summary>
         /// Gets the read method.
@@ -98,7 +92,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static MethodInfo GetReadMethod(Type valueType) =>
             ReadMethods.TryGetValue(valueType, out var method)
                 ? method
-                : null!; // TODO: match on schema type
+                : throw new IgniteClientException("Unsupported type: " + valueType);
 
         private static MethodInfo GetWriteMethod<TArg>()
         {
