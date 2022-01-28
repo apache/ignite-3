@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-#pragma warning disable CA1812
 namespace Apache.Ignite.Tests.Table.Serialization
 {
     using System;
@@ -31,6 +30,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
     /// </summary>
     public class ObjectSerializerHandlerTests
     {
+        // ReSharper disable NotAccessedPositionalProperty.Local
         private record BadPoco(Guid Key, DateTimeOffset Val);
 
         private static readonly Schema Schema = new(1, 1, new[]
