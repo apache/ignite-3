@@ -30,9 +30,7 @@ import org.junit.jupiter.api.Test;
  * Test SQL data types.
  */
 public class ItDataTypesTest extends AbstractBasicIntegrationTest {
-    /**
-     * Before all.
-     */
+    /** Tests correctness with unicode. */
     @Test
     public void testUnicodeStrings() {
         sql("CREATE TABLE string_table(key int primary key, val varchar)");
