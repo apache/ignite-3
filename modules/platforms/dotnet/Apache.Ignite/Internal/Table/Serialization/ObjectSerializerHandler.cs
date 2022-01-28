@@ -31,9 +31,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
     internal class ObjectSerializerHandler<T> : IRecordSerializerHandler<T>
         where T : class
     {
-        private readonly ConcurrentDictionary<int, WriteDelegate<T>> _writers = new();
+        private readonly ConcurrentDictionary<(int, bool), WriteDelegate<T>> _writers = new();
 
-        private readonly ConcurrentDictionary<int, ReadDelegate<T>> _readers = new();
+        private readonly ConcurrentDictionary<(int, bool), ReadDelegate<T>> _readers = new();
 
         private delegate void WriteDelegate<in TV>(ref MessagePackWriter writer, TV value);
 
@@ -44,9 +44,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <inheritdoc/>
         public T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
         {
-            var readDelegate = _readers.TryGetValue(schema.Version, out var w)
+            var cacheKey = (schema.Version, keyOnly);
+
+            var readDelegate = _readers.TryGetValue(cacheKey, out var w)
                 ? w
-                : _readers.GetOrAdd(schema.Version, EmitReader(schema, keyOnly));
+                : _readers.GetOrAdd(cacheKey, EmitReader(schema, keyOnly));
 
             return readDelegate(ref reader);
         }
@@ -99,9 +101,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <inheritdoc/>
         public void Write(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false)
         {
-            var writeDelegate = _writers.TryGetValue(schema.Version, out var w)
+            var cacheKey = (schema.Version, keyOnly);
+
+            var writeDelegate = _writers.TryGetValue(cacheKey, out var w)
                 ? w
-                : _writers.GetOrAdd(schema.Version, EmitWriter(schema, keyOnly));
+                : _writers.GetOrAdd(cacheKey, EmitWriter(schema, keyOnly));
 
             writeDelegate(ref writer, record);
         }
