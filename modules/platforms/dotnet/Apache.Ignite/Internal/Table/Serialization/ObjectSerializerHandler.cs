@@ -235,15 +235,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private static void ValidateFieldType(FieldInfo fieldInfo, Column column)
         {
-            // TODO: Check unsigned variants.
-            var columnType = column.Type.ToType();
+            var (columnTypePrimary, columnTypeAlternative) = column.Type.ToType();
             var fieldType = fieldInfo.FieldType;
 
-            if (columnType != fieldType)
+            if (fieldType != columnTypePrimary && fieldType != columnTypeAlternative)
             {
                 throw new IgniteClientException(
                     $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldType}' " +
-                    $"to column '{column.Name}' of type '{columnType}' - types do not match.");
+                    $"to column '{column.Name}' of type '{columnTypePrimary}' - types do not match.");
             }
         }
     }

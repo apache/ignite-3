@@ -59,7 +59,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(long), GetWriteMethod<long>() },
             { typeof(ulong), GetWriteMethod<ulong>() },
             { typeof(float), GetWriteMethod<float>() },
-            { typeof(decimal), GetWriteMethod<decimal>() },
             { typeof(Guid), GetWriteMethod<Guid>() },
         };
 
@@ -75,7 +74,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(long), GetReadMethod<long>() },
             { typeof(ulong), GetReadMethod<ulong>() },
             { typeof(float), GetReadMethod<float>() },
-            { typeof(decimal), GetReadMethod<decimal>() },
             { typeof(Guid), GetReadMethod<Guid>() },
         };
 
