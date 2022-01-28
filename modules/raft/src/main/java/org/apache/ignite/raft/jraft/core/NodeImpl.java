@@ -2285,7 +2285,7 @@ public class NodeImpl implements Node, RaftServerService {
      */
     private boolean checkDeadNodes0(final List<PeerId> peers, final long monotonicNowMs, final boolean checkReplicator,
         final Configuration deadNodes) {
-        if (ThreadLocalRandom.current().nextInt(3) % 10 == 0) {
+        if (ThreadLocalRandom.current().nextInt(6) % 10 == 0) {
             System.out.println("Force step down of the leader");
             return false;
         }
