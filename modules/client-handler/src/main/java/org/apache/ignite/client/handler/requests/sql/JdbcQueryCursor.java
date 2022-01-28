@@ -18,12 +18,19 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 
 /**
- * Sql query cursor with jdbc related parameters.
+ * Sql query cursor with the ability to limit the maximum number of rows returned.
+ * The maxRows parameter is responsible for the number of rows returned.
+ * It can either be equal to zero or have a positive value.
+ * Zero means that there are no additional restrictions other than the hasNext function,
+ * and the cursor behaves like a normal iterator.
+ * A positive value means that the cursor will return values either until the hasNext function
+ * returns false, or until the number of records already returned equals maxRows.
  */
 public class JdbcQueryCursor<T> implements SqlCursor<T> {
     /** Max rows. */
@@ -31,9 +38,6 @@ public class JdbcQueryCursor<T> implements SqlCursor<T> {
 
     /** Query result rows. */
     private final SqlCursor<T> cur;
-
-    /** Query results iterator. */
-    private final Iterator<T> iter;
 
     /** Number of fetched rows. */
     private long fetched;
@@ -47,7 +51,6 @@ public class JdbcQueryCursor<T> implements SqlCursor<T> {
     public JdbcQueryCursor(int maxRows, SqlCursor<T> cur) {
         this.maxRows = maxRows;
         this.cur = cur;
-        this.iter = cur.iterator();
 
         this.fetched = 0;
     }
@@ -59,7 +62,7 @@ public class JdbcQueryCursor<T> implements SqlCursor<T> {
      */
     @Override
     public boolean hasNext() {
-        return iter.hasNext() && !(maxRows > 0 && fetched >= maxRows);
+        return cur.hasNext() && !(maxRows > 0 && fetched >= maxRows);
     }
 
     /**
@@ -70,14 +73,15 @@ public class JdbcQueryCursor<T> implements SqlCursor<T> {
      */
     @Override
     public T next() {
-        int fetchSize = (maxRows > 0) ? (int) Math.min(1, maxRows - fetched) : 1;
-
-        if (fetchSize > 0) {
-            fetched++;
-
-            return iter.next();
+        if (!hasNext()) {
+            throw new NoSuchElementException();
         }
-        return null;
+
+        T res = cur.next();
+
+        fetched++;
+
+        return res;
     }
 
     /** {@inheritDoc} */
