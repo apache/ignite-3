@@ -94,10 +94,6 @@ public class PartitionListener implements RaftGroupListener {
     /** Transaction manager. */
     private final TxManager txManager;
 
-    private Map<IgniteUuid, AtomicInteger> batchCounters = new ConcurrentHashMap<>();
-
-    //AtomicInteger internalBatchCounter = new AtomicInteger(0);
-
     /**
      * The constructor.
      *
@@ -446,11 +442,11 @@ public class PartitionListener implements RaftGroupListener {
                     cursorId,
                     new CursorMeta(
                             cursor,
-                            rangeCmd.requesterNodeId()
+                            rangeCmd.requesterNodeId(),
+                            new AtomicInteger(0)
                     )
             );
 
-            batchCounters.put(cursorId, new AtomicInteger(0));
         } catch (StorageException e) {
             clo.result(e);
         }
@@ -464,14 +460,6 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleScanRetrieveBatchCommand(CommandClosure<ScanRetrieveBatchCommand> clo) {
-
-        AtomicInteger internalBatchCounter = batchCounters.get(clo.command().scanId());
-        System.out.println("internalBatchCounter = " + internalBatchCounter.get() + " clo.command().getCounter() = " + clo.command().getCounter());
-
-        if (internalBatchCounter.getAndSet(clo.command().getCounter()) != clo.command().getCounter() - 1) {
-            throw new IllegalStateException("Counters not match");
-        }
-
         CursorMeta cursorDesc = cursors.get(clo.command().scanId());
 
         if (cursorDesc == null) {
@@ -479,6 +467,13 @@ public class PartitionListener implements RaftGroupListener {
                     "Cursor with id={} is not found on server side.", clo.command().scanId())));
 
             return;
+        }
+
+        AtomicInteger internalBatchCounter = cursorDesc.batchCounter();
+        LOG.info("internalBatchCounter = " + internalBatchCounter.get() + " clo.command().getCounter() = " + clo.command().getCounter());
+
+        if (internalBatchCounter.getAndSet(clo.command().getCounter()) != clo.command().getCounter() - 1) {
+            throw new IllegalStateException("Counters not match");
         }
 
         List<BinaryRow> res = new ArrayList<>();
@@ -506,8 +501,6 @@ public class PartitionListener implements RaftGroupListener {
      */
     private void handleScanCloseCommand(CommandClosure<ScanCloseCommand> clo) {
         CursorMeta cursorDesc = cursors.remove(clo.command().scanId());
-
-        batchCounters.remove(clo.command().scanId());
 
         if (cursorDesc == null) {
             clo.result(null);
@@ -613,15 +606,18 @@ public class PartitionListener implements RaftGroupListener {
         /** Id of the node that creates cursor. */
         private final String requesterNodeId;
 
+        private final AtomicInteger batchCounter;
+
         /**
          * The constructor.
          *
          * @param cursor          The cursor.
          * @param requesterNodeId Id of the node that creates cursor.
          */
-        CursorMeta(Cursor<BinaryRow> cursor, String requesterNodeId) {
+        CursorMeta(Cursor<BinaryRow> cursor, String requesterNodeId, AtomicInteger batchCounter) {
             this.cursor = cursor;
             this.requesterNodeId = requesterNodeId;
+            this.batchCounter = batchCounter;
         }
 
         /** Returns cursor. */
@@ -632,6 +628,10 @@ public class PartitionListener implements RaftGroupListener {
         /** Returns id of the node that creates cursor. */
         public String requesterNodeId() {
             return requesterNodeId;
+        }
+
+        public AtomicInteger batchCounter() {
+            return batchCounter;
         }
     }
 }

@@ -2338,10 +2338,6 @@ public class NodeImpl implements Node, RaftServerService {
      */
     private boolean checkDeadNodes0(final List<PeerId> peers, final long monotonicNowMs, final boolean checkReplicator,
         final Configuration deadNodes) {
-        if (ThreadLocalRandom.current().nextInt(6) % 10 == 0) {
-            System.out.println("Force step down of the leader");
-            return false;
-        }
         final int leaderLeaseTimeoutMs = this.options.getLeaderLeaseTimeoutMs();
         int aliveCount = 0;
         long startLease = Long.MAX_VALUE;
@@ -2390,30 +2386,30 @@ public class NodeImpl implements Node, RaftServerService {
 
     @SuppressWarnings({"LoopStatementThatDoesntLoop", "ConstantConditions"})
     private void handleStepDownTimeout() {
-//        do {
-//            this.readLock.lock();
-//            try {
-//                if (this.state.compareTo(State.STATE_TRANSFERRING) > 0) {
-//                    LOG.debug("Node {} stop step-down timer, term={}, state={}.", getNodeId(), this.currTerm,
-//                        this.state);
-//                    return;
-//                }
-//                final long monotonicNowMs = Utils.monotonicMs();
-//                if (!checkDeadNodes(this.conf.getConf(), monotonicNowMs, false)) {
-//                    break;
-//                }
-//                if (!this.conf.getOldConf().isEmpty()) {
-//                    if (!checkDeadNodes(this.conf.getOldConf(), monotonicNowMs, false)) {
-//                        break;
-//                    }
-//                }
-//                return;
-//            }
-//            finally {
-//                this.readLock.unlock();
-//            }
-//        }
-//        while (false);
+        do {
+            this.readLock.lock();
+            try {
+                if (this.state.compareTo(State.STATE_TRANSFERRING) > 0) {
+                    LOG.debug("Node {} stop step-down timer, term={}, state={}.", getNodeId(), this.currTerm,
+                        this.state);
+                    return;
+                }
+                final long monotonicNowMs = Utils.monotonicMs();
+                if (!checkDeadNodes(this.conf.getConf(), monotonicNowMs, false)) {
+                    break;
+                }
+                if (!this.conf.getOldConf().isEmpty()) {
+                    if (!checkDeadNodes(this.conf.getOldConf(), monotonicNowMs, false)) {
+                        break;
+                    }
+                }
+                return;
+            }
+            finally {
+                this.readLock.unlock();
+            }
+        }
+        while (false);
 
         this.writeLock.lock();
         try {

@@ -120,13 +120,6 @@ public class MessageServiceImpl implements MessageService {
     }
 
     protected void onMessage(String nodeId, NetworkMessage msg) {
-//        if (ThreadLocalRandom.current().nextInt(3) % 2 == 0) {
-//            try {
-//                Thread.sleep(300);
-//            } catch (Exception ex) {
-//                ex.printStackTrace();
-//            }
-//        }
         if (msg instanceof ExecutionContextAwareMessage) {
             ExecutionContextAwareMessage msg0 = (ExecutionContextAwareMessage) msg;
             taskExecutor.execute(msg0.queryId(), msg0.fragmentId(), () -> onMessageInternal(nodeId, msg));
