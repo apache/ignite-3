@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -1048,9 +1049,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @see DirectConfigurationProperty
      */
     private IgniteUuid directTableId(String tblName) {
-        ExtendedTableView view = (ExtendedTableView) directProxy(tablesCfg.tables()).value().get(tblName);
+        try {
+            String id = ((ExtendedTableConfiguration) directProxy(tablesCfg.tables()).get(tblName)).id().value();
 
-        return view == null ? null : IgniteUuid.fromString(view.id());
+            return IgniteUuid.fromString(id);
+        } catch (NoSuchElementException e) {
+            return null;
+        }
     }
 
     /**
