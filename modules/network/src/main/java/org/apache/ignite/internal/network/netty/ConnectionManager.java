@@ -30,8 +30,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
@@ -39,11 +37,11 @@ import java.util.stream.Stream;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.configuration.schemas.network.OutboundView;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
+import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -69,11 +67,11 @@ public class ConnectionManager {
     /** Clients. */
     private final Map<SocketAddress, NettyClient> clients = new ConcurrentHashMap<>();
 
-    /** Serialization registry. */
-    private final MessageSerializationRegistry serializationRegistry;
+    /** Serialization service. */
+    private final SerializationService serializationService;
 
     /** Message listeners. */
-    private final List<BiConsumer<SocketAddress, NetworkMessage>> listeners = new CopyOnWriteArrayList<>();
+    private final List<BiConsumer<String, NetworkMessage>> listeners = new CopyOnWriteArrayList<>();
 
     /** Node consistent id. */
     private final String consistentId;
@@ -91,7 +89,7 @@ public class ConnectionManager {
      * Constructor.
      *
      * @param networkConfiguration          Network configuration.
-     * @param registry                      Serialization registry.
+     * @param serializationService          Serialization service.
      * @param consistentId                  Consistent id of this node.
      * @param serverHandshakeManagerFactory Server handshake manager factory.
      * @param clientHandshakeManagerFactory Client handshake manager factory.
@@ -99,23 +97,22 @@ public class ConnectionManager {
      */
     public ConnectionManager(
             NetworkView networkConfiguration,
-            MessageSerializationRegistry registry,
+            SerializationService serializationService,
             String consistentId,
             Supplier<HandshakeManager> serverHandshakeManagerFactory,
             Supplier<HandshakeManager> clientHandshakeManagerFactory,
             NettyBootstrapFactory bootstrapFactory
     ) {
-        this.serializationRegistry = registry;
+        this.serializationService = serializationService;
         this.consistentId = consistentId;
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
 
         this.server = new NettyServer(
-                consistentId,
                 networkConfiguration,
                 serverHandshakeManagerFactory,
                 this::onNewIncomingChannel,
                 this::onMessage,
-                serializationRegistry,
+                serializationService,
                 bootstrapFactory
         );
 
@@ -139,17 +136,15 @@ public class ConnectionManager {
                 throw new IgniteInternalException("Attempted to start an already stopped connection manager");
             }
 
-            //TODO: timeout value should be extracted into common configuration
-            // https://issues.apache.org/jira/browse/IGNITE-14538
-            server.start().get(3, TimeUnit.SECONDS);
+            server.start().get();
 
             LOG.info("Connection created [address=" + server.address() + ']');
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
             throw new IgniteInternalException("Failed to start the connection manager: " + cause.getMessage(), cause);
-        } catch (TimeoutException e) {
-            throw new IgniteInternalException("Timeout while waiting for the connection manager to start", e);
         } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
             throw new IgniteInternalException("Interrupted while starting the connection manager", e);
         }
     }
@@ -202,11 +197,11 @@ public class ConnectionManager {
     /**
      * Callback that is called upon receiving a new message.
      *
-     * @param from    Source of the message.
+     * @param consistentId Consistent id of the message's sender.
      * @param message New message.
      */
-    private void onMessage(SocketAddress from, NetworkMessage message) {
-        listeners.forEach(consumer -> consumer.accept(from, message));
+    private void onMessage(String consistentId, NetworkMessage message) {
+        listeners.forEach(consumer -> consumer.accept(consistentId, message));
     }
 
     /**
@@ -227,7 +222,7 @@ public class ConnectionManager {
     private NettyClient connect(SocketAddress address) {
         var client = new NettyClient(
                 address,
-                serializationRegistry,
+                serializationService,
                 clientHandshakeManagerFactory.get(),
                 this::onMessage
         );
@@ -248,7 +243,7 @@ public class ConnectionManager {
      *
      * @param listener Message listener.
      */
-    public void addListener(BiConsumer<SocketAddress, NetworkMessage> listener) {
+    public void addListener(BiConsumer<String, NetworkMessage> listener) {
         listeners.add(listener);
     }
 
@@ -274,6 +269,15 @@ public class ConnectionManager {
         } catch (Exception e) {
             LOG.warn("Failed to stop the ConnectionManager: {}", e.getMessage());
         }
+    }
+
+    /**
+     * Returns {@code true} if the connection manager is stopped or is being stopped, {@code false} otherwise.
+     *
+     * @return {@code true} if the connection manager is stopped or is being stopped, {@code false} otherwise.
+     */
+    public boolean isStopped() {
+        return stopped.get();
     }
 
     /**

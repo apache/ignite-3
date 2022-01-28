@@ -17,13 +17,14 @@
 
 namespace Apache.Ignite.Table
 {
+    using System;
     using System.Collections.Generic;
     using System.Text;
 
     /// <summary>
     /// Ignite tuple.
     /// </summary>
-    public sealed class IgniteTuple : IIgniteTuple
+    public sealed class IgniteTuple : IIgniteTuple, IEquatable<IgniteTuple>
     {
         /** Key-value pairs. */
         private readonly List<(string Key, object? Value)> _pairs;
@@ -54,9 +55,11 @@ namespace Apache.Ignite.Table
         /// <inheritdoc/>
         public object? this[string name]
         {
-            get => _pairs[_indexes[name]].Value;
+            get => _pairs[_indexes[ParseName(name)]].Value;
             set
             {
+                name = ParseName(name);
+
                 var pair = (name, value);
 
                 if (_indexes.TryGetValue(name, out var index))
@@ -76,7 +79,7 @@ namespace Apache.Ignite.Table
         public string GetName(int ordinal) => _pairs[ordinal].Key;
 
         /// <inheritdoc/>
-        public int GetOrdinal(string name) => _indexes.TryGetValue(name, out var index) ? index : -1;
+        public int GetOrdinal(string name) => _indexes.TryGetValue(ParseName(name), out var index) ? index : -1;
 
         /// <inheritdoc />
         public override string ToString()
@@ -98,6 +101,39 @@ namespace Apache.Ignite.Table
             sb.Append(']');
 
             return sb.ToString();
+        }
+
+        /// <inheritdoc />
+        public bool Equals(IgniteTuple other)
+        {
+            return IIgniteTuple.Equals(this, other);
+        }
+
+        /// <inheritdoc />
+        public override bool Equals(object? obj)
+        {
+            return obj is IgniteTuple other && Equals(other);
+        }
+
+        /// <inheritdoc />
+        public override int GetHashCode()
+        {
+            return IIgniteTuple.GetHashCode(this);
+        }
+
+        private static string ParseName(string str)
+        {
+            if (string.IsNullOrEmpty(str))
+            {
+                throw new IgniteClientException("Column name can not be null or empty.");
+            }
+
+            if (str.Length > 2 && str.StartsWith('"') && str.EndsWith('"'))
+            {
+                return str.Substring(1, str.Length - 2);
+            }
+
+            return str.ToUpperInvariant();
         }
     }
 }

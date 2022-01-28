@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.lang.LoggerMessageHelper;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -102,7 +102,7 @@ public class RaftServerImpl implements RaftServer {
                         CliRequests.GetLeaderResponse resp = clientMsgFactory.getLeaderResponse()
                                 .leaderId(PeerId.fromPeer(localPeer).toString()).build();
 
-                        service.messagingService().send(senderAddr, resp, correlationId);
+                        service.messagingService().respond(senderAddr, resp, correlationId);
                     } else if (message instanceof ActionRequest) {
                         ActionRequest req0 = (ActionRequest) message;
 
@@ -140,7 +140,7 @@ public class RaftServerImpl implements RaftServer {
     /** {@inheritDoc} */
     @Override
     public void stop() throws NodeStoppingException {
-        assert listeners.isEmpty() : LoggerMessageHelper.format("Raft groups are still running {}", listeners.keySet());
+        assert listeners.isEmpty() : IgniteStringFormatter.format("Raft groups are still running {}", listeners.keySet());
 
         if (readWorker != null) {
             readWorker.interrupt();
@@ -213,7 +213,7 @@ public class RaftServerImpl implements RaftServer {
     private <T extends Command> void handleActionRequest(
             NetworkAddress sender,
             ActionRequest req,
-            String corellationId,
+            Long corellationId,
             BlockingQueue<CommandClosureEx<T>> queue,
             RaftGroupListener lsnr
     ) {
@@ -238,7 +238,7 @@ public class RaftServerImpl implements RaftServer {
                 } else {
                     msg = clientMsgFactory.actionResponse().result(res).build();
                 }
-                service.messagingService().send(sender, msg, corellationId);
+                service.messagingService().respond(sender, msg, corellationId);
             }
         })) {
             // Queue out of capacity.
@@ -272,10 +272,10 @@ public class RaftServerImpl implements RaftServer {
         }
     }
 
-    private void sendError(NetworkAddress sender, String corellationId, RaftError error) {
+    private void sendError(NetworkAddress sender, Long corellationId, RaftError error) {
         RpcRequests.ErrorResponse resp = clientMsgFactory.errorResponse().errorCode(error.getNumber()).build();
 
-        service.messagingService().send(sender, resp, corellationId);
+        service.messagingService().respond(sender, resp, corellationId);
     }
 
     /**

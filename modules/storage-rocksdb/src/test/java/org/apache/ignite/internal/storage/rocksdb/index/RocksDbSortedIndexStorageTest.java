@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.generateRandomValue;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -42,6 +43,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
+import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionChange;
+import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -157,7 +160,10 @@ public class RocksDbSortedIndexStorageTest {
     }
 
     @BeforeEach
-    void setUp(@WorkDirectory Path workDir, @InjectConfiguration DataRegionConfiguration dataRegionCfg) {
+    void setUp(
+            @WorkDirectory Path workDir,
+            @InjectConfiguration(polymorphicExtensions = RocksDbDataRegionConfigurationSchema.class) DataRegionConfiguration dataRegionCfg
+    ) {
         long seed = System.currentTimeMillis();
 
         log.info("Using random seed: " + seed);
@@ -165,6 +171,8 @@ public class RocksDbSortedIndexStorageTest {
         random = new Random(seed);
 
         createTestConfiguration(dataRegionCfg);
+
+        dataRegionCfg = fixConfiguration(dataRegionCfg);
 
         var engine = new RocksDbStorageEngine();
 
@@ -193,7 +201,7 @@ public class RocksDbSortedIndexStorageTest {
      */
     private void createTestConfiguration(DataRegionConfiguration dataRegionCfg) {
         CompletableFuture<Void> dataRegionChangeFuture = dataRegionCfg
-                .change(cfg -> cfg.changeSize(16 * 1024).changeWriteBufferSize(16 * 1024));
+                .change(cfg -> cfg.convert(RocksDbDataRegionChange.class).changeSize(16 * 1024).changeWriteBufferSize(16 * 1024));
 
         assertThat(dataRegionChangeFuture, willBe(nullValue(Void.class)));
 

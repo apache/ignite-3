@@ -18,7 +18,7 @@
 package org.apache.ignite.lang;
 
 /**
- * This exception is thrown when a new table failed to be created, because a table with same name already exists.
+ * Exception is thrown when appropriate table can`t be found.
  */
 public class TableNotFoundException extends IgniteException {
     /**
@@ -27,6 +27,6 @@ public class TableNotFoundException extends IgniteException {
      * @param name Table name.
      */
     public TableNotFoundException(String name) {
-        super(LoggerMessageHelper.format("Table not found [name={}]", name));
+        super(IgniteStringFormatter.format("Table does not exist [name={}]", name));
     }
 }

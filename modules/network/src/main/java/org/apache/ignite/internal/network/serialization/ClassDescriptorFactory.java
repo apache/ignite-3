@@ -17,19 +17,26 @@
 
 package org.apache.ignite.internal.network.serialization;
 
+import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
+
 import java.io.Externalizable;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.ObjectStreamField;
 import java.io.Serializable;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Queue;
-import java.util.stream.Collectors;
+import java.util.Set;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,21 +44,25 @@ import org.jetbrains.annotations.Nullable;
  * Class descriptor factory for the user object serialization.
  */
 public class ClassDescriptorFactory {
-    /** Means that no serialization override is present; used for readability instead of {@code false}. */
-    private static final boolean NO_SERIALIZATION_OVERRIDE = false;
+    /** Means that no writeObject() method is present; used for readability instead of {@code false}. */
+    private static final boolean NO_WRITE_OBJECT = false;
+    /** Means that no readObject() method is present; used for readability instead of {@code false}. */
+    private static final boolean NO_READ_OBJECT = false;
+    /** Means that no readObjectNoData() method is present; used for readability instead of {@code false}. */
+    private static final boolean NO_READ_OBJECT_NO_DATA = false;
 
     /**
-     * Factory context.
+     * Class descriptor registry.
      */
-    private final ClassDescriptorFactoryContext context;
+    private final ClassDescriptorRegistry registry;
 
     /**
      * Constructor.
      *
-     * @param ctx Context.
+     * @param registry Descriptor registry.
      */
-    public ClassDescriptorFactory(ClassDescriptorFactoryContext ctx) {
-        this.context = ctx;
+    public ClassDescriptorFactory(ClassDescriptorRegistry registry) {
+        this.registry = registry;
     }
 
     /**
@@ -63,7 +74,7 @@ public class ClassDescriptorFactory {
     public ClassDescriptor create(Class<?> clazz) {
         ClassDescriptor classDesc = create0(clazz);
 
-        context.addDescriptor(classDesc);
+        registry.addDescriptor(classDesc);
 
         Queue<FieldDescriptor> fieldDescriptors = new ArrayDeque<>(classDesc.fields());
 
@@ -72,7 +83,7 @@ public class ClassDescriptorFactory {
 
             int typeDescriptorId = fieldDescriptor.typeDescriptorId();
 
-            if (context.hasDescriptor(typeDescriptorId)) {
+            if (registry.hasDescriptor(typeDescriptorId)) {
                 continue;
             }
 
@@ -80,7 +91,7 @@ public class ClassDescriptorFactory {
 
             ClassDescriptor fieldClassDesc = create0(fieldClass);
 
-            context.addDescriptor(fieldClassDesc);
+            registry.addDescriptor(fieldClassDesc);
 
             fieldDescriptors.addAll(fieldClassDesc.fields());
         }
@@ -98,12 +109,12 @@ public class ClassDescriptorFactory {
         assert !clazz.isPrimitive() :
             clazz + " is a primitive, there should be a default descriptor";
 
-        int descriptorId = context.getId(clazz);
+        int descriptorId = registry.getId(clazz);
 
-        if (Externalizable.class.isAssignableFrom(clazz)) {
+        if (Classes.isExternalizable(clazz)) {
             //noinspection unchecked
             return externalizable(descriptorId, (Class<? extends Externalizable>) clazz);
-        } else if (Serializable.class.isAssignableFrom(clazz)) {
+        } else if (Classes.isSerializable(clazz)) {
             //noinspection unchecked
             return serializable(descriptorId, (Class<? extends Serializable>) clazz);
         } else {
@@ -124,14 +135,38 @@ public class ClassDescriptorFactory {
         return new ClassDescriptor(
                 clazz,
                 descriptorId,
+                superClassDescriptor(clazz),
                 Collections.emptyList(),
                 new Serialization(
                         SerializationType.EXTERNALIZABLE,
-                        NO_SERIALIZATION_OVERRIDE,
+                        NO_WRITE_OBJECT,
+                        NO_READ_OBJECT,
+                        NO_READ_OBJECT_NO_DATA,
                         hasWriteReplace(clazz),
                         hasReadResolve(clazz)
                 )
         );
+    }
+
+    /**
+     * If the given class has a super-class (which is not Object) and the class is not an Enum subclass, parses the super-class
+     * and registers the resulting descriptor.
+     *
+     * @param clazz class which super-class to parse
+     * @return descriptor of the super-class or {@code null} if the class is an enum, or it has no super-class, or the super-class is Object
+     */
+    private ClassDescriptor superClassDescriptor(Class<?> clazz) {
+        if (Enum.class.isAssignableFrom(clazz)) {
+            return null;
+        }
+
+        Class<?> superclass = clazz.getSuperclass();
+
+        if (superclass == null || superclass == Object.class) {
+            return null;
+        }
+
+        return create(superclass);
     }
 
     /**
@@ -166,10 +201,16 @@ public class ClassDescriptorFactory {
      * @return Class descriptor.
      */
     private ClassDescriptor serializable(int descriptorId, Class<? extends Serializable> clazz) {
-        return new ClassDescriptor(clazz, descriptorId, fields(clazz),
+        return new ClassDescriptor(
+                clazz,
+                descriptorId,
+                superClassDescriptor(clazz),
+                fields(clazz),
                 new Serialization(
                         SerializationType.SERIALIZABLE,
-                        hasOverrideSerialization(clazz),
+                        hasWriteObject(clazz),
+                        hasReadObject(clazz),
+                        hasReadObjectNoData(clazz),
                         hasWriteReplace(clazz),
                         hasReadResolve(clazz)
                 )
@@ -184,12 +225,16 @@ public class ClassDescriptorFactory {
         return getWriteReplace(clazz) != null;
     }
 
-    private boolean hasOverrideSerialization(Class<? extends Serializable> clazz) {
-        Method writeObject = getWriteObject(clazz);
-        Method readObject = getReadObject(clazz);
-        Method readObjectNoData = getReadObjectNoData(clazz);
+    private boolean hasReadObject(Class<? extends Serializable> clazz) {
+        return getReadObject(clazz) != null;
+    }
 
-        return writeObject != null && readObject != null && readObjectNoData != null;
+    private boolean hasWriteObject(Class<? extends Serializable> clazz) {
+        return getWriteObject(clazz) != null;
+    }
+
+    private boolean hasReadObjectNoData(Class<? extends Serializable> clazz) {
+        return getReadObjectNoData(clazz) != null;
     }
 
     /**
@@ -200,30 +245,92 @@ public class ClassDescriptorFactory {
      * @return Class descriptor.
      */
     private ClassDescriptor arbitrary(int descriptorId, Class<?> clazz) {
-        return new ClassDescriptor(clazz, descriptorId, fields(clazz), new Serialization(SerializationType.ARBITRARY));
+        return new ClassDescriptor(
+                clazz,
+                descriptorId,
+                superClassDescriptor(clazz),
+                fields(clazz),
+                new Serialization(SerializationType.ARBITRARY)
+        );
     }
 
     /**
-     * Gets field descriptors of the class. If a field's type doesn't have an id yet, generates it.
+     * Returns descriptors of 'serializable' (i.e. non-static non-transient) declared fields of the given class
+     * sorted lexicographically by their names.
      *
-     * @param clazz Class.
-     * @return List of field descriptor.
+     * @param clazz class
+     * @return properly sorted field descriptors
      */
     private List<FieldDescriptor> fields(Class<?> clazz) {
-        if (clazz.getSuperclass() != Object.class) {
-            // TODO: IGNITE-15945 add support for the inheritance
-            throw new UnsupportedOperationException("IGNITE-15945");
+        return maybeSerialPersistentFields(clazz)
+                .orElseGet(() -> actualFields(clazz));
+    }
+
+    @SuppressWarnings("CodeBlock2Expr")
+    private Optional<List<FieldDescriptor>> maybeSerialPersistentFields(Class<?> clazz) {
+        if (!Classes.isSerializable(clazz)) {
+            return Optional.empty();
         }
 
-        return Arrays.stream(clazz.getDeclaredFields())
-            .filter(field -> {
-                int modifiers = field.getModifiers();
+        return maybeSerialPersistentFieldsField(clazz)
+                .filter(this::isPrivateStaticFinal)
+                .filter(field -> field.getType() == ObjectStreamField[].class)
+                .map(this::getFieldValue)
+                .map(ObjectStreamField[].class::cast)
+                .filter(this::noDuplicates)
+                .map(serialPersistentFields -> {
+                    return Arrays.stream(serialPersistentFields)
+                            .map(field -> fieldDescriptorFromObjectStreamField(field, clazz))
+                            .collect(toList());
+                });
+    }
 
-                // Ignore static and transient field.
-                return !Modifier.isStatic(modifiers) && !Modifier.isTransient(modifiers);
-            })
-            .map(field -> new FieldDescriptor(field, context.getId(field.getType())))
-            .collect(Collectors.toList());
+    private Optional<Field> maybeSerialPersistentFieldsField(Class<?> clazz) {
+        try {
+            Field field = clazz.getDeclaredField("serialPersistentFields");
+            field.setAccessible(true);
+            return Optional.of(field);
+        } catch (NoSuchFieldException e) {
+            return Optional.empty();
+        }
+    }
+
+    private boolean isPrivateStaticFinal(Field field) {
+        int modifiers = field.getModifiers();
+        return Modifier.isPrivate(modifiers) && Modifier.isStatic(modifiers) && Modifier.isFinal(modifiers);
+    }
+
+    @Nullable
+    private Object getFieldValue(Field serialPersistentFieldsField) {
+        try {
+            return serialPersistentFieldsField.get(null);
+        } catch (IllegalAccessException e) {
+            throw new ReflectionException("Cannot get field value", e);
+        }
+    }
+
+    private boolean noDuplicates(ObjectStreamField[] fields) {
+        Set<String> allFieldNames = Arrays.stream(fields)
+                .map(ObjectStreamField::getName)
+                .collect(toSet());
+        return allFieldNames.size() == fields.length;
+    }
+
+    private FieldDescriptor fieldDescriptorFromObjectStreamField(ObjectStreamField field, Class<?> clazz) {
+        return new FieldDescriptor(field.getName(), field.getType(), registry.getId(field.getType()), field.isUnshared(), clazz);
+    }
+
+    private List<FieldDescriptor> actualFields(Class<?> clazz) {
+        return Arrays.stream(clazz.getDeclaredFields())
+                .sorted(comparing(Field::getName))
+                .filter(field -> {
+                    int modifiers = field.getModifiers();
+
+                    // Ignore static and transient fields.
+                    return !Modifier.isStatic(modifiers) && !Modifier.isTransient(modifiers);
+                })
+                .map(field -> new FieldDescriptor(field, registry.getId(field.getType())))
+                .collect(toList());
     }
 
     /**
@@ -268,13 +375,16 @@ public class ClassDescriptorFactory {
     @Nullable
     private static Method getWriteObject(Class<? extends Serializable> clazz) {
         try {
-            Method writeObject = clazz.getDeclaredMethod("writeObject", ObjectOutputStream.class);
+            Method method = clazz.getDeclaredMethod("writeObject", ObjectOutputStream.class);
 
-            if (!Modifier.isPrivate(writeObject.getModifiers())) {
+            if (!Modifier.isPrivate(method.getModifiers())) {
+                return null;
+            }
+            if (method.getReturnType() != void.class) {
                 return null;
             }
 
-            return writeObject;
+            return method;
         } catch (NoSuchMethodException e) {
             return null;
         }
@@ -291,13 +401,16 @@ public class ClassDescriptorFactory {
     @Nullable
     private static Method getReadObject(Class<? extends Serializable> clazz) {
         try {
-            Method writeObject = clazz.getDeclaredMethod("readObject", ObjectInputStream.class);
+            Method method = clazz.getDeclaredMethod("readObject", ObjectInputStream.class);
 
-            if (!Modifier.isPrivate(writeObject.getModifiers())) {
+            if (!Modifier.isPrivate(method.getModifiers())) {
+                return null;
+            }
+            if (method.getReturnType() != void.class) {
                 return null;
             }
 
-            return writeObject;
+            return method;
         } catch (NoSuchMethodException e) {
             return null;
         }
@@ -313,13 +426,16 @@ public class ClassDescriptorFactory {
     @Nullable
     private static Method getReadObjectNoData(Class<? extends Serializable> clazz) {
         try {
-            Method writeObject = clazz.getDeclaredMethod("readObjectNoData");
+            Method method = clazz.getDeclaredMethod("readObjectNoData");
 
-            if (!Modifier.isPrivate(writeObject.getModifiers())) {
+            if (!Modifier.isPrivate(method.getModifiers())) {
+                return null;
+            }
+            if (method.getReturnType() != void.class) {
                 return null;
             }
 
-            return writeObject;
+            return method;
         } catch (NoSuchMethodException e) {
             return null;
         }

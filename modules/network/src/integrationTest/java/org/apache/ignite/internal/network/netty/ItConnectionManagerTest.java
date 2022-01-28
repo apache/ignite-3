@@ -47,6 +47,8 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
+import org.apache.ignite.internal.network.serialization.SerializationService;
+import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NettyBootstrapFactory;
@@ -106,7 +108,7 @@ public class ItConnectionManagerTest {
 
         var fut = new CompletableFuture<NetworkMessage>();
 
-        manager2.addListener((address, message) -> fut.complete(message));
+        manager2.addListener((consistentId, message) -> fut.complete(message));
 
         NettySender sender = manager1.channel(null, new InetSocketAddress(port2)).get(3, TimeUnit.SECONDS);
 
@@ -138,7 +140,7 @@ public class ItConnectionManagerTest {
 
         var fut = new CompletableFuture<NetworkMessage>();
 
-        manager1.addListener((address, message) -> fut.complete(message));
+        manager1.addListener((consistentId, message) -> fut.complete(message));
 
         NettySender senderFrom1to2 = manager1.channel(null, new InetSocketAddress(port2)).get(3, TimeUnit.SECONDS);
 
@@ -148,7 +150,7 @@ public class ItConnectionManagerTest {
         var messageReceivedOn2 = new CompletableFuture<Void>();
 
         // If the message is received, that means that the handshake was successfully performed.
-        manager2.addListener((address, message) -> messageReceivedOn2.complete(null));
+        manager2.addListener((consistentId, message) -> messageReceivedOn2.complete(null));
 
         senderFrom1to2.send(testMessage);
 
@@ -239,7 +241,7 @@ public class ItConnectionManagerTest {
 
         var fut = new CompletableFuture<NetworkMessage>();
 
-        manager2.get1().addListener((address, message) -> fut.complete(message));
+        manager2.get1().addListener((consistentId, message) -> fut.complete(message));
 
         sender = manager1.channel(null, new InetSocketAddress(port2)).get(3, TimeUnit.SECONDS);
 
@@ -348,7 +350,7 @@ public class ItConnectionManagerTest {
 
         var manager = new ConnectionManager(
                 cfg,
-                registry,
+                new SerializationService(registry, mock(UserObjectSerializationContext.class)),
                 consistentId,
                 () -> new RecoveryServerHandshakeManager(launchId, consistentId, messageFactory),
                 () -> new RecoveryClientHandshakeManager(launchId, consistentId, messageFactory),

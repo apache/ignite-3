@@ -24,12 +24,12 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.transport.api.Transport;
-import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collection;
@@ -43,6 +43,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
+import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -51,12 +53,9 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.TestMessage;
-import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.TestMessageTypes;
 import org.apache.ignite.network.TestMessagesFactory;
 import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.network.annotations.MessageGroup;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -164,9 +163,9 @@ class ItScaleCubeNetworkMessagingTest {
 
             private final NetworkAddress sender;
 
-            private final String correlationId;
+            private final Long correlationId;
 
-            private Data(TestMessage message, NetworkAddress sender, String correlationId) {
+            private Data(TestMessage message, NetworkAddress sender, Long correlationId) {
                 this.message = message;
                 this.sender = sender;
                 this.correlationId = correlationId;
@@ -182,15 +181,14 @@ class ItScaleCubeNetworkMessagingTest {
         );
 
         var requestMessage = messageFactory.testMessage().msg("request").build();
-        var correlationId = "foobar";
 
-        member.messagingService().send(self, requestMessage, correlationId);
+        member.messagingService().send(self, requestMessage);
 
         Data actualData = dataFuture.get(3, TimeUnit.SECONDS);
 
         assertThat(actualData.message.msg(), is(requestMessage.msg()));
-        assertThat(actualData.sender, is(self.address()));
-        assertThat(actualData.correlationId, is(correlationId));
+        assertThat(actualData.sender.consistentId(), is(self.name()));
+        assertNull(actualData.correlationId);
     }
 
     /**
@@ -214,7 +212,7 @@ class ItScaleCubeNetworkMessagingTest {
                 TestMessageTypes.class,
                 (message, senderAddr, correlationId) -> {
                     if (message.equals(requestMessage)) {
-                        member.messagingService().send(self, responseMessage, correlationId);
+                        member.messagingService().respond(self, responseMessage, correlationId);
                     }
                 }
         );
@@ -266,29 +264,6 @@ class ItScaleCubeNetworkMessagingTest {
     }
 
     /**
-     * Serializable message that belongs to the {@link NetworkMessageTypes} message group.
-     */
-    private static class MockNetworkMessage implements NetworkMessage, Serializable {
-        /** {@inheritDoc} */
-        @Override
-        public short messageType() {
-            return 666;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public short groupType() {
-            return NetworkMessageTypes.class.getAnnotation(MessageGroup.class).groupType();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean equals(Object obj) {
-            return getClass() == obj.getClass();
-        }
-    }
-
-    /**
      * Tests that messages from different message groups can be delivered to different sets of handlers.
      *
      * @throws Exception in case of errors.
@@ -324,7 +299,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         var testMessage = messageFactory.testMessage().msg("foo").build();
 
-        var networkMessage = new MockNetworkMessage();
+        ClassDescriptorMessage networkMessage = new NetworkMessagesFactory().classDescriptorMessage().build();
 
         // test that a message gets delivered to both handlers
         node2.messagingService()
@@ -422,9 +397,6 @@ class ItScaleCubeNetworkMessagingTest {
         /** Network factory. */
         private final TestScaleCubeClusterServiceFactory networkFactory = new TestScaleCubeClusterServiceFactory();
 
-        /** Serialization registry. */
-        private final MessageSerializationRegistry serializationRegistry = new TestMessageSerializationRegistryImpl();
-
         /** Members of the cluster. */
         final List<ClusterService> members;
 
@@ -471,7 +443,6 @@ class ItScaleCubeNetworkMessagingTest {
                     testInfo,
                     addr.port(),
                     nodeFinder,
-                    serializationRegistry,
                     networkFactory
             );
 

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.lang.LoggerMessageHelper.format;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
@@ -46,6 +46,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -349,7 +350,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** {@inheritDoc} */
     @Override
     public void onReceived(NetworkMessage message, NetworkAddress senderAddr,
-            String correlationId) {
+            @Nullable Long correlationId) {
         // Support raft and transactions interop.
         if (message instanceof TxFinishRequest) {
             TxFinishRequest req = (TxFinishRequest) message;
@@ -378,7 +379,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                             }
 
                             clusterService.messagingService()
-                                    .send(senderAddr, resp.build(), correlationId);
+                                    .respond(senderAddr, resp.build(), correlationId);
 
                             return null;
                         }

@@ -23,6 +23,10 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * Thrown when unmarshalling fails.
  */
 public class UnmarshalException extends IgniteInternalCheckedException {
+    public UnmarshalException(String msg) {
+        super(msg);
+    }
+
     public UnmarshalException(String message, Throwable cause) {
         super(message, cause);
     }

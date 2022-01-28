@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.netty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.UnpooledByteBufAllocator;
@@ -36,6 +37,9 @@ import org.apache.ignite.internal.network.AllTypesMessage;
 import org.apache.ignite.internal.network.AllTypesMessageGenerator;
 import org.apache.ignite.internal.network.NestedMessageMessage;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
+import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
+import org.apache.ignite.internal.network.serialization.SerializationService;
+import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TestMessage;
 import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
@@ -91,9 +95,11 @@ public class InboundDecoderTest {
      * Serializes and then deserializes the given message.
      */
     private <T extends NetworkMessage> T sendAndReceive(T msg) {
-        var channel = new EmbeddedChannel(new InboundDecoder(registry));
+        var serializationService = new SerializationService(registry, mock(UserObjectSerializationContext.class));
+        var perSessionSerializationService = new PerSessionSerializationService(serializationService);
+        var channel = new EmbeddedChannel(new InboundDecoder(perSessionSerializationService));
 
-        var writer = new DirectMessageWriter(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
+        var writer = new DirectMessageWriter(perSessionSerializationService, ConnectionManager.DIRECT_PROTOCOL_VERSION);
 
         MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.groupType(), msg.messageType());
 
@@ -127,7 +133,9 @@ public class InboundDecoderTest {
      */
     @Test
     public void testPartialHeader() throws Exception {
-        var channel = new EmbeddedChannel(new InboundDecoder(registry));
+        var serializationService = new SerializationService(registry, mock(UserObjectSerializationContext.class));
+        var perSessionSerializationService = new PerSessionSerializationService(serializationService);
+        var channel = new EmbeddedChannel(new InboundDecoder(perSessionSerializationService));
 
         ByteBuf buffer = allocator.buffer();
 
@@ -158,11 +166,13 @@ public class InboundDecoderTest {
 
         Mockito.doReturn(channel).when(ctx).channel();
 
-        final var decoder = new InboundDecoder(registry);
+        var serializationService = new SerializationService(registry, mock(UserObjectSerializationContext.class));
+        var perSessionSerializationService = new PerSessionSerializationService(serializationService);
+        final var decoder = new InboundDecoder(perSessionSerializationService);
 
         final var list = new ArrayList<>();
 
-        var writer = new DirectMessageWriter(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
+        var writer = new DirectMessageWriter(perSessionSerializationService, ConnectionManager.DIRECT_PROTOCOL_VERSION);
 
         var msg = new TestMessagesFactory().testMessage().msg("abcdefghijklmn").build();
 

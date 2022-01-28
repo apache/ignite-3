@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
+import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Marshals/unmarshals objects in accordance with User Object Serialization.
  *
@@ -24,21 +27,24 @@ package org.apache.ignite.internal.network.serialization.marshal;
  */
 public interface UserObjectMarshaller {
     /**
-     * Marshals the provided object.
+     * Marshals an object detecting its type from the value.
      *
-     * @param object object to marshal
+     * @param object        object to marshal
      * @return marshalled representation
      * @throws MarshalException if marshalling fails
      */
-    MarshalledObject marshal(Object object) throws MarshalException;
+    MarshalledObject marshal(@Nullable Object object) throws MarshalException;
 
     /**
      * Unmarshals an object.
      *
-     * @param bytes bytes representing the marshalled object
+     * @param bytes             bytes representing the marshalled object
+     * @param mergedDescriptors the remote descriptors that need to be used for unmarshalling plus our local descriptors
+     *                          (remote ones have the priority)
      * @param <T> expected type
      * @return unmarshalled object
      * @throws UnmarshalException if unmarshalling fails
      */
-    <T> T unmarshal(byte[] bytes) throws UnmarshalException;
+    @Nullable
+    <T> T unmarshal(byte[] bytes, DescriptorRegistry mergedDescriptors) throws UnmarshalException;
 }

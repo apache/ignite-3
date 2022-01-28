@@ -33,10 +33,11 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
+import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
+import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -53,11 +54,11 @@ public class NettyServer {
     /** Server socket configuration. */
     private final NetworkView configuration;
 
-    /** Serialization registry. */
-    private final MessageSerializationRegistry serializationRegistry;
+    /** Serialization service. */
+    private final SerializationService serializationService;
 
     /** Incoming message listener. */
-    private final BiConsumer<SocketAddress, NetworkMessage> messageListener;
+    private final BiConsumer<String, NetworkMessage> messageListener;
 
     /** Handshake manager. */
     private final Supplier<HandshakeManager> handshakeManager;
@@ -82,27 +83,26 @@ public class NettyServer {
     /**
      * Constructor.
      *
-     * @param consistentId          Consistent id.
      * @param configuration         Server configuration.
      * @param handshakeManager      Handshake manager supplier.
      * @param newConnectionListener New connections listener.
      * @param messageListener       Message listener.
-     * @param serializationRegistry Serialization registry.
+     * @param serializationService  Serialization service.
+     * @param bootstrapFactory      Netty bootstrap factory.
      */
     public NettyServer(
-            String consistentId,
             NetworkView configuration,
             Supplier<HandshakeManager> handshakeManager,
             Consumer<NettySender> newConnectionListener,
-            BiConsumer<SocketAddress, NetworkMessage> messageListener,
-            MessageSerializationRegistry serializationRegistry,
+            BiConsumer<String, NetworkMessage> messageListener,
+            SerializationService serializationService,
             NettyBootstrapFactory bootstrapFactory
     ) {
         this.configuration = configuration;
         this.handshakeManager = handshakeManager;
         this.newConnectionListener = newConnectionListener;
         this.messageListener = messageListener;
-        this.serializationRegistry = serializationRegistry;
+        this.serializationService = serializationService;
         this.bootstrapFactory = bootstrapFactory;
     }
 
@@ -127,6 +127,8 @@ public class NettyServer {
                         /** {@inheritDoc} */
                         @Override
                         public void initChannel(SocketChannel ch) {
+                            var sessionSerializationService = new PerSessionSerializationService(serializationService);
+
                             // Get handshake manager for the new channel.
                             HandshakeManager manager = handshakeManager.get();
 
@@ -135,18 +137,16 @@ public class NettyServer {
                                      * Decoder that uses the MessageReader
                                      * to read chunked data.
                                      */
-                                    new InboundDecoder(serializationRegistry),
+                                    new InboundDecoder(sessionSerializationService),
                                     // Handshake handler.
-                                    new HandshakeHandler(manager),
-                                    // Handles decoded NetworkMessages.
-                                    new MessageHandler(messageListener),
+                                    new HandshakeHandler(manager, (consistentId) -> new MessageHandler(messageListener, consistentId)),
                                     /*
                                      * Encoder that uses the MessageWriter
                                      * to write chunked data.
                                      */
                                     new ChunkedWriteHandler(),
                                     // Converts NetworkMessage to a ChunkedNetworkMessageInput
-                                    new OutboundEncoder(serializationRegistry),
+                                    new OutboundEncoder(sessionSerializationService),
                                     new IoExceptionSuppressingHandler()
                             );
 

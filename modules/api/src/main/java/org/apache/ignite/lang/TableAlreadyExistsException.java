@@ -27,6 +27,6 @@ public class TableAlreadyExistsException extends IgniteException {
      * @param name Table name.
      */
     public TableAlreadyExistsException(String name) {
-        super(LoggerMessageHelper.format("Table already exists [name={}]", name));
+        super(IgniteStringFormatter.format("Table already exists [name={}]", name));
     }
 }

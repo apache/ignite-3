@@ -27,13 +27,11 @@ public class FieldDescriptor {
     /**
      * Name of the field.
      */
-    @NotNull
     private final String name;
 
     /**
      * Type of the field.
      */
-    @NotNull
     private final Class<?> clazz;
 
     /**
@@ -42,12 +40,40 @@ public class FieldDescriptor {
     private final int typeDescriptorId;
 
     /**
+     * Whether the field is serialized as unshared from the point of view of Java Serialization specification.
+     */
+    private final boolean unshared;
+
+    /**
+     * Accessor for accessing this field.
+     */
+    private final FieldAccessor accessor;
+
+    /**
      * Constructor.
      */
-    public FieldDescriptor(@NotNull Field field, int typeDescriptorId) {
-        this.name = field.getName();
-        this.clazz = field.getType();
+    public FieldDescriptor(Field field, int typeDescriptorId) {
+        this(field.getName(), field.getType(), typeDescriptorId, false, new UnsafeFieldAccessor(field));
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param fieldName         field name
+     * @param fieldClazz        type of the field
+     * @param typeDescriptorId  ID of the descriptor corresponding to field type
+     * @param declaringClass    the class in which the field if declared
+     */
+    public FieldDescriptor(String fieldName, Class<?> fieldClazz, int typeDescriptorId, boolean unshared, Class<?> declaringClass) {
+        this(fieldName, fieldClazz, typeDescriptorId, unshared, new UnsafeFieldAccessor(fieldName, declaringClass));
+    }
+
+    private FieldDescriptor(String fieldName, Class<?> fieldClazz, int typeDescriptorId, boolean unshared, FieldAccessor accessor) {
+        this.name = fieldName;
+        this.clazz = fieldClazz;
         this.typeDescriptorId = typeDescriptorId;
+        this.unshared = unshared;
+        this.accessor = accessor;
     }
 
     /**
@@ -77,5 +103,43 @@ public class FieldDescriptor {
      */
     public int typeDescriptorId() {
         return typeDescriptorId;
+    }
+
+    /**
+     * Returns whether the field is serialized as unshared from the point of view of Java Serialization specification.
+     *
+     * @return whether the field is serialized as unshared from the point of view of Java Serialization specification
+     */
+    public boolean isUnshared() {
+        return unshared;
+    }
+
+    /**
+     * Returns {@code true} if this field has a primitive type.
+     *
+     * @return {@code true} if this field has a primitive type
+     */
+    public boolean isPrimitive() {
+        return clazz.isPrimitive();
+    }
+
+    /**
+     * Returns {@code true} if the field can only host (at runtime) instances of its declared type (and not subtypes),
+     * so the runtime type is known upfront. This is also true for enums, even though technically their values might have subtypes;
+     * but we serialize them using their names, so we still treat the type as known upfront.
+     *
+     * @return {@code true} if the field can only host (at runtime) instances of the declared type that is known upfront
+     */
+    public boolean isRuntimeTypeKnownUpfront() {
+        return Classes.isRuntimeTypeKnownUpfront(clazz);
+    }
+
+    /**
+     * Returns {@link FieldAccessor} for this field.
+     *
+     * @return {@link FieldAccessor} for this field
+     */
+    public FieldAccessor accessor() {
+        return accessor;
     }
 }

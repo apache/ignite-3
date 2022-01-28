@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.network.serialization;
 
+import org.apache.ignite.lang.IgniteInternalException;
+
 /**
  * Serialization type.
  */
 public enum SerializationType {
-    /** Used for predefined descriptors like primitive (or boxed int). See {@link BuiltinType}. */
+    /** Used for predefined descriptors like primitive (or boxed int). See {@link BuiltInType}. */
     BUILTIN(0),
     /** Type for classes that are neither serializable nor externalizable.  */
     ARBITRARY(1),
@@ -38,5 +40,21 @@ public enum SerializationType {
 
     public int value() {
         return value;
+    }
+
+    /**
+     * Gets SerializationType by {@link #value}.
+     *
+     * @param value Value.
+     * @return Serialization type.
+     */
+    public static SerializationType getByValue(int value) {
+        for (SerializationType serializationType : SerializationType.values()) {
+            if (serializationType.value == value) {
+                return serializationType;
+            }
+        }
+
+        throw new IgniteInternalException("SerializationType by value=" + value + " not found");
     }
 }
