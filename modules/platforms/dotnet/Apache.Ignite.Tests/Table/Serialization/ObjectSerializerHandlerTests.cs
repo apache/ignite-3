@@ -33,6 +33,8 @@ namespace Apache.Ignite.Tests.Table.Serialization
         // ReSharper disable NotAccessedPositionalProperty.Local
         private record BadPoco(Guid Key, DateTimeOffset Val);
 
+        private record UnsignedPoco(ulong Key, string Val);
+
         private static readonly Schema Schema = new(1, 1, new[]
         {
             new Column("Key", ClientDataType.Int64, false, true, 0),
@@ -40,7 +42,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
         });
 
         [Test]
-        public void TestWritePocoType()
+        public void TestWrite()
         {
             var reader = WriteAndGetReader();
 
@@ -50,7 +52,20 @@ namespace Apache.Ignite.Tests.Table.Serialization
         }
 
         [Test]
-        public void TestWritePocoTypeKeyOnly()
+        public void TestWriteUnsigned()
+        {
+            var pooledWriter = Write(new UnsignedPoco(1234, "foo"));
+
+            var resMem = pooledWriter.GetWrittenMemory()[4..]; // Skip length header.
+            var reader = new MessagePackReader(resMem);
+
+            Assert.AreEqual(1234, reader.ReadInt32());
+            Assert.AreEqual("foo", reader.ReadString());
+            Assert.IsTrue(reader.End);
+        }
+
+        [Test]
+        public void TestWriteKeyOnly()
         {
             var reader = WriteAndGetReader(keyOnly: true);
 
@@ -59,7 +74,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
         }
 
         [Test]
-        public void TestReadPocoType()
+        public void TestRead()
         {
             var reader = WriteAndGetReader();
             var resPoco = new ObjectSerializerHandler<Poco>().Read(ref reader, Schema);
@@ -69,7 +84,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
         }
 
         [Test]
-        public void TestReadPocoTypeKeyOnly()
+        public void TestReadKeyOnly()
         {
             var reader = WriteAndGetReader();
             var resPoco = new ObjectSerializerHandler<Poco>().Read(ref reader, Schema, keyOnly: true);
@@ -79,7 +94,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
         }
 
         [Test]
-        public void TestReadPocoTypeValuePart()
+        public void TestReadValuePart()
         {
             var reader = WriteAndGetReader();
             reader.Skip(); // Skip key.
