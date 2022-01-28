@@ -94,7 +94,9 @@ public class PartitionListener implements RaftGroupListener {
     /** Transaction manager. */
     private final TxManager txManager;
 
-    AtomicInteger internalBatchCounter = new AtomicInteger(0);
+    private Map<IgniteUuid, AtomicInteger> batchCounters = new ConcurrentHashMap<>();
+
+    //AtomicInteger internalBatchCounter = new AtomicInteger(0);
 
     /**
      * The constructor.
@@ -447,6 +449,8 @@ public class PartitionListener implements RaftGroupListener {
                             rangeCmd.requesterNodeId()
                     )
             );
+
+            batchCounters.put(cursorId, new AtomicInteger(0));
         } catch (StorageException e) {
             clo.result(e);
         }
@@ -460,7 +464,10 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleScanRetrieveBatchCommand(CommandClosure<ScanRetrieveBatchCommand> clo) {
+
+        AtomicInteger internalBatchCounter = batchCounters.get(clo.command().scanId());
         System.out.println("internalBatchCounter = " + internalBatchCounter.get() + " clo.command().getCounter() = " + clo.command().getCounter());
+
         if (internalBatchCounter.getAndSet(clo.command().getCounter()) != clo.command().getCounter() - 1) {
             throw new IllegalStateException("Counters not match");
         }
@@ -485,7 +492,7 @@ public class PartitionListener implements RaftGroupListener {
         }
 
         try {
-            Thread.sleep(1000);
+            Thread.sleep(2000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -500,6 +507,8 @@ public class PartitionListener implements RaftGroupListener {
     private void handleScanCloseCommand(CommandClosure<ScanCloseCommand> clo) {
         CursorMeta cursorDesc = cursors.remove(clo.command().scanId());
 
+        batchCounters.remove(clo.command().scanId());
+
         if (cursorDesc == null) {
             clo.result(null);
 
@@ -509,7 +518,6 @@ public class PartitionListener implements RaftGroupListener {
         try {
             cursorDesc.cursor().close();
 
-            internalBatchCounter.set(0);
         } catch (Exception e) {
             throw new IgniteInternalException(e);
         }
