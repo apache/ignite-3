@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.calcite.exec;
+package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.BitSet;
 import java.util.Iterator;
@@ -24,9 +24,9 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.idx.InternalSortedIndex;
-import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler.RowFactory;
-import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGroup;
-import org.apache.ignite.internal.processors.query.calcite.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Tuple;
@@ -99,8 +99,16 @@ public class IndexScan<RowT> extends AbstractIndexScan<RowT, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    protected RowT indexRow2Row(Tuple row) {
-        return idx.table().toRow(ectx, row, factory, requiredColumns);
+    protected RowT indexRow2Row(Tuple t) {
+        RowT row = factory.create();
+
+        RowHandler<RowT> hnd = ectx.rowHandler();
+
+        for (int i = 0; i < t.columnCount(); ++i) {
+            hnd.set(i, row, t.value(i));
+        }
+
+        return row;
     }
 
     /** {@inheritDoc} */

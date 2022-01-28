@@ -23,9 +23,9 @@ import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.idx.InternalSortedIndex;
-import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
-import org.apache.ignite.internal.processors.query.calcite.exec.IndexScan;
-import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.IndexScan;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 
 /**
  * Ignite scannable index.

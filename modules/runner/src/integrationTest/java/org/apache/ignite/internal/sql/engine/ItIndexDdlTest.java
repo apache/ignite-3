@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.calcite;
+package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.calcite.util.QueryChecker.containsIndexScan;
-import static org.apache.ignite.internal.calcite.util.QueryChecker.containsTableScan;
-import static org.hamcrest.CoreMatchers.not;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
+import static org.hamcrest.Matchers.not;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
