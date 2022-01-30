@@ -468,12 +468,12 @@ public class PartitionListener implements RaftGroupListener {
             return;
         }
 
-        AtomicInteger internalBatchCounter = cursorDesc.batchCounter();
-        LOG.info("internalBatchCounter = " + internalBatchCounter.get() + " clo.command().getCounter() = " + clo.command().getCounter());
-
-        if (internalBatchCounter.getAndSet(clo.command().getCounter()) != clo.command().getCounter() - 1) {
-            throw new IllegalStateException("Counters not match");
-        }
+//        AtomicInteger internalBatchCounter = cursorDesc.batchCounter();
+//        LOG.info("internalBatchCounter = " + internalBatchCounter.get() + " clo.command().getCounter() = " + clo.command().getCounter());
+//
+//        if (internalBatchCounter.getAndSet(clo.command().getCounter()) != clo.command().getCounter() - 1) {
+//            throw new IllegalStateException("Counters not match");
+//        }
 
         List<BinaryRow> res = new ArrayList<>();
 
