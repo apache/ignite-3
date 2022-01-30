@@ -23,10 +23,10 @@ import org.apache.ignite.internal.metastorage.common.ConditionType;
 /**
  * Represents a condition for meta storage conditional update.
  *
- * @see MetaStorageService#invoke(UnaryCondition, Operation, Operation)
- * @see MetaStorageService#invoke(UnaryCondition, Collection, Collection)
+ * @see MetaStorageService#invoke(Condition, Operation, Operation)
+ * @see MetaStorageService#invoke(Condition, Collection, Collection)
  */
-public final class UnaryCondition implements Condition {
+public final class UnaryCondition extends AbstractCondition {
     /** Actual condition implementation. */
     private final InnerCondition cond;
 

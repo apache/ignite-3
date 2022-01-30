@@ -3,8 +3,8 @@ package org.apache.ignite.internal.metastorage.client;
 public class If {
     
     private final Condition condition;
-    private final IfBranch andThen;
-    private final IfBranch orElse;
+    private IfBranch andThen;
+    private IfBranch orElse;
     
     public If(Condition condition, IfBranch andThen, IfBranch orElse) {
         this.condition = condition;
@@ -23,4 +23,9 @@ public class If {
     public IfBranch orElse() {
         return orElse;
     }
+    
+    public static If _if(Condition condition, IfBranch andThen, IfBranch orElse) {
+        return new If(condition, andThen, orElse);
+    }
 }
+
