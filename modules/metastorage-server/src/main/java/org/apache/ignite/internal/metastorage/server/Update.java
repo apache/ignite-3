@@ -6,9 +6,9 @@ public class Update {
     
     private final Collection<Operation> ops;
     
-    private final ConditionResult result;
+    private final BranchResult result;
     
-    public Update(Collection<Operation> ops, ConditionResult result) {
+    public Update(Collection<Operation> ops, BranchResult result) {
         this.ops = ops;
         this.result = result;
     }
@@ -17,7 +17,7 @@ public class Update {
         return ops;
     }
     
-    public ConditionResult result() {
+    public BranchResult result() {
         return result;
     }
 }

@@ -6,9 +6,9 @@ import org.apache.ignite.internal.metastorage.common.command.OperationInfo;
 public class UpdateInfo {
     private final Collection<OperationInfo> ops;
     
-    private final ConditionResultInfo result;
+    private final BranchResultInfo result;
     
-    public UpdateInfo(Collection<OperationInfo> ops, ConditionResultInfo result) {
+    public UpdateInfo(Collection<OperationInfo> ops, BranchResultInfo result) {
         this.ops = ops;
         this.result = result;
     }
@@ -17,7 +17,7 @@ public class UpdateInfo {
         return ops;
     }
     
-    public ConditionResultInfo result() {
+    public BranchResultInfo result() {
         return result;
     }
 }

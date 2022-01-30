@@ -2,16 +2,16 @@ package org.apache.ignite.internal.metastorage.common;
 
 import org.apache.ignite.internal.metastorage.common.command.IfInfo;
 
-public class ConditionBranchInfo {
+public class IfBranchInfo {
     private final IfInfo _if;
     private final UpdateInfo update;
     
-    public ConditionBranchInfo(IfInfo _if) {
+    public IfBranchInfo(IfInfo _if) {
         this._if = _if;
         this.update = null;
     }
     
-    public ConditionBranchInfo(UpdateInfo update) {
+    public IfBranchInfo(UpdateInfo update) {
         this.update = update;
         this._if = null;
     }

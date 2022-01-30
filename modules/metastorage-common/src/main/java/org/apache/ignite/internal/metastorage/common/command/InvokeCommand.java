@@ -25,7 +25,7 @@ import org.apache.ignite.raft.client.WriteCommand;
  */
 public class InvokeCommand implements WriteCommand {
     /** Condition. */
-    private final ConditionInfo cond;
+    private final UnaryConditionInfo cond;
 
     /** Success operations. */
     private final List<OperationInfo> success;
@@ -40,7 +40,7 @@ public class InvokeCommand implements WriteCommand {
      * @param success Success operations.
      * @param failure Failure operations.
      */
-    public InvokeCommand(ConditionInfo cond, List<OperationInfo> success, List<OperationInfo> failure) {
+    public InvokeCommand(UnaryConditionInfo cond, List<OperationInfo> success, List<OperationInfo> failure) {
         this.cond = cond;
         this.success = success;
         this.failure = failure;
@@ -51,7 +51,7 @@ public class InvokeCommand implements WriteCommand {
      *
      * @return Condition.
      */
-    public ConditionInfo condition() {
+    public UnaryConditionInfo condition() {
         return cond;
     }
 

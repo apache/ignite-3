@@ -1,28 +1,28 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
-import org.apache.ignite.internal.metastorage.common.ConditionBranchInfo;
+import org.apache.ignite.internal.metastorage.common.IfBranchInfo;
 
 public class IfInfo {
-    private final ConditionInfoMarker cond;
-    private final ConditionBranchInfo andThen;
-    private final ConditionBranchInfo orElse;
+    private final ConditionInfo cond;
+    private final IfBranchInfo andThen;
+    private final IfBranchInfo orElse;
     
-    public IfInfo(ConditionInfoMarker cond, ConditionBranchInfo andThen,
-            ConditionBranchInfo orElse) {
+    public IfInfo(ConditionInfo cond, IfBranchInfo andThen,
+            IfBranchInfo orElse) {
         this.cond = cond;
         this.andThen = andThen;
         this.orElse = orElse;
     }
     
-    public ConditionInfoMarker cond() {
+    public ConditionInfo cond() {
         return cond;
     }
     
-    public ConditionBranchInfo andThen() {
+    public IfBranchInfo andThen() {
         return andThen;
     }
     
-    public ConditionBranchInfo orElse() {
+    public IfBranchInfo orElse() {
         return orElse;
     }
 }

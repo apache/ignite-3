@@ -1,9 +1,9 @@
 package org.apache.ignite.internal.metastorage.common;
 
-public class ConditionResultInfo {
+public class BranchResultInfo {
     private final boolean res;
     
-    public ConditionResultInfo(boolean res) {
+    public BranchResultInfo(boolean res) {
         this.res = res;
     }
     

@@ -27,12 +27,12 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.metastorage.common.ConditionBranchInfo;
+import org.apache.ignite.internal.metastorage.common.IfBranchInfo;
 import org.apache.ignite.internal.metastorage.common.ConditionType;
 import org.apache.ignite.internal.metastorage.common.UpdateInfo;
 import org.apache.ignite.internal.metastorage.common.command.BinaryConditionType;
+import org.apache.ignite.internal.metastorage.common.command.UnaryConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
-import org.apache.ignite.internal.metastorage.common.command.ConditionInfoMarker;
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutCommand;
@@ -41,7 +41,7 @@ import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveCommand
 import org.apache.ignite.internal.metastorage.common.command.GetCommand;
 import org.apache.ignite.internal.metastorage.common.command.IfInfo;
 import org.apache.ignite.internal.metastorage.common.command.InvokeCommand;
-import org.apache.ignite.internal.metastorage.common.command.MultiConditionInfo;
+import org.apache.ignite.internal.metastorage.common.command.BinaryConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.MultipleEntryResponse;
 import org.apache.ignite.internal.metastorage.common.command.OperationInfo;
 import org.apache.ignite.internal.metastorage.common.command.PutAllCommand;
@@ -58,8 +58,8 @@ import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCo
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorsCloseCommand;
 import org.apache.ignite.internal.metastorage.server.AndCondition;
 import org.apache.ignite.internal.metastorage.server.Condition;
-import org.apache.ignite.internal.metastorage.server.ConditionBranch;
-import org.apache.ignite.internal.metastorage.server.ConditionResult;
+import org.apache.ignite.internal.metastorage.server.IfBranch;
+import org.apache.ignite.internal.metastorage.server.BranchResult;
 import org.apache.ignite.internal.metastorage.server.Entry;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
@@ -410,20 +410,20 @@ public class MetaStorageListener implements RaftGroupListener {
     }
     
     private static Update toUpdate(UpdateInfo updateInfo) {
-        return new Update(toOperations(new ArrayList<>(updateInfo.operations())), new ConditionResult(updateInfo.result().result()));
+        return new Update(toOperations(new ArrayList<>(updateInfo.operations())), new BranchResult(updateInfo.result().result()));
     }
     
-    private static ConditionBranch toConditionBranch(ConditionBranchInfo conditionBranchInfo) {
-        if (conditionBranchInfo.isTerminal()) {
-            return new ConditionBranch(toUpdate(conditionBranchInfo.update()));
+    private static IfBranch toConditionBranch(IfBranchInfo ifBranchInfo) {
+        if (ifBranchInfo.isTerminal()) {
+            return new IfBranch(toUpdate(ifBranchInfo.update()));
         } else {
-            return new ConditionBranch(toIf(conditionBranchInfo._if()));
+            return new IfBranch(toIf(ifBranchInfo._if()));
         }
     }
 
-    private static Condition toCondition(ConditionInfoMarker info) {
-        if (info instanceof ConditionInfo) {
-            ConditionInfo inf = (ConditionInfo) info;
+    private static Condition toCondition(ConditionInfo info) {
+        if (info instanceof UnaryConditionInfo) {
+            UnaryConditionInfo inf = (UnaryConditionInfo) info;
             byte[] key = inf.key();
     
             ConditionType type = inf.type();
@@ -453,8 +453,8 @@ public class MetaStorageListener implements RaftGroupListener {
             } else {
                 throw new IllegalArgumentException("Unknown condition type: " + type);
             }
-        } else if (info instanceof MultiConditionInfo) {
-            MultiConditionInfo inf = (MultiConditionInfo) info;
+        } else if (info instanceof BinaryConditionInfo) {
+            BinaryConditionInfo inf = (BinaryConditionInfo) info;
             
             if (inf.type() == BinaryConditionType.AND) {
                 return new AndCondition(toCondition(inf.leftConditionInfo()), toCondition(inf.rightConditionInfo()));

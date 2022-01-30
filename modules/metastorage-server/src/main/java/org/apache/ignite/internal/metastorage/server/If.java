@@ -2,10 +2,10 @@ package org.apache.ignite.internal.metastorage.server;
 
 public class If {
     private final Condition condition;
-    private final ConditionBranch andThen;
-    private final ConditionBranch orElse;
+    private final IfBranch andThen;
+    private final IfBranch orElse;
     
-    public If(Condition condition, ConditionBranch andThen, ConditionBranch orElse) {
+    public If(Condition condition, IfBranch andThen, IfBranch orElse) {
         this.condition = condition;
         this.andThen = andThen;
         this.orElse = orElse;
@@ -15,11 +15,11 @@ public class If {
         return condition;
     }
     
-    public ConditionBranch andThen() {
+    public IfBranch andThen() {
         return andThen;
     }
     
-    public ConditionBranch orElse() {
+    public IfBranch orElse() {
         return orElse;
     }
 }
