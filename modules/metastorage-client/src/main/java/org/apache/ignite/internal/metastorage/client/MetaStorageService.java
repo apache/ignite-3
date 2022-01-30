@@ -223,6 +223,8 @@ public interface MetaStorageService {
     @NotNull
     CompletableFuture<Boolean> invoke(@NotNull Condition condition,
             @NotNull Collection<Operation> success, @NotNull Collection<Operation> failure);
+    
+    CompletableFuture<BranchResult> invoke(If _if);
 
     /**
      * Retrieves entries for the given key range in lexicographic order. Entries will be filtered out by upper bound of given revision

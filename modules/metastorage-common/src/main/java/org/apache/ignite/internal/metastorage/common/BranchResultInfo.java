@@ -1,6 +1,8 @@
 package org.apache.ignite.internal.metastorage.common;
 
-public class BranchResultInfo {
+import java.io.Serializable;
+
+public class BranchResultInfo implements Serializable {
     private final boolean res;
     
     public BranchResultInfo(boolean res) {

@@ -78,7 +78,7 @@ public final class Conditions {
     public static UnaryCondition tombstone(@NotNull ByteArray key) {
         return new UnaryCondition.TombstoneCondition(key.bytes()).tombstone();
     }
-
+    
     /**
      * Default no-op constructor.
      */

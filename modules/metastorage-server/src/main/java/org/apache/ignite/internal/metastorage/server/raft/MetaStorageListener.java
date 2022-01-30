@@ -27,10 +27,12 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.metastorage.common.BranchResultInfo;
 import org.apache.ignite.internal.metastorage.common.IfBranchInfo;
 import org.apache.ignite.internal.metastorage.common.ConditionType;
 import org.apache.ignite.internal.metastorage.common.UpdateInfo;
 import org.apache.ignite.internal.metastorage.common.command.BinaryConditionType;
+import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.common.command.UnaryConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
@@ -232,6 +234,14 @@ public class MetaStorageListener implements RaftGroupListener {
                 );
 
                 clo.result(res);
+            } else if (clo.command() instanceof MultiInvokeCommand) {
+                MultiInvokeCommand cmd = (MultiInvokeCommand) clo.command();
+    
+                BranchResult res = storage.invoke(
+                        toIf(cmd._if())
+                );
+    
+                clo.result(new BranchResultInfo(res.result()));
             } else if (clo.command() instanceof RangeCommand) {
                 RangeCommand rangeCmd = (RangeCommand) clo.command();
 

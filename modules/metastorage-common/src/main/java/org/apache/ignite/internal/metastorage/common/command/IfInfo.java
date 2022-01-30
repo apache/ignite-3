@@ -1,8 +1,9 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
+import java.io.Serializable;
 import org.apache.ignite.internal.metastorage.common.IfBranchInfo;
 
-public class IfInfo {
+public class IfInfo implements Serializable {
     private final ConditionInfo cond;
     private final IfBranchInfo andThen;
     private final IfBranchInfo orElse;

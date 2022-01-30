@@ -1,8 +1,6 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
-import java.io.Serializable;
-
-public class BinaryConditionInfo implements Serializable, ConditionInfo {
+public class BinaryConditionInfo implements ConditionInfo {
     
     private final ConditionInfo leftConditionInfo;
     private final ConditionInfo rightConditionInfo;

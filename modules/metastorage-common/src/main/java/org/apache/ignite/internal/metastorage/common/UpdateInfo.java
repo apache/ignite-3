@@ -1,9 +1,10 @@
 package org.apache.ignite.internal.metastorage.common;
 
+import java.io.Serializable;
 import java.util.Collection;
 import org.apache.ignite.internal.metastorage.common.command.OperationInfo;
 
-public class UpdateInfo {
+public class UpdateInfo implements Serializable {
     private final Collection<OperationInfo> ops;
     
     private final BranchResultInfo result;

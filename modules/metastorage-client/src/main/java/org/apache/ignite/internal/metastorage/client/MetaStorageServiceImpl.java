@@ -35,6 +35,7 @@ import org.apache.ignite.internal.metastorage.common.UpdateInfo;
 import org.apache.ignite.internal.metastorage.common.command.BinaryConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.IfInfo;
+import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.common.command.UnaryConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutAllCommand;
@@ -196,6 +197,11 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         List<OperationInfo> failureOps = toOperationInfos(failure);
 
         return metaStorageRaftGrpSvc.run(new InvokeCommand(cond, successOps, failureOps));
+    }
+    
+    @Override
+    public CompletableFuture<BranchResult> invoke(If _if) {
+        return metaStorageRaftGrpSvc.run(new MultiInvokeCommand(toIfInfo(_if))).thenApply(bi -> new BranchResult(((BranchResultInfo) bi).result()));
     }
 
     /** {@inheritDoc} */

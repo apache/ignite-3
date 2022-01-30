@@ -1,4 +1,6 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
-public interface ConditionInfo {
+import java.io.Serializable;
+
+public interface ConditionInfo extends Serializable {
 }

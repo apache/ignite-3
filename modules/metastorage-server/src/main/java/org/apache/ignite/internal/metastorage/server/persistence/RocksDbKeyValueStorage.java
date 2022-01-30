@@ -51,10 +51,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.metastorage.server.BranchResult;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.Entry;
+import org.apache.ignite.internal.metastorage.server.If;
+import org.apache.ignite.internal.metastorage.server.IfBranch;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.Operation;
+import org.apache.ignite.internal.metastorage.server.Update;
 import org.apache.ignite.internal.metastorage.server.Value;
 import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
@@ -623,29 +627,32 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
     }
     
-//    public ConditionResult testInvoke(Condition condition) {
-//        rwLock.writeLock().lock();
-//
-//        try {
-//            Condition currentCondition = condition;
-//            while (true) {
-//                Collection<Entry> e = getAll(Arrays.asList(currentCondition.keys()));
-//
-//                ConditionBranch branch = (condition.test(e.toArray(new Entry[]{}))) ? currentCondition.andThen() : currentCondition.orElse();
-//
-//                if (branch.isTerminal()) {
-//                    Update update = branch.update();
-//                    extracted(update.operations());
-//                    return update.result();
-//                } else
-//                    currentCondition = branch.condition();
-//            }
-//        } catch (RocksDBException e) {
-//            throw new IgniteInternalException(e);
-//        } finally {
-//            rwLock.writeLock().unlock();
-//        }
-//    }
+    @Override
+    public BranchResult invoke(If _if) {
+        rwLock.writeLock().lock();
+
+        try {
+            If currIf = _if;
+            while (true) {
+                Collection<Entry> e = getAll(Arrays.asList(currIf.condition().keys()));
+
+                IfBranch branch = (currIf.condition().test(e.toArray(new Entry[]{}))) ? currIf.andThen() : currIf.orElse();
+
+                if (branch.isTerminal()) {
+                    Update update = branch.update();
+                    
+                    extracted(update.operations());
+                    
+                    return update.result();
+                } else
+                    currIf = branch._if();
+            }
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException(e);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
     
     private void extracted(Collection<Operation> ops) throws RocksDBException {
         long curRev = rev + 1;

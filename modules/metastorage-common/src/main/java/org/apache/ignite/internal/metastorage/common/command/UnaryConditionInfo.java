@@ -23,7 +23,7 @@ import org.apache.ignite.internal.metastorage.common.ConditionType;
 /**
  * Defines condition for InvokeCommand.
  */
-public class UnaryConditionInfo implements Serializable, ConditionInfo {
+public class UnaryConditionInfo implements ConditionInfo {
     /** Key. */
     private final byte[] key;
 
