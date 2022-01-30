@@ -1,26 +1,25 @@
 package org.apache.ignite.internal.metastorage.server;
 
 public class ConditionBranch {
-    private final Condition condition;
+    private final If _if;
     private final Update update;
     
-    
-    public ConditionBranch(Condition condition) {
-        this.condition = condition;
+    public ConditionBranch(If _if) {
+        this._if = _if;
         this.update = null;
     }
     
     public ConditionBranch(Update update) {
         this.update = update;
-        this.condition = null;
+        this._if = null;
     }
     
     public boolean isTerminal() {
         return update != null;
     }
     
-    public Condition condition() {
-        return condition;
+    public If _if() {
+        return _if;
     }
     
     public Update update() {

@@ -42,8 +42,4 @@ public interface Condition {
     boolean test(Entry... e);
     
     int arity();
-    
-    ConditionBranch andThen();
-    
-    ConditionBranch orElse();
 }

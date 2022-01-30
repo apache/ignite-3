@@ -4,7 +4,7 @@ import java.util.Arrays;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.NotNull;
 
-public abstract class AbstractBinaryCondition extends AbstractCondition {
+public abstract class AbstractBinaryCondition implements Condition {
     
     private final Condition leftCondition;
     
@@ -14,11 +14,7 @@ public abstract class AbstractBinaryCondition extends AbstractCondition {
     
     private final int arity;
     
-    public AbstractBinaryCondition(Condition leftCondition,
-            Condition rightCondition,
-            ConditionBranch andThen,
-            ConditionBranch orElse) {
-        super(andThen, orElse);
+    public AbstractBinaryCondition(Condition leftCondition, Condition rightCondition) {
         this.leftCondition = leftCondition;
         this.rightCondition = rightCondition;
         keys = ArrayUtils.concat(leftCondition.keys(), rightCondition.keys());

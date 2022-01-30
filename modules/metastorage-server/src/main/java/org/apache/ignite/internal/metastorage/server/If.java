@@ -1,22 +1,24 @@
 package org.apache.ignite.internal.metastorage.server;
 
-public abstract class AbstractCondition implements Condition {
-    
+public class If {
+    private final Condition condition;
     private final ConditionBranch andThen;
-    
     private final ConditionBranch orElse;
     
-    public AbstractCondition(ConditionBranch andThen, ConditionBranch orElse) {
+    public If(Condition condition, ConditionBranch andThen, ConditionBranch orElse) {
+        this.condition = condition;
         this.andThen = andThen;
         this.orElse = orElse;
     }
     
-    @Override
+    public Condition condition() {
+        return condition;
+    }
+    
     public ConditionBranch andThen() {
         return andThen;
     }
     
-    @Override
     public ConditionBranch orElse() {
         return orElse;
     }

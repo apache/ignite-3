@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.metastorage.common.ConditionBranchInfo;
 import org.apache.ignite.internal.metastorage.common.ConditionType;
 
 /**
  * Defines condition for InvokeCommand.
  */
-public class ConditionInfo implements Serializable {
+public class ConditionInfo implements Serializable, ConditionInfoMarker {
     /** Key. */
     private final byte[] key;
 
@@ -35,7 +36,7 @@ public class ConditionInfo implements Serializable {
 
     /** Revision. */
     private final long rev;
-
+    
     /**
      * Construct condition with given parameters.
      *

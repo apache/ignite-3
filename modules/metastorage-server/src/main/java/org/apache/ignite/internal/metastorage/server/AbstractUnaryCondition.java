@@ -22,7 +22,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * An abstract condition which could be applied to an entry identified by the key.
  */
-public abstract class AbstractUnaryCondition extends AbstractCondition {
+public abstract class AbstractUnaryCondition implements Condition {
     /** Entry key. */
     @NotNull
     private final byte[][] keys;
@@ -32,11 +32,7 @@ public abstract class AbstractUnaryCondition extends AbstractCondition {
      *
      * @param key Key identifies an entry which the condition will applied to.
      */
-    public AbstractUnaryCondition(@NotNull byte[] key,
-            ConditionBranch andThen,
-            ConditionBranch orElse) {
-        super(andThen, orElse);
-        
+    public AbstractUnaryCondition(@NotNull byte[] key) {
         keys = new byte[][]{ key };
     }
 
