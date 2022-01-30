@@ -1,7 +1,6 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
 import java.io.Serializable;
-import org.apache.ignite.internal.metastorage.common.IfBranchInfo;
 
 public class BinaryConditionInfo implements Serializable, ConditionInfo {
     
@@ -10,7 +9,7 @@ public class BinaryConditionInfo implements Serializable, ConditionInfo {
     private final BinaryConditionType type;
     
     public BinaryConditionInfo(ConditionInfo leftConditionInfo,
-            ConditionInfo rightConditionInfo, BinaryConditionType type, IfBranchInfo andThen, IfBranchInfo orElse) {
+            ConditionInfo rightConditionInfo, BinaryConditionType type) {
         this.leftConditionInfo = leftConditionInfo;
         this.rightConditionInfo = rightConditionInfo;
         this.type = type;

@@ -24,7 +24,7 @@ import org.jetbrains.annotations.NotNull;
  * This class contains fabric methods which produce conditions needed for conditional multi update functionality provided by meta storage
  * service.
  *
- * @see Condition
+ * @see UnaryCondition
  */
 public final class Conditions {
     /**
@@ -32,10 +32,10 @@ public final class Conditions {
      *
      * @param key Identifies an entry which condition will be applied to. Can't be {@code null}.
      * @return Condition on entry revision.
-     * @see Condition.RevisionCondition
+     * @see UnaryCondition.RevisionCondition
      */
-    public static Condition.RevisionCondition revision(@NotNull ByteArray key) {
-        return new Condition.RevisionCondition(key.bytes());
+    public static UnaryCondition.RevisionCondition revision(@NotNull ByteArray key) {
+        return new UnaryCondition.RevisionCondition(key.bytes());
     }
 
     /**
@@ -43,10 +43,10 @@ public final class Conditions {
      *
      * @param key Identifies an entry which condition will be applied to. Can't be {@code null}.
      * @return Condition on entry value.
-     * @see Condition.ValueCondition
+     * @see UnaryCondition.ValueCondition
      */
-    public static Condition.ValueCondition value(@NotNull ByteArray key) {
-        return new Condition.ValueCondition(key.bytes());
+    public static UnaryCondition.ValueCondition value(@NotNull ByteArray key) {
+        return new UnaryCondition.ValueCondition(key.bytes());
     }
 
     /**
@@ -55,8 +55,8 @@ public final class Conditions {
      * @param key Identifies an entry which condition will be applied to. Can't be {@code null}.
      * @return Condition on entry existence.
      */
-    public static Condition exists(@NotNull ByteArray key) {
-        return new Condition.ExistenceCondition(key.bytes()).exists();
+    public static UnaryCondition exists(@NotNull ByteArray key) {
+        return new UnaryCondition.ExistenceCondition(key.bytes()).exists();
     }
 
     /**
@@ -65,8 +65,8 @@ public final class Conditions {
      * @param key Identifies an entry which condition will be applied to. Can't be {@code null}.
      * @return Condition on entry not existence.
      */
-    public static Condition notExists(@NotNull ByteArray key) {
-        return new Condition.ExistenceCondition(key.bytes()).notExists();
+    public static UnaryCondition notExists(@NotNull ByteArray key) {
+        return new UnaryCondition.ExistenceCondition(key.bytes()).notExists();
     }
 
     /**
@@ -75,8 +75,8 @@ public final class Conditions {
      * @param key Identifies an entry which condition will be applied to. Can't be {@code null}.
      * @return Condition on entry's value is tombstone.
      */
-    public static Condition tombstone(@NotNull ByteArray key) {
-        return new Condition.TombstoneCondition(key.bytes()).tombstone();
+    public static UnaryCondition tombstone(@NotNull ByteArray key) {
+        return new UnaryCondition.TombstoneCondition(key.bytes()).tombstone();
     }
 
     /**

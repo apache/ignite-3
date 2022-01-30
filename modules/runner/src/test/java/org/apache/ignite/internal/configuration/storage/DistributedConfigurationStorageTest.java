@@ -27,7 +27,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.Condition;
+import org.apache.ignite.internal.metastorage.client.UnaryCondition;
 import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.Operation;
 import org.apache.ignite.internal.metastorage.common.OperationType;
@@ -88,7 +88,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
         var mock = mock(MetaStorageManager.class);
 
         when(mock.invoke(any(), anyCollection(), anyCollection())).thenAnswer(invocation -> {
-            Condition condition = invocation.getArgument(0);
+            UnaryCondition condition = invocation.getArgument(0);
             Collection<Operation> success = invocation.getArgument(1);
             Collection<Operation> failure = invocation.getArgument(2);
 
@@ -116,15 +116,15 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
     }
 
     /**
-     * Converts a {@link Condition} to a {@link org.apache.ignite.internal.metastorage.server.Condition}.
+     * Converts a {@link UnaryCondition} to a {@link org.apache.ignite.internal.metastorage.server.Condition}.
      */
-    private static org.apache.ignite.internal.metastorage.server.Condition toServerCondition(Condition condition) {
+    private static org.apache.ignite.internal.metastorage.server.Condition toServerCondition(UnaryCondition condition) {
         switch (condition.type()) {
             case REV_LESS_OR_EQUAL:
                 return new RevisionCondition(
                         RevisionCondition.Type.LESS_OR_EQUAL,
                         condition.inner().key(),
-                        ((Condition.RevisionCondition) condition.inner()).revision()
+                        ((UnaryCondition.RevisionCondition) condition.inner()).revision()
                 );
             case KEY_NOT_EXISTS:
                 return new ExistenceCondition(

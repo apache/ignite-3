@@ -28,7 +28,13 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
+import org.apache.ignite.internal.metastorage.common.BranchResultInfo;
+import org.apache.ignite.internal.metastorage.common.IfBranchInfo;
 import org.apache.ignite.internal.metastorage.common.OperationType;
+import org.apache.ignite.internal.metastorage.common.UpdateInfo;
+import org.apache.ignite.internal.metastorage.common.command.BinaryConditionInfo;
+import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
+import org.apache.ignite.internal.metastorage.common.command.IfInfo;
 import org.apache.ignite.internal.metastorage.common.command.UnaryConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutAllCommand;
@@ -183,7 +189,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             @NotNull Collection<Operation> success,
             @NotNull Collection<Operation> failure
     ) {
-        UnaryConditionInfo cond = toConditionInfo(condition);
+        ConditionInfo cond = toConditionInfo(condition);
 
         List<OperationInfo> successOps = toOperationInfos(success);
 
@@ -310,32 +316,56 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         return res;
     }
-
-    private static UnaryConditionInfo toConditionInfo(@NotNull Condition condition) {
-        UnaryConditionInfo cnd = null;
-
-        Object obj = condition.inner();
-
-        if (obj instanceof Condition.ExistenceCondition) {
-            Condition.ExistenceCondition inner = (Condition.ExistenceCondition) obj;
-
-            cnd = new UnaryConditionInfo(inner.key(), inner.type(), null, 0);
-        } else if (obj instanceof Condition.TombstoneCondition) {
-            Condition.TombstoneCondition inner = (Condition.TombstoneCondition) obj;
-
-            cnd = new UnaryConditionInfo(inner.key(), inner.type(), null, 0);
-        } else if (obj instanceof Condition.RevisionCondition) {
-            Condition.RevisionCondition inner = (Condition.RevisionCondition) obj;
-
-            cnd = new UnaryConditionInfo(inner.key(), inner.type(), null, inner.revision());
-        } else if (obj instanceof Condition.ValueCondition) {
-            Condition.ValueCondition inner = (Condition.ValueCondition) obj;
-
-            cnd = new UnaryConditionInfo(inner.key(), inner.type(), inner.value(), 0);
+    
+    private static UpdateInfo toUpdateInfo(Update update) {
+        return new UpdateInfo(toOperationInfos(update.operations()), new BranchResultInfo(update.result().result()));
+    }
+    
+    private static IfBranchInfo toIfBranchInfo(IfBranch ifBranch) {
+        if (ifBranch.isTerminal()) {
+            return new IfBranchInfo(toUpdateInfo(ifBranch.update()));
         } else {
-            assert false : "Unknown condition type: " + obj.getClass().getSimpleName();
+            return new IfBranchInfo(toIfInfo(ifBranch._if()));
         }
+    }
+    
+    private static IfInfo toIfInfo(If _if) {
+        return new IfInfo(toConditionInfo(_if.condition()), toIfBranchInfo(_if.andThen()), toIfBranchInfo(_if.orElse()));
+    }
 
+    private static ConditionInfo toConditionInfo(@NotNull Condition condition) {
+        ConditionInfo cnd = null;
+        if (condition instanceof UnaryCondition) {
+            Object obj = ((UnaryCondition) condition).inner();
+    
+            if (obj instanceof UnaryCondition.ExistenceCondition) {
+                UnaryCondition.ExistenceCondition inner = (UnaryCondition.ExistenceCondition) obj;
+        
+                cnd = new UnaryConditionInfo(inner.key(), inner.type(), null, 0);
+            } else if (obj instanceof UnaryCondition.TombstoneCondition) {
+                UnaryCondition.TombstoneCondition inner = (UnaryCondition.TombstoneCondition) obj;
+        
+                cnd = new UnaryConditionInfo(inner.key(), inner.type(), null, 0);
+            } else if (obj instanceof UnaryCondition.RevisionCondition) {
+                UnaryCondition.RevisionCondition inner = (UnaryCondition.RevisionCondition) obj;
+        
+                cnd = new UnaryConditionInfo(inner.key(), inner.type(), null, inner.revision());
+            } else if (obj instanceof UnaryCondition.ValueCondition) {
+                UnaryCondition.ValueCondition inner = (UnaryCondition.ValueCondition) obj;
+        
+                cnd = new UnaryConditionInfo(inner.key(), inner.type(), inner.value(), 0);
+            } else {
+                assert false : "Unknown condition type: " + obj.getClass().getSimpleName();
+            }
+            
+        } else if (condition instanceof BinaryCondition) {
+            BinaryCondition cond = (BinaryCondition) condition;
+            
+            cnd = new BinaryConditionInfo(toConditionInfo(cond.leftCondition()), toConditionInfo(cond.rightCondition()), cond.binaryConditionType());
+        } else {
+            assert false : "Unknown condition type: " + condition.getClass().getSimpleName();
+        }
+        
         return cnd;
     }
 
