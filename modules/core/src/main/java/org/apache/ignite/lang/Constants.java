@@ -22,8 +22,8 @@ package org.apache.ignite.lang;
  */
 public class Constants {
     /**
-     * Special key for the vault where the applied revision for {@link MetaStorageManager#storeEntries} operation is stored. This mechanism
-     * is needed for committing processed watches to {@link VaultManager}.
+     * Special key for the vault where the applied revision is stored. This mechanism is
+     * needed for committing processed watches to Vault.
      */
     public static final ByteArray APPLIED_REV = ByteArray.fromString("applied_revision");
 
