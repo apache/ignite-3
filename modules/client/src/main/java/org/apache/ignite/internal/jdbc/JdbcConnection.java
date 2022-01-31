@@ -281,6 +281,7 @@ public class JdbcConnection implements Connection {
         if (autoCommit != this.autoCommit) {
             this.autoCommit = autoCommit;
         }
+        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16432
     }
 
     /** {@inheritDoc} */
@@ -299,6 +300,7 @@ public class JdbcConnection implements Connection {
         if (autoCommit) {
             throw new SQLException("Transaction cannot be committed explicitly in auto-commit mode.");
         }
+        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16432
     }
 
     /** {@inheritDoc} */
@@ -309,6 +311,7 @@ public class JdbcConnection implements Connection {
         if (autoCommit) {
             throw new SQLException("Transaction cannot be rolled back explicitly in auto-commit mode.");
         }
+        //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16432
     }
 
     /** {@inheritDoc} */
