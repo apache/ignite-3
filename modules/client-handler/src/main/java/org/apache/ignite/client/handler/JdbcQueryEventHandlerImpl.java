@@ -54,7 +54,6 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.Cursor;
 
@@ -95,7 +94,12 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         List<SqlCursor<List<?>>> cursors;
         try {
-            cursors = processor.query(req.schemaName(), req.sqlQuery(), req.arguments() == null ? new Object[0] : req.arguments());
+            Boolean isQuery = getExpectedQueryFlag(req.getStmtType());
+
+            cursors = processor.query(
+                    isQuery,
+                    req.schemaName(), req.sqlQuery(),
+                    req.arguments() == null ? new Object[0] : req.arguments());
         } catch (Exception e) {
             StringWriter sw = getWriterWithStackTrace(e);
 
@@ -112,15 +116,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         try {
             for (SqlCursor<List<?>> cur : cursors) {
-                if (!checkQueryExpectedType(req.getStmtType(), cur.queryType())) {
-                    return CompletableFuture.completedFuture(new QueryExecuteResult(Response.STATUS_FAILED,
-                            "Expected query type " + req.getStmtType()
-                                    + " for query " + req.sqlQuery()
-                                    + " does not match with real type: " + cur.queryType()));
-                }
-            }
-
-            for (SqlCursor<List<?>> cur : cursors) {
                 QuerySingleResult res = createJdbcResult(cur, req);
                 results.add(res);
             }
@@ -134,18 +129,17 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         return CompletableFuture.completedFuture(new QueryExecuteResult(results));
     }
 
-    private boolean checkQueryExpectedType(JdbcStatementType expectedType, SqlQueryType queryType) {
-        if (queryType == SqlQueryType.EXPLAIN || expectedType == JdbcStatementType.ANY_STATEMENT_TYPE) {
-            return true;
-        }
-        switch (expectedType) {
+    private Boolean getExpectedQueryFlag(JdbcStatementType stmtType) {
+        switch (stmtType) {
+            case ANY_STATEMENT_TYPE:
+                return null;
             case SELECT_STATEMENT_TYPE:
-                return queryType == SqlQueryType.QUERY;
+                return true;
             case UPDATE_STMT_TYPE:
-                return queryType == SqlQueryType.DDL || queryType == SqlQueryType.DML;
+                return false;
+            default:
+                throw new IllegalArgumentException("Unexpected JdbcStatementType: " + stmtType);
         }
-
-        return false;
     }
 
     /** {@inheritDoc} */

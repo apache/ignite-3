@@ -733,9 +733,9 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
         assertTrue(next);
 
-        assertEquals(1, rs.getInt(1),
+        assertEquals("name_1", rs.getString(1),
                 "The data must not be updated. "
                         + "Because update statement is executed via 'executeQuery' method."
-                        + " Data [val=" + rs.getInt(1) + ']');
+                        + " Data [val=" + rs.getString(1) + ']');
     }
 }

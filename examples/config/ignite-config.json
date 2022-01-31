@@ -1,7 +1,7 @@
 {
     "node": {
         "metastorageNodes": [
-            "my-first-node"
+            "test"
         ]
     },
     "network": {

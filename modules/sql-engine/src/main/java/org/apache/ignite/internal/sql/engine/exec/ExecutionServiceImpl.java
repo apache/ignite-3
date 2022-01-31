@@ -81,6 +81,7 @@ import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepQueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlanCache;
 import org.apache.ignite.internal.sql.engine.prepare.QueryTemplate;
 import org.apache.ignite.internal.sql.engine.prepare.ResultSetMetadataImpl;
@@ -204,12 +205,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
     /** {@inheritDoc} */
     @Override
     public List<SqlCursor<List<?>>> executeQuery(
+            Boolean isQuery,
             String schema,
             String qry,
             Object[] params
     ) {
         QueryPlan plan = qryPlanCache.queryPlan(new CacheKey(sqlSchemaManager.schema(schema).getName(), qry));
         if (plan != null) {
+            checkQueryType(plan.type(), isQuery);
+
             PlanningContext pctx = createContext(Contexts.empty(), schema, qry, params);
 
             return Collections.singletonList(executePlan(UUID.randomUUID(), pctx, plan));
@@ -230,10 +234,31 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
                 plan = prepareSingle(qry0, pctx);
             }
 
+            checkQueryType(plan.type(), isQuery);
+
             cursors.add(executePlan(UUID.randomUUID(), pctx, plan));
         }
 
         return cursors;
+    }
+
+    /**
+     * Check expected statement type (when it is set by JDBC) and given statement type.
+     *
+     * @param qryType Query type.
+     * @param isQuery {@code null} if not applicable, {@code true} for select queries,
+     *                           otherwise (DML/DDL queries) {@code false}.
+     */
+    private static void checkQueryType(Type qryType, Boolean isQuery) {
+        if (isQuery == null || qryType == Type.EXPLAIN) {
+            return;
+        }
+        if (isQuery && qryType != Type.QUERY) {
+            throw new IgniteInternalException("Given statement type does not match that declared by JDBC driver");
+        }
+        if (!isQuery && qryType != Type.DML && qryType != Type.DDL) {
+            throw new IgniteInternalException("Given statement type does not match that declared by JDBC driver");
+        }
     }
 
     private SqlCursor<List<?>> mapAndExecutePlan(

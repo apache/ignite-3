@@ -29,12 +29,13 @@ public interface ExecutionService extends LifecycleAware {
     /**
      * Executes a query.
      *
+     * @param isQuery Flag indicating that the expected type of request is a query.
      * @param schema Schema name.
      * @param query  Query.
      * @param params Query parameters.
      * @return Query cursor.
      */
-    List<SqlCursor<List<?>>> executeQuery(String schema, String query, Object[] params);
+    List<SqlCursor<List<?>>> executeQuery(Boolean isQuery, String schema, String query, Object[] params);
 
     /**
      * Cancels a running query.

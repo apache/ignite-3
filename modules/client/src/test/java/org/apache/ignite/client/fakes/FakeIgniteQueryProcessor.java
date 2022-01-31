@@ -32,6 +32,11 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     }
 
     @Override
+    public List<SqlCursor<List<?>>> query(Boolean isQuery, String schemaName, String qry, Object... params) {
+        return Collections.singletonList(new FakeCursor());
+    }
+
+    @Override
     public void start() {
 
     }

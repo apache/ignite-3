@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -303,39 +305,26 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
     }
 
     private <RowT> BinaryRow updateTuple(RowT row, List<String> updateColList, ExecutionContext<RowT> ectx) {
-        int nonNullVarlenKeyCols = 0;
-        int nonNullVarlenValCols = 0;
-
         RowHandler<RowT> hnd = ectx.rowHandler();
         int offset = desc.columnsCount();
         Set<String> toUpdate = new HashSet<>(updateColList);
 
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            if (colDesc.physicalType().spec().fixedLength()) {
-                continue;
-            }
+        RowAssembler rowAssembler = new RowAssembler(schemaDescriptor,
+                schemaDescriptor.keyColumns().numberOfVarlengthColumns(),
+                schemaDescriptor.valueColumns().numberOfVarlengthColumns());
 
-            Object val = toUpdate.contains(colDesc.name())
-                    ? hnd.get(colDesc.logicalIndex() + offset, row)
-                    : hnd.get(colDesc.logicalIndex(), row);
+        Object2IntMap<String> columnToIndex = new Object2IntOpenHashMap<>(updateColList.size());
 
-            if (val != null) {
-                if (colDesc.key()) {
-                    nonNullVarlenKeyCols++;
-                } else {
-                    nonNullVarlenValCols++;
-                }
-            }
+        for (int i = 0; i < updateColList.size(); i++) {
+            columnToIndex.put(updateColList.get(i), i);
         }
-
-        RowAssembler rowAssembler = new RowAssembler(schemaDescriptor, nonNullVarlenKeyCols, nonNullVarlenValCols);
 
         for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
             RowAssembler.writeValue(
                     rowAssembler,
                     colDesc.physicalType(),
                     toUpdate.contains(colDesc.name())
-                            ? hnd.get(colDesc.logicalIndex() + offset, row)
+                            ? hnd.get(columnToIndex.getInt(colDesc.name()) + offset, row)
                             : hnd.get(colDesc.logicalIndex(), row)
             );
         }
