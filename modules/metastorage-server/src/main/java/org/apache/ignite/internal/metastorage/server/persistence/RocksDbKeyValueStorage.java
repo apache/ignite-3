@@ -145,6 +145,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /** Revision. Will be incremented for each single-entry or multi-entry update operation. */
     private volatile long rev;
 
+    /** The earliest revision that is available. The revision of the last compaction or {@code 0} if the compaction is never been. */
+    private volatile long earliestRev;
+
     /** Update counter. Will be incremented for each update of any particular entry. */
     private volatile long updCntr;
 
@@ -261,6 +264,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     @Override
     public long revision() {
         return rev;
+    }
+
+    @Override
+    public long earliestRevision() {
+        return earliestRev;
     }
 
     /** {@inheritDoc} */

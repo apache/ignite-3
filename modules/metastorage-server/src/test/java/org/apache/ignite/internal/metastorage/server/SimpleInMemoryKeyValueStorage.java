@@ -78,6 +78,11 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
+    @Override
+    public long earliestRevision() {
+        return 0;
+    }
+
     /** {@inheritDoc} */
     @Override
     public long updateCounter() {
