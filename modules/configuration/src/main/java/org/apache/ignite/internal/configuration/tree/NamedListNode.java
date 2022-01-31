@@ -489,24 +489,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
         newElement.setInjectedNameFieldValue(key);
 
-        newElement.internalId(generateInternalId());
-
         return new ElementDescriptor(newElement);
-    }
-
-    /**
-     * Generates a new unique internal id for the node.
-     *
-     * @return Generated internal id.
-     */
-    private UUID generateInternalId() {
-        UUID newInternalId = UUID.randomUUID();
-
-        while (reverseIdMap.containsKey(newInternalId)) {
-            newInternalId = UUID.randomUUID();
-        }
-
-        return newInternalId;
     }
 
     /**
@@ -528,7 +511,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         ElementDescriptor(InnerNode value) {
             this.value = value;
 
-            internalId = value.internalId();
+            internalId = value.generateInternalId();
         }
 
         /**
