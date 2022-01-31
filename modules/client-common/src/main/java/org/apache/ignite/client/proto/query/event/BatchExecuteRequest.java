@@ -51,7 +51,7 @@ public class BatchExecuteRequest implements ClientMessage {
      * @param autoCommit Client auto commit flag state.
      */
     public BatchExecuteRequest(String schemaName, List<Query> queries, boolean autoCommit) {
-        assert queries != null && !queries.isEmpty();
+        assert !CollectionUtils.nullOrEmpty(queries);
 
         this.schemaName = schemaName;
         this.queries = queries;
