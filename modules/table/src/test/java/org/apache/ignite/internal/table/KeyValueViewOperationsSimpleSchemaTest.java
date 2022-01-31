@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.schema.NativeTypes.INT64;
+import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -27,9 +29,11 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -40,13 +44,18 @@ import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorag
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 /**
@@ -330,6 +339,86 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         }
     }
 
+    /**
+     * Parametrized test for correctness of empty string insertion.
+     *
+     * @param order if {@code true} String column inserts first.
+     * @param nullFirst nullable param for first column.
+     * @param nullSecond nullable param for second column.
+     */
+    @ParameterizedTest
+    @MethodSource("provideStrOrderingAndNulls")
+    public void checkEmptyStingInsertion(boolean order, boolean nullFirst, boolean nullSecond) {
+        Mapper<Long> keyMapper = Mapper.of(Long.class, "id");
+        Mapper<TestValMapper> valMapper = Mapper.of(TestValMapper.class);
+
+        Column strCol = new Column("stringCol".toUpperCase(), STRING, nullFirst);
+        Column otherCol = new Column("longCol".toUpperCase(), INT64, nullSecond);
+
+        Column[] valCols = order ? new Column[]{strCol, otherCol} : new Column[]{otherCol, strCol};
+
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("ID", NativeTypes.INT64, false)},
+                valCols
+        );
+
+        TableImpl table = createTable(schema);
+
+        KeyValueViewImpl<Long, TestValMapper> kvView = new KeyValueViewImpl<>(
+                table.internalTable(),
+                new DummySchemaManagerImpl(schema),
+                keyMapper,
+                valMapper
+        );
+
+        TestValMapper obj = TestValMapper.build();
+
+        long key = 42L;
+
+        kvView.put(null, 42L, obj);
+
+        assertEquals(obj, kvView.get(null, key));
+    }
+
+    private static Stream<Arguments> provideStrOrderingAndNulls() {
+        return Stream.of(
+                Arguments.of(true, true, true),
+                Arguments.of(false, true, true),
+                Arguments.of(true, false, false),
+                Arguments.of(false, false, false),
+                Arguments.of(true, true, false),
+                Arguments.of(false, true, false)
+        );
+    }
+
+    static class TestValMapper {
+        private Long longCol;
+        private String stringCol;
+
+        static TestValMapper build() {
+            final TestValMapper valMapper = new TestValMapper();
+            valMapper.longCol = 100L;
+            valMapper.stringCol = "";
+            return valMapper;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            TestValMapper obj = (TestValMapper) o;
+
+            return Objects.equals(longCol, obj.longCol) && stringCol.equals(obj.stringCol);
+        }
+    }
+
     @Test
     public void getAll() {
         KeyValueView<Long, Long> kvView = kvView();
@@ -356,15 +445,6 @@ public class KeyValueViewOperationsSimpleSchemaTest {
      * @param valueClass Value class.
      */
     private <T> KeyValueViewImpl<Long, T> kvViewForValueType(NativeType type, Class<T> valueClass) {
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address())
-                .thenReturn(DummyInternalTableImpl.ADDR);
-
-        TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager());
-
-        DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
-
         Mapper<Long> keyMapper = Mapper.of(Long.class, "id");
         Mapper<T> valMapper = Mapper.of(valueClass, "val");
 
@@ -374,11 +454,29 @@ public class KeyValueViewOperationsSimpleSchemaTest {
                 new Column[]{new Column("VAL", type, true)}
         );
 
+        TableImpl table = createTable(schema);
+
         return new KeyValueViewImpl<>(
-                table,
+                table.internalTable(),
                 new DummySchemaManagerImpl(schema),
                 keyMapper,
                 valMapper
         );
+    }
+
+    @NotNull
+    private TableImpl createTable(SchemaDescriptor schema) {
+        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
+
+        LockManager lockManager = new HeapLockManager();
+
+        TxManager txManager = new TxManagerImpl(clusterService, lockManager);
+
+        DummyInternalTableImpl table = new DummyInternalTableImpl(
+                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager),
+                txManager);
+
+        return new TableImpl(table, new DummySchemaManagerImpl(schema));
     }
 }
