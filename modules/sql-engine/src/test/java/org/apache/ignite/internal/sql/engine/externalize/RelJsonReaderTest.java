@@ -32,7 +32,6 @@ import org.apache.calcite.schema.Statistic;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
-import org.apache.ignite.lang.IgniteUuid;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -46,7 +45,7 @@ public class RelJsonReaderTest {
      */
     @Test
     void fromJson() {
-        IgniteUuid tableId = new IgniteUuid(UUID.randomUUID(), 0L);
+        UUID tableId = UUID.randomUUID();
 
         IgniteTable igniteTableMock = mock(IgniteTable.class);
         when(igniteTableMock.getStatistic()).thenReturn(new Statistic() {});

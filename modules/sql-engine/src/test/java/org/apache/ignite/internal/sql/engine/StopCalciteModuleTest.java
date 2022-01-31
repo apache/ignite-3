@@ -50,7 +50,6 @@ import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
@@ -124,7 +123,7 @@ public class StopCalciteModuleTest {
         doAnswer(invocation -> {
             EventListener<TableEventParameters> clo = (EventListener<TableEventParameters>) invocation.getArguments()[1];
 
-            clo.notify(new TableEventParameters(new IgniteUuid(UUID.randomUUID(), 0), "TEST", new TableImpl(tbl, schemaReg)),
+            clo.notify(new TableEventParameters(UUID.randomUUID(), "TEST", new TableImpl(tbl, schemaReg)),
                     null);
 
             return null;
@@ -171,7 +170,7 @@ public class StopCalciteModuleTest {
     public void testStopQueryOnNodeStop() throws Exception {
         SqlQueryProcessor qryProc = new SqlQueryProcessor(clusterSrvc, tableManager);
 
-        when(tbl.tableId()).thenReturn(new IgniteUuid(UUID.randomUUID(), 0L));
+        when(tbl.tableId()).thenReturn(UUID.randomUUID());
 
         qryProc.start();
 

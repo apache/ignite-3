@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.configuration.schema;
 
+import java.util.UUID;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.schemas.table.TableConfigurationSchema;
-import org.apache.ignite.configuration.validation.Immutable;
 
 /**
  * Extended table configuration schema class.
@@ -29,10 +30,9 @@ import org.apache.ignite.configuration.validation.Immutable;
 @InternalConfiguration
 // TODO: IGNITE-15480 Add id's to columns in order to properly process column renaming withing index context.
 public class ExtendedTableConfigurationSchema extends TableConfigurationSchema {
-    /** Table id. String representation of {@link org.apache.ignite.lang.IgniteUuid}. */
-    @Value
-    @Immutable
-    public String id;
+    /** Table id. */
+    @InternalId
+    public UUID id;
 
     /**
      * Serialized version of an affinity assignments. Currently configuration doesn't support neither collections nor array of arrays, so
