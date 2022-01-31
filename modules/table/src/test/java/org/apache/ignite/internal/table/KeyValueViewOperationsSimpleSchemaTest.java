@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,7 +28,6 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -56,6 +54,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
 /**
@@ -342,6 +341,39 @@ public class KeyValueViewOperationsSimpleSchemaTest {
     /**
      * Parametrized test for correctness of empty string insertion.
      *
+     * @param nullable nullable param for string column.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void test0(boolean nullable) {
+        Mapper<Long> keyMapper = Mapper.of(Long.class, "id");
+        Mapper<String> valMapper = Mapper.of(String.class, "str");
+
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("ID", NativeTypes.INT64, false)},
+                new Column[]{new Column("STR", NativeTypes.STRING, nullable)}
+        );
+
+        TableImpl table = createTable(schema);
+
+        KeyValueViewImpl<Long, String> kvView = new KeyValueViewImpl<>(
+                table.internalTable(),
+                new DummySchemaManagerImpl(schema),
+                keyMapper,
+                valMapper
+        );
+
+        long key = 42L;
+
+        kvView.put(null, 42L, "");
+
+        assertEquals("", kvView.get(null, key));
+    }
+
+    /**
+     * Parametrized test for correctness of empty multi string insertion.
+     *
      * @param order if {@code true} String column inserts first.
      * @param nullFirst nullable param for first column.
      * @param nullSecond nullable param for second column.
@@ -352,27 +384,27 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         Mapper<Long> keyMapper = Mapper.of(Long.class, "id");
         Mapper<TestValMapper> valMapper = Mapper.of(TestValMapper.class);
 
-        Column strCol = new Column("stringCol".toUpperCase(), STRING, nullFirst);
-        Column otherCol = new Column("longCol".toUpperCase(), INT64, nullSecond);
+        Column strCol = new Column("stringCol1".toUpperCase(), STRING, nullFirst);
+        Column otherCol = new Column("stringCol2".toUpperCase(), STRING, nullSecond);
 
-        Column[] valCols = order ? new Column[]{strCol, otherCol} : new Column[]{otherCol, strCol};
+        Column[] valCols = {strCol, otherCol};
 
-        SchemaDescriptor schema = new SchemaDescriptor(
+        SchemaDescriptor schemaMultiStr = new SchemaDescriptor(
                 1,
                 new Column[]{new Column("ID", NativeTypes.INT64, false)},
                 valCols
         );
 
-        TableImpl table = createTable(schema);
+        TableImpl table = createTable(schemaMultiStr);
 
         KeyValueViewImpl<Long, TestValMapper> kvView = new KeyValueViewImpl<>(
                 table.internalTable(),
-                new DummySchemaManagerImpl(schema),
+                new DummySchemaManagerImpl(schemaMultiStr),
                 keyMapper,
                 valMapper
         );
 
-        TestValMapper obj = TestValMapper.build();
+        TestValMapper obj = TestValMapper.build(order);
 
         long key = 42L;
 
@@ -393,13 +425,13 @@ public class KeyValueViewOperationsSimpleSchemaTest {
     }
 
     static class TestValMapper {
-        private Long longCol;
-        private String stringCol;
+        private String stringCol1;
+        private String stringCol2;
 
-        static TestValMapper build() {
+        static TestValMapper build(boolean order) {
             final TestValMapper valMapper = new TestValMapper();
-            valMapper.longCol = 100L;
-            valMapper.stringCol = "";
+            valMapper.stringCol1 = order ? "" : "some_str";
+            valMapper.stringCol2 = order ? "some_str" : "";
             return valMapper;
         }
 
@@ -415,7 +447,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
 
             TestValMapper obj = (TestValMapper) o;
 
-            return Objects.equals(longCol, obj.longCol) && stringCol.equals(obj.stringCol);
+            return stringCol1.equals(obj.stringCol1) && stringCol2.equals(obj.stringCol2);
         }
     }
 
