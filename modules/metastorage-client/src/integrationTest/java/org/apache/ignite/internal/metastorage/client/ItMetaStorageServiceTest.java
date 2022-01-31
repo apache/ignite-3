@@ -17,11 +17,17 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
+import static org.apache.ignite.internal.metastorage.client.BranchResult.res;
+import static org.apache.ignite.internal.metastorage.client.Conditions.*;
+import static org.apache.ignite.internal.metastorage.client.Operations.*;
+import static org.apache.ignite.internal.metastorage.client.BinaryCondition.*;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.metastorage.client.If._if;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -53,6 +59,9 @@ import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.server.AbstractUnaryCondition;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.OrCondition;
+import org.apache.ignite.internal.metastorage.server.RevisionCondition;
+import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftServer;
@@ -742,7 +751,80 @@ public class ItMetaStorageServiceTest {
 
         metaStorageSvc.stopWatch(watchId).get();
     }
-
+    
+    @Test
+    public void testMultiInvoke() throws Exception {
+        ByteArray key1 = new ByteArray(new byte[]{1});
+        ByteArray key2 = new ByteArray(new byte[]{2});
+        ByteArray key3 = new ByteArray(new byte[]{3});
+        var val1 = new byte[]{4};
+        var val2 = new byte[]{5};
+        
+        var rval1 = new byte[]{6};
+        var rval2 = new byte[]{7};
+        
+        /*
+        if (key1.value == val1 || key2.value != val2)
+            if (key3.revision == 3):
+                put(key1, rval1)
+                return true
+            else
+                put(key1, rval1)
+                put(key2, rval2)
+                return false
+        else
+            put(key2, rval2)
+            return false
+         */
+        
+        var _if = _if(or(value(key1).eq(val1), value(key2).ne(val2)),
+            _if(revision(key3).eq(3),
+                ops(put(key1, rval1)).yield(res(true)),
+                ops(put(key1, rval1), put(key2, rval2)).yield(res(false))),
+            ops(put(key2, rval2)).yield(res(false)))._if();
+        
+        var ifCaptor = ArgumentCaptor.forClass(org.apache.ignite.internal.metastorage.server.If.class);
+        
+        when(mockStorage.invoke(any())).thenReturn(new org.apache.ignite.internal.metastorage.server.BranchResult(true));
+        
+        assertTrue(metaStorageSvc.invoke(_if).get().result());
+        
+        verify(mockStorage).invoke(ifCaptor.capture());
+        
+        var resultIf = ifCaptor.getValue();
+        assertEquals(OrCondition.class, resultIf.condition().getClass());
+        assertArrayEquals(new byte[][]{key1.bytes(), key2.bytes()}, ((OrCondition) resultIf.condition()).keys());
+        assertArrayEquals(new byte[][]{key1.bytes()}, ((OrCondition) resultIf.condition()).leftCondition().keys());
+        assertArrayEquals(new byte[][]{key2.bytes()}, ((OrCondition) resultIf.condition()).rightCondition().keys());
+        assertEquals(ValueCondition.class, ((OrCondition) resultIf.condition()).leftCondition().getClass());
+        assertArrayEquals(new byte[][]{key1.bytes(), key2.bytes()}, ((OrCondition) resultIf.condition()).keys());
+    
+    
+        assertEquals(RevisionCondition.class, resultIf.andThen()._if().condition().getClass());
+        assertArrayEquals(new byte[][]{key3.bytes()}, ((RevisionCondition) resultIf.andThen()._if().condition()).keys());
+        assertEquals(1, resultIf.andThen()._if().andThen().update().operations().size());
+        assertArrayEquals(key1.bytes(), resultIf.andThen()._if().andThen().update().operations().iterator().next().key());
+        assertArrayEquals(rval1, resultIf.andThen()._if().andThen().update().operations().iterator().next().value());
+    
+        {
+            var it = resultIf.andThen()._if().orElse().update().operations().iterator();
+            var op1 = it.next();
+            var op2 = it.next();
+            assertEquals(2, resultIf.andThen()._if().orElse().update().operations().size());
+            assertArrayEquals(key1.bytes(), op1.key());
+            assertArrayEquals(rval1, op1.value());
+            assertArrayEquals(key2.bytes(), op2.key());
+            assertArrayEquals(rval2, op2.value());
+            
+            assertFalse(resultIf.andThen()._if().orElse().update().result().result());
+        }
+    
+        assertEquals(1, resultIf.orElse().update().operations().size());
+        assertArrayEquals(key2.bytes(), resultIf.orElse().update().operations().iterator().next().key());
+        assertArrayEquals(rval2, resultIf.orElse().update().operations().iterator().next().value());
+        assertFalse(resultIf.orElse().update().result().result());
+    }
+    
     @Test
     public void testInvoke() throws Exception {
         ByteArray expKey = new ByteArray(new byte[]{1});

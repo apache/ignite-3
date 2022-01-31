@@ -39,4 +39,12 @@ public abstract class AbstractBinaryCondition implements Condition {
     
     public abstract boolean combine(boolean left, boolean right);
     
+    
+    public Condition leftCondition() {
+        return leftCondition;
+    }
+    
+    public Condition rightCondition() {
+        return rightCondition;
+    }
 }

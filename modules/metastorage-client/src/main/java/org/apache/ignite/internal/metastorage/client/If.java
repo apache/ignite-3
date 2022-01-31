@@ -24,8 +24,8 @@ public class If {
         return orElse;
     }
     
-    public static If _if(Condition condition, IfBranch andThen, IfBranch orElse) {
-        return new If(condition, andThen, orElse);
+    public static IfBranch _if(Condition condition, IfBranch andThen, IfBranch orElse) {
+        return new IfBranch(new If(condition, andThen, orElse));
     }
 }
 

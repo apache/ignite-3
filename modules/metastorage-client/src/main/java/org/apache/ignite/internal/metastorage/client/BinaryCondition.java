@@ -2,7 +2,7 @@ package org.apache.ignite.internal.metastorage.client;
 
 import org.apache.ignite.internal.metastorage.common.command.BinaryConditionType;
 
-public class BinaryCondition extends AbstractCondition {
+public class BinaryCondition implements Condition {
     
     private final Condition leftCondition;
     private final Condition rightCondition;
@@ -25,5 +25,13 @@ public class BinaryCondition extends AbstractCondition {
     
     public BinaryConditionType binaryConditionType() {
         return binaryConditionType;
+    }
+    
+    public static BinaryCondition and(Condition left, Condition right) {
+        return new BinaryCondition(left, right, BinaryConditionType.AND);
+    }
+    
+    public static BinaryCondition or(Condition left, Condition right) {
+        return new BinaryCondition(left, right, BinaryConditionType.OR);
     }
 }

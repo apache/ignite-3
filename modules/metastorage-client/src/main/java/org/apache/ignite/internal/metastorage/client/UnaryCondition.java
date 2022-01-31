@@ -26,7 +26,7 @@ import org.apache.ignite.internal.metastorage.common.ConditionType;
  * @see MetaStorageService#invoke(Condition, Operation, Operation)
  * @see MetaStorageService#invoke(Condition, Collection, Collection)
  */
-public final class UnaryCondition extends AbstractCondition {
+public final class UnaryCondition implements Condition {
     /** Actual condition implementation. */
     private final InnerCondition cond;
 

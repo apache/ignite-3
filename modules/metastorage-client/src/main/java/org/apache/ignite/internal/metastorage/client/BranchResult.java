@@ -11,4 +11,8 @@ public class BranchResult {
     public boolean result() {
         return result;
     }
+    
+    public static BranchResult res(boolean r) {
+        return new BranchResult(r);
+    }
 }

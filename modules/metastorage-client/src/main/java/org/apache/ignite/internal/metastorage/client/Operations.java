@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
+import java.util.Arrays;
 import org.apache.ignite.lang.ByteArray;
 
 /**
@@ -29,6 +30,20 @@ public final class Operations {
     /** No-op operation singleton. */
     private static final Operation.NoOp NO_OP = new Operation.NoOp();
 
+    private final Operation[] operations;
+    
+    private Operations(Operation... operations) {
+        this.operations = operations;
+    }
+    
+    public IfBranch yield(BranchResult result) {
+        return new IfBranch(new Update(Arrays.asList(operations), result));
+    }
+    
+    public static Operations ops(Operation... operations) {
+        return new Operations(operations);
+    }
+    
     /**
      * Creates operation of type <i>remove</i>. This type of operation removes entry.
      *
@@ -38,7 +53,7 @@ public final class Operations {
     public static Operation remove(ByteArray key) {
         return new Operation(new Operation.RemoveOp(key.bytes()));
     }
-
+    
     /**
      * Creates operation of type <i>put</i>. This type of operation inserts or updates value of entry.
      *
@@ -49,7 +64,7 @@ public final class Operations {
     public static Operation put(ByteArray key, byte[] value) {
         return new Operation(new Operation.PutOp(key.bytes(), value));
     }
-
+    
     /**
      * Creates operation of type <i>noop</i>. It is a special type of operation which doesn't perform any action.
      *
@@ -57,12 +72,5 @@ public final class Operations {
      */
     public static Operation noop() {
         return new Operation(NO_OP);
-    }
-
-    /**
-     * Default no-op constructor.
-     */
-    private Operations() {
-        // No-op.
     }
 }
