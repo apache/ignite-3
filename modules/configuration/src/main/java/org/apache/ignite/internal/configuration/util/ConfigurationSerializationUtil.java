@@ -255,15 +255,7 @@ public class ConfigurationSerializationUtil {
                 return new String(bytes, 1, bytes.length - 1, StandardCharsets.UTF_8);
 
             case BOOLEAN | ARRAY: {
-                byte paddingLength = bytes[1];
-
-                boolean[] booleans = new boolean[Byte.SIZE * (bytes.length - 2) - paddingLength];
-
-                for (int i = 0; i < booleans.length; i++) {
-                    booleans[i] = (bytes[2 + (i >>> 3)] & (1 << (i & 7))) != 0;
-                }
-
-                return booleans;
+                return decompressBooleanArray(bytes);
             }
 
             case BYTE | ARRAY:
@@ -418,5 +410,17 @@ public class ConfigurationSerializationUtil {
         }
 
         return res;
+    }
+
+    private static boolean[] decompressBooleanArray(byte[] bytes) {
+        byte paddingLength = bytes[1];
+
+        boolean[] booleans = new boolean[Byte.SIZE * (bytes.length - 2) - paddingLength];
+
+        for (int i = 0; i < booleans.length; i++) {
+            booleans[i] = (bytes[2 + (i >>> 3)] & (1 << (i & 7))) != 0;
+        }
+
+        return booleans;
     }
 }
