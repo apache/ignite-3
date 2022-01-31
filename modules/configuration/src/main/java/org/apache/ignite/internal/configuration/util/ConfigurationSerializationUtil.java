@@ -97,15 +97,23 @@ public class ConfigurationSerializationUtil {
             case BOOLEAN | ARRAY: {
                 boolean[] booleans = (boolean[]) value;
 
-                ByteBuffer buf = allocateBuffer(1 + booleans.length);
+                int payloadSize = (booleans.length + Byte.SIZE - 1) / Byte.SIZE;
+
+                ByteBuffer buf = allocateBuffer(2 + payloadSize);
 
                 buf.put(header);
 
-                for (boolean b : booleans) {
-                    buf.put((byte) (b ? 1 : 0));
+                buf.put((byte) (payloadSize * Byte.SIZE - booleans.length));
+
+                byte[] res = buf.array();
+
+                for (int i = 0; i < booleans.length; i++) {
+                    if (booleans[i]) {
+                        res[2 + (i >>> 3)] |= (1 << (i & 7));
+                    }
                 }
 
-                return buf.array();
+                return res;
             }
 
             case BYTE | ARRAY: {
@@ -265,10 +273,10 @@ public class ConfigurationSerializationUtil {
                 return new String(bytes, 1, bytes.length - 1, StandardCharsets.UTF_8);
 
             case BOOLEAN | ARRAY: {
-                boolean[] booleans = new boolean[bytes.length - 1];
+                boolean[] booleans = new boolean[Byte.SIZE * (bytes.length - 2) - bytes[1]];
 
                 for (int i = 0; i < booleans.length; i++) {
-                    booleans[i] = buf.get() == 1;
+                    booleans[i] = (bytes[2 + (i >>> 3)] & (1 << (i & 7))) != 0;
                 }
 
                 return booleans;
