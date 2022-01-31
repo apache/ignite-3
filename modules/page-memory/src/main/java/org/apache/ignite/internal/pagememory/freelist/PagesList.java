@@ -1908,19 +1908,19 @@ public abstract class PagesList extends DataStructure {
         public static final String IGNITE_PAGES_LIST_CACHING_EMPTY_FLUSH_GC_THRESHOLD =
                 "IGNITE_PAGES_LIST_CACHING_EMPTY_FLUSH_GC_THRESHOLD";
 
-        private final int maxSize = getInteger(IGNITE_PAGES_LIST_CACHING_MAX_CACHE_SIZE, 64);
+        private static final int MAX_SIZE = getInteger(IGNITE_PAGES_LIST_CACHING_MAX_CACHE_SIZE, 64);
 
-        private final int stripesCount = getInteger(IGNITE_PAGES_LIST_CACHING_STRIPES_COUNT, 4);
+        private static final int STRIPES_COUNT = getInteger(IGNITE_PAGES_LIST_CACHING_STRIPES_COUNT, 4);
 
-        private final int emptyFlushGcThreshold = getInteger(IGNITE_PAGES_LIST_CACHING_EMPTY_FLUSH_GC_THRESHOLD, 10);
+        private static final int EMPTY_FLUSH_GC_THRESHOLD = getInteger(IGNITE_PAGES_LIST_CACHING_EMPTY_FLUSH_GC_THRESHOLD, 10);
 
         /** Mutexes for each stripe. */
-        private final Object[] stripeLocks = new Object[stripesCount];
+        private final Object[] stripeLocks = new Object[STRIPES_COUNT];
 
         /** Page lists. */
-        private final IgniteLongList[] stripes = new IgniteLongList[stripesCount];
+        private final IgniteLongList[] stripes = new IgniteLongList[STRIPES_COUNT];
 
-        /** Atomic updater for nextStripeIdx field. */
+        /** Atomic updater for {@link #nextStripeIdx} field. */
         private static final AtomicIntegerFieldUpdater<PagesCache> nextStripeUpdater = newUpdater(PagesCache.class, "nextStripeIdx");
 
         /** Atomic updater for size field. */
@@ -1944,9 +1944,9 @@ public abstract class PagesList extends DataStructure {
          * @param pagesCacheLimit Global (per data region) limit of caches for page lists.
          */
         public PagesCache(@Nullable AtomicLong pagesCacheLimit) {
-            assert isPow2(stripesCount) : stripesCount;
+            assert isPow2(STRIPES_COUNT) : STRIPES_COUNT;
 
-            for (int i = 0; i < stripesCount; i++) {
+            for (int i = 0; i < STRIPES_COUNT; i++) {
                 stripeLocks[i] = new Object();
             }
 
@@ -1960,7 +1960,7 @@ public abstract class PagesList extends DataStructure {
          * @return {@code True} if page was found and successfully removed, {@code false} if page not found.
          */
         public boolean removePage(long pageId) {
-            int stripeIdx = (int) pageId & (stripesCount - 1);
+            int stripeIdx = (int) pageId & (STRIPES_COUNT - 1);
 
             synchronized (stripeLocks[stripeIdx]) {
                 IgniteLongList stripe = stripes[stripeIdx];
@@ -1987,8 +1987,8 @@ public abstract class PagesList extends DataStructure {
                 return 0L;
             }
 
-            for (int i = 0; i < stripesCount; i++) {
-                int stripeIdx = nextStripeUpdater.getAndIncrement(this) & (stripesCount - 1);
+            for (int i = 0; i < STRIPES_COUNT; i++) {
+                int stripeIdx = nextStripeUpdater.getAndIncrement(this) & (STRIPES_COUNT - 1);
 
                 synchronized (stripeLocks[stripeIdx]) {
                     IgniteLongList stripe = stripes[stripeIdx];
@@ -2015,8 +2015,8 @@ public abstract class PagesList extends DataStructure {
             if (size == 0) {
                 boolean stripesChanged = false;
 
-                if (emptyFlushCnt >= 0 && ++emptyFlushCnt >= emptyFlushGcThreshold) {
-                    for (int i = 0; i < stripesCount; i++) {
+                if (emptyFlushCnt >= 0 && ++emptyFlushCnt >= EMPTY_FLUSH_GC_THRESHOLD) {
+                    for (int i = 0; i < STRIPES_COUNT; i++) {
                         synchronized (stripeLocks[i]) {
                             IgniteLongList stripe = stripes[i];
 
@@ -2045,7 +2045,7 @@ public abstract class PagesList extends DataStructure {
 
             emptyFlushCnt = 0;
 
-            for (int i = 0; i < stripesCount; i++) {
+            for (int i = 0; i < STRIPES_COUNT; i++) {
                 synchronized (stripeLocks[i]) {
                     IgniteLongList stripe = stripes[i];
 
@@ -2083,20 +2083,20 @@ public abstract class PagesList extends DataStructure {
             }
 
             // Ok with race here.
-            if (size >= maxSize) {
+            if (size >= MAX_SIZE) {
                 return false;
             }
 
-            int stripeIdx = (int) pageId & (stripesCount - 1);
+            int stripeIdx = (int) pageId & (STRIPES_COUNT - 1);
 
             synchronized (stripeLocks[stripeIdx]) {
                 IgniteLongList stripe = stripes[stripeIdx];
 
                 if (stripe == null) {
-                    stripes[stripeIdx] = stripe = new IgniteLongList(maxSize / stripesCount);
+                    stripes[stripeIdx] = stripe = new IgniteLongList(MAX_SIZE / STRIPES_COUNT);
                 }
 
-                if (stripe.size() >= maxSize / stripesCount) {
+                if (stripe.size() >= MAX_SIZE / STRIPES_COUNT) {
                     return false;
                 } else {
                     stripe.add(pageId);
