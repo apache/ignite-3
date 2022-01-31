@@ -26,7 +26,6 @@ import java.math.BigInteger;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.lang.IgniteUuid;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
