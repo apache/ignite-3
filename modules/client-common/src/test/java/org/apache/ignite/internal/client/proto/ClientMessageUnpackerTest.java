@@ -190,7 +190,7 @@ public class ClientMessageUnpackerTest {
             p.packString("x");
             p.packNil();
             p.packUuid(UUID.randomUUID());
-            p.packLong( 123);
+            p.packLong(123);
             p.packUuid(UUID.randomUUID());
             p.packLong(UUID.randomUUID().getLeastSignificantBits());
 
