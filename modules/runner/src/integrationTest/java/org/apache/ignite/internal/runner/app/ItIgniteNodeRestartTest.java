@@ -148,7 +148,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Restarts the node which stores some data.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15255")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16433")
     public void nodeWithDataTest(TestInfo testInfo) {
         String nodeName = testNodeName(testInfo, 3344);
 
