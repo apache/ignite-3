@@ -95,25 +95,7 @@ public class ConfigurationSerializationUtil {
             }
 
             case BOOLEAN | ARRAY: {
-                boolean[] booleans = (boolean[]) value;
-
-                int payloadSize = (booleans.length + Byte.SIZE - 1) / Byte.SIZE;
-
-                ByteBuffer buf = allocateBuffer(2 + payloadSize);
-
-                buf.put(header);
-
-                buf.put((byte) (payloadSize * Byte.SIZE - booleans.length));
-
-                byte[] res = buf.array();
-
-                for (int i = 0; i < booleans.length; i++) {
-                    if (booleans[i]) {
-                        res[2 + (i >>> 3)] |= (1 << (i & 7));
-                    }
-                }
-
-                return res;
+                return compressBooleanArray((boolean[]) value);
             }
 
             case BYTE | ARRAY: {
@@ -273,7 +255,9 @@ public class ConfigurationSerializationUtil {
                 return new String(bytes, 1, bytes.length - 1, StandardCharsets.UTF_8);
 
             case BOOLEAN | ARRAY: {
-                boolean[] booleans = new boolean[Byte.SIZE * (bytes.length - 2) - bytes[1]];
+                byte paddingLength = bytes[1];
+
+                boolean[] booleans = new boolean[Byte.SIZE * (bytes.length - 2) - paddingLength];
 
                 for (int i = 0; i < booleans.length; i++) {
                     booleans[i] = (bytes[2 + (i >>> 3)] & (1 << (i & 7))) != 0;
@@ -410,5 +394,29 @@ public class ConfigurationSerializationUtil {
         } else {
             throw new IllegalArgumentException(clazz.getName());
         }
+    }
+
+    private static byte[] compressBooleanArray(boolean[] value) {
+        boolean[] booleans = value;
+
+        int payloadSize = (booleans.length + Byte.SIZE - 1) / Byte.SIZE;
+
+        ByteBuffer buf = allocateBuffer(2 + payloadSize);
+
+        buf.put((byte) (BOOLEAN | ARRAY));
+
+        byte paddingLength = (byte) (payloadSize * Byte.SIZE - booleans.length);
+
+        buf.put(paddingLength);
+
+        byte[] res = buf.array();
+
+        for (int i = 0; i < booleans.length; i++) {
+            if (booleans[i]) {
+                res[2 + (i >>> 3)] |= (1 << (i & 7));
+            }
+        }
+
+        return res;
     }
 }
