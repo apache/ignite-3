@@ -22,6 +22,7 @@ import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
  * Base format for all page types.
@@ -93,6 +94,25 @@ public abstract class PageIo {
     /** Total size of common header, including reserved bytes. */
     public static final int COMMON_HEADER_END = RESERVED_3_OFF + Long.BYTES;
 
+    /* All the page types. */
+
+    /** Data page type. */
+    public static final short T_DATA = 1;
+
+    /** Meta page type. */
+    public static final short T_META = 11;
+
+    /** Type page list meta. */
+    public static final short T_PAGE_LIST_META = 12;
+
+    /** Type page list node. */
+    public static final short T_PAGE_LIST_NODE = 13;
+
+    /** Simple (just byte array) data page type. */
+    public static final short T_DATA_PART = 32;
+
+    // Fields.
+
     /** IO version. */
     private final int ver;
 
@@ -144,7 +164,7 @@ public abstract class PageIo {
      * Sets the type to the page.
      *
      * @param pageAddr Page address.
-     * @param type     Type.
+     * @param type Type.
      */
     public static void setType(long pageAddr, int type) {
         PageUtils.putShort(pageAddr, TYPE_OFF, (short) type);
@@ -183,7 +203,7 @@ public abstract class PageIo {
      * Sets the version to the page.
      *
      * @param pageAddr Page address.
-     * @param ver      Version.
+     * @param ver Version.
      */
     protected static void setVersion(long pageAddr, int ver) {
         PageUtils.putShort(pageAddr, VER_OFF, (short) ver);
@@ -215,7 +235,7 @@ public abstract class PageIo {
      * Sets the page ID to the page.
      *
      * @param pageAddr Page address.
-     * @param pageId   Page ID.
+     * @param pageId Page ID.
      */
     public static void setPageId(long pageAddr, long pageId) {
         PageUtils.putLong(pageAddr, PAGE_ID_OFF, pageId);
@@ -236,7 +256,7 @@ public abstract class PageIo {
     /**
      * Sets the rotated ID to the page.
      *
-     * @param pageAddr      Page address.
+     * @param pageAddr Page address.
      * @param rotatedIdPart Rotated page ID part.
      */
     public static void setRotatedIdPart(long pageAddr, int rotatedIdPart) {
@@ -248,7 +268,7 @@ public abstract class PageIo {
     /**
      * Sets the compression type to the page.
      *
-     * @param page         Page buffer.
+     * @param page Page buffer.
      * @param compressType Compression type.
      */
     public static void setCompressionType(ByteBuffer page, byte compressType) {
@@ -278,7 +298,7 @@ public abstract class PageIo {
     /**
      * Sets the compressed size to the page.
      *
-     * @param page           Page buffer.
+     * @param page Page buffer.
      * @param compressedSize Compressed size.
      */
     public static void setCompressedSize(ByteBuffer page, short compressedSize) {
@@ -308,7 +328,7 @@ public abstract class PageIo {
     /**
      * Sets the compacted size to the page.
      *
-     * @param page          Page buffer.
+     * @param page Page buffer.
      * @param compactedSize Compacted size.
      */
     public static void setCompactedSize(ByteBuffer page, short compactedSize) {
@@ -349,7 +369,7 @@ public abstract class PageIo {
      * Sets the CRC value to the page.
      *
      * @param pageAddr Page address.
-     * @param crc      Checksum.
+     * @param crc Checksum.
      */
     public static void setCrc(long pageAddr, int crc) {
         PageUtils.putInt(pageAddr, CRC_OFF, crc);
@@ -379,7 +399,7 @@ public abstract class PageIo {
      * Initializes a new page.
      *
      * @param pageAddr Page address.
-     * @param pageId   Page ID.
+     * @param pageId Page ID.
      * @param pageSize Page size.
      */
     public void initNewPage(long pageAddr, long pageId, int pageSize) {
@@ -403,8 +423,8 @@ public abstract class PageIo {
     /**
      * Copies a page into the output {@link ByteBuffer}.
      *
-     * @param page     Page.
-     * @param out      Output buffer.
+     * @param page Page.
+     * @param out Output buffer.
      * @param pageSize Page size.
      */
     protected final void copyPage(ByteBuffer page, ByteBuffer out, int pageSize) {
@@ -417,41 +437,43 @@ public abstract class PageIo {
     }
 
     /**
-     * Prints a page into the output {@link StringBuilder}.
+     * Prints a page into the output {@link IgniteStringBuilder}.
      *
-     * @param addr     Address.
+     * @param addr Address.
      * @param pageSize Page size.
-     * @param sb       Sb.
+     * @param sb String builder.
      */
-    protected abstract void printPage(long addr, int pageSize, StringBuilder sb) throws IgniteInternalCheckedException;
+    protected abstract void printPage(long addr, int pageSize, IgniteStringBuilder sb) throws IgniteInternalCheckedException;
 
     /**
-     * Returns a String representation of pages content.
+     * Returns a string representation of pages content.
      *
-     * @param pageAddr Address.
+     * @param pageIoRegistry Page IO Registry.
+     * @param pageAddr Page address.
+     * @param pageSize Page size.
      */
     public static String printPage(PageIoRegistry pageIoRegistry, long pageAddr, int pageSize) {
-        StringBuilder sb = new StringBuilder("Header [\n\ttype=");
+        IgniteStringBuilder sb = new IgniteStringBuilder("Header [\n\ttype=");
 
         try {
             PageIo io = pageIoRegistry.resolve(pageAddr);
 
-            sb.append(getType(pageAddr))
-                    .append(" (").append(io.getClass().getSimpleName())
-                    .append("),\n\tver=").append(getVersion(pageAddr)).append(",\n\tcrc=").append(getCrc(pageAddr))
-                    .append(",\n\t").append(PageIdUtils.toDetailString(getPageId(pageAddr)))
-                    .append("\n],\n");
+            sb.app(getType(pageAddr))
+                    .app(" (").app(io.getClass().getSimpleName())
+                    .app("),\n\tver=").app(getVersion(pageAddr)).app(",\n\tcrc=").app(getCrc(pageAddr))
+                    .app(",\n\t").app(PageIdUtils.toDetailString(getPageId(pageAddr)))
+                    .app("\n],\n");
 
             if (getCompressionType(pageAddr) != 0) {
-                sb.append("CompressedPage[\n\tcompressionType=").append(getCompressionType(pageAddr))
-                        .append(",\n\tcompressedSize=").append(getCompressedSize(pageAddr))
-                        .append(",\n\tcompactedSize=").append(getCompactedSize(pageAddr))
-                        .append("\n]");
+                sb.app("CompressedPage[\n\tcompressionType=").app(getCompressionType(pageAddr))
+                        .app(",\n\tcompressedSize=").app(getCompressedSize(pageAddr))
+                        .app(",\n\tcompactedSize=").app(getCompactedSize(pageAddr))
+                        .app("\n]");
             } else {
                 io.printPage(pageAddr, pageSize, sb);
             }
         } catch (IgniteInternalCheckedException e) {
-            sb.append("Failed to print page: ").append(e.getMessage());
+            sb.app("Failed to print page: ").app(e.getMessage());
         }
 
         return sb.toString();
@@ -460,7 +482,7 @@ public abstract class PageIo {
     /**
      * Asserts that page type of the page stored at pageAddr matches page type of this PageIO.
      *
-     * @param pageAddr address of a page to use for assertion
+     * @param pageAddr Address of a page to use for assertion.
      */
     protected final void assertPageType(long pageAddr) {
         assert getType(pageAddr) == getType() : "Expected type " + getType() + ", but got " + getType(pageAddr);
@@ -469,7 +491,7 @@ public abstract class PageIo {
     /**
      * Asserts that page type of the page stored in the given buffer matches page type of this PageIO.
      *
-     * @param buf buffer where the page for assertion is stored
+     * @param buf Buffer where the page for assertion is stored.
      */
     protected final void assertPageType(ByteBuffer buf) {
         assert getType(buf) == getType() : "Expected type " + getType() + ", but got " + getType(buf);

@@ -57,22 +57,19 @@ public class PageIoRegistry {
      * Returns resolved {@link PageIo} by the {@link ByteBuffer} that contains the page.
      *
      * @param pageBuf Byte buffer with page content.
-     * @return Resolved page IO instance.
      * @throws IgniteInternalCheckedException If page type or version are invalid or not registered.
      */
-    public PageIo resolve(ByteBuffer pageBuf) throws IgniteInternalCheckedException {
+    public <V extends PageIo> V resolve(ByteBuffer pageBuf) throws IgniteInternalCheckedException {
         return resolve(PageIo.getType(pageBuf), PageIo.getVersion(pageBuf));
     }
-
 
     /**
      * Returns resolved {@link PageIo} by the page address.
      *
      * @param pageAddr Memory address pointing to the page content.
-     * @return Resolved page IO instance.
      * @throws IgniteInternalCheckedException If page type or version are invalid or not registered.
      */
-    public final PageIo resolve(long pageAddr) throws IgniteInternalCheckedException {
+    public final <V extends PageIo> V resolve(long pageAddr) throws IgniteInternalCheckedException {
         return resolve(PageIo.getType(pageAddr), PageIo.getVersion(pageAddr));
     }
 
@@ -80,11 +77,10 @@ public class PageIoRegistry {
      * Returns resolved {@link PageIo} by the type and the version.
      *
      * @param type Page IO type.
-     * @param ver  Page IO version.
-     * @return Resolved page IO instance.
+     * @param ver Page IO version.
      * @throws IgniteInternalCheckedException If page type or version are invalid or not registered.
      */
-    public PageIo resolve(int type, int ver) throws IgniteInternalCheckedException {
+    public <V extends PageIo> V resolve(int type, int ver) throws IgniteInternalCheckedException {
         if (type <= 0 || type > PageIo.MAX_IO_TYPE) {
             throw new IgniteInternalCheckedException("Unknown page IO type: " + type);
         }
@@ -95,6 +91,6 @@ public class PageIoRegistry {
             throw new IgniteInternalCheckedException("Unknown page IO type: " + type);
         }
 
-        return ios.forVersion(ver);
+        return (V) ios.forVersion(ver);
     }
 }

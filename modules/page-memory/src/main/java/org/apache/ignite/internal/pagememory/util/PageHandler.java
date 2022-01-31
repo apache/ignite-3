@@ -33,23 +33,23 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface PageHandler<X, R> {
     /** No-op page handler. */
-    public static final PageHandler<Void, Boolean> NO_OP = (groupId, pageId, page, pageAddr, io, arg, intArg, statHolder) -> Boolean.TRUE;
+    PageHandler<Void, Boolean> NO_OP = (groupId, pageId, page, pageAddr, io, arg, intArg, statHolder) -> Boolean.TRUE;
 
     /**
      * Handles the page.
      *
-     * @param groupId    Group ID.
-     * @param pageId     Page ID.
-     * @param page       Page pointer.
-     * @param pageAddr   Page address.
-     * @param io         IO.
-     * @param arg        Argument.
-     * @param intArg     Argument of type {@code int}.
+     * @param groupId Group ID.
+     * @param pageId Page ID.
+     * @param page Page pointer.
+     * @param pageAddr Page address.
+     * @param io IO.
+     * @param arg Argument.
+     * @param intArg Argument of type {@code int}.
      * @param statHolder Statistics holder to track IO operations.
      * @return Result.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public R run(
+    R run(
             int groupId,
             long pageId,
             long page,
@@ -63,12 +63,12 @@ public interface PageHandler<X, R> {
     /**
      * Checks whether write lock (and acquiring if applicable) should be released after handling.
      *
-     * @param groupId  Group ID.
-     * @param pageId   Page ID.
-     * @param page     Page pointer.
+     * @param groupId Group ID.
+     * @param pageId Page ID.
+     * @param page Page pointer.
      * @param pageAddr Page address.
-     * @param arg      Argument.
-     * @param intArg   Argument of type {@code int}.
+     * @param arg Argument.
+     * @param intArg Argument of type {@code int}.
      * @return {@code true} If release.
      */
     default boolean releaseAfterWrite(
@@ -85,19 +85,19 @@ public interface PageHandler<X, R> {
     /**
      * Executes handler under the read lock or returns {@code lockFailed} if lock failed.
      *
-     * @param pageMem    Page memory.
-     * @param groupId    Group ID.
-     * @param pageId     Page ID.
-     * @param lsnr       Lock listener.
-     * @param h          Handler.
-     * @param arg        Argument.
-     * @param intArg     Argument of type {@code int}.
+     * @param pageMem Page memory.
+     * @param groupId Group ID.
+     * @param pageId Page ID.
+     * @param lsnr Lock listener.
+     * @param h Handler.
+     * @param arg Argument.
+     * @param intArg Argument of type {@code int}.
      * @param lockFailed Result in case of lock failure due to page recycling.
      * @param statHolder Statistics holder to track IO operations.
      * @return Handler result.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public static <X, R> R readPage(
+    static <X, R> R readPage(
             PageMemory pageMem,
             int groupId,
             long pageId,
@@ -120,20 +120,20 @@ public interface PageHandler<X, R> {
     /**
      * Executes handler under the read lock or returns {@code lockFailed} if lock failed. Page must already be acquired.
      *
-     * @param pageMem    Page memory.
-     * @param groupId    Group ID.
-     * @param pageId     Page ID.
-     * @param page       Page pointer.
-     * @param lsnr       Lock listener.
-     * @param h          Handler.
-     * @param arg        Argument.
-     * @param intArg     Argument of type {@code int}.
+     * @param pageMem Page memory.
+     * @param groupId Group ID.
+     * @param pageId Page ID.
+     * @param page Page pointer.
+     * @param lsnr Lock listener.
+     * @param h Handler.
+     * @param arg Argument.
+     * @param intArg Argument of type {@code int}.
      * @param lockFailed Result in case of lock failure due to page recycling.
      * @param statHolder Statistics holder to track IO operations.
      * @return Handler result.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public static <X, R> R readPage(
+    static <X, R> R readPage(
             PageMemory pageMem,
             int groupId,
             long pageId,
@@ -167,12 +167,12 @@ public interface PageHandler<X, R> {
      *
      * @param pageMem Page memory.
      * @param groupId Group ID.
-     * @param pageId  Page ID.
-     * @param page    Page pointer.
-     * @param lsnr    Lock listener.
+     * @param pageId Page ID.
+     * @param page Page pointer.
+     * @param lsnr Lock listener.
      * @return Page address or {@code 0} if acquiring failed.
      */
-    public static long readLock(
+    static long readLock(
             PageMemory pageMem,
             int groupId,
             long pageId,
@@ -191,14 +191,14 @@ public interface PageHandler<X, R> {
     /**
      * Releases acquired read lock.
      *
-     * @param pageMem  Page memory.
-     * @param groupId  Group ID.
-     * @param pageId   Page ID.
-     * @param page     Page pointer.
+     * @param pageMem Page memory.
+     * @param groupId Group ID.
+     * @param pageId Page ID.
+     * @param page Page pointer.
      * @param pageAddr Page address.
-     * @param lsnr     Lock listener.
+     * @param lsnr Lock listener.
      */
-    public static void readUnlock(
+    static void readUnlock(
             PageMemory pageMem,
             int groupId,
             long pageId,
@@ -214,16 +214,16 @@ public interface PageHandler<X, R> {
     /**
      * Initializes a new page.
      *
-     * @param pageMem    Page memory.
-     * @param groupId    Group ID.
-     * @param pageId     Page ID.
-     * @param init       IO for new page initialization.
-     * @param lsnr       Lock listener.
+     * @param pageMem Page memory.
+     * @param groupId Group ID.
+     * @param pageId Page ID.
+     * @param init IO for new page initialization.
+     * @param lsnr Lock listener.
      * @param statHolder Statistics holder to track IO operations.
      * @throws IgniteInternalCheckedException If failed.
      * @see PageIo#initNewPage(long, long, int)
      */
-    public static void initPage(
+    static void initPage(
             PageMemory pageMem,
             int groupId,
             long pageId,
@@ -250,21 +250,21 @@ public interface PageHandler<X, R> {
     /**
      * Executes handler under the write lock or returns {@code lockFailed} if lock failed.
      *
-     * @param pageMem    Page memory.
-     * @param groupId    Group ID.
-     * @param pageId     Page ID.
-     * @param lsnr       Lock listener.
-     * @param h          Handler.
-     * @param init       IO for new page initialization or {@code null} if it is an existing page.
-     * @param arg        Argument.
-     * @param intArg     Argument of type {@code int}.
+     * @param pageMem Page memory.
+     * @param groupId Group ID.
+     * @param pageId Page ID.
+     * @param lsnr Lock listener.
+     * @param h Handler.
+     * @param init IO for new page initialization or {@code null} if it is an existing page.
+     * @param arg Argument.
+     * @param intArg Argument of type {@code int}.
      * @param lockFailed Result in case of lock failure due to page recycling.
      * @param statHolder Statistics holder to track IO operations.
      * @return Handler result.
      * @throws IgniteInternalCheckedException If failed.
      */
     //TODO IGNITE-16350 Consider splitting into two separate methods for init and regular locking.
-    public static <X, R> R writePage(
+    static <X, R> R writePage(
             PageMemory pageMem,
             int groupId,
             final long pageId,
@@ -317,21 +317,21 @@ public interface PageHandler<X, R> {
     /**
      * Executes handler under the write lock or returns {@code lockFailed} if lock failed. Page must already be acquired.
      *
-     * @param pageMem    Page memory.
-     * @param groupId    Group ID.
-     * @param pageId     Page ID.
-     * @param page       Page pointer.
-     * @param lsnr       Lock listener.
-     * @param h          Handler.
-     * @param init       IO for new page initialization or {@code null} if it is an existing page.
-     * @param arg        Argument.
-     * @param intArg     Argument of type {@code int}.
+     * @param pageMem Page memory.
+     * @param groupId Group ID.
+     * @param pageId Page ID.
+     * @param page Page pointer.
+     * @param lsnr Lock listener.
+     * @param h Handler.
+     * @param init IO for new page initialization or {@code null} if it is an existing page.
+     * @param arg Argument.
+     * @param intArg Argument of type {@code int}.
      * @param lockFailed Result in case of lock failure due to page recycling.
      * @param statHolder Statistics holder to track IO operations.
      * @return Handler result.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public static <X, R> R writePage(
+    static <X, R> R writePage(
             PageMemory pageMem,
             int groupId,
             long pageId,
@@ -379,13 +379,13 @@ public interface PageHandler<X, R> {
      *
      * @param pageMem Page memory.
      * @param groupId Group ID.
-     * @param pageId  Page ID.
-     * @param page    Page pointer.
-     * @param lsnr    Lock listener.
+     * @param pageId Page ID.
+     * @param page Page pointer.
+     * @param lsnr Lock listener.
      * @param tryLock Only try to lock without waiting.
      * @return Page address or {@code 0} if failed to lock due to recycling.
      */
-    public static long writeLock(
+    static long writeLock(
             PageMemory pageMem,
             int groupId,
             long pageId,
@@ -405,15 +405,15 @@ public interface PageHandler<X, R> {
     /**
      * Releases acquired write lock.
      *
-     * @param pageMem  Page memory.
-     * @param groupId  Group ID.
-     * @param pageId   Page ID.
-     * @param page     Page pointer.
+     * @param pageMem Page memory.
+     * @param groupId Group ID.
+     * @param pageId Page ID.
+     * @param page Page pointer.
      * @param pageAddr Page address.
-     * @param lsnr     Lock listener.
-     * @param dirty    Page is dirty.
+     * @param lsnr Lock listener.
+     * @param dirty Page is dirty.
      */
-    public static void writeUnlock(
+    static void writeUnlock(
             PageMemory pageMem,
             int groupId,
             long pageId,

@@ -138,7 +138,7 @@ public abstract class DataStructure {
      * @return Allocated page id.
      * @throws IgniteInternalCheckedException If failed.
      */
-    protected final long allocatePage(ReuseBag bag) throws IgniteInternalCheckedException {
+    protected final long allocatePage(@Nullable ReuseBag bag) throws IgniteInternalCheckedException {
         return allocatePage(bag, true);
     }
 
@@ -150,7 +150,7 @@ public abstract class DataStructure {
      * @return Allocated page id.
      * @throws IgniteInternalCheckedException If failed.
      */
-    protected final long allocatePage(ReuseBag bag, boolean useRecycled) throws IgniteInternalCheckedException {
+    protected final long allocatePage(@Nullable ReuseBag bag, boolean useRecycled) throws IgniteInternalCheckedException {
         long pageId = 0;
 
         if (useRecycled && reuseList != null) {

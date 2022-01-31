@@ -19,41 +19,21 @@ package org.apache.ignite.internal.pagememory;
 
 import java.util.Collection;
 import java.util.List;
+import org.apache.ignite.internal.pagememory.freelist.io.PagesListMetaIo;
+import org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoModule;
-import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
- * Test implementation of {@link PageIoModule}.
+ * {@link PageIoModule} implementation in page-memory module.
  */
-public class TestPageIoModule implements PageIoModule {
-    /** Last possible value for IO type. */
-    public static final int TEST_PAGE_TYPE = PageIo.MAX_IO_TYPE;
-
-    /** Version 1, minimal possible value. */
-    public static final int TEST_PAGE_VER = 1;
-
+public class PageMemoryIoModule implements PageIoModule {
     /** {@inheritDoc} */
     @Override
     public Collection<IoVersions<?>> ioVersions() {
-        return List.of(new IoVersions<>(new TestPageIo()));
-    }
-
-    /**
-     * Test implementation of {@link PageIo}.
-     */
-    public static class TestPageIo extends PageIo {
-        /**
-         * Constructor.
-         */
-        public TestPageIo() {
-            super(TEST_PAGE_TYPE, TEST_PAGE_VER);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
-        }
+        return List.of(
+                PagesListMetaIo.VERSIONS,
+                PagesListNodeIo.VERSIONS
+        );
     }
 }
