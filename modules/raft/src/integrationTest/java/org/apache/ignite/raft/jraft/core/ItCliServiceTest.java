@@ -43,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -138,6 +139,8 @@ public class ItCliServiceTest {
 
         IgniteRpcClient rpcClient = new IgniteRpcClient(clientSvc) {
             @Override public void shutdown() {
+                IgniteUtils.dumpStack(LOG, "Shutdown the clietn!");
+
                 super.shutdown();
 
                 clientSvc.stop();
@@ -272,7 +275,7 @@ public class ItCliServiceTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15157")
+//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15157")
     public void testAddPeerRemovePeer() throws Exception {
         PeerId peer3 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 3);
         assertTrue(cluster.start(peer3.getEndpoint()));

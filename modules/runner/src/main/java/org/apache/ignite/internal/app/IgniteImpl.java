@@ -41,8 +41,11 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.event.MetastorageEvent;
+import org.apache.ignite.internal.metastorage.event.MetastorageEventParameters;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -60,6 +63,7 @@ import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
@@ -327,10 +331,51 @@ public class IgniteImpl implements Ignite {
                 doStartComponent(name, startedComponents, component);
             }
 
+            CompletableFuture<Void> upToDateMetastorageRevisionFut = new CompletableFuture<>();
+
+            metaStorageMgr.listen(MetastorageEvent.REVISION_APPLIED, new EventListener<MetastorageEventParameters>() {
+                @Override
+                public boolean notify(@NotNull MetastorageEventParameters parameters, @Nullable Throwable exception) {
+                    if (exception != null) {
+                        upToDateMetastorageRevisionFut.completeExceptionally(exception);
+
+                        return true;
+                    }
+
+                    long metastorageRevision = metaStorageMgr.revision().join();
+
+                    assert metastorageRevision >= parameters.getRevision() : IgniteStringFormatter.format(
+                            "Metastorage revision must greater than the node applied revision [msRev={}, appliedRev={}",
+                            metastorageRevision, parameters.getRevision());
+
+                    if (isMetadataUpToDate(metastorageRevision, parameters.getRevision())) {
+                        upToDateMetastorageRevisionFut.complete(null);
+
+                        return true;
+                    }
+
+                    return false;
+                }
+
+                @Override
+                public void remove(@NotNull Throwable exception) {
+                    upToDateMetastorageRevisionFut.completeExceptionally(exception);
+                }
+            });
+
             notifyConfigurationListeners();
 
             // Deploy all registered watches because all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
+
+            long metastorageRevision = metaStorageMgr.revision().join();
+            long appliedRevision = vaultMgr.getRevision().join();
+
+            if (appliedRevision == 0  && isMetadataUpToDate(metastorageRevision, 0)) {
+                upToDateMetastorageRevisionFut.complete(null);
+            }
+
+            upToDateMetastorageRevisionFut.join();
 
             if (!status.compareAndSet(Status.STARTING, Status.STARTED)) {
                 throw new NodeStoppingException();
@@ -344,6 +389,17 @@ public class IgniteImpl implements Ignite {
 
             throw new IgniteException(errMsg, e);
         }
+    }
+
+    /**
+     * Checks the node up to date by metadata.
+     *
+     * @param metastorageRevision Metastorage revision.
+     * @param appliedRevision Last applied node revision.
+     * @return True when the applied revision is greater enough to node recovery complete, false otherwise.
+     */
+    private boolean isMetadataUpToDate(long metastorageRevision, long appliedRevision) {
+        return metastorageRevision - 100 < appliedRevision;
     }
 
     /**
