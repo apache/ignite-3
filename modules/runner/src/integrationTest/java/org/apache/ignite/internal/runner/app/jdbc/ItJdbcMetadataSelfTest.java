@@ -41,7 +41,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
@@ -228,7 +227,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     private void checkOrgTableColumns(ResultSet rs) throws SQLException {
         assertNotNull(rs);
 
-        List<String> names = new ArrayList<>();
+        Collection<String> names = new ArrayList<>();
 
         names.add("ID");
         names.add("NAME");
