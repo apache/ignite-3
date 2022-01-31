@@ -99,6 +99,8 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
 
         assertNotNull(idxSpool, "Invalid plan: " + RelOptUtil.toString(phys));
 
+        assertTrue(idxSpool.indexCondition().keys().contains(1));
+
         List<RexNode> lowerBound = idxSpool.indexCondition().lowerBound();
 
         assertNotNull(lowerBound);
@@ -171,6 +173,8 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         System.out.println("+++ \n" + RelOptUtil.toString(phys));
 
         IgniteSortedIndexSpool idxSpool = findFirstNode(phys, byClass(IgniteSortedIndexSpool.class));
+
+        assertTrue(idxSpool.indexCondition().keys().contains(1));
 
         List<RexNode> lowerBound = idxSpool.indexCondition().lowerBound();
 

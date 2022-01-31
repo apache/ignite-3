@@ -36,8 +36,6 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPredicateList;
@@ -312,22 +310,23 @@ public class RexUtils {
         List<RexNode> lowerBound = null;
         List<RexNode> upperBound = null;
 
+        List<RexNode> allIdxCondition = new ArrayList<>();
+
         if (!nullOrEmpty(lower)) {
             lowerBound = asBound(cluster, lower, rowType, mapping);
+            allIdxCondition.addAll(lower);
         } else {
             lower = null;
         }
 
         if (!nullOrEmpty(upper)) {
             upperBound = asBound(cluster, upper, rowType, mapping);
+            allIdxCondition.addAll(upper);
         } else {
             upper = null;
         }
 
-        IntSet keys = indexKeys(
-                Stream.concat(lower.stream(), upper.stream()).collect(Collectors.toList()),
-                mapping
-        );
+        IntSet keys = indexKeys(allIdxCondition, mapping);
 
         return new IndexConditions(lower, upper, lowerBound, upperBound, keys);
     }
