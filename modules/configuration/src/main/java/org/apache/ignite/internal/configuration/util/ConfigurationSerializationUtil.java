@@ -49,15 +49,16 @@ public class ConfigurationSerializationUtil {
     private static final byte STRING = 9;
 
     private static final byte ARRAY = (byte) 0x80;
+
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     /**
-     * Converts configuration value into a byte array.
+     * Converts a configuration value into a byte array.
      *
      * @param value Configuration values.
      * @return Serialized value.
      */
-    public static byte[] toBytes(Serializable value) {
+    public static byte[] toBytes(Object value) {
         Objects.requireNonNull(value);
 
         int header = header(value.getClass());
@@ -70,22 +71,22 @@ public class ConfigurationSerializationUtil {
                 return new byte[]{BYTE, (byte) value};
 
             case SHORT:
-                return allocateBuffer(3).put(SHORT).putShort((short) value).array();
+                return allocateBuffer(Short.BYTES + 1).put(SHORT).putShort((short) value).array();
 
             case INT:
-                return allocateBuffer(5).put(INT).putInt((int) value).array();
+                return allocateBuffer(Integer.BYTES + 1).put(INT).putInt((int) value).array();
 
             case LONG:
-                return allocateBuffer(9).put(LONG).putLong((long) value).array();
+                return allocateBuffer(Long.BYTES + 1).put(LONG).putLong((long) value).array();
 
             case CHAR:
-                return allocateBuffer(3).put(CHAR).putChar((char) value).array();
+                return allocateBuffer(Character.BYTES + 1).put(CHAR).putChar((char) value).array();
 
             case FLOAT:
-                return allocateBuffer(5).put(FLOAT).putFloat((float) value).array();
+                return allocateBuffer(Float.BYTES + 1).put(FLOAT).putFloat((float) value).array();
 
             case DOUBLE:
-                return allocateBuffer(9).put(DOUBLE).putDouble((double) value).array();
+                return allocateBuffer(Double.BYTES + 1).put(DOUBLE).putDouble((double) value).array();
 
             case STRING: {
                 byte[] strBytes = ((String) value).getBytes(StandardCharsets.UTF_8);
@@ -116,7 +117,7 @@ public class ConfigurationSerializationUtil {
             case SHORT | ARRAY: {
                 short[] shorts = (short[]) value;
 
-                ByteBuffer buf = allocateBuffer(1 + 2 * shorts.length);
+                ByteBuffer buf = allocateBuffer(1 + Short.BYTES * shorts.length);
 
                 buf.put((byte) (SHORT | ARRAY));
 
@@ -130,7 +131,7 @@ public class ConfigurationSerializationUtil {
             case INT | ARRAY: {
                 int[] ints = (int[]) value;
 
-                ByteBuffer buf = allocateBuffer(1 + 4 * ints.length);
+                ByteBuffer buf = allocateBuffer(1 + Integer.BYTES * ints.length);
 
                 buf.put((byte) (INT | ARRAY));
 
@@ -144,7 +145,7 @@ public class ConfigurationSerializationUtil {
             case LONG | ARRAY: {
                 long[] longs = (long[]) value;
 
-                ByteBuffer buf = allocateBuffer(1 + 8 * longs.length);
+                ByteBuffer buf = allocateBuffer(1 + Long.BYTES * longs.length);
 
                 buf.put((byte) (LONG | ARRAY));
 
@@ -158,7 +159,7 @@ public class ConfigurationSerializationUtil {
             case CHAR | ARRAY: {
                 char[] chars = (char[]) value;
 
-                ByteBuffer buf = allocateBuffer(1 + 2 * chars.length);
+                ByteBuffer buf = allocateBuffer(1 + Character.BYTES * chars.length);
 
                 buf.put((byte) (CHAR | ARRAY));
 
@@ -172,7 +173,7 @@ public class ConfigurationSerializationUtil {
             case FLOAT | ARRAY: {
                 float[] floats = (float[]) value;
 
-                ByteBuffer buf = allocateBuffer(1 + 4 * floats.length);
+                ByteBuffer buf = allocateBuffer(1 + Float.BYTES * floats.length);
 
                 buf.put((byte) (FLOAT | ARRAY));
 
@@ -186,7 +187,7 @@ public class ConfigurationSerializationUtil {
             case DOUBLE | ARRAY: {
                 double[] doubles = (double[]) value;
 
-                ByteBuffer buf = allocateBuffer(1 + 8 * doubles.length);
+                ByteBuffer buf = allocateBuffer(1 + Double.BYTES * doubles.length);
 
                 buf.put((byte) (DOUBLE | ARRAY));
 
@@ -204,7 +205,7 @@ public class ConfigurationSerializationUtil {
 
                 int totalSize = Arrays.stream(strBytes).mapToInt(bytes -> bytes.length).sum();
 
-                ByteBuffer buf = allocateBuffer(1 + 4 * strBytes.length + totalSize);
+                ByteBuffer buf = allocateBuffer(1 + Integer.BYTES * strBytes.length + totalSize);
 
                 buf.put((byte) (STRING | ARRAY));
 
@@ -218,12 +219,12 @@ public class ConfigurationSerializationUtil {
             }
 
             default:
-                throw new IllegalStateException(value.getClass().getName());
+                throw new IllegalArgumentException(value.getClass().getName());
         }
     }
 
     /**
-     * Converts byte array into a configuration value.
+     * Converts a byte array into a configuration value.
      *
      * @param bytes Serialized value.
      * @return Deserialized configuration value.
@@ -231,7 +232,7 @@ public class ConfigurationSerializationUtil {
     public static Serializable fromBytes(byte[] bytes) {
         ByteBuffer buf = ByteBuffer.wrap(bytes);
 
-        buf.order(ByteOrder.BIG_ENDIAN);
+        buf.order(ByteOrder.LITTLE_ENDIAN);
 
         byte header = buf.get();
 
@@ -277,7 +278,7 @@ public class ConfigurationSerializationUtil {
                 return Arrays.copyOfRange(bytes, 1, bytes.length);
 
             case SHORT | ARRAY: {
-                short[] shorts = new short[bytes.length / 2];
+                short[] shorts = new short[bytes.length / Short.BYTES];
 
                 for (int i = 0; i < shorts.length; i++) {
                     shorts[i] = buf.getShort();
@@ -287,7 +288,7 @@ public class ConfigurationSerializationUtil {
             }
 
             case INT | ARRAY: {
-                int[] ints = new int[bytes.length / 4];
+                int[] ints = new int[bytes.length / Integer.BYTES];
 
                 for (int i = 0; i < ints.length; i++) {
                     ints[i] = buf.getInt();
@@ -297,7 +298,7 @@ public class ConfigurationSerializationUtil {
             }
 
             case LONG | ARRAY: {
-                long[] longs = new long[bytes.length / 8];
+                long[] longs = new long[bytes.length / Long.BYTES];
 
                 for (int i = 0; i < longs.length; i++) {
                     longs[i] = buf.getLong();
@@ -307,7 +308,7 @@ public class ConfigurationSerializationUtil {
             }
 
             case CHAR | ARRAY: {
-                char[] chars = new char[bytes.length / 2];
+                char[] chars = new char[bytes.length / Character.BYTES];
 
                 for (int i = 0; i < chars.length; i++) {
                     chars[i] = buf.getChar();
@@ -317,7 +318,7 @@ public class ConfigurationSerializationUtil {
             }
 
             case FLOAT | ARRAY: {
-                float[] floats = new float[bytes.length / 4];
+                float[] floats = new float[bytes.length / Float.BYTES];
 
                 for (int i = 0; i < floats.length; i++) {
                     floats[i] = buf.getFloat();
@@ -327,7 +328,7 @@ public class ConfigurationSerializationUtil {
             }
 
             case DOUBLE | ARRAY: {
-                double[] doubles = new double[bytes.length / 8];
+                double[] doubles = new double[bytes.length / Double.BYTES];
 
                 for (int i = 0; i < doubles.length; i++) {
                     doubles[i] = buf.getDouble();
@@ -344,9 +345,9 @@ public class ConfigurationSerializationUtil {
                 while (offset != bytes.length) {
                     int size = buf.getInt(offset);
 
-                    res.add(new String(bytes, offset + 4, size));
+                    res.add(new String(bytes, offset + Integer.BYTES, size));
 
-                    offset += 4 + size;
+                    offset += Integer.BYTES + size;
                 }
 
                 return res.toArray(EMPTY_STRING_ARRAY);
@@ -358,11 +359,7 @@ public class ConfigurationSerializationUtil {
     }
 
     private static ByteBuffer allocateBuffer(int size) {
-        ByteBuffer buf = ByteBuffer.allocate(size);
-
-        buf.order(ByteOrder.BIG_ENDIAN);
-
-        return buf;
+        return ByteBuffer.allocate(size).order(ByteOrder.LITTLE_ENDIAN);
     }
 
     private static int header(Class<?> clazz) {
