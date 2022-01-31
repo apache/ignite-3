@@ -58,7 +58,6 @@ import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
-import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
@@ -184,10 +183,9 @@ public abstract class PagesList extends DataStructure {
     /**
      * Constructor.
      *
-     * @param cacheGrpId Cache group ID.
+     * @param grpId Group ID.
      * @param name Structure name (for debug purpose).
      * @param pageMem Page memory.
-     * @param reuseList Reuse list.
      * @param lockLsnr Page lock listener.
      * @param defaultPageFlag Default flag value for allocated pages. One of {@link PageIdAllocator#FLAG_DATA} or {@link
      * PageIdAllocator#FLAG_AUX}.
@@ -196,17 +194,16 @@ public abstract class PagesList extends DataStructure {
      * @param metaPageId Metadata page ID.
      */
     protected PagesList(
-            int cacheGrpId,
+            int grpId,
             String name,
             PageMemory pageMem,
-            @Nullable ReuseList reuseList,
             PageLockListener lockLsnr,
             byte defaultPageFlag,
             IgniteLogger log,
             int buckets,
             long metaPageId
     ) {
-        super(name, cacheGrpId, null, pageMem, reuseList, lockLsnr, defaultPageFlag);
+        super(name, grpId, null, pageMem, lockLsnr, defaultPageFlag);
 
         this.log = log;
 
@@ -1198,7 +1195,7 @@ public abstract class PagesList extends DataStructure {
     }
 
     /**
-     * Takes empty page from pages list.
+     * Takes empty page from free list.
      *
      * @param bucket Bucket index.
      * @param initIoVers Optional IO to initialize page.

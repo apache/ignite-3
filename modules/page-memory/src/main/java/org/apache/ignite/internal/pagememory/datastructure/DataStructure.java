@@ -68,7 +68,7 @@ public abstract class DataStructure {
 
     /** Reuse list. */
     @Nullable
-    protected final ReuseList reuseList;
+    protected ReuseList reuseList;
 
     /** Default flag value for allocated pages. One of {@link PageIdAllocator#FLAG_DATA} or {@link PageIdAllocator#FLAG_AUX}. */
     protected final byte defaultPageFlag;
@@ -80,7 +80,6 @@ public abstract class DataStructure {
      * @param grpId Group id.
      * @param grpName Group name.
      * @param pageMem Page memory.
-     * @param reuseList Reuse list.
      * @param lockLsnr Page lock listener.
      * @param defaultPageFlag Default flag value for allocated pages. One of {@link PageIdAllocator#FLAG_DATA} or {@link
      * PageIdAllocator#FLAG_AUX}.
@@ -90,7 +89,6 @@ public abstract class DataStructure {
             int grpId,
             @Nullable String grpName,
             PageMemory pageMem,
-            @Nullable ReuseList reuseList,
             PageLockListener lockLsnr,
             byte defaultPageFlag
     ) {
@@ -101,7 +99,6 @@ public abstract class DataStructure {
         this.grpId = grpId;
         this.grpName = grpName;
         this.pageMem = pageMem;
-        this.reuseList = reuseList;
         this.lockLsnr = lockLsnr;
         this.defaultPageFlag = defaultPageFlag;
     }
