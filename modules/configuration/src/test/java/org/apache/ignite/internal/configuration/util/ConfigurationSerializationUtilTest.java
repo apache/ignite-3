@@ -78,6 +78,8 @@ class ConfigurationSerializationUtilTest {
 
         assertEquals(value.getClass(), res.getClass());
 
+        assertEquals(Array.getLength(value), Array.getLength(res));
+
         for (int i = 0; i < Array.getLength(value); i++) {
             assertEquals(Array.get(value, i), Array.get(res, i));
         }
