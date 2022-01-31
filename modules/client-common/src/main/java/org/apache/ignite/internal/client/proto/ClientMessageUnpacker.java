@@ -743,26 +743,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
-     * Reads an {@link IgniteUuid}.
-     *
-     * @return {@link IgniteUuid} value.
-     * @throws MessageTypeException when type is not {@link IgniteUuid}.
-     * @throws MessageSizeException when size is not correct.
-     */
-    public IgniteUuid unpackIgniteUuid() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        var hdr = unpackExtensionTypeHeader();
-        var type = hdr.getType();
-
-        if (type != ClientMsgPackType.IGNITE_UUID) {
-            throw new MessageTypeException("Expected Ignite UUID extension (1), but got " + type);
-        }
-
-        return new IgniteUuid(new UUID(buf.readLong(), buf.readLong()), unpackLong());
-    }
-
-    /**
      * Reads a decimal.
      *
      * @return Decimal value.
