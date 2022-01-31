@@ -24,10 +24,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -38,14 +38,14 @@ import org.jetbrains.annotations.Nullable;
  */
 class ClientTupleSerializer {
     /** Table ID. */
-    private final IgniteUuid tableId;
+    private final UUID tableId;
 
     /**
      * Constructor.
      *
      * @param tableId Table id.
      */
-    ClientTupleSerializer(IgniteUuid tableId) {
+    ClientTupleSerializer(UUID tableId) {
         this.tableId = tableId;
     }
 
@@ -101,7 +101,7 @@ class ClientTupleSerializer {
             boolean skipHeader
     ) {
         if (!skipHeader) {
-            out.out().packIgniteUuid(tableId);
+            out.out().packUuid(tableId);
             writeTx(tx, out);
             out.out().packInt(schema.version());
         }
@@ -136,7 +136,7 @@ class ClientTupleSerializer {
             boolean skipHeader
     ) {
         if (!skipHeader) {
-            out.out().packIgniteUuid(tableId);
+            out.out().packUuid(tableId);
             writeTx(tx, out);
             out.out().packInt(schema.version());
         }
@@ -164,7 +164,7 @@ class ClientTupleSerializer {
      * @param out Out.
      */
     public void writeKvTuples(@Nullable Transaction tx, Map<Tuple, Tuple> pairs, ClientSchema schema, PayloadOutputChannel out) {
-        out.out().packIgniteUuid(tableId);
+        out.out().packUuid(tableId);
         writeTx(tx, out);
         out.out().packInt(schema.version());
         out.out().packInt(pairs.size());
@@ -189,7 +189,7 @@ class ClientTupleSerializer {
             PayloadOutputChannel out,
             boolean keyOnly
     ) {
-        out.out().packIgniteUuid(tableId);
+        out.out().packUuid(tableId);
         writeTx(tx, out);
         out.out().packInt(schema.version());
         out.out().packInt(tuples.size());

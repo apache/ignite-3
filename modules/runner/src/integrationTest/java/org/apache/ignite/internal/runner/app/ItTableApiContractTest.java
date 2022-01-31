@@ -121,11 +121,11 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
 
         CompletableFuture<Void> dropTblFut1 =  ignite.tables().dropTableAsync(TABLE_NAME);
 
-        CompletableFuture<Void> dropTblFut2 = ignite.tables().dropTableAsync(TABLE_NAME);
+        dropTblFut1.get();
 
         assertNull(ignite.tables().table(TABLE_NAME));
 
-        dropTblFut1.get();
+        CompletableFuture<Void> dropTblFut2 = ignite.tables().dropTableAsync(TABLE_NAME);
 
         assertThrows(TableNotFoundException.class, () -> futureResult(dropTblFut2));
     }
