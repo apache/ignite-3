@@ -35,12 +35,6 @@ import org.apache.ignite.table.Tuple;
  * Scan on index.
  */
 public class IndexScan<RowT> extends AbstractIndexScan<RowT, Tuple> {
-    private final IgniteIndex idx;
-
-    private final ImmutableBitSet requiredColumns;
-
-    private final RowFactory<RowT> factory;
-
     private final RowFactory<RowT> tableRowFactory;
 
     /**
@@ -66,9 +60,6 @@ public class IndexScan<RowT> extends AbstractIndexScan<RowT, Tuple> {
                 rowTransformer
         );
 
-        this.idx = idx;
-        this.requiredColumns = requiredColumns;
-        factory = ectx.rowHandler().factory(ectx.getTypeFactory(), rowType);
         tableRowFactory = ectx.rowHandler().factory(ectx.getTypeFactory(), idx.table().getRowType(ectx.getTypeFactory()));
     }
 

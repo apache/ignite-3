@@ -148,8 +148,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
 
     private final Map<String, SqlExtension> extensions;
 
-    private final TableManager tblManager;
-
     private final DdlCommandHandler ddlCmdHnd;
 
     /**
@@ -173,7 +171,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         this.sqlSchemaManager = sqlSchemaManager;
         this.taskExecutor = taskExecutor;
         this.extensions = extensions;
-        this.tblManager = tblManager;
 
         ddlCmdHnd = new DdlCommandHandler(tblManager, idxManager);
 
