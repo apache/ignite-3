@@ -42,6 +42,13 @@ public interface KeyValueStorage extends AutoCloseable {
     long revision();
 
     /**
+     * Returns the earliest storage revision that is available.
+     *
+     * @return Storage revision.
+     */
+    long earliestRevision();
+
+    /**
      * Returns update counter.
      *
      * @return Update counter.
@@ -217,6 +224,7 @@ public interface KeyValueStorage extends AutoCloseable {
 
     /**
      * Compacts storage (removes tombstones).
+     * TODO: IGNITE-16444 Сorrect compaction for Metastorage.
      */
     void compact();
 
