@@ -20,11 +20,13 @@ package org.apache.ignite.internal.idx;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -106,7 +108,12 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
 
         boolean needLookup = proj.stream().anyMatch(order -> !idxColIds.contains(tblColIds.get(order)));
 
-        return new IndexCursor(cur, needLookup ? this::convertWithTableLookup : this::convertIndexedOnly);
+        final TupleFactory tupleFactory = new TupleFactory(tbl.schemaView().lastSchemaVersion());
+
+        return new IndexCursor(
+                cur,
+                needLookup ? r -> convertWithTableLookup(r, tupleFactory) : r -> convertIndexedOnly(r, tupleFactory)
+        );
     }
 
     @Override
@@ -139,17 +146,8 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
     /**
      * Used for index only scan.
      */
-    private Tuple convertIndexedOnly(IndexRow r) {
-        Tuple t = Tuple.create();
-
-        // Create the tuple with column order similar to table Binary Row column order.
-        Arrays.stream(tbl.schemaView().schema().keyColumns().columns())
-                .map(Column::name)
-                .forEach(colName -> t.set(colName, null));
-
-        Arrays.stream(tbl.schemaView().schema().valueColumns().columns())
-                .map(Column::name)
-                .forEach(colName -> t.set(colName, null));
+    private Tuple convertIndexedOnly(IndexRow r, TupleFactory tupleFactory) {
+        Tuple t = tupleFactory.create();
 
         for (int i = 0; i < desc.columns().size(); ++i) {
             t.set(desc.columns().get(i).column().name(), r.value(i));
@@ -161,14 +159,47 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
     /**
      * Additional lookup full row at the table by PK.
      */
-    private Tuple convertWithTableLookup(IndexRow r) {
+    private Tuple convertWithTableLookup(IndexRow r, TupleFactory tupleFactory) {
         try {
             BinaryRow tblRow = tbl.internalTable().get(r.primaryKey(), null).get();
 
-            return TableRow.tuple(tbl.schemaView().resolve(tblRow));
+            Tuple tblTuple = TableRow.tuple(tbl.schemaView().resolve(tblRow));
+
+            Tuple res = tupleFactory.create();
+
+            for (int i = 0; i < res.columnCount(); ++i) {
+                res.set(res.columnName(i), tblTuple.value(res.columnName(i)));
+            }
+
+            return res;
         } catch (Exception e) {
             throw new IgniteInternalException("Error on row lookup by index PK "
                     + "[index=" + name + ", indexRow=" + r + ']', e);
+        }
+    }
+
+    /** Creates table tuple on specified schema. */
+    private class TupleFactory {
+        private final List<String> cols;
+
+        TupleFactory(int tblSchemaVersion) {
+            cols = Stream.concat(
+                            Arrays.stream(tbl.schemaView().schema(tblSchemaVersion).keyColumns().columns()),
+                            Arrays.stream(tbl.schemaView().schema(tblSchemaVersion).valueColumns().columns())
+                    )
+                    .sorted(Comparator.comparing(Column::columnOrder))
+                    .map(Column::name)
+                    .collect(Collectors.toList());
+        }
+
+        Tuple create() {
+            Tuple t = Tuple.create();
+
+            for (String colName : cols) {
+                t.set(colName, null);
+            }
+
+            return t;
         }
     }
 

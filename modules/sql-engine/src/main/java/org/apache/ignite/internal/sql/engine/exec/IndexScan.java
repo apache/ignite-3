@@ -41,6 +41,8 @@ public class IndexScan<RowT> extends AbstractIndexScan<RowT, Tuple> {
 
     private final RowFactory<RowT> factory;
 
+    private final RowFactory<RowT> tableRowFactory;
+
     /**
      * Creates index scan.
      */
@@ -67,6 +69,7 @@ public class IndexScan<RowT> extends AbstractIndexScan<RowT, Tuple> {
         this.idx = idx;
         this.requiredColumns = requiredColumns;
         factory = ectx.rowHandler().factory(ectx.getTypeFactory(), rowType);
+        tableRowFactory = ectx.rowHandler().factory(ectx.getTypeFactory(), idx.table().getRowType(ectx.getTypeFactory()));
     }
 
     /** {@inheritDoc} */
@@ -100,7 +103,7 @@ public class IndexScan<RowT> extends AbstractIndexScan<RowT, Tuple> {
     /** {@inheritDoc} */
     @Override
     protected RowT indexRow2Row(Tuple t) {
-        RowT row = factory.create();
+        RowT row = tableRowFactory.create();
 
         RowHandler<RowT> hnd = ectx.rowHandler();
 

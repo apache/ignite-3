@@ -158,8 +158,17 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             String schemaName,
             TableImpl table
     ) {
+        IgniteTableImpl igniteTable = createTable(schemaName, table);
+
         IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
 
+        schema.addTable(removeSchema(schemaName, table.name()), igniteTable);
+        tablesById.put(igniteTable.id(), igniteTable);
+
+        rebuild();
+    }
+
+    private IgniteTableImpl createTable(String schemaName, TableImpl table) {
         SchemaDescriptor descriptor = table.schemaView().schema();
 
         List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()
@@ -175,16 +184,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 ))
                 .collect(Collectors.toList());
 
-        IgniteTableImpl igniteTable = new IgniteTableImpl(
+        return new IgniteTableImpl(
                 new TableDescriptorImpl(colDescriptors),
                 table.internalTable(),
                 table.schemaView()
         );
-
-        schema.addTable(removeSchema(schemaName, table.name()), igniteTable);
-        tablesById.put(igniteTable.id(), igniteTable);
-
-        rebuild();
     }
 
     /**
@@ -195,7 +199,22 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             String schemaName,
             TableImpl table
     ) {
-        onTableCreated(schemaName, table);
+        IgniteTableImpl igniteTable = createTable(schemaName, table);
+
+        IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
+
+        String tblName = removeSchema(schemaName, table.name());
+
+        // Rebuild indexes collation.
+        igniteTable.addIndexes(schema.internalTable(tblName).indexes().values().stream()
+                .map(idx -> createIndex(idx.index(), igniteTable))
+                .collect(Collectors.toList())
+        );
+
+        schema.addTable(tblName, igniteTable);
+        tablesById.put(igniteTable.id(), igniteTable);
+
+        rebuild();
     }
 
     /**
