@@ -228,10 +228,7 @@ public class IgniteImpl implements Ignite {
 
         idxManager = new IndexManagerImpl(
                 distributedTblMgr,
-                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
-                clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
-                getPartitionsStorePath(workDir),
-                txManager
+                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
         );
 
         qryEngine = new SqlQueryProcessor(

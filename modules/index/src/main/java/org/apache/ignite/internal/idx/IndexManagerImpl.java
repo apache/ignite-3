@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.idx;
 
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +32,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.IndexColumnView;
 import org.apache.ignite.configuration.schemas.table.SortedIndexView;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -52,7 +50,6 @@ import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -70,12 +67,6 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
     private final TablesConfiguration tablesCfg;
 
-    private final DataStorageConfiguration dataStorageCfg;
-
-    private final Path idxsStoreDir;
-
-    private final TxManager txManager;
-
     private final TableManager tblMgr;
 
     /** Indexes by canonical name. */
@@ -91,22 +82,13 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
      * Constructor.
      *
      * @param tablesCfg      Tables configuration.
-     * @param dataStorageCfg Data storage configuration.
-     * @param idxsStoreDir   Indexes store directory.
-     * @param txManager      TX manager.
      */
     public IndexManagerImpl(
             TableManager tblMgr,
-            TablesConfiguration tablesCfg,
-            DataStorageConfiguration dataStorageCfg,
-            Path idxsStoreDir,
-            TxManager txManager
+            TablesConfiguration tablesCfg
     ) {
         this.tblMgr = tblMgr;
         this.tablesCfg = tablesCfg;
-        this.dataStorageCfg = dataStorageCfg;
-        this.idxsStoreDir = idxsStoreDir;
-        this.txManager = txManager;
     }
 
     @Override
@@ -123,7 +105,6 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                             fireEvent(IndexEvent.CREATE,
                                     new IndexEventParameters(
                                             idxName,
-                                            IgniteUuid.fromString(((ExtendedTableConfiguration) tbl).id().value()),
                                             tblName),
                                     new NodeStoppingException());
 
@@ -136,7 +117,6 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                                     IndexEvent.CREATE,
                                     new IndexEventParameters(
                                             idxName,
-                                            IgniteUuid.fromString(((ExtendedTableConfiguration) tbl).id().value()),
                                             tblName),
                                     e
                             );
@@ -168,7 +148,6 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                             fireEvent(IndexEvent.DROP,
                                     new IndexEventParameters(
                                             idxName,
-                                            IgniteUuid.fromString(((ExtendedTableConfiguration) tbl).id().value()),
                                             tblName
                                     ),
                                     new NodeStoppingException());
@@ -204,7 +183,6 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
         fireEvent(IndexEvent.DROP, new IndexEventParameters(
                 idx.name(),
-                IgniteUuid.fromString(((ExtendedTableConfiguration) tbl).id().value()),
                 tblName
         ), null);
     }
@@ -222,6 +200,11 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
     @Override
     public void stop() throws Exception {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
     }
 
     @Override
