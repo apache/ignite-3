@@ -1927,6 +1927,7 @@ public abstract class PagesList extends DataStructure {
         private static final AtomicIntegerFieldUpdater<PagesCache> sizeUpdater = newUpdater(PagesCache.class, "size");
 
         /** Access counter to provide round-robin stripes polling. */
+        @SuppressWarnings("PMD.UnusedPrivateField")
         private volatile int nextStripeIdx;
 
         /** Cache size. */
