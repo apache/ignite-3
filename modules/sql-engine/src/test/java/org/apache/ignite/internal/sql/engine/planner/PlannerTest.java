@@ -97,6 +97,11 @@ public class PlannerTest extends AbstractPlannerTest {
                         .add("PROJECTID", f.createJavaType(Integer.class))
                         .build()) {
             @Override
+            public IgniteIndex getIndex(String idxName) {
+                return new IgniteIndex(null, (String) null, null);
+            }
+
+            @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forAssignments(Arrays.asList(
                         select(NODES, 0, 1),

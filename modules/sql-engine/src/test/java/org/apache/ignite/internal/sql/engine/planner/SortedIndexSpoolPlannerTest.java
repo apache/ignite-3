@@ -26,7 +26,6 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexFieldAccess;
-import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -103,20 +102,16 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         List<RexNode> lowerBound = idxSpool.indexCondition().lowerBound();
 
         assertNotNull(lowerBound);
-        assertEquals(3, lowerBound.size());
+        assertEquals(1, lowerBound.size());
 
-        assertTrue(((RexLiteral) lowerBound.get(0)).isNull());
-        assertTrue(((RexLiteral) lowerBound.get(2)).isNull());
-        assertTrue(lowerBound.get(1) instanceof RexFieldAccess);
+        assertTrue(lowerBound.get(0) instanceof RexFieldAccess);
 
         List<RexNode> upperBound = idxSpool.indexCondition().upperBound();
 
         assertNotNull(upperBound);
-        assertEquals(3, upperBound.size());
+        assertEquals(1, upperBound.size());
 
-        assertTrue(((RexLiteral) upperBound.get(0)).isNull());
-        assertTrue(((RexLiteral) upperBound.get(2)).isNull());
-        assertTrue(upperBound.get(1) instanceof RexFieldAccess);
+        assertTrue(upperBound.get(0) instanceof RexFieldAccess);
     }
 
     /**
@@ -180,21 +175,15 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         List<RexNode> lowerBound = idxSpool.indexCondition().lowerBound();
 
         assertNotNull(lowerBound);
-        assertEquals(4, lowerBound.size());
+        assertEquals(1, lowerBound.size());
 
-        assertTrue(((RexLiteral) lowerBound.get(0)).isNull());
-        assertTrue(((RexLiteral) lowerBound.get(2)).isNull());
-        assertTrue(((RexLiteral) lowerBound.get(3)).isNull());
-        assertTrue(lowerBound.get(1) instanceof RexFieldAccess);
+        assertTrue(lowerBound.get(0) instanceof RexFieldAccess);
 
         List<RexNode> upperBound = idxSpool.indexCondition().upperBound();
 
         assertNotNull(upperBound);
-        assertEquals(4, upperBound.size());
+        assertEquals(1, upperBound.size());
 
-        assertTrue(((RexLiteral) upperBound.get(0)).isNull());
-        assertTrue(((RexLiteral) lowerBound.get(2)).isNull());
-        assertTrue(((RexLiteral) lowerBound.get(3)).isNull());
-        assertTrue(upperBound.get(1) instanceof RexFieldAccess);
+        assertTrue(upperBound.get(0) instanceof RexFieldAccess);
     }
 }

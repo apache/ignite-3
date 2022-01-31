@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.ints.IntSets;
 import java.util.List;
@@ -40,12 +39,14 @@ public class IndexConditions {
 
     private final List<RexNode> upperBound;
 
+    private final IntSet keys;
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public IndexConditions() {
-        this(null, null, null, null);
+        this(null, null, null, null, null);
     }
 
     /**
@@ -56,12 +57,14 @@ public class IndexConditions {
             @Nullable List<RexNode> lowerCond,
             @Nullable List<RexNode> upperCond,
             @Nullable List<RexNode> lowerBound,
-            @Nullable List<RexNode> upperBound
+            @Nullable List<RexNode> upperBound,
+            @Nullable IntSet keys
     ) {
         this.lowerCond = lowerCond;
         this.upperCond = upperCond;
         this.lowerBound = lowerBound;
         this.upperBound = upperBound;
+        this.keys = keys;
     }
 
     /**
@@ -71,6 +74,7 @@ public class IndexConditions {
     public IndexConditions(RelInput input) {
         lowerCond = null;
         upperCond = null;
+        keys = null;
         lowerBound = input.get("lower") == null ? null : input.getExpressionList("lower");
         upperBound = input.get("upper") == null ? null : input.getExpressionList("upper");
     }
@@ -108,22 +112,7 @@ public class IndexConditions {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public IntSet keys() {
-        if (upperBound == null && lowerBound == null) {
-            return IntSets.EMPTY_SET;
-        }
-
-        IntSet keys = new IntOpenHashSet();
-
-        int cols = lowerBound != null ? lowerBound.size() : upperBound.size();
-
-        for (int i = 0; i < cols; ++i) {
-            if (upperBound != null && RexUtils.isNotNull(upperBound.get(i))
-                    || lowerBound != null && RexUtils.isNotNull(lowerBound.get(i))) {
-                keys.add(i);
-            }
-        }
-
-        return IntSets.unmodifiable(keys);
+        return  keys == null ?  IntSets.EMPTY_SET : keys;
     }
 
     /**
