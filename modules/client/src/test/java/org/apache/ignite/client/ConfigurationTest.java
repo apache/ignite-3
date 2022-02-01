@@ -138,7 +138,9 @@ public class ConfigurationTest extends AbstractClientTest {
         String threadName = client.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
 
         assertNull(client.configuration().asyncContinuationExecutor());
-        assertThat(threadName, startsWith("ForkJoinPool.commonPool-worker-"));
+
+        // Current thread is used when future completes quickly.
+        assertThat(threadName, either(startsWith("ForkJoinPool.commonPool-worker-")).or(equalTo(Thread.currentThread().getName())));
     }
 
     @Test

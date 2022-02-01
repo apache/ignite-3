@@ -33,7 +33,7 @@ namespace Apache.Ignite.Tests.Table
             var tables = await Client.Tables.GetTablesAsync();
 
             Assert.AreEqual(1, tables.Count);
-            Assert.AreEqual("PUB.tbl1", tables[0].Name);
+            Assert.AreEqual("PUB.TBL1", tables[0].Name);
         }
 
         [Test]
@@ -43,6 +43,18 @@ namespace Apache.Ignite.Tests.Table
 
             Assert.IsNotNull(table);
             Assert.AreEqual("PUB.tbl1", table!.Name);
+        }
+
+        [Test]
+        public async Task TestGetExistingTableReturnsSameInstanceEveryTime()
+        {
+            var table = await Client.Tables.GetTableAsync(TableName);
+            var table2 = await Client.Tables.GetTableAsync(TableName);
+
+            // Tables and views are cached to avoid extra allocations and serializer handler initializations.
+            Assert.AreSame(table, table2);
+            Assert.AreSame(table!.RecordBinaryView, table2!.RecordBinaryView);
+            Assert.AreSame(table.GetRecordView<Poco>(), table2.GetRecordView<Poco>());
         }
 
         [Test]

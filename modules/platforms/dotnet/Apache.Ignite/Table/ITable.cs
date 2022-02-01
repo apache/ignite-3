@@ -28,8 +28,19 @@ namespace Apache.Ignite.Table
         public string Name { get; }
 
         /// <summary>
-        /// Gets the record view.
+        /// Gets the record binary view.
         /// </summary>
-        public IRecordView<IIgniteTuple> RecordView { get; }
+        public IRecordView<IIgniteTuple> RecordBinaryView { get; }
+
+        /// <summary>
+        /// Gets the record view mapped to specified type <typeparamref name="T"/>.
+        /// <para />
+        /// Table columns will be mapped to properties or fields by name, ignoring case. Any fields are supported,
+        /// including private and readonly.
+        /// </summary>
+        /// <typeparam name="T">Record type.</typeparam>
+        /// <returns>Record view.</returns>
+        public IRecordView<T> GetRecordView<T>() // TODO: Custom mapping (IGNITE-16356)
+            where T : class;
     }
 }

@@ -22,16 +22,19 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectStreamClass;
+import java.util.BitSet;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.FieldDescriptor;
 import org.apache.ignite.internal.network.serialization.Primitives;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link ObjectInputStream} specialization used by User Object Serialization.
  */
 class UosObjectInputStream extends ObjectInputStream {
     private final DataInputStream input;
-    private final ValueReader<Object> valueReader;
+    private final TypedValueReader valueReader;
+    private final TypedValueReader unsharedReader;
     private final DefaultFieldsReaderWriter defaultFieldsReaderWriter;
     private final UnmarshallingContext context;
 
@@ -39,12 +42,14 @@ class UosObjectInputStream extends ObjectInputStream {
 
     UosObjectInputStream(
             DataInputStream input,
-            ValueReader<Object> valueReader,
+            TypedValueReader valueReader,
+            TypedValueReader unsharedReader,
             DefaultFieldsReaderWriter defaultFieldsReaderWriter,
             UnmarshallingContext context
     ) throws IOException {
         this.input = input;
         this.valueReader = valueReader;
+        this.unsharedReader = unsharedReader;
         this.defaultFieldsReaderWriter = defaultFieldsReaderWriter;
         this.context = context;
     }
@@ -156,22 +161,37 @@ class UosObjectInputStream extends ObjectInputStream {
     /** {@inheritDoc} */
     @Override
     protected Object readObjectOverride() throws IOException {
-        return doReadObject();
+        return doReadObjectOfAnyType();
     }
 
-    private Object doReadObject() throws IOException {
+    private Object doReadObjectOfAnyType() throws IOException {
+        return doReadObjectOf(null);
+    }
+
+    private Object doReadObjectOf(@Nullable Class<?> declaredType) throws IOException {
         try {
-            return valueReader.read(input, context);
+            return valueReader.read(input, declaredType, context);
         } catch (UnmarshalException e) {
-            throw new UncheckedUnmarshalException("Cannot read object", e);
+            throw new UncheckedUnmarshalException("Cannot read an object", e);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public Object readUnshared() throws IOException {
-        // TODO: IGNITE-16257 - implement 'unshared' logic?
-        return doReadObject();
+        return doReadUnsharedOfAnyType();
+    }
+
+    private Object doReadUnsharedOfAnyType() throws IOException {
+        return doReadUnsharedOf(null);
+    }
+
+    private Object doReadUnsharedOf(@Nullable Class<?> declaredType) throws IOException {
+        try {
+            return unsharedReader.read(input, declaredType, context);
+        } catch (UnmarshalException e) {
+            throw new UncheckedUnmarshalException("Cannot read an unshared object", e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -315,18 +335,42 @@ class UosObjectInputStream extends ObjectInputStream {
         }
 
         private void readFields() throws IOException {
-            int objectFieldIndex = 0;
+            @Nullable BitSet nullsBitSet = defaultFieldsReaderWriter.readNullsBitSet(input, descriptor);
 
+            int objectFieldIndex = 0;
             for (FieldDescriptor fieldDesc : descriptor.fields()) {
-                if (fieldDesc.isPrimitive()) {
-                    int offset = descriptor.primitiveFieldDataOffset(fieldDesc.name(), fieldDesc.clazz());
-                    int length = Primitives.widthInBytes(fieldDesc.clazz());
-                    input.readFully(primitiveFieldsData, offset, length);
-                } else {
-                    objectFieldVals[objectFieldIndex] = doReadObject();
-                    objectFieldIndex++;
-                }
+                objectFieldIndex = readNext(fieldDesc, objectFieldIndex, nullsBitSet);
             }
+        }
+
+        private int readNext(FieldDescriptor fieldDesc, int objectFieldIndex, @Nullable BitSet nullsBitSet) throws IOException {
+            if (fieldDesc.isPrimitive()) {
+                readPrimitive(fieldDesc);
+                return objectFieldIndex;
+            } else {
+                return readObject(fieldDesc, objectFieldIndex, nullsBitSet);
+            }
+        }
+
+        private void readPrimitive(FieldDescriptor fieldDesc) throws IOException {
+            int offset = descriptor.primitiveFieldDataOffset(fieldDesc.name(), fieldDesc.clazz());
+            int length = Primitives.widthInBytes(fieldDesc.clazz());
+            input.readFully(primitiveFieldsData, offset, length);
+        }
+
+        private int readObject(FieldDescriptor fieldDesc, int objectFieldIndex, @Nullable BitSet nullsBitSet) throws IOException {
+            if (!StructuredObjectMarshaller.nullWasSkippedWhileWriting(fieldDesc, descriptor, nullsBitSet)) {
+                Object readObject;
+                if (fieldDesc.isUnshared()) {
+                    readObject = doReadUnsharedOf(fieldDesc.clazz());
+                } else {
+                    readObject = doReadObjectOf(fieldDesc.clazz());
+                }
+
+                objectFieldVals[objectFieldIndex] = readObject;
+            }
+
+            return objectFieldIndex + 1;
         }
     }
 }

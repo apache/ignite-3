@@ -42,7 +42,6 @@ public interface DynamicConfigurationChanger {
      * Get root node by root key.
      *
      * @param rootKey Root key.
-     * @return Root node.
      */
     InnerNode getRootNode(RootKey<?, ?> rootKey);
 
@@ -54,4 +53,12 @@ public interface DynamicConfigurationChanger {
      * @throws NoSuchElementException If no value could be found.
      */
     <T> T getLatest(List<KeyPathNode> path);
+
+    /**
+     * Returns the count of configuration listener notifications.
+     *
+     * <p>Monotonically increasing value that should be incremented each time an attempt is made to notify all listeners of the
+     * configuration. Allows to guarantee that new listeners will be called only on the next notification of all configuration listeners.
+     */
+    long notificationCount();
 }
