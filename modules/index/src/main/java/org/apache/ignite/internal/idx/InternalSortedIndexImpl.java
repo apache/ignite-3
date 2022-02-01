@@ -289,7 +289,7 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
     /**
      * Index store iterator adapter.
      */
-    private class IndexIterator implements Iterator<Tuple> {
+    private static class IndexIterator implements Iterator<Tuple> {
         private final Iterator<IndexRow> it;
 
         private final Function<IndexRow, Tuple> rowConverter;
