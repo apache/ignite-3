@@ -172,7 +172,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     /**
      * Tests a table which was defined before start through bootstrap configuration.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15255")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16433")
     @Test
     public void testStaticTableConfigured() {
         TableManager tableManager = new TableManager(
