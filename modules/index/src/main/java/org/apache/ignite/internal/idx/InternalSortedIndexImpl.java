@@ -228,7 +228,7 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
         }
     }
 
-    private class IndexRowPrefixTuple implements IndexRowPrefix {
+    private static class IndexRowPrefixTuple implements IndexRowPrefix {
         private final Tuple tuple;
 
         IndexRowPrefixTuple(Tuple t) {
