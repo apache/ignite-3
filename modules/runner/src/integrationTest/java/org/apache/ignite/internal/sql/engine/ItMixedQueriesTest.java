@@ -391,23 +391,6 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15107")
-    public void dbg() {
-        sql("create table test_tbl (id int primary key, c1 int)", true);
-
-        sql("create index idx_asc on test_tbl (c1)", true);
-
-        insertData(
-                "PUBLIC.TEST_TBL",
-                new String[] {"ID", "C1"},
-                new Object[] {0, 1},
-                new Object[] {0, 2},
-                new Object[] {0, 3},
-                new Object[] {0, null}
-        );
-    }
-
     private static Table createTable(String tableName) {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", tableName)
                 .columns(
