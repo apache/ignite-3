@@ -43,7 +43,7 @@ public class JdbcQueryCursor<T> implements SqlCursor<T> {
     /**
      * Constructor.
      *
-     * @param maxRows Max rows.
+     * @param maxRows Max amount of rows cursor will return, or zero if unlimited.
      * @param cur Query cursor.
      */
     public JdbcQueryCursor(int maxRows, SqlCursor<T> cur) {
