@@ -478,14 +478,8 @@ public class PartitionListener implements RaftGroupListener {
         List<BinaryRow> res = new ArrayList<>();
 
         try {
-            for (int i = 0; i < clo.command().itemsToRetrieveCount(); i++) {
-                if (cursorDesc.cursor().hasNext()) {
-                    res.add(cursorDesc.cursor().next());
-                } else {
-                    LOG.info("cursor().hasNext() is false, res.size() = " + res.size());
-                    break;
-                }
-
+            for (int i = 0; i < clo.command().itemsToRetrieveCount() && cursorDesc.cursor().hasNext(); i++) {
+                res.add(cursorDesc.cursor().next());
             }
         } catch (NoSuchElementException e) {
             clo.result(e);
