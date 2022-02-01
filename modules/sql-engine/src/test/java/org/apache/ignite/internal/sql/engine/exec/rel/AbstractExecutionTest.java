@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import com.google.common.collect.ImmutableMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.Iterator;
 import java.util.UUID;
 import java.util.function.Function;
@@ -65,7 +66,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
     }
 
     protected ExecutionContext<Object[]> executionContext() {
-        FragmentDescription fragmentDesc = new FragmentDescription(0, null, null, null);
+        FragmentDescription fragmentDesc = new FragmentDescription(0, null, null, Long2ObjectMaps.emptyMap());
         return new ExecutionContext<>(
                 BaseQueryContext.builder()
                         .logger(log)
