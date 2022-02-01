@@ -19,6 +19,7 @@ package org.apache.ignite.internal.idx.event;
 
 import org.apache.ignite.internal.idx.InternalSortedIndex;
 import org.apache.ignite.internal.manager.EventParameters;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Table event parameters. There are properties which associate with a concrete table.
@@ -36,12 +37,12 @@ public class IndexEventParameters implements EventParameters {
     /**
      * Constructor.
      *
+     * @param tblName Table name.
      * @param idx Index instance.
      */
-    public IndexEventParameters(InternalSortedIndex idx) {
-        this(idx.name(), idx.tableName(), idx);
+    public IndexEventParameters(String tblName, InternalSortedIndex idx) {
+        this(idx.name(), tblName, idx);
     }
-
 
     /**
      * Constructor.
@@ -49,7 +50,7 @@ public class IndexEventParameters implements EventParameters {
      * @param idxName Index name.
      * @param tblName Table name.
      */
-    public IndexEventParameters(String idxName,  String tblName) {
+    public IndexEventParameters(String idxName, String tblName) {
         this(idxName, tblName, null);
     }
 
@@ -60,7 +61,7 @@ public class IndexEventParameters implements EventParameters {
      * @param tblName Table name.
      * @param idx     Index.
      */
-    private IndexEventParameters(String idxName, String tblName, InternalSortedIndex idx) {
+    private IndexEventParameters(String idxName, String tblName, @Nullable InternalSortedIndex idx) {
         this.idxName = idxName;
         this.tblName = tblName;
         this.idx = idx;

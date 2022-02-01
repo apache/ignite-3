@@ -113,13 +113,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                         try {
                             onIndexCreate(ctx);
                         } catch (Exception e) {
-                            fireEvent(
-                                    IndexEvent.CREATE,
-                                    new IndexEventParameters(
-                                            idxName,
-                                            tblName),
-                                    e
-                            );
+                            fireEvent(IndexEvent.CREATE, new IndexEventParameters(idxName, tblName), e);
 
                             LOG.error("Internal error, index creation failed [name={}, table={}]", e, idxName, tblName);
 
@@ -134,7 +128,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                     @Override
                     public @NotNull CompletableFuture<?> onRename(@NotNull String oldName, @NotNull String newName,
                             @NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
-                        // TODO: rename index support
+                        // TODO: IGNITE-16196 Supports index rename
                         return ConfigurationNamedListListener.super.onRename(oldName, newName, ctx);
                     }
 
@@ -165,7 +159,6 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
                     @Override
                     public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
-                        // TODO: is it true? What happens when columns are dropped?
                         assert false : "Index cannot be updated [ctx=" + ctx + ']';
 
                         return CompletableFuture.completedFuture(null);
@@ -247,23 +240,31 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                 return idxFut;
             }
 
-            tablesCfg.tables().change(ch -> ch.createOrUpdate(
-                            idx.tableName(),
-                            tblCh -> tblCh.changeIndices(idxes -> idxes.delete(idxCanonicalName))
-                    ))
-                    .whenComplete((res, t) -> {
-                        if (t != null) {
-                            Throwable ex = getRootCause(t);
+            try {
+                CompletableFuture<TableImpl> tblFut = tblMgr.tableAsync(idx.tableId());
 
-                            if (!(ex instanceof IndexNotFoundException)) {
-                                LOG.error("Index wasn't dropped [name={}]", ex, idxCanonicalName);
-                            }
+                tblFut.thenAccept(tbl -> {
+                    tablesCfg.tables().change(ch -> ch.createOrUpdate(
+                                    tbl.name(),
+                                    tblCh -> tblCh.changeIndices(idxes -> idxes.delete(idxCanonicalName))
+                            ))
+                            .whenComplete((res, t) -> {
+                                if (t != null) {
+                                    Throwable ex = getRootCause(t);
 
-                            idxFut.completeExceptionally(ex);
-                        } else {
-                            idxFut.complete(null);
-                        }
-                    });
+                                    if (!(ex instanceof IndexNotFoundException)) {
+                                        LOG.error("Index wasn't dropped [name={}]", ex, idxCanonicalName);
+                                    }
+
+                                    idxFut.completeExceptionally(ex);
+                                } else {
+                                    idxFut.complete(null);
+                                }
+                            });
+                });
+            } catch (NodeStoppingException ex) {
+                idxFut.completeExceptionally(ex);
+            }
 
             return idxFut;
         } finally {
@@ -404,6 +405,6 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
         idxsByName.put(idx.name(), idx);
 
-        fireEvent(IndexEvent.CREATE, new IndexEventParameters(idx), null);
+        fireEvent(IndexEvent.CREATE, new IndexEventParameters(tbl.name(), idx), null);
     }
 }

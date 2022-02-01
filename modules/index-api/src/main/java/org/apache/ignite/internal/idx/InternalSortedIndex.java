@@ -50,13 +50,6 @@ public interface InternalSortedIndex {
     /**
      * Return indexed table.
      *
-     * @return Indexed table.
-     */
-    String tableName();
-
-    /**
-     * Return indexed table.
-     *
      * @return Indexed table identifier.
      */
     IgniteUuid tableId();
@@ -65,7 +58,7 @@ public interface InternalSortedIndex {
      * Return indexed columns.
      *
      * <b>Attention</b>: Column orders and schema index of these columns has no relation to table columns.
-     * Its describe index schema.
+     * It describes only index schema.
      *
      * @return Index's columns.
      */

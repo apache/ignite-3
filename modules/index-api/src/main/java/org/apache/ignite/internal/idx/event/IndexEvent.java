@@ -26,6 +26,6 @@ public enum IndexEvent implements Event {
     /** This event is fired when an index was created. */
     CREATE,
 
-    /** This event is fired when an indexwas dropped. */
+    /** This event is fired when an index was dropped. */
     DROP
 }

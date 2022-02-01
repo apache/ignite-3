@@ -34,7 +34,7 @@ import org.apache.ignite.lang.NodeStoppingException;
  */
 public interface IndexManager extends Producer<IndexEvent, IndexEventParameters> {
     /**
-     * Creates a new index with the specified name. Throws
+     * Creates a new index with the specified name.
      *
      * @param idxCanonicalName Index canonical name.
      * @param tblCanonicalName Table canonical name.

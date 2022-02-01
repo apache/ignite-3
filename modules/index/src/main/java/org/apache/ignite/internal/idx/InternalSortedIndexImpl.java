@@ -75,12 +75,6 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
 
     /** {@inheritDoc} */
     @Override
-    public String tableName() {
-        return tbl.name();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public IgniteUuid tableId() {
         return tbl.tableId();
     }
