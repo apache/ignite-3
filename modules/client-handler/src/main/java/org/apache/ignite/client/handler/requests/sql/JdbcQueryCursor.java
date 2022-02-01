@@ -26,12 +26,9 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 /**
  * Sql query cursor with the ability to limit the maximum number of rows returned.
  *
- * <p>The  {@link JdbcQueryCursor#maxRows} parameter is responsible for the number of rows returned.
- * It can either be equal to zero or have a positive value.
- * Zero means that there are no additional restrictions other than the hasNext function,
- * and the cursor behaves like a normal iterator.
- * A positive value means that the cursor will return values either until the hasNext function
- * returns false, or until the number of records already returned equals maxRows.
+ *
+ * <p>The {@link JdbcQueryCursor#maxRows} parameter limits the amount of rows to be returned by the cursor.
+ * Its value can either be a positive value or equal to zero, where zero means no limit.
  */
 public class JdbcQueryCursor<T> implements SqlCursor<T> {
     /** Max rows. */
