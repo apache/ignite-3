@@ -71,6 +71,7 @@ public class JdbcQueryCursor<T> implements SqlCursor<T> {
      * and the limit of maxRows has not been reached.
      *
      * @return the next element if the cursor has more rows and the limit of the maximum rows hasn't been reached.
+     * @throws NoSuchElementException if the iteration has no more elements.
      */
     @Override
     public T next() {
