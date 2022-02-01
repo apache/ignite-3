@@ -31,7 +31,7 @@ import org.apache.ignite.internal.sql.engine.util.IndexConditions;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Relational operator that returns the contents of a table.
+ * Relational operator that returns the contents of a table using an index.
  */
 public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgniteRel {
     private final long sourceId;
@@ -101,7 +101,7 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
      * @param idxName      Index name.
      * @param proj         Projects.
      * @param cond         Filters.
-     * @param requiredCols Participating colunms.
+     * @param requiredCols Participating columns.
      */
     private IgniteIndexScan(
             long sourceId,
