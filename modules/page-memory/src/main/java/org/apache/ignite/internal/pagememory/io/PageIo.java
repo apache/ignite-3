@@ -123,7 +123,7 @@ public abstract class PageIo {
      * Constructor.
      *
      * @param type Page type.
-     * @param ver  Page format version.
+     * @param ver Page format version.
      */
     protected PageIo(int type, int ver) {
         assert ver > 0 && ver <= MAX_IO_TYPE : ver;
@@ -442,6 +442,7 @@ public abstract class PageIo {
      * @param addr Address.
      * @param pageSize Page size.
      * @param sb String builder.
+     * @throws IgniteInternalCheckedException If failed.
      */
     protected abstract void printPage(long addr, int pageSize, IgniteStringBuilder sb) throws IgniteInternalCheckedException;
 

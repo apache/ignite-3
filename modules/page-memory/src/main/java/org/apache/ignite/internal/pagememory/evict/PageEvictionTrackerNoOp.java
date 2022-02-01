@@ -17,29 +17,41 @@
 
 package org.apache.ignite.internal.pagememory.evict;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-
 /**
- * No-op implementation of {@link PageEvictionTracker}.
+ * {@link PageEvictionTracker} implementation that does nothing.
  */
-public class NoOpPageEvictionTracker implements PageEvictionTracker {
-    /** {@inheritDoc} */
-    @Override public void touchPage(long pageId) throws IgniteInternalCheckedException {
+public class PageEvictionTrackerNoOp implements PageEvictionTracker {
+    /** Instance. */
+    public static final PageEvictionTrackerNoOp INSTANCE = new PageEvictionTrackerNoOp();
+
+    /**
+     * Private constructor.
+     */
+    private PageEvictionTrackerNoOp() {
         // No-op.
     }
 
     /** {@inheritDoc} */
-    @Override public void evictDataPage() throws IgniteInternalCheckedException {
+    @Override
+    public void touchPage(long pageId) {
         // No-op.
     }
 
     /** {@inheritDoc} */
-    @Override public void forgetPage(long pageId) throws IgniteInternalCheckedException {
+    @Override
+    public void evictDataPage() {
         // No-op.
     }
 
     /** {@inheritDoc} */
-    @Override public boolean evictionRequired() {
+    @Override
+    public void forgetPage(long pageId) {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean evictionRequired() {
         return false;
     }
 }

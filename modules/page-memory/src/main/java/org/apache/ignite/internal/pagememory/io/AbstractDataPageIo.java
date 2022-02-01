@@ -1272,7 +1272,7 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
     }
 
     /**
-     * Write row data fragment.
+     * Writes row data fragment.
      *
      * @param row Row.
      * @param buf Byte buffer.

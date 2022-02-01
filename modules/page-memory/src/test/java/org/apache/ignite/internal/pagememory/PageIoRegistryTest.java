@@ -21,11 +21,13 @@ import static org.apache.ignite.internal.pagememory.TestPageIoModule.TEST_PAGE_T
 import static org.apache.ignite.internal.pagememory.TestPageIoModule.TEST_PAGE_VER;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestPageIo;
+import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.util.GridUnsafe;
@@ -44,7 +46,7 @@ public class PageIoRegistryTest {
         assertThrows(IgniteInternalCheckedException.class, () -> ioRegistry.resolve(TEST_PAGE_TYPE, TEST_PAGE_VER));
 
         // Load all PageIOModule-s from the classpath.
-        ioRegistry.loadFromServiceLoader();
+        ioRegistry.loadAllFromServiceLoader();
 
         // Test base resolve method.
         PageIo pageIo = ioRegistry.resolve(TEST_PAGE_TYPE, TEST_PAGE_VER);
@@ -64,5 +66,27 @@ public class PageIoRegistryTest {
 
         // Test resolve from ByteBuffer.
         assertEquals(pageIo, ioRegistry.resolve(pageBuffer));
+    }
+
+    @Test
+    void testLoad() throws Exception {
+        ioRegistry.load(new IoVersions<>(new TestPageIo()));
+
+        assertThrows(IllegalStateException.class, () -> ioRegistry.load(new IoVersions<>(new TestPageIo())));
+        assertThrows(IllegalStateException.class, () -> ioRegistry.loadAllFromServiceLoader());
+
+        assertNotNull(ioRegistry.resolve(TEST_PAGE_TYPE, TEST_PAGE_VER));
+    }
+
+    @Test
+    void testLoadAllFromServiceLoader() throws Exception {
+        TestPageIoModule testPageIoModule = new TestPageIoModule();
+
+        ioRegistry.loadAllFromServiceLoader();
+
+        assertThrows(IllegalStateException.class, () -> ioRegistry.load(new IoVersions<>(new TestPageIo())));
+        assertThrows(IllegalStateException.class, () -> ioRegistry.loadAllFromServiceLoader());
+
+        assertNotNull(ioRegistry.resolve(TEST_PAGE_TYPE, TEST_PAGE_VER));
     }
 }

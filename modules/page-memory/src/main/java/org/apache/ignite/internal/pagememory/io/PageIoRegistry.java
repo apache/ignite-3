@@ -33,24 +33,47 @@ public class PageIoRegistry {
     /**
      * Loads all {@link IoVersions} from a {@link PageIoModule} using the {@link ServiceLoader} mechanism.
      *
-     * @throws IllegalStateException If there's an invalid page type or several different {@link IoVersions} instances for the same type.
+     * @return {@code this} for code chaining.
+     * @throws IllegalStateException If there's an invalid page type or several {@link IoVersions} instances for the same type.
      */
-    public void loadFromServiceLoader() {
+    public PageIoRegistry loadAllFromServiceLoader() {
         ServiceLoader<PageIoModule> serviceLoader = ServiceLoader.load(PageIoModule.class);
 
         for (PageIoModule pageIoModule : serviceLoader) {
-            for (IoVersions<?> ios : pageIoModule.ioVersions()) {
-                if (ios.getType() == 0) {
-                    throw new IllegalStateException("Type 0 is reserved and can't be used: " + ios);
-                }
-
-                if (ioVersions[ios.getType()] != null && !ioVersions[ios.getType()].equals(ios)) {
-                    throw new IllegalStateException("Duplicated IOVersions found: " + ios);
-                }
-
-                ioVersions[ios.getType()] = ios;
+            for (IoVersions<?> ioVersions : pageIoModule.ioVersions()) {
+                load(ioVersions);
             }
         }
+
+        return this;
+    }
+
+    /**
+     * Loads {@link IoVersions}'s.
+     *
+     * @return {@code this} for code chaining.
+     * @throws IllegalStateException If there's an invalid page type or several {@link IoVersions} instances for the same type.
+     */
+    public PageIoRegistry load(IoVersions<?>... versions) {
+        for (IoVersions<?> ioVersions : versions) {
+            load(ioVersions);
+        }
+
+        return this;
+    }
+
+    private PageIoRegistry load(IoVersions<?> ioVersions) {
+        if (ioVersions.getType() == 0) {
+            throw new IllegalStateException("Type 0 is reserved and can't be used: " + ioVersions);
+        }
+
+        if (this.ioVersions[ioVersions.getType()] != null && !this.ioVersions[ioVersions.getType()].equals(ioVersions)) {
+            throw new IllegalStateException("Duplicated IOVersions found: " + ioVersions);
+        }
+
+        this.ioVersions[ioVersions.getType()] = ioVersions;
+
+        return this;
     }
 
     /**
