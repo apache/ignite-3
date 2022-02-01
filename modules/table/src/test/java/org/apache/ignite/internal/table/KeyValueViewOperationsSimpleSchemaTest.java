@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -31,7 +30,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -51,9 +49,6 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 /**
@@ -334,86 +329,6 @@ public class KeyValueViewOperationsSimpleSchemaTest {
             } else {
                 assertEquals(val, kvView.get(null, key));
             }
-        }
-    }
-
-    /**
-     * Parametrized test for correctness of empty multi string insertion.
-     *
-     * @param order if {@code true} String column inserts first.
-     * @param nullFirst nullable param for first column.
-     * @param nullSecond nullable param for second column.
-     */
-    @ParameterizedTest
-    @MethodSource("provideStrOrderingAndNulls")
-    public void checkEmptyStingInsertion(boolean order, boolean nullFirst, boolean nullSecond) {
-        Mapper<Long> keyMapper = Mapper.of(Long.class, "id");
-        Mapper<TestValMapper> valMapper = Mapper.of(TestValMapper.class);
-
-        Column strCol = new Column("stringCol1".toUpperCase(), STRING, nullFirst);
-        Column otherCol = new Column("stringCol2".toUpperCase(), STRING, nullSecond);
-
-        Column[] valCols = {strCol, otherCol};
-
-        SchemaDescriptor schemaMultiStr = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("ID", NativeTypes.INT64, false)},
-                valCols
-        );
-
-        TableImpl table = createTable(schemaMultiStr);
-
-        KeyValueViewImpl<Long, TestValMapper> kvView = new KeyValueViewImpl<>(
-                table.internalTable(),
-                new DummySchemaManagerImpl(schemaMultiStr),
-                keyMapper,
-                valMapper
-        );
-
-        TestValMapper obj = TestValMapper.build(order);
-
-        long key = 42L;
-
-        kvView.put(null, 42L, obj);
-
-        assertEquals(obj, kvView.get(null, key));
-    }
-
-    private static Stream<Arguments> provideStrOrderingAndNulls() {
-        return Stream.of(
-                Arguments.of(true, true, true),
-                Arguments.of(false, true, true),
-                Arguments.of(true, false, false),
-                Arguments.of(false, false, false),
-                Arguments.of(true, true, false),
-                Arguments.of(false, true, false)
-        );
-    }
-
-    static class TestValMapper {
-        private String stringCol1;
-        private String stringCol2;
-
-        static TestValMapper build(boolean order) {
-            final TestValMapper valMapper = new TestValMapper();
-            valMapper.stringCol1 = order ? "" : "some_str";
-            valMapper.stringCol2 = order ? "some_str" : "";
-            return valMapper;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            TestValMapper obj = (TestValMapper) o;
-
-            return stringCol1.equals(obj.stringCol1) && stringCol2.equals(obj.stringCol2);
         }
     }
 

@@ -47,6 +47,7 @@ import java.util.Collections;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.util.Constants;
@@ -54,7 +55,8 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests row assembling and reading.
@@ -356,19 +358,52 @@ public class RowTest {
     /**
      * Parametrized test for correctness of empty string insertion.
      *
-     * @param nullable nullable param for string column.
+     * @param emptyKey If {@code true} then probes with empty key string.
+     * @param nullableKey If {@code true} then probes with nullable key string.
+     * @param emptyVal  If {@code true} then probes with empty value string.
+     * @param nullableVal If {@code true} then probes with nullable value string.
      */
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testSingleStringInsertion(boolean nullable) {
-        Column[] keyCol = {new Column("keyCol", STRING, false)};
-        Column[] valCol = {new Column("valCol", STRING, nullable)};
+    @MethodSource("provideStrOrderingAndNulls")
+    public void testSingleStringInsertion(boolean emptyKey, boolean nullableKey, boolean emptyVal, boolean nullableVal) {
+        Column[] keyCol = {new Column("keyCol", STRING, nullableKey)};
 
-        SchemaDescriptor sch = new SchemaDescriptor(1, keyCol, valCol);
+        Column[] valColsMulti =
+                new Column[]{new Column("valCol1", STRING, nullableVal), new Column("valCol2", STRING, nullableVal)};
+        Column[] valColsSingle = new Column[]{new Column("valCol1", STRING, nullableVal)};
 
-        Object[] checkArr = {randomString(rnd, rnd.nextInt(5)), ""};
+        SchemaDescriptor schemaMulti = new SchemaDescriptor(1, keyCol, valColsMulti);
+        SchemaDescriptor schemaSingle = new SchemaDescriptor(1, keyCol, valColsSingle);
 
-        checkValues(sch, checkArr);
+        Object[] checkArr = generateRowValuesWithEmptyVals(schemaMulti, t -> randomString(rnd, rnd.nextInt(5)), emptyKey, emptyVal);
+        checkValues(schemaMulti, checkArr);
+
+        checkArr = generateRowValuesWithEmptyVals(schemaSingle, t -> randomString(rnd, rnd.nextInt(5)), emptyKey, emptyVal);
+        checkValues(schemaSingle, checkArr);
+    }
+
+    private static Stream<Arguments> provideStrOrderingAndNulls() {
+        return Stream.of(
+                Arguments.of(true, true, true, true), //1111
+                Arguments.of(true, true, true, false), //1110
+                Arguments.of(true, true, false, true), //1101
+                Arguments.of(true, true, false, false), //1100
+
+                Arguments.of(true, false, true, true), //1011
+                Arguments.of(true, false, true, false), //1010
+                Arguments.of(true, false, false, true), //1001
+                Arguments.of(true, false, false, false), //1000
+
+                Arguments.of(false, true, true, true), //0111
+                Arguments.of(false, true, true, false), //0110
+                Arguments.of(false, true, false, true), //0101
+                Arguments.of(false, true, false, false), //0100
+
+                Arguments.of(false, false, true, true), //0011
+                Arguments.of(false, false, true, false), //0010
+                Arguments.of(false, false, false, true), //0001
+                Arguments.of(false, false, false, false) //0000
+        );
     }
 
     /**
@@ -453,6 +488,36 @@ public class RowTest {
     }
 
     /**
+     * Generate row values for given row schema possibly with empty strings.
+     *
+     * @param schema Row schema.
+     * @param rnd   Function that returns random value for the type.
+     * @param emptyKey If {@code true} then generates empty key string.
+     * @param emptyVal  If {@code true} then generates empty value string.
+     * @return Row values.
+     */
+    private Object[] generateRowValuesWithEmptyVals(
+            SchemaDescriptor schema, Function<NativeType, Object> rnd, boolean emptyKey, boolean emptyVal) {
+        assert schema.keyColumns().columns().length == 1;
+
+        Object[] res = new Object[schema.length()];
+
+        for (int i = 0; i < res.length; i++) {
+            NativeType type = schema.column(i).type();
+
+            if (emptyKey && i == 0) {
+                res[i] = "";
+            } else if (emptyVal && i == 1) {
+                res[i] = "";
+            } else {
+                res[i] = rnd.apply(type);
+            }
+        }
+
+        return res;
+    }
+
+    /**
      * Generate row values for given row schema.
      *
      * @param schema Row schema.
@@ -463,7 +528,7 @@ public class RowTest {
     }
 
     /**
-     * Generate row values for given row schema.
+     * Generate row values for given row schema with empty stri.
      *
      * @param schema Row schema.
      * @param rnd    Function that returns random value for the type.
