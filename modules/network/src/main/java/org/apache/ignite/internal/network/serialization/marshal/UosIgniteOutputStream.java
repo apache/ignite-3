@@ -17,21 +17,27 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import java.io.IOException;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 
 /**
- * Knows how to read a value from an input.
+ * {@link IgniteUnsafeDataOutput} extension that allows to track whether it's occupied or not.
  */
-interface ValueReader<T> {
-    /**
-     * Reads the next value from an input.
-     *
-     * @param input     from where to read
-     * @param context   unmarshalling context
-     * @return the value that was read
-     * @throws IOException          if an I/O problem occurs
-     * @throws UnmarshalException   if another problem (like {@link ClassNotFoundException}) occurs
-     */
-    T read(IgniteDataInput input, UnmarshallingContext context) throws IOException, UnmarshalException;
+class UosIgniteOutputStream extends IgniteUnsafeDataOutput {
+    private boolean occupied = false;
+
+    public UosIgniteOutputStream(int size) {
+        super(size);
+    }
+
+    boolean isOccupied() {
+        return occupied;
+    }
+
+    void occupy() {
+        occupied = true;
+    }
+
+    void release() {
+        occupied = false;
+    }
 }

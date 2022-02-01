@@ -15,23 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.serialization.marshal;
+package org.apache.ignite.internal.util.io;
 
-import java.io.IOException;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThan;
 
-/**
- * Knows how to read a value from an input.
- */
-interface ValueReader<T> {
-    /**
-     * Reads the next value from an input.
-     *
-     * @param input     from where to read
-     * @param context   unmarshalling context
-     * @return the value that was read
-     * @throws IOException          if an I/O problem occurs
-     * @throws UnmarshalException   if another problem (like {@link ClassNotFoundException}) occurs
-     */
-    T read(IgniteDataInput input, UnmarshallingContext context) throws IOException, UnmarshalException;
+import org.junit.jupiter.api.Test;
+
+class IgniteUnsafeDataInputTest {
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    @Test
+    void readReturnsNegativeValueWhenEndOfStreamIsReached() throws Exception {
+        var input = new IgniteUnsafeDataInput();
+        input.bytes(new byte[]{1, 2, 3}, 3);
+
+        byte[] bytes = new byte[4096];
+        input.read(bytes, 0, bytes.length);
+
+        int read = input.read(bytes, 0, bytes.length);
+
+        assertThat(read, is(lessThan(0)));
+    }
 }

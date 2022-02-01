@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.serialization.marshal;
+package org.apache.ignite.internal.util.io;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -24,23 +24,23 @@ import java.io.IOException;
 /**
  * Utils to read/write variable length ints.
  */
-class VarInts {
+public class VarInts {
     private VarInts() {
     }
 
     /**
-     * Writes a unsigned int using variable length format. If it's less than 0xFF, it's written as one byte.
+     * Writes an unsigned int using variable length format. If it's less than 0xFF, it's written as one byte.
      * If it's more than 0xFE, but less than 0xFFFF, it's written as 3 bytes: first one byte equal to 0xFF, then 2 bytes
      * as {@link DataOutput#writeShort(int)} writes them. Otherwise, it writes 3 0xFF bytes, then writes
      * {@link DataOutput#writeInt(int)}.
      * This may be beneficial for the cases when we need to write an unsigned int, but most of the time the values
-     * are small.
+     * are small (for example, when writing an array/collection/string length).
      *
      * @param value  value to write
      * @param output where to write to value to
      * @throws IOException if an I/O error occurs
      */
-    static void writeUnsignedInt(int value, DataOutput output) throws IOException {
+    public static void writeUnsignedInt(int value, DataOutput output) throws IOException {
         if (value < 0) {
             throw new IllegalArgumentException(value + " is negative");
         }
@@ -65,7 +65,7 @@ class VarInts {
      * @throws IOException if an I/O error occurs
      * @see #writeUnsignedInt(int, DataOutput)
      */
-    static int readUnsignedInt(DataInput input) throws IOException {
+    public static int readUnsignedInt(DataInput input) throws IOException {
         int first = input.readUnsignedByte();
         if (first < 0xFF) {
             return first;

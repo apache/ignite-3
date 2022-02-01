@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import java.io.DataOutputStream;
 import java.io.IOException;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Writes objects to a {@link DataOutputStream} taking their declared types into consideration (if any).
+ * Writes objects to an output taking their declared types into consideration (if any).
  * The type might come from a field or be an array component type.
  */
 interface TypedValueWriter {
     /**
-     * Writes the given object to the {@link DataOutputStream}.
+     * Writes the given object to the output.
      *
      * @param object        object to write
      * @param declaredClass the original class of the object (i.e. {@code byte.class} for {@code byte}); might be {@code null}
@@ -37,6 +37,6 @@ interface TypedValueWriter {
      * @throws IOException      if an I/O problem occurs
      * @throws MarshalException if another problem occurs
      */
-    void write(Object object, @Nullable Class<?> declaredClass, DataOutputStream output, MarshallingContext context)
+    void write(Object object, @Nullable Class<?> declaredClass, IgniteDataOutput output, MarshallingContext context)
             throws IOException, MarshalException;
 }
