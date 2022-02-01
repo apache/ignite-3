@@ -168,7 +168,6 @@ public class StopCalciteModuleTest {
         LOG.info(">>>> Starting test {}", testInfo.getTestMethod().orElseThrow().getName());
     }
 
-    @Disabled("IGNITE-16389")
     @Test
     public void testStopQueryOnNodeStop() throws Exception {
         SqlQueryProcessor qryProc = new SqlQueryProcessor(clusterSrvc, tableManager);
