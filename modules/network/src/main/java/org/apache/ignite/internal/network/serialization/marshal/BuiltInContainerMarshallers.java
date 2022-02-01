@@ -21,8 +21,6 @@ import static java.util.Collections.singletonList;
 import static org.apache.ignite.internal.network.serialization.marshal.ProtocolMarshalling.writeLength;
 
 import java.io.DataInput;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -37,6 +35,8 @@ import java.util.Map;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.Classes;
+import org.apache.ignite.internal.util.io.GridDataInput;
+import org.apache.ignite.internal.util.io.GridDataOutput;
 
 /**
  * Utility to (un)marshal built-in collections and maps.
@@ -78,7 +78,7 @@ class BuiltInContainerMarshallers {
         this.typedReader = typedReader;
     }
 
-    void writeGenericRefArray(Object[] array, ClassDescriptor arrayDescriptor, DataOutputStream output, MarshallingContext context)
+    void writeGenericRefArray(Object[] array, ClassDescriptor arrayDescriptor, GridDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
         Class<?> componentType = array.getClass().getComponentType();
 
@@ -109,7 +109,7 @@ class BuiltInContainerMarshallers {
     }
 
     @SuppressWarnings("unchecked")
-    <T> void fillGenericRefArray(DataInputStream input, T[] array, UnmarshallingContext context)
+    <T> void fillGenericRefArrayFrom(GridDataInput input, T[] array, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         if (array.length == 0) {
             return;
@@ -130,7 +130,7 @@ class BuiltInContainerMarshallers {
         }
     }
 
-    void writeBuiltInCollection(Collection<?> object, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
+    void writeBuiltInCollection(Collection<?> object, ClassDescriptor descriptor, GridDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
         if (supportsAsMutableBuiltInCollection(descriptor)) {
             writeCollection(object, descriptor, output, context);
@@ -156,12 +156,12 @@ class BuiltInContainerMarshallers {
     private void writeCollection(
             Collection<?> collection,
             ClassDescriptor collectionDescriptor,
-            DataOutputStream output,
+            GridDataOutput output,
             MarshallingContext context
     ) throws IOException, MarshalException {
-        context.addUsedDescriptor(collectionDescriptor);
-
         BuiltInMarshalling.writeCollection(collection, output, untypedWriter(), context);
+
+        context.addUsedDescriptor(collectionDescriptor);
     }
 
     @SuppressWarnings("unchecked")
@@ -169,7 +169,7 @@ class BuiltInContainerMarshallers {
         return (ValueWriter<T>) untypedWriter;
     }
 
-    private void writeSingletonList(List<?> list, ClassDescriptor listDescriptor, DataOutputStream output, MarshallingContext context)
+    private void writeSingletonList(List<?> list, ClassDescriptor listDescriptor, GridDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
         assert list.size() == 1;
 
@@ -219,7 +219,7 @@ class BuiltInContainerMarshallers {
     }
 
     <T, C extends Collection<T>> void fillBuiltInCollectionFrom(
-            DataInputStream input,
+            GridDataInput input,
             C collection,
             ClassDescriptor collectionDescriptor,
             ValueReader<T> elementReader,
@@ -234,7 +234,7 @@ class BuiltInContainerMarshallers {
         BuiltInMarshalling.fillCollectionFrom(input, collection, elementReader, context);
     }
 
-    void writeBuiltInMap(Map<?, ?> map, ClassDescriptor mapDescriptor, DataOutputStream output, MarshallingContext context)
+    void writeBuiltInMap(Map<?, ?> map, ClassDescriptor mapDescriptor, GridDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
         if (!supportsAsBuiltInMap(mapDescriptor)) {
             throw new IllegalStateException("Marshalling of " + mapDescriptor.clazz() + " is not supported, but it's marked as a built-in");
@@ -277,7 +277,7 @@ class BuiltInContainerMarshallers {
     }
 
     <K, V, M extends Map<K, V>> void fillBuiltInMapFrom(
-            DataInputStream input,
+            GridDataInput input,
             M map,
             ValueReader<K> keyReader,
             ValueReader<V> valueReader,

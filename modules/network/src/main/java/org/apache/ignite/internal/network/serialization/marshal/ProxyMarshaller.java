@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import org.apache.ignite.internal.util.io.GridDataInput;
+import org.apache.ignite.internal.util.io.GridDataOutput;
 
 /**
  * (Un)marshalling logic specific to {@link Proxy} instances.
@@ -61,7 +61,7 @@ class ProxyMarshaller {
         return Proxy.isProxyClass(classToCheck);
     }
 
-    void writeProxy(Object proxy, DataOutputStream output, MarshallingContext context) throws MarshalException, IOException {
+    void writeProxy(Object proxy, GridDataOutput output, MarshallingContext context) throws MarshalException, IOException {
         assert Proxy.isProxyClass(proxy.getClass());
 
         BuiltInMarshalling.writeClassArray(proxy.getClass().getInterfaces(), output, context);
@@ -69,18 +69,18 @@ class ProxyMarshaller {
         valueWriter.write(Proxy.getInvocationHandler(proxy), output, context);
     }
 
-    Object preInstantiateProxy(DataInputStream input, UnmarshallingContext context) throws UnmarshalException, IOException {
+    Object preInstantiateProxy(GridDataInput input, UnmarshallingContext context) throws UnmarshalException, IOException {
         Class<?>[] interfaces = BuiltInMarshalling.readClassArray(input, context);
 
         return Proxy.newProxyInstance(context.classLoader(), interfaces, placeholderInvocationHandler);
     }
 
-    void fillProxyFrom(DataInputStream input, Object proxyToFill, UnmarshallingContext context) throws UnmarshalException, IOException {
+    void fillProxyFrom(GridDataInput input, Object proxyToFill, UnmarshallingContext context) throws UnmarshalException, IOException {
         InvocationHandler invocationHandler = readInvocationHandler(input, context);
         replaceInvocationHandler(proxyToFill, invocationHandler);
     }
 
-    private InvocationHandler readInvocationHandler(DataInputStream input, UnmarshallingContext context)
+    private InvocationHandler readInvocationHandler(GridDataInput input, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         Object object = valueReader.read(input, context);
         if (!(object instanceof InvocationHandler)) {

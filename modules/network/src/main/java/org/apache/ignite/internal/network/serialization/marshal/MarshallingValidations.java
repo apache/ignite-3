@@ -19,6 +19,9 @@ package org.apache.ignite.internal.network.serialization.marshal;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
 import org.apache.ignite.internal.network.serialization.Classes;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,7 +29,15 @@ import org.jetbrains.annotations.Nullable;
  * Validations that are run before marshalling objects.
  */
 class MarshallingValidations {
-    static void throwIfMarshallingNotSupported(@Nullable Object object) {
+    private final Map<Class<?>, YesNo> whetherInnerClasses = new HashMap<>();
+    private final Map<Class<?>, YesNo> whetherCapturingClosures = new HashMap<>();
+    private final Map<Class<?>, YesNo> whetherNonSerializableLambdas = new HashMap<>();
+
+    private final Function<Class<?>, YesNo> isInnerClassFunction = MarshallingValidations.this::isInnerClass;
+    private final Function<Class<?>, YesNo> isCapturingClosureFunction = this::isCapturingClosure;
+    private final Function<Class<?>, YesNo> isNonSerializableLambdaFunction = this::isNonSerializableLambda;
+
+    void throwIfMarshallingNotSupported(@Nullable Object object) {
         if (object == null) {
             return;
         }
@@ -35,33 +46,57 @@ class MarshallingValidations {
         }
 
         Class<?> objectClass = object.getClass();
-        if (isInnerClass(objectClass)) {
+
+        if (cachingIsInnerClass(objectClass)) {
             throw new MarshallingNotSupportedException("Non-static inner class instances are not supported for marshalling: "
                     + objectClass);
         }
-        if (isCapturingClosure(objectClass)) {
+        if (cachingIsCapturingClosure(objectClass)) {
             throw new MarshallingNotSupportedException("Capturing nested class instances are not supported for marshalling: " + object);
         }
-        if (Classes.isLambda(objectClass) && !Classes.isSerializable(objectClass)) {
+        if (cachingIsNonSerializableLambds(objectClass)) {
             throw new MarshallingNotSupportedException("Non-serializable lambda instances are not supported for marshalling: " + object);
         }
     }
 
-    private static boolean isInnerClass(Class<?> objectClass) {
-        return objectClass.getDeclaringClass() != null && !Modifier.isStatic(objectClass.getModifiers());
+    private boolean cachingIsInnerClass(Class<?> objectClass) {
+        return whetherInnerClasses.computeIfAbsent(objectClass, isInnerClassFunction) == YesNo.YES;
     }
 
-    private static boolean isCapturingClosure(Class<?> objectClass) {
+    private boolean cachingIsCapturingClosure(Class<?> objectClass) {
+        return whetherCapturingClosures.computeIfAbsent(objectClass, isCapturingClosureFunction) == YesNo.YES;
+    }
+
+    private boolean cachingIsNonSerializableLambds(Class<?> objectClass) {
+        return whetherNonSerializableLambdas.computeIfAbsent(objectClass, isNonSerializableLambdaFunction) == YesNo.YES;
+    }
+
+    private YesNo isInnerClass(Class<?> objectClass) {
+        boolean innerClass = objectClass.getDeclaringClass() != null && !Modifier.isStatic(objectClass.getModifiers());
+        return yesNo(innerClass);
+    }
+
+    private YesNo yesNo(boolean yes) {
+        return yes ? YesNo.YES : YesNo.NO;
+    }
+
+    private YesNo isCapturingClosure(Class<?> objectClass) {
         for (Field field : objectClass.getDeclaredFields()) {
             if ((field.isSynthetic() && field.getName().equals("this$0"))
                     || field.getName().startsWith("arg$")) {
-                return true;
+                return YesNo.YES;
             }
         }
 
-        return false;
+        return YesNo.NO;
     }
 
-    private MarshallingValidations() {
+    private YesNo isNonSerializableLambda(Class<?> objectClass) {
+        boolean nonSerializableLambda = Classes.isLambda(objectClass) && !Classes.isSerializable(objectClass);
+        return yesNo(nonSerializableLambda);
+    }
+
+    private enum YesNo {
+        YES, NO
     }
 }

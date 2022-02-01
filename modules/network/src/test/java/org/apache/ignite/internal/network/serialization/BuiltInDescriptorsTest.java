@@ -58,6 +58,7 @@ import static org.apache.ignite.internal.network.serialization.BuiltInType.SHORT
 import static org.apache.ignite.internal.network.serialization.BuiltInType.SHORT_BOXED;
 import static org.apache.ignite.internal.network.serialization.BuiltInType.SINGLETON_LIST;
 import static org.apache.ignite.internal.network.serialization.BuiltInType.STRING;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.STRING_LATIN1;
 import static org.apache.ignite.internal.network.serialization.BuiltInType.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -114,5 +115,6 @@ public class BuiltInDescriptorsTest {
         assertEquals(39, REFERENCE.descriptorId());
         assertEquals(40, CLASS.descriptorId());
         assertEquals(41, PROXY.descriptorId());
+        assertEquals(42, STRING_LATIN1.descriptorId());
     }
 }

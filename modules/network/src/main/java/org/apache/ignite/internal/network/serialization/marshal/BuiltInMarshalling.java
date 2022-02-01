@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Collections.singletonList;
 import static org.apache.ignite.internal.network.serialization.marshal.ProtocolMarshalling.readLength;
 import static org.apache.ignite.internal.network.serialization.marshal.ProtocolMarshalling.writeLength;
 
 import java.io.DataInput;
-import java.io.DataInputStream;
 import java.io.DataOutput;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
@@ -32,9 +31,15 @@ import java.math.BigDecimal;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
+import java.util.RandomAccess;
 import java.util.UUID;
 import java.util.function.IntFunction;
+import org.apache.ignite.internal.util.StringIntrospection;
+import org.apache.ignite.internal.util.io.GridDataInput;
+import org.apache.ignite.internal.util.io.GridDataInput.Materializer;
+import org.apache.ignite.internal.util.io.GridDataOutput;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
 
@@ -45,6 +50,8 @@ class BuiltInMarshalling {
     private static final ValueWriter<Class<?>> classWriter = (obj, out, ctx) -> writeClass(obj, out);
     private static final IntFunction<Class<?>[]> classArrayFactory = Class[]::new;
     private static final ValueReader<Class<?>> classReader = BuiltInMarshalling::readClass;
+
+    private static final Materializer<String> LATIN1_MATERIALIZER = (bytes, offset, len) -> new String(bytes, offset, len, ISO_8859_1);
 
     private static final Field singletonListElementField;
 
@@ -63,6 +70,16 @@ class BuiltInMarshalling {
 
     static String readString(DataInput input) throws IOException {
         return input.readUTF();
+    }
+
+    static void writeLatin1String(String string, GridDataOutput output) throws IOException {
+        byte[] bytes = StringIntrospection.fastLatin1Bytes(string);
+        writeByteArray(bytes, output);
+    }
+
+    static String readLatin1String(GridDataInput input) throws IOException {
+        int length = readLength(input);
+        return input.materializeFromNextBytes(length, LATIN1_MATERIALIZER);
     }
 
     static Object readBareObject(@SuppressWarnings("unused") DataInput input) {
@@ -97,128 +114,128 @@ class BuiltInMarshalling {
         return new Date(input.readLong());
     }
 
-    static void writeByteArray(byte[] array, DataOutput output) throws IOException {
+    static void writeByteArray(byte[] array, GridDataOutput output) throws IOException {
         writeLength(array.length, output);
-        output.write(array);
+        output.writeByteArray(array);
     }
 
-    static byte[] readByteArray(DataInput input) throws IOException {
+    static byte[] readByteArray(GridDataInput input) throws IOException {
         int length = readLength(input);
-        byte[] array = new byte[length];
-        input.readFully(array);
-        return array;
+        return input.readByteArray(length);
     }
 
-    static void writeShortArray(short[] array, DataOutput output) throws IOException {
+    static void writeShortArray(short[] array, GridDataOutput output) throws IOException {
         writeLength(array.length, output);
-        for (short sh : array) {
-            output.writeShort(sh);
-        }
+        output.writeShortArray(array);
     }
 
-    static short[] readShortArray(DataInput input) throws IOException {
+    static short[] readShortArray(GridDataInput input) throws IOException {
         int length = readLength(input);
-        short[] array = new short[length];
-        for (int i = 0; i < length; i++) {
-            array[i] = input.readShort();
-        }
-        return array;
+        return input.readShortArray(length);
     }
 
-    static void writeIntArray(int[] array, DataOutput output) throws IOException {
+    static void writeIntArray(int[] array, GridDataOutput output) throws IOException {
         writeLength(array.length, output);
-        for (int sh : array) {
-            output.writeInt(sh);
-        }
+        output.writeIntArray(array);
     }
 
-    static int[] readIntArray(DataInput input) throws IOException {
+    static int[] readIntArray(GridDataInput input) throws IOException {
         int length = readLength(input);
-        int[] array = new int[length];
-        for (int i = 0; i < length; i++) {
-            array[i] = input.readInt();
-        }
-        return array;
+        return input.readIntArray(length);
     }
 
-    static void writeFloatArray(float[] array, DataOutput output) throws IOException {
+    static void writeFloatArray(float[] array, GridDataOutput output) throws IOException {
         writeLength(array.length, output);
-        for (float sh : array) {
-            output.writeFloat(sh);
-        }
+        output.writeFloatArray(array);
     }
 
-    static float[] readFloatArray(DataInput input) throws IOException {
+    static float[] readFloatArray(GridDataInput input) throws IOException {
         int length = readLength(input);
-        float[] array = new float[length];
-        for (int i = 0; i < length; i++) {
-            array[i] = input.readFloat();
-        }
-        return array;
+        return input.readFloatArray(length);
     }
 
-    static void writeLongArray(long[] array, DataOutput output) throws IOException {
+    static void writeLongArray(long[] array, GridDataOutput output) throws IOException {
         writeLength(array.length, output);
-        for (long sh : array) {
-            output.writeLong(sh);
-        }
+        output.writeLongArray(array);
     }
 
-    static long[] readLongArray(DataInput input) throws IOException {
+    static long[] readLongArray(GridDataInput input) throws IOException {
         int length = readLength(input);
-        long[] array = new long[length];
-        for (int i = 0; i < length; i++) {
-            array[i] = input.readLong();
-        }
-        return array;
+        return input.readLongArray(length);
     }
 
-    static void writeDoubleArray(double[] array, DataOutput output) throws IOException {
+    static void writeDoubleArray(double[] array, GridDataOutput output) throws IOException {
         writeLength(array.length, output);
-        for (double sh : array) {
-            output.writeDouble(sh);
-        }
+        output.writeDoubleArray(array);
     }
 
-    static double[] readDoubleArray(DataInput input) throws IOException {
+    static double[] readDoubleArray(GridDataInput input) throws IOException {
         int length = readLength(input);
-        double[] array = new double[length];
-        for (int i = 0; i < length; i++) {
-            array[i] = input.readDouble();
-        }
-        return array;
+        return input.readDoubleArray(length);
     }
 
-    static void writeBooleanArray(boolean[] array, DataOutput output) throws IOException {
+    static void writeBooleanArray(boolean[] array, GridDataOutput output) throws IOException {
         writeLength(array.length, output);
-        for (boolean sh : array) {
-            output.writeBoolean(sh);
+
+        byte bits = 0;
+        int writtenBytes = 0;
+        for (int i = 0; i < array.length; i++) {
+            boolean bit = array[i];
+            int bitIndex = i % 8;
+            if (bit) {
+                bits |= (1 << bitIndex);
+            }
+            if (bitIndex == 7) {
+                output.writeByte(bits);
+                writtenBytes++;
+                bits = 0;
+            }
+        }
+
+        int totalBytesToWrite = numberOfBytesToPackBits(array.length);
+        if (writtenBytes < totalBytesToWrite) {
+            output.writeByte(bits);
         }
     }
 
-    static boolean[] readBooleanArray(DataInput input) throws IOException {
+    private static int numberOfBytesToPackBits(int length) {
+        return length / 8 + (length % 8 == 0 ? 0 : 1);
+    }
+
+    static boolean[] readBooleanArray(GridDataInput input) throws IOException {
         int length = readLength(input);
+
         boolean[] array = new boolean[length];
-        for (int i = 0; i < length; i++) {
-            array[i] = input.readBoolean();
+
+        int totalBytesToRead = numberOfBytesToPackBits(length);
+
+        for (int byteIndex = 0; byteIndex < totalBytesToRead; byteIndex++) {
+            byte bits = input.readByte();
+
+            int bitsToReadInThisByte;
+            if (byteIndex < totalBytesToRead - 1) {
+                bitsToReadInThisByte = 8;
+            } else {
+                bitsToReadInThisByte = length - (totalBytesToRead - 1) * 8;
+            }
+            for (int bitIndex = 0; bitIndex < bitsToReadInThisByte; bitIndex++) {
+                if ((bits & (1 << bitIndex)) != 0) {
+                    array[byteIndex * 8 + bitIndex] = true;
+                }
+            }
         }
+
         return array;
     }
 
-    static void writeCharArray(char[] array, DataOutput output) throws IOException {
+    static void writeCharArray(char[] array, GridDataOutput output) throws IOException {
         writeLength(array.length, output);
-        for (char sh : array) {
-            output.writeChar(sh);
-        }
+        output.writeCharArray(array);
     }
 
-    static char[] readCharArray(DataInput input) throws IOException {
+    static char[] readCharArray(GridDataInput input) throws IOException {
         int length = readLength(input);
-        char[] array = new char[length];
-        for (int i = 0; i < length; i++) {
-            array[i] = input.readChar();
-        }
-        return array;
+        return input.readCharArray(length);
     }
 
     static void writeBigDecimal(BigDecimal object, DataOutput output) throws IOException {
@@ -256,16 +273,16 @@ class BuiltInMarshalling {
         return classByName(className, context.classLoader());
     }
 
-    static void writeClassArray(Class<?>[] classes, DataOutputStream output, MarshallingContext context)
+    static void writeClassArray(Class<?>[] classes, GridDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
         writeRefArray(classes, output, classWriter, context);
     }
 
-    static Class<?>[] readClassArray(DataInputStream input, UnmarshallingContext context) throws IOException, UnmarshalException {
+    static Class<?>[] readClassArray(GridDataInput input, UnmarshallingContext context) throws IOException, UnmarshalException {
         return readRefArray(input, classArrayFactory, classReader, context);
     }
 
-    private static <T> void writeRefArray(T[] array, DataOutputStream output, ValueWriter<T> valueWriter, MarshallingContext context)
+    private static <T> void writeRefArray(T[] array, GridDataOutput output, ValueWriter<T> valueWriter, MarshallingContext context)
             throws IOException, MarshalException {
         writeLength(array.length, output);
         for (T object : array) {
@@ -274,7 +291,7 @@ class BuiltInMarshalling {
     }
 
     private static <T> T[] readRefArray(
-            DataInputStream input,
+            GridDataInput input,
             IntFunction<T[]> arrayFactory,
             ValueReader<T> valueReader,
             UnmarshallingContext context
@@ -287,7 +304,7 @@ class BuiltInMarshalling {
         return array;
     }
 
-    private static <T> void fillRefArrayFrom(DataInputStream input, T[] array, ValueReader<T> valueReader, UnmarshallingContext context)
+    private static <T> void fillRefArrayFrom(GridDataInput input, T[] array, ValueReader<T> valueReader, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         for (int i = 0; i < array.length; i++) {
             array[i] = valueReader.read(input, context);
@@ -309,19 +326,35 @@ class BuiltInMarshalling {
 
     static <T> void writeCollection(
             Collection<T> collection,
-            DataOutputStream output,
+            GridDataOutput output,
             ValueWriter<T> valueWriter,
             MarshallingContext context
     ) throws IOException, MarshalException {
         writeLength(collection.size(), output);
 
-        for (T object : collection) {
-            valueWriter.write(object, output, context);
+        if (collection instanceof List && collection instanceof RandomAccess) {
+            writeRandomAccessListElements(output, valueWriter, context, (List<T>) collection);
+        } else {
+            for (T object : collection) {
+                valueWriter.write(object, output, context);
+            }
+        }
+    }
+
+    private static <T> void writeRandomAccessListElements(
+            GridDataOutput output,
+            ValueWriter<T> valueWriter,
+            MarshallingContext context,
+            List<T> list
+    ) throws IOException, MarshalException {
+        //noinspection ForLoopReplaceableByForEach
+        for (int i = 0; i < list.size(); i++) {
+            valueWriter.write(list.get(i), output, context);
         }
     }
 
     static <T, C extends Collection<T>> void fillCollectionFrom(
-            DataInputStream input,
+            GridDataInput input,
             C collection,
             ValueReader<T> valueReader,
             UnmarshallingContext context
@@ -339,7 +372,7 @@ class BuiltInMarshalling {
     }
 
     static <T, C extends Collection<T>> void fillSingletonCollectionFrom(
-            DataInputStream input,
+            GridDataInput input,
             C collection,
             ValueReader<T> elementReader,
             UnmarshallingContext context
@@ -355,7 +388,7 @@ class BuiltInMarshalling {
 
     static <K, V> void writeMap(
             Map<K, V> map,
-            DataOutputStream output,
+            GridDataOutput output,
             ValueWriter<K> keyWriter,
             ValueWriter<V> valueWriter,
             MarshallingContext context
@@ -369,7 +402,7 @@ class BuiltInMarshalling {
     }
 
     static <K, V, M extends Map<K, V>> void fillMapFrom(
-            DataInputStream input,
+            GridDataInput input,
             M map,
             ValueReader<K> keyReader,
             ValueReader<V> valueReader,
@@ -387,11 +420,11 @@ class BuiltInMarshalling {
         return mapFactory.apply(length);
     }
 
-    static void writeBitSet(BitSet object, DataOutput output) throws IOException {
+    static void writeBitSet(BitSet object, GridDataOutput output) throws IOException {
         writeByteArray(object.toByteArray(), output);
     }
 
-    static BitSet readBitSet(DataInput input) throws IOException {
+    static BitSet readBitSet(GridDataInput input) throws IOException {
         return BitSet.valueOf(readByteArray(input));
     }
 

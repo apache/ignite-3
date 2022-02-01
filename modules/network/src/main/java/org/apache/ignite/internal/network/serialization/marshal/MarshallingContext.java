@@ -17,25 +17,24 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import static java.util.Collections.unmodifiableSet;
-
-import java.io.DataOutputStream;
+import it.unimi.dsi.fastutil.Hash;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenCustomHashMap;
 import java.io.IOException;
 import java.io.NotActiveException;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
+import org.apache.ignite.internal.util.io.GridDataOutput;
 
 /**
  * Context using during marshalling of an object graph accessible from a root object.
  */
 class MarshallingContext {
-    private final Set<ClassDescriptor> usedDescriptors = new HashSet<>();
+    private final IntSet usedDescriptorIds = new IntOpenHashSet();
 
-    private final Map<Object, Integer> objectsToIds = new IdentityHashMap<>();
+    private final Object2IntMap<Object> objectsToIds = new Object2IntOpenCustomHashMap<>(new IdentityHashStrategy());
 
     private int nextObjectId = 0;
 
@@ -45,11 +44,11 @@ class MarshallingContext {
     private UosObjectOutputStream objectOutputStream;
 
     public void addUsedDescriptor(ClassDescriptor descriptor) {
-        usedDescriptors.add(descriptor);
+        usedDescriptorIds.add(descriptor.descriptorId());
     }
 
-    public Set<ClassDescriptor> usedDescriptors() {
-        return unmodifiableSet(usedDescriptors);
+    public IntSet usedDescriptorIds() {
+        return usedDescriptorIds;
     }
 
     /**
@@ -71,9 +70,8 @@ class MarshallingContext {
             return FlaggedObjectIds.freshObjectId(newId);
         }
 
-        Integer prevId = objectsToIds.get(object);
-        if (prevId != null) {
-            return FlaggedObjectIds.alreadySeenObjectId(prevId);
+        if (objectsToIds.containsKey(object)) {
+            return FlaggedObjectIds.alreadySeenObjectId(objectsToIds.getInt(object));
         } else {
             int newId = nextId();
 
@@ -114,7 +112,7 @@ class MarshallingContext {
     }
 
     UosObjectOutputStream objectOutputStream(
-            DataOutputStream output,
+            GridDataOutput output,
             TypedValueWriter valueWriter,
             TypedValueWriter unsharedWriter,
             DefaultFieldsReaderWriter defaultFieldsReaderWriter
@@ -124,5 +122,19 @@ class MarshallingContext {
         }
 
         return objectOutputStream;
+    }
+
+    private static class IdentityHashStrategy implements Hash.Strategy<Object> {
+        /** {@inheritDoc} */
+        @Override
+        public int hashCode(Object o) {
+            return System.identityHashCode(o);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean equals(Object a, Object b) {
+            return a == b;
+        }
     }
 }

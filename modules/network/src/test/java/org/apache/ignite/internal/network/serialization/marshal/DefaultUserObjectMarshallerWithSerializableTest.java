@@ -111,10 +111,10 @@ class DefaultUserObjectMarshallerWithSerializableTest {
         MarshalledObject marshalled = marshaller.marshal(new SerializableWithReplaceWithSimple(42));
 
         ClassDescriptor originalDescriptor = descriptorRegistry.getRequiredDescriptor(SerializableWithReplaceWithSimple.class);
-        assertThat(marshalled.usedDescriptors(), not(hasItem(originalDescriptor)));
+        assertThat(marshalled.usedDescriptorIds(), not(hasItem(originalDescriptor.descriptorId())));
 
         ClassDescriptor replacementDescriptor = descriptorRegistry.getRequiredDescriptor(SimpleSerializable.class);
-        assertThat(marshalled.usedDescriptors(), hasItem(replacementDescriptor));
+        assertThat(marshalled.usedDescriptorIds(), hasItem(replacementDescriptor.descriptorId()));
     }
 
     @Test
@@ -131,7 +131,7 @@ class DefaultUserObjectMarshallerWithSerializableTest {
         MarshalledObject marshalled = marshaller.marshal(new SerializableWithReplaceWithNull(42));
 
         ClassDescriptor replacementDescriptor = descriptorRegistry.getNullDescriptor();
-        assertThat(marshalled.usedDescriptors(), equalTo(Set.of(replacementDescriptor)));
+        assertThat(marshalled.usedDescriptorIds(), equalTo(Set.of(replacementDescriptor.descriptorId())));
     }
 
     @Test

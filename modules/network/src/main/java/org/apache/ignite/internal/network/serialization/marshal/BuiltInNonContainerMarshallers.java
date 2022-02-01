@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import java.io.DataInput;
-import java.io.DataInputStream;
 import java.io.DataOutput;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.BitSet;
@@ -30,6 +28,8 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.Null;
+import org.apache.ignite.internal.util.io.GridDataInput;
+import org.apache.ignite.internal.util.io.GridDataOutput;
 import org.apache.ignite.lang.IgniteUuid;
 
 /**
@@ -122,32 +122,43 @@ class BuiltInNonContainerMarshallers {
      * @return {@code true} if we the given descriptor is a built-in we can handle
      */
     boolean supports(ClassDescriptor descriptor) {
-        return descriptor.isEnum() || builtInMarshallers.containsKey(descriptor.clazz());
+        return descriptor.isEnum() || descriptor.isLatin1String()
+                || builtInMarshallers.containsKey(descriptor.clazz());
     }
 
-    void writeBuiltIn(Object object, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
+    void writeBuiltIn(Object object, ClassDescriptor descriptor, GridDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
+        actuallyWrite(object, descriptor, output, context);
+
+        context.addUsedDescriptor(descriptor);
+    }
+
+    private void actuallyWrite(Object object, ClassDescriptor descriptor, GridDataOutput output, MarshallingContext context)
+            throws IOException, MarshalException {
+        if (descriptor.isLatin1String()) {
+            BuiltInMarshalling.writeLatin1String((String) object, output);
+            return;
+        }
         if (descriptor.isEnum()) {
-            writeEnum((Enum<?>) object, descriptor, output, context);
+            BuiltInMarshalling.writeEnum((Enum<?>) object, output);
             return;
         }
 
+        writeWithBuiltInMarshaller(object, descriptor, output, context);
+    }
+
+    private void writeWithBuiltInMarshaller(Object object, ClassDescriptor descriptor, GridDataOutput output, MarshallingContext context)
+            throws IOException, MarshalException {
         BuiltInMarshaller<?> builtInMarshaller = findBuiltInMarshaller(descriptor);
 
         builtInMarshaller.marshal(object, output, context);
-
-        context.addUsedDescriptor(descriptor);
     }
 
-    private void writeEnum(Enum<?> object, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
-            throws IOException {
-        BuiltInMarshalling.writeEnum(object, output);
-
-        context.addUsedDescriptor(descriptor);
-    }
-
-    Object readBuiltIn(ClassDescriptor descriptor, DataInputStream input, UnmarshallingContext context)
+    Object readBuiltIn(ClassDescriptor descriptor, GridDataInput input, UnmarshallingContext context)
             throws IOException, UnmarshalException {
+        if (descriptor.isLatin1String()) {
+            return BuiltInMarshalling.readLatin1String(input);
+        }
         if (descriptor.isEnum()) {
             return readEnum(descriptor, input);
         }
@@ -157,7 +168,7 @@ class BuiltInNonContainerMarshallers {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private Object readEnum(ClassDescriptor descriptor, DataInputStream input) throws IOException {
+    private Object readEnum(ClassDescriptor descriptor, DataInput input) throws IOException {
         return BuiltInMarshalling.readEnum(input, (Class<? extends Enum>) descriptor.clazz());
     }
 
@@ -180,11 +191,11 @@ class BuiltInNonContainerMarshallers {
             this.reader = reader;
         }
 
-        private void marshal(Object object, DataOutputStream output, MarshallingContext context) throws IOException, MarshalException {
+        private void marshal(Object object, GridDataOutput output, MarshallingContext context) throws IOException, MarshalException {
             writer.write(valueRefClass.cast(object), output, context);
         }
 
-        private Object unmarshal(DataInputStream input, UnmarshallingContext context) throws IOException, UnmarshalException {
+        private Object unmarshal(GridDataInput input, UnmarshallingContext context) throws IOException, UnmarshalException {
             return reader.read(input, context);
         }
     }
@@ -198,7 +209,7 @@ class BuiltInNonContainerMarshallers {
          * @throws IOException      if an I/O problem occurs
          * @throws MarshalException if another problem occurs
          */
-        void write(T value, DataOutput output) throws IOException, MarshalException;
+        void write(T value, GridDataOutput output) throws IOException, MarshalException;
     }
 
 
@@ -211,6 +222,6 @@ class BuiltInNonContainerMarshallers {
          * @throws IOException          if an I/O problem occurs
          * @throws UnmarshalException   if another problem (like {@link ClassNotFoundException}) occurs
          */
-        T read(DataInput input) throws IOException, UnmarshalException;
+        T read(GridDataInput input) throws IOException, UnmarshalException;
     }
 }

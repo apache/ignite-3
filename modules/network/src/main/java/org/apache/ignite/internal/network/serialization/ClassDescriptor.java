@@ -23,6 +23,8 @@ import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMaps;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -99,6 +101,8 @@ public class ClassDescriptor {
     /** Indices of non-primitive fields in the object fields array. */
     private Object2IntMap<String> objectFieldIndices;
 
+    private final List<ClassDescriptor> lineage;
+
     private final SpecialSerializationMethods serializationMethods;
 
     /**
@@ -123,6 +127,8 @@ public class ClassDescriptor {
 
         fieldNullsBitmapSize = computeFieldNullsBitmapSize(fields);
         fieldNullsBitmapIndices = computeFieldNullsBitmapIndices(fields);
+
+        lineage = computeLineage(this);
 
         serializationMethods = new SpecialSerializationMethodsImpl(this);
     }
@@ -164,6 +170,20 @@ public class ClassDescriptor {
         }
 
         return Object2IntMaps.unmodifiable(map);
+    }
+
+    private static List<ClassDescriptor> computeLineage(ClassDescriptor descriptor) {
+        List<ClassDescriptor> descriptors = new ArrayList<>();
+
+        ClassDescriptor currentDesc = descriptor;
+        while (currentDesc != null) {
+            descriptors.add(currentDesc);
+            currentDesc = currentDesc.superClassDescriptor();
+        }
+
+        Collections.reverse(descriptors);
+
+        return List.copyOf(descriptors);
     }
 
     /**
@@ -529,6 +549,15 @@ public class ClassDescriptor {
     }
 
     /**
+     * Returns the lineage (all the ancestors, from the progenitor (excluding Object) down the line, including this descriptor).
+     *
+     * @return ancestors from the progenitor (excluding Object) down the line, plus this descriptor
+     */
+    public List<ClassDescriptor> lineage() {
+        return lineage;
+    }
+
+    /**
      * Returns {@code true} if the descriptor describes an enum class.
      *
      * @return {@code true} if the descriptor describes an enum class
@@ -538,9 +567,19 @@ public class ClassDescriptor {
     }
 
     /**
+     * Returns {@code true} if the descriptor describes a String that is represented with Latin-1 internally.
+     * Needed to apply an optimization.
+     *
+     * @return {@code true} if the descriptor describes a String that is represented with Latin-1 internally
+     */
+    public boolean isLatin1String() {
+        return descriptorId == BuiltInType.STRING_LATIN1.descriptorId();
+    }
+
+    /**
      * Returns {@code true} if a field (or array item) of the described class can only host (at runtime) instances of this type
-     * (and not subtypes), so the runtime type is known upfront. This is also true for enums, even though technically their values
-     * might have subtypes; but we serialize them using their names, so we still treat the type as known upfront.
+     * (and not subtypes), so the runtime marshalling type is known upfront. This is also true for enums, even though technically
+     * their values might have subtypes; but we serialize them using their names, so we still treat the type as known upfront.
      *
      * @return {@code true} if a field (or array item) of the described class can only host (at runtime) instances of the concrete type
      *     that is known upfront

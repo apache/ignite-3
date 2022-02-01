@@ -202,6 +202,16 @@ class ClassesTest {
         assertFalse(Classes.isRuntimeTypeKnownUpfront(Enum[].class));
     }
 
+    @Test
+    void isValueTypeKnownUpfrontReturnsFalseForString() {
+        assertFalse(Classes.isRuntimeTypeKnownUpfront(String.class));
+    }
+
+    @Test
+    void isValueTypeKnownUpfrontReturnsFalseForArrayOfString() {
+        assertFalse(Classes.isRuntimeTypeKnownUpfront(String[].class));
+    }
+
     private static class EmptySerializable implements Serializable {
     }
 

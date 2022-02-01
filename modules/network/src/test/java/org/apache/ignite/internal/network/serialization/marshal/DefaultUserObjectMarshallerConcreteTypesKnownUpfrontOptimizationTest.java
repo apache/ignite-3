@@ -23,8 +23,7 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
+import java.io.DataInput;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -32,7 +31,8 @@ import java.io.Serializable;
 import org.apache.ignite.internal.network.serialization.BuiltInType;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.util.io.GridDataInput;
+import org.apache.ignite.internal.util.io.GridUnsafeDataInput;
 import org.junit.jupiter.api.Test;
 
 class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
@@ -48,23 +48,22 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
     void writesOnlyThePrimitiveValueForPrimitiveFields() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new WithPrimitiveField((byte) 123));
 
-        DataInputStream dis = openDataStreamAndSkipRootObjectHeader(marshalled);
+        GridDataInput dis = openDataStreamAndSkipRootObjectHeader(marshalled);
 
         assertThat(dis.readAllBytes(), is(new byte[]{123}));
     }
 
-    private DataInputStream openDataStreamAndSkipRootObjectHeader(MarshalledObject marshalled) throws IOException {
-        DataInputStream dis = openDataStream(marshalled);
+    private GridDataInput openDataStreamAndSkipRootObjectHeader(MarshalledObject marshalled) throws IOException {
+        GridDataInput dis = openDataStream(marshalled);
         skipTillRootObjectData(dis);
         return dis;
     }
 
-    @NotNull
-    private DataInputStream openDataStream(MarshalledObject marshalled) {
-        return new DataInputStream(new ByteArrayInputStream(marshalled.bytes()));
+    private GridDataInput openDataStream(MarshalledObject marshalled) {
+        return new GridUnsafeDataInput(marshalled.bytes());
     }
 
-    private void skipTillRootObjectData(DataInputStream dos) throws IOException {
+    private void skipTillRootObjectData(DataInput dos) throws IOException {
         ProtocolMarshalling.readDescriptorOrCommandId(dos);
         ProtocolMarshalling.readObjectId(dos);
     }
@@ -73,7 +72,7 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
     void treatsPrimitiveArrayFieldsAsFieldsWithTypeKnownUpfront() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new WithPrimitiveArrayField(new byte[]{123}));
 
-        DataInputStream dis = openDataStreamAndSkipRootObjectHeader(marshalled);
+        GridDataInput dis = openDataStreamAndSkipRootObjectHeader(marshalled);
 
         skipOneByteEmptyNullBitMask(dis);
         assertThat(ProtocolMarshalling.readObjectId(dis), is(SECOND_USER_OBJECT_ID));
@@ -85,7 +84,7 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
     void doesNotWriteNullsBitmapForPrimitiveArrays() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new byte[]{123});
 
-        DataInputStream dis = openDataStreamAndSkipRootObjectHeader(marshalled);
+        GridDataInput dis = openDataStreamAndSkipRootObjectHeader(marshalled);
 
         assertThat(ProtocolMarshalling.readLength(dis), is(1));
         assertThat(dis.readAllBytes(), is(new byte[]{123}));
@@ -95,7 +94,7 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
     void writesNullsBitmapAndNoDescriptorIdForNonNullPrimitiveWrapperFields() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new WithPrimitiveWrapperField((byte) 123));
 
-        DataInputStream dis = openDataStreamAndSkipRootObjectHeader(marshalled);
+        GridDataInput dis = openDataStreamAndSkipRootObjectHeader(marshalled);
 
         skipOneByteEmptyNullBitMask(dis);
         assertThat(ProtocolMarshalling.readObjectId(dis), is(SECOND_USER_OBJECT_ID));
@@ -103,7 +102,7 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
         assertThat(dis.readAllBytes(), is(new byte[]{123}));
     }
 
-    private void skipOneByteEmptyNullBitMask(DataInputStream dis) throws IOException {
+    private void skipOneByteEmptyNullBitMask(DataInput dis) throws IOException {
         assertThat(dis.readByte(), is((byte) 0));
     }
 
@@ -111,7 +110,7 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
     void writesOnlyNullsBitmapForNullPrimitiveWrapperFields() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new WithPrimitiveWrapperField(null));
 
-        DataInputStream dis = openDataStreamAndSkipRootObjectHeader(marshalled);
+        GridDataInput dis = openDataStreamAndSkipRootObjectHeader(marshalled);
 
         final byte nullsBitmapWithOneBitSet = 1;
         assertThat(dis.readAllBytes(), is(new byte[]{nullsBitmapWithOneBitSet}));
@@ -121,7 +120,7 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
     void writesNullsBitmapAndNoDescriptorIdForNonNullValueOfFieldWhichTypeIsKnownUpfront() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new WithFieldOfTypeKnownUpfront(new FinalClass((byte) 123)));
 
-        DataInputStream dis = openDataStreamAndSkipRootObjectHeader(marshalled);
+        GridDataInput dis = openDataStreamAndSkipRootObjectHeader(marshalled);
 
         skipOneByteEmptyNullBitMask(dis);
         assertThat(ProtocolMarshalling.readObjectId(dis), is(SECOND_USER_OBJECT_ID));
@@ -133,7 +132,7 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
     void writesOnlyNullsBitmapForNullValueOfFieldWhichTypeIsKnownUpfront() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new WithFieldOfTypeKnownUpfront(null));
 
-        DataInputStream dis = openDataStreamAndSkipRootObjectHeader(marshalled);
+        GridDataInput dis = openDataStreamAndSkipRootObjectHeader(marshalled);
 
         final byte nullsBitmapWithOneBitSet = (byte) 1;
         assertThat(dis.readAllBytes(), is(new byte[]{nullsBitmapWithOneBitSet}));
@@ -143,7 +142,7 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
     void writesDescriptorIdAndObjectIdAndTheValueForNonNullValueOfFieldWhichTypeIsNotKnownUpfront() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new WithFieldOfTypeNotKnownUpfront(new NonFinalClass((byte) 123)));
 
-        DataInputStream dis = openDataStreamAndSkipRootObjectHeader(marshalled);
+        GridDataInput dis = openDataStreamAndSkipRootObjectHeader(marshalled);
 
         assertThat(ProtocolMarshalling.readDescriptorOrCommandId(dis), greaterThanOrEqualTo(MIN_CUSTOM_DESCRIPTOR_ID));
         assertThat(ProtocolMarshalling.readObjectId(dis), is(SECOND_USER_OBJECT_ID));
@@ -155,7 +154,7 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
     void writesOnlyNullMarkerForNullValueOfFieldWhichTypeIsNotKnownUpfront() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new WithFieldOfTypeNotKnownUpfront(null));
 
-        DataInputStream dis = openDataStreamAndSkipRootObjectHeader(marshalled);
+        GridDataInput dis = openDataStreamAndSkipRootObjectHeader(marshalled);
 
         assertThat(dis.readAllBytes(), is(new byte[]{(byte) BuiltInType.NULL.descriptorId()}));
     }
@@ -166,7 +165,7 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
                 new WithArrayFieldOfTypeKnownUpfront(new FinalClass[]{new FinalClass((byte) 123)})
         );
 
-        DataInputStream dis = openDataStreamAndSkipRootObjectHeader(marshalled);
+        GridDataInput dis = openDataStreamAndSkipRootObjectHeader(marshalled);
 
         // beginning of array of FinalClass
         skipOneByteEmptyNullBitMask(dis);
@@ -188,7 +187,7 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
                 new WithArrayFieldOfTypeNotKnownUpfront(new NonFinalClass[]{new NonFinalClass((byte) 123)})
         );
 
-        DataInputStream dis = openDataStreamAndSkipRootObjectHeader(marshalled);
+        GridDataInput dis = openDataStreamAndSkipRootObjectHeader(marshalled);
 
         // beginning of array of NonFinalClass
         assertThat(ProtocolMarshalling.readDescriptorOrCommandId(dis), greaterThanOrEqualTo(MIN_CUSTOM_DESCRIPTOR_ID));
@@ -208,7 +207,7 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
     void writesNullsBitmapAndNoDescriptorIdForNonNullValueOfSimpleEnumField() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new WithSimpleEnumField(SimpleEnum.FIRST));
 
-        DataInputStream dis = openDataStreamAndSkipRootObjectHeader(marshalled);
+        GridDataInput dis = openDataStreamAndSkipRootObjectHeader(marshalled);
 
         skipOneByteEmptyNullBitMask(dis);
         assertThat(ProtocolMarshalling.readObjectId(dis), is(SECOND_USER_OBJECT_ID));
@@ -220,7 +219,7 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
     void writesNullsBitmapAndNoDescriptorIdForNonNullValueOfEnumWithAnonClassForMemberField() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new WithEnumWithAnonClassesForMembersField(EnumWithAnonClassesForMembers.FIRST));
 
-        DataInputStream dis = openDataStreamAndSkipRootObjectHeader(marshalled);
+        GridDataInput dis = openDataStreamAndSkipRootObjectHeader(marshalled);
 
         skipOneByteEmptyNullBitMask(dis);
         assertThat(ProtocolMarshalling.readObjectId(dis), is(SECOND_USER_OBJECT_ID));
@@ -232,7 +231,7 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
     void writesNullsBitmapAndNoDescriptorIdForNonNullSimpleEnumArrayElement() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new SimpleEnum[]{SimpleEnum.FIRST});
 
-        DataInputStream dis = openDataStream(marshalled);
+        GridDataInput dis = openDataStream(marshalled);
 
         assertThat(ProtocolMarshalling.readDescriptorOrCommandId(dis), greaterThanOrEqualTo(MIN_CUSTOM_DESCRIPTOR_ID));
         ProtocolMarshalling.readObjectId(dis);
@@ -249,7 +248,7 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
     void writesNullsBitmapAndNoDescriptorIdForNonNullEnumWithAnonClassForMemberArrayElement() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new EnumWithAnonClassesForMembers[]{EnumWithAnonClassesForMembers.FIRST});
 
-        DataInputStream dis = openDataStream(marshalled);
+        GridDataInput dis = openDataStream(marshalled);
 
         assertThat(ProtocolMarshalling.readDescriptorOrCommandId(dis), greaterThanOrEqualTo(MIN_CUSTOM_DESCRIPTOR_ID));
         ProtocolMarshalling.readObjectId(dis);
@@ -266,7 +265,7 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
     void writesFullDescriptorIdsForEnumsInAbstractEnumArray() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new Enum[]{SimpleEnum.FIRST});
 
-        DataInputStream dis = openDataStream(marshalled);
+        GridDataInput dis = openDataStream(marshalled);
 
         assertThat(ProtocolMarshalling.readDescriptorOrCommandId(dis), greaterThanOrEqualTo(MIN_CUSTOM_DESCRIPTOR_ID));
         ProtocolMarshalling.readObjectId(dis);
@@ -283,7 +282,7 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
     void supportsFinalClassOptimizationInPutFields() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new WithPutFieldsReadFields());
 
-        DataInputStream dis = openDataStreamAndSkipRootObjectHeader(marshalled);
+        GridDataInput dis = openDataStreamAndSkipRootObjectHeader(marshalled);
 
         skipOneByteEmptyNullBitMask(dis);
         assertThat(ProtocolMarshalling.readObjectId(dis), is(SECOND_USER_OBJECT_ID));

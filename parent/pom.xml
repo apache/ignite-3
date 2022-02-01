@@ -86,6 +86,7 @@
         <msgpack.version>0.8.21</msgpack.version>
         <caffeine.version>3.0.4</caffeine.version>
         <fastutil.version>8.5.6</fastutil.version>
+        <kryo.version>4.0.1</kryo.version>
 
         <!-- Plugins versions -->
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
@@ -591,6 +592,12 @@
                 <groupId>org.openjdk.jmh</groupId>
                 <artifactId>jmh-generator-annprocess</artifactId>
                 <version>${jmh.framework.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.esotericsoftware</groupId>
+                <artifactId>kryo</artifactId>
+                <version>${kryo.version}</version>
             </dependency>
 
             <dependency>

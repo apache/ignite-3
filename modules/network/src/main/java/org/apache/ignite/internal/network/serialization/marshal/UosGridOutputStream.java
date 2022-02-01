@@ -17,21 +17,27 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import java.io.IOException;
-import org.apache.ignite.internal.util.io.GridDataInput;
+import org.apache.ignite.internal.util.io.GridUnsafeDataOutput;
 
 /**
- * Knows how to read a value from an input.
+ * {@link GridUnsafeDataOutput} extension that allows to track whether it's occupied or not.
  */
-interface ValueReader<T> {
-    /**
-     * Reads the next value from an input.
-     *
-     * @param input     from where to read
-     * @param context   unmarshalling context
-     * @return the value that was read
-     * @throws IOException          if an I/O problem occurs
-     * @throws UnmarshalException   if another problem (like {@link ClassNotFoundException}) occurs
-     */
-    T read(GridDataInput input, UnmarshallingContext context) throws IOException, UnmarshalException;
+class UosGridOutputStream extends GridUnsafeDataOutput {
+    private boolean occupied = false;
+
+    public UosGridOutputStream(int size) {
+        super(size);
+    }
+
+    boolean isOccupied() {
+        return occupied;
+    }
+
+    void occupy() {
+        occupied = true;
+    }
+
+    void release() {
+        occupied = false;
+    }
 }

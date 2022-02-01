@@ -62,9 +62,8 @@ class DefaultUserObjectMarshallerWithExternalizableTest {
     void usesExactlyOneDescriptorWhenMarshallingExternalizable() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new SimpleExternalizable(42));
 
-        ClassDescriptor expectedDescriptor = descriptorRegistry.getDescriptor(SimpleExternalizable.class);
-        assertThat(expectedDescriptor, is(notNullValue()));
-        assertThat(marshalled.usedDescriptors(), is(equalTo(Set.of(expectedDescriptor))));
+        ClassDescriptor expectedDescriptor = descriptorRegistry.getRequiredDescriptor(SimpleExternalizable.class);
+        assertThat(marshalled.usedDescriptorIds(), is(equalTo(Set.of(expectedDescriptor.descriptorId()))));
     }
 
     @Test
@@ -113,7 +112,7 @@ class DefaultUserObjectMarshallerWithExternalizableTest {
         MarshalledObject marshalled = marshaller.marshal(new ExternalizableWithReplaceWithSimple(42));
 
         ClassDescriptor replacementDescriptor = descriptorRegistry.getRequiredDescriptor(SimpleExternalizable.class);
-        assertThat(marshalled.usedDescriptors(), equalTo(Set.of(replacementDescriptor)));
+        assertThat(marshalled.usedDescriptorIds(), equalTo(Set.of(replacementDescriptor.descriptorId())));
     }
 
     @Test
@@ -130,7 +129,7 @@ class DefaultUserObjectMarshallerWithExternalizableTest {
         MarshalledObject marshalled = marshaller.marshal(new ExternalizableWithReplaceWithNull(42));
 
         ClassDescriptor replacementDescriptor = descriptorRegistry.getNullDescriptor();
-        assertThat(marshalled.usedDescriptors(), equalTo(Set.of(replacementDescriptor)));
+        assertThat(marshalled.usedDescriptorIds(), equalTo(Set.of(replacementDescriptor.descriptorId())));
     }
 
     @Test

@@ -18,12 +18,9 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import java.io.DataInput;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import java.io.DataOutput;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.network.serialization.BuiltInTypeIds;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
@@ -33,6 +30,8 @@ import org.apache.ignite.internal.network.serialization.IdIndexedDescriptors;
 import org.apache.ignite.internal.network.serialization.SpecialMethodInvocationException;
 import org.apache.ignite.internal.network.serialization.marshal.UosObjectInputStream.UosGetField;
 import org.apache.ignite.internal.network.serialization.marshal.UosObjectOutputStream.UosPutField;
+import org.apache.ignite.internal.util.io.GridDataInput;
+import org.apache.ignite.internal.util.io.GridDataOutput;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -68,34 +67,17 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         );
     }
 
-    void writeStructuredObject(Object object, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
+    void writeStructuredObject(Object object, ClassDescriptor descriptor, GridDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
-        for (ClassDescriptor layer : lineage(descriptor)) {
+        List<ClassDescriptor> lineage = descriptor.lineage();
+
+        // using a for loop to avoid allocation of an iterator
+        for (ClassDescriptor layer : lineage) {
             writeStructuredObjectLayer(object, layer, output, context);
         }
     }
 
-    /**
-     * Returns the lineage (all the ancestors, from the progenitor (excluding Object) down the line, including the given class).
-     *
-     * @param descriptor class from which to obtain lineage
-     * @return ancestors from the progenitor (excluding Object) down the line, plus the given class itself
-     */
-    private List<ClassDescriptor> lineage(ClassDescriptor descriptor) {
-        List<ClassDescriptor> descriptors = new ArrayList<>();
-
-        ClassDescriptor currentDesc = descriptor;
-        while (currentDesc != null) {
-            descriptors.add(currentDesc);
-            currentDesc = currentDesc.superClassDescriptor();
-        }
-
-        Collections.reverse(descriptors);
-
-        return descriptors;
-    }
-
-    private void writeStructuredObjectLayer(Object object, ClassDescriptor layer, DataOutputStream output, MarshallingContext context)
+    private void writeStructuredObjectLayer(Object object, ClassDescriptor layer, GridDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
         if (layer.hasWriteObject()) {
             writeWithWriteObject(object, layer, output, context);
@@ -106,7 +88,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         context.addUsedDescriptor(layer);
     }
 
-    private void writeWithWriteObject(Object object, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
+    private void writeWithWriteObject(Object object, ClassDescriptor descriptor, GridDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
         // Do not close the stream yet!
         UosObjectOutputStream oos = context.objectOutputStream(output, valueWriter, unsharedWriter, this);
@@ -127,7 +109,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
 
     /** {@inheritDoc} */
     @Override
-    public void defaultWriteFields(Object object, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
+    public void defaultWriteFields(Object object, ClassDescriptor descriptor, GridDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
         @Nullable BitSet nullsBitSet = writeNullsBitSet(object, descriptor, output);
 
@@ -149,7 +131,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
     /** {@inheritDoc} */
     @Override
     @Nullable
-    public BitSet writeNullsBitSet(Object object, ClassDescriptor descriptor, DataOutputStream output) throws IOException {
+    public BitSet writeNullsBitSet(Object object, ClassDescriptor descriptor, DataOutput output) throws IOException {
         BitSet nullsBitSet = descriptor.fieldIndexInNullsBitmapSize() == 0 ? null : new BitSet(descriptor.fieldIndexInNullsBitmapSize());
 
         for (FieldDescriptor fieldDescriptor : descriptor.fields()) {
@@ -170,7 +152,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         return nullsBitSet;
     }
 
-    private void writeField(Object object, FieldDescriptor fieldDescriptor, DataOutputStream output, MarshallingContext context)
+    private void writeField(Object object, FieldDescriptor fieldDescriptor, GridDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
         if (fieldDescriptor.clazz().isPrimitive()) {
             writePrimitiveFieldValue(object, fieldDescriptor, output);
@@ -186,7 +168,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         return fieldDescriptor.accessor().getObject(object);
     }
 
-    private void writePrimitiveFieldValue(Object object, FieldDescriptor fieldDescriptor, DataOutputStream output) throws IOException {
+    private void writePrimitiveFieldValue(Object object, FieldDescriptor fieldDescriptor, GridDataOutput output) throws IOException {
         FieldAccessor fieldAccessor = fieldDescriptor.accessor();
 
         switch (fieldDescriptor.typeDescriptorId()) {
@@ -227,14 +209,17 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         }
     }
 
-    void fillStructuredObjectFrom(DataInputStream input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
+    void fillStructuredObjectFrom(GridDataInput input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
             throws IOException, UnmarshalException {
-        for (ClassDescriptor layer : lineage(descriptor)) {
+        List<ClassDescriptor> lineage = descriptor.lineage();
+
+        // using a for loop to avoid allocation of an iterator
+        for (ClassDescriptor layer : lineage) {
             fillStructuredObjectLayerFrom(input, layer, object, context);
         }
     }
 
-    private void fillStructuredObjectLayerFrom(DataInputStream input, ClassDescriptor layer, Object object, UnmarshallingContext context)
+    private void fillStructuredObjectLayerFrom(GridDataInput input, ClassDescriptor layer, Object object, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         if (layer.hasReadObject()) {
             fillObjectWithReadObjectFrom(input, object, layer, context);
@@ -244,7 +229,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
     }
 
     private void fillObjectWithReadObjectFrom(
-            DataInputStream input,
+            GridDataInput input,
             Object object,
             ClassDescriptor descriptor,
             UnmarshallingContext context
@@ -267,7 +252,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
 
     /** {@inheritDoc} */
     @Override
-    public void defaultFillFieldsFrom(DataInputStream input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
+    public void defaultFillFieldsFrom(GridDataInput input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         @Nullable BitSet nullsBitSet = readNullsBitSet(input, descriptor);
 
@@ -299,7 +284,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         return ProtocolMarshalling.readFixedLengthBitSet(descriptor.fieldIndexInNullsBitmapSize(), input);
     }
 
-    private void fillFieldFrom(DataInputStream input, Object object, UnmarshallingContext context, FieldDescriptor fieldDescriptor)
+    private void fillFieldFrom(GridDataInput input, Object object, UnmarshallingContext context, FieldDescriptor fieldDescriptor)
             throws IOException, UnmarshalException {
         if (fieldDescriptor.clazz().isPrimitive()) {
             fillPrimitiveFieldFrom(input, object, fieldDescriptor);
@@ -313,7 +298,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         fieldDescriptor.accessor().setObject(object, fieldValue);
     }
 
-    private void fillPrimitiveFieldFrom(DataInputStream input, Object object, FieldDescriptor fieldDescriptor) throws IOException {
+    private void fillPrimitiveFieldFrom(DataInput input, Object object, FieldDescriptor fieldDescriptor) throws IOException {
         FieldAccessor fieldAccessor = fieldDescriptor.accessor();
 
         switch (fieldDescriptor.typeDescriptorId()) {

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.NotActiveException;
 import java.io.ObjectOutput;
@@ -26,13 +25,14 @@ import java.util.BitSet;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.FieldDescriptor;
 import org.apache.ignite.internal.network.serialization.Primitives;
+import org.apache.ignite.internal.util.io.GridDataOutput;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link ObjectOutputStream} specialization used by User Object Serialization.
  */
 class UosObjectOutputStream extends ObjectOutputStream {
-    private final DataOutputStream output;
+    private final GridDataOutput output;
     private final TypedValueWriter valueWriter;
     private final TypedValueWriter unsharedWriter;
     private final DefaultFieldsReaderWriter defaultFieldsReaderWriter;
@@ -41,7 +41,7 @@ class UosObjectOutputStream extends ObjectOutputStream {
     private UosPutField currentPut;
 
     UosObjectOutputStream(
-            DataOutputStream output,
+            GridDataOutput output,
             TypedValueWriter valueWriter,
             TypedValueWriter unsharedWriter, DefaultFieldsReaderWriter defaultFieldsReaderWriter,
             MarshallingContext context
@@ -253,7 +253,7 @@ class UosObjectOutputStream extends ObjectOutputStream {
         /** {@inheritDoc} */
         @Override
         public void put(String name, boolean val) {
-            Bits.putBoolean(primitiveFieldsData, primitiveFieldDataOffset(name, boolean.class), val);
+            LittleEndianBits.putBoolean(primitiveFieldsData, primitiveFieldDataOffset(name, boolean.class), val);
         }
 
         /** {@inheritDoc} */
@@ -265,37 +265,37 @@ class UosObjectOutputStream extends ObjectOutputStream {
         /** {@inheritDoc} */
         @Override
         public void put(String name, char val) {
-            Bits.putChar(primitiveFieldsData, primitiveFieldDataOffset(name, char.class), val);
+            LittleEndianBits.putChar(primitiveFieldsData, primitiveFieldDataOffset(name, char.class), val);
         }
 
         /** {@inheritDoc} */
         @Override
         public void put(String name, short val) {
-            Bits.putShort(primitiveFieldsData, primitiveFieldDataOffset(name, short.class), val);
+            LittleEndianBits.putShort(primitiveFieldsData, primitiveFieldDataOffset(name, short.class), val);
         }
 
         /** {@inheritDoc} */
         @Override
         public void put(String name, int val) {
-            Bits.putInt(primitiveFieldsData, primitiveFieldDataOffset(name, int.class), val);
+            LittleEndianBits.putInt(primitiveFieldsData, primitiveFieldDataOffset(name, int.class), val);
         }
 
         /** {@inheritDoc} */
         @Override
         public void put(String name, long val) {
-            Bits.putLong(primitiveFieldsData, primitiveFieldDataOffset(name, long.class), val);
+            LittleEndianBits.putLong(primitiveFieldsData, primitiveFieldDataOffset(name, long.class), val);
         }
 
         /** {@inheritDoc} */
         @Override
         public void put(String name, float val) {
-            Bits.putFloat(primitiveFieldsData, primitiveFieldDataOffset(name, float.class), val);
+            LittleEndianBits.putFloat(primitiveFieldsData, primitiveFieldDataOffset(name, float.class), val);
         }
 
         /** {@inheritDoc} */
         @Override
         public void put(String name, double val) {
-            Bits.putDouble(primitiveFieldsData, primitiveFieldDataOffset(name, double.class), val);
+            LittleEndianBits.putDouble(primitiveFieldsData, primitiveFieldDataOffset(name, double.class), val);
         }
 
         /** {@inheritDoc} */

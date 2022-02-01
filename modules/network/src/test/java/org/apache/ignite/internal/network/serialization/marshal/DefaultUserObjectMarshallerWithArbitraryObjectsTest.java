@@ -94,9 +94,9 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
     void marshalsArbitraryObjectsUsingDescriptorsOfThemAndTheirContents() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new Simple(42));
 
-        assertThat(marshalled.usedDescriptors(), equalTo(Set.of(
-                descriptorRegistry.getRequiredDescriptor(Simple.class),
-                descriptorRegistry.getBuiltInDescriptor(BuiltInType.INT)
+        assertThat(marshalled.usedDescriptorIds(), equalTo(Set.of(
+                descriptorRegistry.getRequiredDescriptor(Simple.class).descriptorId(),
+                descriptorRegistry.getBuiltInDescriptor(BuiltInType.INT).descriptorId()
         )));
     }
 
@@ -132,9 +132,9 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
     void usesDescriptorsOfAllAncestors() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new Child("answer", 42));
 
-        assertThat(marshalled.usedDescriptors(), hasItems(
-                descriptorRegistry.getRequiredDescriptor(Parent.class),
-                descriptorRegistry.getRequiredDescriptor(Child.class)
+        assertThat(marshalled.usedDescriptorIds(), hasItems(
+                descriptorRegistry.getRequiredDescriptor(Parent.class).descriptorId(),
+                descriptorRegistry.getRequiredDescriptor(Child.class).descriptorId()
         ));
     }
 
@@ -532,6 +532,27 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
         return Thread.currentThread().getContextClassLoader();
     }
 
+    @Test
+    void asciiInStringFieldIsSupported() throws Exception {
+        WithStringField unmarshalled = marshalAndUnmarshalNonNull(new WithStringField("a"));
+
+        assertThat(unmarshalled.value, is("a"));
+    }
+
+    @Test
+    void nonAsciiLatin1InStringFieldIsSupported() throws Exception {
+        WithStringField unmarshalled = marshalAndUnmarshalNonNull(new WithStringField("é"));
+
+        assertThat(unmarshalled.value, is("é"));
+    }
+
+    @Test
+    void nonLatin1InStringFieldIsSupported() throws Exception {
+        WithStringField unmarshalled = marshalAndUnmarshalNonNull(new WithStringField("щ"));
+
+        assertThat(unmarshalled.value, is("щ"));
+    }
+
     private static boolean noArgs(Method method) {
         return method.getParameterTypes().length == 0;
     }
@@ -756,6 +777,14 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
             }
 
             throw new RuntimeException("Don't know how to handle " + method + " with args" + Arrays.toString(args));
+        }
+    }
+
+    private static class WithStringField {
+        private final String value;
+
+        private WithStringField(String value) {
+            this.value = value;
         }
     }
 }

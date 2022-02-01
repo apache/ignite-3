@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.Externalizable;
 import java.io.IOException;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
+import org.apache.ignite.internal.util.io.GridDataInput;
+import org.apache.ignite.internal.util.io.GridDataOutput;
 
 /**
  * (Um)marshalling specific to EXTERNALIZABLE serialization type.
@@ -49,14 +49,14 @@ class ExternalizableMarshaller {
         this.defaultFieldsReaderWriter = defaultFieldsReaderWriter;
     }
 
-    void writeExternalizable(Externalizable externalizable, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
+    void writeExternalizable(Externalizable externalizable, ClassDescriptor descriptor, GridDataOutput output, MarshallingContext context)
             throws IOException {
         externalizeTo(externalizable, output, context);
 
         context.addUsedDescriptor(descriptor);
     }
 
-    private void externalizeTo(Externalizable externalizable, DataOutputStream output, MarshallingContext context)
+    private void externalizeTo(Externalizable externalizable, GridDataOutput output, MarshallingContext context)
             throws IOException {
         // Do not close the stream yet!
         UosObjectOutputStream oos = context.objectOutputStream(output, valueWriter, unsharedWriter, defaultFieldsReaderWriter);
@@ -81,7 +81,7 @@ class ExternalizableMarshaller {
         }
     }
 
-    <T extends Externalizable> void fillExternalizableFrom(DataInputStream input, T object, UnmarshallingContext context)
+    <T extends Externalizable> void fillExternalizableFrom(GridDataInput input, T object, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         // Do not close the stream yet!
         UosObjectInputStream ois = context.objectInputStream(input, valueReader, unsharedReader, defaultFieldsReaderWriter);

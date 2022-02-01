@@ -18,11 +18,12 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import java.io.DataInput;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import java.io.DataOutput;
 import java.io.IOException;
 import java.util.BitSet;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
+import org.apache.ignite.internal.util.io.GridDataInput;
+import org.apache.ignite.internal.util.io.GridDataOutput;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -40,11 +41,11 @@ interface DefaultFieldsReaderWriter {
      * @throws MarshalException if something goes wrong
      * @throws IOException      if I/O fails
      */
-    void defaultWriteFields(Object object, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
+    void defaultWriteFields(Object object, ClassDescriptor descriptor, GridDataOutput output, MarshallingContext context)
             throws MarshalException, IOException;
 
     @Nullable
-    BitSet writeNullsBitSet(Object object, ClassDescriptor descriptor, DataOutputStream output) throws IOException;
+    BitSet writeNullsBitSet(Object object, ClassDescriptor descriptor, DataOutput output) throws IOException;
 
     /**
      * Reads object fields from the input stream and stores them in the object using default marshalling.
@@ -56,7 +57,7 @@ interface DefaultFieldsReaderWriter {
      * @throws IOException          if I/O fails
      * @throws UnmarshalException   if something goes wrong
      */
-    void defaultFillFieldsFrom(DataInputStream input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
+    void defaultFillFieldsFrom(GridDataInput input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
             throws IOException, UnmarshalException;
 
     @Nullable

@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.network;
 
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
+
 import java.lang.reflect.Field;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
@@ -33,6 +35,10 @@ import org.jetbrains.annotations.Nullable;
  * Generator for an {@link AllTypesMessage}.
  */
 public class AllTypesMessageGenerator {
+    public static AllTypesMessage generate(long seed, boolean nestedMsg) {
+        return generate(seed, nestedMsg, true);
+    }
+
     /**
      * Generate a new {@link AllTypesMessage}.
      *
@@ -40,7 +46,7 @@ public class AllTypesMessageGenerator {
      * @param nestedMsg {@code true} if nested messages should be generated, {@code false} otherwise.
      * @return Message.
      */
-    public static AllTypesMessage generate(long seed, boolean nestedMsg) {
+    public static AllTypesMessage generate(long seed, boolean nestedMsg, boolean fillArrays) {
         try {
             var random = new Random(seed);
 
@@ -51,21 +57,23 @@ public class AllTypesMessageGenerator {
             for (Field field : fields) {
                 field.setAccessible(true);
 
-                field.set(message, randomValue(random, field, nestedMsg));
+                if (!field.getType().isArray() || fillArrays) {
+                    field.set(message, randomValue(random, field, nestedMsg));
+                }
             }
 
             if (nestedMsg) {
                 message.netMsgArrV(
-                        IntStream.range(0, 10).mapToObj(unused -> generate(seed, false)).toArray(NetworkMessage[]::new)
+                        IntStream.range(0, 10).mapToObj(unused -> generate(seed, false, fillArrays)).toArray(NetworkMessage[]::new)
                 );
 
                 message.netMsgCollW(IntStream.range(0, 10)
-                        .mapToObj(unused -> generate(seed, false))
-                        .collect(Collectors.toList()));
+                        .mapToObj(unused -> generate(seed, false, fillArrays))
+                        .collect(toList()));
 
                 message.newMsgMapX(IntStream.range(0, 10)
                         .boxed()
-                        .collect(Collectors.toMap(String::valueOf, unused -> generate(seed, false))));
+                        .collect(toMap(String::valueOf, unused -> generate(seed, false, fillArrays))));
             }
 
             return message.build();

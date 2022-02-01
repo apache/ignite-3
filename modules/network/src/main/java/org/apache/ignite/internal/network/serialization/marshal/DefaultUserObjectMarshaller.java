@@ -19,12 +19,8 @@ package org.apache.ignite.internal.network.serialization.marshal;
 
 import static org.apache.ignite.internal.network.serialization.marshal.ObjectClass.objectClass;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.DataInput;
-import java.io.DataInputStream;
 import java.io.DataOutput;
-import java.io.DataOutputStream;
 import java.io.Externalizable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,6 +33,9 @@ import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.SpecialMethodInvocationException;
+import org.apache.ignite.internal.util.io.GridDataInput;
+import org.apache.ignite.internal.util.io.GridDataOutput;
+import org.apache.ignite.internal.util.io.GridUnsafeDataInput;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -59,7 +58,15 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     private final ExternalizableMarshaller externalizableMarshaller;
     private final ProxyMarshaller proxyMarshaller;
 
+    private final MarshallingValidations validations = new MarshallingValidations();
+
     private final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+
+    private final ThreadLocal<UosGridOutputStream> threadLocalDataOutput = ThreadLocal.withInitial(this::newOutput);
+
+    private UosGridOutputStream newOutput() {
+        return new UosGridOutputStream(4096);
+    }
 
     /**
      * Constructor.
@@ -94,17 +101,34 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     public MarshalledObject marshal(@Nullable Object object) throws MarshalException {
         MarshallingContext context = new MarshallingContext();
 
-        var baos = new ByteArrayOutputStream();
-        try (var dos = new DataOutputStream(baos)) {
-            marshalShared(object, dos, context);
+        UosGridOutputStream output = freshByteArrayOutputStream();
+        try {
+            marshalShared(object, output, context);
         } catch (IOException e) {
             throw new MarshalException("Cannot marshal", e);
+        } finally {
+            output.release();
         }
 
-        return new MarshalledObject(baos.toByteArray(), context.usedDescriptors());
+        return new MarshalledObject(output.array(), context.usedDescriptorIds());
     }
 
-    private void marshalShared(@Nullable Object object, DataOutputStream output, MarshallingContext context)
+    private UosGridOutputStream freshByteArrayOutputStream() {
+        UosGridOutputStream output = threadLocalDataOutput.get();
+
+        if (output.isOccupied()) {
+            // This is a nested invocation, probably from a callback method like writeObject(), we can't reuse
+            // the 'outer' output, let's make a new one as this should not happen often.
+            output = newOutput();
+        } else {
+            output.cleanup();
+        }
+        output.occupy();
+
+        return output;
+    }
+
+    private void marshalShared(@Nullable Object object, GridDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
         marshalShared(object, NO_DECLARED_CLASS, output, context);
     }
@@ -112,13 +136,13 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     private void marshalShared(
             @Nullable Object object,
             @Nullable Class<?> declaredClass,
-            DataOutputStream output,
+            GridDataOutput output,
             MarshallingContext context
     ) throws MarshalException, IOException {
         marshalToOutput(object, declaredClass, output, context, NOT_UNSHARED);
     }
 
-    private void marshalUnshared(@Nullable Object object, Class<?> declaredClass, DataOutputStream output, MarshallingContext context)
+    private void marshalUnshared(@Nullable Object object, Class<?> declaredClass, GridDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
         marshalToOutput(object, declaredClass, output, context, UNSHARED);
     }
@@ -126,7 +150,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     private void marshalToOutput(
             @Nullable Object object,
             @Nullable Class<?> declaredClass,
-            DataOutputStream output,
+            GridDataOutput output,
             MarshallingContext context,
             boolean unshared
     ) throws MarshalException, IOException {
@@ -137,7 +161,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
                 || declaredClass.isAssignableFrom(object.getClass())
                 : "Object " + object + " is expected to be an instance of subclass of " + declaredClass + ", but it's " + object.getClass();
 
-        MarshallingValidations.throwIfMarshallingNotSupported(object);
+        validations.throwIfMarshallingNotSupported(object);
 
         ClassDescriptor originalDescriptor = localDescriptors.getOrCreateDescriptor(object, declaredClass);
 
@@ -207,7 +231,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
             ClassDescriptor descriptor,
             @Nullable Class<?> declaredClass,
             int objectId,
-            DataOutputStream output,
+            GridDataOutput output,
             MarshallingContext context
     ) throws IOException, MarshalException {
         if (!runtimeTypeIsKnownUpfront(declaredClass)) {
@@ -235,7 +259,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
             Object object,
             ClassDescriptor descriptor,
             Class<?> declaredClass,
-            DataOutputStream output,
+            GridDataOutput output,
             MarshallingContext context
     ) throws IOException, MarshalException {
         if (!runtimeTypeIsKnownUpfront(declaredClass)) {
@@ -245,7 +269,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         writeObject(object, descriptor, output, context);
     }
 
-    private void writeObject(@Nullable Object object, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
+    private void writeObject(@Nullable Object object, ClassDescriptor descriptor, GridDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
         if (isBuiltInNonContainer(descriptor)) {
             builtInNonContainerMarshallers.writeBuiltIn(object, descriptor, output, context);
@@ -286,12 +310,13 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     @Override
     @Nullable
     public <T> T unmarshal(byte[] bytes, DescriptorRegistry mergedDescriptors) throws UnmarshalException {
-        var bais = new ByteArrayInputStream(bytes);
-        try (var dis = new DataInputStream(bais)) {
-            UnmarshallingContext context = new UnmarshallingContext(bais, mergedDescriptors, classLoader);
-            T result = unmarshalShared(dis, context);
+        var input = new GridUnsafeDataInput(bytes);
 
-            throwIfNotDrained(dis);
+        try {
+            UnmarshallingContext context = new UnmarshallingContext(input, mergedDescriptors, classLoader);
+            T result = unmarshalShared(input, context);
+
+            throwIfNotDrained(input);
 
             return result;
         } catch (IOException e) {
@@ -299,22 +324,22 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         }
     }
 
-    private <T> T unmarshalShared(DataInputStream input, UnmarshallingContext context) throws IOException, UnmarshalException {
+    private <T> T unmarshalShared(GridDataInput input, UnmarshallingContext context) throws IOException, UnmarshalException {
         return unmarshalShared(input, NO_DECLARED_CLASS, context);
     }
 
-    private <T> T unmarshalShared(DataInputStream input, @Nullable Class<?> declaredClass, UnmarshallingContext context)
+    private <T> T unmarshalShared(GridDataInput input, @Nullable Class<?> declaredClass, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         return unmarshalFromInput(input, declaredClass, context, NOT_UNSHARED);
     }
 
-    private <T> T unmarshalUnshared(DataInputStream input, @Nullable Class<?> declaredClass, UnmarshallingContext context)
+    private <T> T unmarshalUnshared(GridDataInput input, @Nullable Class<?> declaredClass, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         return unmarshalFromInput(input, declaredClass, context, UNSHARED);
     }
 
     private <T> T unmarshalFromInput(
-            DataInputStream input,
+            GridDataInput input,
             @Nullable Class<?> declaredClass,
             UnmarshallingContext context,
             boolean unshared
@@ -335,7 +360,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         return resolvedObject;
     }
 
-    private ClassDescriptor resolveDescriptor(DataInputStream input, @Nullable Class<?> declaredClass, UnmarshallingContext context)
+    private ClassDescriptor resolveDescriptor(GridDataInput input, @Nullable Class<?> declaredClass, UnmarshallingContext context)
             throws UnmarshalException, IOException {
         if (runtimeTypeIsKnownUpfront(declaredClass)) {
             return context.resolveDescriptorOfDeclaredClass(declaredClass);
@@ -345,7 +370,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         }
     }
 
-    private int peekObjectId(DataInputStream input, UnmarshallingContext context) throws IOException {
+    private int peekObjectId(DataInput input, UnmarshallingContext context) throws IOException {
         context.markSource(ProtocolMarshalling.MAX_LENGTH_BYTE_COUNT);
         int objectId = ProtocolMarshalling.readObjectId(input);
         context.resetSourceToMark();
@@ -367,7 +392,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     }
 
     @Nullable
-    private Object readObject(DataInputStream input, UnmarshallingContext context, ClassDescriptor descriptor, boolean unshared)
+    private Object readObject(GridDataInput input, UnmarshallingContext context, ClassDescriptor descriptor, boolean unshared)
             throws IOException, UnmarshalException {
         if (!mayHaveObjectIdentity(descriptor)) {
             return readValue(input, descriptor, context);
@@ -384,7 +409,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
 
     @Nullable
     private Object readIdentifiableInOneStage(
-            DataInputStream input,
+            GridDataInput input,
             ClassDescriptor descriptor,
             UnmarshallingContext context,
             boolean unshared
@@ -397,12 +422,12 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         return object;
     }
 
-    private int readObjectId(DataInputStream input) throws IOException {
+    private int readObjectId(DataInput input) throws IOException {
         return ProtocolMarshalling.readObjectId(input);
     }
 
     private Object readIdentifiableInTwoStages(
-            DataInputStream input,
+            GridDataInput input,
             ClassDescriptor descriptor,
             UnmarshallingContext context,
             boolean unshared
@@ -417,7 +442,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         return preInstantiatedObject;
     }
 
-    private Object preInstantiate(ClassDescriptor descriptor, DataInputStream input, UnmarshallingContext context)
+    private Object preInstantiate(ClassDescriptor descriptor, GridDataInput input, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         if (isBuiltInNonContainer(descriptor)) {
             throw new IllegalStateException("Should not be here, descriptor is " + descriptor);
@@ -436,7 +461,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         }
     }
 
-    private void fillObjectFrom(DataInputStream input, Object objectToFill, ClassDescriptor descriptor, UnmarshallingContext context)
+    private void fillObjectFrom(GridDataInput input, Object objectToFill, ClassDescriptor descriptor, UnmarshallingContext context)
             throws UnmarshalException, IOException {
         if (isBuiltInNonContainer(descriptor)) {
             throw new IllegalStateException("Cannot fill " + descriptor.clazz() + ", this is a programmatic error");
@@ -456,7 +481,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
     }
 
     private void fillBuiltInCollectionFrom(
-            DataInputStream input,
+            GridDataInput input,
             Collection<?> collectionToFill,
             ClassDescriptor descriptor,
             UnmarshallingContext context
@@ -464,18 +489,18 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller {
         builtInContainerMarshallers.fillBuiltInCollectionFrom(input, collectionToFill, descriptor, this::unmarshalShared, context);
     }
 
-    private void fillBuiltInMapFrom(DataInputStream input, Map<?, ?> mapToFill, UnmarshallingContext context)
+    private void fillBuiltInMapFrom(GridDataInput input, Map<?, ?> mapToFill, UnmarshallingContext context)
             throws UnmarshalException, IOException {
         builtInContainerMarshallers.fillBuiltInMapFrom(input, mapToFill, this::unmarshalShared, this::unmarshalShared, context);
     }
 
-    private void fillGenericRefArrayFrom(DataInputStream input, Object[] array, UnmarshallingContext context)
+    private void fillGenericRefArrayFrom(GridDataInput input, Object[] array, UnmarshallingContext context)
             throws IOException, UnmarshalException {
-        builtInContainerMarshallers.fillGenericRefArray(input, array, context);
+        builtInContainerMarshallers.fillGenericRefArrayFrom(input, array, context);
     }
 
     @Nullable
-    private Object readValue(DataInputStream input, ClassDescriptor descriptor, UnmarshallingContext context)
+    private Object readValue(GridDataInput input, ClassDescriptor descriptor, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         if (isBuiltInNonContainer(descriptor)) {
             return builtInNonContainerMarshallers.readBuiltIn(descriptor, input, context);

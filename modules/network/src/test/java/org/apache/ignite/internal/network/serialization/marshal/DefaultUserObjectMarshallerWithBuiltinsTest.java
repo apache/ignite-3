@@ -29,6 +29,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.sameInstance;
 
 import java.io.ByteArrayInputStream;
+import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -53,6 +54,8 @@ import org.apache.ignite.internal.network.serialization.BuiltInType;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
+import org.apache.ignite.internal.util.io.GridDataInput;
+import org.apache.ignite.internal.util.io.GridUnsafeDataInput;
 import org.apache.ignite.lang.IgniteUuid;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -89,7 +92,8 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsBareObjectUsingOnlyBareObjectDescriptor() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new Object());
 
-        assertThat(marshalled.usedDescriptors(), equalTo(Set.of(descriptorRegistry.getRequiredDescriptor(Object.class))));
+        ClassDescriptor expectedDescriptor = descriptorRegistry.getRequiredDescriptor(Object.class);
+        assertThat(marshalled.usedDescriptorIds(), equalTo(Set.of(expectedDescriptor.descriptorId())));
     }
 
     @Test
@@ -109,10 +113,10 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsObjectArrayUsingExactlyDescriptorsOfObjectArrayAndComponents() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new Object[]{42, "abc"});
 
-        assertThat(marshalled.usedDescriptors(), containsInAnyOrder(
-                descriptorRegistry.getRequiredDescriptor(Object[].class),
-                descriptorRegistry.getRequiredDescriptor(Integer.class),
-                descriptorRegistry.getRequiredDescriptor(String.class)
+        assertThat(marshalled.usedDescriptorIds(), containsInAnyOrder(
+                descriptorRegistry.getRequiredDescriptor(Object[].class).descriptorId(),
+                descriptorRegistry.getRequiredDescriptor(Integer.class).descriptorId(),
+                BuiltInType.STRING_LATIN1.descriptorId()
         ));
     }
 
@@ -134,16 +138,16 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsSimpleEnumsUsingOnlyEnumClassDescriptor() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(SimpleEnum.FIRST);
 
-        assertThat(marshalled.usedDescriptors(), equalTo(Set.of(descriptorRegistry.getRequiredDescriptor(SimpleEnum.class))));
+        ClassDescriptor expectedDescriptor = descriptorRegistry.getRequiredDescriptor(SimpleEnum.class);
+        assertThat(marshalled.usedDescriptorIds(), equalTo(Set.of(expectedDescriptor.descriptorId())));
     }
 
     @Test
     void marshalsEnumsWithAnonClassesForMembersUsingOnlyEnumClassDescriptor() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(EnumWithAnonClassesForMembers.FIRST);
 
-        assertThat(marshalled.usedDescriptors(),
-                equalTo(Set.of(descriptorRegistry.getRequiredDescriptor(EnumWithAnonClassesForMembers.class)))
-        );
+        ClassDescriptor expectedDescriptor = descriptorRegistry.getRequiredDescriptor(EnumWithAnonClassesForMembers.class);
+        assertThat(marshalled.usedDescriptorIds(), equalTo(Set.of(expectedDescriptor.descriptorId())));
     }
 
     @Test
@@ -166,7 +170,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsSimpleEnumInCorrectFormat() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(SimpleEnum.FIRST);
 
-        DataInputStream dis = new DataInputStream(new ByteArrayInputStream(marshalled.bytes()));
+        GridDataInput dis = openDataInput(marshalled);
 
         int descriptorId = ProtocolMarshalling.readDescriptorOrCommandId(dis);
         assertThat(descriptorRegistry.getRequiredDescriptor(descriptorId).clazz(), is(SimpleEnum.class));
@@ -174,13 +178,14 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
         ProtocolMarshalling.readObjectId(dis);
 
         assertThat(dis.readUTF(), is("FIRST"));
+        assertThat(dis.available(), is(0));
     }
 
     @Test
     void marshalsEnumWithAnonClassesForMembersInCorrectFormat() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(EnumWithAnonClassesForMembers.FIRST);
 
-        DataInputStream dis = new DataInputStream(new ByteArrayInputStream(marshalled.bytes()));
+        GridDataInput dis = openDataInput(marshalled);
 
         int descriptorId = ProtocolMarshalling.readDescriptorOrCommandId(dis);
         assertThat(descriptorRegistry.getRequiredDescriptor(descriptorId).clazz(), is(EnumWithAnonClassesForMembers.class));
@@ -188,6 +193,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
         ProtocolMarshalling.readObjectId(dis);
 
         assertThat(dis.readUTF(), is("FIRST"));
+        assertThat(dis.available(), is(0));
     }
 
     @ParameterizedTest
@@ -210,7 +216,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
         MarshalledObject marshalled = marshaller.marshal(typeValue.value);
 
         ClassDescriptor expectedDescriptor = descriptorRegistry.getBuiltInDescriptor(typeValue.builtinType);
-        assertThat(marshalled.usedDescriptors(), equalTo(Set.of(expectedDescriptor)));
+        assertThat(marshalled.usedDescriptorIds(), equalTo(Set.of(expectedDescriptor.descriptorId())));
     }
 
     static Stream<Arguments> builtInNonCollectionTypes() {
@@ -224,7 +230,8 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
                 builtInTypeValue(true, BuiltInType.BOOLEAN_BOXED),
                 builtInTypeValue('a', BuiltInType.CHAR_BOXED),
                 // BARE_OBJECT is handled separately
-                builtInTypeValue("abc", BuiltInType.STRING),
+                builtInTypeValue("abc", BuiltInType.STRING_LATIN1),
+                builtInTypeValue("Привет", BuiltInType.STRING),
                 builtInTypeValue(UUID.fromString("c6f57d4a-619f-11ec-add6-73bc97c3c49e"), BuiltInType.UUID),
                 builtInTypeValue(IgniteUuid.fromString("1234-c6f57d4a-619f-11ec-add6-73bc97c3c49e"),
                         BuiltInType.IGNITE_UUID),
@@ -235,7 +242,8 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
                 builtInTypeValue(new float[]{1.0f, 2.0f, 3.0f}, BuiltInType.FLOAT_ARRAY),
                 builtInTypeValue(new long[]{1, 2, 3}, BuiltInType.LONG_ARRAY),
                 builtInTypeValue(new double[]{1.0, 2.0, 3.0}, BuiltInType.DOUBLE_ARRAY),
-                builtInTypeValue(new boolean[]{true, false}, BuiltInType.BOOLEAN_ARRAY),
+                builtInTypeValue(new boolean[]{true, false, true}, BuiltInType.BOOLEAN_ARRAY),
+                builtInTypeValue(new boolean[]{true, false, true, false, true, false, true, false, true}, BuiltInType.BOOLEAN_ARRAY),
                 builtInTypeValue(new char[]{'a', 'b'}, BuiltInType.CHAR_ARRAY),
                 builtInTypeValue(new BigDecimal(42), BuiltInType.DECIMAL),
                 builtInTypeValue(BitSet.valueOf(new long[]{42, 43}), BuiltInType.BIT_SET),
@@ -269,9 +277,9 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsUsingOnlyCorrespondingDescriptorsForBuiltInCollectionTypes(BuiltInTypeValue typeValue) throws Exception {
         MarshalledObject marshalled = marshaller.marshal(typeValue.value);
 
-        assertThat(marshalled.usedDescriptors(), containsInAnyOrder(
-                descriptorRegistry.getBuiltInDescriptor(typeValue.builtinType),
-                descriptorRegistry.getBuiltInDescriptor(BuiltInType.INT_BOXED)
+        assertThat(marshalled.usedDescriptorIds(), containsInAnyOrder(
+                typeValue.builtinType.descriptorId(),
+                BuiltInType.INT_BOXED.descriptorId()
         ));
     }
 
@@ -322,7 +330,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
 
         ClassDescriptor descriptor = descriptorRegistry.getRequiredDescriptor(array.getClass());
 
-        assertThat(marshalled.usedDescriptors(), hasItem(descriptor));
+        assertThat(marshalled.usedDescriptorIds(), hasItem(descriptor.descriptorId()));
     }
 
     @ParameterizedTest
@@ -410,7 +418,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsSimpleEnumArrayCorrectly() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new SimpleEnum[]{SimpleEnum.FIRST});
 
-        var dis = new DataInputStream(new ByteArrayInputStream(marshalled.bytes()));
+        GridDataInput dis = openDataInput(marshalled);
 
         ProtocolMarshalling.readDescriptorOrCommandId(dis);
         ProtocolMarshalling.readObjectId(dis);
@@ -428,7 +436,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsEnumArrayWithValuesOfSimpleEnumCorrectly() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new Enum[]{SimpleEnum.FIRST});
 
-        var dis = new DataInputStream(new ByteArrayInputStream(marshalled.bytes()));
+        GridDataInput dis = openDataInput(marshalled);
 
         ProtocolMarshalling.readDescriptorOrCommandId(dis);
         ProtocolMarshalling.readObjectId(dis);
@@ -446,7 +454,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsArrayOfEnumWithAnonClassesForMembersCorrectly() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new EnumWithAnonClassesForMembers[]{EnumWithAnonClassesForMembers.FIRST});
 
-        var dis = new DataInputStream(new ByteArrayInputStream(marshalled.bytes()));
+        GridDataInput dis = openDataInput(marshalled);
 
         ProtocolMarshalling.readDescriptorOrCommandId(dis);
         ProtocolMarshalling.readObjectId(dis);
@@ -460,7 +468,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
         assertThat(dis.available(), is(0));
     }
 
-    private void skipOneByteEmptyNullBitMask(DataInputStream dis) throws IOException {
+    private void skipOneByteEmptyNullBitMask(DataInput dis) throws IOException {
         assertThat(dis.readByte(), is((byte) 0));
     }
 
@@ -468,7 +476,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsEnumArrayWithValuesOfEnumWithAnonClassesForMembersValuesCorrectly() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new Enum[]{EnumWithAnonClassesForMembers.FIRST});
 
-        var dis = new DataInputStream(new ByteArrayInputStream(marshalled.bytes()));
+        GridDataInput dis = openDataInput(marshalled);
 
         ProtocolMarshalling.readDescriptorOrCommandId(dis);
         ProtocolMarshalling.readObjectId(dis);
@@ -486,7 +494,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsEmptyAbstractEnumArrayCorrectly() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new Enum[]{});
 
-        var dis = new DataInputStream(new ByteArrayInputStream(marshalled.bytes()));
+        GridDataInput dis = openDataInput(marshalled);
 
         ProtocolMarshalling.readDescriptorOrCommandId(dis);
         ProtocolMarshalling.readObjectId(dis);
@@ -497,11 +505,15 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
         assertThat(dis.available(), is(0));
     }
 
+    private GridDataInput openDataInput(MarshalledObject marshalled) {
+        return new GridUnsafeDataInput(marshalled.bytes());
+    }
+
     @Test
     void marshalsEmptySimpleEnumArrayCorrectly() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new SimpleEnum[]{});
 
-        var dis = new DataInputStream(new ByteArrayInputStream(marshalled.bytes()));
+        GridDataInput dis = openDataInput(marshalled);
 
         ProtocolMarshalling.readDescriptorOrCommandId(dis);
         ProtocolMarshalling.readObjectId(dis);
@@ -516,7 +528,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsEmptyArrayOfEnumWithAnonClassesForMembersCorrectly() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new EnumWithAnonClassesForMembers[]{});
 
-        var dis = new DataInputStream(new ByteArrayInputStream(marshalled.bytes()));
+        GridDataInput dis = openDataInput(marshalled);
 
         ProtocolMarshalling.readDescriptorOrCommandId(dis);
         ProtocolMarshalling.readObjectId(dis);
@@ -525,6 +537,22 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
         assertThat(ProtocolMarshalling.readLength(dis), is(0));
 
         assertThat(dis.available(), is(0));
+    }
+
+    @ParameterizedTest
+    @MethodSource("testStrings")
+    void marshalsAndUnmarshalsStrings(String str) throws Exception {
+        String unmarshalled = marshalAndUnmarshal(str);
+
+        assertThat(unmarshalled, is(equalTo(str)));
+    }
+
+    private static Stream<Arguments> testStrings() {
+        return Stream.of(
+                "ASCII",
+                "Not ASCII, but Latin-1: é",
+                "Ютиэф-8"
+        ).map(Arguments::of);
     }
 
     private static class BuiltInTypeValue {
