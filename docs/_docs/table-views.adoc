@@ -41,7 +41,7 @@ ignite.tables().table("public.\"MyTable\""); ->
 
 * Tuples or columns:
 +
-[source,sql]
+[source,text]
 ----
 // Creates PUBLIC.MYTABLE (ID, Id, VAL).
 CREATE TABLE MyTable (id INT, \"Id\" INT, val INT);
