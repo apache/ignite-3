@@ -779,15 +779,15 @@ public class ItMetaStorageServiceTest {
         
         var _if = _if(or(value(key1).eq(val1), value(key2).ne(val2)),
             _if(revision(key3).eq(3),
-                ops(put(key1, rval1)).yield(res(true)),
-                ops(put(key1, rval1), put(key2, rval2)).yield(res(false))),
-            ops(put(key2, rval2)).yield(res(false)))._if();
+                ops(put(key1, rval1)).yield(true),
+                ops(put(key1, rval1), put(key2, rval2)).yield(false)),
+            ops(put(key2, rval2)).yield(false))._if();
         
         var ifCaptor = ArgumentCaptor.forClass(org.apache.ignite.internal.metastorage.server.If.class);
         
         when(mockStorage.invoke(any())).thenReturn(new org.apache.ignite.internal.metastorage.server.BranchResult(true));
         
-        assertTrue(metaStorageSvc.invoke(_if).get().result());
+        assertTrue(metaStorageSvc.invoke(_if).get().getAsBoolean());
         
         verify(mockStorage).invoke(ifCaptor.capture());
         

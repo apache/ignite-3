@@ -36,8 +36,12 @@ public final class Operations {
         this.operations = operations;
     }
     
-    public IfBranch yield(BranchResult result) {
-        return new IfBranch(new Update(Arrays.asList(operations), result));
+    public IfBranch yield(boolean result) {
+        return new IfBranch(new Update(Arrays.asList(operations), new BranchResult(result)));
+    }
+    
+    public IfBranch yield(int result) {
+        return new IfBranch(new Update(Arrays.asList(operations), new BranchResult(result)));
     }
     
     public static Operations ops(Operation... operations) {
