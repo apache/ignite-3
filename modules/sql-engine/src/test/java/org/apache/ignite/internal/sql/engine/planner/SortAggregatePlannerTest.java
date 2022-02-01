@@ -26,8 +26,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
+import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
@@ -68,6 +71,32 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
         );
 
         assertThat(ex.getMessage(), startsWith("There are not enough rules to produce a node with desired properties"));
+    }
+
+    /** Checks if already sorted input exist and involved [Map|Reduce]SortAggregate. */
+    @Test
+    public void testNoSortAppendingWithCorrectCollation() throws Exception {
+        RelFieldCollation coll = new RelFieldCollation(1, RelFieldCollation.Direction.DESCENDING);
+
+        TestTable tbl = createAffinityTable().addIndex(RelCollations.of(coll), "val0Idx");
+
+        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
+
+        publicSchema.addTable("TEST", tbl);
+
+        String sql = "SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test)";
+
+        IgniteRel phys = physicalPlan(
+                sql,
+                publicSchema,
+                "HashSingleAggregateConverterRule", "HashMapReduceAggregateConverterRule",
+                "LogicalTableScanConverterRule"
+        );
+
+        assertNull(
+                findFirstNode(phys, byClass(IgniteSort.class)),
+                "Invalid plan\n" + RelOptUtil.toString(phys)
+        );
     }
 
     /**
@@ -163,6 +192,18 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
         assertNull(
                 findFirstNode(phys, byClass(IgniteSort.class)),
                 "Invalid plan\n" + RelOptUtil.toString(phys)
+        );
+    }
+
+    @Test
+    public void testEmptyCollationPasshThroughLimit() throws Exception {
+        IgniteSchema publicSchema = createSchema(
+                createTable("TEST", IgniteDistributions.single(), "A", Integer.class));
+
+        assertPlan("SELECT (SELECT test.a FROM test t ORDER BY 1 LIMIT 1) FROM test", publicSchema,
+                hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
+                        .and(input(1, hasChildThat(isInstanceOf(IgniteLimit.class)
+                                .and(input(isInstanceOf(IgniteSort.class)))))))
         );
     }
 }

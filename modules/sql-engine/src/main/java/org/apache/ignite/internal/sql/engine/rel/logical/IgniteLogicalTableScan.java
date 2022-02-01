@@ -51,7 +51,7 @@ public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
      * @param tbl             Table definition.
      * @param proj            Projects.
      * @param cond            Filters.
-     * @param requiredColunms Participating colunms.
+     * @param requiredColumns Participating columns.
      */
     private IgniteLogicalTableScan(
             RelOptCluster cluster,
@@ -59,8 +59,8 @@ public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
             RelOptTable tbl,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColunms
+            @Nullable ImmutableBitSet requiredColumns
     ) {
-        super(cluster, traits, List.of(), tbl, proj, cond, requiredColunms);
+        super(cluster, traits, List.of(), tbl, proj, cond, requiredColumns);
     }
 }
