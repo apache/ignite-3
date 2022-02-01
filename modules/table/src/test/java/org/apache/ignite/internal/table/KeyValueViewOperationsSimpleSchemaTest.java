@@ -345,7 +345,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
      */
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    public void test0(boolean nullable) {
+    public void testSingleStringInsertion(boolean nullable) {
         Mapper<Long> keyMapper = Mapper.of(Long.class, "id");
         Mapper<String> valMapper = Mapper.of(String.class, "str");
 
