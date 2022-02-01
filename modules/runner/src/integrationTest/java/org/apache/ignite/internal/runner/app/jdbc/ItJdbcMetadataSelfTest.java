@@ -204,9 +204,74 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
         ResultSet rs = meta.getColumns("IGNITE", "PUBLIC", "PERSON", "%");
 
+        checkPersonTableColumns(rs);
+
+        rs = meta.getColumns(null, "PUBLIC", "PERSON", null);
+
+        checkPersonTableColumns(rs);
+
+        rs = meta.getColumns("IGNITE", "PUBLIC", "ORGANIZATION", "%");
+
+        checkOrgTableColumns(rs);
+
+        rs = meta.getColumns(null, "PUBLIC", "ORGANIZATION", null);
+
+        checkOrgTableColumns(rs);
+    }
+
+    /**
+     * Checks organisation table column names and types.
+     *
+     * @param rs ResultSet.
+     * */
+    private void checkOrgTableColumns(ResultSet rs) throws SQLException {
         assertNotNull(rs);
 
-        Collection<String> names = new ArrayList<>(2);
+        Collection<String> names = new ArrayList<>();
+
+        names.add("ID");
+        names.add("NAME");
+        names.add("BIGDATA");
+
+        int cnt = 0;
+
+        while (rs.next()) {
+            String name = rs.getString("COLUMN_NAME");
+
+            assertTrue(names.remove(name));
+
+            if ("ID".equals(name)) {
+                assertEquals(INTEGER, rs.getInt("DATA_TYPE"));
+                assertEquals(rs.getString("TYPE_NAME"), "INTEGER");
+                assertEquals(0, rs.getInt("NULLABLE"));
+            } else if ("NAME".equals(name)) {
+                assertEquals(VARCHAR, rs.getInt("DATA_TYPE"));
+                assertEquals(rs.getString("TYPE_NAME"), "VARCHAR");
+                assertEquals(1, rs.getInt("NULLABLE"));
+            } else if ("BIGDATA".equals(name)) {
+                assertEquals(DECIMAL, rs.getInt("DATA_TYPE"));
+                assertEquals(rs.getString("TYPE_NAME"), "DECIMAL");
+                assertEquals(1, rs.getInt("NULLABLE"));
+                assertEquals(10, rs.getInt("DECIMAL_DIGITS"));
+                assertEquals(20, rs.getInt("COLUMN_SIZE"));
+            }
+
+            cnt++;
+        }
+
+        assertTrue(names.isEmpty());
+        assertEquals(3, cnt);
+    }
+
+    /**
+     * Checks person table column names and types.
+     *
+     * @param rs ResultSet.
+     * */
+    private void checkPersonTableColumns(ResultSet rs) throws SQLException {
+        assertNotNull(rs);
+
+        Collection<String> names = new ArrayList<>(3);
 
         names.add("NAME");
         names.add("AGE");
@@ -233,43 +298,6 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
                 assertEquals(0, rs.getInt("NULLABLE"));
 
             }
-            cnt++;
-        }
-
-        assertTrue(names.isEmpty());
-        assertEquals(3, cnt);
-
-        rs = meta.getColumns("IGNITE", "PUBLIC", "ORGANIZATION", "%");
-
-        assertNotNull(rs);
-
-        names.add("ID");
-        names.add("NAME");
-        names.add("BIGDATA");
-
-        cnt = 0;
-
-        while (rs.next()) {
-            String name = rs.getString("COLUMN_NAME");
-
-            assertTrue(names.remove(name));
-
-            if ("ID".equals(name)) {
-                assertEquals(INTEGER, rs.getInt("DATA_TYPE"));
-                assertEquals(rs.getString("TYPE_NAME"), "INTEGER");
-                assertEquals(0, rs.getInt("NULLABLE"));
-            } else if ("NAME".equals(name)) {
-                assertEquals(VARCHAR, rs.getInt("DATA_TYPE"));
-                assertEquals(rs.getString("TYPE_NAME"), "VARCHAR");
-                assertEquals(1, rs.getInt("NULLABLE"));
-            } else if ("BIGDATA".equals(name)) {
-                assertEquals(DECIMAL, rs.getInt("DATA_TYPE"));
-                assertEquals(rs.getString("TYPE_NAME"), "DECIMAL");
-                assertEquals(1, rs.getInt("NULLABLE"));
-                assertEquals(10, rs.getInt("DECIMAL_DIGITS"));
-                assertEquals(20, rs.getInt("COLUMN_SIZE"));
-            }
-
             cnt++;
         }
 
