@@ -251,7 +251,7 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
     /**
      * Index store cursor adapter.
      */
-    private class IndexCursor implements Cursor<Tuple> {
+    private static class IndexCursor implements Cursor<Tuple> {
         private final Cursor<IndexRow> cur;
         private final IndexIterator it;
 
