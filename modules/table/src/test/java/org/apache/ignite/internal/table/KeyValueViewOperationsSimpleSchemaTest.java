@@ -54,7 +54,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
 /**
@@ -336,39 +335,6 @@ public class KeyValueViewOperationsSimpleSchemaTest {
                 assertEquals(val, kvView.get(null, key));
             }
         }
-    }
-
-    /**
-     * Parametrized test for correctness of empty string insertion.
-     *
-     * @param nullable nullable param for string column.
-     */
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testSingleStringInsertion(boolean nullable) {
-        Mapper<Long> keyMapper = Mapper.of(Long.class, "id");
-        Mapper<String> valMapper = Mapper.of(String.class, "str");
-
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("ID", NativeTypes.INT64, false)},
-                new Column[]{new Column("STR", NativeTypes.STRING, nullable)}
-        );
-
-        TableImpl table = createTable(schema);
-
-        KeyValueViewImpl<Long, String> kvView = new KeyValueViewImpl<>(
-                table.internalTable(),
-                new DummySchemaManagerImpl(schema),
-                keyMapper,
-                valMapper
-        );
-
-        long key = 42L;
-
-        kvView.put(null, 42L, "");
-
-        assertEquals("", kvView.get(null, key));
     }
 
     /**

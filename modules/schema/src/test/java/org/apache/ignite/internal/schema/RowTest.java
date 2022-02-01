@@ -53,6 +53,8 @@ import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests row assembling and reading.
@@ -347,6 +349,24 @@ public class RowTest {
         SchemaDescriptor sch = new SchemaDescriptor(1, keyCols, valCols);
 
         Object[] checkArr = generateRowValues(sch, t -> randomString(rnd, rnd.nextInt(5)));
+
+        checkValues(sch, checkArr);
+    }
+
+    /**
+     * Parametrized test for correctness of empty string insertion.
+     *
+     * @param nullable nullable param for string column.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testSingleStringInsertion(boolean nullable) {
+        Column[] keyCol = {new Column("keyCol", STRING, false)};
+        Column[] valCol = {new Column("valCol", STRING, nullable)};
+
+        SchemaDescriptor sch = new SchemaDescriptor(1, keyCol, valCol);
+
+        Object[] checkArr = {randomString(rnd, rnd.nextInt(5)), ""};
 
         checkValues(sch, checkArr);
     }
