@@ -86,7 +86,8 @@ public class JdbcQueryCursor<T> implements SqlCursor<T> {
     }
 
     /** {@inheritDoc} */
-    @Override public void close() throws Exception {
+    @Override 
+    public void close() throws Exception {
         cur.close();
     }
 
