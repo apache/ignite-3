@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
 import static org.apache.ignite.raft.jraft.test.TestUtils.sender;
@@ -260,7 +261,7 @@ public class ItNodeTest {
         List<Task> tasks = new ArrayList<>();
         AtomicInteger c = new AtomicInteger(0);
         for (int i = 0; i < 10; i++) {
-            ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes());
+            ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes(UTF_8));
             int finalI = i;
             Task task = new Task(data, new JoinableClosure(status -> {
                 LOG.info("{} i={}", status, finalI);
@@ -599,14 +600,14 @@ public class ItNodeTest {
         sendTestTaskAndWait(leader);
 
         {
-            ByteBuffer data = ByteBuffer.wrap("no closure".getBytes());
+            ByteBuffer data = ByteBuffer.wrap("no closure".getBytes(UTF_8));
             Task task = new Task(data, null);
             leader.apply(task);
         }
 
         {
             // task with TaskClosure
-            ByteBuffer data = ByteBuffer.wrap("task closure".getBytes());
+            ByteBuffer data = ByteBuffer.wrap("task closure".getBytes(UTF_8));
             Vector<String> cbs = new Vector<>();
             CountDownLatch latch = new CountDownLatch(1);
             Task task = new Task(data, new TaskClosure() {
@@ -844,14 +845,14 @@ public class ItNodeTest {
         sendTestTaskAndWait(leader);
 
         {
-            ByteBuffer data = ByteBuffer.wrap("no closure".getBytes());
+            ByteBuffer data = ByteBuffer.wrap("no closure".getBytes(UTF_8));
             Task task = new Task(data, null);
             leader.apply(task);
         }
 
         {
             // task with TaskClosure
-            ByteBuffer data = ByteBuffer.wrap("task closure".getBytes());
+            ByteBuffer data = ByteBuffer.wrap("task closure".getBytes(UTF_8));
             Vector<String> cbs = new Vector<>();
             CountDownLatch latch = new CountDownLatch(1);
             Task task = new Task(data, new TaskClosure() {
@@ -897,7 +898,7 @@ public class ItNodeTest {
             for (Node follower : cluster.getFollowers())
                 assertTrue(cluster.stop(follower.getNodeId().getPeerId().getEndpoint()));
             // send a new task
-            ByteBuffer data = ByteBuffer.wrap("task closure".getBytes());
+            ByteBuffer data = ByteBuffer.wrap("task closure".getBytes(UTF_8));
             SynchronizedClosure done = new SynchronizedClosure();
             leader.apply(new Task(data, done));
             // should fail
@@ -1453,7 +1454,7 @@ public class ItNodeTest {
         sendTestTaskAndWait(leader);
 
         {
-            ByteBuffer data = ByteBuffer.wrap("no closure".getBytes());
+            ByteBuffer data = ByteBuffer.wrap("no closure".getBytes(UTF_8));
             Task task = new Task(data, null);
             leader.apply(task);
         }
@@ -1518,7 +1519,7 @@ public class ItNodeTest {
         // apply tasks to new leader
         CountDownLatch latch = new CountDownLatch(10);
         for (int i = 10; i < 20; i++) {
-            ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes());
+            ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes(UTF_8));
             Task task = new Task(data, new ExpectClosure(latch));
             leader.apply(task);
         }
@@ -1530,7 +1531,7 @@ public class ItNodeTest {
         // apply something
         latch = new CountDownLatch(10);
         for (int i = 20; i < 30; i++) {
-            ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes());
+            ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes(UTF_8));
             Task task = new Task(data, new ExpectClosure(latch));
             leader.apply(task);
         }
@@ -2298,7 +2299,7 @@ public class ItNodeTest {
         sendTestTaskAndWait(leader);
 
         for (int i = 10; i < 30; i++) {
-            ByteBuffer data = ByteBuffer.wrap(("no cluster" + i).getBytes());
+            ByteBuffer data = ByteBuffer.wrap(("no cluster" + i).getBytes(UTF_8));
             Task task = new Task(data, null);
             leader.apply(task);
         }
@@ -2366,7 +2367,7 @@ public class ItNodeTest {
         assertTrue(leader.transferLeadershipTo(targetPeer).isOk());
 
         CountDownLatch latch = new CountDownLatch(1);
-        Task task = new Task(ByteBuffer.wrap("aaaaa".getBytes()), new ExpectClosure(RaftError.EBUSY, latch));
+        Task task = new Task(ByteBuffer.wrap("aaaaa".getBytes(UTF_8)), new ExpectClosure(RaftError.EBUSY, latch));
         leader.apply(task);
         waitLatch(latch);
 
@@ -2407,7 +2408,7 @@ public class ItNodeTest {
         Node savedLeader = leader;
         //try to apply task when transferring leadership
         CountDownLatch latch = new CountDownLatch(1);
-        Task task = new Task(ByteBuffer.wrap("aaaaa".getBytes()), new ExpectClosure(RaftError.EBUSY, latch));
+        Task task = new Task(ByteBuffer.wrap("aaaaa".getBytes(UTF_8)), new ExpectClosure(RaftError.EBUSY, latch));
         leader.apply(task);
         waitLatch(latch);
 
@@ -2421,7 +2422,7 @@ public class ItNodeTest {
         Thread.sleep(100);
         // retry apply task
         latch = new CountDownLatch(1);
-        task = new Task(ByteBuffer.wrap("aaaaa".getBytes()), new ExpectClosure(latch));
+        task = new Task(ByteBuffer.wrap("aaaaa".getBytes(UTF_8)), new ExpectClosure(latch));
         leader.apply(task);
         waitLatch(latch);
 
@@ -3195,7 +3196,7 @@ public class ItNodeTest {
             if (leader == null)
                 continue;
             SynchronizedClosure done = new SynchronizedClosure();
-            Task task = new Task(ByteBuffer.wrap(("hello" + i).getBytes()), done);
+            Task task = new Task(ByteBuffer.wrap(("hello" + i).getBytes(UTF_8)), done);
             leader.apply(task);
             Status status = done.await();
             if (status.isOk()) {
@@ -3243,7 +3244,7 @@ public class ItNodeTest {
             if (leader == null)
                 continue;
             SynchronizedClosure done = new SynchronizedClosure();
-            Task task = new Task(ByteBuffer.wrap(("hello" + i).getBytes()), done);
+            Task task = new Task(ByteBuffer.wrap(("hello" + i).getBytes(UTF_8)), done);
             leader.apply(task);
             Status status = done.await();
             if (status.isOk()) {
@@ -3304,7 +3305,7 @@ public class ItNodeTest {
                         if (leader == null)
                             continue;
                         SynchronizedClosure done = new SynchronizedClosure();
-                        Task task = new Task(ByteBuffer.wrap(("hello" + i).getBytes()), done);
+                        Task task = new Task(ByteBuffer.wrap(("hello" + i).getBytes(UTF_8)), done);
                         leader.apply(task);
                         Status status = done.await();
                         if (status.isOk()) {
@@ -3669,7 +3670,7 @@ public class ItNodeTest {
                                      RaftError err) throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(amount);
         for (int i = start; i < start + amount; i++) {
-            ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes());
+            ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes(UTF_8));
             Task task = new Task(data, new ExpectClosure(err, latch));
             node.apply(task);
         }
@@ -3691,7 +3692,7 @@ public class ItNodeTest {
                                      int code) throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(10);
         for (int i = 0; i < amount; i++) {
-            ByteBuffer data = ByteBuffer.wrap((prefix + i).getBytes());
+            ByteBuffer data = ByteBuffer.wrap((prefix + i).getBytes(UTF_8));
             Task task = new Task(data, new ExpectClosure(code, null, latch));
             node.apply(task);
         }

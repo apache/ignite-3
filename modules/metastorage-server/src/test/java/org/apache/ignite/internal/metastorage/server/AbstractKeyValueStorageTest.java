@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.function.Function.identity;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -2058,10 +2059,10 @@ public abstract class AbstractKeyValueStorageTest {
     }
 
     private static byte[] key(int k) {
-        return ("key" + k).getBytes();
+        return ("key" + k).getBytes(UTF_8);
     }
 
     private static byte[] keyValue(int k, int v) {
-        return ("key" + k + '_' + "val" + v).getBytes();
+        return ("key" + k + '_' + "val" + v).getBytes(UTF_8);
     }
 }

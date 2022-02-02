@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -45,13 +47,13 @@ public class AsciiCodecBenchmark {
      */
 
     private static final String PEER_STR = "127.0.0.1:18090:1";
-    private static final byte[] PEER_BYTES = PEER_STR.getBytes();
+    private static final byte[] PEER_BYTES = PEER_STR.getBytes(UTF_8);
 
     @Benchmark
     @BenchmarkMode(Mode.Throughput)
     @OutputTimeUnit(TimeUnit.NANOSECONDS)
     public void normalpathEncode() {
-        PEER_STR.getBytes();
+        PEER_STR.getBytes(UTF_8);
     }
 
     @Benchmark

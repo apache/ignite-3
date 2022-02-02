@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.util;
 
 import org.junit.jupiter.api.Test;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -119,7 +120,7 @@ public class BytesUtilTest {
     @Test
     public void hexTest() {
         final String text = "Somebody save your soul cause you've been sinning in this city I know";
-        final String hexString = BytesUtil.toHex(text.getBytes());
+        final String hexString = BytesUtil.toHex(text.getBytes(UTF_8));
         System.out.println(hexString);
         final byte[] bytes = BytesUtil.hexStringToByteArray(hexString);
         assertEquals(text, new String(bytes));

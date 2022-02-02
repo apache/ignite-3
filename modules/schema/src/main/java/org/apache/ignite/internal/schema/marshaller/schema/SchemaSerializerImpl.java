@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema.marshaller.schema;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -299,7 +301,11 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      */
     private int getStringSize(String str) {
         return STRING_HEADER //string byte array header
-                + str.getBytes().length; // string byte array length
+                + stringBytes(str).length; // string byte array length
+    }
+
+    private byte[] stringBytes(String str) {
+        return str.getBytes(UTF_8);
     }
 
     /**
@@ -518,7 +524,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @param str String.
      */
     private void appendString(String str, ByteBuffer buf) {
-        appendByteArray(str.getBytes(), buf);
+        appendByteArray(stringBytes(str), buf);
     }
 
     /**

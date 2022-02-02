@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -155,7 +156,7 @@ public class FileServiceTest {
                 .handleGetFile(request, new RpcRequestClosure(asyncContext, msgFactory));
             assertTrue(msg instanceof RpcRequests.GetFileResponse);
             final RpcRequests.GetFileResponse response = (RpcRequests.GetFileResponse) msg;
-            final byte[] sourceArray = data.getBytes();
+            final byte[] sourceArray = data.getBytes(UTF_8);
             final byte[] respData = response.data().toByteArray();
 
             final int length = sourceArray.length;
