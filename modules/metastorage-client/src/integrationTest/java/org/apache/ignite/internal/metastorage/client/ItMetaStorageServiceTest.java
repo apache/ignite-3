@@ -781,7 +781,7 @@ public class ItMetaStorageServiceTest {
             _if(revision(key3).eq(3),
                 ops(put(key1, rval1)).yield(true),
                 ops(put(key1, rval1), put(key2, rval2)).yield(false)),
-            ops(put(key2, rval2)).yield(false))._if();
+            ops(put(key2, rval2)).yield(false));
         
         var ifCaptor = ArgumentCaptor.forClass(org.apache.ignite.internal.metastorage.server.If.class);
         
