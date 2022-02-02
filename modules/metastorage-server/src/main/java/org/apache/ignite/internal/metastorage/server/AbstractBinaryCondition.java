@@ -12,13 +12,11 @@ public abstract class AbstractBinaryCondition implements Condition {
     
     private final byte[][] keys;
     
-    private final int arity;
     
     public AbstractBinaryCondition(Condition leftCondition, Condition rightCondition) {
         this.leftCondition = leftCondition;
         this.rightCondition = rightCondition;
         keys = ArrayUtils.concat(leftCondition.keys(), rightCondition.keys());
-        arity = leftCondition.arity() + rightCondition.arity();
     }
     
     @Override
@@ -28,13 +26,8 @@ public abstract class AbstractBinaryCondition implements Condition {
     
     @Override
     public boolean test(Entry... e) {
-        return combine(leftCondition.test(Arrays.copyOf(e, leftCondition.arity())),
-                rightCondition.test(Arrays.copyOfRange(e, leftCondition.arity(), leftCondition.arity() + rightCondition.arity())));
-    }
-    
-    @Override
-    public int arity() {
-        return arity;
+        return combine(leftCondition.test(Arrays.copyOf(e, leftCondition.keys().length)),
+                rightCondition.test(Arrays.copyOfRange(e, leftCondition.keys().length, leftCondition.keys().length + rightCondition.keys().length)));
     }
     
     public abstract boolean combine(boolean left, boolean right);

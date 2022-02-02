@@ -52,10 +52,5 @@ public abstract class AbstractUnaryCondition implements Condition {
         return test(e[0]);
     }
     
-    @Override
-    public int arity() {
-        return 1;
-    }
-    
-    public abstract boolean test(Entry entry);
+    protected abstract boolean test(Entry entry);
 }

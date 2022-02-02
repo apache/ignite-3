@@ -40,6 +40,4 @@ public interface Condition {
      * @return {@code True} if the given entry satisfies to the condition, otherwise - {@code false}.
      */
     boolean test(Entry... e);
-    
-    int arity();
 }
