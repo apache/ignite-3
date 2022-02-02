@@ -35,7 +35,6 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.DynamicClassLoader;
@@ -140,8 +139,8 @@ public class TestArrayBytecodeExpressions {
 
     @Test
     public void testGetElement() throws Exception {
-        assertBytecodeExpression(constantString("abc").invoke("getBytes", byte[].class).getElement(1), "abc".getBytes(UTF_8)[1], "\"abc\".getBytes(UTF_8)[1]");
-        assertBytecodeExpression(constantString("abc").invoke("getBytes", byte[].class).getElement(constantInt(1)), "abc".getBytes(UTF_8)[1], "\"abc\".getBytes(UTF_8)[1]");
+        assertBytecodeExpression(constantString("abc").invoke("toCharArray", char[].class).getElement(1), "abc".toCharArray()[1], "\"abc\".toCharArray()[1]");
+        assertBytecodeExpression(constantString("abc").invoke("toCharArray", char[].class).getElement(constantInt(1)), "abc".toCharArray()[1], "\"abc\".toCharArray()[1]");
     }
 
     private static MethodDefinition defineSetAndGetMethod(Class<?> aClass) {
