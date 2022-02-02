@@ -23,9 +23,10 @@ import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.ints.IntLists;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -311,7 +312,7 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
         if (inputCollations == null || inputCollations.isEmpty()) {
             return List.of();
         }
-        final Int2ObjectOpenHashMap<List<Integer>> targets = new Int2ObjectOpenHashMap<>();
+        final Int2ObjectOpenHashMap<IntList> targets = new Int2ObjectOpenHashMap<>();
         final Int2ObjectOpenHashMap<SqlMonotonicity> targetsWithMonotonicity =
                 new Int2ObjectOpenHashMap<>();
         for (Ord<RexNode> project : Ord.<RexNode>zip(projects)) {
@@ -342,14 +343,15 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
             fieldCollations.clear();
             boolean skip = false;
             for (RelFieldCollation ifc : ic.getFieldCollations()) {
-                final Collection<Integer> integers = targets.get(ifc.getFieldIndex());
+                final IntList integers = targets.getOrDefault(ifc.getFieldIndex(),
+                        IntLists.emptyList());
                 if (integers.isEmpty()) {
                     skip = true; // cannot do this collation
 
                     break;
                 }
 
-                fieldCollations.add(ifc.withFieldIndex(integers.iterator().next()));
+                fieldCollations.add(ifc.withFieldIndex(integers.intIterator().nextInt()));
             }
 
             if (skip) {

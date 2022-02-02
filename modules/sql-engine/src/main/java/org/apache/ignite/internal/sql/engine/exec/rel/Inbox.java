@@ -104,6 +104,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
      */
     public void init(
             ExecutionContext<RowT> ctx, RelDataType rowType, Collection<String> srcNodeIds, @Nullable Comparator<RowT> comp) {
+        assert srcNodeIds != null : "Collection srcNodeIds not found for exchangeId: " + exchangeId;
         assert context().fragmentId() == ctx.fragmentId() : "different fragments unsupported: previous=" + context().fragmentId()
                 + " current=" + ctx.fragmentId();
 
