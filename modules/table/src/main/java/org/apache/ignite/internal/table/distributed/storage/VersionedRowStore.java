@@ -581,8 +581,11 @@ public class VersionedRowStore {
                     DataRow row = delegate.next();
 
                     cur = versionedRow(row, null).getFirst();
+                    System.out.println("called hasNext = true, cur = " + cur.hash());
 
                     return cur != null ? true : hasNext(); // Skip tombstones.
+                } else {
+                    System.out.println("called hasNext = false, cur = " + cur);
                 }
 
                 return false;
@@ -590,6 +593,7 @@ public class VersionedRowStore {
 
             @Override
             public BinaryRow next() {
+                System.out.println("called next, cur = " + cur.hash());
                 BinaryRow next = cur;
 
                 cur = null;
