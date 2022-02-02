@@ -528,7 +528,7 @@ public class RowTest {
     }
 
     /**
-     * Generate row values for given row schema with empty stri.
+     * Generate row values for given row schema.
      *
      * @param schema Row schema.
      * @param rnd    Function that returns random value for the type.
