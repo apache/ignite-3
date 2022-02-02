@@ -16,11 +16,11 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
-import org.junit.jupiter.api.Test;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
 
 /**
  *
@@ -31,10 +31,10 @@ public class AsciiStringUtilTest {
     public void codecTest() {
         final String asciiText = "127.0.0.1:8080";
         final byte[] bytes1 = AsciiStringUtil.unsafeEncode(asciiText);
-        final byte[] bytes2 = asciiText.getBytes(UTF_8);
+        final byte[] bytes2 = asciiText.getBytes(US_ASCII);
         assertArrayEquals(bytes1, bytes2);
 
-        final String s1 = new String(bytes1, UTF_8);
+        final String s1 = new String(bytes1, US_ASCII);
         final String s2 = AsciiStringUtil.unsafeDecode(bytes2);
         assertEquals(s1, s2);
     }
