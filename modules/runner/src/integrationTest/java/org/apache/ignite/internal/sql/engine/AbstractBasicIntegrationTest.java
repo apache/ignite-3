@@ -202,7 +202,7 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     protected static void insertData(Table table, String[] columnNames, Object[]... tuples) {
         RecordView<Tuple> view = table.recordView();
 
-        int batchSize = 2;
+        int batchSize = 128;
 
         List<Tuple> batch = new ArrayList<>(batchSize);
         for (Object[] tuple : tuples) {
