@@ -411,8 +411,13 @@ public class ItNodeTest {
         sendTestTaskAndWait(node);
         assertEquals(10, fsm.getLogs().size());
         int i = 0;
-        for (ByteBuffer data : fsm.getLogs())
-            assertEquals("hello" + i++, new String(data.array()));
+        for (ByteBuffer data : fsm.getLogs()) {
+            assertEquals("hello" + i++, stringFromBytes(data.array()));
+        }
+    }
+
+    private String stringFromBytes(byte[] bytes) {
+        return new String(bytes, UTF_8);
     }
 
     @Test
@@ -683,7 +688,7 @@ public class ItNodeTest {
             assertEquals(cnt, fsm.getLogs().size());
             int i = 0;
             for (ByteBuffer data : fsm.getLogs())
-                assertEquals("hello" + i++, new String(data.array()));
+                assertEquals("hello" + i++, stringFromBytes(data.array()));
             Thread.sleep(1000); //wait for entries to be replicated to learner.
             server.shutdown();
         }
@@ -692,7 +697,7 @@ public class ItNodeTest {
             assertEquals(cnt, learnerFsm.getLogs().size());
             int i = 0;
             for (ByteBuffer data : learnerFsm.getLogs())
-                assertEquals("hello" + i++, new String(data.array()));
+                assertEquals("hello" + i++, stringFromBytes(data.array()));
             learnerServer.shutdown();
         }
     }
@@ -2819,13 +2824,13 @@ public class ItNodeTest {
         UserLog userLog = leader.readCommittedUserLog(1);
         assertNotNull(userLog);
         assertEquals(2, userLog.getIndex());
-        assertEquals("hello0", new String(userLog.getData().array()));
+        assertEquals("hello0", stringFromBytes(userLog.getData().array()));
 
         // index == 5 is a DATA log(a user log)
         userLog = leader.readCommittedUserLog(5);
         assertNotNull(userLog);
         assertEquals(5, userLog.getIndex());
-        assertEquals("hello3", new String(userLog.getData().array()));
+        assertEquals("hello3", stringFromBytes(userLog.getData().array()));
 
         // index == 15 is greater than last_committed_index
         try {
@@ -2882,20 +2887,20 @@ public class ItNodeTest {
         userLog = leader.readCommittedUserLog(12);
         assertNotNull(userLog);
         assertEquals(16, userLog.getIndex());
-        assertEquals("hello10", new String(userLog.getData().array()));
+        assertEquals("hello10", stringFromBytes(userLog.getData().array()));
 
         // now index == 17 is a user log
         userLog = leader.readCommittedUserLog(17);
         assertNotNull(userLog);
         assertEquals(17, userLog.getIndex());
-        assertEquals("hello11", new String(userLog.getData().array()));
+        assertEquals("hello11", stringFromBytes(userLog.getData().array()));
 
         cluster.ensureSame();
         assertEquals(3, cluster.getFsms().size());
         for (MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(20, fsm.getLogs().size());
             for (int i = 0; i < 20; i++)
-                assertEquals("hello" + i, new String(fsm.getLogs().get(i).array()));
+                assertEquals("hello" + i, stringFromBytes(fsm.getLogs().get(i).array()));
         }
     }
 

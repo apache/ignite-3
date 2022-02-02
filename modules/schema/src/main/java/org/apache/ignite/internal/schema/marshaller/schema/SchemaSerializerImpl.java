@@ -755,7 +755,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @return String.
      */
     private String readString(ByteBuffer buf) {
-        return new String(readByteArray(buf));
+        return new String(readByteArray(buf), UTF_8);
     }
 
     /**

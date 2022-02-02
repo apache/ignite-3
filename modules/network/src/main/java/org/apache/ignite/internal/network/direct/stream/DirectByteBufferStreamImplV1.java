@@ -1046,7 +1046,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     public String readString() {
         byte[] arr = readByteArray();
 
-        return arr != null ? new String(arr) : null;
+        return arr != null ? new String(arr, UTF_8) : null;
     }
 
     /** {@inheritDoc} */

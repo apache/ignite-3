@@ -16,6 +16,11 @@
  */
 package org.apache.ignite.raft.jraft.storage;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -36,11 +41,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(WorkDirectoryExtension.class)
 public class FileServiceTest {
@@ -125,7 +125,7 @@ public class FileServiceTest {
         assertTrue(msg instanceof RpcRequests.GetFileResponse);
         RpcRequests.GetFileResponse response = (RpcRequests.GetFileResponse) msg;
         assertTrue(response.eof());
-        assertEquals("jraft is great!", new String(response.data().toByteArray()));
+        assertEquals("jraft is great!", new String(response.data().toByteArray(), UTF_8));
         assertEquals(-1, response.readSize());
     }
 

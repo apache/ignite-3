@@ -60,7 +60,7 @@ public class AsciiCodecBenchmark {
     @BenchmarkMode(Mode.Throughput)
     @OutputTimeUnit(TimeUnit.NANOSECONDS)
     public void normalpathDecode() {
-        new String(PEER_BYTES);
+        new String(PEER_BYTES, UTF_8);
     }
 
     @Benchmark

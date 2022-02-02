@@ -34,7 +34,7 @@ public class AsciiStringUtilTest {
         final byte[] bytes2 = asciiText.getBytes(UTF_8);
         assertArrayEquals(bytes1, bytes2);
 
-        final String s1 = new String(bytes1);
+        final String s1 = new String(bytes1, UTF_8);
         final String s2 = AsciiStringUtil.unsafeDecode(bytes2);
         assertEquals(s1, s2);
     }

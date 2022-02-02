@@ -123,6 +123,6 @@ public class BytesUtilTest {
         final String hexString = BytesUtil.toHex(text.getBytes(UTF_8));
         System.out.println(hexString);
         final byte[] bytes = BytesUtil.hexStringToByteArray(hexString);
-        assertEquals(text, new String(bytes));
+        assertEquals(text, new String(bytes, UTF_8));
     }
 }
