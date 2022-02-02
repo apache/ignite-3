@@ -99,18 +99,18 @@
         <maven.compiler.plugin.version>3.8.1</maven.compiler.plugin.version>
         <maven.dependency.plugin.version>3.2.0</maven.dependency.plugin.version>
         <maven.deploy.plugin.version>2.8.2</maven.deploy.plugin.version>
+        <maven.exec.plugin.version>3.0.0</maven.exec.plugin.version>
         <maven.failsafe.plugin.version>3.0.0-M5</maven.failsafe.plugin.version>
         <maven.flatten.plugin.version>1.2.2</maven.flatten.plugin.version>
         <maven.javacc.plugin.version>2.6</maven.javacc.plugin.version>
-        <maven.resources.plugin.version>3.2.0</maven.resources.plugin.version>
         <maven.fmpp.plugin.version>1.0</maven.fmpp.plugin.version>
         <maven.javadoc.plugin.version>3.2.0</maven.javadoc.plugin.version>
+        <maven.modernizer.plugin.version>2.3.0</maven.modernizer.plugin.version>
         <maven.pmd.plugin.version>3.14.0</maven.pmd.plugin.version>
+        <maven.resources.plugin.version>3.2.0</maven.resources.plugin.version>
         <maven.shade.plugin.version>3.2.4</maven.shade.plugin.version>
         <maven.source.plugin.version>3.2.1</maven.source.plugin.version>
         <maven.surefire.plugin.version>3.0.0-M5</maven.surefire.plugin.version>
-        <maven.exec.plugin.version>3.0.0</maven.exec.plugin.version>
-        <maven.modernizer.plugin.version>2.3.0</maven.modernizer.plugin.version>
     </properties>
 
     <distributionManagement>
