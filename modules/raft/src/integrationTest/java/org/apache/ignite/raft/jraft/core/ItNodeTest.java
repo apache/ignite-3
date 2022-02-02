@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.core;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.synchronizedList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
 import static org.apache.ignite.raft.jraft.test.TestUtils.sender;
@@ -42,7 +43,6 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.Vector;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -613,7 +613,7 @@ public class ItNodeTest {
         {
             // task with TaskClosure
             ByteBuffer data = ByteBuffer.wrap("task closure".getBytes(UTF_8));
-            Vector<String> cbs = new Vector<>();
+            List<String> cbs = synchronizedList(new ArrayList<>());
             CountDownLatch latch = new CountDownLatch(1);
             Task task = new Task(data, new TaskClosure() {
 
@@ -858,7 +858,7 @@ public class ItNodeTest {
         {
             // task with TaskClosure
             ByteBuffer data = ByteBuffer.wrap("task closure".getBytes(UTF_8));
-            Vector<String> cbs = new Vector<>();
+            List<String> cbs = synchronizedList(new ArrayList<>());
             CountDownLatch latch = new CountDownLatch(1);
             Task task = new Task(data, new TaskClosure() {
 
