@@ -190,6 +190,12 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     void changePeers(final Configuration newPeers, final Closure done);
 
     /**
+     *
+     * @param newPeers new peers to change
+     */
+    ChangePeersAsyncStatus changePeersAsync(final Configuration newPeers, long term);
+
+    /**
      * Reset the configuration of this node individually, without any replication to other peers before this node
      * becomes the leader. This function is supposed to be invoked when the majority of the replication group are dead
      * and you'd like to revive the service in the consideration of availability. Notice that neither consistency nor

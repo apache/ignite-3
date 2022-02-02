@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.jraft.ChangePeersAsyncStatus;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
@@ -385,7 +386,7 @@ public class NodeImpl implements Node, RaftServerService {
         private void addNewLearners() {
             final Set<PeerId> addingLearners = new HashSet<>(this.newLearners);
             addingLearners.removeAll(this.oldLearners);
-            LOG.info("Adding learners: {}.", this.addingPeers);
+            LOG.info("Adding learners: {}.", addingLearners);
             for (final PeerId newLearner : addingLearners) {
                 if (!this.node.replicatorGroup.addReplicator(newLearner, ReplicatorType.Learner)) {
                     LOG.error("Node {} start the learner replicator failed, peer={}.", this.node.getNodeId(),
@@ -3217,6 +3218,30 @@ public class NodeImpl implements Node, RaftServerService {
         finally {
             this.writeLock.unlock();
         }
+    }
+
+    @Override
+    public ChangePeersAsyncStatus changePeersAsync(final Configuration newPeers, long term) {
+        Requires.requireNonNull(newPeers, "Null new peers");
+        Requires.requireTrue(!newPeers.isEmpty(), "Empty new peers");
+        this.writeLock.lock();
+        try {
+            // Return immediately when the new peers equals to current configuration
+            if (this.conf.getConf().equals(newPeers)) {
+                return ChangePeersAsyncStatus.DONE;
+            }
+
+            if (getCurrentTerm() != term) {
+                return ChangePeersAsyncStatus.WRONG_TERM;
+            }
+
+            LOG.info("Node {} change peers from {} to {}.", getNodeId(), this.conf.getConf(), newPeers);
+            unsafeRegisterConfChange(this.conf.getConf(), newPeers, null);
+        }
+        finally {
+            this.writeLock.unlock();
+        }
+        return ChangePeersAsyncStatus.RECEIVED;
     }
 
     @Override
