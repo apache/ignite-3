@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.OperationType;
+import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.junit.jupiter.api.AfterEach;
@@ -1617,70 +1618,83 @@ public abstract class AbstractKeyValueStorageTest {
         assertEquals(5, e3.updateCounter());
         assertArrayEquals(key3, e3.key());
     }
-
+    
     @Test
-    public void compact() {
+    public void multiInvokeOperations() {
+        /*
+        if (key1.value == val1 || exist(key2))
+            if (key3.revision == 3):
+                put(key1, rval1)
+                return true
+            else
+                put(key1, rval1)
+                remove(key2, rval2)
+                return false
+        else
+            put(key3, rval3)
+            return false
+         */
+        byte[] key1 = key(1);
+        byte[] val1 = keyValue(1, 1);
+        byte[] rval1 = keyValue(1, 4);
+        
+        final byte[] key2 = key(2);
+        final byte[] val2 = keyValue(2, 2);
+        final byte[] rval2 = keyValue(2, 5);
+        
+        final byte[] key3 = key(3);
+        final byte[] val3 = keyValue(3, 3);
+        final byte[] rval3 = keyValue(2, 6);
+        
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
-
-        // Compact empty.
-        storage.compact();
-
-        assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
-
-        // Compact non-empty.
-        fill(storage, 1, 1);
-
+        
+        storage.put(key1, val1);
+        
         assertEquals(1, storage.revision());
         assertEquals(1, storage.updateCounter());
-
-        fill(storage, 2, 2);
-
+    
+        storage.put(key2, val2);
+    
+        assertEquals(2, storage.revision());
+        assertEquals(2, storage.updateCounter());
+        
+        storage.put(key3, val3);
+    
         assertEquals(3, storage.revision());
         assertEquals(3, storage.updateCounter());
-
-        fill(storage, 3, 3);
-
-        assertEquals(6, storage.revision());
+        
+        storage.put(key3, val3);
+    
+        assertEquals(4, storage.revision());
+        assertEquals(4, storage.updateCounter());
+        
+        If _if = new If(
+                new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
+            new IfBranch(new If(new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
+                new IfBranch(new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new BranchResult(true))),
+                new IfBranch(new Update(List.of(new Operation(OperationType.PUT, key1, rval1), new Operation(OperationType.REMOVE, key2, null)), new BranchResult(false))))),
+            new IfBranch(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new BranchResult(false))));
+                
+        
+        BranchResult branch = storage.invoke(_if);
+        
+        assertFalse(branch.getAsBoolean());
+        
+        assertEquals(5, storage.revision());
         assertEquals(6, storage.updateCounter());
-
-        storage.getAndRemove(key(3));
-
-        assertEquals(7, storage.revision());
-        assertEquals(7, storage.updateCounter());
-        assertTrue(storage.get(key(3)).tombstone());
-
-        storage.compact();
-
-        assertEquals(7, storage.revision());
-        assertEquals(7, storage.updateCounter());
-
-        Entry e1 = storage.get(key(1));
-
-        assertFalse(e1.empty());
-        assertFalse(e1.tombstone());
-        assertArrayEquals(key(1), e1.key());
-        assertArrayEquals(keyValue(1, 1), e1.value());
-        assertEquals(1, e1.revision());
-        assertEquals(1, e1.updateCounter());
-
-        Entry e2 = storage.get(key(2));
-
-        assertFalse(e2.empty());
-        assertFalse(e2.tombstone());
-        assertArrayEquals(key(2), e2.key());
-        assertArrayEquals(keyValue(2, 2), e2.value());
-        assertTrue(storage.get(key(2), 2).empty());
-        assertEquals(3, e2.revision());
-        assertEquals(3, e2.updateCounter());
-
-        Entry e3 = storage.get(key(3));
-
-        assertTrue(e3.empty());
-        assertTrue(storage.get(key(3), 5).empty());
-        assertTrue(storage.get(key(3), 6).empty());
-        assertTrue(storage.get(key(3), 7).empty());
+        
+        Entry e1 = storage.get(key1);
+        assertEquals(5, e1.revision());
+        assertArrayEquals(rval1, e1.value());
+        
+        Entry e2 = storage.get(key2);
+        assertEquals(5, e2.revision());
+        assertEquals(true, e2.tombstone());
+        
+        Entry e3 = storage.get(key3);
+        assertEquals(4, e3.revision());
+        assertArrayEquals(val3, e3.value());
     }
 
     @Test

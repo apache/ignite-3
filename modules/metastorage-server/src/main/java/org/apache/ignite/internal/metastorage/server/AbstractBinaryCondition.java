@@ -29,7 +29,7 @@ public abstract class AbstractBinaryCondition implements Condition {
     @Override
     public boolean test(Entry... e) {
         return combine(leftCondition.test(Arrays.copyOf(e, leftCondition.arity())),
-                rightCondition.test(Arrays.copyOfRange(e, leftCondition.arity() + 1, rightCondition.arity())));
+                rightCondition.test(Arrays.copyOfRange(e, leftCondition.arity(), leftCondition.arity() + rightCondition.arity())));
     }
     
     @Override

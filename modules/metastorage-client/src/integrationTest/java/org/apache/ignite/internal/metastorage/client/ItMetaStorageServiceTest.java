@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
-import static org.apache.ignite.internal.metastorage.client.BranchResult.res;
 import static org.apache.ignite.internal.metastorage.client.Conditions.*;
 import static org.apache.ignite.internal.metastorage.client.Operations.*;
 import static org.apache.ignite.internal.metastorage.client.BinaryCondition.*;
@@ -816,13 +815,13 @@ public class ItMetaStorageServiceTest {
             assertArrayEquals(key2.bytes(), op2.key());
             assertArrayEquals(rval2, op2.value());
             
-            assertFalse(resultIf.andThen()._if().orElse().update().result().result());
+            assertFalse(resultIf.andThen()._if().orElse().update().result().getAsBoolean());
         }
     
         assertEquals(1, resultIf.orElse().update().operations().size());
         assertArrayEquals(key2.bytes(), resultIf.orElse().update().operations().iterator().next().key());
         assertArrayEquals(rval2, resultIf.orElse().update().operations().iterator().next().value());
-        assertFalse(resultIf.orElse().update().result().result());
+        assertFalse(resultIf.orElse().update().result().getAsBoolean());
     }
     
     @Test

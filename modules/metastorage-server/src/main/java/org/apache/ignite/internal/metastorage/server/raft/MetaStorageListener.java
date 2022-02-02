@@ -241,7 +241,7 @@ public class MetaStorageListener implements RaftGroupListener {
                         toIf(cmd._if())
                 );
     
-                clo.result(new BranchResultInfo(res.result()));
+                clo.result(new BranchResultInfo(res.getAsBoolean()));
             } else if (clo.command() instanceof RangeCommand) {
                 RangeCommand rangeCmd = (RangeCommand) clo.command();
 
