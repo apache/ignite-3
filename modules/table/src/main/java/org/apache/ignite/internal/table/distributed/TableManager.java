@@ -1084,6 +1084,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             return lastVer;
         } catch (NoSuchElementException e) {
+            assert false : "Table must exist. [tableId=" + tblId + ']';
+
             return INITIAL_SCHEMA_VERSION;
         }
     }
