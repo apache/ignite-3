@@ -26,7 +26,9 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.function.LongFunction;
+import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -121,7 +123,7 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
         assertEquals(0, sql("SELECT * FROM table(system_range(null, 1))").size());
 
         IgniteException ex = assertThrows(IgniteException.class,
-                () -> sql("SELECT * FROM table(system_range(1, 1, 0))"));
+                () -> sql("SELECT * FROM table(system_range(1, 1, 0))"), "Increment can't be 0");
 
         assertTrue(
                 ex.getCause() instanceof IllegalArgumentException,
@@ -266,5 +268,27 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT 'abcd' !~* null").returns(NULL_RESULT).check();
         assertQuery("SELECT null !~* null").returns(NULL_RESULT).check();
         assertThrows(IgniteException.class, () -> sql("SELECT 'abcd' ~ '[a-z'"));
+    }
+
+    @Test
+    public void testTypeOf() {
+        assertQuery("SELECT TYPEOF(1)").returns("INTEGER").check();
+        assertQuery("SELECT TYPEOF(1.1::DOUBLE)").returns("DOUBLE").check();
+        assertQuery("SELECT TYPEOF(1.1::DECIMAL(3, 2))").returns("DECIMAL(3, 2)").check();
+        assertQuery("SELECT TYPEOF('a')").returns("CHAR(1)").check();
+        assertQuery("SELECT TYPEOF('a'::varchar(1))").returns("VARCHAR(1)").check();
+        assertQuery("SELECT TYPEOF(NULL)").returns("NULL").check();
+        assertQuery("SELECT TYPEOF(NULL::VARCHAR(100))").returns("VARCHAR(100)").check();
+        try {
+            sql("SELECT TYPEOF()");
+        } catch (Throwable e) {
+            assertTrue(IgniteTestUtils.hasCause(e, SqlValidatorException.class, "Invalid number of arguments"));
+        }
+
+        try {
+            sql("SELECT TYPEOF(1, 2)");
+        } catch (Throwable e) {
+            assertTrue(IgniteTestUtils.hasCause(e, SqlValidatorException.class, "Invalid number of arguments"));
+        }
     }
 }
