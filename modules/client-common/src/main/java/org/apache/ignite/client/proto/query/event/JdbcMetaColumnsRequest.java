@@ -84,17 +84,17 @@ public class JdbcMetaColumnsRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
-        packer.packString(schemaName);
-        packer.packString(tblName);
-        packer.packString(colName);
+        ClientMessageUtils.writeStringNullable(packer, schemaName);
+        ClientMessageUtils.writeStringNullable(packer, tblName);
+        ClientMessageUtils.writeStringNullable(packer, colName);
     }
 
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
-        schemaName = unpacker.unpackString();
-        tblName = unpacker.unpackString();
-        colName = unpacker.unpackString();
+        schemaName = ClientMessageUtils.readStringNullable(unpacker);
+        tblName = ClientMessageUtils.readStringNullable(unpacker);
+        colName = ClientMessageUtils.readStringNullable(unpacker);
     }
 
     /** {@inheritDoc} */

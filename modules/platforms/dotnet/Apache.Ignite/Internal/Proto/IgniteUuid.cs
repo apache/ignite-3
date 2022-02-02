@@ -19,28 +19,50 @@
 namespace Apache.Ignite.Internal.Proto
 {
     using System;
+    using System.Runtime.InteropServices;
 
     /// <summary>
     /// Ignite UUID implementation combines a global UUID (generated once per node) and a node-local 8-byte id.
     /// </summary>
-    internal unsafe struct IgniteUuid
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct IgniteUuid : IEquatable<IgniteUuid>
     {
         /// <summary>
-        /// Struct max size.
+        /// High part.
         /// </summary>
-        public const int MaxSize = 24;
+        public long Hi;
 
         /// <summary>
-        /// IgniteUuid bytes.
-        /// <para />
-        /// We could deserialize the data into <see cref="Guid"/> and <see cref="long"/>, but there is no need to deal
-        /// with the parts separately on the client.
+        /// Low part.
         /// </summary>
-        public fixed byte Bytes[MaxSize];
+        public long Low;
+
+        /// <summary>
+        /// Local part.
+        /// </summary>
+        public long Local;
 
         /// <summary>
         /// Struct size.
         /// </summary>
         public byte Size;
+
+        /// <inheritdoc/>
+        public override bool Equals(object? obj)
+        {
+            return obj is IgniteUuid other && Equals(other);
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Hi, Low, Local, Size);
+        }
+
+        /// <inheritdoc/>
+        public bool Equals(IgniteUuid other)
+        {
+            return Hi == other.Hi && Low == other.Low && Local == other.Local && Size == other.Size;
+        }
     }
 }

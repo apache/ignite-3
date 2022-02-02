@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.configuration.notifications;
 
+import static java.util.Collections.emptyIterator;
+
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.List;
+import java.util.Iterator;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -40,19 +42,17 @@ class ConfigurationNotificationUtils {
      * Private constructor.
      */
     private ConfigurationNotificationUtils() {
+        // No op.
     }
 
     /**
      * Returns the dynamic property of the leaf.
      *
      * @param dynamicConfig Dynamic configuration.
-     * @param nodeName      Name of the child node.
+     * @param nodeName Name of the child node.
      * @return Dynamic property of a leaf or {@code null} if the leaf does not exist.
      */
-    static @Nullable DynamicProperty<Serializable> dynamicProperty(
-            DynamicConfiguration<InnerNode, ?> dynamicConfig,
-            String nodeName
-    ) {
+    static @Nullable DynamicProperty<Serializable> dynamicProperty(DynamicConfiguration<InnerNode, ?> dynamicConfig, String nodeName) {
         return (DynamicProperty<Serializable>) dynamicConfig.members().get(nodeName);
     }
 
@@ -60,13 +60,10 @@ class ConfigurationNotificationUtils {
      * Returns the dynamic configuration of the child node.
      *
      * @param dynamicConfig Dynamic configuration.
-     * @param nodeName      Name of the child node.
+     * @param nodeName Name of the child node.
      * @return Dynamic configuration of the child node or {@code null} if the child node does not exist.
      */
-    static @Nullable DynamicConfiguration<InnerNode, ?> dynamicConfig(
-            DynamicConfiguration<InnerNode, ?> dynamicConfig,
-            String nodeName
-    ) {
+    static @Nullable DynamicConfiguration<InnerNode, ?> dynamicConfig(DynamicConfiguration<InnerNode, ?> dynamicConfig, String nodeName) {
         return (DynamicConfiguration<InnerNode, ?>) dynamicConfig.members().get(nodeName);
     }
 
@@ -74,7 +71,7 @@ class ConfigurationNotificationUtils {
      * Returns the named dynamic configuration of the child node.
      *
      * @param dynamicConfig Dynamic configuration.
-     * @param nodeName      Name of the child node.
+     * @param nodeName Name of the child node.
      * @return Named dynamic configuration of the child node or {@code null} if the child node does not exist.
      */
     static @Nullable NamedListConfiguration<?, InnerNode, ?> namedDynamicConfig(
@@ -85,25 +82,26 @@ class ConfigurationNotificationUtils {
     }
 
     /**
-     * Null-safe version of {@link ConfigurationNode#listeners()}.
+     * Null-safe version of {@link ConfigurationNode#listeners(long)}.
      *
-     * <p>Needed for working with "any" configuration properties, see this class' javadoc for details.
-     *
-     * @return Listeners of the given node or an empty list if it is {@code null}.
+     * @param node Configuration tree node.
+     * @param notificationNumber Configuration notification listener number.
      */
-    static <T> Collection<ConfigurationListener<T>> listeners(@Nullable ConfigurationNode<T> node) {
-        return node == null ? List.of() : node.listeners();
+    static <T> Iterator<ConfigurationListener<T>> listeners(@Nullable ConfigurationNode<T> node, long notificationNumber) {
+        return node == null ? emptyIterator() : node.listeners(notificationNumber);
     }
 
     /**
-     * Null-safe version of {@link NamedListConfiguration#extendedListeners()}.
+     * Null-safe version of {@link NamedListConfiguration#extendedListeners(long)}.
      *
-     * <p>Needed for working with "any" configuration properties, see this class' javadoc for details.
-     *
-     * @return Listeners of the given node or an empty list if it is {@code null}.
+     * @param node Named list configuration.
+     * @param notificationNumber Configuration notification listener number.
      */
-    static <T> Collection<ConfigurationNamedListListener<T>> extendedListeners(@Nullable NamedListConfiguration<?, T, ?> node) {
-        return node == null ? List.of() : node.extendedListeners();
+    static <T> Iterator<ConfigurationNamedListListener<T>> extendedListeners(
+            @Nullable NamedListConfiguration<?, T, ?> node,
+            long notificationNumber
+    ) {
+        return node == null ? emptyIterator() : node.extendedListeners(notificationNumber);
     }
 
     /**

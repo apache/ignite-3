@@ -29,10 +29,8 @@ namespace Apache.Ignite.Internal.Table
     /// <param name="Version">Version.</param>
     /// <param name="KeyColumnCount">Key column count.</param>
     /// <param name="Columns">Columns in schema order.</param>
-    /// <param name="ColumnsMap">Columns by name.</param>
     internal record Schema(
         int Version,
         int KeyColumnCount,
-        IReadOnlyList<Column> Columns,
-        IReadOnlyDictionary<string, Column> ColumnsMap);
+        IReadOnlyList<Column> Columns);
 }

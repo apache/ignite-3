@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -81,7 +81,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
         try {
             VaultEntry vaultEntry = vaultMgr.get(new ByteArray(LOC_PREFIX + key)).join();
 
-            return vaultEntry.empty() ? null : (Serializable) ByteUtils.fromBytes(vaultEntry.value());
+            return vaultEntry.empty() ? null : ConfigurationSerializationUtil.fromBytes(vaultEntry.value());
         } catch (Exception e) {
             throw new StorageException("Exception while reading vault entry", e);
         }
@@ -108,7 +108,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
                 // vault iterator should not return nulls as values
                 assert value != null;
 
-                data.put(key, (Serializable) ByteUtils.fromBytes(value));
+                data.put(key, ConfigurationSerializationUtil.fromBytes(value));
             }
         } catch (Exception e) {
             throw new StorageException("Exception when closing a Vault cursor", e);
@@ -135,7 +135,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
         for (Map.Entry<String, ? extends Serializable> e : newValues.entrySet()) {
             ByteArray key = ByteArray.fromString(LOC_PREFIX + e.getKey());
 
-            data.put(key, e.getValue() == null ? null : ByteUtils.toBytes(e.getValue()));
+            data.put(key, e.getValue() == null ? null : ConfigurationSerializationUtil.toBytes(e.getValue()));
         }
 
         Data entries = new Data(newValues, ver.incrementAndGet());

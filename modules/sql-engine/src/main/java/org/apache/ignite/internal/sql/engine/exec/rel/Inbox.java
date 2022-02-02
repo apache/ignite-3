@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.calcite.util.Util.unexpected;
+
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -102,6 +104,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
      */
     public void init(
             ExecutionContext<RowT> ctx, RelDataType rowType, Collection<String> srcNodeIds, @Nullable Comparator<RowT> comp) {
+        assert srcNodeIds != null : "Collection srcNodeIds not found for exchangeId: " + exchangeId;
         assert context().fragmentId() == ctx.fragmentId() : "different fragments unsupported: previous=" + context().fragmentId()
                 + " current=" + ctx.fragmentId();
 
@@ -204,29 +207,43 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         }
     }
 
-    private void pushOrdered() throws Exception {
-        PriorityQueue<Pair<RowT, Buffer>> heap =
-                new PriorityQueue<>(Math.max(buffers.size(), 1), Map.Entry.comparingByKey(comp));
-
-        Iterator<Buffer> it = buffers.iterator();
-
+    /** Checks that all corresponding buffers are in ready state. */
+    private boolean checkAllBuffsReady(Iterator<Buffer> it) {
         while (it.hasNext()) {
             Buffer buf = it.next();
 
-            switch (buf.check()) {
+            State state = buf.check();
+
+            switch (state) {
+                case READY:
+                    break;
                 case END:
                     it.remove();
-
-                    break;
-                case READY:
-                    heap.offer(Pair.of(buf.peek(), buf));
-
                     break;
                 case WAITING:
-
-                    return;
+                    return false;
                 default:
-                    break;
+                    throw unexpected(state);
+            }
+        }
+        return true;
+    }
+
+    private void pushOrdered() throws Exception {
+        if (!checkAllBuffsReady(buffers.iterator())) {
+            return;
+        }
+
+        PriorityQueue<Pair<RowT, Buffer>> heap =
+                new PriorityQueue<>(Math.max(buffers.size(), 1), Map.Entry.comparingByKey(comp));
+
+        for (Buffer buf : buffers) {
+            State state = buf.check();
+
+            if (state == State.READY) {
+                heap.offer(Pair.of(buf.peek(), buf));
+            } else {
+                throw new AssertionError("Unexpected buffer state: " + state);
             }
         }
 
@@ -240,20 +257,19 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
                 requested--;
                 downstream().push(buf.remove());
 
-                switch (buf.check()) {
+                State state = buf.check();
+
+                switch (state) {
                     case END:
                         buffers.remove(buf);
-
                         break;
                     case READY:
                         heap.offer(Pair.of(buf.peek(), buf));
-
                         break;
                     case WAITING:
-
                         return;
                     default:
-                        break;
+                        throw unexpected(state);
                 }
             }
         } finally {

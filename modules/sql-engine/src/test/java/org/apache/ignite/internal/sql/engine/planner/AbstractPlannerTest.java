@@ -58,6 +58,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.rel.type.RelProtoDataType;
+import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.schema.Schema;
@@ -229,6 +230,36 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         planner.setDisabledRules(new HashSet<>(Arrays.asList(disabledRules)));
 
         return ctx;
+    }
+
+    /**
+     * Returns the first found node of given class from expression tree.
+     *
+     * @param expr Expression to search in.
+     * @param clz Target class of the node we are looking for.
+     * @param <T> Type of the node we are looking for.
+     * @return the first matching node in terms of DFS or null if there is no such node.
+     */
+    public static <T> T findFirst(RexNode expr, Class<T> clz) {
+        if (clz.isAssignableFrom(expr.getClass())) {
+            return clz.cast(expr);
+        }
+
+        if (!(expr instanceof RexCall)) {
+            return null;
+        }
+
+        RexCall call = (RexCall) expr;
+
+        for (RexNode op : call.getOperands()) {
+            T res = findFirst(op, clz);
+
+            if (res != null) {
+                return res;
+            }
+        }
+
+        return null;
     }
 
     /**
