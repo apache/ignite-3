@@ -368,7 +368,7 @@ public class IgniteImpl implements Ignite {
             // Deploy all registered watches because all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
 
-            //TODO: This is a temporary solution until full process of the node join is implemented.
+            //TODO: IGNITE-15114 This is a temporary solution until full process of the node join is implemented.
             if (metaStorageMgr.isMetaStorageInitializedOnStart()) {
                 long metastorageRevision = metaStorageMgr.revision().join();
                 long appliedRevision = vaultMgr.getRevision().join();

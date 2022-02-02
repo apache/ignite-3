@@ -213,6 +213,7 @@ public interface KeyValueStorage extends AutoCloseable {
 
     /**
      * Compacts storage (removes tombstones).
+     * TODO: IGNITE-16444 Сorrect compaction for Metastorage.
      */
     void compact();
 
