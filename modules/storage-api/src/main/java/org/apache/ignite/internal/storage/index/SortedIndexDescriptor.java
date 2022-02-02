@@ -35,14 +35,20 @@ public class SortedIndexDescriptor {
 
     private final IndexSchemaDescriptor idxSchema;
 
+    private final Column[] pkColumns;
+
     /**
      * Creates an Index Descriptor from a given Table Configuration.
      *
      * @param name        Index name.
      * @param columns     Index's columns.
      */
-    public SortedIndexDescriptor(String name, final List<SortedIndexColumnDescriptor> columns) {
+    public SortedIndexDescriptor(
+            String name,
+            final List<SortedIndexColumnDescriptor> columns,
+            Column[] pkColumns) {
         this.name = name;
+        this.pkColumns = pkColumns;
 
         this.idxSchema = new IndexSchemaDescriptor(
                 IntStream.range(0, columns.size())
@@ -78,10 +84,17 @@ public class SortedIndexDescriptor {
     }
 
     /**
+     * Returns the Column Descriptors that comprise a row of this index (indexed columns + primary key columns).
+     */
+    public Column[] pkColumns() {
+        return pkColumns;
+    }
+
+    /**
      * Converts this Descriptor into an equivalent {@link SchemaDescriptor}.
      *
      * <p>The resulting {@code SchemaDescriptor} will have empty {@link SchemaDescriptor#valueColumns()} and its
-     * {@link SchemaDescriptor#keyColumns()} will be consistent with the columns returned by {@link #indexRowColumns()}.
+     * {@link SchemaDescriptor#keyColumns()} will be consistent with the columns returned by {@link #columns()}.
      */
     public SchemaDescriptor schema() {
         return idxSchema;

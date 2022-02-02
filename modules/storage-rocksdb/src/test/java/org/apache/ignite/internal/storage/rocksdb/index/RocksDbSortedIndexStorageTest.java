@@ -406,6 +406,6 @@ public class RocksDbSortedIndexStorageTest {
             cols.add(new SortedIndexColumnDescriptor(col, random.nextBoolean()));
         }
 
-        return tableStorage.createSortedIndex(new SortedIndexDescriptor("foo", cols));
+        return tableStorage.createSortedIndex(new SortedIndexDescriptor("foo", cols, new Column[] {cols.get(0).column()}));
     }
 }

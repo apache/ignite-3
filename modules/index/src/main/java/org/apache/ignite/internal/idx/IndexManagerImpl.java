@@ -392,7 +392,11 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                 })
                 .collect(Collectors.toList());
 
-        SortedIndexDescriptor idxDesc = new SortedIndexDescriptor(idxView.name(), idxCols);
+        SortedIndexDescriptor idxDesc = new SortedIndexDescriptor(
+                idxView.name(),
+                idxCols,
+                tblSchema.keyColumns().columns()
+        );
 
         InternalSortedIndexImpl idx = new InternalSortedIndexImpl(
                 idxView.name(),
