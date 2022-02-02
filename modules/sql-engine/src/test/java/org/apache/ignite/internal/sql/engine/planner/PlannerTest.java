@@ -727,8 +727,8 @@ public class PlannerTest extends AbstractPlannerTest {
             assertNotNull(phys);
             assertEquals(
                     "IgniteProject(DEPTNO=[$3], DEPTNO0=[$2])\n"
-                            + "  IgniteCorrelatedNestedLoopJoin(condition=[=(CAST(+($3, $2)):INTEGER, 2)], "
-                            + "joinType=[inner], correlationVariables=[[$cor2]])\n"
+                            + "  IgniteCorrelatedNestedLoopJoin(condition=[=(CAST(+($3, $2)):INTEGER, 2)], joinType=[inner], "
+                            + "correlationVariables=[[$cor2]])\n"
                             + "    IgniteTableScan(table=[[PUBLIC, EMP]])\n"
                             + "    IgniteTableScan(table=[[PUBLIC, DEPT]], filters=[=(CAST(+($t0, $cor2.DEPTNO)):INTEGER, 2)])\n",
                     RelOptUtil.toString(phys),
