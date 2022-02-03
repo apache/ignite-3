@@ -218,7 +218,7 @@ class ItIgnitionTest {
 
     /**
      * Tests scenario when we try to start single-node cluster with several metastorage nodes in config.
-     * TODO: test should be rewritten after init phase will be developed https://issues.apache.org/jira/browse/IGNITE-14414
+     * TODO: test should be rewritten after init phase will be developed https://issues.apache.org/jira/browse/IGNITE-14871
      */
     @Test
     void testStartNodeClusterWithTwoMetastorageInConfig() throws Exception {
