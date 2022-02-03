@@ -61,7 +61,7 @@ public class SortedIndexDescriptor {
     }
 
     /**
-     * Returns the Column Descriptors that comprise a row of this index (indexed columns + primary key columns).
+     * Returns primary key columns.
      */
     public Column[] pkColumns() {
         return pkColumns;
