@@ -43,6 +43,7 @@ import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
+import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.idx.event.IndexEvent;
 import org.apache.ignite.internal.idx.event.IndexEventParameters;
 import org.apache.ignite.internal.manager.AbstractProducer;
@@ -55,7 +56,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -190,7 +190,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
         ExtendedTableConfiguration tblCfg = ctx.config(TableConfiguration.class);
 
-        TableImpl tbl = tblMgr.table(IgniteUuid.fromString(tblCfg.id().value()));
+        TableImpl tbl = tblMgr.table(((ExtendedTableView) ctx.newValue()).id());
 
         createIndexLocally(tbl, (SortedIndexView) ctx.newValue());
     }

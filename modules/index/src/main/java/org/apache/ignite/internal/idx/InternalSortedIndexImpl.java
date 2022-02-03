@@ -24,6 +24,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -37,7 +38,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableRow;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -73,7 +73,7 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
 
     /** {@inheritDoc} */
     @Override
-    public IgniteUuid tableId() {
+    public UUID tableId() {
         return tbl.tableId();
     }
 

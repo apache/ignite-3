@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.idx;
 
 import java.util.BitSet;
+import java.util.UUID;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.Tuple;
 
 /**
@@ -50,7 +50,7 @@ public interface InternalSortedIndex {
      *
      * @return Indexed table identifier.
      */
-    IgniteUuid tableId();
+    UUID tableId();
 
     /**
      * Return index descriptor.
