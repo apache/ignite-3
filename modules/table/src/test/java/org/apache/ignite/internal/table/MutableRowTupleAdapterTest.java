@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -47,6 +48,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.Temporal;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
@@ -61,7 +63,9 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -70,15 +74,17 @@ import org.junit.jupiter.api.Test;
  * <p>Should be in sync with org.apache.ignite.client.ClientTupleBuilderTest.
  */
 public class MutableRowTupleAdapterTest {
+    private static final int NANOS_IN_SECOND = 9;
+
     /** Schema descriptor. */
-    private SchemaDescriptor schema = new SchemaDescriptor(
+    private final SchemaDescriptor schema = new SchemaDescriptor(
             42,
             new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
             new Column[]{new Column("name".toUpperCase(), NativeTypes.STRING, true)}
     );
 
     /** Schema descriptor. */
-    private SchemaDescriptor fullSchema = new SchemaDescriptor(42,
+    private final SchemaDescriptor fullSchema = new SchemaDescriptor(42,
             new Column[]{new Column("keyUuidCol".toUpperCase(), NativeTypes.UUID, true)},
             new Column[]{
                     new Column("valByteCol".toUpperCase(), INT8, true),
@@ -354,9 +360,9 @@ public class MutableRowTupleAdapterTest {
                 .set("valDoubleCol", 0.066d)
                 .set("keyUuidCol", UUID.randomUUID())
                 .set("valDateCol", LocalDate.now())
-                .set("valDateTimeCol", LocalDateTime.now())
-                .set("valTimeCol", LocalTime.now())
-                .set("valTimeStampCol", Instant.now())
+                .set("valDateTimeCol", truncatedLocalDateTimeNow())
+                .set("valTimeCol", truncatedLocalTimeNow())
+                .set("valTimeStampCol", truncatedInstantNow())
                 .set("valBitmask1Col", randomBitSet(rnd, 12))
                 .set("valBytesCol", IgniteTestUtils.randomBytes(rnd, 13))
                 .set("valStringCol", IgniteTestUtils.randomString(rnd, 14))
@@ -386,9 +392,9 @@ public class MutableRowTupleAdapterTest {
                 .set("valDoubleCol", 0.066d)
                 .set("keyUuidCol", UUID.randomUUID())
                 .set("valDateCol", LocalDate.now())
-                .set("valDateTimeCol", LocalDateTime.now())
-                .set("valTimeCol", LocalTime.now())
-                .set("valTimeStampCol", Instant.now())
+                .set("valDateTimeCol", truncatedLocalDateTimeNow())
+                .set("valTimeCol", truncatedLocalTimeNow())
+                .set("valTimeStampCol", truncatedInstantNow())
                 .set("valBitmask1Col", randomBitSet(rnd, 12))
                 .set("valBytesCol", IgniteTestUtils.randomBytes(rnd, 13))
                 .set("valStringCol", IgniteTestUtils.randomString(rnd, 14))
@@ -405,6 +411,19 @@ public class MutableRowTupleAdapterTest {
         assertEquals(tup2, tup1);
     }
 
+    private Instant truncatedInstantNow() {
+        return truncateToDefaultPrecision(Instant.now());
+    }
+
+    private LocalTime truncatedLocalTimeNow() {
+        return truncateToDefaultPrecision(LocalTime.now());
+    }
+
+    @NotNull
+    private LocalDateTime truncatedLocalDateTimeNow() {
+        return truncateToDefaultPrecision(LocalDateTime.now());
+    }
+
     @Test
     public void testTupleEquality() throws Exception {
         Random rnd = new Random();
@@ -418,9 +437,9 @@ public class MutableRowTupleAdapterTest {
                 .set("valFloatCol", 0.055f)
                 .set("valDoubleCol", 0.066d)
                 .set("valDateCol", LocalDate.now())
-                .set("valDateTimeCol", LocalDateTime.now())
-                .set("valTimeCol", LocalTime.now())
-                .set("valTimeStampCol", Instant.now())
+                .set("valDateTimeCol", truncatedLocalDateTimeNow())
+                .set("valTimeCol", truncatedLocalTimeNow())
+                .set("valTimeStampCol", truncatedInstantNow())
                 .set("valBitmask1Col", randomBitSet(rnd, 12))
                 .set("valBytesCol", IgniteTestUtils.randomBytes(rnd, 13))
                 .set("valStringCol", IgniteTestUtils.randomString(rnd, 14))
@@ -504,9 +523,9 @@ public class MutableRowTupleAdapterTest {
                 .set("valFloatCol", 0.055f)
                 .set("valDoubleCol", 0.066d)
                 .set("valDateCol", LocalDate.now())
-                .set("valDateTimeCol", LocalDateTime.now())
-                .set("valTimeCol", LocalTime.now())
-                .set("valTimeStampCol", Instant.now())
+                .set("valDateTimeCol", truncatedLocalDateTimeNow())
+                .set("valTimeCol", truncatedLocalTimeNow())
+                .set("valTimeStampCol", truncatedInstantNow())
                 .set("valBitmask1Col", randomBitSet(rnd, 12))
                 .set("valBytesCol", IgniteTestUtils.randomBytes(rnd, 13))
                 .set("valStringCol", IgniteTestUtils.randomString(rnd, 14))
@@ -522,6 +541,28 @@ public class MutableRowTupleAdapterTest {
 
         assertEquals(key1, key2);
         assertEquals(val1, val2);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T extends Temporal> T truncateToDefaultPrecision(T temporal) {
+        return (T) temporal.with(NANO_OF_SECOND, truncateToDefaultPrecision(temporal.get(NANO_OF_SECOND)));
+    }
+
+    private int truncateToDefaultPrecision(int nanos) {
+        int factor = tailFactorForDefaultPrecision();
+        return nanos / factor * factor;
+    }
+
+    private int tailFactorForDefaultPrecision() {
+        return tailFactor(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
+    }
+
+    private int tailFactor(int precision) {
+        if (precision >= NANOS_IN_SECOND) {
+            return 1;
+        }
+
+        return new BigInteger("10").pow(NANOS_IN_SECOND - precision).intValue();
     }
 
     /**
