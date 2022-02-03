@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.pagememory;
 
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
+
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
@@ -48,7 +50,7 @@ public class TestPageIoModule implements PageIoModule {
          * Constructor.
          */
         public TestPageIo() {
-            super(TEST_PAGE_TYPE, TEST_PAGE_VER);
+            super(TEST_PAGE_TYPE, TEST_PAGE_VER, FLAG_DATA);
         }
 
         /** {@inheritDoc} */

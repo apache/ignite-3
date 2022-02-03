@@ -22,9 +22,6 @@ import static java.lang.Boolean.TRUE;
 import static java.util.concurrent.atomic.AtomicIntegerFieldUpdater.newUpdater;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
-import static org.apache.ignite.internal.pagememory.io.PageIo.T_DATA;
-import static org.apache.ignite.internal.pagememory.io.PageIo.T_DATA_PART;
-import static org.apache.ignite.internal.pagememory.io.PageIo.T_META;
 import static org.apache.ignite.internal.pagememory.io.PageIo.T_PAGE_LIST_NODE;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
@@ -1381,14 +1378,7 @@ public abstract class PagesList extends DataStructure {
         if (initIoVers != null) {
             PageIo pageIo = initIoVers.latest();
 
-            switch (pageIo.getType()) {
-                case T_META:
-                case T_DATA:
-                case T_DATA_PART:
-                    return FLAG_DATA;
-                default:
-                    return defaultPageFlag;
-            }
+            return pageIo.getFlag() == FLAG_DATA ? FLAG_DATA : defaultPageFlag;
         }
 
         return defaultPageFlag;

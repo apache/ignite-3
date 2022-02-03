@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.io;
 
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -194,7 +196,7 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
      * @param ver Page format version.
      */
     protected AbstractDataPageIo(int type, int ver) {
-        super(type, ver);
+        super(type, ver, FLAG_DATA);
     }
 
     /** {@inheritDoc} */

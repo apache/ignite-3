@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.freelist.io;
 
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.maskPartitionId;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.copyMemory;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
@@ -51,7 +52,7 @@ public class PagesListNodeIo extends PageIo {
      * @param ver Page format version.
      */
     protected PagesListNodeIo(int ver) {
-        super(T_PAGE_LIST_NODE, ver);
+        super(T_PAGE_LIST_NODE, ver, FLAG_AUX);
     }
 
     /** {@inheritDoc} */

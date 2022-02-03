@@ -66,10 +66,12 @@ public final class IoVersions<V extends PageIo> {
      * @return {@code true} If versions are correct.
      */
     private boolean checkVersions() {
+        final byte flag = vers[0].getFlag();
+
         for (int i = 0; i < vers.length; i++) {
             V v = vers[i];
 
-            if (v.getType() != type || v.getVersion() != i + 1) {
+            if (v.getType() != type || v.getVersion() != i + 1 || v.getFlag() != flag) {
                 return false;
             }
         }

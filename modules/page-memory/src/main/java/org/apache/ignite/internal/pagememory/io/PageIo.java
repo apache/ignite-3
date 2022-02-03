@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.pagememory.io;
 
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
+
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
@@ -94,16 +98,8 @@ public abstract class PageIo {
     /** Total size of common header, including reserved bytes. */
     public static final int COMMON_HEADER_END = RESERVED_3_OFF + Long.BYTES;
 
-    /* All the page types. */
-
     /** Data page type. */
     public static final short T_DATA = 1;
-
-    /** Meta page type. */
-    public static final short T_META = 11;
-
-    /** Type page list meta. */
-    public static final short T_PAGE_LIST_META = 12;
 
     /** Type page list node. */
     public static final short T_PAGE_LIST_NODE = 13;
@@ -119,18 +115,24 @@ public abstract class PageIo {
     /** IO type. */
     private final int type;
 
+    /** IO flag: either {@link PageIdAllocator#FLAG_DATA} or {@link PageIdAllocator#FLAG_AUX}. */
+    private final byte flag;
+
     /**
      * Constructor.
      *
      * @param type Page type.
      * @param ver Page format version.
+     * @param flag Page flag: either {@link PageIdAllocator#FLAG_DATA} or {@link PageIdAllocator#FLAG_AUX}.
      */
-    protected PageIo(int type, int ver) {
+    protected PageIo(int type, int ver, byte flag) {
         assert ver > 0 && ver <= MAX_IO_TYPE : ver;
         assert type > 0 && type <= MAX_IO_TYPE : type;
+        assert flag == FLAG_DATA || flag == FLAG_AUX;
 
         this.type = type;
         this.ver = ver;
+        this.flag = flag;
     }
 
     /**
@@ -496,5 +498,12 @@ public abstract class PageIo {
      */
     protected final void assertPageType(ByteBuffer buf) {
         assert getType(buf) == getType() : "Expected type " + getType() + ", but got " + getType(buf);
+    }
+
+    /**
+     * Returns a flag: either {@link PageIdAllocator#FLAG_DATA} or {@link PageIdAllocator#FLAG_AUX}.
+     */
+    public final byte getFlag() {
+        return flag;
     }
 }

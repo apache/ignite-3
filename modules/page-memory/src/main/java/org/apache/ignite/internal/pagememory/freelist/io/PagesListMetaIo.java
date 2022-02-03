@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.freelist.io;
 
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getShort;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
@@ -51,7 +52,7 @@ public class PagesListMetaIo extends PageIo {
      * @param ver Page format version.
      */
     private PagesListMetaIo(int ver) {
-        super(T_PAGE_LIST_META, ver);
+        super(12, ver, FLAG_AUX);
     }
 
     /** {@inheritDoc} */
