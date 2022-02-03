@@ -40,13 +40,13 @@ public class PageIoRegistryEx extends PageIoRegistry {
      *
      * <p>NOTE: {@link #loadFromServiceLoader} must be called first.
      *
-     * @param ioVersions IO versions.
+     * @param versions IO versions.
      * @throws IllegalStateException If there's an invalid page type.
      */
-    public void load(IoVersions<?>... ioVersions) {
+    public void load(IoVersions<?>... versions) {
         assertTrue(loadFromServiceLoaderCalled, "loadFromServiceLoader must be called first");
 
-        for (IoVersions<?> ios : ioVersions) {
+        for (IoVersions<?> ios : versions) {
             if (ios.getType() == 0) {
                 throw new IllegalStateException("Type 0 is reserved and can't be used: " + ios);
             }
