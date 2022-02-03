@@ -36,6 +36,8 @@ public class ClassDescriptorRegistry implements DescriptorRegistry {
     /** Sequential id generator for class descriptors. */
     private final AtomicInteger idGenerator = new AtomicInteger(BUILTIN_DESCRIPTORS_OFFSET_COUNT);
 
+    // TODO: IGNITE-16464 - do not keep references to classes forever
+
     /** Map class -> descriptor id. */
     private final ConcurrentMap<Class<?>, Integer> idMap = new ConcurrentHashMap<>();
 
