@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.metadata;
 
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import java.io.Serializable;
 import java.util.List;
 
@@ -32,7 +32,7 @@ public class FragmentDescription implements Serializable {
 
     private ColocationGroup target;
 
-    private Long2ObjectOpenHashMap<List<String>> remoteSources;
+    private Long2ObjectMap<List<String>> remoteSources;
 
     /**
      * Constructor.
@@ -46,7 +46,7 @@ public class FragmentDescription implements Serializable {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public FragmentDescription(long fragmentId, FragmentMapping mapping, ColocationGroup target,
-            Long2ObjectOpenHashMap<List<String>> remoteSources) {
+            Long2ObjectMap<List<String>> remoteSources) {
         this.fragmentId = fragmentId;
         this.mapping = mapping;
         this.target = target;
@@ -77,7 +77,7 @@ public class FragmentDescription implements Serializable {
     /**
      * Get remotes.
      */
-    public Long2ObjectOpenHashMap<List<String>> remotes() {
+    public Long2ObjectMap<List<String>> remotes() {
         return remoteSources;
     }
 

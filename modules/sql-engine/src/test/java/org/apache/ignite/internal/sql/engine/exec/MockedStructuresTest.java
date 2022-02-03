@@ -59,7 +59,7 @@ import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -175,11 +175,11 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         TableManager tableManager = mock(TableManager.class);
 
         SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, () -> {});
-        IgniteUuid tblId = new IgniteUuid(UUID.randomUUID(), 0);
+        UUID tblId = UUID.randomUUID();
 
         assertTrue(assertThrows(IgniteInternalException.class, () -> schemaManager.tableById(tblId))
                 .getMessage().contains("Table not found"));
-        Mockito.verify(tableManager).table(any(IgniteUuid.class));
+        Mockito.verify(tableManager).table(any(UUID.class));
 
         TableImpl tbl = mock(TableImpl.class);
         SchemaDescriptor schDesc = mock(SchemaDescriptor.class);
@@ -200,7 +200,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         schemaManager.onTableCreated("TEST_SCHEMA", tbl);
 
         schemaManager.tableById(tblId);
-        Mockito.verify(tableManager, never()).table(any(IgniteUuid.class));
+        Mockito.verify(tableManager, never()).table(any(UUID.class));
     }
 
     /**

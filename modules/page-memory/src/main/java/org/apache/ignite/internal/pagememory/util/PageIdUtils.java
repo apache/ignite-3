@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.util;
 
+import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.util.IgniteUtils;
 

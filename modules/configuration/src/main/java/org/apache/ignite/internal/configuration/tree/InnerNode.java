@@ -38,15 +38,6 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     private UUID internalId;
 
     /**
-     * Generates new internal id for the node.
-     *
-     * @return Generated internal id.
-     */
-    public UUID generateInternalId() {
-        return internalId = UUID.randomUUID();
-    }
-
-    /**
      * Returns internal id of the node.
      *
      * @return Internal id of the node.

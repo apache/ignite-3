@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
+import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -28,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.handler.requests.sql.JdbcMetadataCatalog;
+import org.apache.ignite.client.handler.requests.sql.JdbcQueryCursor;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
@@ -93,7 +95,12 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         List<SqlCursor<List<?>>> cursors;
         try {
-            cursors = processor.query(req.schemaName(), req.sqlQuery(), req.arguments() == null ? new Object[0] : req.arguments());
+            List<SqlCursor<List<?>>> queryCursors = processor.query(req.schemaName(), req.sqlQuery(),
+                    req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments());
+
+            cursors = queryCursors.stream()
+                    .map(cursor -> new JdbcQueryCursor<>(req.maxRows(), cursor))
+                    .collect(Collectors.toList());
         } catch (Exception e) {
             StringWriter sw = getWriterWithStackTrace(e);
 

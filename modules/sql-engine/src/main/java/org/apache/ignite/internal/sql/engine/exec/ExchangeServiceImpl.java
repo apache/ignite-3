@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -262,7 +263,7 @@ public class ExchangeServiceImpl implements ExchangeService {
                         fragmentId,
                         null,
                         null,
-                        null),
+                        Long2ObjectMaps.emptyMap()),
                 null,
                 Map.of());
     }

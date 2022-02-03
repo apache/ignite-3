@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.table;
 
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,7 +33,6 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -46,7 +46,7 @@ import org.jetbrains.annotations.Nullable;
  * Client table API implementation.
  */
 public class ClientTable implements Table {
-    private final IgniteUuid id;
+    private final UUID id;
 
     private final String name;
 
@@ -65,7 +65,7 @@ public class ClientTable implements Table {
      * @param id   Table id.
      * @param name Table name.
      */
-    public ClientTable(ReliableChannel ch, IgniteUuid id, String name) {
+    public ClientTable(ReliableChannel ch, UUID id, String name) {
         assert ch != null;
         assert id != null;
         assert name != null && !name.isEmpty();
@@ -80,7 +80,7 @@ public class ClientTable implements Table {
      *
      * @return Table id.
      */
-    public IgniteUuid tableId() {
+    public UUID tableId() {
         return id;
     }
 
@@ -138,7 +138,7 @@ public class ClientTable implements Table {
 
     private CompletableFuture<ClientSchema> loadSchema(Integer ver) {
         return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
-            w.out().packIgniteUuid(id);
+            w.out().packUuid(id);
 
             if (ver == null) {
                 w.out().packNil();

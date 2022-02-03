@@ -39,7 +39,7 @@ public class CreateIndexCommand implements DdlCommand {
     /** Quietly ignore this command if index already exists. */
     private boolean ifIdxNotExists;
 
-    /** Colunms covered with ordering. */
+    /** Columns covered with ordering. */
     List<Pair<String, Boolean>> cols;
 
     /** Return idx name. */

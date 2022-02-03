@@ -60,10 +60,27 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
                 )
                 .build();
 
+        TableDefinition schTbl2 = SchemaBuilders.tableBuilder("PUBLIC", "TEST_ONE_COL_IDX")
+                .columns(
+                        SchemaBuilders.column("PK", ColumnType.INT32).build(),
+                        SchemaBuilders.column("COL0", ColumnType.INT32).asNullable(true).build()
+                )
+                .withPrimaryKey("PK")
+                .withIndex(
+                        SchemaBuilders.sortedIndex("IDX")
+                                .addIndexColumn("COL0").desc().done()
+                                .build()
+                )
+                .build();
+
         Table table = CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl1, tblCh)
                         .changeReplicas(2)
                         .changePartitions(10)
+        );
+
+        Table tblOneColIdx = CLUSTER_NODES.get(0).tables().createTable(schTbl2.canonicalName(), tblCh ->
+                SchemaConfigurationConverter.convert(schTbl2, tblCh)
         );
 
         RecordView<Tuple> view = table.recordView();
@@ -76,6 +93,16 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
                             .set("GRP1", i / 100)
                             .set("VAL0", 1)
                             .set("VAL1", 2)
+            );
+        }
+
+        RecordView<Tuple> view1 = tblOneColIdx.recordView();
+        for (int i = 0; i < ROWS; i++) {
+            view1.insert(
+                    null,
+                    Tuple.create()
+                            .set("PK", i)
+                            .set("COL0", i)
             );
         }
     }
@@ -97,5 +124,12 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
 
             assertEquals(s0 * 2, (int) s1);
         });
+    }
+
+    @Test
+    public void correctCollationsOnMapReduceSortAgg() {
+        List<List<?>> cursors = sql("SELECT PK FROM TEST_ONE_COL_IDX WHERE col0 IN (SELECT col0 FROM TEST_ONE_COL_IDX)");
+
+        assertEquals(ROWS, cursors.size());
     }
 }

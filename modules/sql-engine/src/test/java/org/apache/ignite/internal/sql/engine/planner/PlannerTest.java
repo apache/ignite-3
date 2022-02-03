@@ -727,8 +727,8 @@ public class PlannerTest extends AbstractPlannerTest {
             assertNotNull(phys);
             assertEquals(
                     "IgniteProject(DEPTNO=[$3], DEPTNO0=[$2])\n"
-                            + "  IgniteCorrelatedNestedLoopJoin(condition=[=(CAST(+($3, $2)):INTEGER, 2)], "
-                            + "joinType=[inner], correlationVariables=[[$cor2]])\n"
+                            + "  IgniteCorrelatedNestedLoopJoin(condition=[=(CAST(+($3, $2)):INTEGER, 2)], joinType=[inner], "
+                            + "correlationVariables=[[$cor2]])\n"
                             + "    IgniteTableScan(table=[[PUBLIC, EMP]])\n"
                             + "    IgniteTableScan(table=[[PUBLIC, DEPT]], filters=[=(CAST(+($t0, $cor2.DEPTNO)):INTEGER, 2)])\n",
                     RelOptUtil.toString(phys),
@@ -824,6 +824,37 @@ public class PlannerTest extends AbstractPlannerTest {
 
             checkSplitAndSerialization(phys, publicSchema);
         }
+    }
+
+    @Test
+    public void correctPlanningWithOrToUnion() throws Exception {
+        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+
+        TestTable tab0 = new TestTable(
+                new RelDataTypeFactory.Builder(f)
+                        .add("PK", f.createJavaType(Integer.class))
+                        .add("COL0", f.createJavaType(Integer.class))
+                        .add("COL1", f.createJavaType(Float.class))
+                        .add("COL2", f.createJavaType(String.class))
+                        .add("COL3", f.createJavaType(Integer.class))
+                        .add("COL4", f.createJavaType(Float.class))
+                        .build()) {
+
+            @Override public IgniteDistribution distribution() {
+                return IgniteDistributions.affinity(0, "tab0", "hash");
+            }
+        };
+
+        String sql = "SELECT pk FROM tab0 WHERE (((((col4 < 341.32))) AND col3 IN (SELECT col0 FROM tab0 WHERE ((col0 > 564) "
+                + "AND col0 >= 344 AND (col0 IN (574) AND col0 > 600 AND ((col1 >= 568.71) AND col3 = 114 AND (col3 < 869))))) "
+                + "OR col4 >= 811.8)) ORDER BY 1 DESC";
+
+        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
+
+        publicSchema.addTable("TAB0", tab0);
+
+        // just check for planning completeness for finite time.
+        assertPlan(sql, publicSchema, (k) -> true);
     }
 
     /**

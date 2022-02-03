@@ -74,7 +74,7 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
      * @param tbl             Table definition.
      * @param proj            Projects.
      * @param cond            Filters.
-     * @param requiredColunms Participating colunms.
+     * @param requiredColumns Participating columns.
      */
     public IgniteTableScan(
             RelOptCluster cluster,
@@ -82,9 +82,9 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
             RelOptTable tbl,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColunms
+            @Nullable ImmutableBitSet requiredColumns
     ) {
-        this(-1L, cluster, traits, tbl, proj, cond, requiredColunms);
+        this(-1L, cluster, traits, tbl, proj, cond, requiredColumns);
     }
 
     /**
@@ -95,7 +95,7 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
      * @param tbl             Table definition.
      * @param proj            Projects.
      * @param cond            Filters.
-     * @param requiredColunms Participating colunms.
+     * @param requiredColumns Participating columns.
      */
     public IgniteTableScan(
             long sourceId,
@@ -104,9 +104,9 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
             RelOptTable tbl,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColunms
+            @Nullable ImmutableBitSet requiredColumns
     ) {
-        super(cluster, traits, List.of(), tbl, proj, cond, requiredColunms);
+        super(cluster, traits, List.of(), tbl, proj, cond, requiredColumns);
         this.sourceId = sourceId;
     }
 
