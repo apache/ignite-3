@@ -30,12 +30,11 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.idx.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
-import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
@@ -51,10 +50,10 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
 
     private final IndexRow idxRow;
 
-    private final SortedIndexDescriptor desc;
+    private final SortedIndexStorageDescriptor desc;
 
     IndexRowWrapper(SortedIndexStorage storage, IndexRow idxRow, Tuple row) {
-        this.desc = storage.indexDescriptor();
+        this.desc = (SortedIndexStorageDescriptor) storage.indexDescriptor();
         this.idxRow = idxRow;
         this.row = row;
     }
@@ -67,7 +66,7 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
 
         Tuple row = Tuple.create();
 
-        indexStorage.indexDescriptor().columns().stream()
+        ((SortedIndexStorageDescriptor) indexStorage.indexDescriptor()).indexColumns().stream()
                 .map(SortedIndexColumnDescriptor::column)
                 .forEach(column -> row.set(column.name(), generateRandomValue(random, column.type())));
 
@@ -107,7 +106,7 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
             int compare = comparator.compare(row.value(i), o.row.value(i));
 
             if (compare != 0) {
-                boolean asc = desc.columns().get(i).asc();
+                boolean asc = desc.indexColumns().get(i).asc();
 
                 return asc ? compare : -compare;
             }

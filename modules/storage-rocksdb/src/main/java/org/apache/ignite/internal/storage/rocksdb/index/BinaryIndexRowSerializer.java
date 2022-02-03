@@ -22,15 +22,14 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.index.IndexRow;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 
 /**
  * {@link IndexRowDeserializer} implementation that uses {@link BinaryRow} infrastructure for deserialization purposes.
  */
 class BinaryIndexRowSerializer implements IndexRowSerializer, IndexRowDeserializer {
-    private final SortedIndexDescriptor descriptor;
+    private final SortedIndexStorageDescriptor descriptor;
 
-    BinaryIndexRowSerializer(SortedIndexDescriptor descriptor) {
+    BinaryIndexRowSerializer(SortedIndexStorageDescriptor descriptor) {
         this.descriptor = descriptor;
     }
 

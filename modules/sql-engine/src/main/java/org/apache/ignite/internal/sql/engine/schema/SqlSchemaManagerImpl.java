@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntLists;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.rel.RelFieldCollation;
+import org.apache.calcite.rel.RelFieldCollation.Direction;
+import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
@@ -35,7 +37,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.sql.engine.extension.SqlExtension.ExternalCatalog;
 import org.apache.ignite.internal.sql.engine.extension.SqlExtension.ExternalSchema;
-import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -252,13 +253,17 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * columns mapping should be masted on column ID instead of column name.
      */
     private IgniteIndex createIndex(InternalSortedIndex idx, InternalIgniteTable tbl) {
-        IntArrayList cols = IntArrayList.toList(
-                idx.columns().stream()
-                        .mapToInt(c -> tbl.descriptor().columnDescriptor(c.name()).logicalIndex())
-        );
+        List<RelFieldCollation> idxFieldsCollation = idx.descriptor().columns().stream()
+                .map(c ->
+                        new RelFieldCollation(
+                                tbl.descriptor().columnDescriptor(c.column().name()).logicalIndex(),
+                                c.asc() ? Direction.ASCENDING : Direction.DESCENDING,
+                                NullDirection.FIRST
+                        )
+                ).collect(Collectors.toList());
 
         return new IgniteIndex(
-                TraitUtils.createCollation(IntLists.unmodifiable(cols)),
+                RelCollations.of(idxFieldsCollation),
                 idx,
                 tbl
         );

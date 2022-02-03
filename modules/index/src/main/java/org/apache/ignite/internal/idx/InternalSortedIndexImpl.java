@@ -31,8 +31,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
-import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.table.StorageRowListener;
 import org.apache.ignite.internal.table.TableImpl;
@@ -81,10 +79,8 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
 
     /** {@inheritDoc} */
     @Override
-    public List<Column> columns() {
-        return store.indexDescriptor().columns().stream()
-                .map(SortedIndexColumnDescriptor::column)
-                .collect(Collectors.toList());
+    public SortedIndexDescriptor descriptor() {
+        return desc;
     }
 
     /** {@inheritDoc} */
@@ -98,7 +94,8 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
         );
 
         List<String> tblColIds = new ArrayList<>(tbl.schemaView().schema().columnNames());
-        Set<String> idxColIds = columns().stream().map(Column::name).collect(Collectors.toSet());
+        Set<String> idxColIds = desc.columns().stream().map(SortedIndexColumnDescriptor::column).map(Column::name)
+                .collect(Collectors.toSet());
 
         boolean needLookup = proj.stream().anyMatch(order -> !idxColIds.contains(tblColIds.get(order)));
 

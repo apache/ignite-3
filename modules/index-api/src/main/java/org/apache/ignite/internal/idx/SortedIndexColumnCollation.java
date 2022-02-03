@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.index;
+package org.apache.ignite.internal.idx;
 
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;

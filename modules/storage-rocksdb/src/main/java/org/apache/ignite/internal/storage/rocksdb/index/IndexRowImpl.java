@@ -22,7 +22,6 @@ import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.index.IndexRow;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 
 /**
  * {@link IndexRow} implementation.
@@ -32,14 +31,14 @@ class IndexRowImpl implements IndexRow {
 
     private final byte[] valBytes;
 
-    private final SortedIndexDescriptor desc;
+    private final SortedIndexStorageDescriptor desc;
 
     /**
      * Creates index row by index data schema over the bytes.
      *
      * @param desc   Index descriptor.
      */
-    IndexRowImpl(byte[] keyBytes, byte[] valBytes, SortedIndexDescriptor desc) {
+    IndexRowImpl(byte[] keyBytes, byte[] valBytes, SortedIndexStorageDescriptor desc) {
         this.desc = desc;
 
         keyRow = new Row(desc.schema(), new ByteBufferRow(keyBytes));
@@ -49,7 +48,7 @@ class IndexRowImpl implements IndexRow {
     /** {@inheritDoc} */
     @Override
     public Object value(int idxColOrder) {
-        Column c = desc.columns().get(idxColOrder).column();
+        Column c = desc.indexColumns().get(idxColOrder).column();
 
         switch (c.type().spec()) {
             case INT8:

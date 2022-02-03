@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.idx;
 
 import java.util.BitSet;
-import java.util.List;
-import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.Tuple;
@@ -55,14 +53,9 @@ public interface InternalSortedIndex {
     IgniteUuid tableId();
 
     /**
-     * Return indexed columns.
-     *
-     * <b>Attention</b>: Column orders and schema index of these columns has no relation to table columns.
-     * It describes only index schema.
-     *
-     * @return Index's columns.
+     * Return index descriptor.
      */
-    List<Column> columns();
+    SortedIndexDescriptor descriptor();
 
     /**
      * Return rows between lower and upper bounds. Fill results rows by fields specified at the projection set.

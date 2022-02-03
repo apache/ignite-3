@@ -50,6 +50,8 @@ import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSch
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.idx.SortedIndexColumnDescriptor;
+import org.apache.ignite.internal.idx.SortedIndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
@@ -58,8 +60,6 @@ import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
-import org.apache.ignite.internal.storage.index.SortedIndexColumnDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.testframework.VariableSource;
@@ -150,7 +150,7 @@ public class RocksDbSortedIndexStorageTest {
      */
     @Nullable
     private static IndexRow getSingle(SortedIndexStorage indexStorage, IndexRowWrapper entry) throws Exception {
-        IndexRowPrefix fullPrefix = entry.prefix(indexStorage.indexDescriptor().columns().size());
+        IndexRowPrefix fullPrefix = entry.prefix(((SortedIndexStorageDescriptor) indexStorage.indexDescriptor()).indexColumns().size());
 
         List<IndexRow> values = cursorToList(indexStorage.range(fullPrefix, fullPrefix, r -> true));
 
@@ -230,18 +230,18 @@ public class RocksDbSortedIndexStorageTest {
         SortedIndexStorage indexStorage = createIndex(ALL_TYPES_COLUMN_DEFINITIONS);
 
         Tuple tuple = Tuple.create();
-        indexStorage.indexDescriptor().columns().stream()
+        ((SortedIndexStorageDescriptor) indexStorage.indexDescriptor()).indexColumns().stream()
                 .sequential()
                 .map(SortedIndexColumnDescriptor::column)
                 .forEach(column -> tuple.set(column.name(), generateRandomValue(random, column.type())));
 
-        BinaryIndexRowSerializer ser = new BinaryIndexRowSerializer(indexStorage.indexDescriptor());
+        BinaryIndexRowSerializer ser = new BinaryIndexRowSerializer((SortedIndexStorageDescriptor) indexStorage.indexDescriptor());
 
         IndexBinaryRow binRow = ser.serialize(new TestIndexRow(tuple, new ByteBufferRow(new byte[]{(byte) 0}), 0));
 
         IndexRow idxRow = ser.deserialize(binRow);
 
-        for (int i = 0; i < indexStorage.indexDescriptor().columns().size(); ++i) {
+        for (int i = 0; i < ((SortedIndexStorageDescriptor) indexStorage.indexDescriptor()).indexColumns().size(); ++i) {
             assertThat(tuple.value(i), is(equalTo(idxRow.value(i))));
         }
     }
@@ -329,7 +329,7 @@ public class RocksDbSortedIndexStorageTest {
         indexStorage.put(entry1.row());
         indexStorage.put(entry2.row());
 
-        int colCount = indexStorage.indexDescriptor().columns().size();
+        int colCount = ((SortedIndexStorageDescriptor) indexStorage.indexDescriptor()).indexColumns().size();
 
         List<IndexRow> actual = cursorToList(indexStorage.range(entry2.prefix(colCount), entry1.prefix(colCount), r -> true));
 
@@ -406,6 +406,8 @@ public class RocksDbSortedIndexStorageTest {
             cols.add(new SortedIndexColumnDescriptor(col, random.nextBoolean()));
         }
 
-        return tableStorage.createSortedIndex(new SortedIndexDescriptor("foo", cols, new Column[] {cols.get(0).column()}));
+        return tableStorage.createSortedIndex(
+                new SortedIndexDescriptor("foo", cols, new Column[] {cols.get(0).column()})
+        );
     }
 }

@@ -34,15 +34,16 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.internal.idx.SortedIndexDescriptor;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.TableStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.BinaryRowComparator;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
+import org.apache.ignite.internal.storage.rocksdb.index.SortedIndexStorageDescriptor;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.NotNull;
@@ -290,12 +291,13 @@ class RocksDbTableStorage implements TableStorage {
     public SortedIndexStorage createSortedIndex(SortedIndexDescriptor desc) {
         assert !stopped : "Storage has been stopped";
 
+        SortedIndexStorageDescriptor idxStoreDesc = new SortedIndexStorageDescriptor(desc);
         return sortedIndices.computeIfAbsent(desc.name(), name -> {
-            ColumnFamilyDescriptor cfDescriptor = sortedIndexCfDescriptor(desc);
+            ColumnFamilyDescriptor cfDescriptor = sortedIndexCfDescriptor(idxStoreDesc);
 
             ColumnFamily cf = createColumnFamily(sortedIndexCfName(name), cfDescriptor);
 
-            return new RocksDbSortedIndexStorage(cf, desc);
+            return new RocksDbSortedIndexStorage(cf, idxStoreDesc);
         });
     }
 
@@ -411,7 +413,7 @@ class RocksDbTableStorage implements TableStorage {
     /**
      * Creates a Column Family descriptor for a Sorted Index.
      */
-    private static ColumnFamilyDescriptor sortedIndexCfDescriptor(SortedIndexDescriptor descriptor) {
+    private static ColumnFamilyDescriptor sortedIndexCfDescriptor(SortedIndexStorageDescriptor descriptor) {
         String cfName = sortedIndexCfName(descriptor.name());
 
         ColumnFamilyOptions options = new ColumnFamilyOptions().setComparator(new BinaryRowComparator(descriptor));
