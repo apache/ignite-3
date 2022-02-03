@@ -412,8 +412,9 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
         assert isPow2(BUCKETS);
         assert BUCKETS <= pageSize : pageSize;
 
-        // TODO this constant is used because currently we cannot reuse data pages as index pages
-        // TODO and vice-versa. It should be removed when data storage format is finalized.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-16350
+        // TODO: this constant is used because currently we cannot reuse data pages as index pages
+        // TODO: and vice-versa. It should be removed when data storage format is finalized.
         minSizeForDataPage = pageSize - AbstractDataPageIo.MIN_DATA_PAGE_OVERHEAD;
 
         int shift = 0;

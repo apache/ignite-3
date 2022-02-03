@@ -30,7 +30,8 @@ import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
  * Pages list node IO.
- * TODO optimize: now we have slow {@link #removePage(long, long)}.
+ *
+ * <p>TODO: https://issues.apache.org/jira/browse/IGNITE-16350 optimize: now we have slow {@link #removePage(long, long)}.
  */
 public class PagesListNodeIo extends PageIo {
     /** I/O versions. */

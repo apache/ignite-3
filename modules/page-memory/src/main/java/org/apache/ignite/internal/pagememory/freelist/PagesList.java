@@ -1077,7 +1077,9 @@ public abstract class PagesList extends DataStructure {
         long prevId = pageId;
         long prevAddr = pageAddr;
 
-        IgniteLongList locked = null; // TODO may be unlock right away and do not keep all these pages locked?
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-16350
+        // TODO: may be unlock right away and do not keep all these pages locked?
+        IgniteLongList locked = null;
 
         try {
             while ((nextId = bag.pollFreePage()) != 0L) {
@@ -1897,6 +1899,7 @@ public abstract class PagesList extends DataStructure {
     /**
      * Class to store page-list cache onheap.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-16350
     public static class PagesCache {
         /** Pages cache maximum size. */
         public static final String IGNITE_PAGES_LIST_CACHING_MAX_CACHE_SIZE = "IGNITE_PAGES_LIST_CACHING_MAX_CACHE_SIZE";

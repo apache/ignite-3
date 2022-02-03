@@ -49,6 +49,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public abstract class DataStructure {
     /** For tests. */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-16350
     public static Random rnd;
 
     /** Structure name. */

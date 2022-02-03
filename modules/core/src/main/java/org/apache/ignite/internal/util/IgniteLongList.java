@@ -32,6 +32,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Minimal list API to work with primitive longs. This list exists to avoid boxing/unboxing when using standard list from Java.
  */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-16453
 public class IgniteLongList implements Externalizable {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;

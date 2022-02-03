@@ -15,4 +15,3 @@
 # limitations under the License.
 #
 org.apache.ignite.internal.pagememory.TestPageIoModule
-org.apache.ignite.internal.pagememory.PageMemoryIoModule

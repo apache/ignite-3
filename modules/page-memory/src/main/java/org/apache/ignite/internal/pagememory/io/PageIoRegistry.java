@@ -28,58 +28,36 @@ public class PageIoRegistry {
     /**
      * Arrays of {@link IoVersions} for fast access. Element 0 is reserved.
      */
-    private final IoVersions<?>[] ioVersions = new IoVersions[PageIo.MAX_IO_TYPE + 1];
+    protected final IoVersions<?>[] ioVersions = new IoVersions[PageIo.MAX_IO_TYPE + 1];
 
     /**
      * Loads all {@link IoVersions} from a {@link PageIoModule} using the {@link ServiceLoader} mechanism.
      *
-     * @return {@code this} for code chaining.
-     * @throws IllegalStateException If there's an invalid page type or several {@link IoVersions} instances for the same type.
+     * @throws IllegalStateException If there's an invalid page type or several different {@link IoVersions} instances for the same type.
      */
-    public PageIoRegistry loadAllFromServiceLoader() {
+    public void loadFromServiceLoader() {
         ServiceLoader<PageIoModule> serviceLoader = ServiceLoader.load(PageIoModule.class);
 
         for (PageIoModule pageIoModule : serviceLoader) {
-            for (IoVersions<?> ioVersions : pageIoModule.ioVersions()) {
-                load(ioVersions);
+            for (IoVersions<?> ios : pageIoModule.ioVersions()) {
+                if (ios.getType() == 0) {
+                    throw new IllegalStateException("Type 0 is reserved and can't be used: " + ios);
+                }
+
+                if (ioVersions[ios.getType()] != null && !ioVersions[ios.getType()].equals(ios)) {
+                    throw new IllegalStateException("Duplicated IOVersions found: " + ios);
+                }
+
+                ioVersions[ios.getType()] = ios;
             }
         }
-
-        return this;
-    }
-
-    /**
-     * Loads {@link IoVersions}'s.
-     *
-     * @return {@code this} for code chaining.
-     * @throws IllegalStateException If there's an invalid page type or several {@link IoVersions} instances for the same type.
-     */
-    public PageIoRegistry load(IoVersions<?>... versions) {
-        for (IoVersions<?> ioVersions : versions) {
-            load(ioVersions);
-        }
-
-        return this;
-    }
-
-    private PageIoRegistry load(IoVersions<?> ioVersions) {
-        if (ioVersions.getType() == 0) {
-            throw new IllegalStateException("Type 0 is reserved and can't be used: " + ioVersions);
-        }
-
-        if (this.ioVersions[ioVersions.getType()] != null && !this.ioVersions[ioVersions.getType()].equals(ioVersions)) {
-            throw new IllegalStateException("Duplicated IOVersions found: " + ioVersions);
-        }
-
-        this.ioVersions[ioVersions.getType()] = ioVersions;
-
-        return this;
     }
 
     /**
      * Returns resolved {@link PageIo} by the {@link ByteBuffer} that contains the page.
      *
      * @param pageBuf Byte buffer with page content.
+     * @return Resolved page IO instance.
      * @throws IgniteInternalCheckedException If page type or version are invalid or not registered.
      */
     public <V extends PageIo> V resolve(ByteBuffer pageBuf) throws IgniteInternalCheckedException {
@@ -90,6 +68,7 @@ public class PageIoRegistry {
      * Returns resolved {@link PageIo} by the page address.
      *
      * @param pageAddr Memory address pointing to the page content.
+     * @return Resolved page IO instance.
      * @throws IgniteInternalCheckedException If page type or version are invalid or not registered.
      */
     public final <V extends PageIo> V resolve(long pageAddr) throws IgniteInternalCheckedException {
@@ -100,7 +79,8 @@ public class PageIoRegistry {
      * Returns resolved {@link PageIo} by the type and the version.
      *
      * @param type Page IO type.
-     * @param ver Page IO version.
+     * @param ver  Page IO version.
+     * @return Resolved page IO instance.
      * @throws IgniteInternalCheckedException If page type or version are invalid or not registered.
      */
     public <V extends PageIo> V resolve(int type, int ver) throws IgniteInternalCheckedException {

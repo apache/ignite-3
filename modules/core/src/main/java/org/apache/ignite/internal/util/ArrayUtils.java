@@ -178,17 +178,11 @@ public final class ArrayUtils {
     };
 
     /**
-     * Stub.
-     */
-    private ArrayUtils() {
-        // No op.
-    }
-
-    /**
      * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      *
      * @param arr Array to check.
      * @param <T> Array element type.
+     * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
     public static <T> boolean nullOrEmpty(T[] arr) {
         return arr == null || arr.length == 0;
@@ -198,6 +192,7 @@ public final class ArrayUtils {
      * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      *
      * @param arr Array to check.
+     * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
     public static boolean nullOrEmpty(byte[] arr) {
         return arr == null || arr.length == 0;
@@ -207,6 +202,7 @@ public final class ArrayUtils {
      * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      *
      * @param arr Array to check.
+     * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
     public static boolean nullOrEmpty(short[] arr) {
         return arr == null || arr.length == 0;
@@ -216,6 +212,7 @@ public final class ArrayUtils {
      * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      *
      * @param arr Array to check.
+     * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
     public static boolean nullOrEmpty(int[] arr) {
         return arr == null || arr.length == 0;
@@ -225,6 +222,7 @@ public final class ArrayUtils {
      * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      *
      * @param arr Array to check.
+     * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
     public static boolean nullOrEmpty(long[] arr) {
         return arr == null || arr.length == 0;
@@ -234,6 +232,7 @@ public final class ArrayUtils {
      * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      *
      * @param arr Array to check.
+     * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
     public static boolean nullOrEmpty(float[] arr) {
         return arr == null || arr.length == 0;
@@ -243,6 +242,7 @@ public final class ArrayUtils {
      * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      *
      * @param arr Array to check.
+     * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
     public static boolean nullOrEmpty(double[] arr) {
         return arr == null || arr.length == 0;
@@ -252,6 +252,7 @@ public final class ArrayUtils {
      * Returns {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      *
      * @param arr Array to check.
+     * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
     public static boolean nullOrEmpty(boolean[] arr) {
         return arr == null || arr.length == 0;
@@ -335,6 +336,7 @@ public final class ArrayUtils {
             return Arrays.copyOfRange(arr, 1, len);
         }
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-16451
         T[] res = (T[]) Array.newInstance(arr.getClass().getComponentType(), len - 1);
 
         System.arraycopy(arr, 0, res, 0, idx);
@@ -363,6 +365,7 @@ public final class ArrayUtils {
             return Arrays.copyOfRange(arr, 1, len);
         }
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-16451
         long[] res = new long[len - 1];
 
         System.arraycopy(arr, 0, res, 0, idx);
