@@ -35,6 +35,9 @@ import org.apache.ignite.lang.IgniteStringBuilder;
  * <p>TODO: https://issues.apache.org/jira/browse/IGNITE-16350 optimize: now we have slow {@link #removePage(long, long)}.
  */
 public class PagesListNodeIo extends PageIo {
+    /** Page IO type. */
+    public static final int T_PAGE_LIST_NODE = 2;
+
     /** I/O versions. */
     public static final IoVersions<PagesListNodeIo> VERSIONS = new IoVersions<>(new PagesListNodeIo(1));
 
@@ -52,7 +55,7 @@ public class PagesListNodeIo extends PageIo {
      * @param ver Page format version.
      */
     protected PagesListNodeIo(int ver) {
-        super(13, ver, FLAG_AUX);
+        super(T_PAGE_LIST_NODE, ver, FLAG_AUX);
     }
 
     /** {@inheritDoc} */

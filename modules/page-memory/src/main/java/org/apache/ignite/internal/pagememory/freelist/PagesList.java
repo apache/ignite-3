@@ -22,6 +22,7 @@ import static java.lang.Boolean.TRUE;
 import static java.util.concurrent.atomic.AtomicIntegerFieldUpdater.newUpdater;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
+import static org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo.T_PAGE_LIST_NODE;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.MAX_ITEMID_NUM;
@@ -862,7 +863,7 @@ public abstract class PagesList extends DataStructure {
 
                 assert getPageId(tailAddr) == tailId
                         : "tailId = " + hexLong(tailId) + ", pageId = " + hexLong(getPageId(tailAddr));
-                assert getType(tailAddr) == PagesListNodeIo.VERSIONS.getType()
+                assert getType(tailAddr) == T_PAGE_LIST_NODE
                         : "tailId = " + hexLong(tailId) + ", type = " + getType(tailAddr);
 
                 boolean ok = false;
@@ -1261,7 +1262,7 @@ public abstract class PagesList extends DataStructure {
 
                 assert getPageId(tailAddr) == tailId
                         : "tailId = " + hexLong(tailId) + ", pageId = " + hexLong(getPageId(tailAddr));
-                assert getType(tailAddr) == PagesListNodeIo.VERSIONS.getType()
+                assert getType(tailAddr) == T_PAGE_LIST_NODE
                         : "tailId = " + hexLong(tailId) + ", type = " + getType(tailAddr);
 
                 boolean dirty = false;
@@ -1377,7 +1378,7 @@ public abstract class PagesList extends DataStructure {
         if (initIoVers != null) {
             PageIo pageIo = initIoVers.latest();
 
-            return pageIo.getFlag() == FLAG_DATA ? FLAG_DATA : defaultPageFlag;
+            return pageIo.getFlag();
         }
 
         return defaultPageFlag;

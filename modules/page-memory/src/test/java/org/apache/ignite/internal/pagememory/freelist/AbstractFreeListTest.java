@@ -46,8 +46,8 @@ import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigu
 import org.apache.ignite.configuration.schemas.store.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.pagememory.PageIoRegistryEx;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
@@ -187,7 +187,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
                         .changeMaxSize(MAX_SIZE)
         ).get(1, TimeUnit.SECONDS);
 
-        PageIoRegistryEx ioRegistry = new PageIoRegistryEx();
+        TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 

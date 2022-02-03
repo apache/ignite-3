@@ -25,7 +25,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 /**
  * Extension (for tests) of {@link PageIoRegistry} to be able to add/replace {@link IoVersions} not through {@link #loadFromServiceLoader}.
  */
-public class PageIoRegistryEx extends PageIoRegistry {
+public class TestPageIoRegistry extends PageIoRegistry {
     private boolean loadFromServiceLoaderCalled;
 
     @Override

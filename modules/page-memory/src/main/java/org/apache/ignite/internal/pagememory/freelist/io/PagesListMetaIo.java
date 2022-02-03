@@ -35,6 +35,12 @@ import org.apache.ignite.lang.IgniteStringBuilder;
  * Pages list meta IO.
  */
 public class PagesListMetaIo extends PageIo {
+    /** Page IO type. */
+    public static final int T_PAGE_LIST_META = 1;
+
+    /** I/O versions. */
+    public static final IoVersions<PagesListMetaIo> VERSIONS = new IoVersions<>(new PagesListMetaIo(1));
+
     private static final int CNT_OFF = COMMON_HEADER_END;
 
     private static final int NEXT_META_PAGE_OFF = CNT_OFF + 2;
@@ -43,16 +49,13 @@ public class PagesListMetaIo extends PageIo {
 
     private static final int ITEM_SIZE = 10;
 
-    /** I/O versions. */
-    public static final IoVersions<PagesListMetaIo> VERSIONS = new IoVersions<>(new PagesListMetaIo(1));
-
     /**
      * Constructor.
      *
      * @param ver Page format version.
      */
     private PagesListMetaIo(int ver) {
-        super(12, ver, FLAG_AUX);
+        super(T_PAGE_LIST_META, ver, FLAG_AUX);
     }
 
     /** {@inheritDoc} */
