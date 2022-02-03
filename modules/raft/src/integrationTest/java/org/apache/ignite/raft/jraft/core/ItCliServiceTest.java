@@ -63,6 +63,7 @@ import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -311,8 +312,7 @@ public class ItCliServiceTest {
         }
     }
 
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16091")
+    @RepeatedTest(500)
     public void testChangePeers() throws Exception {
         List<PeerId> newPeers = TestUtils.generatePeers(10);
         newPeers.removeAll(conf.getPeerSet());
