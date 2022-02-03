@@ -112,7 +112,7 @@ public class IndexConditions {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public IntSet keys() {
-        return  keys == null ?  IntSets.EMPTY_SET : keys;
+        return  keys == null ? IntSets.EMPTY_SET : keys;
     }
 
     /**

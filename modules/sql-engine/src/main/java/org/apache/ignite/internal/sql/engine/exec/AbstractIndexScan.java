@@ -87,7 +87,9 @@ public abstract class AbstractIndexScan<RowT, IdxRowT> implements Iterable<RowT>
                 this::indexRow2Row
         );
 
-        it = new FilteringIterator<>(it, filters);
+        if (filters != null) {
+            it = new FilteringIterator<>(it, filters);
+        }
 
         if (rowTransformer != null) {
             it = new TransformingIterator<>(it, rowTransformer);
