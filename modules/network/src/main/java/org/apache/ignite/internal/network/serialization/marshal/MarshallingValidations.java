@@ -51,7 +51,8 @@ class MarshallingValidations {
             case NON_SERIALIZABLE_LAMBDA:
                 throw new MarshallingNotSupportedException("Non-serializable lambda instances are not supported for marshalling: "
                         + object);
-            // fall through
+            default:
+                // do nothing
         }
     }
 
