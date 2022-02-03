@@ -183,7 +183,7 @@ public class MetaStorageManager implements IgniteComponent {
                     .collect(Collectors.toList());
 
             // TODO: This is temporary solution for providing human-readable error when you try to start single-node cluster
-            // without hosting metastorage, this will be rewritten in init phase https://issues.apache.org/jira/browse/IGNITE-14414
+            // without hosting metastorage, this will be rewritten in init phase https://issues.apache.org/jira/browse/IGNITE-14871
             if (metaStorageMembers.isEmpty()) {
                 throw new IgniteException(
                         "Cannot start meta storage manager because there is no node in the cluster that hosts meta storage.");
@@ -191,7 +191,7 @@ public class MetaStorageManager implements IgniteComponent {
 
             // TODO: This is temporary solution. We need to prohibit starting several metastorage nodes
             // as far as we do not have mechanism of changing raft peers when new metastorage node is joining to cluster.
-            // This will be rewritten in init phase https://issues.apache.org/jira/browse/IGNITE-14414
+            // This will be rewritten in init phase https://issues.apache.org/jira/browse/IGNITE-14871
             if (metastorageNodes.length > 1) {
                 throw new IgniteException(
                         "Cannot start meta storage manager because it is not allowed to start several metastorage nodes.");
@@ -230,7 +230,7 @@ public class MetaStorageManager implements IgniteComponent {
             this.metaStorageSvcFut = new CompletableFuture<>();
         }
 
-        // TODO: IGNITE-14414 Cluster initialization flow. Here we should complete metaStorageServiceFuture.
+        // TODO: IGNITE-14871 Cluster initialization flow. Here we should complete metaStorageServiceFuture.
         //        clusterNetSvc.messagingService().addMessageHandler((message, senderAddr, correlationId) -> {});
     }
 
@@ -249,7 +249,7 @@ public class MetaStorageManager implements IgniteComponent {
             // If deployed future is not done, that means that stop was called in the middle of
             // IgniteImpl.start, before deployWatches, or before init phase.
             // It is correct to check completeness of the future because the method calls are guarded by busy lock.
-            // TODO: add busy lock for init method https://issues.apache.org/jira/browse/IGNITE-14414
+            // TODO: add busy lock for init method https://issues.apache.org/jira/browse/IGNITE-14871
             if (deployFut.isDone()) {
                 watchId = deployFut.get();
 
@@ -313,7 +313,7 @@ public class MetaStorageManager implements IgniteComponent {
                 if (metaStorageNodesOnStart) {
                     fut.join();
                 } else {
-                    // TODO: need to wait for this future in init phase https://issues.apache.org/jira/browse/IGNITE-14414
+                    // TODO: need to wait for this future in init phase https://issues.apache.org/jira/browse/IGNITE-14871
                 }
             }
 
@@ -1089,7 +1089,7 @@ public class MetaStorageManager implements IgniteComponent {
     /**
      * Return metastorage nodes.
      *
-     * <p>This code will be deleted after node init phase is developed. https://issues.apache.org/jira/browse/IGNITE-14414
+     * <p>This code will be deleted after node init phase is developed. https://issues.apache.org/jira/browse/IGNITE-14871
      */
     private List<ClusterNode> metastorageNodes() {
         String[] metastorageNodes = this.locCfgMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
