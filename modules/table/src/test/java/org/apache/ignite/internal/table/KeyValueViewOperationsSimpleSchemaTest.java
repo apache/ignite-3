@@ -710,7 +710,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
     private TableImpl createTable(SchemaDescriptor schema) {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().address())
-        .thenReturn(DummyInternalTableImpl.ADDR);
+                .thenReturn(DummyInternalTableImpl.ADDR);
 
         LockManager lockManager = new HeapLockManager();
 
