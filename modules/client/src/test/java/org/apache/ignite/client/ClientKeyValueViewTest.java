@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -126,14 +127,18 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals(1.5f, res.zfloat);
         assertEquals(1.6, res.zdouble);
         assertEquals(localDate, res.zdate);
-        assertEquals(localTime, res.ztime);
-        assertEquals(instant, res.ztimestamp);
+        assertEquals(localTime.withNano(truncateNanosToMicros(localTime.getNano())), res.ztime);
+        assertEquals(instant.with(NANO_OF_SECOND, truncateNanosToMicros(instant.getNano())), res.ztimestamp);
         assertEquals("foo", res.zstring);
         assertArrayEquals(new byte[]{1, 2}, res.zbytes);
         assertEquals(BitSet.valueOf(new byte[]{32}), res.zbitmask);
         assertEquals(21, res.zdecimal.longValue());
         assertEquals(22, res.znumber.longValue());
         assertEquals(uuid, res.zuuid);
+    }
+
+    private int truncateNanosToMicros(int nanos) {
+        return nanos / 1000 * 1000;
     }
 
     @Test
@@ -177,8 +182,8 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals(1.17f, res.floatValue("zfloat"));
         assertEquals(1.18, res.doubleValue("zdouble"));
         assertEquals(localDate, res.dateValue("zdate"));
-        assertEquals(localTime, res.timeValue("ztime"));
-        assertEquals(instant, res.timestampValue("ztimestamp"));
+        assertEquals(localTime.withNano(truncateNanosToMicros(localTime.getNano())), res.timeValue("ztime"));
+        assertEquals(instant.with(NANO_OF_SECOND, truncateNanosToMicros(instant.getNano())), res.timestampValue("ztimestamp"));
         assertEquals("119", res.stringValue("zstring"));
         assertEquals(120, ((byte[]) res.value("zbytes"))[0]);
         assertEquals(BitSet.valueOf(new byte[]{121}), res.bitmaskValue("zbitmask"));
