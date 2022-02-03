@@ -216,6 +216,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
 
     protected static class DefaultValuesPojo
     {
+        public int id;
         public String str;
         public String str_non_null;
     }

@@ -491,16 +491,16 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
     @Test
     public void testNullableColumnWithDefaultValueSetNullReturnsNull() {
-        // TODO
         Table table = tableWithDefaultValues();
         RecordView<Tuple> recordView = table.recordView();
-        KeyValueView<Integer, DefaultValuesPojo> pojoView = table.keyValueView(Integer.class, DefaultValuesPojo.class);
+        RecordView<DefaultValuesPojo> pojoView = table.recordView(DefaultValuesPojo.class);
 
         var pojo = new DefaultValuesPojo();
+        pojo.id = 1;
         pojo.str = null;
         pojo.str_non_null = "s";
 
-        pojoView.put(null, 1, pojo);
+        pojoView.upsert(null, pojo);
 
         var res = recordView.get(null, tupleKey(1));
 
@@ -509,14 +509,14 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
     @Test
     public void testNonNullableColumnWithDefaultValueSetNullThrowsException() {
-        // TODO
         Table table = tableWithDefaultValues();
-        KeyValueView<Integer, DefaultValuesPojo> pojoView = table.keyValueView(Integer.class, DefaultValuesPojo.class);
+        RecordView<DefaultValuesPojo> pojoView = table.recordView(DefaultValuesPojo.class);
 
         var pojo = new DefaultValuesPojo();
+        pojo.id = 1;
         pojo.str_non_null = null;
 
-        var ex = assertThrows(IgniteClientException.class, () -> pojoView.put(null, 1, pojo));
+        var ex = assertThrows(IgniteClientException.class, () -> pojoView.upsert(null, pojo));
 
         assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
     }
