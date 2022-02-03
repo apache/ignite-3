@@ -315,7 +315,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         }
 
         int keyOffset = Math.max(schemaDescriptor.keyColumns().firstVarlengthColumn(), 0);
-        int valOffset = Math.max(schemaDescriptor.keyColumns().firstVarlengthColumn() + schemaDescriptor.valueColumns().firstVarlengthColumn(), 0);
+        int valOffset = Math.max(keyOffset + schemaDescriptor.valueColumns().firstVarlengthColumn(), 0);
         int nonNullVarlenKeyCols = countNotNullColumns(keyOffset, true, columnToIndex, hnd, row);
         int nonNullVarlenValCols = countNotNullColumns(valOffset, false, columnToIndex, hnd, row);
 
