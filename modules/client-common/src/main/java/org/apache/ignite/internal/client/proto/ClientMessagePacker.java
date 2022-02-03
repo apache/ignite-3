@@ -34,7 +34,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteUuid;
 
 /**
  * ByteBuf-based MsgPack implementation. Replaces {@link org.msgpack.core.MessagePacker} to avoid
@@ -497,32 +496,6 @@ public class ClientMessagePacker implements AutoCloseable {
 
         buf.writeLong(val.getMostSignificantBits());
         buf.writeLong(val.getLeastSignificantBits());
-    }
-
-    /**
-     * Writes an {@link IgniteUuid}.
-     *
-     * @param val {@link IgniteUuid} value.
-     */
-    public void packIgniteUuid(IgniteUuid val) {
-        assert !closed : "Packer is closed";
-
-        buf.writeByte(Code.EXT8);
-
-        // Reserve space for varint payload length.
-        int payloadLenPos = buf.writerIndex();
-        buf.writeByte(0);
-
-        buf.writeByte(ClientMsgPackType.IGNITE_UUID);
-
-        UUID globalId = val.globalId();
-        buf.writeLong(globalId.getMostSignificantBits());
-        buf.writeLong(globalId.getLeastSignificantBits());
-
-        packLong(val.localId());
-
-        int payloadLen = buf.writerIndex() - payloadLenPos - 2;
-        buf.setByte(payloadLenPos, payloadLen);
     }
 
     /**

@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
@@ -30,7 +31,6 @@ import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,7 +42,7 @@ public class FakeInternalTable implements InternalTable {
     private final String tableName;
 
     /** Table ID. */
-    private final IgniteUuid tableId;
+    private final UUID tableId;
 
     /** Table data. */
     private final ConcurrentHashMap<ByteBuffer, BinaryRow> data = new ConcurrentHashMap<>();
@@ -53,7 +53,7 @@ public class FakeInternalTable implements InternalTable {
      * @param tableName Name.
      * @param tableId   Id.
      */
-    public FakeInternalTable(String tableName, IgniteUuid tableId) {
+    public FakeInternalTable(String tableName, UUID tableId) {
         this.tableName = tableName;
         this.tableId = tableId;
     }
@@ -72,7 +72,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull IgniteUuid tableId() {
+    public @NotNull UUID tableId() {
         return tableId;
     }
 
