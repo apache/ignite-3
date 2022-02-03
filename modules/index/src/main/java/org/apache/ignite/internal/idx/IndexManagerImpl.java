@@ -28,7 +28,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
@@ -43,7 +42,6 @@ import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.idx.event.IndexEvent;
 import org.apache.ignite.internal.idx.event.IndexEventParameters;
 import org.apache.ignite.internal.manager.AbstractProducer;
@@ -190,7 +188,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
         ExtendedTableConfiguration tblCfg = ctx.config(TableConfiguration.class);
 
-        TableImpl tbl = tblMgr.table(((ExtendedTableView) ctx.newValue()).id());
+        TableImpl tbl = tblMgr.table(tblCfg.id().value());
 
         createIndexLocally(tbl, (SortedIndexView) ctx.newValue());
     }
@@ -475,10 +473,10 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
     private void createIndexLocally(TableImpl tbl, SortedIndexView idxView) {
         SchemaDescriptor tblSchema = tbl.schemaView().schema();
 
-        Map<String, Column> cols = Stream.concat(
-                Arrays.stream(tblSchema.keyColumns().columns()),
-                Arrays.stream(tblSchema.valueColumns().columns())
-        ).collect(Collectors.toMap(Column::name, Function.identity()));
+        //        Map<String, Column> cols = Stream.concat(
+        //                Arrays.stream(tblSchema.keyColumns().columns()),
+        //                Arrays.stream(tblSchema.valueColumns().columns())
+        //        ).collect(Collectors.toMap(Column::name, Function.identity()));
 
         List<SortedIndexColumnDescriptor> idxCols = Stream.concat(
                         idxView.columns().namedListKeys().stream(),
@@ -489,7 +487,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                 .map(colName -> {
                     IndexColumnView idxCol = idxView.columns().get(colName);
                     return new SortedIndexColumnDescriptor(
-                            cols.get(colName),
+                            tblSchema.column(colName),
                             new SortedIndexColumnCollation(idxCol == null || idxCol.asc()));
                 })
                 .collect(Collectors.toList());
