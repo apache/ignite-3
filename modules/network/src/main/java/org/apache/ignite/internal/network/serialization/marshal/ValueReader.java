@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import java.io.IOException;
-import org.apache.ignite.internal.util.io.GridDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
 
 /**
  * Knows how to read a value from an input.
@@ -33,5 +33,5 @@ interface ValueReader<T> {
      * @throws IOException          if an I/O problem occurs
      * @throws UnmarshalException   if another problem (like {@link ClassNotFoundException}) occurs
      */
-    T read(GridDataInput input, UnmarshallingContext context) throws IOException, UnmarshalException;
+    T read(IgniteDataInput input, UnmarshallingContext context) throws IOException, UnmarshalException;
 }

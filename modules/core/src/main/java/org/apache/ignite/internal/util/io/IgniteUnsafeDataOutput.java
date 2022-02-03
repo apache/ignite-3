@@ -37,7 +37,7 @@ import org.apache.ignite.internal.util.StringIntrospection;
 /**
  * Data output based on {@code Unsafe} operations.
  */
-public class GridUnsafeDataOutput extends OutputStream implements GridDataOutput {
+public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOutput {
     /**
      * Based on ByteArrayOutputStream#MAX_ARRAY_SIZE or many other similar constants in other classes.
      * It's not safe to allocate more then this number of elements in byte array, because it can throw
@@ -73,7 +73,7 @@ public class GridUnsafeDataOutput extends OutputStream implements GridDataOutput
     /**
      * Creates a new output with auto-shrinking disabled and no internal buffer allocated.
      */
-    public GridUnsafeDataOutput() {
+    public IgniteUnsafeDataOutput() {
         this(NO_AUTO_SHRINK);
     }
 
@@ -83,7 +83,7 @@ public class GridUnsafeDataOutput extends OutputStream implements GridDataOutput
      * @param shrinkCheckFrequencyMs how often to check whether an underlying byte buffer needs to be shrunk
      *                               (disables the auto-shrinking if it's -1)
      */
-    public GridUnsafeDataOutput(long shrinkCheckFrequencyMs) {
+    public IgniteUnsafeDataOutput(long shrinkCheckFrequencyMs) {
         if (shrinkCheckFrequencyMs != NO_AUTO_SHRINK && shrinkCheckFrequencyMs <= 0) {
             throw new IllegalArgumentException(
                     "Auto-shrink frequency must be either -1 (when auto-shrinking is disabled) or positive, but it's "
@@ -99,7 +99,7 @@ public class GridUnsafeDataOutput extends OutputStream implements GridDataOutput
      *
      * @param size size of an internal buffer to create
      */
-    public GridUnsafeDataOutput(int size) {
+    public IgniteUnsafeDataOutput(int size) {
         this(size, NO_AUTO_SHRINK);
     }
 
@@ -110,7 +110,7 @@ public class GridUnsafeDataOutput extends OutputStream implements GridDataOutput
      * @param shrinkCheckFrequencyMs how often to check whether an underlying byte buffer needs to be shrunk
      *                               (disables the auto-shrinking if it's -1)
      */
-    public GridUnsafeDataOutput(int size, long shrinkCheckFrequencyMs) {
+    public IgniteUnsafeDataOutput(int size, long shrinkCheckFrequencyMs) {
         this(shrinkCheckFrequencyMs);
 
         bytes = new byte[size];
@@ -210,7 +210,7 @@ public class GridUnsafeDataOutput extends OutputStream implements GridDataOutput
      *
      * @param size Size of potential byte array to check.
      * @return true if {@code new byte[size]} won't throw {@link OutOfMemoryError} given enough heap space.
-     * @see GridUnsafeDataOutput#MAX_BYTE_ARRAY_SIZE
+     * @see IgniteUnsafeDataOutput#MAX_BYTE_ARRAY_SIZE
      */
     private boolean canBeAllocated(long size) {
         return 0 <= size && size <= MAX_BYTE_ARRAY_SIZE;
@@ -697,6 +697,6 @@ public class GridUnsafeDataOutput extends OutputStream implements GridDataOutput
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return IgniteToStringBuilder.toString(GridUnsafeDataOutput.class, this);
+        return IgniteToStringBuilder.toString(IgniteUnsafeDataOutput.class, this);
     }
 }

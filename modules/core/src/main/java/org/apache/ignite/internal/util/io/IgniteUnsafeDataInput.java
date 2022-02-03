@@ -39,7 +39,7 @@ import org.apache.ignite.internal.util.GridUnsafe;
 /**
  * Data input based on {@code Unsafe} operations.
  */
-public class GridUnsafeDataInput extends InputStream implements GridDataInput {
+public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInput {
     /** Maximum data block length. */
     private static final int MAX_BLOCK_SIZE = 1024;
 
@@ -93,7 +93,7 @@ public class GridUnsafeDataInput extends InputStream implements GridDataInput {
     /**
      * Creates a new input with auto-shrinking disabled and no internal buffer assigned.
      */
-    public GridUnsafeDataInput() {
+    public IgniteUnsafeDataInput() {
         this(NO_AUTO_SHRINK);
     }
 
@@ -103,7 +103,7 @@ public class GridUnsafeDataInput extends InputStream implements GridDataInput {
      * @param shrinkCheckFrequencyMs how often to check whether an underlying byte buffer needs to be shrunk
      *                               (disables the auto-shrinking if it's -1)
      */
-    public GridUnsafeDataInput(long shrinkCheckFrequencyMs) {
+    public IgniteUnsafeDataInput(long shrinkCheckFrequencyMs) {
         this.shrinkCheckFrequencyMs = shrinkCheckFrequencyMs;
     }
 
@@ -112,7 +112,7 @@ public class GridUnsafeDataInput extends InputStream implements GridDataInput {
      *
      * @param bytes array to initially (before automatic resize) use as an internal buffer
      */
-    public GridUnsafeDataInput(byte[] bytes) {
+    public IgniteUnsafeDataInput(byte[] bytes) {
         this(bytes, NO_AUTO_SHRINK);
     }
 
@@ -123,7 +123,7 @@ public class GridUnsafeDataInput extends InputStream implements GridDataInput {
      * @param shrinkCheckFrequencyMs how often to check whether an underlying byte buffer needs to be shrunk
      *                               (disables the auto-shrinking if it's -1)
      */
-    public GridUnsafeDataInput(byte[] bytes, long shrinkCheckFrequencyMs) {
+    public IgniteUnsafeDataInput(byte[] bytes, long shrinkCheckFrequencyMs) {
         this(shrinkCheckFrequencyMs);
 
         bytes(bytes, bytes.length);
@@ -795,6 +795,6 @@ public class GridUnsafeDataInput extends InputStream implements GridDataInput {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return IgniteToStringBuilder.toString(GridUnsafeDataInput.class, this);
+        return IgniteToStringBuilder.toString(IgniteUnsafeDataInput.class, this);
     }
 }

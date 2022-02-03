@@ -24,7 +24,7 @@ import java.io.InputStream;
 /**
  * Extended data input.
  */
-public interface GridDataInput extends DataInput {
+public interface IgniteDataInput extends DataInput {
     /**
      * Sets the internal buffer.
      *

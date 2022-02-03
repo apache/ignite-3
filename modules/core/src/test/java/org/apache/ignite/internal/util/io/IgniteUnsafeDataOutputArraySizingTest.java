@@ -26,9 +26,9 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test for {@link GridUnsafeDataOutput}.
+ * Test for {@link IgniteUnsafeDataOutput} concerning internal buffer sizing.
  */
-class GridUnsafeDataOutputArraySizingTest {
+class IgniteUnsafeDataOutputArraySizingTest {
     /** Small array. */
     private static final byte[] SMALL = new byte[32];
 
@@ -43,7 +43,7 @@ class GridUnsafeDataOutputArraySizingTest {
 
     @Test
     public void testShrink() throws Exception {
-        final GridUnsafeDataOutput out = new GridUnsafeDataOutput(512, BUFFER_TIMEOUT);
+        final IgniteUnsafeDataOutput out = new IgniteUnsafeDataOutput(512, BUFFER_TIMEOUT);
 
         assertTrue(IgniteTestUtils.waitForCondition(new WriteAndCheckPredicate(out, SMALL, 256), WAIT_BUFFER_TIMEOUT));
         assertTrue(IgniteTestUtils.waitForCondition(new WriteAndCheckPredicate(out, SMALL, 128), WAIT_BUFFER_TIMEOUT));
@@ -54,7 +54,7 @@ class GridUnsafeDataOutputArraySizingTest {
 
     @Test
     public void testGrow() throws Exception {
-        GridUnsafeDataOutput out = new GridUnsafeDataOutput(512);
+        IgniteUnsafeDataOutput out = new IgniteUnsafeDataOutput(512);
 
         out.write(BIG);
         out.cleanup();
@@ -64,7 +64,7 @@ class GridUnsafeDataOutputArraySizingTest {
 
     @Test
     public void testChanged1() throws Exception {
-        GridUnsafeDataOutput out = new GridUnsafeDataOutput(512, BUFFER_TIMEOUT);
+        IgniteUnsafeDataOutput out = new IgniteUnsafeDataOutput(512, BUFFER_TIMEOUT);
 
         for (int i = 0; i < 100; i++) {
             Thread.sleep(100);
@@ -80,7 +80,7 @@ class GridUnsafeDataOutputArraySizingTest {
 
     @Test
     public void testChanged2() throws Exception {
-        final GridUnsafeDataOutput out = new GridUnsafeDataOutput(512, BUFFER_TIMEOUT);
+        final IgniteUnsafeDataOutput out = new IgniteUnsafeDataOutput(512, BUFFER_TIMEOUT);
 
         assertTrue(IgniteTestUtils.waitForCondition(new WriteAndCheckPredicate(out, SMALL, 256), WAIT_BUFFER_TIMEOUT));
 
@@ -93,13 +93,13 @@ class GridUnsafeDataOutputArraySizingTest {
     }
 
     private static class WriteAndCheckPredicate implements BooleanSupplier {
-        final GridUnsafeDataOutput out;
+        final IgniteUnsafeDataOutput out;
 
         final byte[] bytes;
 
         final int len;
 
-        WriteAndCheckPredicate(GridUnsafeDataOutput out, byte[] bytes, int len) {
+        WriteAndCheckPredicate(IgniteUnsafeDataOutput out, byte[] bytes, int len) {
             this.out = out;
             this.bytes = bytes;
             this.len = len;

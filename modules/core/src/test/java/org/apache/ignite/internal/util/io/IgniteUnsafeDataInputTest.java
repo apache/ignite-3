@@ -23,11 +23,11 @@ import static org.hamcrest.Matchers.lessThan;
 
 import org.junit.jupiter.api.Test;
 
-class GridUnsafeDataInputTest {
+class IgniteUnsafeDataInputTest {
     @SuppressWarnings("ResultOfMethodCallIgnored")
     @Test
     void readReturnsNegativeValueWhenEndOfStreamIsReached() throws Exception {
-        var input = new GridUnsafeDataInput();
+        var input = new IgniteUnsafeDataInput();
         input.bytes(new byte[]{1, 2, 3}, 3);
 
         byte[] bytes = new byte[4096];

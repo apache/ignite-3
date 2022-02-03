@@ -25,14 +25,14 @@ import java.util.BitSet;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.FieldDescriptor;
 import org.apache.ignite.internal.network.serialization.Primitives;
-import org.apache.ignite.internal.util.io.GridDataOutput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link ObjectOutputStream} specialization used by User Object Serialization.
  */
 class UosObjectOutputStream extends ObjectOutputStream {
-    private final GridDataOutput output;
+    private final IgniteDataOutput output;
     private final TypedValueWriter valueWriter;
     private final TypedValueWriter unsharedWriter;
     private final DefaultFieldsReaderWriter defaultFieldsReaderWriter;
@@ -41,7 +41,7 @@ class UosObjectOutputStream extends ObjectOutputStream {
     private UosPutField currentPut;
 
     UosObjectOutputStream(
-            GridDataOutput output,
+            IgniteDataOutput output,
             TypedValueWriter valueWriter,
             TypedValueWriter unsharedWriter, DefaultFieldsReaderWriter defaultFieldsReaderWriter,
             MarshallingContext context

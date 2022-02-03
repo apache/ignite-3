@@ -24,7 +24,7 @@ import java.io.OutputStream;
 /**
  * Extended data output.
  */
-public interface GridDataOutput extends DataOutput {
+public interface IgniteDataOutput extends DataOutput {
     /**
      * Sets the {@link OutputStream} to push data to.
      *

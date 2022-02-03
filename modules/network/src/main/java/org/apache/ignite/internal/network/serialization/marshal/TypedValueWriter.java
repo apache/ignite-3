@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import java.io.IOException;
-import org.apache.ignite.internal.util.io.GridDataOutput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,6 +37,6 @@ interface TypedValueWriter {
      * @throws IOException      if an I/O problem occurs
      * @throws MarshalException if another problem occurs
      */
-    void write(Object object, @Nullable Class<?> declaredClass, GridDataOutput output, MarshallingContext context)
+    void write(Object object, @Nullable Class<?> declaredClass, IgniteDataOutput output, MarshallingContext context)
             throws IOException, MarshalException;
 }

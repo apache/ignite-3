@@ -54,8 +54,8 @@ import org.apache.ignite.internal.network.serialization.BuiltInType;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
-import org.apache.ignite.internal.util.io.GridDataInput;
-import org.apache.ignite.internal.util.io.GridUnsafeDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.apache.ignite.lang.IgniteUuid;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -170,7 +170,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsSimpleEnumInCorrectFormat() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(SimpleEnum.FIRST);
 
-        GridDataInput dis = openDataInput(marshalled);
+        IgniteDataInput dis = openDataInput(marshalled);
 
         int descriptorId = ProtocolMarshalling.readDescriptorOrCommandId(dis);
         assertThat(descriptorRegistry.getRequiredDescriptor(descriptorId).clazz(), is(SimpleEnum.class));
@@ -185,7 +185,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsEnumWithAnonClassesForMembersInCorrectFormat() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(EnumWithAnonClassesForMembers.FIRST);
 
-        GridDataInput dis = openDataInput(marshalled);
+        IgniteDataInput dis = openDataInput(marshalled);
 
         int descriptorId = ProtocolMarshalling.readDescriptorOrCommandId(dis);
         assertThat(descriptorRegistry.getRequiredDescriptor(descriptorId).clazz(), is(EnumWithAnonClassesForMembers.class));
@@ -418,7 +418,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsSimpleEnumArrayCorrectly() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new SimpleEnum[]{SimpleEnum.FIRST});
 
-        GridDataInput dis = openDataInput(marshalled);
+        IgniteDataInput dis = openDataInput(marshalled);
 
         ProtocolMarshalling.readDescriptorOrCommandId(dis);
         ProtocolMarshalling.readObjectId(dis);
@@ -436,7 +436,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsEnumArrayWithValuesOfSimpleEnumCorrectly() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new Enum[]{SimpleEnum.FIRST});
 
-        GridDataInput dis = openDataInput(marshalled);
+        IgniteDataInput dis = openDataInput(marshalled);
 
         ProtocolMarshalling.readDescriptorOrCommandId(dis);
         ProtocolMarshalling.readObjectId(dis);
@@ -454,7 +454,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsArrayOfEnumWithAnonClassesForMembersCorrectly() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new EnumWithAnonClassesForMembers[]{EnumWithAnonClassesForMembers.FIRST});
 
-        GridDataInput dis = openDataInput(marshalled);
+        IgniteDataInput dis = openDataInput(marshalled);
 
         ProtocolMarshalling.readDescriptorOrCommandId(dis);
         ProtocolMarshalling.readObjectId(dis);
@@ -476,7 +476,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsEnumArrayWithValuesOfEnumWithAnonClassesForMembersValuesCorrectly() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new Enum[]{EnumWithAnonClassesForMembers.FIRST});
 
-        GridDataInput dis = openDataInput(marshalled);
+        IgniteDataInput dis = openDataInput(marshalled);
 
         ProtocolMarshalling.readDescriptorOrCommandId(dis);
         ProtocolMarshalling.readObjectId(dis);
@@ -494,7 +494,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsEmptyAbstractEnumArrayCorrectly() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new Enum[]{});
 
-        GridDataInput dis = openDataInput(marshalled);
+        IgniteDataInput dis = openDataInput(marshalled);
 
         ProtocolMarshalling.readDescriptorOrCommandId(dis);
         ProtocolMarshalling.readObjectId(dis);
@@ -505,15 +505,15 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
         assertThat(dis.available(), is(0));
     }
 
-    private GridDataInput openDataInput(MarshalledObject marshalled) {
-        return new GridUnsafeDataInput(marshalled.bytes());
+    private IgniteDataInput openDataInput(MarshalledObject marshalled) {
+        return new IgniteUnsafeDataInput(marshalled.bytes());
     }
 
     @Test
     void marshalsEmptySimpleEnumArrayCorrectly() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new SimpleEnum[]{});
 
-        GridDataInput dis = openDataInput(marshalled);
+        IgniteDataInput dis = openDataInput(marshalled);
 
         ProtocolMarshalling.readDescriptorOrCommandId(dis);
         ProtocolMarshalling.readObjectId(dis);
@@ -528,7 +528,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsEmptyArrayOfEnumWithAnonClassesForMembersCorrectly() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new EnumWithAnonClassesForMembers[]{});
 
-        GridDataInput dis = openDataInput(marshalled);
+        IgniteDataInput dis = openDataInput(marshalled);
 
         ProtocolMarshalling.readDescriptorOrCommandId(dis);
         ProtocolMarshalling.readObjectId(dis);

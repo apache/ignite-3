@@ -37,9 +37,9 @@ import java.util.RandomAccess;
 import java.util.UUID;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.util.StringIntrospection;
-import org.apache.ignite.internal.util.io.GridDataInput;
-import org.apache.ignite.internal.util.io.GridDataInput.Materializer;
-import org.apache.ignite.internal.util.io.GridDataOutput;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataInput.Materializer;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
 
@@ -72,12 +72,12 @@ class BuiltInMarshalling {
         return input.readUTF();
     }
 
-    static void writeLatin1String(String string, GridDataOutput output) throws IOException {
+    static void writeLatin1String(String string, IgniteDataOutput output) throws IOException {
         byte[] bytes = StringIntrospection.fastLatin1Bytes(string);
         writeByteArray(bytes, output);
     }
 
-    static String readLatin1String(GridDataInput input) throws IOException {
+    static String readLatin1String(IgniteDataInput input) throws IOException {
         int length = readLength(input);
         return input.materializeFromNextBytes(length, LATIN1_MATERIALIZER);
     }
@@ -114,67 +114,67 @@ class BuiltInMarshalling {
         return new Date(input.readLong());
     }
 
-    static void writeByteArray(byte[] array, GridDataOutput output) throws IOException {
+    static void writeByteArray(byte[] array, IgniteDataOutput output) throws IOException {
         writeLength(array.length, output);
         output.writeByteArray(array);
     }
 
-    static byte[] readByteArray(GridDataInput input) throws IOException {
+    static byte[] readByteArray(IgniteDataInput input) throws IOException {
         int length = readLength(input);
         return input.readByteArray(length);
     }
 
-    static void writeShortArray(short[] array, GridDataOutput output) throws IOException {
+    static void writeShortArray(short[] array, IgniteDataOutput output) throws IOException {
         writeLength(array.length, output);
         output.writeShortArray(array);
     }
 
-    static short[] readShortArray(GridDataInput input) throws IOException {
+    static short[] readShortArray(IgniteDataInput input) throws IOException {
         int length = readLength(input);
         return input.readShortArray(length);
     }
 
-    static void writeIntArray(int[] array, GridDataOutput output) throws IOException {
+    static void writeIntArray(int[] array, IgniteDataOutput output) throws IOException {
         writeLength(array.length, output);
         output.writeIntArray(array);
     }
 
-    static int[] readIntArray(GridDataInput input) throws IOException {
+    static int[] readIntArray(IgniteDataInput input) throws IOException {
         int length = readLength(input);
         return input.readIntArray(length);
     }
 
-    static void writeFloatArray(float[] array, GridDataOutput output) throws IOException {
+    static void writeFloatArray(float[] array, IgniteDataOutput output) throws IOException {
         writeLength(array.length, output);
         output.writeFloatArray(array);
     }
 
-    static float[] readFloatArray(GridDataInput input) throws IOException {
+    static float[] readFloatArray(IgniteDataInput input) throws IOException {
         int length = readLength(input);
         return input.readFloatArray(length);
     }
 
-    static void writeLongArray(long[] array, GridDataOutput output) throws IOException {
+    static void writeLongArray(long[] array, IgniteDataOutput output) throws IOException {
         writeLength(array.length, output);
         output.writeLongArray(array);
     }
 
-    static long[] readLongArray(GridDataInput input) throws IOException {
+    static long[] readLongArray(IgniteDataInput input) throws IOException {
         int length = readLength(input);
         return input.readLongArray(length);
     }
 
-    static void writeDoubleArray(double[] array, GridDataOutput output) throws IOException {
+    static void writeDoubleArray(double[] array, IgniteDataOutput output) throws IOException {
         writeLength(array.length, output);
         output.writeDoubleArray(array);
     }
 
-    static double[] readDoubleArray(GridDataInput input) throws IOException {
+    static double[] readDoubleArray(IgniteDataInput input) throws IOException {
         int length = readLength(input);
         return input.readDoubleArray(length);
     }
 
-    static void writeBooleanArray(boolean[] array, GridDataOutput output) throws IOException {
+    static void writeBooleanArray(boolean[] array, IgniteDataOutput output) throws IOException {
         writeLength(array.length, output);
 
         byte bits = 0;
@@ -202,7 +202,7 @@ class BuiltInMarshalling {
         return length / 8 + (length % 8 == 0 ? 0 : 1);
     }
 
-    static boolean[] readBooleanArray(GridDataInput input) throws IOException {
+    static boolean[] readBooleanArray(IgniteDataInput input) throws IOException {
         int length = readLength(input);
 
         boolean[] array = new boolean[length];
@@ -228,12 +228,12 @@ class BuiltInMarshalling {
         return array;
     }
 
-    static void writeCharArray(char[] array, GridDataOutput output) throws IOException {
+    static void writeCharArray(char[] array, IgniteDataOutput output) throws IOException {
         writeLength(array.length, output);
         output.writeCharArray(array);
     }
 
-    static char[] readCharArray(GridDataInput input) throws IOException {
+    static char[] readCharArray(IgniteDataInput input) throws IOException {
         int length = readLength(input);
         return input.readCharArray(length);
     }
@@ -273,16 +273,16 @@ class BuiltInMarshalling {
         return classByName(className, context.classLoader());
     }
 
-    static void writeClassArray(Class<?>[] classes, GridDataOutput output, MarshallingContext context)
+    static void writeClassArray(Class<?>[] classes, IgniteDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
         writeRefArray(classes, output, classWriter, context);
     }
 
-    static Class<?>[] readClassArray(GridDataInput input, UnmarshallingContext context) throws IOException, UnmarshalException {
+    static Class<?>[] readClassArray(IgniteDataInput input, UnmarshallingContext context) throws IOException, UnmarshalException {
         return readRefArray(input, classArrayFactory, classReader, context);
     }
 
-    private static <T> void writeRefArray(T[] array, GridDataOutput output, ValueWriter<T> valueWriter, MarshallingContext context)
+    private static <T> void writeRefArray(T[] array, IgniteDataOutput output, ValueWriter<T> valueWriter, MarshallingContext context)
             throws IOException, MarshalException {
         writeLength(array.length, output);
         for (T object : array) {
@@ -291,7 +291,7 @@ class BuiltInMarshalling {
     }
 
     private static <T> T[] readRefArray(
-            GridDataInput input,
+            IgniteDataInput input,
             IntFunction<T[]> arrayFactory,
             ValueReader<T> valueReader,
             UnmarshallingContext context
@@ -304,7 +304,7 @@ class BuiltInMarshalling {
         return array;
     }
 
-    private static <T> void fillRefArrayFrom(GridDataInput input, T[] array, ValueReader<T> valueReader, UnmarshallingContext context)
+    private static <T> void fillRefArrayFrom(IgniteDataInput input, T[] array, ValueReader<T> valueReader, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         for (int i = 0; i < array.length; i++) {
             array[i] = valueReader.read(input, context);
@@ -326,7 +326,7 @@ class BuiltInMarshalling {
 
     static <T> void writeCollection(
             Collection<T> collection,
-            GridDataOutput output,
+            IgniteDataOutput output,
             ValueWriter<T> valueWriter,
             MarshallingContext context
     ) throws IOException, MarshalException {
@@ -342,7 +342,7 @@ class BuiltInMarshalling {
     }
 
     private static <T> void writeRandomAccessListElements(
-            GridDataOutput output,
+            IgniteDataOutput output,
             ValueWriter<T> valueWriter,
             MarshallingContext context,
             List<T> list
@@ -354,7 +354,7 @@ class BuiltInMarshalling {
     }
 
     static <T, C extends Collection<T>> void fillCollectionFrom(
-            GridDataInput input,
+            IgniteDataInput input,
             C collection,
             ValueReader<T> valueReader,
             UnmarshallingContext context
@@ -372,7 +372,7 @@ class BuiltInMarshalling {
     }
 
     static <T, C extends Collection<T>> void fillSingletonCollectionFrom(
-            GridDataInput input,
+            IgniteDataInput input,
             C collection,
             ValueReader<T> elementReader,
             UnmarshallingContext context
@@ -388,7 +388,7 @@ class BuiltInMarshalling {
 
     static <K, V> void writeMap(
             Map<K, V> map,
-            GridDataOutput output,
+            IgniteDataOutput output,
             ValueWriter<K> keyWriter,
             ValueWriter<V> valueWriter,
             MarshallingContext context
@@ -402,7 +402,7 @@ class BuiltInMarshalling {
     }
 
     static <K, V, M extends Map<K, V>> void fillMapFrom(
-            GridDataInput input,
+            IgniteDataInput input,
             M map,
             ValueReader<K> keyReader,
             ValueReader<V> valueReader,
@@ -420,11 +420,11 @@ class BuiltInMarshalling {
         return mapFactory.apply(length);
     }
 
-    static void writeBitSet(BitSet object, GridDataOutput output) throws IOException {
+    static void writeBitSet(BitSet object, IgniteDataOutput output) throws IOException {
         writeByteArray(object.toByteArray(), output);
     }
 
-    static BitSet readBitSet(GridDataInput input) throws IOException {
+    static BitSet readBitSet(IgniteDataInput input) throws IOException {
         return BitSet.valueOf(readByteArray(input));
     }
 

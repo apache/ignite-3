@@ -25,14 +25,14 @@ import java.io.IOException;
 import java.io.NotActiveException;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
-import org.apache.ignite.internal.util.io.GridDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Context of unmarshalling act. Created once per unmarshalling a root object.
  */
 class UnmarshallingContext implements DescriptorRegistry {
-    private final GridDataInput source;
+    private final IgniteDataInput source;
     private final DescriptorRegistry descriptors;
     private final ClassLoader classLoader;
 
@@ -44,7 +44,7 @@ class UnmarshallingContext implements DescriptorRegistry {
 
     private UosObjectInputStream objectInputStream;
 
-    public UnmarshallingContext(GridDataInput source, DescriptorRegistry descriptors, ClassLoader classLoader) {
+    public UnmarshallingContext(IgniteDataInput source, DescriptorRegistry descriptors, ClassLoader classLoader) {
         this.source = source;
         this.descriptors = descriptors;
         this.classLoader = classLoader;
@@ -143,7 +143,7 @@ class UnmarshallingContext implements DescriptorRegistry {
     }
 
     UosObjectInputStream objectInputStream(
-            GridDataInput input,
+            IgniteDataInput input,
             TypedValueReader valueReader,
             TypedValueReader unsharedReader,
             DefaultFieldsReaderWriter defaultFieldsReaderWriter

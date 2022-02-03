@@ -26,7 +26,7 @@ import java.io.IOException;
 import java.io.NotActiveException;
 import java.util.Objects;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
-import org.apache.ignite.internal.util.io.GridDataOutput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Context using during marshalling of an object graph accessible from a root object.
@@ -112,7 +112,7 @@ class MarshallingContext {
     }
 
     UosObjectOutputStream objectOutputStream(
-            GridDataOutput output,
+            IgniteDataOutput output,
             TypedValueWriter valueWriter,
             TypedValueWriter unsharedWriter,
             DefaultFieldsReaderWriter defaultFieldsReaderWriter

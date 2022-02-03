@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import java.io.IOException;
-import org.apache.ignite.internal.util.io.GridDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,6 +37,6 @@ interface TypedValueReader {
      * @throws IOException          if an I/O problem occurs
      * @throws UnmarshalException   if another problem (like {@link ClassNotFoundException}) occurs
      */
-    Object read(GridDataInput input, @Nullable Class<?> declaredClass, UnmarshallingContext context)
+    Object read(IgniteDataInput input, @Nullable Class<?> declaredClass, UnmarshallingContext context)
             throws IOException, UnmarshalException;
 }

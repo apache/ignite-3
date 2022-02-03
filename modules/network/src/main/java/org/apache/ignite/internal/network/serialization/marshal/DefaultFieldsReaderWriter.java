@@ -22,8 +22,8 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.util.BitSet;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
-import org.apache.ignite.internal.util.io.GridDataInput;
-import org.apache.ignite.internal.util.io.GridDataOutput;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,7 +41,7 @@ interface DefaultFieldsReaderWriter {
      * @throws MarshalException if something goes wrong
      * @throws IOException      if I/O fails
      */
-    void defaultWriteFields(Object object, ClassDescriptor descriptor, GridDataOutput output, MarshallingContext context)
+    void defaultWriteFields(Object object, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
             throws MarshalException, IOException;
 
     @Nullable
@@ -57,7 +57,7 @@ interface DefaultFieldsReaderWriter {
      * @throws IOException          if I/O fails
      * @throws UnmarshalException   if something goes wrong
      */
-    void defaultFillFieldsFrom(GridDataInput input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
+    void defaultFillFieldsFrom(IgniteDataInput input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
             throws IOException, UnmarshalException;
 
     @Nullable

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import java.io.IOException;
-import org.apache.ignite.internal.util.io.GridDataOutput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Knows how to write a value to an output.
@@ -33,5 +33,5 @@ interface ValueWriter<T> {
      * @throws IOException      if an I/O problem occurs
      * @throws MarshalException if another problem occurs
      */
-    void write(T value, GridDataOutput output, MarshallingContext context) throws IOException, MarshalException;
+    void write(T value, IgniteDataOutput output, MarshallingContext context) throws IOException, MarshalException;
 }

@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.util.io;
 
-import static org.apache.ignite.internal.util.io.GridTestIoUtils.getCharByByteLittleEndian;
-import static org.apache.ignite.internal.util.io.GridTestIoUtils.getDoubleByByteLittleEndian;
-import static org.apache.ignite.internal.util.io.GridTestIoUtils.getFloatByByteLittleEndian;
-import static org.apache.ignite.internal.util.io.GridTestIoUtils.getIntByByteLittleEndian;
-import static org.apache.ignite.internal.util.io.GridTestIoUtils.getLongByByteLittleEndian;
-import static org.apache.ignite.internal.util.io.GridTestIoUtils.getShortByByteLittleEndian;
+import static org.apache.ignite.internal.util.io.IgniteTestIoUtils.getCharByByteLittleEndian;
+import static org.apache.ignite.internal.util.io.IgniteTestIoUtils.getDoubleByByteLittleEndian;
+import static org.apache.ignite.internal.util.io.IgniteTestIoUtils.getFloatByByteLittleEndian;
+import static org.apache.ignite.internal.util.io.IgniteTestIoUtils.getIntByByteLittleEndian;
+import static org.apache.ignite.internal.util.io.IgniteTestIoUtils.getLongByByteLittleEndian;
+import static org.apache.ignite.internal.util.io.IgniteTestIoUtils.getShortByByteLittleEndian;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -33,9 +33,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Grid unsafe data input/output byte order sanity tests.
+ * Ignite unsafe data input/output byte order sanity tests.
  */
-class GridUnsafeDataInputOutputByteOrderTest {
+class IgniteUnsafeDataInputOutputByteOrderTest {
     /** Array length. */
     private static final int ARR_LEN = 16;
 
@@ -46,15 +46,15 @@ class GridUnsafeDataInputOutputByteOrderTest {
     private static final Random RND = new Random();
 
     /** Out. */
-    private GridUnsafeDataOutput out;
+    private IgniteUnsafeDataOutput out;
 
     /** In. */
-    private GridUnsafeDataInput in;
+    private IgniteUnsafeDataInput in;
 
     @BeforeEach
     public void setUp() throws Exception {
-        out = new GridUnsafeDataOutput(16 * 8 + LEN_BYTES);
-        in = new GridUnsafeDataInput();
+        out = new IgniteUnsafeDataOutput(16 * 8 + LEN_BYTES);
+        in = new IgniteUnsafeDataInput();
         in.inputStream(new ByteArrayInputStream(out.internalArray()));
     }
 
@@ -70,7 +70,7 @@ class GridUnsafeDataInputOutputByteOrderTest {
 
         out.writeShort(val);
 
-        assertEquals(val, GridTestIoUtils.getShortByByteLittleEndian(out.internalArray()));
+        assertEquals(val, IgniteTestIoUtils.getShortByByteLittleEndian(out.internalArray()));
         assertEquals(val, in.readShort());
     }
 
@@ -99,7 +99,7 @@ class GridUnsafeDataInputOutputByteOrderTest {
 
         out.writeChar(val);
 
-        assertEquals(val, GridTestIoUtils.getCharByByteLittleEndian(out.internalArray()));
+        assertEquals(val, IgniteTestIoUtils.getCharByByteLittleEndian(out.internalArray()));
         assertEquals(val, in.readChar());
     }
 
@@ -128,7 +128,7 @@ class GridUnsafeDataInputOutputByteOrderTest {
 
         out.writeInt(val);
 
-        assertEquals(val, GridTestIoUtils.getIntByByteLittleEndian(out.internalArray()));
+        assertEquals(val, IgniteTestIoUtils.getIntByByteLittleEndian(out.internalArray()));
         assertEquals(val, in.readInt());
     }
 
@@ -157,7 +157,7 @@ class GridUnsafeDataInputOutputByteOrderTest {
 
         out.writeLong(val);
 
-        assertEquals(val, GridTestIoUtils.getLongByByteLittleEndian(out.internalArray()));
+        assertEquals(val, IgniteTestIoUtils.getLongByByteLittleEndian(out.internalArray()));
         assertEquals(val, in.readLong());
     }
 
@@ -186,7 +186,7 @@ class GridUnsafeDataInputOutputByteOrderTest {
 
         out.writeFloat(val);
 
-        assertEquals(val, GridTestIoUtils.getFloatByByteLittleEndian(out.internalArray()), 0);
+        assertEquals(val, IgniteTestIoUtils.getFloatByByteLittleEndian(out.internalArray()), 0);
         assertEquals(val, in.readFloat(), 0);
     }
 
@@ -215,7 +215,7 @@ class GridUnsafeDataInputOutputByteOrderTest {
 
         out.writeDouble(val);
 
-        assertEquals(val, GridTestIoUtils.getDoubleByByteLittleEndian(out.internalArray()), 0);
+        assertEquals(val, IgniteTestIoUtils.getDoubleByByteLittleEndian(out.internalArray()), 0);
         assertEquals(val, in.readDouble(), 0);
     }
 

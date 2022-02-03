@@ -30,8 +30,8 @@ import org.apache.ignite.internal.network.serialization.IdIndexedDescriptors;
 import org.apache.ignite.internal.network.serialization.SpecialMethodInvocationException;
 import org.apache.ignite.internal.network.serialization.marshal.UosObjectInputStream.UosGetField;
 import org.apache.ignite.internal.network.serialization.marshal.UosObjectOutputStream.UosPutField;
-import org.apache.ignite.internal.util.io.GridDataInput;
-import org.apache.ignite.internal.util.io.GridDataOutput;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -67,7 +67,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         );
     }
 
-    void writeStructuredObject(Object object, ClassDescriptor descriptor, GridDataOutput output, MarshallingContext context)
+    void writeStructuredObject(Object object, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
         List<ClassDescriptor> lineage = descriptor.lineage();
 
@@ -77,7 +77,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         }
     }
 
-    private void writeStructuredObjectLayer(Object object, ClassDescriptor layer, GridDataOutput output, MarshallingContext context)
+    private void writeStructuredObjectLayer(Object object, ClassDescriptor layer, IgniteDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
         if (layer.hasWriteObject()) {
             writeWithWriteObject(object, layer, output, context);
@@ -88,7 +88,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         context.addUsedDescriptor(layer);
     }
 
-    private void writeWithWriteObject(Object object, ClassDescriptor descriptor, GridDataOutput output, MarshallingContext context)
+    private void writeWithWriteObject(Object object, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
         // Do not close the stream yet!
         UosObjectOutputStream oos = context.objectOutputStream(output, valueWriter, unsharedWriter, this);
@@ -109,7 +109,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
 
     /** {@inheritDoc} */
     @Override
-    public void defaultWriteFields(Object object, ClassDescriptor descriptor, GridDataOutput output, MarshallingContext context)
+    public void defaultWriteFields(Object object, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
         @Nullable BitSet nullsBitSet = writeNullsBitSet(object, descriptor, output);
 
@@ -152,7 +152,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         return nullsBitSet;
     }
 
-    private void writeField(Object object, FieldDescriptor fieldDescriptor, GridDataOutput output, MarshallingContext context)
+    private void writeField(Object object, FieldDescriptor fieldDescriptor, IgniteDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
         if (fieldDescriptor.clazz().isPrimitive()) {
             writePrimitiveFieldValue(object, fieldDescriptor, output);
@@ -168,7 +168,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         return fieldDescriptor.accessor().getObject(object);
     }
 
-    private void writePrimitiveFieldValue(Object object, FieldDescriptor fieldDescriptor, GridDataOutput output) throws IOException {
+    private void writePrimitiveFieldValue(Object object, FieldDescriptor fieldDescriptor, IgniteDataOutput output) throws IOException {
         FieldAccessor fieldAccessor = fieldDescriptor.accessor();
 
         switch (fieldDescriptor.typeDescriptorId()) {
@@ -209,7 +209,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         }
     }
 
-    void fillStructuredObjectFrom(GridDataInput input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
+    void fillStructuredObjectFrom(IgniteDataInput input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         List<ClassDescriptor> lineage = descriptor.lineage();
 
@@ -219,7 +219,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         }
     }
 
-    private void fillStructuredObjectLayerFrom(GridDataInput input, ClassDescriptor layer, Object object, UnmarshallingContext context)
+    private void fillStructuredObjectLayerFrom(IgniteDataInput input, ClassDescriptor layer, Object object, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         if (layer.hasReadObject()) {
             fillObjectWithReadObjectFrom(input, object, layer, context);
@@ -229,7 +229,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
     }
 
     private void fillObjectWithReadObjectFrom(
-            GridDataInput input,
+            IgniteDataInput input,
             Object object,
             ClassDescriptor descriptor,
             UnmarshallingContext context
@@ -252,7 +252,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
 
     /** {@inheritDoc} */
     @Override
-    public void defaultFillFieldsFrom(GridDataInput input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
+    public void defaultFillFieldsFrom(IgniteDataInput input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         @Nullable BitSet nullsBitSet = readNullsBitSet(input, descriptor);
 
@@ -284,7 +284,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         return ProtocolMarshalling.readFixedLengthBitSet(descriptor.fieldIndexInNullsBitmapSize(), input);
     }
 
-    private void fillFieldFrom(GridDataInput input, Object object, UnmarshallingContext context, FieldDescriptor fieldDescriptor)
+    private void fillFieldFrom(IgniteDataInput input, Object object, UnmarshallingContext context, FieldDescriptor fieldDescriptor)
             throws IOException, UnmarshalException {
         if (fieldDescriptor.clazz().isPrimitive()) {
             fillPrimitiveFieldFrom(input, object, fieldDescriptor);

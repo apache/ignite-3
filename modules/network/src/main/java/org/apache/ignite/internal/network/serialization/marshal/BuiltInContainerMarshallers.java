@@ -35,8 +35,8 @@ import java.util.Map;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.Classes;
-import org.apache.ignite.internal.util.io.GridDataInput;
-import org.apache.ignite.internal.util.io.GridDataOutput;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Utility to (un)marshal built-in collections and maps.
@@ -78,7 +78,7 @@ class BuiltInContainerMarshallers {
         this.typedReader = typedReader;
     }
 
-    void writeGenericRefArray(Object[] array, ClassDescriptor arrayDescriptor, GridDataOutput output, MarshallingContext context)
+    void writeGenericRefArray(Object[] array, ClassDescriptor arrayDescriptor, IgniteDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
         Class<?> componentType = array.getClass().getComponentType();
 
@@ -109,7 +109,7 @@ class BuiltInContainerMarshallers {
     }
 
     @SuppressWarnings("unchecked")
-    <T> void fillGenericRefArrayFrom(GridDataInput input, T[] array, UnmarshallingContext context)
+    <T> void fillGenericRefArrayFrom(IgniteDataInput input, T[] array, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         if (array.length == 0) {
             return;
@@ -130,7 +130,7 @@ class BuiltInContainerMarshallers {
         }
     }
 
-    void writeBuiltInCollection(Collection<?> object, ClassDescriptor descriptor, GridDataOutput output, MarshallingContext context)
+    void writeBuiltInCollection(Collection<?> object, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
         if (supportsAsMutableBuiltInCollection(descriptor)) {
             writeCollection(object, descriptor, output, context);
@@ -156,7 +156,7 @@ class BuiltInContainerMarshallers {
     private void writeCollection(
             Collection<?> collection,
             ClassDescriptor collectionDescriptor,
-            GridDataOutput output,
+            IgniteDataOutput output,
             MarshallingContext context
     ) throws IOException, MarshalException {
         BuiltInMarshalling.writeCollection(collection, output, untypedWriter(), context);
@@ -169,7 +169,7 @@ class BuiltInContainerMarshallers {
         return (ValueWriter<T>) untypedWriter;
     }
 
-    private void writeSingletonList(List<?> list, ClassDescriptor listDescriptor, GridDataOutput output, MarshallingContext context)
+    private void writeSingletonList(List<?> list, ClassDescriptor listDescriptor, IgniteDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
         assert list.size() == 1;
 
@@ -219,7 +219,7 @@ class BuiltInContainerMarshallers {
     }
 
     <T, C extends Collection<T>> void fillBuiltInCollectionFrom(
-            GridDataInput input,
+            IgniteDataInput input,
             C collection,
             ClassDescriptor collectionDescriptor,
             ValueReader<T> elementReader,
@@ -234,7 +234,7 @@ class BuiltInContainerMarshallers {
         BuiltInMarshalling.fillCollectionFrom(input, collection, elementReader, context);
     }
 
-    void writeBuiltInMap(Map<?, ?> map, ClassDescriptor mapDescriptor, GridDataOutput output, MarshallingContext context)
+    void writeBuiltInMap(Map<?, ?> map, ClassDescriptor mapDescriptor, IgniteDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
         if (!supportsAsBuiltInMap(mapDescriptor)) {
             throw new IllegalStateException("Marshalling of " + mapDescriptor.clazz() + " is not supported, but it's marked as a built-in");
@@ -277,7 +277,7 @@ class BuiltInContainerMarshallers {
     }
 
     <K, V, M extends Map<K, V>> void fillBuiltInMapFrom(
-            GridDataInput input,
+            IgniteDataInput input,
             M map,
             ValueReader<K> keyReader,
             ValueReader<V> valueReader,

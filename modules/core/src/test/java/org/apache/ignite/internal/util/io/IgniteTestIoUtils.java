@@ -20,7 +20,7 @@ package org.apache.ignite.internal.util.io;
 /**
  * IO test utilities.
  */
-public final class GridTestIoUtils {
+public final class IgniteTestIoUtils {
 
     /**
      * Gets short value from byte array assuming that value stored in little-endian byte order.
@@ -142,7 +142,7 @@ public final class GridTestIoUtils {
     /**
      * Ensure singleton.
      */
-    private GridTestIoUtils() {
+    private IgniteTestIoUtils() {
         // No-op.
     }
 }

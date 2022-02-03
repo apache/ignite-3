@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import org.apache.ignite.internal.util.io.GridUnsafeDataOutput;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 
 /**
- * {@link GridUnsafeDataOutput} extension that allows to track whether it's occupied or not.
+ * {@link IgniteUnsafeDataOutput} extension that allows to track whether it's occupied or not.
  */
-class UosGridOutputStream extends GridUnsafeDataOutput {
+class UosIgniteOutputStream extends IgniteUnsafeDataOutput {
     private boolean occupied = false;
 
-    public UosGridOutputStream(int size) {
+    public UosIgniteOutputStream(int size) {
         super(size);
     }
 
