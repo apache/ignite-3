@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest.presentation;
+package org.apache.ignite.internal.rest.presentation;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
@@ -37,7 +37,7 @@ import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.rest.presentation.hocon.HoconPresentation;
+import org.apache.ignite.internal.rest.presentation.hocon.HoconPresentation;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;

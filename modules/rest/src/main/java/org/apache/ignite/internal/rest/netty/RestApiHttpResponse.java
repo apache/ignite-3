@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest.netty;
+package org.apache.ignite.internal.rest.netty;
 
 import com.google.gson.Gson;
 import io.netty.handler.codec.http.HttpHeaderNames;

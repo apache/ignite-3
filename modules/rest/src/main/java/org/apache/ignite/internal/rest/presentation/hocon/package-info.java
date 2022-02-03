@@ -16,7 +16,7 @@
  */
 
 /**
- * This package contains classes that represent URI routers and their dispatching.
+ * This package contains classes related to HOCON representation.
  */
 
-package org.apache.ignite.rest.routes;
+package org.apache.ignite.internal.rest.presentation.hocon;

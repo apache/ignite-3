@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest.presentation;
+package org.apache.ignite.internal.rest.presentation;
 
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.lang.IgniteException;

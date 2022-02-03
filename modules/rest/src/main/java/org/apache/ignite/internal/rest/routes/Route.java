@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest.routes;
+package org.apache.ignite.internal.rest.routes;
 
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpHeaderNames;
@@ -26,8 +26,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiConsumer;
-import org.apache.ignite.rest.netty.RestApiHttpRequest;
-import org.apache.ignite.rest.netty.RestApiHttpResponse;
+import org.apache.ignite.internal.rest.netty.RestApiHttpRequest;
+import org.apache.ignite.internal.rest.netty.RestApiHttpResponse;
 
 /**
  * URI route with appropriate handler for request.

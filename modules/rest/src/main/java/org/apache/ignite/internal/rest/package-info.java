@@ -16,7 +16,7 @@
  */
 
 /**
- * This package contains classes related to HOCON representation.
+ * This package contains an implementation of Ignite component related to REST interface.
  */
 
-package org.apache.ignite.rest.presentation.hocon;
+package org.apache.ignite.internal.rest;
