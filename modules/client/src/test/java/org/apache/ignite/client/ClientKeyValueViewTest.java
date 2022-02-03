@@ -452,7 +452,6 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testColumnWithDefaultValueNotSetReturnsDefault() {
-        // id, num, str, str_not_null
         Table table = tableWithDefaultValues();
         RecordView<Tuple> recordView = table.recordView();
         KeyValueView<Integer, NamePojo> pojoView = table.keyValueView(Integer.class, NamePojo.class);
@@ -467,16 +466,17 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testNullableColumnWithDefaultValueSetNullReturnsNull() {
-        // TODO: KvView
-        RecordView<Tuple> table = tableWithDefaultValues().recordView();
+        Table table = tableWithDefaultValues();
+        RecordView<Tuple> recordView = table.recordView();
+        KeyValueView<Integer, PojoWithDefaultValues> pojoView = table.keyValueView(Integer.class, PojoWithDefaultValues.class);
 
-        var tuple = Tuple.create()
-                .set("id", 1)
-                .set("str", null);
+        var pojo = new PojoWithDefaultValues();
+        pojo.str = null;
+        pojo.str_not_null = "s";
 
-        table.upsert(null, tuple);
+        pojoView.put(null, 1, pojo);
 
-        var res = table.get(null, tuple);
+        var res = recordView.get(null, tupleKey(1));
 
         assertNull(res.stringValue("str"));
     }
@@ -495,4 +495,11 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
     }
 
+    private static class PojoWithDefaultValues
+    {
+        public int id;
+        public byte num;
+        public String str;
+        public String str_not_null;
+    }
 }
