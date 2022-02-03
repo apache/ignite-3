@@ -29,74 +29,75 @@ import org.jetbrains.annotations.Nullable;
  * Validations that are run before marshalling objects.
  */
 class MarshallingValidations {
-    private final Map<Class<?>, YesNo> whetherInnerClasses = new HashMap<>();
-    private final Map<Class<?>, YesNo> whetherCapturingClosures = new HashMap<>();
-    private final Map<Class<?>, YesNo> whetherNonSerializableLambdas = new HashMap<>();
+    private final Map<Class<?>, Marshallability> marshallabilityMap = new HashMap<>();
 
-    private final Function<Class<?>, YesNo> isInnerClassFunction = MarshallingValidations.this::isInnerClass;
-    private final Function<Class<?>, YesNo> isCapturingClosureFunction = this::isCapturingClosure;
-    private final Function<Class<?>, YesNo> isNonSerializableLambdaFunction = this::isNonSerializableLambda;
+    private final Function<Class<?>, Marshallability> marshallabilityFunction = this::marshallability;
 
     void throwIfMarshallingNotSupported(@Nullable Object object) {
         if (object == null) {
             return;
         }
-        if (Enum.class.isAssignableFrom(object.getClass())) {
-            return;
-        }
 
         Class<?> objectClass = object.getClass();
 
-        if (cachingIsInnerClass(objectClass)) {
-            throw new MarshallingNotSupportedException("Non-static inner class instances are not supported for marshalling: "
-                    + objectClass);
+        Marshallability marshallability = marshallabilityMap.computeIfAbsent(objectClass, marshallabilityFunction);
+
+        switch (marshallability) {
+            case INNER_CLASS:
+                throw new MarshallingNotSupportedException("Non-static inner class instances are not supported for marshalling: "
+                        + objectClass);
+            case CAPTUREING_CLOSURE:
+                throw new MarshallingNotSupportedException("Capturing nested class instances are not supported for marshalling: " + object);
+            case NON_SERIALIZABLE_LAMBDA:
+                throw new MarshallingNotSupportedException("Non-serializable lambda instances are not supported for marshalling: "
+                        + object);
+            // fall through
         }
-        if (cachingIsCapturingClosure(objectClass)) {
-            throw new MarshallingNotSupportedException("Capturing nested class instances are not supported for marshalling: " + object);
+    }
+
+    private Marshallability marshallability(Class<?> objectClass) {
+        if (Enum.class.isAssignableFrom(objectClass)) {
+            return Marshallability.OK;
         }
-        if (cachingIsNonSerializableLambds(objectClass)) {
-            throw new MarshallingNotSupportedException("Non-serializable lambda instances are not supported for marshalling: " + object);
+
+        if (isInnerClass(objectClass)) {
+            return Marshallability.INNER_CLASS;
         }
+
+        if (isCapturingClosure(objectClass)) {
+            return Marshallability.CAPTUREING_CLOSURE;
+        }
+
+        if (isNonSerializableLambda(objectClass)) {
+            return Marshallability.NON_SERIALIZABLE_LAMBDA;
+        }
+
+        return Marshallability.OK;
     }
 
-    private boolean cachingIsInnerClass(Class<?> objectClass) {
-        return whetherInnerClasses.computeIfAbsent(objectClass, isInnerClassFunction) == YesNo.YES;
+    private boolean isInnerClass(Class<?> objectClass) {
+        return objectClass.getDeclaringClass() != null && !Modifier.isStatic(objectClass.getModifiers());
     }
 
-    private boolean cachingIsCapturingClosure(Class<?> objectClass) {
-        return whetherCapturingClosures.computeIfAbsent(objectClass, isCapturingClosureFunction) == YesNo.YES;
-    }
-
-    private boolean cachingIsNonSerializableLambds(Class<?> objectClass) {
-        return whetherNonSerializableLambdas.computeIfAbsent(objectClass, isNonSerializableLambdaFunction) == YesNo.YES;
-    }
-
-    private YesNo isInnerClass(Class<?> objectClass) {
-        boolean innerClass = objectClass.getDeclaringClass() != null && !Modifier.isStatic(objectClass.getModifiers());
-        return yesNo(innerClass);
-    }
-
-    private YesNo yesNo(boolean yes) {
-        return yes ? YesNo.YES : YesNo.NO;
-    }
-
-    private YesNo isCapturingClosure(Class<?> objectClass) {
+    private boolean isCapturingClosure(Class<?> objectClass) {
         for (Field field : objectClass.getDeclaredFields()) {
             if ((field.isSynthetic() && field.getName().equals("this$0"))
                     || field.getName().startsWith("arg$")) {
-                return YesNo.YES;
+                return true;
             }
         }
 
-        return YesNo.NO;
+        return false;
     }
 
-    private YesNo isNonSerializableLambda(Class<?> objectClass) {
-        boolean nonSerializableLambda = Classes.isLambda(objectClass) && !Classes.isSerializable(objectClass);
-        return yesNo(nonSerializableLambda);
+    private boolean isNonSerializableLambda(Class<?> objectClass) {
+        return Classes.isLambda(objectClass) && !Classes.isSerializable(objectClass);
     }
 
-    private enum YesNo {
-        YES, NO
+    private enum Marshallability {
+        OK,
+        INNER_CLASS,
+        CAPTUREING_CLOSURE,
+        NON_SERIALIZABLE_LAMBDA
     }
 }
