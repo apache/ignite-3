@@ -594,6 +594,7 @@
                 <version>${jmh.framework.version}</version>
             </dependency>
 
+            <!-- We currently only use Kryo for benchmarking our User Object Serialization -->
             <dependency>
                 <groupId>com.esotericsoftware</groupId>
                 <artifactId>kryo</artifactId>
