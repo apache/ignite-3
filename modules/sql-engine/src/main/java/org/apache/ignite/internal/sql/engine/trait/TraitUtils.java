@@ -433,11 +433,17 @@ public class TraitUtils {
         return out;
     }
 
-    private static boolean fillRecursive(RelTraitSet outTraits, List<List<RelTraitSet>> inTraits,
-            Set<Pair<RelTraitSet, List<RelTraitSet>>> result, RelTraitSet[] combination, int idx) throws ControlFlowException {
+    private static boolean fillRecursive(
+            RelTraitSet outTraits,
+            List<List<RelTraitSet>> inTraits,
+            Set<Pair<RelTraitSet, List<RelTraitSet>>> result,
+            RelTraitSet[] combination,
+            int idx
+    ) throws ControlFlowException {
         boolean processed = false;
         boolean last = idx == inTraits.size() - 1;
         for (RelTraitSet t : inTraits.get(idx)) {
+            // change into: assert t.getConvention() == IgniteConvention.INSTANCE; after the ExternalConvention(EXTENSION_NAME is removed.
             if (t.getConvention() != IgniteConvention.INSTANCE) {
                 continue;
             }

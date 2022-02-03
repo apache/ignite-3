@@ -27,6 +27,7 @@ import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
+import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -132,7 +133,6 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-13710")
     public void testNonDistinctOrToUnionAllRewrite() {
         assertQuery("SELECT * "
                 + "FROM products "
@@ -187,6 +187,19 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
                 .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
                 .returns(7, "Video", 1, null, 0, "Canon")
                 .returns(9, null, 0, null, 0, null)
+                .check();
+    }
+
+    /**
+     * Check 'OR -> UNION' rule is NOT applied if no acceptable index was found.
+     */
+    @Test
+    public void testUnionRuleNotApplicable() {
+        assertQuery("SELECT * FROM products WHERE name = 'Canon' OR subcat_id = 22")
+                .matches(CoreMatchers.not(containsUnion(true)))
+                .matches(containsTableScan("PUBLIC", "PRODUCTS"))
+                .returns(7, "Video", 1, null, 0, "Canon")
+                .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
                 .check();
     }
 

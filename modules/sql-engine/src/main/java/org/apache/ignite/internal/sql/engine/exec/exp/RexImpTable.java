@@ -195,6 +195,7 @@ import static org.apache.calcite.sql.fun.SqlStdOperatorTable.UPPER;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.USER;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.LENGTH;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SYSTEM_RANGE;
+import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.TYPEOF;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -549,6 +550,8 @@ public class RexImpTable {
         map.put(CURRENT_DATE, systemFunctionImplementor);
         map.put(LOCALTIME, systemFunctionImplementor);
         map.put(LOCALTIMESTAMP, systemFunctionImplementor);
+
+        map.put(TYPEOF, systemFunctionImplementor);
     }
 
     private <T> Supplier<T> constructorSupplier(Class<T> klass) {
@@ -1721,6 +1724,10 @@ public class RexImpTable {
                     return createTableFunctionImplementor(IgniteMethod.SYSTEM_RANGE3.method())
                             .implement(translator, call, NullAs.NULL);
                 }
+            } else if (op == TYPEOF) {
+                assert call.getOperands().size() == 1 : call.getOperands();
+
+                return Expressions.constant(call.getOperands().get(0).getType().toString());
             }
 
             throw new AssertionError("unknown function " + op);

@@ -154,8 +154,9 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      * Get remote nodes for the given exchange id.
      *
      * @param exchangeId ExchangeId to find remote nodes for.
-     * @return Remote nodes for given exchangeId.
+     * @return Remote nodes for given exchangeId, or {@code null}, when remote nodes not found for given exchangeId.
      */
+    @Nullable
     public List<String> remotes(long exchangeId) {
         return fragmentDesc.remotes().get(exchangeId);
     }
