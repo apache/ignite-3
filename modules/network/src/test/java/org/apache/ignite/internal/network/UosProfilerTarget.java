@@ -52,7 +52,6 @@ public class UosProfilerTarget {
         try {
             MarshalledObject marshal = userObjectMarshaller.marshal(obj);
             marshalledByUos = marshal.bytes();
-            System.out.println(marshal);
         } catch (MarshalException e) {
             e.printStackTrace();
         }
@@ -78,12 +77,6 @@ public class UosProfilerTarget {
     private static byte[] doMarshal(Object obj1) throws Exception {
         MarshalledObject marshal = userObjectMarshaller.marshal(obj1);
         return marshal.bytes();
-
-        //ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        //try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
-        //    oos.writeObject(obj1);
-        //}
-        //return baos.toByteArray();
     }
 
     private static void deserialize() throws Exception {
