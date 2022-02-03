@@ -16,7 +16,7 @@
  */
 
 /**
- * This package contains classes that represent inbound requests, outbound responses and main REST handler.
+ * This package contains classes that represent URI routers and their dispatching.
  */
 
-package org.apache.ignite.rest.netty;
+package org.apache.ignite.internal.rest.routes;

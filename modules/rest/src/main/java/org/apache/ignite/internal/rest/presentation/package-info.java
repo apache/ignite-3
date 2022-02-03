@@ -16,7 +16,7 @@
  */
 
 /**
- * This package contains an implementation of Ignite component related to REST interface.
+ * Contains a base interface that provides the ability to convert representation to other formats.
  */
 
-package org.apache.ignite.rest;
+package org.apache.ignite.internal.rest.presentation;

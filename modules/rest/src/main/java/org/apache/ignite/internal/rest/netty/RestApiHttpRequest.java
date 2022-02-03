@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest.netty;
+package org.apache.ignite.internal.rest.netty;
 
 import io.netty.handler.codec.http.FullHttpRequest;
 import java.util.Collections;

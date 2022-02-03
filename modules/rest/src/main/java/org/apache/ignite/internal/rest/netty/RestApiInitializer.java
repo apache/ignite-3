@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest.netty;
+package org.apache.ignite.internal.rest.netty;
 
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
@@ -23,7 +23,7 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.HttpServerExpectContinueHandler;
-import org.apache.ignite.rest.routes.Router;
+import org.apache.ignite.internal.rest.routes.Router;
 
 /**
  * Initializes channel with needed handlers for HTTP processing.

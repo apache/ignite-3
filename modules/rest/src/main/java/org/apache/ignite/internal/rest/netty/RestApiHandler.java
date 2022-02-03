@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest.netty;
+package org.apache.ignite.internal.rest.netty;
 
 import static io.netty.handler.codec.http.HttpHeaderNames.CONNECTION;
 import static io.netty.handler.codec.http.HttpHeaderNames.CONTENT_LENGTH;
@@ -39,8 +39,8 @@ import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
+import org.apache.ignite.internal.rest.routes.Router;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.rest.routes.Router;
 
 /**
  * Main handler of REST HTTP chain. It receives http request, process it by {@link Router} and produce http response.

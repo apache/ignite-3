@@ -16,7 +16,7 @@
  */
 
 /**
- * Contains a base interface that provides the ability to convert representation to other formats.
+ * This package contains classes that represent inbound requests, outbound responses and main REST handler.
  */
 
-package org.apache.ignite.rest.presentation;
+package org.apache.ignite.internal.rest.netty;

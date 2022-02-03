@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest;
+package org.apache.ignite.internal.rest;
 
 import static io.netty.handler.codec.http.HttpHeaderValues.APPLICATION_JSON;
 import static io.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
@@ -34,15 +34,15 @@ import org.apache.ignite.configuration.validation.ConfigurationValidationExcepti
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.rest.netty.RestApiHttpRequest;
+import org.apache.ignite.internal.rest.netty.RestApiHttpResponse;
+import org.apache.ignite.internal.rest.netty.RestApiInitializer;
+import org.apache.ignite.internal.rest.presentation.ConfigurationPresentation;
+import org.apache.ignite.internal.rest.presentation.hocon.HoconPresentation;
+import org.apache.ignite.internal.rest.routes.Router;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.rest.netty.RestApiHttpRequest;
-import org.apache.ignite.rest.netty.RestApiHttpResponse;
-import org.apache.ignite.rest.netty.RestApiInitializer;
-import org.apache.ignite.rest.presentation.ConfigurationPresentation;
-import org.apache.ignite.rest.presentation.hocon.HoconPresentation;
-import org.apache.ignite.rest.routes.Router;
 
 /**
  * Rest module is responsible for starting a REST endpoints for accessing and managing configuration.

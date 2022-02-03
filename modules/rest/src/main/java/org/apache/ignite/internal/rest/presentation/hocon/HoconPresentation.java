@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest.presentation.hocon;
+package org.apache.ignite.internal.rest.presentation.hocon;
 
 import static com.typesafe.config.ConfigFactory.parseString;
 import static com.typesafe.config.ConfigRenderOptions.concise;
@@ -27,8 +27,8 @@ import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
+import org.apache.ignite.internal.rest.presentation.ConfigurationPresentation;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.rest.presentation.ConfigurationPresentation;
 import org.jetbrains.annotations.Nullable;
 
 /**
