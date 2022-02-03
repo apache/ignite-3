@@ -474,4 +474,50 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals("2", pojoView.get(null, new PersonPojo(2L)).name);
         assertNull(pojoView.get(null, new PersonPojo(3L)));
     }
+
+    @Test
+    public void testColumnWithDefaultValueNotSetReturnsDefault() {
+        Table table = tableWithDefaultValues();
+        RecordView<Tuple> recordView = table.recordView();
+        RecordView<PersonPojo> pojoView = table.recordView(PersonPojo.class);
+
+        pojoView.upsert(null, new PersonPojo());
+
+        var res = recordView.get(null, tupleKey(0));
+
+        assertEquals("def_str", res.stringValue("str"));
+        assertEquals("def_str2", res.stringValue("str_non_null"));
+    }
+
+    @Test
+    public void testNullableColumnWithDefaultValueSetNullReturnsNull() {
+        // TODO
+        Table table = tableWithDefaultValues();
+        RecordView<Tuple> recordView = table.recordView();
+        KeyValueView<Integer, DefaultValuesPojo> pojoView = table.keyValueView(Integer.class, DefaultValuesPojo.class);
+
+        var pojo = new DefaultValuesPojo();
+        pojo.str = null;
+        pojo.str_non_null = "s";
+
+        pojoView.put(null, 1, pojo);
+
+        var res = recordView.get(null, tupleKey(1));
+
+        assertNull(res.stringValue("str"));
+    }
+
+    @Test
+    public void testNonNullableColumnWithDefaultValueSetNullThrowsException() {
+        // TODO
+        Table table = tableWithDefaultValues();
+        KeyValueView<Integer, DefaultValuesPojo> pojoView = table.keyValueView(Integer.class, DefaultValuesPojo.class);
+
+        var pojo = new DefaultValuesPojo();
+        pojo.str_non_null = null;
+
+        var ex = assertThrows(IgniteClientException.class, () -> pojoView.put(null, 1, pojo));
+
+        assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
+    }
 }
