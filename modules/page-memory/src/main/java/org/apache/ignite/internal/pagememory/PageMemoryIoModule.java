@@ -13,36 +13,27 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
-package org.apache.ignite.internal.pagememory.metric;
+package org.apache.ignite.internal.pagememory;
+
+import java.util.Collection;
+import java.util.List;
+import org.apache.ignite.internal.pagememory.freelist.io.PagesListMetaIo;
+import org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo;
+import org.apache.ignite.internal.pagememory.io.IoVersions;
+import org.apache.ignite.internal.pagememory.io.PageIoModule;
 
 /**
- * Holder of IO statistics.
+ * {@link PageIoModule} implementation in page-memory module.
  */
-public interface IoStatisticsHolder {
-    /**
-     * Track logical read of given page.
-     *
-     * @param pageAddr Address of page.
-     */
-    void trackLogicalRead(long pageAddr);
-
-    /**
-     * Track physical and logical read of given page.
-     *
-     * @param pageAddr Start address of page.
-     */
-    void trackPhysicalAndLogicalRead(long pageAddr);
-
-    /**
-     * Returns a number of logical reads.
-     */
-    long logicalReads();
-
-    /**
-     * Returns a number of physical reads.
-     */
-    long physicalReads();
+public class PageMemoryIoModule implements PageIoModule {
+    /** {@inheritDoc} */
+    @Override
+    public Collection<IoVersions<?>> ioVersions() {
+        return List.of(
+                PagesListMetaIo.VERSIONS,
+                PagesListNodeIo.VERSIONS
+        );
+    }
 }

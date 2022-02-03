@@ -13,36 +13,35 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
-package org.apache.ignite.internal.pagememory.metric;
+package org.apache.ignite.internal.pagememory.reuse;
+
+import java.io.Externalizable;
+import org.apache.ignite.internal.util.IgniteLongList;
 
 /**
- * Holder of IO statistics.
+ * {@link IgniteLongList}-based reuse bag.
  */
-public interface IoStatisticsHolder {
-    /**
-     * Track logical read of given page.
-     *
-     * @param pageAddr Address of page.
-     */
-    void trackLogicalRead(long pageAddr);
+public final class LongListReuseBag extends IgniteLongList implements ReuseBag {
+    /** Serial version uid. */
+    private static final long serialVersionUID = 0L;
 
     /**
-     * Track physical and logical read of given page.
-     *
-     * @param pageAddr Start address of page.
+     * Default constructor for {@link Externalizable}.
      */
-    void trackPhysicalAndLogicalRead(long pageAddr);
+    public LongListReuseBag() {
+        // No-op.
+    }
 
-    /**
-     * Returns a number of logical reads.
-     */
-    long logicalReads();
+    /** {@inheritDoc} */
+    @Override public void addFreePage(long pageId) {
+        add(pageId);
+    }
 
-    /**
-     * Returns a number of physical reads.
-     */
-    long physicalReads();
+    /** {@inheritDoc} */
+    @Override public long pollFreePage() {
+        return isEmpty() ? 0 : remove();
+    }
 }
+

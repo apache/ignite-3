@@ -26,38 +26,38 @@ public interface PageIdAllocator {
     /**
      * Flag for a Data page. Also used by partition meta and tracking pages. This type doesn't use the Page ID rotation mechanism.
      */
-    public static final byte FLAG_DATA = 1;
+    byte FLAG_DATA = 1;
 
     /**
      * Flag for an internal structure page. This type uses the Page ID rotation mechanism.
      */
-    public static final byte FLAG_AUX = 2;
+    byte FLAG_AUX = 2;
 
     /**
      * Max partition ID that can be used by affinity.
      */
     // TODO IGNITE-16280 Use constant from the table configuration.
-    public static final int MAX_PARTITION_ID = 65500;
+    int MAX_PARTITION_ID = 65500;
 
     /**
      * Special partition reserved for the index space.
      */
-    public static final int INDEX_PARTITION = 0xFFFF;
+    int INDEX_PARTITION = 0xFFFF;
 
     /**
      * Allocates a page from the space for the given partition ID and the given flags.
      *
-     * @param groupId     Group ID.
+     * @param groupId Group ID.
      * @param partitionId Partition ID.
      * @return Allocated page ID.
      */
-    public long allocatePage(int groupId, int partitionId, byte flags) throws IgniteInternalCheckedException;
+    long allocatePage(int groupId, int partitionId, byte flags) throws IgniteInternalCheckedException;
 
     /**
      * Frees the given page.
      *
      * @param groupId Group ID.
-     * @param pageId  Page ID.
+     * @param pageId Page ID.
      */
-    public boolean freePage(int groupId, long pageId);
+    boolean freePage(int groupId, long pageId);
 }

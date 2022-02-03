@@ -13,36 +13,45 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
-package org.apache.ignite.internal.pagememory.metric;
+package org.apache.ignite.internal.pagememory.evict;
 
 /**
- * Holder of IO statistics.
+ * {@link PageEvictionTracker} implementation that does nothing.
  */
-public interface IoStatisticsHolder {
-    /**
-     * Track logical read of given page.
-     *
-     * @param pageAddr Address of page.
-     */
-    void trackLogicalRead(long pageAddr);
+public class PageEvictionTrackerNoOp implements PageEvictionTracker {
+    /** Instance. */
+    public static final PageEvictionTrackerNoOp INSTANCE = new PageEvictionTrackerNoOp();
 
     /**
-     * Track physical and logical read of given page.
-     *
-     * @param pageAddr Start address of page.
+     * Private constructor.
      */
-    void trackPhysicalAndLogicalRead(long pageAddr);
+    private PageEvictionTrackerNoOp() {
+        // No-op.
+    }
 
-    /**
-     * Returns a number of logical reads.
-     */
-    long logicalReads();
+    /** {@inheritDoc} */
+    @Override
+    public void touchPage(long pageId) {
+        // No-op.
+    }
 
-    /**
-     * Returns a number of physical reads.
-     */
-    long physicalReads();
+    /** {@inheritDoc} */
+    @Override
+    public void evictDataPage() {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void forgetPage(long pageId) {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean evictionRequired() {
+        return false;
+    }
 }
