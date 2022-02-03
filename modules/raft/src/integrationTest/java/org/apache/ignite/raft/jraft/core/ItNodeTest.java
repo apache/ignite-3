@@ -110,6 +110,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -2030,7 +2031,8 @@ public class ItNodeTest {
             assertEquals(30, fsm.getLogs().size());
     }
 
-    @Test // TODO add test for timeout on snapshot install https://issues.apache.org/jira/browse/IGNITE-14832
+    // TODO add test for timeout on snapshot install https://issues.apache.org/jira/browse/IGNITE-14832
+    @RepeatedTest(120)
     public void testInstallLargeSnapshotWithThrottle() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(4);
         cluster = new TestCluster("unitest", dataPath, peers.subList(0, 3), testInfo);
