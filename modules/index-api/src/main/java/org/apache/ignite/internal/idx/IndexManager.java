@@ -86,4 +86,20 @@ public interface IndexManager extends Producer<IndexEvent, IndexEventParameters>
      * @throws NodeStoppingException If an implementation stopped before the method was invoked.
      */
     List<InternalSortedIndex> indexes(UUID tblId);
+
+    /**
+     * Gets index of the table.
+     *
+     * @return Index of the table.
+     * @throws NodeStoppingException If an implementation stopped before the method was invoked.
+     */
+    InternalSortedIndex index(String idxCanonicalName);
+
+    /**
+     * Gets index of the table asynchronously.
+     *
+     * @return Index future.
+     * @throws NodeStoppingException If an implementation stopped before the method was invoked.
+     */
+    CompletableFuture<InternalSortedIndex> indexAsync(String idxCanonicalName);
 }

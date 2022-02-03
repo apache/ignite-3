@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.idx;
 
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +32,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.IndexColumnView;
@@ -37,11 +40,13 @@ import org.apache.ignite.configuration.schemas.table.SortedIndexView;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexChange;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
+import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
 import org.apache.ignite.internal.idx.event.IndexEvent;
 import org.apache.ignite.internal.idx.event.IndexEventParameters;
 import org.apache.ignite.internal.manager.AbstractProducer;
+import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -57,7 +62,9 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Internal index manager facade provides low-level methods for indexes operations.
@@ -232,39 +239,38 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
         try {
             CompletableFuture<Void> idxFut = new CompletableFuture<>();
 
-            InternalSortedIndex idx = idxsByName.get(idxCanonicalName);
+            indexAsyncInternal(idxCanonicalName).thenAccept((idx) -> {
+                if (idx == null) {
+                    idxFut.completeExceptionally(new IndexNotFoundException(idxCanonicalName));
+                    return;
+                }
 
-            if (idx == null) {
-                idxFut.completeExceptionally(new IndexNotFoundException(idxCanonicalName));
+                try {
+                    CompletableFuture<TableImpl> tblFut = tblMgr.tableAsync(idx.tableId());
 
-                return idxFut;
-            }
+                    tblFut.thenAccept(tbl -> {
+                        tablesCfg.tables().change(ch -> ch.createOrUpdate(
+                                        tbl.name(),
+                                        tblCh -> tblCh.changeIndices(idxes -> idxes.delete(idxCanonicalName))
+                                ))
+                                .whenComplete((res, t) -> {
+                                    if (t != null) {
+                                        Throwable ex = getRootCause(t);
 
-            try {
-                CompletableFuture<TableImpl> tblFut = tblMgr.tableAsync(idx.tableId());
+                                        if (!(ex instanceof IndexNotFoundException)) {
+                                            LOG.error("Index wasn't dropped [name={}]", ex, idxCanonicalName);
+                                        }
 
-                tblFut.thenAccept(tbl -> {
-                    tablesCfg.tables().change(ch -> ch.createOrUpdate(
-                                    tbl.name(),
-                                    tblCh -> tblCh.changeIndices(idxes -> idxes.delete(idxCanonicalName))
-                            ))
-                            .whenComplete((res, t) -> {
-                                if (t != null) {
-                                    Throwable ex = getRootCause(t);
-
-                                    if (!(ex instanceof IndexNotFoundException)) {
-                                        LOG.error("Index wasn't dropped [name={}]", ex, idxCanonicalName);
+                                        idxFut.completeExceptionally(ex);
+                                    } else {
+                                        idxFut.complete(null);
                                     }
-
-                                    idxFut.completeExceptionally(ex);
-                                } else {
-                                    idxFut.complete(null);
-                                }
-                            });
-                });
-            } catch (NodeStoppingException ex) {
-                idxFut.completeExceptionally(ex);
-            }
+                                });
+                    });
+                } catch (NodeStoppingException ex) {
+                    idxFut.completeExceptionally(ex);
+                }
+            });
 
             return idxFut;
         } finally {
@@ -277,7 +283,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
     public CompletableFuture<InternalSortedIndex> createIndexAsync(
             String idxCanonicalName,
             String tblCanonicalName,
-            Consumer<TableIndexChange> idx
+            Consumer<TableIndexChange> idxChange
     ) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
@@ -285,26 +291,37 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
         try {
             CompletableFuture<InternalSortedIndex> idxFut = new CompletableFuture<>();
 
-            tblMgr.alterTableAsync(tblCanonicalName, chng -> chng.changeIndices(idxes -> {
-                if (idxsByName.get(idxCanonicalName) != null) {
-                    throw new IndexAlreadyExistsException(idxCanonicalName);
+            tblMgr.tableAsync(tblCanonicalName).thenAccept((tbl) -> {
+                if (tbl == null) {
+                    idxFut.completeExceptionally(new TableNotFoundException(tblCanonicalName));
                 }
 
-                idxes.create(idxCanonicalName, idxCh -> {
-                    idx.accept(idxCh);
-                });
-            })).whenComplete((res, t) -> {
-                if (t != null) {
-                    Throwable ex = getRootCause(t);
-
-                    if (!(ex instanceof IndexAlreadyExistsException)) {
-                        LOG.error("Index wasn't created [name={}]", ex, idxCanonicalName);
+                indexAsyncInternal(idxCanonicalName).thenAccept((idx) -> {
+                    if (idx != null) {
+                        idxFut.completeExceptionally(new IndexAlreadyExistsException(idxCanonicalName));
                     }
 
-                    idxFut.completeExceptionally(ex);
-                } else {
-                    idxFut.complete(idxsByName.get(idxCanonicalName));
-                }
+                    tblMgr.alterTableAsync(tblCanonicalName, chng -> chng.changeIndices(idxes -> {
+                                if (idxes.get(idxCanonicalName) != null) {
+                                    idxFut.completeExceptionally(new IndexAlreadyExistsException(idxCanonicalName));
+                                }
+
+                                idxes.create(idxCanonicalName, idxChange::accept);
+                            }
+                    )).whenComplete((res, t) -> {
+                        if (t != null) {
+                            Throwable ex = getRootCause(t);
+
+                            if (!(ex instanceof IndexAlreadyExistsException)) {
+                                LOG.error("Index wasn't created [name={}]", ex, idxCanonicalName);
+                            }
+
+                            idxFut.completeExceptionally(ex);
+                        } else {
+                            idxFut.complete(idxsByName.get(idxCanonicalName));
+                        }
+                    });
+                });
             });
 
             return idxFut;
@@ -312,6 +329,94 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
             busyLock.leaveBusy();
         }
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public InternalSortedIndex index(String idxCanonicalName) {
+        return join(indexAsync(idxCanonicalName));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<InternalSortedIndex> indexAsync(String idxCanonicalName) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        try {
+            return indexAsyncInternal(idxCanonicalName);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private CompletableFuture<InternalSortedIndex> indexAsyncInternal(String idxCanonicalName) {
+        var idx = idxsByName.get(idxCanonicalName);
+
+        if (idx != null) {
+            return CompletableFuture.completedFuture(idx);
+        }
+
+        CompletableFuture<InternalSortedIndex> getIdxFut = new CompletableFuture<>();
+
+        EventListener<IndexEventParameters> clo = new EventListener<>() {
+            @Override
+            public boolean notify(@NotNull IndexEventParameters parameters, @Nullable Throwable e) {
+                if (!idxCanonicalName.equals(parameters.indexName())) {
+                    return false;
+                }
+
+                if (e == null) {
+                    getIdxFut.complete(parameters.index());
+                } else {
+                    getIdxFut.completeExceptionally(e);
+                }
+
+                return true;
+            }
+
+            @Override
+            public void remove(@NotNull Throwable e) {
+                getIdxFut.completeExceptionally(e);
+            }
+        };
+
+        listen(IndexEvent.CREATE, clo);
+
+        idx = idxsByName.get(idxCanonicalName);
+
+        if (idx != null && getIdxFut.complete(idx) || !isIndexConfigured(idxCanonicalName) && getIdxFut.complete(null)) {
+            removeListener(IndexEvent.CREATE, clo, null);
+        } else {
+            getIdxFut.thenRun(() -> removeListener(IndexEvent.CREATE, clo, null));
+        }
+
+        return getIdxFut;
+    }
+
+    /**
+     * Checks that the index is configured with specific name.
+     *
+     * @param idxName Index name.
+     * @return True when the table is configured into cluster, false otherwise.
+     */
+    private boolean isIndexConfigured(String idxName) {
+        NamedListView<TableView> directTablesCfg = directProxy(tablesCfg.tables()).value();
+
+        // TODO: IGNITE-15721 Need to review this approach after the ticket would be fixed.
+        // Probably, it won't be required getting configuration of all tables from Metastore.
+        for (String name : directTablesCfg.namedListKeys()) {
+            TableView tableView = directTablesCfg.get(name);
+
+            if (tableView != null) {
+                if (tableView.indices().get(idxName) != null) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
 
     /**
      * Waits for future result and return, or unwraps {@link CompletionException} to {@link IgniteException} if failed.

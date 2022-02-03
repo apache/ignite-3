@@ -20,7 +20,10 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import org.apache.ignite.lang.IndexAlreadyExistsException;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -69,5 +72,41 @@ public class ItIndexDdlTest extends AbstractBasicIntegrationTest {
                 .returns(1, 2, "val1", 1)
                 .returns(2, 3, "val2", 2)
                 .check();
+    }
+
+    /**
+     * Tests create /drop index through DDL.
+     */
+    @Test
+    public void createDropIndex() {
+        String tblName = "createDropIdx";
+
+        String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1", tblName);
+
+        sql(newTblSql);
+
+        sql(String.format("CREATE INDEX index1 ON %s (c1)", tblName));
+
+        sql(String.format("CREATE INDEX IF NOT EXISTS index1 ON %s (c1)", tblName));
+
+        sql(String.format("CREATE INDEX index2 ON %s (c1)", tblName));
+
+        sql(String.format("CREATE INDEX index3 ON %s (c2)", tblName));
+
+        assertThrows(IndexAlreadyExistsException.class, () ->
+                sql(String.format("CREATE INDEX index3 ON %s (c1)", tblName)));
+
+        assertThrows(TableNotFoundException.class, () ->
+                sql(String.format("CREATE INDEX index_3 ON %s (c1)", tblName + "_nonExist")));
+
+        sql(String.format("CREATE INDEX index4 ON %s (c2 desc, c1 asc)", tblName));
+
+        sql(String.format("DROP INDEX index4"));
+
+        sql(String.format("CREATE INDEX index4 ON %s (c2 desc, c1 asc)", tblName));
+
+        sql(String.format("DROP INDEX index4"));
+
+        sql(String.format("DROP INDEX IF EXISTS index4"));
     }
 }

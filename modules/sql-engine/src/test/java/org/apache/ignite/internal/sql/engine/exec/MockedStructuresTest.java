@@ -60,7 +60,6 @@ import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -380,47 +379,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         assertThrows(ColumnNotFoundException.class, () -> finalQueryProc.query("PUBLIC",
                 String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName)));
-    }
-
-    /**
-     * Tests create a table through public API.
-     */
-    @Test
-    public void testCreateDropIndex() {
-        SqlQueryProcessor finalQueryProc = queryProc;
-
-        String curMethodName = getCurrentMethodName();
-
-        String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1", curMethodName);
-
-        queryProc.query("PUBLIC", newTblSql);
-
-        assertTrue(tblManager.tables().stream().anyMatch(t -> t.name()
-                .equalsIgnoreCase("PUBLIC." + curMethodName)));
-
-        queryProc.query("PUBLIC", String.format("CREATE INDEX index1 ON %s (c1)", curMethodName));
-
-        queryProc.query("PUBLIC", String.format("CREATE INDEX IF NOT EXISTS index1 ON %s (c1)", curMethodName));
-
-        queryProc.query("PUBLIC", String.format("CREATE INDEX index2 ON %s (c1)", curMethodName));
-
-        queryProc.query("PUBLIC", String.format("CREATE INDEX index3 ON %s (c2)", curMethodName));
-
-        assertThrows(IndexAlreadyExistsException.class, () ->
-                finalQueryProc.query("PUBLIC", String.format("CREATE INDEX index3 ON %s (c1)", curMethodName)));
-
-        assertThrows(IgniteException.class, () ->
-                finalQueryProc.query("PUBLIC", String.format("CREATE INDEX index_3 ON %s (c1)", curMethodName + "_nonExist")));
-
-        queryProc.query("PUBLIC", String.format("CREATE INDEX index4 ON %s (c2 desc, c1 asc)", curMethodName));
-
-        queryProc.query("PUBLIC", String.format("DROP INDEX index4"));
-
-        queryProc.query("PUBLIC", String.format("CREATE INDEX index4 ON %s (c2 desc, c1 asc)", curMethodName));
-
-        queryProc.query("PUBLIC", String.format("DROP INDEX index4"));
-
-        queryProc.query("PUBLIC", String.format("DROP INDEX IF EXISTS index4 ON %s", curMethodName));
     }
 
     // todo copy-paste from TableManagerTest will be removed after https://issues.apache.org/jira/browse/IGNITE-16050
