@@ -26,21 +26,36 @@ See the examples below:
 +
 [source,text]
 ----
-CREATE TABLE MyTable (id INT, val INT); -> creates PUBLIC.MYTABLE
-ignite.tables().table("public.mytable"); -> returns PUBLIC.MYTABLE
-CREATE TABLE \"MyTable\" (id INT, val INT); -> creates PUBLIC.MyTable
-ignite.tables().table("public.\"MyTable\""); -> returns PUBLIC.MyTable
+// Creates PUBLIC.MYTABLE.
+CREATE TABLE MyTable (id INT, val INT);
+
+// Returns PUBLIC.MYTABLE.
+ignite.tables().table("public.mytable"); ->
+
+// Creates PUBLIC.MyTable.
+CREATE TABLE \"MyTable\" (id INT, val INT); ->
+
+// Returns PUBLIC.MyTable.
+ignite.tables().table("public.\"MyTable\""); ->
 ----
 
 * Tuples or columns:
 +
 [source,text]
 ----
-CREATE TABLE MyTable (id INT, \"Id\" INT, val INT); -> creates PUBLIC.MYTABLE (ID, Id, VAL)
+// Creates PUBLIC.MYTABLE (ID, Id, VAL).
+CREATE TABLE MyTable (id INT, \"Id\" INT, val INT);
+
 Tuple tuple = ...
-tuple.value("id") -> returns ID column's value
-tuple.value("Id") -> returns ID column's value
-tuple.value("\"Id\"") -> returns Id column's value
+
+// Returns ID column's value.
+tuple.value("id")
+
+// Returns ID column's value.
+tuple.value("Id")
+
+// Returns Id column's value.
+tuple.value("\"Id\"")
 ----
 
 ====
