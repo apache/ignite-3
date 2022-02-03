@@ -461,7 +461,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         var res = recordView.get(null, tupleKey(1));
 
         assertEquals("def_str", res.stringValue("str"));
-        assertEquals("def_str2", res.stringValue("str_non_null"));
+        assertEquals("def_str2", res.stringValue("strNonNull"));
     }
 
     @Test
@@ -472,7 +472,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         var pojo = new DefaultValuesPojo();
         pojo.str = null;
-        pojo.str_non_null = "s";
+        pojo.strNonNull = "s";
 
         pojoView.put(null, 1, pojo);
 
@@ -487,7 +487,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         KeyValueView<Integer, DefaultValuesPojo> pojoView = table.keyValueView(Integer.class, DefaultValuesPojo.class);
 
         var pojo = new DefaultValuesPojo();
-        pojo.str_non_null = null;
+        pojo.strNonNull = null;
 
         var ex = assertThrows(IgniteClientException.class, () -> pojoView.put(null, 1, pojo));
 

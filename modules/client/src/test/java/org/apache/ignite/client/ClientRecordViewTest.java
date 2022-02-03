@@ -486,7 +486,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         var res = recordView.get(null, tupleKey(0));
 
         assertEquals("def_str", res.stringValue("str"));
-        assertEquals("def_str2", res.stringValue("str_non_null"));
+        assertEquals("def_str2", res.stringValue("strNonNull"));
     }
 
     @Test
@@ -498,7 +498,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         var pojo = new DefaultValuesPojo();
         pojo.id = 1;
         pojo.str = null;
-        pojo.str_non_null = "s";
+        pojo.strNonNull = "s";
 
         pojoView.upsert(null, pojo);
 
@@ -514,7 +514,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         var pojo = new DefaultValuesPojo();
         pojo.id = 1;
-        pojo.str_non_null = null;
+        pojo.strNonNull = null;
 
         var ex = assertThrows(IgniteClientException.class, () -> pojoView.upsert(null, pojo));
 

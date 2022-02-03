@@ -341,7 +341,7 @@ public class ClientTableTest extends AbstractClientTableTest {
         var res = table.get(null, tuple);
 
         assertEquals("def_str", res.stringValue("str"));
-        assertEquals("def_str2", res.stringValue("str_non_null"));
+        assertEquals("def_str2", res.stringValue("strNonNull"));
     }
 
     @Test
@@ -365,7 +365,7 @@ public class ClientTableTest extends AbstractClientTableTest {
 
         var tuple = Tuple.create()
                 .set("id", 1)
-                .set("str_non_null", null);
+                .set("strNonNull", null);
 
         var ex = assertThrows(IgniteClientException.class, () -> table.upsert(null, tuple));
 
