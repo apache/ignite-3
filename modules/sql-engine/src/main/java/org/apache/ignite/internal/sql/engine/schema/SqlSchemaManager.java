@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import java.util.UUID;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -38,5 +37,5 @@ public interface SqlSchemaManager {
      * @param id An id of required table.
      * @return The table.
      */
-    IgniteTable tableById(IgniteUuid id);
+    IgniteTable tableById(UUID id);
 }

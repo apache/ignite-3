@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 
 /**
@@ -32,7 +32,7 @@ public interface IgniteTablesInternal {
      * @return Table or {@code null} when not exists.
      * @throws NodeStoppingException If an implementation stopped before the method was invoked.
      */
-    TableImpl table(IgniteUuid id) throws NodeStoppingException;
+    TableImpl table(UUID id) throws NodeStoppingException;
 
     /**
      * Gets a table future by id. If the table exists, the future will point to it, otherwise to {@code null}.
@@ -41,5 +41,5 @@ public interface IgniteTablesInternal {
      * @return Future representing pending completion of the operation.
      * @throws NodeStoppingException If an implementation stopped before the method was invoked.
      */
-    CompletableFuture<TableImpl> tableAsync(IgniteUuid id) throws NodeStoppingException;
+    CompletableFuture<TableImpl> tableAsync(UUID id) throws NodeStoppingException;
 }

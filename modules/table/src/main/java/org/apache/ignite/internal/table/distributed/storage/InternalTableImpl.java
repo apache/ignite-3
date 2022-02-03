@@ -92,7 +92,7 @@ public class InternalTableImpl implements InternalTable {
     private final String tableName;
 
     /** Table identifier. */
-    private final IgniteUuid tableId;
+    private final UUID tableId;
 
     /** Resolver that resolves a network address to node id. */
     private final Function<NetworkAddress, String> netAddrResolver;
@@ -115,7 +115,7 @@ public class InternalTableImpl implements InternalTable {
      */
     public InternalTableImpl(
             String tableName,
-            IgniteUuid tableId,
+            UUID tableId,
             Int2ObjectMap<RaftGroupService> partMap,
             int partitions,
             Function<NetworkAddress, String> netAddrResolver,
@@ -145,7 +145,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull IgniteUuid tableId() {
+    public @NotNull UUID tableId() {
         return tableId;
     }
 

@@ -39,7 +39,6 @@ import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
@@ -67,7 +66,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param txManager Transaction manager.
      */
     public DummyInternalTableImpl(VersionedRowStore store, TxManager txManager) {
-        super("test", new IgniteUuid(UUID.randomUUID(), 0),
+        super("test", UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                 1, null, txManager, mock(TableStorage.class));
 
@@ -138,13 +137,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 }
         ).when(svc).run(any());
 
-        partitionListener = new PartitionListener(new IgniteUuid(UUID.randomUUID(), 0), store);
+        partitionListener = new PartitionListener(UUID.randomUUID(), store);
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull IgniteUuid tableId() {
-        return new IgniteUuid(UUID.randomUUID(), 0);
+    public @NotNull UUID tableId() {
+        return UUID.randomUUID();
     }
 
     /** {@inheritDoc} */

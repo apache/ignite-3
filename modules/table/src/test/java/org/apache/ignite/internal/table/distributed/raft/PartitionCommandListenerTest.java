@@ -62,7 +62,6 @@ import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
@@ -98,7 +97,7 @@ public class PartitionCommandListenerTest {
         NetworkAddress addr = new NetworkAddress("127.0.0.1", 5003);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(addr);
 
-        commandListener = new PartitionListener(new IgniteUuid(UUID.randomUUID(), 0),
+        commandListener = new PartitionListener(UUID.randomUUID(),
                 new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), new TxManagerImpl(clusterService, new HeapLockManager())));
     }
 

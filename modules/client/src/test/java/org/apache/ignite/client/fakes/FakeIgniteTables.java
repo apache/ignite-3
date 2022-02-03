@@ -31,7 +31,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
@@ -50,7 +49,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     private final ConcurrentHashMap<String, TableImpl> tables = new ConcurrentHashMap<>();
 
-    private final ConcurrentHashMap<IgniteUuid, TableImpl> tablesById = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, TableImpl> tablesById = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
     @Override
@@ -123,7 +122,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public TableImpl table(IgniteUuid id) {
+    public TableImpl table(UUID id) {
         return tablesById.get(id);
     }
 
@@ -135,7 +134,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<TableImpl> tableAsync(IgniteUuid id) {
+    public CompletableFuture<TableImpl> tableAsync(UUID id) {
         return CompletableFuture.completedFuture(tablesById.get(id));
     }
 
@@ -162,7 +161,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
         }
 
         return new TableImpl(
-                new FakeInternalTable(name, new IgniteUuid(UUID.randomUUID(), 0)),
+                new FakeInternalTable(name, UUID.randomUUID()),
                 new FakeSchemaRegistry(history)
         );
     }

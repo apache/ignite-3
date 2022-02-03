@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.UUID;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -32,7 +33,6 @@ import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallerUtil;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
  */
 class ClientRecordSerializer<R> {
     /** Table ID. */
-    private final IgniteUuid tableId;
+    private final UUID tableId;
 
     /** Mapper. */
     private final Mapper<R> mapper;
@@ -57,7 +57,7 @@ class ClientRecordSerializer<R> {
      * @param tableId       Table ID.
      * @param mapper        Mapper.
      */
-    public ClientRecordSerializer(IgniteUuid tableId, Mapper<R> mapper) {
+    public ClientRecordSerializer(UUID tableId, Mapper<R> mapper) {
         assert tableId != null;
         assert mapper != null;
 
@@ -72,7 +72,7 @@ class ClientRecordSerializer<R> {
     }
 
     public void writeRec(@Nullable Transaction tx, @Nullable R rec, ClientSchema schema, PayloadOutputChannel out, TuplePart part) {
-        out.out().packIgniteUuid(tableId);
+        out.out().packUuid(tableId);
         writeTx(tx, out);
         out.out().packInt(schema.version());
 
@@ -98,7 +98,7 @@ class ClientRecordSerializer<R> {
             PayloadOutputChannel out,
             TuplePart part
     ) {
-        out.out().packIgniteUuid(tableId);
+        out.out().packUuid(tableId);
         writeTx(tx, out);
         out.out().packInt(schema.version());
 
@@ -120,7 +120,7 @@ class ClientRecordSerializer<R> {
             PayloadOutputChannel out,
             TuplePart part
     ) {
-        out.out().packIgniteUuid(tableId);
+        out.out().packUuid(tableId);
         writeTx(tx, out);
         out.out().packInt(schema.version());
         out.out().packInt(recs.size());
