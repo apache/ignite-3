@@ -34,7 +34,7 @@ class TestDataPageIo extends AbstractDataPageIo<TestDataRow> {
      * Private constructor.
      */
     private TestDataPageIo() {
-        super(T_DATA, 1);
+        super(1, 1);
     }
 
     /** {@inheritDoc} */

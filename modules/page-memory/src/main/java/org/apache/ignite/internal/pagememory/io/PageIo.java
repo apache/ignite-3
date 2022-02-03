@@ -98,15 +98,6 @@ public abstract class PageIo {
     /** Total size of common header, including reserved bytes. */
     public static final int COMMON_HEADER_END = RESERVED_3_OFF + Long.BYTES;
 
-    /** Data page type. */
-    public static final short T_DATA = 1;
-
-    /** Type page list node. */
-    public static final short T_PAGE_LIST_NODE = 13;
-
-    /** Simple (just byte array) data page type. */
-    public static final short T_DATA_PART = 32;
-
     // Fields.
 
     /** IO version. */

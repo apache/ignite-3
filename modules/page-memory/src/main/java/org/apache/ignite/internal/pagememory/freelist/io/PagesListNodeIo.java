@@ -52,7 +52,7 @@ public class PagesListNodeIo extends PageIo {
      * @param ver Page format version.
      */
     protected PagesListNodeIo(int ver) {
-        super(T_PAGE_LIST_NODE, ver, FLAG_AUX);
+        super(13, ver, FLAG_AUX);
     }
 
     /** {@inheritDoc} */
