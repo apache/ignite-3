@@ -183,32 +183,32 @@ public class SerializationMicroBenchmark {
         }
     }
 
-//    @Benchmark
+    @Benchmark
     public byte[] serialization_03_small_kryo() {
         return serializeWithKryo(smallObject);
     }
 
-//    @Benchmark
+    @Benchmark
     public byte[] serialization_13_medium_kryo() {
         return serializeWithKryo(mediumObject);
     }
 
-//    @Benchmark
+    @Benchmark
     public byte[] serialization_23_large_kryo() {
         return serializeWithKryo(largeObject);
     }
 
-//    @Benchmark
+    @Benchmark
     public Object deserialization_01_small_jdk() {
         return deserializeWithJava(SerializationMicroBenchmark.smallSerializedWithJava);
     }
 
-//    @Benchmark
+    @Benchmark
     public Object deserialization_11_medium_jdk() {
         return deserializeWithJava(SerializationMicroBenchmark.mediumSerializedWithJava);
     }
 
-//    @Benchmark
+    @Benchmark
     public Object deserialization_21_large_jdk() {
         return deserializeWithJava(SerializationMicroBenchmark.largeSerializedWithJava);
     }
@@ -221,17 +221,17 @@ public class SerializationMicroBenchmark {
         }
     }
 
-//    @Benchmark
+    @Benchmark
     public Object deserialization_02_small_uos() {
         return deserializeWithUos(smallSerializedWithUos);
     }
 
-//    @Benchmark
+    @Benchmark
     public Object deserialization_12_medium_uos() {
         return deserializeWithUos(mediumSerializedWithUos);
     }
 
-//    @Benchmark
+    @Benchmark
     public Object deserialization_22_large_uos() {
         return deserializeWithUos(largeSerializedWithUos);
     }
@@ -245,17 +245,17 @@ public class SerializationMicroBenchmark {
         }
     }
 
-//    @Benchmark
+    @Benchmark
     public Object deserialization_03_small_kryo() {
         return deserializeWithKryo(smallSerializedWithKryo);
     }
 
-//    @Benchmark
+    @Benchmark
     public Object deserialization_13_medium_kryo() {
         return deserializeWithKryo(mediumSerializedWithKryo);
     }
 
-//    @Benchmark
+    @Benchmark
     public Object deserialization_23_large_kryo() {
         return deserializeWithKryo(largeSerializedWithKryo);
     }
