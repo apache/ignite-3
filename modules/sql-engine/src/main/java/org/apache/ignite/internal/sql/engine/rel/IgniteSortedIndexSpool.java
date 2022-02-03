@@ -168,6 +168,6 @@ public class IgniteSortedIndexSpool extends AbstractIgniteSpool implements Inter
 
         IgniteCostFactory costFactory = (IgniteCostFactory) planner.getCostFactory();
 
-        return costFactory.makeCost(rowCnt, cpuCost, 0, totalBytes, 0).multiplyBy(0.01);
+        return costFactory.makeCost(rowCnt, cpuCost, 0, totalBytes, 0);
     }
 }
