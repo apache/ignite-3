@@ -472,7 +472,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         var pojo = new PojoWithDefaultValues();
         pojo.str = null;
-        pojo.str_not_null = "s";
+        pojo.str_non_null = "s";
 
         pojoView.put(null, 1, pojo);
 
@@ -483,23 +483,20 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testNonNullableColumnWithDefaultValueSetNullThrowsException() {
-        // TODO: KvView
-        RecordView<Tuple> table = tableWithDefaultValues().recordView();
+        Table table = tableWithDefaultValues();
+        KeyValueView<Integer, PojoWithDefaultValues> pojoView = table.keyValueView(Integer.class, PojoWithDefaultValues.class);
 
-        var tuple = Tuple.create()
-                .set("id", 1)
-                .set("str_non_null", null);
+        PojoWithDefaultValues pojo = new PojoWithDefaultValues();
+        pojo.str_non_null = null;
 
-        var ex = assertThrows(IgniteClientException.class, () -> table.upsert(null, tuple));
+        var ex = assertThrows(IgniteClientException.class, () -> pojoView.put(null, 1, pojo));
 
         assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
     }
 
     private static class PojoWithDefaultValues
     {
-        public int id;
-        public byte num;
         public String str;
-        public String str_not_null;
+        public String str_non_null;
     }
 }
