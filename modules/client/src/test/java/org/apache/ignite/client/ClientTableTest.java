@@ -27,10 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
-import org.apache.ignite.internal.client.table.ClientTuple;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
