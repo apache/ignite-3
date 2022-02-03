@@ -34,7 +34,8 @@ public class SortedIndexDescriptor {
      * Creates an Index Descriptor from a given Table Configuration.
      *
      * @param name        Index name.
-     * @param columns     Index's columns.
+     * @param columns     Indexed columns (configured columns + primary key columns).
+     * @param pkColumns Pk columns.
      */
     public SortedIndexDescriptor(
             String name,
