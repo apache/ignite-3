@@ -39,6 +39,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,6 +49,8 @@ import org.jetbrains.annotations.Nullable;
  * TODO asch IGNITE-15934 invokes on storage not used for now, can it be changed ?
  */
 public class VersionedRowStore {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(VersionedRowStore.class);
+
     /** Storage delegate. */
     private final PartitionStorage storage;
 
@@ -581,11 +584,11 @@ public class VersionedRowStore {
                     DataRow row = delegate.next();
 
                     cur = versionedRow(row, null).getFirst();
-                    System.out.println("called hasNext = true, cur = " + cur.hash());
+                    LOG.info("called hasNext = true, cur = " + cur.hash());
 
                     return cur != null ? true : hasNext(); // Skip tombstones.
                 } else {
-                    System.out.println("called hasNext = false, cur = " + cur);
+                    LOG.info("called hasNext = false, cur = " + cur);
                 }
 
                 return false;
@@ -593,7 +596,7 @@ public class VersionedRowStore {
 
             @Override
             public BinaryRow next() {
-                System.out.println("called next, cur = " + cur.hash());
+                LOG.info("called next, cur = " + cur.hash());
                 BinaryRow next = cur;
 
                 cur = null;
