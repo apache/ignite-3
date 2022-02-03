@@ -363,7 +363,6 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
             } else {
                 ex = t.getCause();
             }
-
         } else {
             ex = t;
         }
@@ -381,7 +380,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
         List<SortedIndexColumnDescriptor> idxCols = Stream.concat(
                         idxView.columns().namedListKeys().stream(),
-                        Arrays.stream(tbl.schemaView().schema().keyColumns().columns())
+                        Arrays.stream(tblSchema.keyColumns().columns())
                                 .map(Column::name)
                 )
                 .distinct()
@@ -393,7 +392,11 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                 })
                 .collect(Collectors.toList());
 
-        SortedIndexDescriptor idxDesc = new SortedIndexDescriptor(idxView.name(), idxCols);
+        SortedIndexDescriptor idxDesc = new SortedIndexDescriptor(
+                idxView.name(),
+                idxCols,
+                tblSchema.keyColumns().columns()
+        );
 
         InternalSortedIndexImpl idx = new InternalSortedIndexImpl(
                 idxView.name(),
