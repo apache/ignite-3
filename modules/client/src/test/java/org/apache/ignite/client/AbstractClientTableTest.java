@@ -213,4 +213,10 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public BigDecimal zdecimal;
         public BigInteger znumber;
     }
+
+    protected static class DefaultValuesPojo
+    {
+        public String str;
+        public String str_non_null;
+    }
 }
