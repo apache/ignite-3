@@ -48,6 +48,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.Temporal;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
@@ -411,16 +412,16 @@ public class MutableRowTupleAdapterTest {
     }
 
     private Instant truncatedInstantNow() {
-        return truncateInstantToDefaultPrecision(Instant.now());
+        return truncateToDefaultPrecision(Instant.now());
     }
 
     private LocalTime truncatedLocalTimeNow() {
-        return truncateLocalTimeToDefaultPrecision(LocalTime.now());
+        return truncateToDefaultPrecision(LocalTime.now());
     }
 
     @NotNull
     private LocalDateTime truncatedLocalDateTimeNow() {
-        return truncateLocalDateTimeToDefaultPrecision(LocalDateTime.now());
+        return truncateToDefaultPrecision(LocalDateTime.now());
     }
 
     @Test
@@ -542,21 +543,14 @@ public class MutableRowTupleAdapterTest {
         assertEquals(val1, val2);
     }
 
-    private LocalTime truncateLocalTimeToDefaultPrecision(LocalTime time) {
-        return time.withNano(truncateToDefaultPrecision(time.getNano()));
+    @SuppressWarnings("unchecked")
+    private <T extends Temporal> T truncateToDefaultPrecision(T temporal) {
+        return (T) temporal.with(NANO_OF_SECOND, truncateToDefaultPrecision(temporal.get(NANO_OF_SECOND)));
     }
 
     private int truncateToDefaultPrecision(int nanos) {
         int factor = tailFactorForDefaultPrecision();
         return nanos / factor * factor;
-    }
-
-    private LocalDateTime truncateLocalDateTimeToDefaultPrecision(LocalDateTime dateTime) {
-        return dateTime.withNano(truncateToDefaultPrecision(dateTime.getNano()));
-    }
-
-    private Instant truncateInstantToDefaultPrecision(Instant instant) {
-        return instant.with(NANO_OF_SECOND, truncateToDefaultPrecision(instant.getNano()));
     }
 
     private int tailFactorForDefaultPrecision() {
