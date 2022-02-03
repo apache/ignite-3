@@ -100,7 +100,6 @@ public class ClientTableTest extends AbstractClientTableTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15194")
     public void testGetReturningTupleWithUnknownSchemaRequestsNewSchema() throws Exception {
         FakeSchemaRegistry.setLastVer(2);
 
@@ -113,11 +112,13 @@ public class ClientTableTest extends AbstractClientTableTest {
 
         try (var client2 = startClient()) {
             RecordView<Tuple> table2 = client2.tables().table(table.name()).recordView();
-            var tuple2 = tuple();
-            var resTuple = table2.get(null, tuple2);
+            var resTuple = table2.get(null, tuple);
 
-            assertEquals(1, ((ClientTuple) tuple2).schema().version());
-            assertEquals(2, ((ClientTuple) resTuple).schema().version());
+            assertEquals(2, tuple.columnCount());
+            assertEquals(3, resTuple.columnCount());
+
+            assertEquals(-1, tuple.columnIndex("XYZ"));
+            assertEquals(2, resTuple.columnIndex("XYZ"));
 
             assertEquals(DEFAULT_NAME, resTuple.stringValue("name"));
             assertEquals(DEFAULT_ID, resTuple.longValue("id"));
