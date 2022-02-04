@@ -668,7 +668,6 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15156")
     public void testFollowerCatchUpFromSnapshot2() throws Exception {
         doTestFollowerCatchUp(true, false);
     }
